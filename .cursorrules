@@ -1,0 +1,153 @@
+# Seconde Cursor Rules
+
+## Project Overview
+This is a React Native Expo app that clones Vinted marketplace functionality, built with TypeScript, Firebase, and Expo Router.
+
+C'est une app uniquement IOS et ANDROID avec EXPO JS !!!
+
+
+## Architecture & Patterns
+
+### File Structure
+- `/app/` - Expo Router pages and layouts
+- `/components/` - Reusable UI components
+- `/contexts/` - React contexts for state management
+- `/services/` - Business logic and API interactions
+- `/types/` - TypeScript type definitions
+- `/hooks/` - Custom React hooks
+- `/config/` - Configuration files (Firebase, i18n)
+- `/constants/` - App constants and theme colors
+- `/data/` - Static data (categories, etc.)
+
+### Code Style & Standards
+
+#### TypeScript
+- Always use strict TypeScript with proper type annotations
+- Import types from `/types/index.ts`
+- Use interfaces for complex objects
+- Export types that might be reused
+- Use path alias `@/` for imports from root directory
+
+#### React Native & Expo
+- Use Expo SDK 53 compatible APIs
+- Prefer Expo modules over React Native equivalents when available
+- Use expo-router for navigation with file-based routing
+- Follow React Native performance best practices
+- Use React 19 hooks and patterns
+
+#### Firebase Integration
+- Import Firebase services from `/config/firebase.ts`
+- Use service classes (e.g., `ArticlesService`, `AuthService`) for Firebase operations
+- Handle Firebase errors gracefully with try-catch blocks
+- Use Firestore for data storage, Firebase Auth for authentication, Firebase Storage for files
+
+#### State Management
+- Use React Context for global state (auth, favorites, chat, language)
+- Implement custom hooks that consume contexts (e.g., `useAuth`, `useAuthRequired`)
+- Local state with `useState` for component-specific data
+- Use `useEffect` for side effects and data fetching
+
+### Component Guidelines
+
+#### UI Components
+- Use `ThemedText` and `ThemedView` for consistent theming
+- Implement proper TypeScript interfaces for component props
+- Use `@expo/vector-icons` for icons
+- Follow accessibility best practices
+- Use `expo-haptics` for touch feedback where appropriate
+
+#### Bottom Sheets
+- Use `@gorhom/bottom-sheet` for modal interactions
+- Create reusable bottom sheet components in `/components/`
+- Follow existing patterns like `AuthBottomSheet`, `CategoryBottomSheet`
+
+#### Navigation
+- Use Expo Router file-based routing
+- Implement proper TypeScript navigation types
+- Use `(tabs)` for tab navigation structure
+- Handle deep linking with proper route parameters
+
+### Service Layer
+
+#### Service Classes
+- Create static methods for Firebase operations
+- Use proper error handling with try-catch blocks
+- Return appropriate TypeScript types
+- Handle both React Native and web environments where needed
+- Use consistent naming patterns (e.g., `createArticle`, `updateArticle`, `deleteArticle`)
+
+#### Authentication
+- Support multiple auth methods: Email/Password, Google, Facebook
+- Handle authentication state properly
+- Use AsyncStorage for persistence
+- Implement proper loading and error states
+
+### Data & Types
+
+#### Type Definitions
+- Define comprehensive interfaces for all data models (User, Article, Chat, etc.)
+- Use union types for enums (e.g., condition: 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant')
+- Include optional properties with `?` where appropriate
+- Use Date type for timestamps, not strings
+
+#### Firebase Data
+- Use Firestore collections: 'users', 'articles', 'chats', 'messages'
+- Implement proper data validation before saving to Firestore
+- Handle Firestore timestamps correctly
+- Use subcollections for nested data structures
+
+### Internationalization
+- Use i18n for multi-language support
+- Store translations in `/config/i18n.ts`
+- Use `LanguageContext` for language switching
+
+### Development Guidelines
+
+#### Environment Setup
+- Use environment variables in `.env` file
+- Keep sensitive Firebase config in environment variables
+- Use `.env.example` for documentation
+
+#### Error Handling
+- Always wrap Firebase operations in try-catch blocks
+- Log errors appropriately for debugging
+- Show user-friendly error messages
+- Handle network failures gracefully
+
+#### Performance
+- Implement pagination for large lists (articles, messages)
+- Use React Native optimizations (FlatList for long lists)
+- Optimize image handling with expo-image
+- Use proper key props for list items
+
+#### Testing & Scripts
+- Use provided scripts for testing authentication
+- Test Firebase rules and security
+- Validate social auth setups
+
+### Platform Considerations
+
+#### Responsive Design
+- Support both phones and tablets
+- Use proper safe area handling
+- Implement adaptive layouts where needed
+
+## Common Patterns to Follow
+
+1. **Service Methods**: Always return promises, handle errors, use proper types
+2. **React Hooks**: Create custom hooks for complex state logic
+3. **Context Providers**: Wrap children properly, provide comprehensive APIs
+4. **Firebase Operations**: Use transactions for complex operations, implement proper security
+5. **Navigation**: Use typed routes, handle back navigation properly
+6. **Forms**: Validate input, show loading states, handle submission errors
+7. **Image Handling**: Resize and optimize images before upload, support multiple formats
+
+## Dependencies to Prefer
+- `expo-image` over `react-native-image`
+- `@expo/vector-icons` for icons
+- `react-native-reanimated` for animations
+- `@gorhom/bottom-sheet` for modals
+- Firebase v9 modular SDK syntax
+- `expo-router` over React Navigation directly
+
+Remember: This is a production-ready marketplace app with real users, so prioritize security, performance, and user experience in all implementations.

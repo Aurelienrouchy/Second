@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "628214013296",
+    "project_id": "seconde-b47a6",
+    "storage_bucket": "seconde-b47a6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:628214013296:android:af3e0444ea4b73a7dd83b5",
+        "android_client_info": {
+          "package_name": "com.seconde.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "628214013296-pggun4ig3j52v6r2me4k33ljsh5rc4tg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABP_QVBln4VORUy5w_vCgmYYqbZZbVMSA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "628214013296-pggun4ig3j52v6r2me4k33ljsh5rc4tg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "628214013296-fspuqlslcg8tln3aonhce95c435oauts.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.seconde.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
