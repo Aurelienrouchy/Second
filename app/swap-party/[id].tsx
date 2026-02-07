@@ -37,6 +37,8 @@ import { SwapParty, SwapPartyItem, SwapPartyParticipant, Article } from '@/types
 import { ArticlesService } from '@/services/articlesService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Label, Button } from '@/components/ui';
+import SwapZoneFilters from '@/components/SwapZoneFilters';
+import { useSwapFilters } from '@/hooks/useSwapFilters';
 
 export default function SwapPartyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -53,6 +55,17 @@ export default function SwapPartyDetailScreen() {
   const [isJoining, setIsJoining] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showMyArticles, setShowMyArticles] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filters hook
+  const {
+    filteredItems,
+    filters,
+    setFilters,
+    hasActiveFilters,
+    activeFilterCount,
+    clearFilters,
+  } = useSwapFilters(items);
 
   const formatDateRange = (startDate?: Date, endDate?: Date) => {
     if (!startDate || !endDate) return '';
@@ -379,27 +392,69 @@ export default function SwapPartyDetailScreen() {
 
         {/* Browse Items Section */}
         <View style={styles.section}>
-          <Label style={styles.sectionLabel}>
-            {isJoined ? 'Proposer un échange' : 'Articles disponibles'}
-          </Label>
+          <View style={styles.sectionHeaderRow}>
+            <Label style={styles.sectionLabel}>
+              {isJoined ? 'Proposer un échange' : 'Articles disponibles'}
+              {hasActiveFilters && (
+                <Text variant="caption" style={styles.filterCount}>
+                  {' '}({activeFilterCount} filtre{activeFilterCount > 1 ? 's' : ''})
+                </Text>
+              )}
+            </Label>
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                hasActiveFilters && styles.filterButtonActive,
+              ]}
+              onPress={() => setShowFilters(true)}
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={hasActiveFilters ? colors.primary : colors.foreground}
+              />
+              {hasActiveFilters && (
+                <View style={styles.filterBadge}>
+                  <Text variant="caption" style={styles.filterBadgeText}>
+                    {activeFilterCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
 
-          {otherItems.length === 0 ? (
+          {filteredItems.filter((item) => item.sellerId !== user?.id).length === 0 ? (
             <View style={styles.emptyCard}>
-              <Ionicons name="swap-horizontal" size={40} color={colors.muted} />
+              <Ionicons
+                name={hasActiveFilters ? 'funnel-outline' : 'swap-horizontal'}
+                size={40}
+                color={colors.muted}
+              />
               <Caption style={styles.emptyText}>
-                Aucun article disponible pour le moment
+                {hasActiveFilters
+                  ? 'Aucun article ne correspond aux filtres'
+                  : 'Aucun article disponible pour le moment'}
               </Caption>
+              {hasActiveFilters && (
+                <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
+                  <Text variant="bodySmall" style={styles.clearFiltersText}>
+                    Réinitialiser les filtres
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <View style={styles.itemsGrid}>
-              {otherItems.map((item) => (
-                <SwapItemCard
-                  key={item.id}
-                  item={item}
-                  onPress={() => handleItemPress(item)}
-                  canSwap={isJoined && userItems.length > 0}
-                />
-              ))}
+              {filteredItems
+                .filter((item) => item.sellerId !== user?.id)
+                .map((item) => (
+                  <SwapItemCard
+                    key={item.id}
+                    item={item}
+                    onPress={() => handleItemPress(item)}
+                    canSwap={isJoined && userItems.length > 0}
+                  />
+                ))}
             </View>
           )}
         </View>
@@ -450,6 +505,14 @@ export default function SwapPartyDetailScreen() {
           </View>
         </View>
       )}
+
+      {/* Filters Modal */}
+      <SwapZoneFilters
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
+        onApply={setFilters}
+        initialFilters={filters}
+      />
     </SafeAreaView>
   );
 }
@@ -833,5 +896,59 @@ const styles = StyleSheet.create({
   emptyModalText: {
     color: colors.foregroundSecondary,
     textAlign: 'center',
+  },
+  // Filter styles
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    position: 'relative',
+  },
+  filterButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontFamily: fonts.sansBold,
+  },
+  filterCount: {
+    color: colors.primary,
+    fontFamily: fonts.sansMedium,
+  },
+  clearFiltersButton: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  clearFiltersText: {
+    color: colors.primary,
+    fontFamily: fonts.sansMedium,
   },
 });
