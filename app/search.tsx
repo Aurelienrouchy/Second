@@ -459,7 +459,7 @@ export default function SearchScreen() {
           isSearching ? (
             // Search results
             <>
-              {!isLoadingResults && articles.length > 0 && (
+              {!isLoadingResults && articles && articles.length > 0 && (
                 <View style={styles.resultsCount}>
                   <Text style={styles.resultsText}>
                     {articles.length} article{articles.length > 1 ? 's' : ''} trouvé
@@ -468,7 +468,7 @@ export default function SearchScreen() {
                 </View>
               )}
               <ProductGrid
-                articles={articles}
+                articles={articles || []}
                 isLoading={isLoadingResults}
                 isPaginating={isPaginating}
                 onProductPress={handleProductPress}
