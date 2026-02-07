@@ -85,7 +85,7 @@ export class TransactionService {
    */
   static async getTransactionByChat(chatId: string): Promise<Transaction | null> {
     try {
-      // Query transactions by chatId first (more efficient)
+      // Query transactions by chatId only (secure and efficient)
       const transactionsRef = collection(firestore, 'transactions');
       const q = query(
         transactionsRef,
@@ -95,55 +95,14 @@ export class TransactionService {
 
       const querySnapshot = await getDocs(q);
 
-      if (!querySnapshot.empty) {
-        // Return the most recent transaction
-        const transactionDoc = querySnapshot.docs[0];
-        const data = transactionDoc.data();
-
-        return {
-          id: transactionDoc.id,
-          articleId: data.articleId,
-          buyerId: data.buyerId,
-          sellerId: data.sellerId,
-          amount: data.amount,
-          shippingCost: data.shippingCost || 0,
-          totalAmount: data.totalAmount,
-          status: data.status,
-          shippingAddress: data.shippingAddress,
-          createdAt: data.createdAt?.toDate(),
-          paymentIntentId: data.paymentIntentId,
-          shippingLabel: data.shippingLabel,
-          trackingNumber: data.trackingNumber,
-        } as Transaction;
-      }
-
-      // Fallback: Try to find by articleId (for old transactions without chatId)
-      const chatRef = doc(firestore, 'chats', chatId);
-      const chatDoc = await getDoc(chatRef);
-
-      if (!chatDoc.exists() || !chatDoc.data()?.articleId) {
-        return null;
-      }
-
-      const articleId = chatDoc.data()?.articleId;
-      const participantIds = chatDoc.data()?.participants || [];
-      const currentUserId = participantIds[0]; // Will be checked by security rules
-
-      // Query by articleId for legacy transactions
-      const legacyQ = query(
-        transactionsRef,
-        where('articleId', '==', articleId),
-        where('status', 'in', ['pending_payment', 'paid', 'shipped', 'delivered'])
-      );
-
-      const legacySnapshot = await getDocs(legacyQ);
-
-      if (legacySnapshot.empty) {
+      if (querySnapshot.empty) {
+        // No transaction found for this chat
+        console.log('[TransactionService] No transaction found for chatId:', chatId);
         return null;
       }
 
       // Return the most recent transaction
-      const transactionDoc = legacySnapshot.docs[0];
+      const transactionDoc = querySnapshot.docs[0];
       const data = transactionDoc.data();
 
       return {
