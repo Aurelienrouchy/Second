@@ -1,13 +1,13 @@
 /**
  * useSwapFilters Hook
- * Apply filters to Swap Party items
+ * Apply filters to Swap Party items with full Article metadata
  */
 
 import { useMemo, useState } from 'react';
-import { SwapPartyItem } from '@/types';
+import { SwapPartyItemExtended } from '@/types';
 import { SwapZoneFilter } from '@/components/SwapZoneFilters';
 
-export function useSwapFilters(items: SwapPartyItem[]) {
+export function useSwapFilters(items: SwapPartyItemExtended[]) {
   const [filters, setFilters] = useState<SwapZoneFilter>({});
 
   const filteredItems = useMemo(() => {
@@ -16,10 +16,17 @@ export function useSwapFilters(items: SwapPartyItem[]) {
     // Filter by categories
     if (filters.categories && filters.categories.length > 0) {
       result = result.filter((item) => {
-        // We need to check the item's category
-        // Assuming categoryIds format: ['clothing', 'clothing_tops', ...]
+        if (!item.categoryIds || item.categoryIds.length === 0) {
+          // Fallback: check title if no categoryIds
+          return filters.categories!.some((filterCat) =>
+            item.title.toLowerCase().includes(filterCat.toLowerCase())
+          );
+        }
+        // Check if any of the item's categories match filter categories
         return filters.categories!.some((filterCat) =>
-          item.title.toLowerCase().includes(filterCat.toLowerCase())
+          item.categoryIds!.some((catId) =>
+            catId.toLowerCase().includes(filterCat.toLowerCase())
+          )
         );
       });
     }
@@ -27,7 +34,11 @@ export function useSwapFilters(items: SwapPartyItem[]) {
     // Filter by sizes
     if (filters.sizes && filters.sizes.length > 0) {
       result = result.filter((item) => {
-        // Check if item title or metadata contains the size
+        if (item.size) {
+          // Direct size match
+          return filters.sizes!.includes(item.size);
+        }
+        // Fallback: check title
         return filters.sizes!.some(
           (size) =>
             item.title.toLowerCase().includes(size.toLowerCase()) ||
@@ -39,6 +50,28 @@ export function useSwapFilters(items: SwapPartyItem[]) {
     // Filter by genders
     if (filters.genders && filters.genders.length > 0) {
       result = result.filter((item) => {
+        // Check categoryIds first
+        if (item.categoryIds && item.categoryIds.length > 0) {
+          return filters.genders!.some((gender) => {
+            if (gender === 'men') {
+              return item.categoryIds!.some((catId) =>
+                catId.includes('men') || catId.includes('homme')
+              );
+            }
+            if (gender === 'women') {
+              return item.categoryIds!.some((catId) =>
+                catId.includes('women') || catId.includes('femme')
+              );
+            }
+            if (gender === 'unisex') {
+              return item.categoryIds!.some((catId) =>
+                catId.includes('unisex') || catId.includes('mixte')
+              );
+            }
+            return false;
+          });
+        }
+        // Fallback: check title
         const title = item.title.toLowerCase();
         return filters.genders!.some((gender) => {
           if (gender === 'men') return title.includes('homme') || title.includes('men');
@@ -52,6 +85,13 @@ export function useSwapFilters(items: SwapPartyItem[]) {
     // Filter by brands
     if (filters.brands && filters.brands.length > 0) {
       result = result.filter((item) => {
+        if (item.brand) {
+          // Direct brand match (case insensitive)
+          return filters.brands!.some((brand) =>
+            item.brand!.toLowerCase() === brand.toLowerCase()
+          );
+        }
+        // Fallback: check title
         const title = item.title.toLowerCase();
         return filters.brands!.some((brand) =>
           title.includes(brand.toLowerCase())
@@ -62,9 +102,34 @@ export function useSwapFilters(items: SwapPartyItem[]) {
     // Filter by colors
     if (filters.colors && filters.colors.length > 0) {
       result = result.filter((item) => {
+        if (item.color) {
+          // Map filter color IDs to actual color values
+          const colorMap: Record<string, string[]> = {
+            black: ['noir', 'black'],
+            white: ['blanc', 'white'],
+            gray: ['gris', 'gray', 'grey'],
+            navy: ['marine', 'navy'],
+            blue: ['bleu', 'blue'],
+            red: ['rouge', 'red'],
+            green: ['vert', 'green'],
+            yellow: ['jaune', 'yellow'],
+            pink: ['rose', 'pink'],
+            purple: ['violet', 'purple', 'mauve'],
+            beige: ['beige'],
+            brown: ['marron', 'brown', 'brun'],
+          };
+
+          const itemColor = item.color.toLowerCase();
+          return filters.colors!.some((colorId) => {
+            const colorNames = colorMap[colorId] || [colorId];
+            return colorNames.some((colorName) =>
+              itemColor.includes(colorName)
+            );
+          });
+        }
+        // Fallback: check title
         const title = item.title.toLowerCase();
         return filters.colors!.some((color) => {
-          // Map color IDs to French/English color names
           const colorMap: Record<string, string[]> = {
             black: ['noir', 'black'],
             white: ['blanc', 'white'],
@@ -89,6 +154,11 @@ export function useSwapFilters(items: SwapPartyItem[]) {
     // Filter by conditions
     if (filters.conditions && filters.conditions.length > 0) {
       result = result.filter((item) => {
+        if (item.condition) {
+          // Direct condition match
+          return filters.conditions!.includes(item.condition);
+        }
+        // Fallback: check title
         const title = item.title.toLowerCase();
         return filters.conditions!.some((condition) =>
           title.includes(condition.toLowerCase())

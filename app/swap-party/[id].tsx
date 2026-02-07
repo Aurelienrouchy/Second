@@ -26,6 +26,7 @@ import { useAuthRequired } from '@/hooks/useAuthRequired';
 import {
   getSwapParty,
   getPartyItems,
+  getPartyItemsExtended,
   getPartyParticipants,
   joinSwapParty,
   leaveSwapParty,
@@ -33,7 +34,7 @@ import {
   addItemToParty,
   removeItemFromParty,
 } from '@/services/swapService';
-import { SwapParty, SwapPartyItem, SwapPartyParticipant, Article } from '@/types';
+import { SwapParty, SwapPartyItem, SwapPartyItemExtended, SwapPartyParticipant, Article } from '@/types';
 import { ArticlesService } from '@/services/articlesService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Label, Button } from '@/components/ui';
@@ -46,9 +47,9 @@ export default function SwapPartyDetailScreen() {
   const { requireAuth } = useAuthRequired();
 
   const [party, setParty] = useState<SwapParty | null>(null);
-  const [items, setItems] = useState<SwapPartyItem[]>([]);
+  const [items, setItems] = useState<SwapPartyItemExtended[]>([]);
   const [participants, setParticipants] = useState<SwapPartyParticipant[]>([]);
-  const [userItems, setUserItems] = useState<SwapPartyItem[]>([]);
+  const [userItems, setUserItems] = useState<SwapPartyItemExtended[]>([]);
   const [myArticles, setMyArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
@@ -88,7 +89,7 @@ export default function SwapPartyDetailScreen() {
     try {
       const [partyData, itemsData, participantsData] = await Promise.all([
         getSwapParty(id),
-        getPartyItems(id),
+        getPartyItemsExtended(id),
         getPartyParticipants(id),
       ]);
 

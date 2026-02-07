@@ -611,6 +611,17 @@ export interface SwapPartyItem {
   addedAt: Date;
 }
 
+// Extended SwapPartyItem with full Article metadata for filtering
+export interface SwapPartyItemExtended extends SwapPartyItem {
+  categoryIds?: string[];
+  size?: string;
+  brand?: string;
+  color?: string;
+  material?: string;
+  pattern?: string;
+  condition?: 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
+}
+
 // Swap status
 export type SwapStatus =
   | 'proposed'      // Proposition envoyée

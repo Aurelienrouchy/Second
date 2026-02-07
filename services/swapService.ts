@@ -20,6 +20,7 @@ import {
   SwapParty,
   SwapPartyParticipant,
   SwapPartyItem,
+  SwapPartyItemExtended,
   Swap,
   SwapStatus,
   SwapExchangeMode,
@@ -361,6 +362,44 @@ export async function getPartyItems(partyId: string): Promise<SwapPartyItem[]> {
     ...doc.data(),
     addedAt: doc.data().addedAt?.toDate(),
   })) as SwapPartyItem[];
+}
+
+/**
+ * Get party items enriched with full Article metadata for filtering
+ */
+export async function getPartyItemsExtended(partyId: string): Promise<SwapPartyItemExtended[]> {
+  const items = await getPartyItems(partyId);
+  
+  // Fetch full article data for each item
+  const enrichedItems = await Promise.all(
+    items.map(async (item) => {
+      try {
+        const articleRef = doc(firestore, 'articles', item.articleId);
+        const articleSnap = await getDoc(articleRef);
+        
+        if (!articleSnap.exists()) {
+          return item as SwapPartyItemExtended;
+        }
+        
+        const articleData = articleSnap.data();
+        return {
+          ...item,
+          categoryIds: articleData.categoryIds,
+          size: articleData.size,
+          brand: articleData.brand,
+          color: articleData.color,
+          material: articleData.material,
+          pattern: articleData.pattern,
+          condition: articleData.condition,
+        } as SwapPartyItemExtended;
+      } catch (error) {
+        console.error(`Error enriching item ${item.id}:`, error);
+        return item as SwapPartyItemExtended;
+      }
+    })
+  );
+  
+  return enrichedItems;
 }
 
 /**
