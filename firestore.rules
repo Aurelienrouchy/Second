@@ -64,8 +64,9 @@ service cloud.firestore {
     // Notifications Collection Rules
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
       allow create: if false; // Only cloud functions can create notifications
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // Articles Collection Rules (Alias for products, using same rules for now)
