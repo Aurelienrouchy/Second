@@ -317,25 +317,16 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
 
   return (
     <View style={[styles.container, isOwnMessage ? styles.ownContainer : styles.otherContainer]}>
-      <View style={[styles.offerBubble, { borderLeftColor: statusColor }, status !== 'pending' && styles.completedOfferBubble]}>
-        {/* Header with gradient background */}
-        <View style={[styles.header, { backgroundColor: statusColor + '10' }]}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: statusColor + '20' }]}>
-              <Ionicons name={getStatusIcon(status)} size={22} color={statusColor} />
-            </View>
-            <View style={styles.headerTextContainer}>
-              <Text style={[styles.headerText, { color: statusColor }]}>
-                {isOwnMessage ? 'Votre offre' : 'Offre reçue'}
-              </Text>
-              <Text style={styles.headerSubtext}>
-                {getStatusText(status)}
-              </Text>
-            </View>
-          </View>
+      <View style={[styles.offerBubble, { borderColor: statusColor }, status !== 'pending' && styles.completedOfferBubble]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Ionicons name={getStatusIcon(status)} size={20} color={statusColor} />
+          <Text style={[styles.headerText, { color: statusColor }]}>
+            {isOwnMessage ? 'Votre offre' : 'Offre reçue'}
+          </Text>
           {isMeetupOffer && (
             <View style={styles.meetupBadge}>
-              <Ionicons name="people" size={14} color="#007AFF" />
+              <Ionicons name="people" size={12} color="#007AFF" />
               <Text style={styles.meetupBadgeText}>Meetup</Text>
             </View>
           )}
@@ -573,53 +564,28 @@ const styles = StyleSheet.create({
   },
   offerBubble: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderLeftWidth: 6,
-    overflow: 'hidden',
+    borderRadius: 16,
+    borderWidth: 2,
+    padding: 16,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   completedOfferBubble: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTextContainer: {
-    flex: 1,
+    marginBottom: 12,
+    gap: 8,
   },
   headerText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 2,
-  },
-  headerSubtext: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
+    flex: 1,
   },
   meetupBadge: {
     flexDirection: 'row',
@@ -636,25 +602,22 @@ const styles = StyleSheet.create({
     color: '#007AFF',
   },
   amountContainer: {
-    padding: 16,
-    backgroundColor: '#FAFAFA',
+    marginBottom: 12,
   },
   amountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   amountLabel: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '500',
   },
   amount: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#34C759',
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#F79F24',
   },
   shippingAmount: {
     fontSize: 16,
@@ -787,49 +750,37 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   actionsContainer: {
-    padding: 16,
-    gap: 10,
-    backgroundColor: '#FAFAFA',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    marginTop: 8,
+    gap: 8,
   },
   mainActionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
   },
   acceptButton: {
     backgroundColor: '#34C759',
   },
   acceptButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
   },
   rejectButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#FF3B30',
+    backgroundColor: '#FFE5E5',
   },
   rejectButtonText: {
     color: '#FF3B30',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
   },
   counterOfferButton: {
     flexDirection: 'row',
