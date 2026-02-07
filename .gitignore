@@ -38,3 +38,8 @@ yarn-error.*
 
 app-example
 serviceAccountKey.json
+
+# Secrets - never commit
+.env
+functions/.env
+*-firebase-adminsdk-*.json
