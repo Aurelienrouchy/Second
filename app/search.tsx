@@ -29,10 +29,12 @@ import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/Sele
 import { colors as colorData, getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';
 import VisualSearchCamera from '@/components/VisualSearchCamera';
+import ProductGrid from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
+import { useArticleSearch } from '@/hooks/useArticleSearch';
 import { SearchHistoryService, SearchHistoryItem } from '@/services/searchHistoryService';
-import { SearchFilters } from '@/types';
+import { SearchFilters, Article, ArticleWithLocation } from '@/types';
 
 type SearchTab = 'search' | 'categories';
 
@@ -51,6 +53,21 @@ export default function SearchScreen() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<Partial<SearchFilters>>({});
   const [showVisualSearch, setShowVisualSearch] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Article search hook
+  const {
+    articles,
+    searchQuery: activeSearchQuery,
+    isLoading: isLoadingResults,
+    isPaginating,
+    setSearchQuery: setActiveSearchQuery,
+    setFilters: setActiveFilters,
+    loadMore,
+  } = useArticleSearch({
+    initialQuery: '',
+    initialFilters: {},
+  });
 
   const inputRef = useRef<TextInput>(null);
 
@@ -90,6 +107,13 @@ export default function SearchScreen() {
     }
   }, []);
 
+  // Auto-hide search results when query and filters are cleared
+  useEffect(() => {
+    if (!searchQuery.trim() && Object.keys(selectedFilters).length === 0) {
+      setIsSearching(false);
+    }
+  }, [searchQuery, selectedFilters]);
+
   // Load recent searches
   const loadRecentSearches = async () => {
     if (!user) return;
@@ -123,40 +147,31 @@ export default function SearchScreen() {
     }
 
     if (trimmedQuery || Object.keys(selectedFilters).length > 0) {
-      router.replace({
-        pathname: '/search-results',
-        params: {
-          query: trimmedQuery || '',
-          filters: JSON.stringify(selectedFilters),
-        },
-      });
+      // Trigger search inline
+      setIsSearching(true);
+      setActiveSearchQuery(trimmedQuery);
+      setActiveFilters(selectedFilters);
+      Keyboard.dismiss();
     }
-  }, [searchQuery, selectedFilters, user]);
+  }, [searchQuery, selectedFilters, user, setActiveSearchQuery, setActiveFilters]);
 
   // Handle recent search tap
   const handleRecentSearchTap = useCallback((item: SearchHistoryItem) => {
     setSearchQuery(item.query);
     setSelectedFilters(item.filters);
-    router.replace({
-      pathname: '/search-results',
-      params: {
-        query: item.query || '',
-        filters: JSON.stringify(item.filters),
-      },
-    });
-  }, []);
+    setIsSearching(true);
+    setActiveSearchQuery(item.query || '');
+    setActiveFilters(item.filters);
+  }, [setActiveSearchQuery, setActiveFilters]);
 
   // Handle trending search tap
   const handleTrendingTap = useCallback((query: string) => {
     setSearchQuery(query);
-    router.replace({
-      pathname: '/search-results',
-      params: {
-        query,
-        filters: JSON.stringify({}),
-      },
-    });
-  }, []);
+    setSelectedFilters({});
+    setIsSearching(true);
+    setActiveSearchQuery(query);
+    setActiveFilters({});
+  }, [setActiveSearchQuery, setActiveFilters]);
 
   // Handle recent search delete
   const handleRecentSearchDelete = useCallback(
@@ -177,7 +192,16 @@ export default function SearchScreen() {
   const handleClearFilters = useCallback(() => {
     setSelectedFilters({});
     categoryNav.goToRoot();
+    setIsSearching(false);
   }, [categoryNav]);
+
+  // Handle product press
+  const handleProductPress = useCallback(
+    (article: Article | ArticleWithLocation) => {
+      router.push(`/article/${article.id}`);
+    },
+    [router]
+  );
 
   // Visual search handlers
   const handleOpenVisualSearch = useCallback(() => {
@@ -432,13 +456,41 @@ export default function SearchScreen() {
       {/* Content */}
       <View style={styles.content}>
         {activeTab === 'search' ? (
-          <RecentSearches
-            searches={recentSearches}
-            isLoading={isLoadingHistory}
-            onSearchTap={handleRecentSearchTap}
-            onSearchDelete={handleRecentSearchDelete}
-            onTrendingTap={handleTrendingTap}
-          />
+          isSearching ? (
+            // Search results
+            <>
+              {!isLoadingResults && articles.length > 0 && (
+                <View style={styles.resultsCount}>
+                  <Text style={styles.resultsText}>
+                    {articles.length} article{articles.length > 1 ? 's' : ''} trouvé
+                    {articles.length > 1 ? 's' : ''}
+                  </Text>
+                </View>
+              )}
+              <ProductGrid
+                articles={articles}
+                isLoading={isLoadingResults}
+                isPaginating={isPaginating}
+                onProductPress={handleProductPress}
+                onEndReached={loadMore}
+                onEndReachedThreshold={0.5}
+                emptyMessage={
+                  activeSearchQuery
+                    ? `Aucun résultat pour "${activeSearchQuery}"`
+                    : 'Aucun article trouvé avec ces filtres'
+                }
+              />
+            </>
+          ) : (
+            // Recent searches
+            <RecentSearches
+              searches={recentSearches}
+              isLoading={isLoadingHistory}
+              onSearchTap={handleRecentSearchTap}
+              onSearchDelete={handleRecentSearchDelete}
+              onTrendingTap={handleTrendingTap}
+            />
+          )
         ) : (
           <CategoryTree
             navigationPath={categoryNav.navigationPath}
@@ -661,5 +713,15 @@ const styles = StyleSheet.create({
   filterChipButtonTextActive: {
     color: colors.white,
     fontWeight: '600',
+  },
+  resultsCount: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.borderLight,
+  },
+  resultsText: {
+    fontFamily: typography.bodySmall.fontFamily,
+    fontSize: 13,
+    color: colors.muted,
   },
 });
