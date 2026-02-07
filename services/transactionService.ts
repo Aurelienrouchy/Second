@@ -22,12 +22,13 @@ export class TransactionService {
     sellerId: string,
     amount: number,
     shippingCost: number,
-    shippingAddress: ShippingAddress
+    shippingAddress: ShippingAddress,
+    chatId?: string
   ): Promise<string> {
     try {
       const totalAmount = amount + shippingCost;
 
-      const transactionData = {
+      const transactionData: any = {
         articleId,
         buyerId,
         sellerId,
@@ -38,6 +39,11 @@ export class TransactionService {
         shippingAddress,
         createdAt: serverTimestamp(),
       };
+
+      // Add chatId if provided
+      if (chatId) {
+        transactionData.chatId = chatId;
+      }
 
       const transactionsRef = collection(firestore, 'transactions');
       const docRef = await addDoc(transactionsRef, transactionData);
@@ -79,7 +85,39 @@ export class TransactionService {
    */
   static async getTransactionByChat(chatId: string): Promise<Transaction | null> {
     try {
-      // First, get the chat to find the article ID
+      // Query transactions by chatId first (more efficient)
+      const transactionsRef = collection(firestore, 'transactions');
+      const q = query(
+        transactionsRef,
+        where('chatId', '==', chatId),
+        where('status', 'in', ['pending_payment', 'paid', 'shipped', 'delivered'])
+      );
+
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        // Return the most recent transaction
+        const transactionDoc = querySnapshot.docs[0];
+        const data = transactionDoc.data();
+
+        return {
+          id: transactionDoc.id,
+          articleId: data.articleId,
+          buyerId: data.buyerId,
+          sellerId: data.sellerId,
+          amount: data.amount,
+          shippingCost: data.shippingCost || 0,
+          totalAmount: data.totalAmount,
+          status: data.status,
+          shippingAddress: data.shippingAddress,
+          createdAt: data.createdAt?.toDate(),
+          paymentIntentId: data.paymentIntentId,
+          shippingLabel: data.shippingLabel,
+          trackingNumber: data.trackingNumber,
+        } as Transaction;
+      }
+
+      // Fallback: Try to find by articleId (for old transactions without chatId)
       const chatRef = doc(firestore, 'chats', chatId);
       const chatDoc = await getDoc(chatRef);
 
@@ -88,23 +126,24 @@ export class TransactionService {
       }
 
       const articleId = chatDoc.data()?.articleId;
+      const participantIds = chatDoc.data()?.participants || [];
+      const currentUserId = participantIds[0]; // Will be checked by security rules
 
-      // Query transactions for this article
-      const transactionsRef = collection(firestore, 'transactions');
-      const q = query(
+      // Query by articleId for legacy transactions
+      const legacyQ = query(
         transactionsRef,
         where('articleId', '==', articleId),
         where('status', 'in', ['pending_payment', 'paid', 'shipped', 'delivered'])
       );
 
-      const querySnapshot = await getDocs(q);
+      const legacySnapshot = await getDocs(legacyQ);
 
-      if (querySnapshot.empty) {
+      if (legacySnapshot.empty) {
         return null;
       }
 
       // Return the most recent transaction
-      const transactionDoc = querySnapshot.docs[0];
+      const transactionDoc = legacySnapshot.docs[0];
       const data = transactionDoc.data();
 
       return {

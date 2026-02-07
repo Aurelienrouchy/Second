@@ -442,10 +442,12 @@ service cloud.firestore {
     
     // Transactions Collection Rules
     match /transactions/{transactionId} {
-      // Allow read if user is buyer or seller
+      // Allow read if user is buyer, seller, or participant in the chat
       allow read: if isAuthenticated() &&
                      (request.auth.uid == resource.data.buyerId ||
-                      request.auth.uid == resource.data.sellerId);
+                      request.auth.uid == resource.data.sellerId ||
+                      (resource.data.chatId != null && 
+                       isParticipantInChat(resource.data.chatId)));
 
       // Allow create by buyer or seller with valid data
       allow create: if isAuthenticated() &&
@@ -461,6 +463,11 @@ service cloud.firestore {
 
       // No delete allowed
       allow delete: if false;
+
+      function isParticipantInChat(chatId) {
+        return exists(/databases/$(database)/documents/chats/$(chatId)) &&
+               request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
 
       function isValidTransactionCreate(data) {
         return data.keys().hasAll(['articleId', 'buyerId', 'sellerId', 'amount', 'status']) &&
