@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { AuthRequiredProvider } from '@/contexts/AuthRequiredContext';
@@ -14,20 +14,11 @@ import { ChatProvider } from '@/contexts/ChatContext';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { colors } from '@/constants/theme';
+import { queryClient } from '@/lib/queryClient';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 // Helcim payment is handled via WebView (HelcimPay.js) — no native provider needed
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-// TanStack Query client — shared across all features
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 10 * 60 * 1000, // 10 min
-      retry: 2,
-    },
-  },
-});
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();

@@ -9,6 +9,7 @@ import { httpsCallable } from 'firebase/functions';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNotificationStore } from '@/store/notificationStore';
 import { functions } from '@/config/firebaseConfig';
+import { resetAllStores } from '@/lib/resetAllStores';
 
 interface AuthContextType {
   user: User | null;
@@ -195,8 +196,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await UserService.removeFcmToken(user.id, pushToken);
       }
 
-      // Reset notification store
-      useNotificationStore.getState().reset();
+      // Reset every Zustand store + clear the React Query cache so a
+      // re-login doesn't inherit the previous user's data.
+      resetAllStores();
 
       await AuthService.signOut();
       await AsyncStorage.removeItem('user_data');
