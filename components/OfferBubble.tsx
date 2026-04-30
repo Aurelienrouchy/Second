@@ -90,7 +90,10 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const loadTransaction = async () => {
     try {
       setIsLoadingTransaction(true);
-      const transaction = await TransactionService.getTransactionByChat(chatId);
+      const transaction = await TransactionService.getTransactionByChat(
+        chatId,
+        currentUserId
+      );
       if (transaction) {
         setTransactionId(transaction.id);
       }

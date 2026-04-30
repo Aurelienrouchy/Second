@@ -1,4 +1,4 @@
-import { firestore } from '@/config/firebaseConfig';
+import { auth, firestore } from '@/config/firebaseConfig';
 import { User, UserPreferences } from '@/types';
 import {
   arrayRemove,
@@ -77,10 +77,25 @@ export class UserService {
   }
 
   /**
-   * Vérifier si un utilisateur est admin
+   * Vérifier si un utilisateur est admin.
+   *
+   * SECURITY: prefers the `admin` custom claim on the Firebase Auth ID
+   * token (set server-side via Admin SDK and not user-writable). Falls
+   * back to the Firestore `isAdmin` field only if the claim is missing
+   * — and that field is now write-protected by the users/{uid} rule, so
+   * a self-elevation attempt would be rejected before reaching here.
    */
   static async isUserAdmin(userId: string): Promise<boolean> {
     try {
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.uid === userId) {
+        const tokenResult = await currentUser.getIdTokenResult();
+        if (tokenResult.claims?.admin === true) {
+          return true;
+        }
+      }
+
+      // Fallback for compatibility while custom claims are rolled out.
       const user = await this.getUserById(userId);
       return user?.isAdmin === true;
     } catch (error) {

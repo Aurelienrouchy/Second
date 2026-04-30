@@ -1,19 +1,16 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-  arrayUnion,
-  increment,
-} from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { firestore, functions } from '../config/firebaseConfig';
 import { SellerBalance } from '../types';
 
 export class SellerBalanceService {
   /**
-   * Get seller balance
+   * Get seller balance.
+   *
+   * If the balance doc doesn't exist yet (the seller has never received
+   * a payment), return an in-memory zero balance. The doc itself will be
+   * created server-side by the helcimWebhook Cloud Function on the first
+   * sale — the client cannot write to seller_balances anymore.
    */
   static async getBalance(userId: string): Promise<SellerBalance> {
     try {
@@ -21,8 +18,7 @@ export class SellerBalanceService {
       const balanceDoc = await getDoc(balanceRef);
 
       if (!balanceDoc.exists()) {
-        // Create initial balance if doesn't exist
-        const initialBalance: SellerBalance = {
+        return {
           userId,
           availableBalance: 0,
           pendingBalance: 0,
@@ -30,13 +26,6 @@ export class SellerBalanceService {
           transactions: [],
           updatedAt: new Date(),
         };
-
-        await setDoc(balanceRef, {
-          ...initialBalance,
-          updatedAt: serverTimestamp(),
-        });
-
-        return initialBalance;
       }
 
       const data = balanceDoc.data();
@@ -57,90 +46,36 @@ export class SellerBalanceService {
   }
 
   /**
-   * Add amount to pending balance (when payment is made)
+   * @deprecated Server-side only — use the helcimWebhook Cloud Function.
+   *
+   * Kept as a stub so any straggling caller fails loudly instead of
+   * silently hitting Firestore permission-denied (the seller_balances
+   * collection now refuses all client writes).
    */
   static async addPendingAmount(
-    userId: string,
-    amount: number,
-    transactionId: string,
-    description: string
+    _userId: string,
+    _amount: number,
+    _transactionId: string,
+    _description: string
   ): Promise<void> {
-    try {
-      const balanceRef = doc(firestore, 'seller_balances', userId);
-      const balanceDoc = await getDoc(balanceRef);
-
-      const transaction = {
-        id: transactionId,
-        type: 'sale' as const,
-        amount,
-        description,
-        createdAt: serverTimestamp(),
-        status: 'pending' as const,
-      };
-
-      if (!balanceDoc.exists()) {
-        // Create new balance document
-        await setDoc(balanceRef, {
-          userId,
-          availableBalance: 0,
-          pendingBalance: amount,
-          totalEarnings: 0,
-          transactions: [transaction],
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        // Update existing balance
-        await updateDoc(balanceRef, {
-          pendingBalance: increment(amount),
-          transactions: arrayUnion(transaction),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    } catch (error: any) {
-      throw new Error(`Erreur lors de l'ajout du montant en attente: ${error.message}`);
-    }
+    throw new Error(
+      'SellerBalanceService.addPendingAmount is server-side only ' +
+        '(handled by helcimWebhook Cloud Function).'
+    );
   }
 
   /**
-   * Move amount from pending to available (when item is delivered)
+   * @deprecated Server-side only — use the checkTrackingStatus Cloud Function.
    */
   static async movePendingToAvailable(
-    userId: string,
-    amount: number,
-    transactionId: string
+    _userId: string,
+    _amount: number,
+    _transactionId: string
   ): Promise<void> {
-    try {
-      const balanceRef = doc(firestore, 'seller_balances', userId);
-      const balanceDoc = await getDoc(balanceRef);
-
-      if (!balanceDoc.exists()) {
-        throw new Error('Balance not found');
-      }
-
-      const currentData = balanceDoc.data();
-      const transactions = currentData?.transactions || [];
-
-      // Update the transaction status to completed
-      const updatedTransactions = transactions.map((t: any) => {
-        if (t.id === transactionId) {
-          return {
-            ...t,
-            status: 'completed',
-          };
-        }
-        return t;
-      });
-
-      await updateDoc(balanceRef, {
-        pendingBalance: increment(-amount),
-        availableBalance: increment(amount),
-        totalEarnings: increment(amount),
-        transactions: updatedTransactions,
-        updatedAt: serverTimestamp(),
-      });
-    } catch (error: any) {
-      throw new Error(`Erreur lors du transfert du montant: ${error.message}`);
-    }
+    throw new Error(
+      'SellerBalanceService.movePendingToAvailable is server-side only ' +
+        '(handled by checkTrackingStatus Cloud Function).'
+    );
   }
 
   /**
@@ -170,52 +105,18 @@ export class SellerBalanceService {
   }
 
   /**
-   * Update withdrawal status (called by admin after processing)
+   * @deprecated Server-side only — admin processing should run as a
+   * Cloud Function (Admin SDK) so refunds happen atomically and the
+   * action is auditable.
    */
   static async updateWithdrawalStatus(
-    userId: string,
-    withdrawalId: string,
-    status: 'completed' | 'failed'
+    _userId: string,
+    _withdrawalId: string,
+    _status: 'completed' | 'failed'
   ): Promise<void> {
-    try {
-      const balanceRef = doc(firestore, 'seller_balances', userId);
-      const balanceDoc = await getDoc(balanceRef);
-
-      if (!balanceDoc.exists()) {
-        throw new Error('Balance not found');
-      }
-
-      const currentData = balanceDoc.data();
-      const transactions = currentData?.transactions || [];
-
-      // Find and update the withdrawal transaction
-      const updatedTransactions = transactions.map((t: any) => {
-        if (t.id === withdrawalId) {
-          return {
-            ...t,
-            status,
-          };
-        }
-        return t;
-      });
-
-      const updateData: any = {
-        transactions: updatedTransactions,
-        updatedAt: serverTimestamp(),
-      };
-
-      // If withdrawal failed, refund the amount to available balance
-      if (status === 'failed') {
-        const withdrawalTransaction = transactions.find((t: any) => t.id === withdrawalId);
-        if (withdrawalTransaction) {
-          updateData.availableBalance = increment(Math.abs(withdrawalTransaction.amount));
-        }
-      }
-
-      await updateDoc(balanceRef, updateData);
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la mise à jour du retrait: ${error.message}`);
-    }
+    throw new Error(
+      'SellerBalanceService.updateWithdrawalStatus is server-side only.'
+    );
   }
 
   /**

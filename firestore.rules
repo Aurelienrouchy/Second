@@ -180,11 +180,20 @@ service cloud.firestore {
       // Allow read for any authenticated user (for seller profiles)
       allow read: if isAuthenticated();
 
-      // Allow create only with valid initial data
-      allow create: if isOwner(userId) && isValidUserData(request.resource.data);
+      // Allow create only with valid initial data. The isAdmin/role/claims
+      // fields cannot be set by clients on creation either.
+      allow create: if isOwner(userId) &&
+                       isValidUserData(request.resource.data) &&
+                       !request.resource.data.keys().hasAny(['isAdmin', 'role', 'customClaims']);
 
-      // Allow update by owner (more flexible for partial updates/preferences)
-      allow update: if isOwner(userId);
+      // Allow update by owner — but never to fields that grant privileges.
+      // SECURITY: previously a user could write { isAdmin: true } to their
+      // own document and pass UI-side admin checks. Privileged fields must
+      // be set out-of-band (Cloud Function with Admin SDK + Auth custom claim).
+      allow update: if isOwner(userId) &&
+                       !request.resource.data.diff(resource.data)
+                          .affectedKeys()
+                          .hasAny(['isAdmin', 'role', 'customClaims']);
 
       // No delete allowed (soft delete by setting isActive = false)
       allow delete: if false;

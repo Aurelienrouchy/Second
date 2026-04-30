@@ -105,11 +105,11 @@ export default function ChatScreen() {
   };
 
   const loadTransaction = async () => {
-    if (!chatId) return;
-    
+    if (!chatId || !user) return;
+
     try {
       setIsLoadingTransaction(true);
-      const trans = await TransactionService.getTransactionByChat(chatId);
+      const trans = await TransactionService.getTransactionByChat(chatId, user.id);
       setTransaction(trans);
     } catch (error) {
       console.error('Error loading transaction:', error);
