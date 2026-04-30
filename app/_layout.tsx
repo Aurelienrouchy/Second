@@ -11,7 +11,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { AuthRequiredProvider } from '@/contexts/AuthRequiredContext';
 import { ChatProvider } from '@/contexts/ChatContext';
-import { LanguageProvider } from '@/contexts/LanguageContext';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { colors } from '@/constants/theme';
@@ -128,58 +127,56 @@ function AppContent() {
   useDeepLinking();
 
   return (
-    <LanguageProvider>
-      <ChatProvider>
-        <BottomSheetModalProvider>
-          <AuthRequiredProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: colors.background },
-                  animation: 'slide_from_right',
+    <ChatProvider>
+      <BottomSheetModalProvider>
+        <AuthRequiredProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+                animation: 'slide_from_right',
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen
+                name="onboarding"
+                options={{ animation: 'fade', gestureEnabled: false }}
+              />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="article/[id]" />
+              <Stack.Screen name="chat/[id]" />
+              <Stack.Screen
+                name="my-articles"
+                options={{ presentation: 'card' }}
+              />
+              <Stack.Screen
+                name="my-orders"
+                options={{ presentation: 'card' }}
+              />
+              <Stack.Screen
+                name="filters"
+                options={{
+                  presentation: 'modal',
+                  animation: 'slide_from_bottom',
                 }}
-              >
-                <Stack.Screen name="index" />
-                <Stack.Screen
-                  name="onboarding"
-                  options={{ animation: 'fade', gestureEnabled: false }}
-                />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="article/[id]" />
-                <Stack.Screen name="chat/[id]" />
-                <Stack.Screen
-                  name="my-articles"
-                  options={{ presentation: 'card' }}
-                />
-                <Stack.Screen
-                  name="my-orders"
-                  options={{ presentation: 'card' }}
-                />
-                <Stack.Screen
-                  name="filters"
-                  options={{
-                    presentation: 'modal',
-                    animation: 'slide_from_bottom',
-                  }}
-                />
+              />
 
-                <Stack.Screen name="shop/[id]" />
-                <Stack.Screen name="settings" />
-                <Stack.Screen
-                  name="sell"
-                  options={{ animation: 'slide_from_bottom' }}
-                />
-                <Stack.Screen name="admin/shops" />
-                <Stack.Screen name="admin/shop-detail/[id]" />
-                <Stack.Screen name="payment/[transactionId]" />
-                <Stack.Screen name="visual-search-results" />
-                <Stack.Screen name="search" />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <StatusBar style="dark" />
-          </AuthRequiredProvider>
-        </BottomSheetModalProvider>
-      </ChatProvider>
-    </LanguageProvider>
+              <Stack.Screen name="shop/[id]" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen
+                name="sell"
+                options={{ animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen name="admin/shops" />
+              <Stack.Screen name="admin/shop-detail/[id]" />
+              <Stack.Screen name="payment/[transactionId]" />
+              <Stack.Screen name="visual-search-results" />
+              <Stack.Screen name="search" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="dark" />
+        </AuthRequiredProvider>
+      </BottomSheetModalProvider>
+    </ChatProvider>
   );
 }
