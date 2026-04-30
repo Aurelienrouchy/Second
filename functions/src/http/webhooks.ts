@@ -73,21 +73,36 @@ export const helcimWebhook = onRequest(
 
       const transaction = transactionDoc.data()!;
 
-      // Verify webhook signature if secret token is stored
-      if (transaction.helcimSecretToken) {
-        const signature = req.headers['x-helcim-signature'] as string;
-        if (signature) {
-          const isValid = HelcimClient.verifyWebhookSignature(
-            JSON.stringify(req.body),
-            signature,
-            transaction.helcimSecretToken
-          );
-          if (!isValid) {
-            console.error('Helcim webhook: invalid signature');
-            res.status(401).send('Invalid signature');
-            return;
-          }
-        }
+      // SECURITY: Webhook signature verification is MANDATORY.
+      // Falls back to HELCIM_WEBHOOK_SECRET env var if the per-transaction
+      // secretToken was not stored (older flow), so legitimate webhooks
+      // for legacy transactions can still be authenticated.
+      const secretToken =
+        transaction.helcimSecretToken || process.env.HELCIM_WEBHOOK_SECRET;
+      if (!secretToken) {
+        console.error(
+          `Helcim webhook: no secret token for transaction ${transactionId}`
+        );
+        res.status(401).send('Unauthorized: missing secret');
+        return;
+      }
+
+      const signature = req.headers['x-helcim-signature'] as string | undefined;
+      if (!signature) {
+        console.error('Helcim webhook: missing x-helcim-signature header');
+        res.status(401).send('Unauthorized: missing signature');
+        return;
+      }
+
+      const isValid = HelcimClient.verifyWebhookSignature(
+        JSON.stringify(req.body),
+        signature,
+        secretToken
+      );
+      if (!isValid) {
+        console.error('Helcim webhook: invalid signature');
+        res.status(401).send('Unauthorized: invalid signature');
+        return;
       }
 
       // Skip if already processed
