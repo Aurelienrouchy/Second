@@ -1,4 +1,5 @@
 import { useNotificationStore } from '@/store/notificationStore';
+import { useAuthStore } from '@/store/authStore';
 import { queryClient } from '@/lib/queryClient';
 
 /**
@@ -9,9 +10,16 @@ import { queryClient } from '@/lib/queryClient';
  * or chat state. The CLAUDE.md convention requires this — `signOut`
  * previously only reset notificationStore, leaving the rest intact.
  *
- * Add new stores here as they are created (authStore, chatStore, …).
+ * Note: authStore.signOut already calls this via dynamic import to
+ * avoid the circular `authStore -> resetAllStores -> authStore`. Adding
+ * authStore.reset() here is still correct because every other entry
+ * point (e.g. account deletion, force-logout-on-401) goes through
+ * resetAllStores directly.
+ *
+ * Add new stores here as they are created (chatStore, …).
  */
 export function resetAllStores(): void {
   useNotificationStore.getState().reset();
+  useAuthStore.getState().reset();
   queryClient.clear();
 }

@@ -8,9 +8,10 @@ import 'react-native-reanimated';
 
 import { QueryClientProvider } from '@tanstack/react-query';
 
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AuthRequiredProvider } from '@/contexts/AuthRequiredContext';
 import { ChatProvider } from '@/contexts/ChatContext';
+import { useAuthListener } from '@/hooks/useAuthListener';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { colors } from '@/constants/theme';
@@ -92,9 +93,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
           <ThemeProvider value={CustomNavigationTheme}>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
+            <AppContent />
           </ThemeProvider>
         </GestureHandlerRootView>
       </SafeAreaProvider>
@@ -109,6 +108,9 @@ export default function RootLayout() {
  * Deep linking  : useDeepLinking + Expo Router (file-based routing automatique)
  */
 function AppContent() {
+  // ── Auth : Firebase listener + AsyncStorage bootstrap (single source) ──
+  useAuthListener();
+
   const { user } = useAuth();
 
   // ── Push notifications : listeners, channels, badge, token ──
