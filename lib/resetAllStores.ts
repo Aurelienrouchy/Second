@@ -1,5 +1,6 @@
 import { useNotificationStore } from '@/store/notificationStore';
 import { useAuthStore } from '@/store/authStore';
+import { useChatStore } from '@/store/chatStore';
 import { queryClient } from '@/lib/queryClient';
 
 /**
@@ -21,5 +22,6 @@ import { queryClient } from '@/lib/queryClient';
 export function resetAllStores(): void {
   useNotificationStore.getState().reset();
   useAuthStore.getState().reset();
+  useChatStore.getState().reset();
   queryClient.clear();
 }

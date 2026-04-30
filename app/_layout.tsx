@@ -10,8 +10,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthRequiredProvider } from '@/contexts/AuthRequiredContext';
-import { ChatProvider } from '@/contexts/ChatContext';
 import { useAuthListener } from '@/hooks/useAuthListener';
+import { useChatListener } from '@/hooks/useChatListener';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { colors } from '@/constants/theme';
@@ -111,6 +111,9 @@ function AppContent() {
   // ── Auth : Firebase listener + AsyncStorage bootstrap (single source) ──
   useAuthListener();
 
+  // ── Chat list : single global listener (replaces ChatContext + useChats) ──
+  useChatListener();
+
   const { user } = useAuth();
 
   // ── Push notifications : listeners, channels, badge, token ──
@@ -120,9 +123,8 @@ function AppContent() {
   useDeepLinking();
 
   return (
-    <ChatProvider>
-      <BottomSheetModalProvider>
-        <AuthRequiredProvider>
+    <BottomSheetModalProvider>
+      <AuthRequiredProvider>
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -168,8 +170,7 @@ function AppContent() {
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="dark" />
-        </AuthRequiredProvider>
-      </BottomSheetModalProvider>
-    </ChatProvider>
+      </AuthRequiredProvider>
+    </BottomSheetModalProvider>
   );
 }
