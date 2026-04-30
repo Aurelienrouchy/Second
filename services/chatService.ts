@@ -4,6 +4,7 @@ import {
     doc,
     getDoc,
     getDocs,
+    increment,
     onSnapshot,
     orderBy,
     query,
@@ -257,14 +258,15 @@ export class ChatService {
       // Update chat with last message
       console.log('[ChatService] Updating chat:', chatId);
       const chatRef = doc(firestore, 'chats', chatId);
-      const unreadCount = await this.getUnreadCount(chatId, receiverId);
 
+      // SECURITY: atomic increment avoids race condition when multiple messages
+      // arrive nearly simultaneously (read+1 pattern would lose updates).
       const updateData: any = {
         lastMessage: content || '',
         lastMessageType: type,
         lastMessageTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        [`unreadCount.${receiverId}`]: unreadCount + 1,
+        [`unreadCount.${receiverId}`]: increment(1),
       };
 
       console.log('[ChatService] Chat update data:', JSON.stringify(updateData, null, 2));
