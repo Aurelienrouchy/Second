@@ -19,8 +19,8 @@ import {
   UserIcon,
 } from '@/components/ui/TabBarIcons';
 import { colors, fonts, radius } from '@/constants/theme';
-import { useChatContext } from '@/contexts/ChatContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
+import { useChatStore, selectUnreadChatCount } from '@/store/chatStore';
 
 // ── Badge component for tab icons ──
 function TabBadge({ count }: { count: number }) {
@@ -53,17 +53,12 @@ function SellTabIcon() {
 }
 
 export default function TabLayout() {
-  const { user } = useAuth();
-  const { chats } = useChatContext();
-
-  // Count unread messages across all chats
-  const unreadMessageCount = React.useMemo(() => {
-    if (!user) return 0;
-    return chats.reduce((total, chat) => {
-      const unread = chat.unreadCount?.[user.id] ?? 0;
-      return total + unread;
-    }, 0);
-  }, [chats, user]);
+  const user = useUser();
+  // Pre-computed in the store (chatStore.setChats), so this subscription
+  // only re-renders when *this user's* unread total actually changes.
+  const unreadMessageCount = useChatStore(
+    selectUnreadChatCount(user?.id ?? null)
+  );
   return (
     <Tabs
       screenOptions={{

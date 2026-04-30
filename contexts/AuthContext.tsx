@@ -1,21 +1,60 @@
 /**
- * Backwards-compatibility shim.
+ * Backwards-compatibility shim for the legacy `useAuth()` API.
  *
- * The auth state previously lived in a React Context. It now lives in
- * `store/authStore.ts` (Zustand). To avoid touching the ~14 consumer
- * files at once, this module re-exports a `useAuth()` hook with the same
- * shape as the old `AuthContextType`. Future PRs can migrate consumers
- * to use `useAuthStore` selectors directly for finer-grained subscriptions.
+ * The auth state lives in `store/authStore.ts` (Zustand). This module
+ * exposes:
+ *  - Focused hooks (preferred): `useUser`, `useIsLoading`, `useIsGuest`,
+ *    `useGuestSession`, `useIsFirstLaunch`, `useAuthActions`.
+ *  - The legacy `useAuth()` aggregating everything — kept for the ~14
+ *    existing consumers but DO NOT use in new code.
  *
- * `AuthProvider` is preserved as a no-op `<>{children}</>` so existing
- * imports keep compiling; the listener that used to live in the provider
- * now runs in `useAuthListener` mounted from the root layout.
+ * Why focused hooks: the previous `useAuth()` ran 10 separate selectors
+ * and rebuilt a fresh object on every render. Every consumer re-rendered
+ * on any auth state change even if they only read `user`. Focused hooks
+ * scope the subscription to exactly what each component reads.
+ *
+ * Multi-field reads use `useShallow` so the returned object identity is
+ * stable when the underlying values are the same — required by the
+ * project's golden rule (2+ fields from the same store ⇒ useShallow).
  */
 import React, { ReactNode } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 import { useAuthStore } from '@/store/authStore';
 import { GuestSession } from '@/services/guestPreferencesService';
 import { User } from '@/types';
+
+// ─── Focused hooks ──────────────────────────────────────────────────────────
+
+export const useUser = (): User | null => useAuthStore((s) => s.user);
+export const useIsLoading = (): boolean => useAuthStore((s) => s.isLoading);
+export const useIsFirstLaunch = (): boolean => useAuthStore((s) => s.isFirstLaunch);
+export const useIsGuest = (): boolean => useAuthStore((s) => s.user === null);
+export const useGuestSession = (): GuestSession | null =>
+  useAuthStore((s) => s.guestSession);
+
+/**
+ * Returns ALL auth actions in one shallow-equal object so the reference
+ * is stable across renders. Actions in Zustand are themselves stable,
+ * but the wrapper object would otherwise be new on every render.
+ */
+export const useAuthActions = () =>
+  useAuthStore(
+    useShallow((s) => ({
+      signIn: s.signIn,
+      signOut: s.signOut,
+      skipAuth: s.skipAuth,
+      refreshUser: s.refreshUser,
+      signInWithEmail: s.signInWithEmail,
+      signUpWithEmail: s.signUpWithEmail,
+      signInWithGoogle: s.signInWithGoogle,
+      signInWithApple: s.signInWithApple,
+      initGuestSession: s.initGuestSession,
+      mergeGuestToUser: s.mergeGuestToUser,
+    }))
+  );
+
+// ─── Legacy aggregating hook ────────────────────────────────────────────────
 
 export interface AuthContextType {
   user: User | null;
@@ -36,42 +75,39 @@ export interface AuthContextType {
   mergeGuestToUser: (userId: string) => Promise<void>;
 }
 
-export function useAuth(): AuthContextType {
-  // Subscribe to the fields a consumer might read; actions are stable
-  // references in Zustand so they don't need to be memoised.
-  const user = useAuthStore((s) => s.user);
-  const isLoading = useAuthStore((s) => s.isLoading);
-  const isFirstLaunch = useAuthStore((s) => s.isFirstLaunch);
-  const guestSession = useAuthStore((s) => s.guestSession);
+/**
+ * Module-level singleton for `checkAuthRequired` so the function
+ * reference is stable across renders. The closure reads from the store
+ * via `getState()` — no subscription, no re-render trigger.
+ */
+const checkAuthRequired = (): boolean =>
+  useAuthStore.getState().user === null;
 
-  const signIn = useAuthStore((s) => s.signIn);
-  const signOut = useAuthStore((s) => s.signOut);
-  const skipAuth = useAuthStore((s) => s.skipAuth);
-  const refreshUser = useAuthStore((s) => s.refreshUser);
-  const signInWithEmail = useAuthStore((s) => s.signInWithEmail);
-  const signUpWithEmail = useAuthStore((s) => s.signUpWithEmail);
-  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
-  const signInWithApple = useAuthStore((s) => s.signInWithApple);
-  const initGuestSession = useAuthStore((s) => s.initGuestSession);
-  const mergeGuestToUser = useAuthStore((s) => s.mergeGuestToUser);
+/**
+ * @deprecated Prefer `useUser()`, `useIsLoading()`, `useAuthActions()`.
+ * Kept for the ~14 existing consumer files; reads only the state with
+ * `useShallow` so the returned object reference is stable when nothing
+ * relevant changes.
+ */
+export function useAuth(): AuthContextType {
+  const state = useAuthStore(
+    useShallow((s) => ({
+      user: s.user,
+      isLoading: s.isLoading,
+      isFirstLaunch: s.isFirstLaunch,
+      guestSession: s.guestSession,
+    }))
+  );
+  const actions = useAuthActions();
 
   return {
-    user,
-    isLoading,
-    isFirstLaunch,
-    isGuest: user === null,
-    guestSession,
-    signIn,
-    signOut,
-    skipAuth,
-    checkAuthRequired: () => user === null,
-    refreshUser,
-    signInWithEmail,
-    signUpWithEmail,
-    signInWithGoogle,
-    signInWithApple,
-    initGuestSession,
-    mergeGuestToUser,
+    user: state.user,
+    isLoading: state.isLoading,
+    isFirstLaunch: state.isFirstLaunch,
+    isGuest: state.user === null,
+    guestSession: state.guestSession,
+    checkAuthRequired,
+    ...actions,
   };
 }
 

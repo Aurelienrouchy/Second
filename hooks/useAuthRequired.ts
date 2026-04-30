@@ -1,17 +1,22 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser, useIsLoading } from '@/contexts/AuthContext';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 
 /**
  * Combine auth state + auth-sheet control for screens that need to
  * gate actions behind a login.
+ *
+ * Subscribes only to `user` (one selector) instead of going through the
+ * legacy `useAuth()` aggregator. The sheet's `show` action is read via
+ * `getState()` since it's a stable reference and we don't need to
+ * re-render on its change.
  */
 export const useAuthRequired = () => {
-  const { user, checkAuthRequired, isLoading } = useAuth();
-  const showSheet = useAuthSheetStore((s) => s.show);
+  const user = useUser();
+  const isLoading = useIsLoading();
+  const isLoggedIn = user !== null;
 
-  /** Force-show the sheet (e.g. tapping a "Sign in" button). */
   const showAuthSheet = (message?: string, onSuccess?: () => void) => {
-    showSheet(message, onSuccess);
+    useAuthSheetStore.getState().show(message, onSuccess);
   };
 
   /**
@@ -19,8 +24,8 @@ export const useAuthRequired = () => {
    * the auth sheet and run it on success.
    */
   const requireAuth = (action: () => void, message?: string): boolean => {
-    if (checkAuthRequired()) {
-      showSheet(message, action);
+    if (!isLoggedIn) {
+      useAuthSheetStore.getState().show(message, action);
       return false;
     }
     action();
@@ -30,7 +35,7 @@ export const useAuthRequired = () => {
   return {
     user,
     isLoading,
-    isLoggedIn: !checkAuthRequired(),
+    isLoggedIn,
     requireAuth,
     showAuthSheet,
   };

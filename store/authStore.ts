@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 
 import { AuthService } from '@/services/authService';
 import {
@@ -8,6 +9,7 @@ import {
 } from '@/services/guestPreferencesService';
 import { mergeGuestDataIntoUser } from '@/services/authMergeService';
 import { UserService } from '@/services/userService';
+import { resetAllStores } from '@/lib/resetAllStores';
 import { useNotificationStore } from '@/store/notificationStore';
 import { User } from '@/types';
 
@@ -69,7 +71,8 @@ const initialState: AuthState = {
  * `isLoading: false`. AsyncStorage is read in `bootstrap` solely to
  * decide isFirstLaunch and guest session.
  */
-export const useAuthStore = create<AuthStore>()((set, get) => ({
+export const useAuthStore = create<AuthStore>()(
+  subscribeWithSelector((set, get) => ({
   ...initialState,
 
   bootstrap: async () => {
@@ -126,9 +129,9 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       if (user?.id && pushToken) {
         await UserService.removeFcmToken(user.id, pushToken);
       }
-      // Reset before AuthService.signOut so the listener-driven
-      // hydrateFromFirebase(null) doesn't fight a stale store.
-      const { resetAllStores } = await import('@/lib/resetAllStores');
+      // Reset stores BEFORE the Firebase signOut so the listener-driven
+      // hydrateFromFirebase(null) doesn't fight a stale store. Static
+      // import (no circular hazard: resetAllStores is a leaf utility).
       resetAllStores();
       await AuthService.signOut();
       await AsyncStorage.removeItem(USER_DATA_KEY);
@@ -218,7 +221,8 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 
   reset: () => set(initialState),
-}));
+  }))
+);
 
 // ─── Selectors ──────────────────────────────────────────────────────────────
 

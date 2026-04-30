@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ const initialState: NotificationState = {
 // ─── Store ──────────────────────────────────────────────────────────────────
 
 export const useNotificationStore = create<NotificationState & NotificationActions>()(
-  (set) => ({
+  subscribeWithSelector((set) => ({
     ...initialState,
 
     setUnreadCount: (count) => set({ unreadCount: count }),
@@ -84,16 +85,11 @@ export const useNotificationStore = create<NotificationState & NotificationActio
     setSetupComplete: (complete) => set({ isSetupComplete: complete }),
     setPushToken: (token) => set({ pushToken: token }),
     reset: () => set(initialState),
-  })
+  }))
 );
 
 // ─── Selectors ──────────────────────────────────────────────────────────────
 
-export const selectUnreadCount = (state: NotificationState & NotificationActions) =>
-  state.unreadCount;
-
-export const selectHasUnread = (state: NotificationState & NotificationActions) =>
-  state.unreadCount > 0;
-
-export const selectPushToken = (state: NotificationState & NotificationActions) =>
-  state.pushToken;
+export const selectUnreadCount = (
+  state: NotificationState & NotificationActions
+): number => state.unreadCount;

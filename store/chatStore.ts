@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 
 import { Chat } from '@/types';
 
@@ -9,9 +10,16 @@ interface ChatState {
   chats: Chat[];
   isLoading: boolean;
   error: string | null;
+  /**
+   * Sum of unreadCount across every chat for the current user, kept up
+   * to date by `setChats` so consumers don't recompute O(n) on every
+   * render. Reset to 0 when the chats list is empty.
+   */
+  unreadCountByUser: Record<string, number>;
 }
 
 interface ChatActions {
+  /** Replace the chats list and recompute unreadCountByUser in one go. */
   setChats: (chats: Chat[]) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
@@ -22,41 +30,58 @@ const initialState: ChatState = {
   chats: [],
   isLoading: true,
   error: null,
+  unreadCountByUser: {},
 };
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function computeUnreadCountByUser(chats: Chat[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const chat of chats) {
+    const map = chat.unreadCount;
+    if (!map) continue;
+    for (const uid in map) {
+      out[uid] = (out[uid] ?? 0) + (map[uid] || 0);
+    }
+  }
+  return out;
+}
 
 // ─── Store ──────────────────────────────────────────────────────────────────
 
 /**
- * Chat list store. Replaces both ChatContext (only consumed by the tabs
- * layout for the unread badge) and the standalone `useChats` hook
- * (consumed by the messages tab) — both used to instantiate their own
- * Firestore listener for the SAME collection. Now there's exactly one
- * `listenToUserChats` subscription, mounted by `useChatListener` from
- * the root layout.
- *
- * Per-chat state (current chat, messages, send actions) is intentionally
- * NOT here: those are local to a single screen lifecycle and are owned
- * by the existing `useChat(chatId, userId)` hook.
+ * Chat list store. One global Firestore subscription (via
+ * useChatListener), two cheap reader paths (tabs layout badge, messages
+ * tab list).
  */
-export const useChatStore = create<ChatState & ChatActions>()((set) => ({
-  ...initialState,
+export const useChatStore = create<ChatState & ChatActions>()(
+  subscribeWithSelector((set) => ({
+    ...initialState,
 
-  setChats: (chats) => set({ chats }),
-  setLoading: (isLoading) => set({ isLoading }),
-  setError: (error) => set({ error }),
-  reset: () => set(initialState),
-}));
+    setChats: (chats) =>
+      set({
+        chats,
+        unreadCountByUser: computeUnreadCountByUser(chats),
+      }),
+    setLoading: (isLoading) => set({ isLoading }),
+    setError: (error) => set({ error }),
+    reset: () => set(initialState),
+  }))
+);
 
 // ─── Selectors ──────────────────────────────────────────────────────────────
 
 export const selectChats = (s: ChatState & ChatActions) => s.chats;
 export const selectChatsLoading = (s: ChatState & ChatActions) => s.isLoading;
-export const selectUnreadChatCount = (
-  s: ChatState & ChatActions,
-  userId: string | null
-): number => {
-  if (!userId) return 0;
-  return s.chats.reduce((total, chat) => {
-    return total + (chat.unreadCount?.[userId] || 0);
-  }, 0);
-};
+
+/**
+ * Curried selector: `useChatStore(selectUnreadChatCount(userId))`.
+ *
+ * Reads the pre-computed `unreadCountByUser[userId]` so the
+ * subscription only re-renders when THAT user's total changes — not on
+ * every chats-list mutation. Returns 0 when userId is null.
+ */
+export const selectUnreadChatCount =
+  (userId: string | null) =>
+  (s: ChatState & ChatActions): number =>
+    userId ? s.unreadCountByUser[userId] ?? 0 : 0;
