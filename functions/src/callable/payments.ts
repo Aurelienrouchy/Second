@@ -244,6 +244,10 @@ export const findPickupPoints = onCall(async (request) => {
 // =============================================================================
 
 export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
   const { transactionId } = request.data;
 
   if (!transactionId) {
@@ -258,6 +262,17 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
     }
 
     const transaction = transactionDoc.data()!;
+
+    // SECURITY: only the buyer or seller can trigger tracking status checks.
+    // Without this, any authenticated user could force DELIVERED status and
+    // trigger fund transfer to the seller.
+    const callerUid = request.auth.uid;
+    if (transaction.buyerId !== callerUid && transaction.sellerId !== callerUid) {
+      throw new HttpsError(
+        'permission-denied',
+        'You are not authorized for this transaction'
+      );
+    }
 
     if (!transaction.trackingNumber) {
       throw new HttpsError('failed-precondition', 'No tracking number available');
