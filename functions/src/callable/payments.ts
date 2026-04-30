@@ -384,7 +384,7 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
  *
  * Authorization: caller must be the balance owner (request.auth.uid).
  */
-export const requestWithdrawal = onCall({ memory: '256MiB' }, async (request) => {
+export const requestWithdrawal = onCall({ memory: '512MiB' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -470,7 +470,7 @@ export const requestWithdrawal = onCall({ memory: '256MiB' }, async (request) =>
  * we cannot mark a paid/shipped/delivered transaction as cancelled this way.
  */
 export const cancelPendingTransaction = onCall(
-  { memory: '256MiB' },
+  { memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');

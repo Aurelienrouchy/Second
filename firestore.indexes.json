@@ -1,20 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "embeddings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        {
-          "fieldPath": "embedding",
-          "vectorConfig": {
-            "dimension": 1408,
-            "flat": {}
-          }
-        }
-      ]
-    },
-    {
       "collectionGroup": "articles",
       "queryScope": "COLLECTION",
       "fields": [
