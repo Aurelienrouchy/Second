@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 export default function AdminShopDetailScreen() {
   const router = useRouter();
@@ -134,7 +135,7 @@ export default function AdminShopDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       </SafeAreaView>
@@ -157,7 +158,7 @@ export default function AdminShopDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={24} color="#1C1C1E" />
+          <Ionicons name="chevron-back" size={24} color={colors.foreground} />
         </Pressable>
         <Text style={styles.headerTitle}>Validation boutique</Text>
         <View style={styles.placeholder} />
@@ -206,16 +207,16 @@ export default function AdminShopDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Contact</Text>
             <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={18} color="#8E8E93" />
+              <Ionicons name="call-outline" size={18} color={colors.muted} />
               <Text style={styles.contactText}>{shop.phoneNumber}</Text>
             </View>
             <View style={styles.contactRow}>
-              <Ionicons name="mail-outline" size={18} color="#8E8E93" />
+              <Ionicons name="mail-outline" size={18} color={colors.muted} />
               <Text style={styles.contactText}>{shop.email}</Text>
             </View>
             {shop.website && (
               <View style={styles.contactRow}>
-                <Ionicons name="globe-outline" size={18} color="#8E8E93" />
+                <Ionicons name="globe-outline" size={18} color={colors.muted} />
                 <Text style={styles.contactText}>{shop.website}</Text>
               </View>
             )}
@@ -325,9 +326,9 @@ const getStatusColor = (status: string) => {
     case 'pending':
       return '#FF9500';
     case 'suspended':
-      return '#8E8E93';
+      return colors.muted;
     default:
-      return '#8E8E93';
+      return colors.muted;
   }
 };
 
@@ -349,7 +350,7 @@ const getStatusLabel = (status: string) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   header: {
     flexDirection: 'row',
@@ -358,13 +359,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   headerTitle: {
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     textAlign: 'center',
     marginHorizontal: 16,
   },
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   errorContainer: {
     flex: 1,
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   galleryContainer: {
     marginBottom: 20,
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
   mainImage: {
     width: '100%',
     height: 300,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   thumbnailsContainer: {
     paddingHorizontal: 16,
@@ -431,12 +432,12 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   thumbnailSelected: {
-    borderColor: '#F79F24',
+    borderColor: colors.primary,
   },
   thumbnailImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   infoContainer: {
     paddingHorizontal: 20,
@@ -445,18 +446,18 @@ const styles = StyleSheet.create({
   shopName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 8,
   },
   shopType: {
     fontSize: 16,
-    color: '#F79F24',
+    color: colors.primary,
     fontWeight: '600',
     marginBottom: 16,
   },
   description: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     lineHeight: 24,
     marginBottom: 24,
   },
@@ -466,7 +467,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 12,
   },
   contactRow: {
@@ -477,11 +478,11 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 15,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   addressText: {
     fontSize: 15,
-    color: '#1C1C1E',
+    color: colors.foreground,
     lineHeight: 22,
   },
   mapContainer: {
@@ -499,12 +500,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   dayLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   hoursText: {
     fontSize: 15,
@@ -512,11 +513,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   closedText: {
-    color: '#8E8E93',
+    color: colors.muted,
   },
   metaText: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.muted,
     marginBottom: 4,
   },
   footer: {
@@ -524,8 +525,8 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.surfaceWarm,
+    backgroundColor: colors.white,
   },
   rejectButton: {
     flex: 1,
@@ -555,7 +556,7 @@ const styles = StyleSheet.create({
   approveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 });
 

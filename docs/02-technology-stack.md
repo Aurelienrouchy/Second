@@ -95,7 +95,7 @@
 | Service | Package | Purpose |
 |---------|---------|---------|
 | Stripe | stripe | Payment processing |
-| Shippo | shippo | Shipping labels & tracking |
+| Intelcom | @intelcom/api | Shipping labels & tracking |
 
 ### AI Services
 | Service | Model | Purpose |

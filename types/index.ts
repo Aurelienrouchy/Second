@@ -58,6 +58,9 @@ export interface User {
   styleProfile?: StyleProfile;
   onboardingCompleted?: boolean;
   fcmTokens?: string[];  // Firebase Cloud Messaging tokens for push notifications
+  likedSellers?: string[];     // IDs des vendeurs aimés
+  sellerLikesCount?: number;   // Nombre de likes reçus en tant que vendeur
+  articlesCount?: number;      // Nombre d'articles actifs
 }
 
 export interface ArticleImage {
@@ -102,6 +105,11 @@ export interface Article {
   isHandDelivery?: boolean;
   isShipping?: boolean;
   packageSize?: 'small' | 'medium' | 'large';
+  // Price drop tracking
+  originalPrice?: number;         // Prix avant la premiere baisse
+  lastPriceDropAt?: Date;         // Date de la derniere baisse
+  priceDropPercent?: number;      // Pourcentage de reduction
+  promotionActive?: boolean;      // Promo activee manuellement par le vendeur
 }
 
 // Extended Article with location data used in search results
@@ -144,7 +152,8 @@ export interface ShippingEstimate {
   estimatedDays: string;
   amount: number;
   currency: string;
-  shippoRateId: string;
+  intelcomRateId: string;
+  intelcomServiceLevel?: string;
 }
 
 export interface MessageOffer {
@@ -188,6 +197,7 @@ export interface Chat {
   id: string;
   participants: string[];
   participantsInfo: ChatParticipant[];
+  sellerId?: string;
   articleId?: string;
   articleTitle?: string;
   articleImage?: string;
@@ -207,6 +217,18 @@ export interface Category {
   subcategories?: string[];
 }
 
+export type TransactionDeliveryType = 'meetup' | 'shipping';
+
+export type TransactionStatus =
+  | 'pending_payment'    // Awaiting Stripe payment (shipping only)
+  | 'meetup_pending'     // Meetup requested, awaiting seller confirmation
+  | 'meetup_confirmed'   // Seller confirmed meetup
+  | 'meetup_completed'   // Both parties confirmed exchange
+  | 'paid'               // Payment received (shipping)
+  | 'shipped'            // Package shipped
+  | 'delivered'          // Package delivered
+  | 'cancelled';         // Cancelled by either party
+
 export interface Transaction {
   id: string;
   articleId: string;
@@ -215,14 +237,38 @@ export interface Transaction {
   amount: number;
   shippingCost: number;
   totalAmount: number;
-  status: 'pending_payment' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  deliveryType: TransactionDeliveryType;
+  status: TransactionStatus;
+  // Service fee (commission Seconde)
+  serviceFee?: number;
+  serviceFeePercent?: number;
+  sellerPayout?: number;
+  // Helcim payment
+  helcimTransactionId?: number;
+  helcimApprovalCode?: string;
+  helcimCardLast4?: string;
+  helcimCardType?: string;
+  helcimSecretToken?: string;
+  // Legacy Stripe (kept for migration)
   paymentIntentId?: string;
-  shippoTransactionId?: string;
+  // ShipEngine shipping
+  shipEngineRateId?: string;
+  shipEngineLabelId?: string;
+  carrierCode?: string;
   shippingLabelUrl?: string;
   trackingNumber?: string;
   trackingStatus?: string;
   trackingUrl?: string;
   shippingAddress?: ShippingAddress;
+  // Legacy Intelcom (kept for migration)
+  intelcomBookingId?: string;
+  // Meetup details
+  meetupSpot?: MeetupSpot;
+  meetupConfirmedAt?: Date;
+  meetupCompletedAt?: Date;
+  // Chat reference
+  chatId?: string;
+  // Timestamps
   createdAt: Date;
   paidAt?: Date;
   shippedAt?: Date;
@@ -644,7 +690,17 @@ export interface SwapPhotoProof {
   isValidated: boolean;
 }
 
-// Swap - An exchange between two users
+// Info for a single item in a swap (used in arrays)
+export interface SwapItemInfo {
+  articleId: string;
+  title: string;
+  price: number;
+  imageUrl?: string;
+  brand?: string;
+  size?: string;
+}
+
+// Swap - An exchange between two users (supports multi-article)
 export interface Swap {
   id: string;
   partyId?: string; // Optional: if swap originated from a party
@@ -653,25 +709,23 @@ export interface Swap {
   initiatorId: string;
   initiatorName: string;
   initiatorImage?: string;
-  initiatorItemId: string;
-  initiatorItem: {
-    articleId: string;
-    title: string;
-    price: number;
-    imageUrl?: string;
-  };
+
+  // Multi-article: arrays of items on each side
+  initiatorItems: SwapItemInfo[];
+  receiverItems: SwapItemInfo[];
+  initiatorTotalValue: number;   // Sum of initiator items prices
+  receiverTotalValue: number;    // Sum of receiver items prices
+
+  // @deprecated — kept for backward compat with old single-item swaps
+  initiatorItemId?: string;
+  initiatorItem?: SwapItemInfo;
+  receiverItemId?: string;
+  receiverItem?: SwapItemInfo;
 
   // Receiver (person who received proposal)
   receiverId: string;
   receiverName: string;
   receiverImage?: string;
-  receiverItemId: string;
-  receiverItem: {
-    articleId: string;
-    title: string;
-    price: number;
-    imageUrl?: string;
-  };
 
   // Cash top-up (if any)
   cashTopUp?: {

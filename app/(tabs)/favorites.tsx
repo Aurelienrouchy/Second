@@ -2,16 +2,16 @@
  * Favorites Screen
  * Design System: Luxe Français + Street
  *
- * Features:
- * - Elegant empty state with Bleu Klein accent
- * - Product grid with new design
- * - Smooth animations
+ * Refactored:
+ * - Uses Zustand store instead of Context
+ * - Paginated with useInfiniteQuery (20 articles per page)
+ * - FlashList-ready rendering
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -22,20 +22,19 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
 // Design System
 import { colors, spacing } from '@/constants/theme';
-import { Button, H1, H2, Body, Caption } from '@/components/ui';
+import { Button, H1, H2, Body, Caption, ScreenHeader } from '@/components/ui';
 
 // Components
 import ProductGrid from '@/components/ProductGrid';
 
-// Hooks & Contexts
+// Hooks & Services
+import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
 import { useAuth } from '@/contexts/AuthContext';
-import { useFavorites } from '@/contexts/FavoritesContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
-
-// Services & Types
 import { FavoritesService } from '@/services/favoritesService';
 import { Article, ArticleWithLocation } from '@/types';
 
@@ -80,89 +79,123 @@ const LoadingState: React.FC = () => (
 // MAIN COMPONENT
 // =============================================================================
 
+const PAGE_SIZE = 20;
+
 export default function FavoritesScreen() {
-  const [favoriteArticles, setFavoriteArticles] = useState<Article[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
   const router = useRouter();
-  const { favorites, toggleFavorite } = useFavorites();
-  const { requireAuth } = useAuthRequired();
   const { user } = useAuth();
+  const { requireAuth } = useAuthRequired();
+  const { toggleFavorite, favoriteIds: articleIds } = useFavorites();
 
-  // Load favorites
-  useEffect(() => {
-    requireAuth(loadFavoriteArticles, 'Vous devez être connecté pour voir vos favoris.');
-  }, [favorites]);
+  // ── Paginated query ──────────────────────────────────────────────────────
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: favoritesKeys.list(user?.id ?? 'guest'),
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!user) return { articles: [], nextCursor: null };
+      return FavoritesService.getUserFavoriteArticlesPaginated(
+        user.id,
+        pageParam,
+        PAGE_SIZE
+      );
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const loadFavoriteArticles = useCallback(async () => {
-    if (favorites.length === 0) {
-      setFavoriteArticles([]);
-      setIsLoading(false);
-      return;
-    }
+  // Flatten pages into a single array
+  const favoriteArticles = data?.pages.flatMap((p) => p.articles) ?? [];
 
-    setIsLoading(true);
-    try {
-      const articles = await FavoritesService.getUserFavoriteArticles(user!.id);
-      setFavoriteArticles(articles);
-    } catch (error) {
-      console.error('Error loading favorite articles:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [favorites, user]);
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleRemoveFavorite = useCallback(
+    (articleId: string) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      toggleFavorite(articleId);
+    },
+    [toggleFavorite]
+  );
 
-  // Handlers
-  const handleRemoveFavorite = useCallback((articleId: string) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    toggleFavorite(articleId);
-  }, [toggleFavorite]);
-
-  const handleArticlePress = useCallback((article: Article | ArticleWithLocation) => {
-    router.push(`/article/${article.id}`);
-  }, [router]);
+  const handleArticlePress = useCallback(
+    (article: Article | ArticleWithLocation) => {
+      router.push(`/article/${article.id}`);
+    },
+    [router]
+  );
 
   const handleBrowse = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/(tabs)');
   }, [router]);
 
-  // All favorites are liked
-  const isFavoriteAlways = useCallback(() => true, []);
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // ── Guard: not logged in ─────────────────────────────────────────────────
+  const handleAuthCheck = useCallback(() => {
+    requireAuth(() => {}, 'Vous devez être connecté pour voir vos favoris.');
+  }, [requireAuth]);
+
+  // Show empty or auth if no user
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Mes favoris" showBack={false} />
+        <EmptyState onBrowse={handleAuthCheck} />
+      </View>
+    );
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  const isEmpty = !isLoading && favoriteArticles.length === 0 && articleIds.length === 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <Animated.View
-        entering={FadeIn.duration(300)}
-        style={styles.header}
-      >
-        <H1 style={styles.title}>Mes favoris</H1>
-        {favoriteArticles.length > 0 && (
-          <Caption style={styles.count}>
-            {favoriteArticles.length} article{favoriteArticles.length > 1 ? 's' : ''}
-          </Caption>
-        )}
-      </Animated.View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Mes favoris"
+        showBack={false}
+        rightContent={
+          articleIds.length > 0 ? (
+            <Caption style={styles.count}>
+              {articleIds.length} article{articleIds.length > 1 ? 's' : ''}
+            </Caption>
+          ) : undefined
+        }
+      />
 
       {/* Content */}
       {isLoading ? (
         <LoadingState />
-      ) : favoriteArticles.length === 0 ? (
+      ) : isEmpty ? (
         <EmptyState onBrowse={handleBrowse} />
       ) : (
         <ProductGrid
           articles={favoriteArticles}
           isLoading={false}
           onProductPress={handleArticlePress}
-          onToggleLike={handleRemoveFavorite}
-          isFavorite={isFavoriteAlways}
           emptyMessage="Aucun favori trouvé"
           emptyIcon="heart-outline"
           testID="favorites-grid"
+          onEndReached={handleLoadMore}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
+          }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -176,18 +209,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  // Header
-  header: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  title: {
-    textAlign: 'center',
-  },
   count: {
     marginTop: spacing.xs,
   },
@@ -226,5 +247,11 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: spacing.md,
+  },
+
+  // Footer loader for pagination
+  footerLoader: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
 });

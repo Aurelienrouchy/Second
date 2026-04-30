@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import ConfidenceIndicator from './ConfidenceIndicator';
 import { ConfidenceLevel } from '@/types/ai';
+import { colors } from '@/constants/theme';
 
 interface EditableFieldProps {
   label: string;
@@ -103,7 +104,7 @@ export default function EditableField({
             style={styles.editButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="pencil" size={16} color="#6B7280" />
+            <Ionicons name="pencil" size={16} color={colors.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -118,7 +119,7 @@ export default function EditableField({
               value={editValue}
               onChangeText={setEditValue}
               placeholder={placeholder}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.muted}
               multiline={true}
               maxLength={maxLength}
               textAlignVertical="top"
@@ -134,7 +135,7 @@ export default function EditableField({
                 value={editValue}
                 onChangeText={setEditValue}
                 placeholder={placeholder}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 maxLength={maxLength}
                 keyboardType={keyboardType}
               />
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   required: {
-    color: '#EF4444',
+    color: colors.danger,
   },
   editButton: {
     padding: 4,
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   displayText: {
     fontSize: 16,
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   displayTextEmpty: {
-    color: '#9CA3AF',
+    color: colors.muted,
     fontStyle: 'italic',
   },
   displayTextMultiline: {
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#8B5CF6',
+    borderColor: colors.secondary,
     padding: 12,
   },
   inputRow: {
@@ -261,12 +262,12 @@ const styles = StyleSheet.create({
   },
   suffix: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.muted,
     fontWeight: '500',
   },
   charCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.muted,
     textAlign: 'right',
     marginTop: 8,
   },
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   cancelButton: {
     paddingVertical: 8,
@@ -286,10 +287,10 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: colors.muted,
   },
   confirmButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.secondary,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,

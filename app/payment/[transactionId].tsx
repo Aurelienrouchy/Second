@@ -1,36 +1,54 @@
-import { Ionicons } from '@expo/vector-icons';
-import { CardField, useStripe } from '@stripe/stripe-react-native';
-import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+/**
+ * Payment Screen — Helcim HelcimPay.js
+ * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
+ *
+ * Used when navigating to an existing pending_payment transaction.
+ * Creates a Helcim checkout session and opens the payment WebView.
+ */
+
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { httpsCallable } from '@react-native-firebase/functions';
-import { functions } from '@/config/firebaseConfig';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { httpsCallable } from 'firebase/functions';
 
+import { ScreenHeader } from '@/components/ui';
+import { HelcimPayment, HelcimPaymentResult } from '@/components/HelcimPayment';
+import { functions } from '@/config/firebaseConfig';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { TransactionService } from '@/services/transactionService';
 import { Transaction } from '@/types';
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 
 export default function PaymentScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { confirmPayment } = useStripe();
 
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [cardComplete, setCardComplete] = useState(false);
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
+
+  // Helcim
+  const [checkoutToken, setCheckoutToken] = useState<string | null>(null);
+  const [showHelcimPayment, setShowHelcimPayment] = useState(false);
+
+  // =============================================================================
+  // LOAD TRANSACTION
+  // =============================================================================
 
   useEffect(() => {
     loadTransaction();
@@ -42,23 +60,21 @@ export default function PaymentScreen() {
     try {
       setIsLoading(true);
       const trans = await TransactionService.getTransaction(transactionId);
-      
+
       if (!trans) {
         Alert.alert('Erreur', 'Transaction introuvable');
         router.back();
         return;
       }
 
-      // Verify user is the buyer
       if (trans.buyerId !== user?.id) {
         Alert.alert('Erreur', 'Vous n\'êtes pas autorisé pour cette transaction');
         router.back();
         return;
       }
 
-      // Check if already paid
       if (trans.status !== 'pending_payment') {
-        Alert.alert('Information', 'Cette transaction a déjà été payée');
+        Alert.alert('Information', 'Cette transaction a déjà été traitée');
         router.back();
         return;
       }
@@ -73,325 +89,345 @@ export default function PaymentScreen() {
     }
   };
 
-  const handlePayment = async () => {
-    if (!transaction || !cardComplete) {
-      Alert.alert('Erreur', 'Veuillez remplir toutes les informations de carte');
-      return;
-    }
+  // =============================================================================
+  // HELCIM PAYMENT
+  // =============================================================================
+
+  const handlePay = async () => {
+    if (!transaction || isCreatingCheckout) return;
 
     try {
-      setIsProcessing(true);
+      setIsCreatingCheckout(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Call Cloud Function to create Payment Intent
-      const createPaymentIntent = httpsCallable(functions, 'createPaymentIntent');
-      const result = await createPaymentIntent({ transactionId: transaction.id });
-      
-      const data = result.data as any;
-      if (!data.success || !data.clientSecret) {
-        throw new Error('Failed to create payment intent');
+      const createCheckout = httpsCallable(functions, 'createHelcimCheckout');
+      const result = await createCheckout({ transactionId: transaction.id });
+      const data = result.data as { success: boolean; checkoutToken: string };
+
+      if (!data.success || !data.checkoutToken) {
+        throw new Error('Impossible de créer la session de paiement');
       }
 
-      // Confirm payment with Stripe
-      const { error, paymentIntent } = await confirmPayment(data.clientSecret, {
-        paymentMethodType: 'Card',
-      });
-
-      if (error) {
-        console.error('Payment error:', error);
-        Alert.alert('Paiement échoué', error.message);
-        return;
-      }
-
-      if (paymentIntent?.status === 'Succeeded') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Paiement réussi !',
-          'Votre paiement a été confirmé. L\'étiquette d\'expédition sera générée automatiquement.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
-      }
+      setCheckoutToken(data.checkoutToken);
+      setShowHelcimPayment(true);
     } catch (error: any) {
-      console.error('Payment processing error:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
+      console.error('Error creating checkout:', error);
+      Alert.alert('Erreur', error.message || 'Impossible d\'initier le paiement.');
     } finally {
-      setIsProcessing(false);
+      setIsCreatingCheckout(false);
     }
   };
 
+  const handlePaymentResult = useCallback(
+    async (result: HelcimPaymentResult) => {
+      setShowHelcimPayment(false);
+      setCheckoutToken(null);
+
+      if (!result.success) {
+        if (result.error !== 'cancelled') {
+          Alert.alert('Paiement échoué', result.error || 'Veuillez réessayer.');
+        }
+        return;
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Paiement confirmé !',
+        'L\'étiquette d\'expédition sera générée automatiquement. Le vendeur sera notifié.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    },
+    [router]
+  );
+
+  // =============================================================================
+  // DERIVED
+  // =============================================================================
+
+  const serviceFee = transaction?.serviceFee || 0;
+  const totalAmount = transaction?.totalAmount || 0;
+
+  // =============================================================================
+  // RENDER
+  // =============================================================================
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
-          <Text style={styles.loadingText}>Chargement...</Text>
-        </View>
-      </SafeAreaView>
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={colors.charcoal} />
+        <Text style={styles.loadingText}>Chargement...</Text>
+      </View>
     );
   }
 
-  if (!transaction) {
-    return null;
-  }
+  if (!transaction) return null;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Paiement</Text>
-          <View style={{ width: 24 }} />
-        </View>
+    <View style={styles.container}>
+      <ScreenHeader title="Paiement" onBack={() => router.back()} />
 
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Order Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Récapitulatif de la commande</Text>
-          
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Article</Text>
-              <Text style={styles.summaryValue}>{transaction.amount.toFixed(2)}€</Text>
-            </View>
+        <Text style={styles.sectionTitle}>RÉCAPITULATIF</Text>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Article</Text>
+            <Text style={styles.summaryValue}>{transaction.amount.toFixed(2)}$</Text>
+          </View>
 
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Frais de livraison</Text>
-              <Text style={styles.summaryValue}>{transaction.shippingCost.toFixed(2)}€</Text>
-            </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Livraison</Text>
+            <Text style={styles.summaryValue}>{transaction.shippingCost.toFixed(2)}$</Text>
+          </View>
 
-            <View style={styles.divider} />
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Frais de protection Seconde</Text>
+            <Text style={styles.summaryValue}>{serviceFee.toFixed(2)}$</Text>
+          </View>
 
-            <View style={styles.summaryRow}>
-              <Text style={styles.totalLabel}>Total à payer</Text>
-              <Text style={styles.totalValue}>{transaction.totalAmount.toFixed(2)}€</Text>
-            </View>
+          <View style={styles.divider} />
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalLabel}>Total à payer</Text>
+            <Text style={styles.totalValue}>{totalAmount.toFixed(2)}$</Text>
           </View>
         </View>
 
         {/* Shipping Address */}
         {transaction.shippingAddress && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Adresse de livraison</Text>
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>ADRESSE DE LIVRAISON</Text>
             <View style={styles.addressCard}>
-              <Text style={styles.addressText}>{transaction.shippingAddress.name}</Text>
-              <Text style={styles.addressText}>{transaction.shippingAddress.street}</Text>
-              <Text style={styles.addressText}>
-                {transaction.shippingAddress.postalCode} {transaction.shippingAddress.city}
-              </Text>
-              <Text style={styles.addressText}>{transaction.shippingAddress.country}</Text>
-              {transaction.shippingAddress.phoneNumber && (
-                <Text style={styles.addressText}>{transaction.shippingAddress.phoneNumber}</Text>
-              )}
+              <Ionicons name="location-outline" size={18} color={colors.muted} />
+              <View style={styles.addressText}>
+                <Text style={styles.addressName}>{transaction.shippingAddress.name}</Text>
+                <Text style={styles.addressLine}>{transaction.shippingAddress.street}</Text>
+                <Text style={styles.addressLine}>
+                  {transaction.shippingAddress.postalCode} {transaction.shippingAddress.city}
+                </Text>
+              </View>
             </View>
-          </View>
+          </>
         )}
 
-        {/* Payment Method */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations de paiement</Text>
-          
-          <View style={styles.cardFieldContainer}>
-            <CardField
-              postalCodeEnabled={true}
-              placeholder={{
-                number: '4242 4242 4242 4242',
-              }}
-              cardStyle={styles.cardField}
-              style={styles.cardFieldWrapper}
-              onCardChange={(cardDetails) => {
-                setCardComplete(cardDetails.complete);
-              }}
-            />
-          </View>
-
-          <View style={styles.secureInfo}>
-            <Ionicons name="lock-closed" size={16} color="#34C759" />
-            <Text style={styles.secureText}>Paiement 100% sécurisé par Stripe</Text>
+        {/* Security info */}
+        <View style={styles.securityBox}>
+          <Ionicons name="shield-checkmark" size={18} color={colors.success} />
+          <View style={styles.securityTextContainer}>
+            <Text style={styles.securityTitle}>Protection Seconde</Text>
+            <Text style={styles.securityDesc}>
+              Paiement sécurisé par Helcim. Vos données bancaires ne transitent jamais par Seconde. Remboursement si l'article ne correspond pas.
+            </Text>
           </View>
         </View>
+      </ScrollView>
 
-        {/* Payment Button */}
+      {/* Footer — Pay button */}
+      <View style={styles.footer}>
         <Pressable
-          style={[
-            styles.payButton,
-            (!cardComplete || isProcessing) && styles.payButtonDisabled,
-          ]}
-          onPress={handlePayment}
-          disabled={!cardComplete || isProcessing}
+          style={[styles.payButton, isCreatingCheckout && styles.payButtonDisabled]}
+          onPress={handlePay}
+          disabled={isCreatingCheckout}
         >
-          {isProcessing ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+          {isCreatingCheckout ? (
+            <ActivityIndicator size="small" color={colors.cream} />
           ) : (
             <>
-              <Ionicons name="card" size={20} color="#FFFFFF" />
+              <Ionicons name="lock-closed-outline" size={16} color={colors.cream} />
               <Text style={styles.payButtonText}>
-                Payer {transaction.totalAmount.toFixed(2)}€
+                PAYER {totalAmount.toFixed(2)}$
               </Text>
             </>
           )}
         </Pressable>
-
         <Text style={styles.disclaimer}>
-          En confirmant le paiement, vous acceptez nos conditions générales de vente
+          En confirmant, vous acceptez les conditions générales de vente de Seconde
         </Text>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+
+      {/* Helcim Payment Modal */}
+      {checkoutToken && (
+        <HelcimPayment
+          checkoutToken={checkoutToken}
+          visible={showHelcimPayment}
+          onResult={handlePaymentResult}
+          onClose={() => {
+            setShowHelcimPayment(false);
+            setCheckoutToken(null);
+          }}
+          totalAmount={totalAmount}
+        />
+      )}
+    </View>
   );
 }
+
+// =============================================================================
+// STYLES
+// =============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
+  centered: {
     justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.md,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    padding: 20,
+    paddingBottom: 32,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  backButton: {
-    width: 24,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  section: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
+
+  // Section title
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    letterSpacing: 1.8,
+    color: colors.muted,
     marginBottom: 12,
+    textTransform: 'uppercase',
   },
+
+  // Summary card
   summaryCard: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: spacing.md,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   summaryLabel: {
-    fontSize: 14,
-    color: '#666',
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.muted,
+    flex: 1,
   },
   summaryValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.border,
     marginVertical: 8,
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.charcoal,
   },
   totalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F79F24',
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 22,
+    color: colors.rust,
   },
+
+  // Address card
   addressCard: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 16,
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.md,
   },
   addressText: {
+    flex: 1,
+  },
+  addressName: {
+    fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: '#1C1C1E',
+    color: colors.charcoal,
     marginBottom: 4,
   },
-  cardFieldContainer: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  addressLine: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.muted,
+    lineHeight: 18,
   },
-  cardFieldWrapper: {
-    height: 50,
-  },
-  cardField: {
-    backgroundColor: '#FFFFFF',
-    textColor: '#1C1C1E',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-  },
-  secureInfo: {
+
+  // Security box
+  securityBox: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
-  secureText: {
-    fontSize: 12,
-    color: '#34C759',
-    fontWeight: '500',
+  securityTextContainer: {
+    flex: 1,
+  },
+  securityTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
+    marginBottom: 4,
+  },
+  securityDesc: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.foregroundSecondary,
+    lineHeight: 16,
+  },
+
+  // Footer
+  footer: {
+    backgroundColor: colors.cream,
+    paddingTop: spacing.md,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   payButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginHorizontal: 20,
-    marginTop: 32,
+    backgroundColor: colors.rust,
+    paddingVertical: 14,
+    borderRadius: radius.md,
     gap: 8,
   },
   payButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
   payButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    letterSpacing: 2.16,
+    color: colors.cream,
+    textTransform: 'uppercase',
   },
   disclaimer: {
-    fontSize: 12,
-    color: '#8E8E93',
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.muted,
     textAlign: 'center',
-    marginTop: 16,
-    marginHorizontal: 20,
-    lineHeight: 16,
+    marginTop: spacing.sm,
+    lineHeight: 14,
   },
 });
-

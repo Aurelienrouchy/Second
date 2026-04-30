@@ -13,6 +13,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -69,9 +70,9 @@ const SIZES = [
 
 const COLORS = [
   { id: 'noir', label: 'Noir', color: '#000000' },
-  { id: 'blanc', label: 'Blanc', color: '#FFFFFF' },
-  { id: 'gris', label: 'Gris', color: '#8E8E93' },
-  { id: 'bleu', label: 'Bleu', color: '#007AFF' },
+  { id: 'blanc', label: 'Blanc', color: colors.white },
+  { id: 'gris', label: 'Gris', color: colors.muted },
+  { id: 'bleu', label: 'Bleu', color: colors.primary },
   { id: 'rouge', label: 'Rouge', color: '#FF3B30' },
   { id: 'vert', label: 'Vert', color: '#34C759' },
   { id: 'jaune', label: 'Jaune', color: '#FFCC00' },
@@ -79,7 +80,7 @@ const COLORS = [
   { id: 'violet', label: 'Violet', color: '#AF52DE' },
   { id: 'orange', label: 'Orange', color: '#FF9500' },
   { id: 'marron', label: 'Marron', color: '#A2845E' },
-  { id: 'beige', label: 'Beige', color: '#F2F2F7' },
+  { id: 'beige', label: 'Beige', color: colors.surfaceWarm },
 ];
 
 export default function FiltersScreen() {
@@ -156,7 +157,7 @@ export default function FiltersScreen() {
   const renderHeader = () => (
     <View style={[styles.header]}>
       <Pressable onPress={handleCancel} style={styles.headerButton}>
-        <Ionicons name="close" size={24} color="#1C1C1E" />
+        <Ionicons name="close" size={24} color={colors.foreground} />
       </Pressable>
       <Text style={styles.headerTitle}>
         Filtres {activeFiltersCount > 0 && `(${activeFiltersCount})`}
@@ -181,8 +182,8 @@ export default function FiltersScreen() {
             maximumValue={maxPrice}
             value={filters.priceMin || 0}
             onValueChange={(value) => updateFilter('priceMin', Math.round(value))}
-            minimumTrackTintColor="#007AFF"
-            maximumTrackTintColor="#E5E5EA"
+            minimumTrackTintColor={colors.primary}
+            maximumTrackTintColor={colors.border}
           />
           <Slider
             style={styles.slider}
@@ -190,8 +191,8 @@ export default function FiltersScreen() {
             maximumValue={maxPrice}
             value={filters.priceMax || maxPrice}
             onValueChange={(value) => updateFilter('priceMax', Math.round(value))}
-            minimumTrackTintColor="#007AFF"
-            maximumTrackTintColor="#E5E5EA"
+            minimumTrackTintColor={colors.primary}
+            maximumTrackTintColor={colors.border}
           />
         </View>
       </View>
@@ -211,8 +212,8 @@ export default function FiltersScreen() {
           maximumValue={maxDistance}
           value={filters.maxDistance || maxDistance}
           onValueChange={(value) => updateFilter('maxDistance', Math.round(value))}
-          minimumTrackTintColor="#007AFF"
-          maximumTrackTintColor="#E5E5EA"
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor={colors.border}
         />
       </View>
     </View>
@@ -224,7 +225,7 @@ export default function FiltersScreen() {
       <View style={styles.deliveryContainer}>
         <View style={styles.deliveryOption}>
           <View style={styles.deliveryInfo}>
-            <Ionicons name="car-outline" size={20} color="#1C1C1E" />
+            <Ionicons name="car-outline" size={20} color={colors.foreground} />
             <Text style={styles.deliveryLabel}>Remise en main propre</Text>
           </View>
           <Switch
@@ -232,13 +233,13 @@ export default function FiltersScreen() {
             onValueChange={(value) =>
               updateFilter('deliveryOptions', { ...filters.deliveryOptions, pickup: value })
             }
-            trackColor={{ false: '#E5E5EA', true: '#007AFF' }}
+            trackColor={{ false: colors.border, true: colors.primary }}
             thumbColor="#FFFFFF"
           />
         </View>
         <View style={styles.deliveryOption}>
           <View style={styles.deliveryInfo}>
-            <Ionicons name="send-outline" size={20} color="#1C1C1E" />
+            <Ionicons name="send-outline" size={20} color={colors.foreground} />
             <Text style={styles.deliveryLabel}>Envoi postal</Text>
           </View>
           <Switch
@@ -246,7 +247,7 @@ export default function FiltersScreen() {
             onValueChange={(value) =>
               updateFilter('deliveryOptions', { ...filters.deliveryOptions, shipping: value })
             }
-            trackColor={{ false: '#E5E5EA', true: '#007AFF' }}
+            trackColor={{ false: colors.border, true: colors.primary }}
             thumbColor="#FFFFFF"
           />
         </View>
@@ -269,7 +270,7 @@ export default function FiltersScreen() {
               <Ionicons
                 name={condition.icon as any}
                 size={16}
-                color={isSelected ? '#FFFFFF' : '#1C1C1E'}
+                color={isSelected ? colors.white : colors.foreground}
                 style={styles.optionIcon}
               />
               <Text style={[styles.optionText, isSelected && styles.selectedText]}>
@@ -390,7 +391,7 @@ export default function FiltersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   header: {
     flexDirection: 'row',
@@ -400,8 +401,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingTop: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: colors.surfaceWarm,
+    backgroundColor: colors.white,
   },
   headerButton: {
     minWidth: 60,
@@ -410,7 +411,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   resetText: {
     fontSize: 16,
@@ -426,12 +427,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 12,
   },
   
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#007AFF',
+    color: colors.primary,
     marginBottom: 8,
   },
   sliderContainer: {
@@ -460,7 +461,7 @@ const styles = StyleSheet.create({
   distanceLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#007AFF',
+    color: colors.primary,
     marginBottom: 8,
   },
   
@@ -479,7 +480,7 @@ const styles = StyleSheet.create({
   },
   deliveryLabel: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginLeft: 12,
   },
   
@@ -496,12 +497,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    backgroundColor: '#F2F2F7',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceWarm,
   },
   selectedChip: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   optionIcon: {
     marginRight: 4,
@@ -509,10 +510,10 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   selectedText: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   
   // Size Chips
@@ -521,8 +522,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    backgroundColor: '#F2F2F7',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceWarm,
     minWidth: 50,
     alignItems: 'center',
   },
@@ -543,7 +544,7 @@ const styles = StyleSheet.create({
   },
   selectedColorChip: {
     backgroundColor: '#F0F8FF',
-    borderColor: '#007AFF',
+    borderColor: colors.primary,
   },
   colorSwatch: {
     width: 24,
@@ -553,20 +554,20 @@ const styles = StyleSheet.create({
   },
   whiteColorBorder: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.border,
   },
   colorText: {
     fontSize: 12,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   
   // Footer
   footer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     paddingHorizontal: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    borderTopColor: colors.surfaceWarm,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -574,7 +575,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   applyButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -582,6 +583,6 @@ const styles = StyleSheet.create({
   applyButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 });

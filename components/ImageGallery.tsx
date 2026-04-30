@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Dimensions,
     Modal,
@@ -10,13 +10,18 @@ import {
     Text,
     View,
 } from 'react-native';
-import { GestureHandlerRootView, PinchGestureHandler } from 'react-native-gesture-handler';
+import {
+    Gesture,
+    GestureDetector,
+    GestureHandlerRootView,
+} from 'react-native-gesture-handler';
 import Animated, {
-    useAnimatedGestureHandler,
     useAnimatedStyle,
     useSharedValue,
     withSpring,
+    withTiming,
 } from 'react-native-reanimated';
+import { colors } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -30,62 +35,84 @@ interface ImageGalleryProps {
   onImageIndexChange?: (index: number) => void;
 }
 
+// ─── Animated Dot ───
+interface AnimatedDotProps {
+  index: number;
+  currentIndex: number;
+  total: number;
+}
+
+const AnimatedDot: React.FC<AnimatedDotProps> = ({ index, currentIndex }) => {
+  const isActive = index === currentIndex;
+  const width = useSharedValue(isActive ? 20 : 6);
+  const opacity = useSharedValue(isActive ? 1 : 0.45);
+
+  useEffect(() => {
+    width.value = withSpring(isActive ? 20 : 6, {
+      damping: 15,
+      stiffness: 200,
+    });
+    opacity.value = withTiming(isActive ? 1 : 0.45, { duration: 200 });
+  }, [isActive]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    width: width.value,
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        animatedStyle,
+        isActive && styles.activeDot,
+      ]}
+    />
+  );
+};
+
+// ─── Main Component ───
 const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isZoomModalVisible, setIsZoomModalVisible] = useState(false);
   const scale = useSharedValue(1);
 
-  const handleScroll = (event: any) => {
+  const handleScroll = useCallback((event: any) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    if (index !== currentIndex) {
-      setCurrentIndex(index);
-      onImageIndexChange?.(index);
+    const clampedIndex = Math.max(0, Math.min(index, images.length - 1));
+    if (clampedIndex !== currentIndex) {
+      setCurrentIndex(clampedIndex);
+      onImageIndexChange?.(clampedIndex);
     }
-  };
+  }, [currentIndex, images.length, onImageIndexChange]);
 
-  const handleImagePress = (index: number) => {
+  const handleImagePress = useCallback((index: number) => {
     setCurrentIndex(index);
     setIsZoomModalVisible(true);
-  };
+  }, []);
 
-  const handleCloseZoom = () => {
+  const handleCloseZoom = useCallback(() => {
     scale.value = withSpring(1);
     setIsZoomModalVisible(false);
-  };
+  }, [scale]);
 
-  const pinchHandler = useAnimatedGestureHandler({
-    onActive: (event) => {
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((event) => {
       scale.value = event.scale;
-    },
-    onEnd: () => {
+    })
+    .onEnd(() => {
       if (scale.value < 1) {
         scale.value = withSpring(1);
       } else if (scale.value > 3) {
         scale.value = withSpring(3);
       }
-    },
-  });
+    });
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: scale.value }],
     };
   });
-
-  const renderDots = () => {
-    if (images.length <= 1) return null;
-
-    return (
-      <View style={styles.dotsContainer}>
-        {images.map((_, index) => (
-          <View
-            key={index}
-            style={[styles.dot, index === currentIndex && styles.activeDot]}
-          />
-        ))}
-      </View>
-    );
-  };
 
   return (
     <>
@@ -100,25 +127,33 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange 
         >
           {images.map((image, index) => (
             <Pressable key={index} onPress={() => handleImagePress(index)}>
-              <Animated.View sharedTransitionTag={index === 0 ? 'article-image' : undefined}>
-                <Image
-                  source={{ uri: image.url || 'https://via.placeholder.com/400x500' }}
-                  style={styles.image}
-                  contentFit="cover"
-                  transition={300}
-                  placeholder={image.blurhash ? { blurhash: image.blurhash } : undefined}
-                />
-              </Animated.View>
-              <View style={styles.zoomIndicator}>
-                <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
-              </View>
+              <Image
+                source={{ uri: image.url || 'https://via.placeholder.com/400x500' }}
+                style={styles.image}
+                contentFit="cover"
+                transition={300}
+                placeholder={image.blurhash ? { blurhash: image.blurhash } : undefined}
+              />
             </Pressable>
           ))}
         </ScrollView>
-        {renderDots()}
+
+        {/* Animated dots */}
+        {images.length > 1 && (
+          <View style={styles.dotsContainer}>
+            {images.map((_, index) => (
+              <AnimatedDot
+                key={index}
+                index={index}
+                currentIndex={currentIndex}
+                total={images.length}
+              />
+            ))}
+          </View>
+        )}
       </View>
 
-      {/* Zoom Modal */}
+      {/* Zoom Modal — Full-screen pinch-to-zoom */}
       <Modal
         visible={isZoomModalVisible}
         transparent
@@ -140,14 +175,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange 
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              scrollEnabled={scale.value <= 1}
               onMomentumScrollEnd={handleScroll}
-              initialScrollIndex={currentIndex}
               contentOffset={{ x: currentIndex * SCREEN_WIDTH, y: 0 }}
             >
               {images.map((image, index) => (
                 <View key={index} style={styles.zoomImageContainer}>
-                  <PinchGestureHandler onGestureEvent={pinchHandler}>
+                  <GestureDetector gesture={pinchGesture}>
                     <Animated.View style={[styles.zoomImageWrapper, animatedStyle]}>
                       <Image
                         source={{ uri: image.url || 'https://via.placeholder.com/400x500' }}
@@ -156,7 +189,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange 
                         transition={300}
                       />
                     </Animated.View>
-                  </PinchGestureHandler>
+                  </GestureDetector>
                 </View>
               ))}
             </ScrollView>
@@ -174,20 +207,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange 
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    backgroundColor: '#000000',
+    backgroundColor: colors.surfaceWarm,
   },
   image: {
     width: SCREEN_WIDTH,
     height: SCREEN_WIDTH * 1.2,
-    backgroundColor: '#F2F2F7',
-  },
-  zoomIndicator: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 20,
-    padding: 8,
+    backgroundColor: colors.surfaceWarm,
   },
   dotsContainer: {
     position: 'absolute',
@@ -196,17 +221,16 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 6,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
   },
   activeDot: {
     backgroundColor: '#FFFFFF',
-    width: 24,
   },
   modalContainer: {
     flex: 1,
@@ -258,4 +282,3 @@ const styles = StyleSheet.create({
 });
 
 export default ImageGallery;
-

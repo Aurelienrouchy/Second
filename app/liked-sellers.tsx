@@ -1,0 +1,416 @@
+/**
+ * Liked Sellers Screen
+ * Shows list of sellers the user has liked, with ability to unlike
+ */
+
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatDisplayName } from '@/utils/formatName';
+import { httpsCallable } from 'firebase/functions';
+
+// Design System
+import { colors, fonts, spacing, radius, animations, typography } from '@/constants/theme';
+
+// Hooks
+import { useAuth } from '@/contexts/AuthContext';
+import { useSellerLikes } from '@/hooks/useSellerLikes';
+import { functions } from '@/config/firebaseConfig';
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface LikedSeller {
+  id: string;
+  displayName: string;
+  profileImage?: string;
+  rating?: number;
+  articlesCount: number;
+  sellerLikesCount: number;
+}
+
+// =============================================================================
+// SELLER CARD
+// =============================================================================
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+interface SellerCardProps {
+  seller: LikedSeller;
+  isLiked: boolean;
+  onPress: () => void;
+  onToggleLike: () => void;
+  index: number;
+}
+
+const SellerCard: React.FC<SellerCardProps> = ({
+  seller,
+  isLiked,
+  onPress,
+  onToggleLike,
+  index,
+}) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.97, animations.spring.snappy);
+  }, [scale]);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, animations.spring.bouncy);
+  }, [scale]);
+
+  // Generate gradient for avatar fallback
+  const initial = seller.displayName?.[0]?.toUpperCase() || '?';
+
+  return (
+    <AnimatedPressable
+      entering={FadeInDown.duration(300).delay(index * 60)}
+      style={[styles.sellerCard, animatedStyle]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+    >
+      {/* Avatar */}
+      {seller.profileImage ? (
+        <Image
+          source={{ uri: seller.profileImage }}
+          style={styles.avatar}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View style={[styles.avatar, styles.avatarFallback]}>
+          <Text style={styles.avatarInitial}>{initial}</Text>
+        </View>
+      )}
+
+      {/* Info */}
+      <View style={styles.sellerInfo}>
+        <Text style={styles.sellerName} numberOfLines={1}>{formatDisplayName(seller.displayName)}</Text>
+        <View style={styles.sellerStats}>
+          {seller.rating != null && (
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={12} color="#E09F3E" />
+              <Text style={styles.ratingText}>{seller.rating.toFixed(1)}</Text>
+            </View>
+          )}
+          <Text style={styles.statText}>{seller.articlesCount} articles</Text>
+          <Text style={styles.statDot}>·</Text>
+          <View style={styles.likesRow}>
+            <Ionicons name="heart" size={10} color={colors.muted} />
+            <Text style={styles.statText}>{seller.sellerLikesCount}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Like button */}
+      <Pressable
+        style={styles.likeButton}
+        onPress={(e) => {
+          e.stopPropagation?.();
+          onToggleLike();
+        }}
+        hitSlop={12}
+      >
+        <Ionicons
+          name={isLiked ? 'heart' : 'heart-outline'}
+          size={20}
+          color={isLiked ? colors.danger : colors.muted}
+        />
+      </Pressable>
+
+      {/* Chevron */}
+      <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+    </AnimatedPressable>
+  );
+};
+
+// =============================================================================
+// MAIN SCREEN
+// =============================================================================
+
+export default function LikedSellersScreen() {
+  const { user } = useAuth();
+  const { likedSellerIds, toggleLike } = useSellerLikes(user?.id);
+  const [sellers, setSellers] = useState<LikedSeller[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch liked sellers details
+  useEffect(() => {
+    const fetchSellers = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const getLikedSellers = httpsCallable(functions, 'getLikedSellers');
+        const result = await getLikedSellers({});
+        const data = result.data as { sellers: LikedSeller[] };
+        setSellers(data.sellers || []);
+      } catch (err) {
+        console.error('Error fetching liked sellers:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSellers();
+  }, [user?.id, likedSellerIds.length]);
+
+  const handleSellerPress = useCallback((sellerId: string) => {
+    router.push(`/seller/${sellerId}` as any);
+  }, []);
+
+  const handleToggleLike = useCallback((sellerId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    toggleLike(sellerId);
+  }, [toggleLike]);
+
+  const renderSeller = useCallback(({ item, index }: { item: LikedSeller; index: number }) => (
+    <SellerCard
+      seller={item}
+      isLiked={likedSellerIds.includes(item.id)}
+      onPress={() => handleSellerPress(item.id)}
+      onToggleLike={() => handleToggleLike(item.id)}
+      index={index}
+    />
+  ), [likedSellerIds, handleSellerPress, handleToggleLike]);
+
+  const renderEmpty = useCallback(() => {
+    if (isLoading) return null;
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="heart-outline" size={48} color={colors.muted} />
+        <Text style={styles.emptyTitle}>Aucun vendeur aime</Text>
+        <Text style={styles.emptySubtitle}>
+          Explorez les vendeurs et appuyez sur le coeur pour les retrouver ici
+        </Text>
+      </View>
+    );
+  }, [isLoading]);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={12}
+        >
+          <Ionicons name="arrow-back" size={20} color={colors.foreground} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Vendeurs Aimes</Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.headerCount}>{likedSellerIds.length}</Text>
+        </View>
+      </View>
+
+      {/* List */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={sellers}
+          renderItem={renderSeller}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmpty}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+// =============================================================================
+// STYLES
+// =============================================================================
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  headerTitle: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 22,
+    fontWeight: '300',
+    color: colors.foreground,
+    letterSpacing: -0.3,
+  },
+  headerRight: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primaryLight,
+  },
+  headerCount: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+
+  // List
+  listContent: {
+    padding: spacing.md,
+    flexGrow: 1,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xs,
+  },
+
+  // Seller Card
+  sellerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  avatarFallback: {
+    backgroundColor: colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  sellerInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sellerName: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 15,
+    color: colors.foreground,
+    marginBottom: 4,
+  },
+  sellerStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  ratingText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.foreground,
+    fontWeight: '600',
+  },
+  statText: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  statDot: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  likesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  likeButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Empty State
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing['2xl'],
+    paddingTop: spacing['3xl'],
+  },
+  emptyTitle: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    fontWeight: '300',
+    color: colors.foreground,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // Loading
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

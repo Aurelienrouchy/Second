@@ -41,6 +41,12 @@ exports.incrementProductView = (0, https_1.onCall)({ invoker: 'public', memory: 
 });
 /**
  * Toggle product like/unlike
+ *
+ * Updates atomically in a single transaction:
+ * 1. products/{productId} — likes counter + likedBy array
+ * 2. articles/{productId} — favoritesCount (denormalised, replaces getFavoriteCount query)
+ * 3. search_index/{productId} — likes for ranking
+ * 4. favorites/{userId} — articleIds array (unified structure, no more products[])
  */
 exports.toggleProductLike = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
     const { productId, isLiked } = request.data;
@@ -53,10 +59,10 @@ exports.toggleProductLike = (0, https_1.onCall)({ memory: '512MiB' }, async (req
     const userId = request.auth.uid;
     try {
         const productRef = firebase_1.db.collection('products').doc(productId);
+        const articleRef = firebase_1.db.collection('articles').doc(productId);
         const searchIndexRef = firebase_1.db.collection('search_index').doc(productId);
         const favoritesRef = firebase_1.db.collection('favorites').doc(userId);
         await firebase_1.db.runTransaction(async (transaction) => {
-            var _a, _b;
             const productDoc = await transaction.get(productRef);
             if (!productDoc.exists) {
                 throw new https_1.HttpsError('not-found', 'Product not found');
@@ -67,53 +73,40 @@ exports.toggleProductLike = (0, https_1.onCall)({ memory: '512MiB' }, async (req
             let newLikes = currentLikes;
             let newLikedBy = [...likedBy];
             if (isLiked && !likedBy.includes(userId)) {
-                // Add like
                 newLikes = currentLikes + 1;
                 newLikedBy.push(userId);
             }
             else if (!isLiked && likedBy.includes(userId)) {
-                // Remove like
                 newLikes = Math.max(0, currentLikes - 1);
                 newLikedBy = likedBy.filter((id) => id !== userId);
             }
-            // Update product
+            // 1. Update product likes + likedBy
             transaction.update(productRef, {
                 likes: newLikes,
                 likedBy: newLikedBy,
             });
-            // Update search index
+            // 2. Denormalised favoritesCount on article (replaces expensive getFavoriteCount)
+            transaction.update(articleRef, {
+                favoritesCount: newLikes,
+            });
+            // 3. Update search index for ranking
             transaction.update(searchIndexRef, {
                 likes: newLikes,
             });
-            // Update user favorites
+            // 4. Unified favorites — articleIds array only (no more products[] with metadata)
             if (isLiked) {
-                const favoriteData = {
-                    productId,
-                    addedAt: firebase_1.FieldValue.serverTimestamp(),
-                    productTitle: productData.title,
-                    productPrice: productData.price,
-                    productImage: ((_b = (_a = productData.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.url) || null,
-                    sellerId: productData.sellerId,
-                };
                 transaction.set(favoritesRef, {
                     userId,
-                    products: firebase_1.FieldValue.arrayUnion(favoriteData),
-                    totalCount: firebase_1.FieldValue.increment(1),
+                    articleIds: firebase_1.FieldValue.arrayUnion(productId),
                     updatedAt: firebase_1.FieldValue.serverTimestamp(),
                 }, { merge: true });
             }
             else {
-                // Remove from favorites
-                const favoritesDoc = await transaction.get(favoritesRef);
-                if (favoritesDoc.exists) {
-                    const favoritesData = favoritesDoc.data();
-                    const updatedProducts = (favoritesData.products || []).filter((p) => p.productId !== productId);
-                    transaction.update(favoritesRef, {
-                        products: updatedProducts,
-                        totalCount: updatedProducts.length,
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                }
+                transaction.set(favoritesRef, {
+                    userId,
+                    articleIds: firebase_1.FieldValue.arrayRemove(productId),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                }, { merge: true });
             }
         });
         return { success: true, message: 'Like status updated' };

@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotifications } from '@/contexts/NotificationContext';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui';
+import { refreshNotificationBadge } from '@/hooks/useNotificationSetup';
 import { NotificationService } from '@/services/notificationService';
 import { Notification, NotificationType } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,14 @@ const notificationIcons: Record<NotificationType, { name: keyof typeof Ionicons.
   meetup_cancelled: { name: 'close-circle', color: colors.danger },
   no_show_reported: { name: 'warning', color: colors.danger },
 };
+
+// Strip leading emoji from notification titles/messages.
+// Handles legacy data stored in Firestore that may still contain emoji prefixes.
+const EMOJI_RE = /^[\p{Extended_Pictographic}\uFE0F\u200D]+\s*/u;
+function stripLeadingEmoji(text: string | undefined | null): string {
+  if (!text) return '';
+  return text.replace(EMOJI_RE, '').trim();
+}
 
 function formatTimeAgo(date: Date): string {
   const now = new Date();
@@ -87,10 +96,10 @@ function NotificationItem({ notification, onPress, onDelete }: NotificationItemP
 
         <View style={styles.notificationContent}>
           <Text style={styles.notificationTitle} numberOfLines={1}>
-            {notification.title}
+            {stripLeadingEmoji(notification.title)}
           </Text>
           <Text style={styles.notificationMessage} numberOfLines={2}>
-            {notification.message}
+            {stripLeadingEmoji(notification.message)}
           </Text>
           <Text style={styles.notificationTime}>
             {formatTimeAgo(notification.createdAt)}
@@ -106,7 +115,9 @@ function NotificationItem({ notification, onPress, onDelete }: NotificationItemP
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { refreshBadgeCount } = useNotifications();
+  const refreshBadgeCount = useCallback(() => {
+    if (user?.id) refreshNotificationBadge(user.id);
+  }, [user?.id]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -189,28 +200,22 @@ export default function NotificationsScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Notifications',
-          headerTitleStyle: typography.h3,
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: colors.background },
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={styles.headerButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.foreground} />
-            </Pressable>
-          ),
-          headerRight: () =>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.container}>
+        <ScreenHeader
+          title="Notifications"
+          onBack={() => router.back()}
+          rightContent={
             unreadCount > 0 ? (
               <Pressable onPress={handleMarkAllAsRead} style={styles.headerButton}>
                 <Text style={styles.markAllText}>Tout lire</Text>
               </Pressable>
-            ) : null,
-        }}
-      />
+            ) : undefined
+          }
+        />
 
-      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+        <View style={{ flex: 1, paddingBottom: insets.bottom }}>
         {notifications.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="notifications-off-outline" size={64} color={colors.muted} />
@@ -241,6 +246,7 @@ export default function NotificationsScreen() {
             }
           />
         )}
+        </View>
       </View>
     </>
   );

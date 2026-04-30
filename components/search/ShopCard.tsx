@@ -2,6 +2,7 @@ import { Shop, ShopTypeLabels } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '@/constants/theme';
 
 interface ShopCardProps {
   shop: Shop;
@@ -38,7 +39,7 @@ export default function ShopCard({ shop, distance, onPress }: ShopCardProps) {
           <Image source={{ uri: shop.images[0] }} style={styles.image} />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Ionicons name="storefront-outline" size={32} color="#8E8E93" />
+            <Ionicons name="storefront-outline" size={32} color={colors.muted} />
           </View>
         )}
         {shop.status === 'approved' && (
@@ -56,7 +57,7 @@ export default function ShopCard({ shop, distance, onPress }: ShopCardProps) {
           </Text>
           {distance !== undefined && (
             <View style={styles.distanceContainer}>
-              <Ionicons name="location-outline" size={12} color="#8E8E93" />
+              <Ionicons name="location-outline" size={12} color={colors.muted} />
               <Text style={styles.distance}>{distance.toFixed(1)} km</Text>
             </View>
           )}
@@ -74,7 +75,7 @@ export default function ShopCard({ shop, distance, onPress }: ShopCardProps) {
         )}
 
         <View style={styles.info}>
-          <Ionicons name="location-outline" size={14} color="#8E8E93" />
+          <Ionicons name="location-outline" size={14} color={colors.muted} />
           <Text style={styles.address} numberOfLines={1}>
             {shop.address.city}
           </Text>
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#F2F2F7',
+    borderColor: colors.surfaceWarm,
     marginRight: 12,
   },
   imageContainer: {
@@ -108,12 +109,12 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -139,13 +140,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   distanceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -153,11 +154,11 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.muted,
   },
   type: {
     fontSize: 13,
-    color: '#F79F24',
+    color: colors.primary,
     fontWeight: '500',
     marginBottom: 8,
   },
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
     fontWeight: '500',
   },
   info: {
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
   address: {
     flex: 1,
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   articlesCount: {
     fontSize: 12,

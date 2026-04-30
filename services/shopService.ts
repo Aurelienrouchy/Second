@@ -11,7 +11,7 @@ import {
   serverTimestamp,
   updateDoc,
   where
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 import { geohashForLocation, geohashQueryBounds } from 'geofire-common';
 
 export class ShopService {

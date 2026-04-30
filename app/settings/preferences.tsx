@@ -27,8 +27,10 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Common sizes for quick selection
-const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+// Tailles vêtements (lettres)
+const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+// Tailles chaussures (numériques)
+const SHOE_SIZES = ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'];
 
 export default function PreferencesScreen() {
   const router = useRouter();
@@ -188,20 +190,44 @@ export default function PreferencesScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* Sizes Section */}
+          {/* Clothing Sizes Section */}
           <View style={styles.section}>
-            <Label style={styles.sectionHeader}>Mes tailles</Label>
+            <Label style={styles.sectionHeader}>Mes tailles — Vêtements</Label>
             <Caption style={styles.sectionSubtitle}>
-              Sélectionnez vos tailles pour voir des articles qui vous correspondent
+              Sélectionnez vos tailles de vêtements
             </Caption>
             <View style={styles.chipsContainer}>
-              {COMMON_SIZES.map((size) => {
+              {CLOTHING_SIZES.map((size) => {
                 const isSelected = selectedSizes.includes(size);
                 return (
                   <Pressable
                     key={size}
                     style={[styles.chip, isSelected && styles.chipSelected]}
                     onPress={() => toggleSize(size)}
+                  >
+                    <Text variant="body" style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                      {size}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Shoe Sizes Section */}
+          <View style={styles.section}>
+            <Label style={styles.sectionHeader}>Mes tailles — Chaussures</Label>
+            <Caption style={styles.sectionSubtitle}>
+              Sélectionnez vos pointures
+            </Caption>
+            <View style={styles.chipsContainer}>
+              {SHOE_SIZES.map((size) => {
+                const isSelected = selectedSizes.includes(`shoe_${size}`);
+                return (
+                  <Pressable
+                    key={`shoe_${size}`}
+                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    onPress={() => toggleSize(`shoe_${size}`)}
                   >
                     <Text variant="body" style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                       {size}

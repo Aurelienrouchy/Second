@@ -95,11 +95,11 @@ export function useArticleSearch({
   const lastVisibleRef = useRef<any | null>(null);
 
   const hasActiveFilters = useMemo(() => (
-    filters.colors.length > 0 ||
-    filters.sizes.length > 0 ||
-    filters.materials.length > 0 ||
-    (filters.brands && filters.brands.length > 0) ||
-    (filters.patterns && filters.patterns.length > 0) ||
+    (filters.colors?.length ?? 0) > 0 ||
+    (filters.sizes?.length ?? 0) > 0 ||
+    (filters.materials?.length ?? 0) > 0 ||
+    (filters.brands?.length ?? 0) > 0 ||
+    (filters.patterns?.length ?? 0) > 0 ||
     !!filters.condition ||
     filters.minPrice !== undefined ||
     filters.maxPrice !== undefined ||
@@ -110,14 +110,14 @@ export function useArticleSearch({
   const buildSearchFilters = useCallback(() => ({
     category: undefined, // Legacy: we don't use string path anymore
     categoryIds: selectedCategoryPath.length > 0 ? selectedCategoryPath : undefined, // Use array of IDs
-    colors: filters.colors,
-    sizes: filters.sizes,
-    materials: filters.materials,
+    colors: filters.colors ?? [],
+    sizes: filters.sizes ?? [],
+    materials: filters.materials ?? [],
     condition: filters.condition,
     minPrice: filters.minPrice,
     maxPrice: filters.maxPrice,
-    brands: filters.brands,
-    patterns: filters.patterns,
+    brands: filters.brands ?? [],
+    patterns: filters.patterns ?? [],
     sortBy: filters.sortBy as SortBy | undefined,
     excludeUserId: excludeUserId,
   }), [filters, selectedCategoryPath, excludeUserId]);
@@ -263,6 +263,21 @@ export function useArticleSearch({
     search(true);
   }, [filters, selectedCategoryPath, searchQuery]);
 
+  // Safe setter that merges partial filters with defaults
+  const setFiltersSafe = useCallback((partial: Partial<SearchFilters>) => {
+    setFilters({
+      colors: partial.colors ?? [],
+      sizes: partial.sizes ?? [],
+      materials: partial.materials ?? [],
+      condition: partial.condition,
+      minPrice: partial.minPrice,
+      maxPrice: partial.maxPrice,
+      brands: partial.brands ?? [],
+      patterns: partial.patterns ?? [],
+      sortBy: partial.sortBy ?? 'recent',
+    });
+  }, []);
+
   const clearAllFilters = useCallback(() => {
     setFilters({
       colors: [],
@@ -279,15 +294,15 @@ export function useArticleSearch({
 
   const handleFilterRemove = useCallback((filterType: keyof SearchFilters, value?: string) => {
     if (filterType === 'colors' && value) {
-      setFilters(prev => ({ ...prev, colors: prev.colors.filter(c => c !== value) }));
+      setFilters(prev => ({ ...prev, colors: (prev.colors ?? []).filter(c => c !== value) }));
     } else if (filterType === 'sizes' && value) {
-      setFilters(prev => ({ ...prev, sizes: prev.sizes.filter(s => s !== value) }));
+      setFilters(prev => ({ ...prev, sizes: (prev.sizes ?? []).filter(s => s !== value) }));
     } else if (filterType === 'materials' && value) {
-      setFilters(prev => ({ ...prev, materials: prev.materials.filter(m => m !== value) }));
+      setFilters(prev => ({ ...prev, materials: (prev.materials ?? []).filter(m => m !== value) }));
     } else if (filterType === 'brands' && value) {
-      setFilters(prev => ({ ...prev, brands: (prev.brands || []).filter(b => b !== value) }));
+      setFilters(prev => ({ ...prev, brands: (prev.brands ?? []).filter(b => b !== value) }));
     } else if (filterType === 'patterns' && value) {
-      setFilters(prev => ({ ...prev, patterns: (prev.patterns || []).filter(p => p !== value) }));
+      setFilters(prev => ({ ...prev, patterns: (prev.patterns ?? []).filter(p => p !== value) }));
     } else if (filterType === 'condition') {
       setFilters(prev => ({ ...prev, condition: undefined }));
     } else if (filterType === 'minPrice') {
@@ -308,7 +323,7 @@ export function useArticleSearch({
     hasActiveFilters,
     error,
     // setters
-    setFilters,
+    setFilters: setFiltersSafe,
     setSearchQuery,
     setSelectedCategoryPath,
     // actions

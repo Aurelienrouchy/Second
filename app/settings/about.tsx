@@ -86,7 +86,7 @@ export default function AboutSettingsScreen() {
         {/* Made With Love */}
         <View style={styles.madeWithLove}>
           <Ionicons name="heart" size={16} color={colors.danger} />
-          <Caption style={styles.madeWithLoveText}>Fait avec amour à Paris</Caption>
+          <Caption style={styles.madeWithLoveText}>Fait avec amour à Montréal</Caption>
         </View>
 
         {/* Copyright */}

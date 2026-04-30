@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { colors } from '@/constants/theme';
 
 interface ShopMapProps {
   shops: Shop[];
@@ -17,8 +18,8 @@ interface ShopMapProps {
 
 export default function ShopMap({ shops, onShopPress, initialRegion }: ShopMapProps) {
   const defaultRegion = {
-    latitude: 48.8566, // Paris par défaut
-    longitude: 2.3522,
+    latitude: 45.5017, // Montréal par défaut
+    longitude: -73.5673,
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   };
@@ -54,7 +55,7 @@ export default function ShopMap({ shops, onShopPress, initialRegion }: ShopMapPr
       {/* Info overlay */}
       <View style={styles.overlay}>
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+          <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
           <Text style={styles.infoText}>
             {shops.length} boutique{shops.length > 1 ? 's' : ''} trouvée
             {shops.length > 1 ? 's' : ''} à proximité
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -104,7 +105,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: '#F79F24',
+    borderTopColor: colors.primary,
     marginTop: -2,
   },
   overlay: {
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
 });
 

@@ -55,12 +55,12 @@ export const updateSwapPartyStatuses = onSchedule({ schedule: 'every 5 minutes',
 
 /**
  * Send swap zone reminders 3 days before start
- * Runs daily at 10:00 AM Paris time
+ * Runs daily at 10:00 AM Montreal time
  */
 export const sendSwapZoneReminders = onSchedule(
   {
     schedule: '0 10 * * *',
-    timeZone: 'Europe/Paris',
+    timeZone: 'America/Montreal',
     memory: '512MiB',
   },
   async () => {
@@ -140,7 +140,7 @@ export const sendSwapZoneReminders = onSchedule(
 
             await sendPushNotification(
               userId,
-              '📦 Swap Zone dans 3 jours !',
+              'Swap Zone dans 3 jours !',
               `N'oubliez pas d'ajouter vos articles à "${partyName}"`,
               {
                 partyId,

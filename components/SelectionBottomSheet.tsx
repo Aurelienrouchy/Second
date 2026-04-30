@@ -1,11 +1,24 @@
+/**
+ * SelectionBottomSheet — Seconde (Editorial Design)
+ *
+ * Unified bottom sheet for single/multi-select filters.
+ * Supports: default list, color swatches, size grid.
+ *
+ * Design system: Cormorant Garamond (serif) + Satoshi (sans)
+ * Sharp corners on chips/items. Charcoal selected state.
+ * Rust accent on confirm button.
+ */
+
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, TouchableOpacity } from '@gorhom/bottom-sheet';
+import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 import {
-    StyleSheet,
-    Text,
-    View,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 
 export interface SelectionItem {
   value: string;
@@ -37,9 +50,6 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     const [localSelectedValues, setLocalSelectedValues] = React.useState<string[]>(selectedValues);
 
-    // Note: We intentionally don't sync localSelectedValues with selectedValues on every change
-    // to avoid infinite loops. Instead, we sync only when the sheet opens via show().
-
     useImperativeHandle(ref, () => ({
       show: () => {
         setLocalSelectedValues(selectedValues);
@@ -56,7 +66,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
             return prev.filter(v => v !== value);
           } else {
             if (maxSelections && prev.length >= maxSelections) {
-              return prev; // Don't add more if at max
+              return prev;
             }
             return [...prev, value];
           }
@@ -95,17 +105,32 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
         enablePanDownToClose
         topInset={insets.top}
         handleIndicatorStyle={styles.handleIndicator}
+        backgroundStyle={styles.sheetBackground}
+        enableDynamicSizing={false}
       >
+        {/* ── Header ── */}
         <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.title}>{title}</Text>
+            {multiSelect && localSelectedValues.length > 0 && (
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{localSelectedValues.length}</Text>
+              </View>
+            )}
+          </View>
           <TouchableOpacity
             onPress={() => bottomSheetRef.current?.close()}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.closeButton}
           >
-            <Text style={styles.closeButtonX}>✕</Text>
+            <Ionicons name="close" size={22} color={colors.charcoal} />
           </TouchableOpacity>
         </View>
 
+        {/* ── Divider ── */}
+        <View style={styles.divider} />
+
+        {/* ── Content ── */}
         <BottomSheetScrollView
           style={styles.scrollView}
           contentContainerStyle={[
@@ -115,19 +140,20 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
           showsVerticalScrollIndicator={false}
         >
           {type === 'size' ? (
+            // ── Size grid ──
             <View style={styles.sizeGrid}>
               {items.map((item) => (
                 <TouchableOpacity
                   key={item.value}
                   style={[
                     styles.sizeItem,
-                    isSelected(item.value) && styles.selectedSizeItem
+                    isSelected(item.value) && styles.sizeItemSelected
                   ]}
                   onPress={() => handleSelect(item.value)}
                 >
                   <Text style={[
                     styles.sizeText,
-                    isSelected(item.value) && styles.selectedSizeText
+                    isSelected(item.value) && styles.sizeTextSelected
                   ]}>
                     {item.label}
                   </Text>
@@ -135,54 +161,56 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
               ))}
             </View>
           ) : type === 'color' ? (
-            <View style={styles.colorList}>
+            // ── Color list ──
+            <View style={styles.list}>
               {items.map((item) => (
                 <TouchableOpacity
                   key={item.value}
                   style={[
                     styles.colorOption,
-                    isSelected(item.value) && styles.selectedOption
+                    isSelected(item.value) && styles.optionSelected
                   ]}
                   onPress={() => handleSelect(item.value)}
                 >
                   <View style={styles.colorRow}>
                     <View style={[
-                      styles.colorCircle,
+                      styles.colorSwatch,
                       { backgroundColor: item.color || '#F0F0F0' },
-                      item.label === 'Blanc' && styles.whiteColorCircle
+                      item.label === 'Blanc' && styles.colorSwatchWhite,
                     ]} />
                     <Text style={[
-                      styles.optionText,
-                      isSelected(item.value) && styles.selectedOptionText
+                      styles.optionLabel,
+                      isSelected(item.value) && styles.optionLabelSelected,
                     ]}>
                       {item.label}
                     </Text>
                   </View>
                   {isSelected(item.value) && (
-                    <Text style={styles.checkmark}>✓</Text>
+                    <Ionicons name="checkmark" size={18} color={colors.charcoal} />
                   )}
                 </TouchableOpacity>
               ))}
             </View>
           ) : (
-            <View style={styles.defaultList}>
+            // ── Default list ──
+            <View style={styles.list}>
               {items.map((item) => (
                 <TouchableOpacity
                   key={item.value}
                   style={[
                     styles.option,
-                    isSelected(item.value) && styles.selectedOption
+                    isSelected(item.value) && styles.optionSelected
                   ]}
                   onPress={() => handleSelect(item.value)}
                 >
                   <Text style={[
-                    styles.optionText,
-                    isSelected(item.value) && styles.selectedOptionText
+                    styles.optionLabel,
+                    isSelected(item.value) && styles.optionLabelSelected,
                   ]}>
                     {item.label}
                   </Text>
                   {isSelected(item.value) && (
-                    <Text style={styles.checkmark}>✓</Text>
+                    <Ionicons name="checkmark" size={18} color={colors.charcoal} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -190,15 +218,20 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
           )}
         </BottomSheetScrollView>
 
-        {/* Confirm button for multi-select */}
+        {/* ── Confirm button (multi-select) ── */}
         {multiSelect && (
-          <View style={[styles.confirmButtonContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
             <TouchableOpacity
-              style={styles.confirmButton}
+              style={[
+                styles.confirmButton,
+                localSelectedValues.length === 0 && styles.confirmButtonDisabled,
+              ]}
               onPress={handleConfirm}
             >
               <Text style={styles.confirmButtonText}>
-                Confirmer {localSelectedValues.length > 0 ? `(${localSelectedValues.length})` : ''}
+                {localSelectedValues.length > 0
+                  ? `VALIDER (${localSelectedValues.length})`
+                  : 'VALIDER'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -208,30 +241,64 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
   }
 );
 
+// ─────────────────────────────────────────────────────────
+// STYLES — Editorial Design
+// ─────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  handleIndicator: {
-    backgroundColor: '#DDDDDD',
-    width: 40,
+  sheetBackground: {
+    backgroundColor: colors.surface,
   },
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
+    width: 40,
+    height: 4,
+  },
+
+  // ── Header ──
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 22,
+    letterSpacing: -0.3,
+    color: colors.charcoal,
   },
-  closeButtonX: {
-    fontSize: 20,
-    color: '#666',
-    padding: 4,
+  countBadge: {
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 0, // Sharp
   },
+  countBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.white,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 20,
+  },
+
+  // ── ScrollView ──
   scrollView: {
     flex: 1,
   },
@@ -239,118 +306,121 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
   },
-  // Styles par défaut
-  defaultList: {
+
+  // ── List ──
+  list: {
     flex: 1,
   },
   option: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    marginBottom: 6,
-    backgroundColor: '#F8F8F8',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: 'transparent',
   },
-  selectedOption: {
-    backgroundColor: '#FFF3E0',
-    borderWidth: 1,
-    borderColor: '#F79F24',
+  optionSelected: {
+    backgroundColor: colors.surfaceWarm,
   },
-  optionText: {
-    fontSize: 16,
-    color: '#333',
+  optionLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 15,
+    letterSpacing: 0.1,
+    color: colors.charcoal,
   },
-  selectedOptionText: {
-    color: '#F79F24',
-    fontWeight: '600',
+  optionLabelSelected: {
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
   },
-  checkmark: {
-    fontSize: 18,
-    color: '#F79F24',
-    fontWeight: 'bold',
-  },
-  // Styles pour les couleurs
-  colorList: {
-    flex: 1,
-  },
+
+  // ── Color options ──
   colorOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    marginBottom: 6,
-    backgroundColor: '#F8F8F8',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: 'transparent',
   },
   colorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  colorCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  colorSwatch: {
+    width: 24,
+    height: 24,
+    borderRadius: 0, // Sharp — editorial
     marginRight: 14,
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  whiteColorCircle: {
-    borderColor: '#ddd',
+  colorSwatchWhite: {
+    borderColor: colors.borderStrong,
   },
-  // Styles pour les tailles
+
+  // ── Size grid (matches onboarding chip dimensions) ──
   sizeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   sizeItem: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    backgroundColor: '#F8F8F8',
-    minWidth: 64,
+    minWidth: 48,
+    height: 42,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
   },
-  selectedSizeItem: {
-    backgroundColor: '#F79F24',
-    borderColor: '#F79F24',
+  sizeItemSelected: {
+    backgroundColor: colors.charcoal,
+    borderColor: colors.charcoal,
   },
   sizeText: {
-    fontSize: 15,
-    color: '#333',
-    fontWeight: '500',
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: colors.charcoal,
   },
-  selectedSizeText: {
-    color: '#fff',
+  sizeTextSelected: {
+    color: colors.white,
   },
-  // Multi-select confirm button
-  confirmButtonContainer: {
+
+  // ── Confirm button ──
+  confirmContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 20,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   confirmButton: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.charcoal,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 0, // Sharp — editorial, consistent with Button component style
     alignItems: 'center',
   },
+  confirmButtonDisabled: {
+    backgroundColor: colors.borderStrong,
+  },
   confirmButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
 });
 

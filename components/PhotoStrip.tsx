@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '@/constants/theme';
 
 interface PhotoStripProps {
   photos: string[];
@@ -45,7 +46,7 @@ export default function PhotoStrip({
       {/* Label tip */}
       {showLabelTip && (
         <View style={styles.labelTip}>
-          <Ionicons name="pricetag-outline" size={14} color="#8B5CF6" />
+          <Ionicons name="pricetag-outline" size={14} color={colors.secondary} />
           <Text style={styles.labelTipText}>
             Ajoutez une photo de l'étiquette pour la marque et taille exactes
           </Text>
@@ -97,7 +98,7 @@ export default function PhotoStrip({
         {/* Add button (if can add more) */}
         {canAddMore && onAddPress && (
           <TouchableOpacity style={styles.addButton} onPress={onAddPress}>
-            <Ionicons name="add" size={32} color="#9CA3AF" />
+            <Ionicons name="add" size={32} color={colors.muted} />
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
     backgroundColor: '#FFFFFF',
   },
   header: {
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.muted,
   },
   countNumber: {
     fontWeight: '600',
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.muted,
   },
   labelTip: {
     flexDirection: 'row',
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginBottom: 8,
-    backgroundColor: '#F3F0FF',
+    backgroundColor: colors.secondaryLight,
     marginHorizontal: 16,
     borderRadius: 8,
   },
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   primaryThumbnail: {
-    borderColor: '#F79F24',
+    borderColor: colors.primary,
   },
   photoThumbnailPressed: {
     opacity: 0.8,
@@ -177,7 +178,7 @@ const styles = StyleSheet.create({
     top: -6,
     left: 4,
     zIndex: 10,
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',

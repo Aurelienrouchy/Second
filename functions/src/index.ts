@@ -9,7 +9,7 @@
  * - @google/genai: ^1.37.0
  *
  * File structure:
- * - /config       - Firebase, Stripe, Shippo, Gemini initialization
+ * - /config       - Firebase, Helcim, ShipEngine, Gemini initialization
  * - /services     - AI services, brand matching
  * - /utils        - Geohash, search, notifications, debounce
  * - /callable     - onCall functions (client-callable)
@@ -32,16 +32,43 @@ export { visualSearch, getSimilarProducts } from './callable/search';
 export { incrementProductView, toggleProductLike, markSavedSearchViewed } from './callable/products';
 
 // Swap Functions
-export { getActiveSwapPartyInfo, getSwapPartyLeaderboard } from './callable/swaps';
+export { proposeMultiSwap, getActiveSwapPartyInfo, getSwapPartyLeaderboard } from './callable/swaps';
 
-// Payment Functions
-export { getShippingEstimate, createPaymentIntent, checkTrackingStatus } from './callable/payments';
+// Payment & Shipping Functions
+export {
+  getShippingEstimate,
+  getServiceFee,
+  createHelcimCheckout,
+  findPickupPoints,
+  checkTrackingStatus,
+} from './callable/payments';
 
 // Moments Functions
 export { getActiveMoments, getMomentProducts } from './callable/moments';
 
 // Style Functions
 export { generateStyleProfile } from './callable/style';
+
+// Onboarding Functions
+export { saveOnboardingPreferences } from './callable/onboarding';
+
+// Home Functions
+export {
+  // Individual section callables (preferred)
+  getTrendingBrands,
+  getPriceDrops,
+  getFeaturedSellers,
+  getNewArrivals,
+  // Seller interactions
+  toggleSellerLike,
+  getLikedSellers,
+  recordPriceDrop,
+  // Legacy combined feed
+  getHomeFeed,
+} from './callable/home';
+
+// Review Functions
+export { createReview, getUserReviews, getUserPublicProfile } from './callable/reviews';
 
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
@@ -85,5 +112,5 @@ export { checkSavedSearchNotifications } from './scheduled/savedSearches';
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
 
-// Stripe Webhook
-export { stripeWebhook } from './http/webhooks';
+// Helcim Webhook (payment confirmation + shipping label)
+export { helcimWebhook } from './http/webhooks';

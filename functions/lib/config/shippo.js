@@ -1,21 +1,12 @@
 "use strict";
+/**
+ * @deprecated Shippo has been replaced by Intelcom.
+ * Use './intelcom' instead.
+ * This file is kept only to avoid import errors during migration.
+ */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getShippo = void 0;
-/**
- * Shippo client initialization
- * Firebase Functions v7
- */
-const shippo_1 = require("shippo");
-let shippoClient = null;
-/**
- * Get Shippo client instance (lazy initialization)
- */
-const getShippo = () => {
-    const shippoApiKey = process.env.SHIPPO_API_KEY;
-    if (!shippoClient && shippoApiKey) {
-        shippoClient = new shippo_1.Shippo({ apiKeyHeader: shippoApiKey });
-    }
-    return shippoClient;
-};
-exports.getShippo = getShippo;
+// Re-export from intelcom for backward compatibility
+var intelcom_1 = require("./intelcom");
+Object.defineProperty(exports, "getShippo", { enumerable: true, get: function () { return intelcom_1.getIntelcom; } });
 //# sourceMappingURL=shippo.js.map

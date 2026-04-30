@@ -1,11 +1,15 @@
 /**
- * Themed Text Component
- * Design System: Luxe Français + Street
+ * Themed Text Component — Seconde UI Kit
+ * Design: Editorial Luxe
  *
  * Variants match typography tokens:
- * - h1, h2, h3 (Cormorant Garamond)
- * - body, bodySmall, label, caption (Satoshi)
- * - price (Satoshi Bold + Bleu Klein)
+ * - hero (Cormorant Garamond Bold — splash/feature headlines)
+ * - h1, h2, h3 (Cormorant Garamond — section headlines)
+ * - body, bodySmall (Satoshi — readable body text)
+ * - label, labelUppercase (Satoshi Medium — UI labels)
+ * - caption (Satoshi — small auxiliary text)
+ * - price, priceSmall, priceLarge (Cormorant — editorial prices)
+ * - button (Satoshi Medium — uppercase CTA labels)
  */
 
 import React from 'react';
@@ -22,16 +26,19 @@ import { colors, typography } from '@/constants/theme';
 // =============================================================================
 
 export type TextVariant =
+  | 'hero'
   | 'h1'
   | 'h2'
   | 'h3'
   | 'body'
   | 'bodySmall'
   | 'label'
+  | 'labelUppercase'
   | 'button'
   | 'caption'
   | 'price'
-  | 'priceSmall';
+  | 'priceSmall'
+  | 'priceLarge';
 
 interface TextProps extends RNTextProps {
   variant?: TextVariant;
@@ -55,8 +62,10 @@ export const Text: React.FC<TextProps> = ({
   // Get color value
   const textColor = color
     ? (colors as any)[color] || color
-    : variant === 'price' || variant === 'priceSmall'
+    : variant === 'price' || variant === 'priceSmall' || variant === 'priceLarge'
     ? colors.primary
+    : variant === 'labelUppercase'
+    ? colors.muted
     : colors.foreground;
 
   // Get typography style
@@ -68,6 +77,7 @@ export const Text: React.FC<TextProps> = ({
         typographyStyle,
         { color: textColor },
         center && styles.center,
+        variant === 'labelUppercase' && styles.uppercase,
         style,
       ]}
       {...props}
@@ -80,6 +90,11 @@ export const Text: React.FC<TextProps> = ({
 // =============================================================================
 // CONVENIENCE COMPONENTS
 // =============================================================================
+
+// Hero
+export const Hero: React.FC<Omit<TextProps, 'variant'>> = (props) => (
+  <Text variant="hero" {...props} />
+);
 
 // Headlines
 export const H1: React.FC<Omit<TextProps, 'variant'>> = (props) => (
@@ -108,13 +123,21 @@ export const Label: React.FC<Omit<TextProps, 'variant'>> = (props) => (
   <Text variant="label" {...props} />
 );
 
+export const LabelUppercase: React.FC<Omit<TextProps, 'variant'>> = (props) => (
+  <Text variant="labelUppercase" {...props} />
+);
+
 export const Caption: React.FC<Omit<TextProps, 'variant'>> = (props) => (
   <Text variant="caption" color="muted" {...props} />
 );
 
-// Special
+// Special — Prices
 export const Price: React.FC<Omit<TextProps, 'variant'>> = (props) => (
   <Text variant="price" {...props} />
+);
+
+export const PriceLarge: React.FC<Omit<TextProps, 'variant'>> = (props) => (
+  <Text variant="priceLarge" {...props} />
 );
 
 // =============================================================================
@@ -124,6 +147,9 @@ export const Price: React.FC<Omit<TextProps, 'variant'>> = (props) => (
 const styles = StyleSheet.create({
   center: {
     textAlign: 'center',
+  },
+  uppercase: {
+    textTransform: 'uppercase',
   },
 });
 

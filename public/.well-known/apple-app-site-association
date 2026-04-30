@@ -1,0 +1,26 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID.com.seconde.app",
+        "paths": [
+          "/article/*",
+          "/chat/*",
+          "/user/*",
+          "/shop/*",
+          "/swap-party/*",
+          "/swap/*",
+          "/notifications",
+          "/search",
+          "/search-results",
+          "/favorites",
+          "/messages",
+          "/profile",
+          "/sell",
+          "/settings"
+        ]
+      }
+    ]
+  }
+}

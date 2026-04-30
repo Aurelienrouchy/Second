@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MeetupNeighborhood, MeetupSpot } from '@/types';
 
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import ConfirmStep from './ConfirmStep';
 import LocationStep from './LocationStep';
 import OfferStep from './OfferStep';
@@ -27,10 +28,8 @@ interface MakeOfferModalProps {
   articleId: string;
   articleTitle: string;
   currentPrice: number;
-  // Seller's meetup preferences
   sellerNeighborhood?: MeetupNeighborhood;
   sellerPreferredSpots?: MeetupSpot[];
-  // Callback
   onMeetupOfferSubmit?: (
     amount: number,
     message: string,
@@ -54,7 +53,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     const insets = useSafeAreaInsets();
     const [state, setState] = useState<MakeOfferState>({
       ...initialState,
-      mode: 'meetup', // Always meetup mode
+      mode: 'meetup',
     });
 
     const snapPoints = useMemo(() => ['85%', '95%'], []);
@@ -64,12 +63,12 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     }, []);
 
     const handleSheetChanges = useCallback(
-      (index: number) => {
-        if (index === -1) {
-          resetState();
-        }
+      (_index: number) => {
+        // Do NOT reset state on sheet close — preserve context so the user
+        // can reopen the modal and continue where they left off.
+        // State is reset only when presenting a brand-new offer via present().
       },
-      [resetState]
+      []
     );
 
     const renderBackdrop = useCallback(
@@ -90,6 +89,8 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 
     React.useImperativeHandle(ref, () => ({
       present: () => {
+        // Reset state for each new offer presentation
+        resetState();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         bottomSheetRef.current?.expand();
       },
@@ -107,19 +108,15 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     const actions = useMemo(
       () => ({
         setStep: (step: Step) => setState((s) => ({ ...s, step })),
-        setMode: () => {}, // No-op, always meetup
+        setMode: () => {},
         setOfferAmount: (offerAmount: string) => setState((s) => ({ ...s, offerAmount })),
         setMessage: (message: string) => setState((s) => ({ ...s, message })),
-
-        // Meetup actions
         setSelectedNeighborhood: (selectedNeighborhood: MeetupNeighborhood | null) =>
           setState((s) => ({ ...s, selectedNeighborhood })),
         setSelectedSpot: (selectedSpot: MeetupSpot | null) =>
           setState((s) => ({ ...s, selectedSpot })),
         setCustomSpotName: (customSpotName: string) =>
           setState((s) => ({ ...s, customSpotName })),
-
-        // Common
         setIsSubmitting: (isSubmitting: boolean) => setState((s) => ({ ...s, isSubmitting })),
       }),
       []
@@ -148,7 +145,6 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
       }
     };
 
-    // Calculate step progress (meetup flow: offer -> location -> confirm)
     const meetupSteps: Step[] = ['offer', 'location', 'confirm'];
     const currentIndex = meetupSteps.indexOf(state.step);
     const progress = { current: currentIndex + 1, total: meetupSteps.length };
@@ -164,26 +160,26 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
         handleIndicatorStyle={styles.handleIndicator}
         containerStyle={styles.bottomSheetContainer}
         topInset={insets.top}
+        enableDynamicSizing={false}
       >
         <BottomSheetScrollView style={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             {state.step !== 'offer' && (
               <Pressable onPress={handleBack} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+                <Ionicons name="arrow-back" size={20} color={colors.charcoal} />
               </Pressable>
             )}
             <View style={styles.headerCenter}>
               <Text style={styles.title}>{getTitle()}</Text>
               <Text style={styles.stepIndicator}>
-                Étape {progress.current}/{progress.total}
+                ÉTAPE {progress.current} SUR {progress.total}
               </Text>
             </View>
             <Pressable onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#1C1C1E" />
+              <Ionicons name="close" size={20} color={colors.charcoal} />
             </Pressable>
           </View>
 
-          {/* Progress bar */}
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <View
@@ -197,9 +193,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 
           <View style={styles.content}>
             {state.step === 'offer' && <OfferStep context={context} />}
-
             {state.step === 'location' && <LocationStep context={context} />}
-
             {state.step === 'confirm' && (
               <ConfirmStep context={context} onSubmitMeetup={onMeetupOfferSubmit} />
             )}
@@ -215,66 +209,80 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   handleIndicator: {
-    backgroundColor: '#E5E5EA',
-    width: 40,
+    backgroundColor: colors.borderStrong,
+    width: 36,
+    height: 4,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerCenter: {
     flex: 1,
     alignItems: 'center',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'flex-start',
+    width: 36,
+    height: 36,
+    alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'flex-end',
+    width: 36,
+    height: 36,
+    alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    fontSize: 20,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+    textAlign: 'center',
   },
   stepIndicator: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
+    fontSize: 10,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+    marginTop: spacing.xs,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   progressContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
   },
   progressBar: {
-    height: 4,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 2,
+    height: 3,
+    backgroundColor: colors.border,
+    borderRadius: radius.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#34C759',
-    borderRadius: 2,
+    backgroundColor: colors.sage,
+    borderRadius: radius.xs,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 40,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg + spacing.lg,
   },
 });
 

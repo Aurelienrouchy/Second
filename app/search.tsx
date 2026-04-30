@@ -1,7 +1,22 @@
+/**
+ * Search Screen — Seconde (Unified)
+ *
+ * Merges editorial search (recent/trending, category tree, visual search)
+ * with full-featured results (filters, sort, price, sizes).
+ *
+ * States:
+ *  - idle  → shows recent & trending searches (tab RECHERCHE)
+ *            or category tree (tab CATEGORIES)
+ *  - searching → shows filter bar, sort row, product grid
+ *
+ * Design system: Cormorant Garamond (serif) + Satoshi (sans)
+ * Palette: cream, charcoal, rust, sage — sharp corners.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   Modal,
@@ -10,114 +25,170 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { animations, colors, radius, spacing, typography } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 
-import CategoryTree from '@/components/search/CategoryTree';
-import RecentSearches from '@/components/search/RecentSearches';
-import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
+import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
+import ProductGrid from '@/components/ProductGrid';
+import SaveSearchButton from '@/components/SaveSearchButton';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
+import SizeSelectionSheet, { SizeSelectionSheetRef } from '@/components/SizeSelectionSheet';
+import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
+import RecentSearches from '@/components/search/RecentSearches';
+import VisualSearchCamera from '@/components/VisualSearchCamera';
+
+import { CATEGORIES, getCategoryLabelFromIds } from '@/data/categories-v2';
 import { colors as colorData, getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';
-import VisualSearchCamera from '@/components/VisualSearchCamera';
-import ProductGrid from '@/components/ProductGrid';
-import { useAuth } from '@/contexts/AuthContext';
-import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
-import { useArticleSearch } from '@/hooks/useArticleSearch';
-import { SearchHistoryService, SearchHistoryItem } from '@/services/searchHistoryService';
-import { SearchFilters, Article, ArticleWithLocation } from '@/types';
+// getSizeItems kept for legacy; SizeSelectionSheet uses data/sizes directly
 
-type SearchTab = 'search' | 'categories';
+import { useAuth } from '@/contexts/AuthContext';
+import { useArticleSearch } from '@/hooks/useArticleSearch';
+import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
+import { SearchHistoryService, SearchHistoryItem } from '@/services/searchHistoryService';
+import { Article, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
+
+// ─── Constants ───────────────────────────────────────────────────────
+const CONDITION_ITEMS = [
+  { value: 'neuf', label: 'Neuf' },
+  { value: 'très bon état', label: 'Tres bon etat' },
+  { value: 'bon état', label: 'Bon etat' },
+  { value: 'satisfaisant', label: 'Satisfaisant' },
+];
+
+const SORT_ITEMS = [
+  { value: 'recent', label: 'Plus recents' },
+  { value: 'price_asc', label: 'Prix croissant' },
+  { value: 'price_desc', label: 'Prix decroissant' },
+];
+
+// ═════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═════════════════════════════════════════════════════════════════════
 
 export default function SearchScreen() {
-  const params = useLocalSearchParams<{ categoryPath?: string }>();
+  // ─── Params (supports both old search & search-results params) ───
+  const params = useLocalSearchParams<{
+    categoryPath?: string;   // JSON array from home header (old)
+    category?: string;       // comma-separated IDs (from category buttons / deep links)
+    brands?: string;
+    shopId?: string;
+    query?: string;
+    filters?: string;        // JSON stringified SearchFilters
+  }>();
+
   const { user } = useAuth();
 
-  const initialCategoryPath = params.categoryPath
-    ? (JSON.parse(params.categoryPath) as string[])
-    : undefined;
+  // ─── Derive initial values from params ───────────────────────────
+  const parsedFilters = useMemo(() => {
+    if (params.filters) {
+      try { return JSON.parse(params.filters); }
+      catch { return {}; }
+    }
+    return {};
+  }, [params.filters]);
 
-  // State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<SearchTab>('search');
+  const initialCategoryPath = useMemo(() => {
+    // Priority: parsedFilters.categoryIds > categoryPath param > category param
+    if (parsedFilters.categoryIds?.length > 0) return parsedFilters.categoryIds;
+    if (params.categoryPath) {
+      try { return JSON.parse(params.categoryPath) as string[]; }
+      catch { return undefined; }
+    }
+    if (params.category) return params.category.split(',');
+    return undefined;
+  }, [params.categoryPath, params.category, parsedFilters]);
+
+  const initialFilters = useMemo(() => {
+    const f: any = { ...parsedFilters };
+    if (params.brands) f.brands = params.brands.split(',');
+    const { categoryIds, ...rest } = f;
+    return Object.keys(rest).length > 0 ? rest : undefined;
+  }, [params.brands, parsedFilters]);
+
+  // Did we arrive with initial params that should show results immediately?
+  const hasInitialContext = !!(
+    params.query || params.category || params.categoryPath ||
+    params.brands || params.shopId || params.filters
+  );
+
+  // ─── State ───────────────────────────────────────────────────────
+  const [searchQuery, setSearchQueryLocal] = useState(params.query || '');
   const [recentSearches, setRecentSearches] = useState<SearchHistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<Partial<SearchFilters>>({});
   const [showVisualSearch, setShowVisualSearch] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isSearching, setIsSearching] = useState(hasInitialContext);
+  const [selectedSort, setSelectedSort] = useState<SortBy>('recent');
+  const [showPriceInputs, setShowPriceInputs] = useState(false);
+  const [minPriceText, setMinPriceText] = useState('');
+  const [maxPriceText, setMaxPriceText] = useState('');
 
-  // Article search hook
-  const {
-    articles,
-    searchQuery: activeSearchQuery,
-    isLoading: isLoadingResults,
-    isPaginating,
-    setSearchQuery: setActiveSearchQuery,
-    setFilters: setActiveFilters,
-    loadMore,
-  } = useArticleSearch({
-    initialQuery: '',
-    initialFilters: {},
-  });
-
+  // ─── Refs ────────────────────────────────────────────────────────
   const inputRef = useRef<TextInput>(null);
-
-  // Filter bottom sheet refs
+  const categorySheetRef = useRef<CategoryBottomSheetRef>(null);
   const colorSheetRef = useRef<SelectionBottomSheetRef>(null);
+  const sizeSheetRef = useRef<SizeSelectionSheetRef>(null);
   const materialSheetRef = useRef<SelectionBottomSheetRef>(null);
   const conditionSheetRef = useRef<SelectionBottomSheetRef>(null);
   const brandSheetRef = useRef<BrandSelectionSheetRef>(null);
+  const sortSheetRef = useRef<SelectionBottomSheetRef>(null);
 
-  // Condition options
-  const conditionItems = [
-    { value: 'neuf', label: 'Neuf' },
-    { value: 'très bon état', label: 'Très bon état' },
-    { value: 'bon état', label: 'Bon état' },
-    { value: 'satisfaisant', label: 'Satisfaisant' },
-  ];
+  // ─── Article search hook ─────────────────────────────────────────
+  const {
+    articles,
+    filters,
+    searchQuery: activeSearchQuery,
+    selectedCategoryPath,
+    isLoading,
+    isPaginating,
+    hasActiveFilters,
+    setFilters,
+    setSearchQuery: setActiveSearchQuery,
+    setSelectedCategoryPath,
+    loadMore,
+    clearAllFilters,
+    handleFilterRemove,
+  } = useArticleSearch({
+    initialFilters,
+    initialQuery: params.query,
+    initialCategoryPath,
+  });
 
-  // Category navigation hook
+  // ─── Category navigation (used by CategoryBottomSheet) ──────────
   const categoryNav = useCategoryNavigation({
     onSelect: (categoryIds) => {
-      setSelectedFilters((prev) => ({ ...prev, categoryIds }));
-      setActiveTab('search');
+      setSelectedCategoryPath(categoryIds);
+      setIsSearching(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
   });
 
-  // Initial setup
+  // ─── Init ────────────────────────────────────────────────────────
   useEffect(() => {
-    // Focus input on mount
-    setTimeout(() => inputRef.current?.focus(), 100);
-    // Load recent searches
-    loadRecentSearches();
-
-    // Apply initial category if provided
-    if (initialCategoryPath && initialCategoryPath.length > 0) {
-      setSelectedFilters((prev) => ({ ...prev, categoryIds: initialCategoryPath }));
-      setActiveTab('categories');
+    if (!hasInitialContext) {
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
+    loadRecentSearches();
   }, []);
 
-  // Auto-hide search results when query and filters are cleared
+  // Auto-hide results when everything is cleared
   useEffect(() => {
-    if (!searchQuery.trim() && Object.keys(selectedFilters).length === 0) {
+    if (
+      !searchQuery.trim() &&
+      selectedCategoryPath.length === 0 &&
+      !hasActiveFilters
+    ) {
       setIsSearching(false);
     }
-  }, [searchQuery, selectedFilters]);
+  }, [searchQuery, selectedCategoryPath, hasActiveFilters]);
 
-  // Load recent searches
+  // ─── Recent searches ────────────────────────────────────────────
   const loadRecentSearches = async () => {
     if (!user) return;
-
     setIsLoadingHistory(true);
     try {
       const searches = await SearchHistoryService.getRecentSearches(user.id, 10);
@@ -129,55 +200,53 @@ export default function SearchScreen() {
     }
   };
 
-  // Handle close (go back)
+  // ─── Navigation handlers ────────────────────────────────────────
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
     router.back();
   }, []);
 
-  // Handle search submission
+  const handleProductPress = useCallback(
+    (article: Article | ArticleWithLocation) => {
+      router.push(`/article/${article.id}`);
+    },
+    []
+  );
+
+  // ─── Search handlers ────────────────────────────────────────────
   const handleSearch = useCallback(() => {
     const trimmedQuery = searchQuery.trim();
-
-    // Save to history if user is logged in
-    if (user && (trimmedQuery || Object.keys(selectedFilters).length > 0)) {
-      SearchHistoryService.addSearchToHistory(user.id, trimmedQuery, selectedFilters).catch(
-        console.error
-      );
+    if (user && (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0)) {
+      SearchHistoryService.addSearchToHistory(
+        user.id, trimmedQuery, { ...filters, categoryIds: selectedCategoryPath }
+      ).catch(console.error);
     }
-
-    if (trimmedQuery || Object.keys(selectedFilters).length > 0) {
-      // Trigger search inline
+    if (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0) {
       setIsSearching(true);
       setActiveSearchQuery(trimmedQuery);
-      setActiveFilters(selectedFilters);
       Keyboard.dismiss();
     }
-  }, [searchQuery, selectedFilters, user, setActiveSearchQuery, setActiveFilters]);
+  }, [searchQuery, filters, selectedCategoryPath, hasActiveFilters, user, setActiveSearchQuery]);
 
-  // Handle recent search tap
   const handleRecentSearchTap = useCallback((item: SearchHistoryItem) => {
-    setSearchQuery(item.query);
-    setSelectedFilters(item.filters);
+    setSearchQueryLocal(item.query);
+    setFilters(item.filters as any);
+    if (item.filters.categoryIds) {
+      setSelectedCategoryPath(item.filters.categoryIds);
+    }
     setIsSearching(true);
     setActiveSearchQuery(item.query || '');
-    setActiveFilters(item.filters);
-  }, [setActiveSearchQuery, setActiveFilters]);
+  }, [setActiveSearchQuery, setFilters, setSelectedCategoryPath]);
 
-  // Handle trending search tap
   const handleTrendingTap = useCallback((query: string) => {
-    setSearchQuery(query);
-    setSelectedFilters({});
+    setSearchQueryLocal(query);
     setIsSearching(true);
     setActiveSearchQuery(query);
-    setActiveFilters({});
-  }, [setActiveSearchQuery, setActiveFilters]);
+  }, [setActiveSearchQuery]);
 
-  // Handle recent search delete
   const handleRecentSearchDelete = useCallback(
     async (item: SearchHistoryItem) => {
       if (!user) return;
-
       try {
         await SearchHistoryService.deleteSearchFromHistory(user.id, item.id);
         setRecentSearches((prev) => prev.filter((s) => s.id !== item.id));
@@ -188,497 +257,508 @@ export default function SearchScreen() {
     [user]
   );
 
-  // Clear filters
-  const handleClearFilters = useCallback(() => {
-    setSelectedFilters({});
+  const handleClearAll = useCallback(() => {
+    setSearchQueryLocal('');
+    clearAllFilters();
     categoryNav.goToRoot();
     setIsSearching(false);
-  }, [categoryNav]);
+    setSelectedSort('recent');
+    setMinPriceText('');
+    setMaxPriceText('');
+    setShowPriceInputs(false);
+  }, [clearAllFilters, categoryNav]);
 
-  // Handle product press
-  const handleProductPress = useCallback(
-    (article: Article | ArticleWithLocation) => {
-      router.push(`/article/${article.id}`);
-    },
-    [router]
-  );
-
-  // Visual search handlers
+  // ─── Visual search ──────────────────────────────────────────────
   const handleOpenVisualSearch = useCallback(() => {
     Keyboard.dismiss();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowVisualSearch(true);
-  }, []);
-
-  const handleCloseVisualSearch = useCallback(() => {
-    setShowVisualSearch(false);
   }, []);
 
   const handleVisualSearchCapture = useCallback((imageUri: string) => {
     setShowVisualSearch(false);
-    router.push({
-      pathname: '/visual-search-results',
-      params: { imageUri },
-    });
+    router.push({ pathname: '/visual-search-results', params: { imageUri } });
   }, []);
 
-  // Filter handlers
-  const handleColorSelect = useCallback((color: string) => {
-    setSelectedFilters((prev) => {
-      const currentColors = prev.colors || [];
-      if (currentColors.includes(color)) {
-        return { ...prev, colors: currentColors.filter((c) => c !== color) };
-      }
-      return { ...prev, colors: [...currentColors, color] };
-    });
-  }, []);
+  // ─── Sort handler ───────────────────────────────────────────────
+  const handleSortSelect = useCallback(
+    (sortId: string) => {
+      setSelectedSort(sortId as SortBy);
+      setFilters({ ...filters, sortBy: sortId as SortBy });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    [filters, setFilters]
+  );
 
-  const handleMaterialSelect = useCallback((material: string) => {
-    setSelectedFilters((prev) => {
-      const currentMaterials = prev.materials || [];
-      if (currentMaterials.includes(material)) {
-        return { ...prev, materials: currentMaterials.filter((m) => m !== material) };
-      }
-      return { ...prev, materials: [...currentMaterials, material] };
-    });
-  }, []);
+  // ─── Filter handlers (multi-select) ─────────────────────────────
+  const handleCategorySelect = useCallback(
+    (categoryPath: string[]) => {
+      setSelectedCategoryPath(categoryPath);
+      setIsSearching(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    [setSelectedCategoryPath]
+  );
 
-  const handleConditionSelect = useCallback((condition: string) => {
-    setSelectedFilters((prev) => ({
-      ...prev,
-      condition: prev.condition === condition ? undefined : condition,
-    }));
-  }, []);
+  const handleColorSelect = useCallback(
+    (color: string) => {
+      const cur = filters.colors || [];
+      const next = cur.includes(color) ? cur.filter((c: string) => c !== color) : [...cur, color];
+      setFilters({ ...filters, colors: next });
+      if (!isSearching) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
 
-  const handleBrandsConfirm = useCallback((brands: string[]) => {
-    setSelectedFilters((prev) => ({
-      ...prev,
-      brands: brands.length > 0 ? brands : undefined,
-    }));
-  }, []);
+  const handleSizesConfirm = useCallback(
+    (sizes: string[]) => {
+      setFilters({ ...filters, sizes });
+      if (!isSearching && sizes.length > 0) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
 
-  const getFilterLabel = (filterType: string): string => {
-    switch (filterType) {
-      case 'colors':
-        const selectedColors = selectedFilters.colors || [];
-        if (selectedColors.length === 0) return 'Couleur';
-        if (selectedColors.length === 1) {
-          const color = colorData.find((c) => c.id === selectedColors[0]);
-          return color?.name || selectedColors[0];
-        }
-        return `${selectedColors.length} couleurs`;
-      case 'materials':
-        const selectedMaterials = selectedFilters.materials || [];
-        if (selectedMaterials.length === 0) return 'Matière';
-        return selectedMaterials.length === 1
-          ? selectedMaterials[0]
-          : `${selectedMaterials.length} matières`;
-      case 'condition':
-        if (!selectedFilters.condition) return 'État';
-        return conditionItems.find((c) => c.value === selectedFilters.condition)?.label || 'État';
-      case 'brands':
-        const selectedBrands = selectedFilters.brands || [];
-        if (selectedBrands.length === 0) return 'Marque';
-        return selectedBrands.length === 1
-          ? selectedBrands[0]
-          : `${selectedBrands.length} marques`;
-      default:
-        return filterType;
-    }
+  const handleMaterialSelect = useCallback(
+    (material: string) => {
+      const cur = filters.materials || [];
+      const next = cur.includes(material) ? cur.filter((m: string) => m !== material) : [...cur, material];
+      setFilters({ ...filters, materials: next });
+      if (!isSearching) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handleConditionSelect = useCallback(
+    (condition: string) => {
+      setFilters({ ...filters, condition: filters.condition === condition ? undefined : condition });
+      if (!isSearching) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handleBrandsConfirm = useCallback(
+    (brands: string[]) => {
+      setFilters({ ...filters, brands: brands.length > 0 ? brands : undefined });
+      if (!isSearching && brands.length > 0) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handlePriceApply = useCallback(() => {
+    const minPrice = minPriceText ? parseFloat(minPriceText) : undefined;
+    const maxPrice = maxPriceText ? parseFloat(maxPriceText) : undefined;
+    setFilters({ ...filters, minPrice, maxPrice });
+    setShowPriceInputs(false);
+    if (!isSearching && (minPrice || maxPrice)) setIsSearching(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [minPriceText, maxPriceText, filters, setFilters, isSearching]);
+
+  const handlePriceClear = useCallback(() => {
+    setMinPriceText('');
+    setMaxPriceText('');
+    setFilters({ ...filters, minPrice: undefined, maxPrice: undefined });
+    setShowPriceInputs(false);
+  }, [filters, setFilters]);
+
+  // ─── Label helpers ──────────────────────────────────────────────
+  const getCategoryLabel = (): string =>
+    selectedCategoryPath.length > 0 ? getCategoryLabelFromIds(selectedCategoryPath) : 'Categorie';
+
+  const getColorLabel = (): string => {
+    const sel = filters.colors || [];
+    if (sel.length === 0) return 'Couleur';
+    if (sel.length === 1) return colorData.find((c) => c.id === sel[0])?.name || sel[0];
+    return `${sel.length} couleurs`;
   };
 
-  const isFilterActive = (filterType: string): boolean => {
-    switch (filterType) {
-      case 'colors':
-        return (selectedFilters.colors?.length || 0) > 0;
-      case 'materials':
-        return (selectedFilters.materials?.length || 0) > 0;
-      case 'condition':
-        return !!selectedFilters.condition;
-      case 'brands':
-        return (selectedFilters.brands?.length || 0) > 0;
-      default:
-        return false;
-    }
+  const getSizeLabel = (): string => {
+    const sel = filters.sizes || [];
+    if (sel.length === 0) return 'Taille';
+    if (sel.length === 1) return sel[0];
+    return `${sel.length} tailles`;
   };
 
-  const hasFilters = Object.keys(selectedFilters).length > 0;
+  const getMaterialLabel = (): string => {
+    const sel = filters.materials || [];
+    if (sel.length === 0) return 'Matiere';
+    if (sel.length === 1) return sel[0];
+    return `${sel.length} matieres`;
+  };
+
+  const getBrandLabel = (): string => {
+    const sel = filters.brands || [];
+    if (sel.length === 0) return 'Marque';
+    if (sel.length === 1) return sel[0];
+    return `${sel.length} marques`;
+  };
+
+  const getConditionLabel = (): string => {
+    if (!filters.condition) return 'Etat';
+    return CONDITION_ITEMS.find((c) => c.value === filters.condition)?.label || 'Etat';
+  };
+
+  const getPriceLabel = (): string => {
+    if (filters.minPrice && filters.maxPrice) return `${filters.minPrice}$ - ${filters.maxPrice}$`;
+    if (filters.minPrice) return `Min ${filters.minPrice}$`;
+    if (filters.maxPrice) return `Max ${filters.maxPrice}$`;
+    return 'Prix';
+  };
+
+  const getSortLabel = (): string => {
+    const item = SORT_ITEMS.find((s) => s.value === selectedSort);
+    return item ? item.label : 'Trier';
+  };
+
+  // ─── Active state helpers ───────────────────────────────────────
+  const isCategoryActive = selectedCategoryPath.length > 0;
+  const isColorActive = (filters.colors?.length || 0) > 0;
+  const isSizeActive = (filters.sizes?.length || 0) > 0;
+  const isMaterialActive = (filters.materials?.length || 0) > 0;
+  const isBrandActive = (filters.brands?.length || 0) > 0;
+  const isConditionActive = !!filters.condition;
+  const isPriceActive = !!(filters.minPrice || filters.maxPrice);
+
+  const anyFilterActive =
+    isCategoryActive || isColorActive || isSizeActive || isMaterialActive ||
+    isBrandActive || isConditionActive || isPriceActive;
+
+  // ─── Filter chips config ────────────────────────────────────────
+  const isSortActive = selectedSort !== 'recent';
+
+  const filterChips = [
+    { key: 'sort', label: getSortLabel(), active: isSortActive, onPress: () => sortSheetRef.current?.show() },
+    { key: 'category', label: getCategoryLabel(), active: isCategoryActive, onPress: () => categorySheetRef.current?.show() },
+    { key: 'colors', label: getColorLabel(), active: isColorActive, onPress: () => colorSheetRef.current?.show() },
+    { key: 'sizes', label: getSizeLabel(), active: isSizeActive, onPress: () => sizeSheetRef.current?.show() },
+    { key: 'materials', label: getMaterialLabel(), active: isMaterialActive, onPress: () => materialSheetRef.current?.show() },
+    { key: 'brands', label: getBrandLabel(), active: isBrandActive, onPress: () => brandSheetRef.current?.show() },
+    { key: 'condition', label: getConditionLabel(), active: isConditionActive, onPress: () => conditionSheetRef.current?.show() },
+    { key: 'price', label: getPriceLabel(), active: isPriceActive, onPress: () => { setShowPriceInputs(!showPriceInputs); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } },
+  ];
+
+  // ─── Page title ─────────────────────────────────────────────────
+  const getPageTitle = (): string => {
+    if (params.brands) return 'Resultats par marque';
+    if (selectedCategoryPath.length > 0) return getCategoryLabelFromIds(selectedCategoryPath);
+    if (params.category) {
+      const cat = CATEGORIES.find((c) => c.id === params.category);
+      return cat?.label || params.category;
+    }
+    if (params.shopId) return 'Articles de la boutique';
+    return 'Rechercher';
+  };
+
+  // ═════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═════════════════════════════════════════════════════════════════
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={handleClose} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+      {/* ── Header ── */}
+      <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
+        <Pressable onPress={handleClose} style={styles.backButton} hitSlop={8}>
+          <Ionicons name="arrow-back" size={22} color={colors.charcoal} />
         </Pressable>
 
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={18} color={colors.muted} style={styles.searchIcon} />
+          <Ionicons name="search" size={16} color={colors.muted} style={styles.searchIcon} />
           <TextInput
             ref={inputRef}
             style={styles.searchInput}
             placeholder="Rechercher..."
             placeholderTextColor={colors.muted}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={setSearchQueryLocal}
             onSubmitEditing={handleSearch}
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')} style={styles.clearButton}>
-              <Ionicons name="close-circle" size={18} color={colors.muted} />
+            <Pressable onPress={() => setSearchQueryLocal('')} style={styles.clearButton} hitSlop={8}>
+              <Ionicons name="close" size={16} color={colors.muted} />
             </Pressable>
           )}
         </View>
 
-        <Pressable onPress={handleOpenVisualSearch} style={styles.cameraButton}>
-          <Ionicons name="camera-outline" size={22} color={colors.primary} />
+        <Pressable onPress={handleOpenVisualSearch} style={styles.cameraButton} hitSlop={4}>
+          <Ionicons name="camera-outline" size={20} color={colors.rust} />
         </Pressable>
 
-        {(searchQuery.length > 0 || hasFilters) && (
-          <Pressable onPress={handleSearch} style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>OK</Text>
+        {(searchQuery.length > 0 || anyFilterActive) && (
+          <Pressable onPress={handleSearch} style={styles.okButton}>
+            <Text style={styles.okButtonText}>OK</Text>
           </Pressable>
         )}
-      </View>
+      </Animated.View>
 
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'search' && styles.activeTab]}
-          onPress={() => setActiveTab('search')}
-        >
-          <Text style={[styles.tabText, activeTab === 'search' && styles.activeTabText]}>
-            Recherche
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'categories' && styles.activeTab]}
-          onPress={() => setActiveTab('categories')}
-        >
-          <Text style={[styles.tabText, activeTab === 'categories' && styles.activeTabText]}>
-            Catégories
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Filter Chips */}
+      {/* ── Filter chips (horizontal scroll) — always visible ── */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filterChipsContainer}
         contentContainerStyle={styles.filterChipsContent}
       >
-        <Pressable
-          style={[styles.filterChipButton, isFilterActive('colors') && styles.filterChipButtonActive]}
-          onPress={() => colorSheetRef.current?.show()}
-        >
-          <Text style={[styles.filterChipButtonText, isFilterActive('colors') && styles.filterChipButtonTextActive]}>
-            {getFilterLabel('colors')}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={16}
-            color={isFilterActive('colors') ? colors.white : colors.muted}
-          />
-        </Pressable>
-
-        <Pressable
-          style={[styles.filterChipButton, isFilterActive('condition') && styles.filterChipButtonActive]}
-          onPress={() => conditionSheetRef.current?.show()}
-        >
-          <Text style={[styles.filterChipButtonText, isFilterActive('condition') && styles.filterChipButtonTextActive]}>
-            {getFilterLabel('condition')}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={16}
-            color={isFilterActive('condition') ? colors.white : colors.muted}
-          />
-        </Pressable>
-
-        <Pressable
-          style={[styles.filterChipButton, isFilterActive('brands') && styles.filterChipButtonActive]}
-          onPress={() => brandSheetRef.current?.show()}
-        >
-          <Text style={[styles.filterChipButtonText, isFilterActive('brands') && styles.filterChipButtonTextActive]}>
-            {getFilterLabel('brands')}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={16}
-            color={isFilterActive('brands') ? colors.white : colors.muted}
-          />
-        </Pressable>
-
-        <Pressable
-          style={[styles.filterChipButton, isFilterActive('materials') && styles.filterChipButtonActive]}
-          onPress={() => materialSheetRef.current?.show()}
-        >
-          <Text style={[styles.filterChipButtonText, isFilterActive('materials') && styles.filterChipButtonTextActive]}>
-            {getFilterLabel('materials')}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={16}
-            color={isFilterActive('materials') ? colors.white : colors.muted}
-          />
-        </Pressable>
+        {filterChips.map(({ key, label, active, onPress }) => (
+          <Pressable
+            key={key}
+            style={[styles.filterChip, active && styles.filterChipActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onPress();
+            }}
+          >
+            <Text
+              style={[styles.filterChipText, active && styles.filterChipTextActive]}
+              numberOfLines={1}
+            >
+              {label}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color={active ? colors.white : colors.muted} />
+          </Pressable>
+        ))}
       </ScrollView>
 
-      {/* Active Filters */}
-      {hasFilters && (
-        <View style={styles.activeFiltersContainer}>
-          {selectedFilters.categoryIds && selectedFilters.categoryIds.length > 0 && (
-            <View style={styles.filterChip}>
-              <Text style={styles.filterChipText} numberOfLines={1}>
-                {selectedFilters.categoryIds[selectedFilters.categoryIds.length - 1]}
-              </Text>
-              <TouchableOpacity
-                onPress={() =>
-                  setSelectedFilters((prev) => {
-                    const { categoryIds, ...rest } = prev;
-                    return rest;
-                  })
-                }
-              >
-                <Ionicons name="close" size={16} color={colors.muted} />
-              </TouchableOpacity>
+      {/* ── Price range inputs (collapsible) ── */}
+      {showPriceInputs && (
+        <Animated.View entering={FadeInDown.duration(200)} style={styles.priceSection}>
+          <View style={styles.priceInputsRow}>
+            <View style={styles.priceInputWrapper}>
+              <Text style={styles.priceInputLabel}>Min</Text>
+              <TextInput
+                style={styles.priceInput}
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={minPriceText}
+                onChangeText={setMinPriceText}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+              <Text style={styles.priceCurrency}>$</Text>
             </View>
-          )}
-          <TouchableOpacity onPress={handleClearFilters} style={styles.clearFiltersButton}>
-            <Text style={styles.clearFiltersText}>Effacer tout</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.priceSeparator} />
+            <View style={styles.priceInputWrapper}>
+              <Text style={styles.priceInputLabel}>Max</Text>
+              <TextInput
+                style={styles.priceInput}
+                placeholder="1000"
+                placeholderTextColor={colors.muted}
+                value={maxPriceText}
+                onChangeText={setMaxPriceText}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+              <Text style={styles.priceCurrency}>$</Text>
+            </View>
+          </View>
+          <View style={styles.priceActions}>
+            {isPriceActive && (
+              <Pressable onPress={handlePriceClear} style={styles.priceClearButton}>
+                <Text style={styles.priceClearText}>Effacer</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={handlePriceApply} style={styles.priceApplyButton}>
+              <Text style={styles.priceApplyText}>Appliquer</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
       )}
 
-      {/* Content */}
+      {/* ── Content ── */}
       <View style={styles.content}>
-        {activeTab === 'search' ? (
-          isSearching ? (
-            // Search results
-            <>
-              {!isLoadingResults && articles && articles.length > 0 && (
-                <View style={styles.resultsCount}>
-                  <Text style={styles.resultsText}>
-                    {articles.length} article{articles.length > 1 ? 's' : ''} trouvé
-                    {articles.length > 1 ? 's' : ''}
-                  </Text>
-                </View>
-              )}
-              <ProductGrid
-                articles={articles || []}
-                isLoading={isLoadingResults}
-                isPaginating={isPaginating}
-                onProductPress={handleProductPress}
-                onEndReached={loadMore}
-                onEndReachedThreshold={0.5}
-                emptyMessage={
-                  activeSearchQuery
-                    ? `Aucun résultat pour "${activeSearchQuery}"`
-                    : 'Aucun article trouvé avec ces filtres'
-                }
-              />
-            </>
-          ) : (
-            // Recent searches
-            <RecentSearches
-              searches={recentSearches}
-              isLoading={isLoadingHistory}
-              onSearchTap={handleRecentSearchTap}
-              onSearchDelete={handleRecentSearchDelete}
-              onTrendingTap={handleTrendingTap}
-            />
-          )
-        ) : (
-          <CategoryTree
-            navigationPath={categoryNav.navigationPath}
-            currentList={categoryNav.currentList}
-            currentTitle={categoryNav.currentTitle}
-            isAtRoot={categoryNav.isAtRoot}
-            onCategorySelect={categoryNav.selectCategory}
-            onBack={categoryNav.goBack}
-            onSelectCurrent={categoryNav.selectCurrent}
+        {/* Results info bar */}
+        {(isSearching || anyFilterActive) && (
+          <View style={styles.resultsInfoBar}>
+            {!isLoading && articles.length > 0 && (
+              <Text style={styles.resultsCountInline}>
+                {articles.length} article{articles.length > 1 ? 's' : ''} trouve{articles.length > 1 ? 's' : ''}
+              </Text>
+            )}
+            {anyFilterActive && (
+              <Pressable onPress={handleClearAll} style={styles.clearAllButton}>
+                <Text style={styles.clearAllText}>Effacer tout</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* Recent searches (shown when no search is active) */}
+        {!isSearching && (
+          <RecentSearches
+            searches={recentSearches}
+            isLoading={isLoadingHistory}
+            onSearchTap={handleRecentSearchTap}
+            onSearchDelete={handleRecentSearchDelete}
+            onTrendingTap={handleTrendingTap}
+          />
+        )}
+
+        {/* Product grid (shown when searching) */}
+        {isSearching && (
+          <ProductGrid
+            articles={articles || []}
+            isLoading={isLoading}
+            isPaginating={isPaginating}
+            onLoadMore={loadMore}
+            onProductPress={handleProductPress}
+            emptyMessage={
+              activeSearchQuery
+                ? `Aucun resultat pour "${activeSearchQuery}"`
+                : 'Aucun article trouve avec ces filtres'
+            }
+            testID="search-results-grid"
           />
         )}
       </View>
 
-      {/* Visual Search Camera Modal */}
+      {/* ── Visual Search Modal ── */}
       <Modal
         visible={showVisualSearch}
         animationType="slide"
         presentationStyle="fullScreen"
-        onRequestClose={handleCloseVisualSearch}
+        onRequestClose={() => setShowVisualSearch(false)}
       >
         <VisualSearchCamera
-          onClose={handleCloseVisualSearch}
+          onClose={() => setShowVisualSearch(false)}
           onPhotoCapture={handleVisualSearchCapture}
         />
       </Modal>
 
-      {/* Filter Bottom Sheets */}
+      {/* ── Bottom Sheets ── */}
+      <CategoryBottomSheet
+        ref={categorySheetRef}
+        onSelect={handleCategorySelect}
+        selectedCategoryIds={selectedCategoryPath}
+      />
+
       <SelectionBottomSheet
         ref={colorSheetRef}
         title="Couleur"
         items={getColorItems()}
-        selectedValue={selectedFilters.colors?.[0]}
+        selectedValue={filters.colors?.[0]}
+        selectedValues={filters.colors || []}
         onSelect={handleColorSelect}
         type="color"
+        multiSelect
       />
 
-      <SelectionBottomSheet
-        ref={conditionSheetRef}
-        title="État"
-        items={conditionItems}
-        selectedValue={selectedFilters.condition}
-        onSelect={handleConditionSelect}
+      <SizeSelectionSheet
+        ref={sizeSheetRef}
+        selectedSizes={filters.sizes || []}
+        onConfirm={handleSizesConfirm}
       />
 
       <SelectionBottomSheet
         ref={materialSheetRef}
-        title="Matière"
+        title="Matiere"
         items={getMaterialItems()}
-        selectedValue={selectedFilters.materials?.[0]}
+        selectedValue={filters.materials?.[0]}
+        selectedValues={filters.materials || []}
         onSelect={handleMaterialSelect}
+        multiSelect
+      />
+
+      <SelectionBottomSheet
+        ref={conditionSheetRef}
+        title="Etat"
+        items={CONDITION_ITEMS}
+        selectedValue={filters.condition}
+        onSelect={handleConditionSelect}
       />
 
       <BrandSelectionSheet
         ref={brandSheetRef}
-        selectedBrands={selectedFilters.brands || []}
+        selectedBrands={filters.brands || []}
         onConfirm={handleBrandsConfirm}
+      />
+
+      <SelectionBottomSheet
+        ref={sortSheetRef}
+        title="Trier par"
+        items={SORT_ITEMS}
+        selectedValue={selectedSort}
+        onSelect={handleSortSelect}
       />
     </SafeAreaView>
   );
 }
 
+// ═════════════════════════════════════════════════════════════════════
+// STYLES — Editorial (sharp corners, charcoal/rust palette)
+// ═════════════════════════════════════════════════════════════════════
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
+
+  // ── Header ──
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
+    backgroundColor: colors.surface,
+    gap: 10,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.sm,
   },
   searchInputContainer: {
     flex: 1,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.borderLight,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    height: 48,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 0,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surface,
   },
   searchIcon: {
-    marginRight: spacing.sm,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: colors.foreground,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.charcoal,
+    letterSpacing: 0.1,
     paddingVertical: 0,
   },
   clearButton: {
-    padding: spacing.xs,
+    padding: 4,
   },
   cameraButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: colors.rust,
+    borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: spacing.sm,
-    backgroundColor: colors.primaryLight,
   },
-  searchButton: {
-    marginLeft: spacing.sm,
+  okButton: {
+    height: 40,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.foreground,
-    borderRadius: radius.lg,
+    backgroundColor: colors.charcoal,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  searchButtonText: {
+  okButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
     color: colors.white,
-    fontFamily: typography.label.fontFamily,
-    fontWeight: '600',
-    fontSize: 14,
   },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.foreground,
-  },
-  tabText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 15,
-    color: colors.muted,
-    fontWeight: '500',
-  },
-  activeTabText: {
-    color: colors.foreground,
-    fontWeight: '600',
-  },
-  activeFiltersContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.borderLight,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.full,
-    paddingVertical: spacing.xs + 2,
-    paddingLeft: spacing.sm + 4,
-    paddingRight: spacing.sm,
-    marginRight: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipText: {
-    fontFamily: typography.bodySmall.fontFamily,
-    fontSize: 13,
-    color: colors.foreground,
-    marginRight: spacing.xs,
-    maxWidth: 150,
-  },
-  clearFiltersButton: {
-    marginLeft: 'auto',
-  },
-  clearFiltersText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  content: {
-    flex: 1,
-  },
+
+  // ── Filter chips (horizontal scroll) ──
   filterChipsContainer: {
     maxHeight: 56,
     borderBottomWidth: 1,
@@ -687,41 +767,147 @@ const styles = StyleSheet.create({
   },
   filterChipsContent: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    paddingVertical: 10,
+    gap: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  filterChipButton: {
+  filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.borderLight,
-    borderRadius: radius.full,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.xs,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    gap: 6,
   },
-  filterChipButtonActive: {
-    backgroundColor: colors.foreground,
+  filterChipActive: {
+    backgroundColor: colors.charcoal,
+    borderColor: colors.charcoal,
   },
-  filterChipButtonText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 14,
-    color: colors.foreground,
-    fontWeight: '500',
+  filterChipText: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: colors.charcoal,
+    maxWidth: 120,
   },
-  filterChipButtonTextActive: {
+  filterChipTextActive: {
     color: colors.white,
-    fontWeight: '600',
   },
-  resultsCount: {
+
+  // ── Price section ──
+  priceSection: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.borderLight,
+    paddingVertical: 12,
+    backgroundColor: colors.surfaceWarm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  resultsText: {
-    fontFamily: typography.bodySmall.fontFamily,
-    fontSize: 13,
+  priceInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  priceInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 0,
+    height: 40,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+  },
+  priceInputLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.5,
     color: colors.muted,
+    marginRight: 8,
+  },
+  priceInput: {
+    flex: 1,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.charcoal,
+    paddingVertical: 0,
+  },
+  priceCurrency: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.muted,
+    marginLeft: 4,
+  },
+  priceSeparator: {
+    width: 12,
+    height: 1,
+    backgroundColor: colors.borderStrong,
+  },
+  priceActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 12,
+  },
+  priceClearButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  priceClearText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: colors.rust,
+  },
+  priceApplyButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: colors.charcoal,
+    borderRadius: 0,
+  },
+  priceApplyText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.white,
+  },
+
+  // ── Results info bar ──
+  resultsInfoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  resultsCountInline: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    letterSpacing: 0.1,
+    color: colors.muted,
+  },
+  clearAllButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  clearAllText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    color: colors.rust,
+  },
+
+  // ── Content ──
+  content: {
+    flex: 1,
   },
 });

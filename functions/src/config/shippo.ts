@@ -1,20 +1,8 @@
 /**
- * Shippo client initialization
- * Firebase Functions v7
+ * @deprecated Shippo has been replaced by Intelcom.
+ * Use './intelcom' instead.
+ * This file is kept only to avoid import errors during migration.
  */
-import { Shippo } from 'shippo';
 
-let shippoClient: Shippo | null = null;
-
-/**
- * Get Shippo client instance (lazy initialization)
- */
-export const getShippo = (): Shippo | null => {
-  const shippoApiKey = process.env.SHIPPO_API_KEY;
-  if (!shippoClient && shippoApiKey) {
-    shippoClient = new Shippo({ apiKeyHeader: shippoApiKey });
-  }
-  return shippoClient;
-};
-
-export type { Shippo };
+// Re-export from intelcom for backward compatibility
+export { getIntelcom as getShippo } from './intelcom';

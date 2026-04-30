@@ -150,6 +150,7 @@ export const ThemedBottomSheet = forwardRef<ThemedBottomSheetRef, ThemedBottomSh
         handleComponent={showHandle ? CustomHandle : null}
         backgroundStyle={styles.background}
         style={styles.sheet}
+        enableDynamicSizing={false}
       >
         {/* Header */}
         {showHeader && title && (
@@ -210,6 +211,7 @@ export const ThemedBottomSheetModal = forwardRef<BottomSheetModal, ThemedBottomS
         handleComponent={showHandle ? CustomHandle : null}
         backgroundStyle={styles.background}
         style={styles.sheet}
+        enableDynamicSizing={false}
       >
         {/* Header */}
         {showHeader && title && (

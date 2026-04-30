@@ -51,8 +51,9 @@ Create `functions/.env`:
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
-# Shippo
-SHIPPO_API_KEY=shippo_test_...
+# Intelcom
+INTELCOM_API_KEY=your_intelcom_api_key
+INTELCOM_CLIENT_CODE=your_client_code
 ```
 
 ### 3. Firebase Setup

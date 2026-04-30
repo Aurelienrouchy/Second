@@ -19,6 +19,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatDisplayName } from '@/utils/formatName';
 
 export default function BlockedUsersScreen() {
   const { user } = useAuth();
@@ -87,7 +88,7 @@ export default function BlockedUsersScreen() {
           <Ionicons name="person" size={24} color={colors.muted} />
         </View>
         <View style={styles.userText}>
-          <Text variant="body" style={styles.userName}>{item.blockedUserName}</Text>
+          <Text variant="body" style={styles.userName}>{formatDisplayName(item.blockedUserName)}</Text>
           <Caption>Bloqué le {formatDate(item.blockedAt)}</Caption>
         </View>
       </View>

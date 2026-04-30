@@ -14,12 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
+import { colors } from '@/constants/theme';
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '';
 
 export default function AddressSettingsScreen() {
   const router = useRouter();
-  const { user, signIn } = useAuth();
+  const { user, refreshUser } = useAuth();
   const addressRef = useRef<GooglePlacesAutocompleteRef>(null);
   
   const [isSaving, setIsSaving] = useState(false);
@@ -58,19 +59,8 @@ export default function AddressSettingsScreen() {
                 },
               });
 
-              // Mettre à jour l'utilisateur localement pour refléter les changements immédiatement
-              if (user) {
-                const updatedUser = {
-                  ...user,
-                  address: {
-                    street: streetAddress,
-                    city,
-                    postalCode,
-                    country,
-                  }
-                };
-                await signIn(updatedUser);
-              }
+              // Rafraîchir les données utilisateur depuis Firestore
+              await refreshUser();
 
               Alert.alert('Succès', 'Votre adresse a été mise à jour', [
                 { text: 'OK', onPress: () => router.back() }
@@ -100,7 +90,7 @@ export default function AddressSettingsScreen() {
             <View style={styles.currentAddressCard}>
               <Text style={styles.currentAddressLabel}>Adresse actuelle :</Text>
               <View style={styles.addressRow}>
-                <Ionicons name="location" size={24} color="#F79F24" />
+                <Ionicons name="location" size={24} color={colors.primary} />
                 <View style={styles.addressDetails}>
                   <Text style={styles.addressText}>
                     {user.address.street ? `${user.address.street}, ` : ''}
@@ -112,7 +102,7 @@ export default function AddressSettingsScreen() {
             </View>
           ) : (
             <View style={styles.infoBox}>
-              <Ionicons name="information-circle-outline" size={24} color="#007AFF" />
+              <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
               <Text style={styles.infoText}>
                 Aucune adresse enregistrée. Ajoutez-en une pour faciliter vos ventes et achats.
               </Text>
@@ -215,7 +205,7 @@ const styles = StyleSheet.create({
   },
   addressText: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     fontWeight: '500',
     marginBottom: 4,
   },
@@ -235,7 +225,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   formSection: {
     gap: 12,
@@ -246,7 +236,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 8,
   },
 });

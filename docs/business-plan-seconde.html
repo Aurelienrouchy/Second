@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seconde — Business Plan & Seconde Pro</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: #1A1814;
+    line-height: 1.6;
+    background: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 48px;
+  }
+
+  @media print {
+    body { padding: 20px 30px; font-size: 11px; }
+    .page-break { page-break-before: always; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 14px; }
+    table { font-size: 10px; }
+  }
+
+  /* Cover */
+  .cover { text-align: center; padding: 80px 0 60px; border-bottom: 3px solid #C4603A; margin-bottom: 40px; }
+  .cover h1 { font-size: 42px; font-weight: 700; color: #C4603A; margin-bottom: 8px; }
+  .cover .subtitle { font-size: 20px; color: #4A4A4A; font-weight: 300; margin-bottom: 24px; }
+  .cover .meta { font-size: 14px; color: #8C8880; }
+
+  /* Headers */
+  h2 { font-size: 22px; font-weight: 700; color: #C4603A; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #F5F0E8; }
+  h3 { font-size: 16px; font-weight: 600; color: #1A1814; margin: 24px 0 12px; }
+  h4 { font-size: 14px; font-weight: 600; color: #4A4A4A; margin: 16px 0 8px; }
+
+  /* Text */
+  p { margin-bottom: 12px; color: #4A4A4A; }
+  strong { color: #1A1814; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 13px; }
+  th { background: #F5F0E8; color: #1A1814; font-weight: 600; text-align: left; padding: 10px 12px; border: 1px solid #E8E0D4; }
+  td { padding: 8px 12px; border: 1px solid #E8E0D4; color: #4A4A4A; }
+  tr:nth-child(even) { background: #FAFAF8; }
+  .highlight-row { background: #FFF5F0 !important; }
+  .highlight-row td { color: #C4603A; font-weight: 600; }
+
+  /* Lists */
+  ul, ol { margin: 8px 0 16px 24px; color: #4A4A4A; }
+  li { margin-bottom: 6px; }
+
+  /* Callout boxes */
+  .callout { background: #F5F0E8; border-left: 4px solid #C4603A; padding: 16px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+  .callout p { margin: 0; }
+  .callout-green { background: #F0F9F4; border-left-color: #3D9970; }
+  .callout-blue { background: #F0F5FF; border-left-color: #3B82F6; }
+
+  /* Stats grid */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
+  .stat-box { background: #F5F0E8; border-radius: 12px; padding: 20px; text-align: center; }
+  .stat-value { font-size: 28px; font-weight: 700; color: #C4603A; }
+  .stat-label { font-size: 12px; color: #8C8880; margin-top: 4px; }
+
+  /* Feature cards */
+  .feature-card { background: #FAFAF8; border: 1px solid #E8E0D4; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .feature-card h4 { margin: 0 0 4px; color: #C4603A; }
+  .feature-card p { margin: 0; font-size: 13px; }
+  .feature-card .why { font-style: italic; color: #8C8880; font-size: 12px; margin-top: 8px; }
+
+  /* Plan badges */
+  .plan-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .plan-essentiel { background: #F5F0E8; color: #C4603A; }
+  .plan-croissance { background: #F0F5FF; color: #3B82F6; }
+  .plan-premium { background: #F5F0FF; color: #7C3AED; }
+
+  .toc { margin: 20px 0 40px; }
+  .toc a { color: #C4603A; text-decoration: none; }
+  .toc li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <h1>Seconde</h1>
+  <div class="subtitle">Marketplace de mode seconde main &mdash; Montr&eacute;al</div>
+  <div class="meta">Business Plan &amp; Programme Seconde Pro<br>Avril 2026 &mdash; Document confidentiel</div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc">
+  <h3>Table des mati&egrave;res</h3>
+  <ol>
+    <li><a href="#concept">Le concept</a></li>
+    <li><a href="#marche">Le march&eacute;</a></li>
+    <li><a href="#modele">Mod&egrave;le de revenus</a></li>
+    <li><a href="#previsions">Pr&eacute;visions financi&egrave;res &mdash; Ann&eacute;e 1</a></li>
+    <li><a href="#scenarios">3 sc&eacute;narios</a></li>
+    <li><a href="#pro">Programme Seconde Pro &mdash; Friperies</a></li>
+    <li><a href="#fonctionnalites">25 fonctionnalit&eacute;s Pro d&eacute;taill&eacute;es</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+  </ol>
+</div>
+
+<!-- 1. CONCEPT -->
+<h2 id="concept">1. Le concept</h2>
+
+<p><strong>Seconde</strong> est une application mobile de vente de v&ecirc;tements et articles de seconde main, con&ccedil;ue pour Montr&eacute;al. L'app connecte des vendeurs particuliers et des friperies locales avec des acheteurs qui cherchent de la mode abordable et &eacute;coresponsable.</p>
+
+<div class="callout">
+  <p><strong>Notre diff&eacute;renciation :</strong> Contrairement &agrave; Facebook Marketplace (pas de protection, pas de livraison, arnaques) et Vinted (g&eacute;n&eacute;raliste, pas local), Seconde offre une exp&eacute;rience mode s&eacute;curis&eacute;e ancr&eacute;e dans la communaut&eacute; montr&eacute;alaise &mdash; avec un espace d&eacute;di&eacute; pour les friperies locales.</p>
+</div>
+
+<h3>Notre stack technique</h3>
+<ul>
+  <li><strong>App mobile</strong> : React Native / Expo (iOS + Android)</li>
+  <li><strong>Paiement</strong> : Helcim (processeur canadien, 2,5% + 0,25$)</li>
+  <li><strong>Livraison</strong> : ShipEngine &rarr; Intelcom (3 300+ points relais) + Postes Canada</li>
+  <li><strong>Backend</strong> : Firebase (auth, base de donn&eacute;es, Cloud Functions)</li>
+  <li><strong>IA</strong> : Analyse d'images, suggestions de prix, cat&eacute;gorisation automatique</li>
+</ul>
+
+<!-- 2. MARCHE -->
+<h2 id="marche">2. Le march&eacute;</h2>
+
+<div class="stats-grid">
+  <div class="stat-box">
+    <div class="stat-value">4,8 G$</div>
+    <div class="stat-label">March&eacute; seconde main Canada 2024</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value">+15-20%</div>
+    <div class="stat-label">Croissance annuelle</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value">150-200 M$</div>
+    <div class="stat-label">March&eacute; en ligne C2C Montr&eacute;al</div>
+  </div>
+</div>
+
+<h3>Concurrence au Canada</h3>
+<table>
+  <tr><th>Plateforme</th><th>Utilisateurs Canada</th><th>Frais</th><th>Force</th><th>Faiblesse</th></tr>
+  <tr><td><strong>Poshmark</strong></td><td>3,5M inscrits</td><td>20% vendeur</td><td>Communaut&eacute; active</td><td>Commission trop &eacute;lev&eacute;e</td></tr>
+  <tr><td><strong>Vinted</strong></td><td>500-800K (nouveau)</td><td>5% acheteur</td><td>0% vendeur, grosse notori&eacute;t&eacute;</td><td>Pas local, pas de friperies</td></tr>
+  <tr><td><strong>FB Marketplace</strong></td><td>15M (toutes cat.)</td><td>~5%</td><td>Audience massive</td><td>Arnaques, 0 protection, moche</td></tr>
+  <tr><td><strong>Depop</strong></td><td>400K</td><td>~5% acheteur</td><td>Esth&eacute;tique Gen Z</td><td>Perd de l'argent, petit march&eacute; CA</td></tr>
+</table>
+
+<h3>Panier moyen au Canada</h3>
+<table>
+  <tr><th>Tranche de prix</th><th>% des ventes</th><th>Prix moyen</th><th>Articles typiques</th></tr>
+  <tr><td>0-10$</td><td>18%</td><td>7,50$</td><td>T-shirts, accessoires</td></tr>
+  <tr><td><strong>10-25$</strong></td><td><strong>38%</strong></td><td><strong>17,00$</strong></td><td><strong>Hauts, jupes, pantalons</strong></td></tr>
+  <tr><td>25-50$</td><td>28%</td><td>35,00$</td><td>Jeans, robes, chaussures</td></tr>
+  <tr><td>50-100$</td><td>12%</td><td>70,00$</td><td>Manteaux, marques</td></tr>
+  <tr><td>100$+</td><td>4%</td><td>140,00$</td><td>Designer, Canada Goose</td></tr>
+</table>
+<p><strong>Panier moyen estim&eacute; : 28 CAD</strong></p>
+
+<!-- 3. MODELE DE REVENUS -->
+<h2 id="modele">3. Mod&egrave;le de revenus</h2>
+
+<div class="callout-green callout">
+  <p><strong>Mod&egrave;le Vinted :</strong> 0% commission vendeur. Le vendeur garde 100% du prix de son article. Les revenus viennent de l'acheteur et des services optionnels.</p>
+</div>
+
+<h3>6 sources de revenus</h3>
+<table>
+  <tr><th>#</th><th>Source</th><th>D&eacute;tail</th><th>Quand</th></tr>
+  <tr class="highlight-row"><td>1</td><td>Frais de protection acheteur</td><td>5% du prix article + 1,50$ fixe (min 2,00$)</td><td>Jour 1</td></tr>
+  <tr><td>2</td><td>Boosts articles</td><td>1-3$ pour mettre un article en haut des recherches</td><td>Mois 4</td></tr>
+  <tr class="highlight-row"><td>3</td><td>Abonnement Seconde Pro</td><td>29-99$/mois pour les friperies</td><td>Mois 3</td></tr>
+  <tr><td>4</td><td>Dressing en vedette</td><td>5-7$/semaine pour promouvoir son profil</td><td>Mois 6</td></tr>
+  <tr><td>5</td><td>Publicit&eacute; de marques locales</td><td>Pubs cibl&eacute;es dans le fil d'articles</td><td>Ann&eacute;e 2</td></tr>
+  <tr><td>6</td><td>Marge sur la livraison</td><td>N&eacute;gociation volume avec transporteurs</td><td>Ann&eacute;e 2-3</td></tr>
+</table>
+
+<h3>Exemples concrets de frais par article</h3>
+<table>
+  <tr><th>L'article se vend &agrave;</th><th>Frais de protection</th><th>L'acheteur paie au total</th><th>Le vendeur re&ccedil;oit</th></tr>
+  <tr><td>8$</td><td>2,00$ (minimum)</td><td>10,00$ + livraison</td><td>8,00$ (100%)</td></tr>
+  <tr><td>15$</td><td>2,25$</td><td>17,25$ + livraison</td><td>15,00$ (100%)</td></tr>
+  <tr><td>30$</td><td>3,00$</td><td>33,00$ + livraison</td><td>30,00$ (100%)</td></tr>
+  <tr><td>50$</td><td>4,00$</td><td>54,00$ + livraison</td><td>50,00$ (100%)</td></tr>
+  <tr><td>100$</td><td>6,50$</td><td>106,50$ + livraison</td><td>100,00$ (100%)</td></tr>
+</table>
+
+<!-- 4. PREVISIONS -->
+<h2 id="previsions">4. Pr&eacute;visions financi&egrave;res &mdash; Ann&eacute;e 1</h2>
+
+<p>Hypoth&egrave;se de lancement en <strong>septembre</strong> (meilleur mois : rentr&eacute;e + changement de saison).</p>
+
+<table>
+  <tr><th>Mois</th><th>Inscrits</th><th>Actifs</th><th>Ventes</th><th>Total ventes ($)</th><th>On gagne</th><th>On d&eacute;pense</th><th>R&eacute;sultat</th></tr>
+  <tr><td>Sept (lancement)</td><td>450</td><td>180</td><td>38</td><td>950$</td><td>105$</td><td>2 261$</td><td><strong>-2 156$</strong></td></tr>
+  <tr><td>Oct</td><td>780</td><td>295</td><td>72</td><td>1 836$</td><td>200$</td><td>2 349$</td><td><strong>-2 149$</strong></td></tr>
+  <tr><td>Nov</td><td>1 180</td><td>420</td><td>115</td><td>2 990$</td><td>322$</td><td>2 952$</td><td><strong>-2 630$</strong></td></tr>
+  <tr><td>D&eacute;c (hiver)</td><td>1 520</td><td>390</td><td>85</td><td>2 295$</td><td>242$</td><td>1 929$</td><td><strong>-1 687$</strong></td></tr>
+  <tr><td>Jan</td><td>1 900</td><td>480</td><td>105</td><td>2 783$</td><td>297$</td><td>2 509$</td><td><strong>-2 212$</strong></td></tr>
+  <tr><td>F&eacute;v (creux)</td><td>2 350</td><td>540</td><td>130</td><td>3 510$</td><td>371$</td><td>3 094$</td><td><strong>-2 723$</strong></td></tr>
+  <tr><td>Mars</td><td>3 000</td><td>720</td><td>195</td><td>5 265$</td><td>556$</td><td>3 728$</td><td><strong>-3 172$</strong></td></tr>
+  <tr><td>Avr (printemps)</td><td>3 850</td><td>960</td><td>290</td><td>7 975$</td><td>835$</td><td>4 404$</td><td><strong>-3 569$</strong></td></tr>
+  <tr><td>Mai</td><td>4 900</td><td>1 200</td><td>410</td><td>11 480$</td><td>1 189$</td><td>4 655$</td><td><strong>-3 466$</strong></td></tr>
+  <tr><td>Juin</td><td>5 900</td><td>1 400</td><td>480</td><td>13 440$</td><td>1 392$</td><td>4 805$</td><td><strong>-3 413$</strong></td></tr>
+  <tr><td>Juil (vacances)</td><td>6 800</td><td>1 350</td><td>430</td><td>11 825$</td><td>1 238$</td><td>3 772$</td><td><strong>-2 533$</strong></td></tr>
+  <tr class="highlight-row"><td><strong>Ao&ucirc;t</strong></td><td><strong>7 800</strong></td><td><strong>1 550</strong></td><td><strong>530</strong></td><td><strong>14 840$</strong></td><td><strong>1 537$</strong></td><td><strong>4 455$</strong></td><td><strong>-2 918$</strong></td></tr>
+</table>
+
+<div class="stats-grid">
+  <div class="stat-box">
+    <div class="stat-value">7 800</div>
+    <div class="stat-label">Inscrits fin Ann&eacute;e 1</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value">2 880</div>
+    <div class="stat-label">Ventes totales Ann&eacute;e 1</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value">79 189$</div>
+    <div class="stat-label">Total des ventes Ann&eacute;e 1</div>
+  </div>
+</div>
+
+<h3>O&ugrave; va l'argent d&eacute;pens&eacute; sur l'ann&eacute;e</h3>
+<table>
+  <tr><th>Poste</th><th>C'est quoi</th><th>Montant Ann&eacute;e 1</th><th>% du total</th></tr>
+  <tr class="highlight-row"><td>Pub (Instagram, TikTok, influenceurs)</td><td>Faire conna&icirc;tre l'app</td><td>31 500$</td><td>77%</td></tr>
+  <tr><td>Helcim (paiement par carte)</td><td>Commission sur chaque paiement</td><td>2 700$</td><td>7%</td></tr>
+  <tr><td>Firebase (serveurs)</td><td>Faire tourner l'app</td><td>1 300$</td><td>3%</td></tr>
+  <tr><td>ShipEngine (&eacute;tiquettes livraison)</td><td>Syst&egrave;me de livraison</td><td>900$</td><td>2%</td></tr>
+  <tr><td>Support client</td><td>R&eacute;pondre aux questions, litiges</td><td>4 500$</td><td>11%</td></tr>
+  <tr><td><strong>Total d&eacute;penses</strong></td><td></td><td><strong>40 900$</strong></td><td></td></tr>
+  <tr><td>Revenus (frais de protection)</td><td></td><td>+8 284$</td><td></td></tr>
+  <tr class="highlight-row"><td><strong>Perte nette Ann&eacute;e 1</strong></td><td></td><td><strong>-32 628$</strong></td><td></td></tr>
+</table>
+
+<h3>Seuils importants</h3>
+<table>
+  <tr><th>Seuil</th><th>Ventes n&eacute;cessaires par mois</th><th>Quand on l'atteint</th></tr>
+  <tr><td>On couvre les co&ucirc;ts techniques (serveurs, paiement)</td><td>~467 ventes/mois</td><td>Mois 10</td></tr>
+  <tr><td>On couvre TOUT (y compris la pub)</td><td>~2 000 ventes/mois</td><td>Mois 18-22</td></tr>
+</table>
+
+<!-- 5. SCENARIOS -->
+<h2 id="scenarios">5. 3 sc&eacute;narios</h2>
+
+<table>
+  <tr><th></th><th>&Ccedil;a marche pas bien</th><th><strong>Normal</strong></th><th>&Ccedil;a cartonne</th></tr>
+  <tr><td>Inscrits fin d'ann&eacute;e</td><td>3 200</td><td><strong>7 800</strong></td><td>18 500</td></tr>
+  <tr><td>Ventes/mois en ao&ucirc;t</td><td>130</td><td><strong>530</strong></td><td>1 200</td></tr>
+  <tr><td>Perte Ann&eacute;e 1</td><td>-32 000$</td><td><strong>-33 000$</strong></td><td>-38 000$</td></tr>
+  <tr><td>On arr&ecirc;te de perdre vers...</td><td>Jamais (pivot)</td><td><strong>Mois 18-22</strong></td><td>Mois 14-16</td></tr>
+  <tr class="highlight-row"><td><strong>Argent &agrave; pr&eacute;voir</strong></td><td><strong>35 000$</strong></td><td><strong>45 000$</strong></td><td><strong>65 000$</strong></td></tr>
+</table>
+
+<!-- 6. SECONDE PRO -->
+<div class="page-break"></div>
+<h2 id="pro">6. Programme Seconde Pro &mdash; Friperies</h2>
+
+<p>Montr&eacute;al compte <strong>150-250 friperies, vintage et d&eacute;p&ocirc;ts-vente</strong>. Aucune plateforme locale ne leur offre une vraie vitrine en ligne d&eacute;di&eacute;e. C'est notre avantage comp&eacute;titif.</p>
+
+<div class="callout">
+  <p><strong>Vinted Pro</strong> en Europe offre 0$ / 0% aux boutiques pro &mdash; mais c'est juste un badge. Nous offrons une <strong>vraie plateforme business</strong> avec des outils concrets que les friperies ne trouvent nulle part ailleurs.</p>
+</div>
+
+<h3>Les 3 plans</h3>
+<table>
+  <tr><th>Plan</th><th>Prix</th><th>Pour qui</th><th>Fonctionnalit&eacute;s cl&eacute;s</th></tr>
+  <tr><td><strong>Essentiel</strong></td><td><strong>29$/mois</strong></td><td>Petite friperie, d&eacute;but en ligne</td><td>Vitrine Pro, Import en lot, Click &amp; Collect, Badge v&eacute;rifi&eacute;, Notifications arrivage, Carte des friperies, Boost g&eacute;olocalis&eacute;</td></tr>
+  <tr><td><strong>Croissance</strong></td><td><strong>59$/mois</strong></td><td>Friperie &eacute;tablie qui veut vendre plus</td><td>+ Radar tendances, &Eacute;v&eacute;nements, Assistant prix IA, Lookbooks, Stats avanc&eacute;es, R&eacute;servation priv&eacute;e, Wanted Board, Stories, Comptabilit&eacute; QC, Multi-comptes, Rotation saisonni&egrave;re</td></tr>
+  <tr><td><strong>Premium</strong></td><td><strong>99$/mois</strong></td><td>Boutique ambitieuse, multi-employ&eacute;s</td><td>+ Fid&eacute;lit&eacute; boutique, Bundles cross-boutiques, Organiser Swap Parties, &Eacute;tiquettes QR, Auto-r&eacute;pondeur IA, Banni&egrave;re homepage, D&eacute;p&ocirc;t-vente digital</td></tr>
+</table>
+
+<h3>Projections d'adoption</h3>
+<table>
+  <tr><th>P&eacute;riode</th><th>Boutiques inscrites (gratuit)</th><th>Abonn&eacute;es payantes</th><th>Revenu mensuel</th></tr>
+  <tr><td>Mois 3</td><td>15</td><td>3</td><td>87-177$</td></tr>
+  <tr><td>Mois 6</td><td>35</td><td>8</td><td>320-550$</td></tr>
+  <tr><td>Mois 12</td><td>70</td><td>20</td><td>900-1 500$</td></tr>
+  <tr><td>Mois 18</td><td>100</td><td>35</td><td>1 600-2 800$</td></tr>
+  <tr><td>Mois 24</td><td>130</td><td>50</td><td>2 500-4 000$</td></tr>
+</table>
+
+<!-- 7. FONCTIONNALITES PRO -->
+<div class="page-break"></div>
+<h2 id="fonctionnalites">7. 25 fonctionnalit&eacute;s Pro d&eacute;taill&eacute;es</h2>
+
+<h3>Plan Essentiel &mdash; 29$/mois</h3>
+
+<div class="feature-card">
+  <h4>1. Vitrine Pro personnalis&eacute;e <span class="plan-badge plan-essentiel">Essentiel</span></h4>
+  <p>Mini site web dans l'app : banni&egrave;re, couleurs personnalis&eacute;es, sections &eacute;ditables (Nouveaut&eacute;s, Soldes, Coups de coeur). URL partageable : seconde.app/ta-boutique.</p>
+  <div class="why">&laquo; J'ai pas de site web et Instagram convertit pas en ventes &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>2. Import en lot <span class="plan-badge plan-essentiel">Essentiel</span></h4>
+  <p>Lister 50-100 articles d'un coup via Excel ou scan cam&eacute;ra en cha&icirc;ne. L'IA pr&eacute;-remplit descriptions, cat&eacute;gories et prix sugg&eacute;r&eacute;s automatiquement.</p>
+  <div class="why">&laquo; Lister 200 articles un par un, c'est une journ&eacute;e compl&egrave;te de travail &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>3. Click &amp; Collect de quartier <span class="plan-badge plan-essentiel">Essentiel</span></h4>
+  <p>L'acheteur r&eacute;serve en ligne et r&eacute;cup&egrave;re en boutique avec un code QR. La boutique confirme la disponibilit&eacute;.</p>
+  <div class="why">&laquo; &Ccedil;a am&egrave;ne du monde dans ma boutique &mdash; et ils repartent souvent avec 2-3 trucs en plus &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>4. Badge &laquo; Boutique v&eacute;rifi&eacute;e &raquo; + placement prioritaire <span class="plan-badge plan-essentiel">Essentiel</span></h4>
+  <p>Badge distinctif visible partout + articles affich&eacute;s plus haut dans les r&eacute;sultats de recherche.</p>
+  <div class="why">&laquo; Les acheteurs font plus confiance &agrave; une boutique qu'&agrave; un vendeur anonyme &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>5. Notifications &laquo; Nouvel arrivage &raquo; <span class="plan-badge plan-essentiel">Essentiel</span></h4>
+  <p>Quand tu listes un lot, tes abonn&eacute;s re&ccedil;oivent une alerte push personnalis&eacute;e.</p>
+  <div class="why">&laquo; Mes clients checkent Instagram 10 fois par jour pour savoir quand j'ai du nouveau &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>6. Carte des friperies (Fripe Map) <span class="plan-badge plan-essentiel">Essentiel</span></h4>
+  <p>Carte interactive avec emplacement, horaires, note, et aper&ccedil;u de l'inventaire. Les utilisateurs planifient des tourn&eacute;es par quartier.</p>
+  <div class="why">&laquo; Les touristes font des tourn&eacute;es de friperies &mdash; si t'es pas sur la carte, t'existes pas &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>7. Boost g&eacute;olocalis&eacute; (&laquo; Radar local &raquo;) <span class="plan-badge plan-essentiel">Essentiel</span></h4>
+  <p>Tes articles apparaissent en priorit&eacute; aux gens &agrave; moins de 2-5 km. Badge &laquo; &Agrave; 10 min &agrave; pied &raquo;.</p>
+  <div class="why">&laquo; Je veux toucher les gens qui se prom&egrave;nent dans mon quartier, pas quelqu'un &agrave; Laval &raquo;</div>
+</div>
+
+<h3>Plan Croissance &mdash; 59$/mois</h3>
+
+<div class="feature-card">
+  <h4>8. Radar de tendances <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Ce que les utilisateurs recherchent le plus cette semaine &agrave; Montr&eacute;al : marques, tailles, styles, prix. Graphiques sur 30/60/90 jours.</p>
+  <div class="why">&laquo; Quand j'ach&egrave;te mon stock au kilo chez le grossiste, je veux savoir que Carhartt M explose cette semaine &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>9. &Eacute;v&eacute;nements &amp; ventes priv&eacute;es <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Cr&eacute;e des &eacute;v&eacute;nements dans l'app : vente de garage, arrivage sp&eacute;cial, 5 &agrave; 7 en boutique. Page d&eacute;di&eacute;e, RSVP, notifications, compte &agrave; rebours.</p>
+  <div class="why">&laquo; Mes ventes &eacute;v&eacute;nementielles, je les fais sur Instagram Stories et je perds la moiti&eacute; de l'audience &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>10. Assistant prix IA (&laquo; PriceCheck &raquo;) <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Pour chaque article, l'IA analyse les ventes comparables et sugg&egrave;re un prix optimal. &laquo; &Agrave; 45$ &ccedil;a part en 3 jours, &agrave; 60$ plut&ocirc;t en 2 semaines. &raquo;</p>
+  <div class="why">&laquo; Le pricing du seconde main c'est un art flou &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>11. Lookbooks &amp; collections <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Assemble des articles en looks complets. L'acheteur ach&egrave;te le look entier d'un tap avec un rabais bundle.</p>
+  <div class="why">&laquo; Une robe &agrave; 25$ seule vs un look complet &agrave; 120$ &mdash; le lookbook montre mon expertise &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>12. Statistiques avanc&eacute;es + rapport mensuel <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Revenus par semaine, articles les plus vus vs vendus, profil type de tes acheteurs. Rapport PDF exportable.</p>
+  <div class="why">&laquo; J'ai besoin de savoir que mes robes se vendent 3x mieux que mes pantalons &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>13. R&eacute;servation priv&eacute;e (&laquo; Dibs &raquo;) <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Envoie un article en avant-premi&egrave;re &agrave; un client sp&eacute;cifique avant la mise en vente publique. 24h pour acheter.</p>
+  <div class="why">&laquo; Ce Perfecto Schott, je sais que c'est pour Marie-&Egrave;ve &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>14. Wanted Board <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Les acheteurs publient ce qu'ils cherchent. Tu vois ces demandes et tu r&eacute;ponds quand tu trouves la pi&egrave;ce.</p>
+  <div class="why">&laquo; C'est de la demande livr&eacute;e sur un plateau &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>15. Stories boutique <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Stories 24h dans Seconde : vid&eacute;o/photo de l'arrivage en cours de tri. Chaque article tagg&eacute; est achetable en un tap.</p>
+  <div class="why">&laquo; Instagram ne convertit pas en ventes. Ici la story m&egrave;ne direct &agrave; l'achat &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>16. Comptabilit&eacute; Qu&eacute;bec <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Export au format QuickBooks/Wave avec TPS/TVQ calcul&eacute;es automatiquement.</p>
+  <div class="why">&laquo; La paperasse comptable c'est mon cauchemar &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>17. Multi-comptes employ&eacute;s <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>Ajoute des employ&eacute;s avec des r&ocirc;les diff&eacute;rents (admin, vendeur, photographe).</p>
+  <div class="why">&laquo; Mon employ&eacute; liste les articles mais je veux pas qu'il ait acc&egrave;s au compte bancaire &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>18. Rotation saisonni&egrave;re auto <span class="plan-badge plan-croissance">Croissance</span></h4>
+  <p>L'algorithme r&eacute;organise ta vitrine selon la m&eacute;t&eacute;o &agrave; Montr&eacute;al. -20&deg;C ? Les manteaux montent. 30&deg;C ? Les robes d'&eacute;t&eacute;.</p>
+  <div class="why">&laquo; En boutique je change ma vitrine avec les saisons. En ligne mes articles restent dans le d&eacute;sordre &raquo;</div>
+</div>
+
+<h3>Plan Premium &mdash; 99$/mois</h3>
+
+<div class="feature-card">
+  <h4>19. Programme de fid&eacute;lit&eacute; boutique <span class="plan-badge plan-premium">Premium</span></h4>
+  <p>Carte de fid&eacute;lit&eacute; int&eacute;gr&eacute;e dans l'app. Apr&egrave;s X achats &rarr; rabais, acc&egrave;s anticip&eacute;, ou cadeau.</p>
+  <div class="why">&laquo; Acqu&eacute;rir un nouveau client co&ucirc;te 5x plus cher que garder un r&eacute;gulier &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>20. Bundles cross-boutiques <span class="plan-badge plan-premium">Premium</span></h4>
+  <p>Deux friperies cr&eacute;ent un look ensemble. Un seul paiement, chacun re&ccedil;oit sa part.</p>
+  <div class="why">&laquo; On se conna&icirc;t entre friperies &agrave; Montr&eacute;al. Collaborer = mutualiser nos audiences &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>21. Organiser des Swap Parties <span class="plan-badge plan-premium">Premium</span></h4>
+  <p>H&eacute;berge une Swap Party dans ta boutique via l'app. G&egrave;re inscriptions, r&egrave;gles, et vends tes pi&egrave;ces pendant l'&eacute;v&eacute;nement.</p>
+  <div class="why">&laquo; Une Swap Party am&egrave;ne 50-100 personnes dans ma boutique &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>22. &Eacute;tiquettes QR en boutique <span class="plan-badge plan-premium">Premium</span></h4>
+  <p>&Eacute;tiquettes QR pour chaque article physique. Le client scanne en magasin, ach&egrave;te pour livraison. Inventaire physique et en ligne synchronis&eacute;.</p>
+  <div class="why">&laquo; J'ai ador&eacute; cette veste mais j'avais les mains pleines &mdash; avec le QR, le client l'ach&egrave;te m&ecirc;me apr&egrave;s &ecirc;tre parti &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>23. Auto-r&eacute;pondeur IA <span class="plan-badge plan-premium">Premium</span></h4>
+  <p>Assistant qui r&eacute;pond aux questions fr&eacute;quentes en messagerie automatiquement (&laquo; c'est encore dispo ? &raquo;, &laquo; tour de taille ? &raquo;).</p>
+  <div class="why">&laquo; Je re&ccedil;ois 50-100 messages/jour et 80% c'est la m&ecirc;me question. &Ccedil;a lib&egrave;re 2h/jour &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>24. Banni&egrave;re page d'accueil (&laquo; Spotlight &raquo;) <span class="plan-badge plan-premium">Premium</span></h4>
+  <p>Ta boutique en banni&egrave;re sur la page d'accueil de Seconde pendant X jours/mois.</p>
+  <div class="why">&laquo; 10 000 personnes ouvrent Seconde le samedi matin. &Ecirc;tre dessus c'est comme un panneau sur Saint-Laurent &raquo;</div>
+</div>
+
+<div class="feature-card">
+  <h4>25. D&eacute;p&ocirc;t-vente digital (&laquo; Drop &amp; Sell &raquo;) <span class="plan-badge plan-premium">Premium</span></h4>
+  <p>Accepte des articles en d&eacute;p&ocirc;t-vente via l'app. Soumission, acceptation, pricing, partage des revenus automatique. Contrat sign&eacute; dans l'app.</p>
+  <div class="why">&laquo; Le d&eacute;p&ocirc;t-vente c'est un enfer de carnets et de Post-it. Digitaliser &ccedil;a change tout &raquo;</div>
+</div>
+
+<!-- 8. ROADMAP -->
+<div class="page-break"></div>
+<h2 id="roadmap">8. Roadmap</h2>
+
+<table>
+  <tr><th>P&eacute;riode</th><th>Objectif</th><th>Actions cl&eacute;s</th></tr>
+  <tr><td><strong>Mois 1-3</strong></td><td>Lancement + premiers utilisateurs</td><td>App en TestFlight, premiers vendeurs, 3-5 friperies partenaires, pub locale</td></tr>
+  <tr><td><strong>Mois 4-6</strong></td><td>Croissance + mon&eacute;tisation</td><td>Lancement Boosts + Seconde Pro Essentiel (29$), 8 boutiques payantes</td></tr>
+  <tr><td><strong>Mois 7-9</strong></td><td>Acc&eacute;l&eacute;ration</td><td>Plans Croissance (59$) et Premium (99$), Fripe Map, Click &amp; Collect</td></tr>
+  <tr><td><strong>Mois 10-12</strong></td><td>Stabilisation</td><td>20 boutiques payantes, 500+ ventes/mois, breakeven op&eacute;rationnel</td></tr>
+  <tr><td><strong>Ann&eacute;e 2</strong></td><td>Rentabilit&eacute;</td><td>Pubs marques locales, marges livraison, expansion hors Montr&eacute;al (Qu&eacute;bec, Ottawa ?)</td></tr>
+</table>
+
+<div class="callout-green callout">
+  <p><strong>R&eacute;sum&eacute; en une phrase :</strong> Seconde gagne de l'argent &agrave; chaque vente (frais de protection), ajoute un revenu r&eacute;current stable (abonnements friperies), et compl&egrave;te avec des options payantes (boosts) et de la pub &mdash; exactement le mod&egrave;le qui a rendu Vinted rentable &agrave; 1 milliard de revenus.</p>
+</div>
+
+<br><br>
+<p style="text-align:center; color:#8C8880; font-size:12px;">Seconde &mdash; Document confidentiel &mdash; Avril 2026</p>
+
+</body>
+</html>

@@ -1,154 +1,246 @@
 /**
  * HTTP webhook handlers
  * Firebase Functions v7 - using onRequest
+ *
+ * Helcim webhook: payment confirmation + ShipEngine label creation
+ * Replaces the previous Stripe webhook flow.
  */
 import { onRequest } from 'firebase-functions/v2/https';
-import Stripe from 'stripe';
 import { db, FieldValue } from '../config/firebase';
-import { getStripe } from '../config/stripe';
-import { getShippo } from '../config/shippo';
+import { getShipEngine } from '../config/shipEngine';
+import { HelcimClient } from '../config/helcim';
+
+// =============================================================================
+// HELCIM WEBHOOK — Payment confirmed → Create shipping label
+// =============================================================================
 
 /**
- * Stripe Webhook - Confirm payment and create shipping label
+ * Helcim calls this endpoint after a successful HelcimPay.js payment.
+ *
+ * Flow:
+ * 1. Verify webhook signature
+ * 2. Find transaction by invoiceNumber
+ * 3. Mark as paid
+ * 4. Create shipping label via ShipEngine
+ * 5. Update seller balance
+ * 6. Send system message with tracking info
  */
-export const stripeWebhook = onRequest(
+export const helcimWebhook = onRequest(
   {
     cors: false,
     memory: '512MiB',
   },
   async (req, res) => {
-    const sig = req.headers['stripe-signature'] as string;
-
-    const stripeClient = getStripe();
-    if (!stripeClient) {
-      res.status(500).send('Stripe API not configured');
+    if (req.method !== 'POST') {
+      res.status(405).send('Method not allowed');
       return;
     }
-
-    let event: Stripe.Event;
 
     try {
-      // Verify webhook signature
-      event = stripeClient.webhooks.constructEvent(
-        req.rawBody,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET || ''
-      );
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Webhook signature verification failed:', message);
-      res.status(400).send(`Webhook Error: ${message}`);
-      return;
-    }
+      const payload = req.body;
+      const {
+        transactionId: helcimTransactionId,
+        status,
+        amount,
+        invoiceNumber, // This is our Firestore transactionId
+        approvalCode,
+        cardNumber,
+        cardType,
+      } = payload;
 
-    // Handle payment_intent.succeeded event
-    if (event.type === 'payment_intent.succeeded') {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const { transactionId, sellerId, articleId } = paymentIntent.metadata;
+      // Only process successful payments
+      if (status !== 'APPROVED') {
+        console.log(`Helcim webhook: payment not approved (status: ${status})`);
+        res.json({ received: true, processed: false });
+        return;
+      }
 
-      try {
-        // Get transaction details
-        const transactionDoc = await db.collection('transactions').doc(transactionId).get();
-        if (!transactionDoc.exists) {
-          throw new Error('Transaction not found');
+      if (!invoiceNumber) {
+        console.error('Helcim webhook: missing invoiceNumber');
+        res.status(400).send('Missing invoiceNumber');
+        return;
+      }
+
+      const transactionId = invoiceNumber;
+
+      // Get transaction
+      const transactionDoc = await db.collection('transactions').doc(transactionId).get();
+      if (!transactionDoc.exists) {
+        console.error(`Helcim webhook: transaction ${transactionId} not found`);
+        res.status(404).send('Transaction not found');
+        return;
+      }
+
+      const transaction = transactionDoc.data()!;
+
+      // Verify webhook signature if secret token is stored
+      if (transaction.helcimSecretToken) {
+        const signature = req.headers['x-helcim-signature'] as string;
+        if (signature) {
+          const isValid = HelcimClient.verifyWebhookSignature(
+            JSON.stringify(req.body),
+            signature,
+            transaction.helcimSecretToken
+          );
+          if (!isValid) {
+            console.error('Helcim webhook: invalid signature');
+            res.status(401).send('Invalid signature');
+            return;
+          }
         }
+      }
 
-        const transaction = transactionDoc.data()!;
+      // Skip if already processed
+      if (transaction.status === 'paid' || transaction.status === 'shipped') {
+        console.log(`Transaction ${transactionId} already processed`);
+        res.json({ received: true, processed: false });
+        return;
+      }
 
-        const shippo = getShippo();
-        if (!shippo) {
-          throw new Error('Shippo API not configured');
+      console.log(`💳 Helcim payment confirmed for transaction ${transactionId} — $${amount}`);
+
+      // =====================================================================
+      // STEP 1: Mark transaction as paid
+      // =====================================================================
+
+      await db.collection('transactions').doc(transactionId).update({
+        status: 'paid',
+        paidAt: FieldValue.serverTimestamp(),
+        helcimTransactionId,
+        helcimApprovalCode: approvalCode,
+        helcimCardLast4: cardNumber, // Masked by Helcim: ****1234
+        helcimCardType: cardType,
+      });
+
+      // =====================================================================
+      // STEP 2: Create shipping label via ShipEngine
+      // =====================================================================
+
+      let trackingNumber = '';
+      let labelUrl = '';
+      let trackingUrl = '';
+      let carrierCode = '';
+
+      const shipEngine = getShipEngine();
+      if (shipEngine && transaction.shipEngineRateId) {
+        try {
+          const label = await shipEngine.createLabel(transaction.shipEngineRateId);
+          trackingNumber = label.trackingNumber;
+          labelUrl = label.labelDownload.href;
+          trackingUrl = label.trackingUrl;
+          carrierCode = label.carrierCode;
+
+          await db.collection('transactions').doc(transactionId).update({
+            trackingNumber,
+            shippingLabelUrl: labelUrl,
+            trackingUrl,
+            carrierCode,
+            trackingStatus: 'TRANSIT',
+            shipEngineLabelId: label.labelId,
+          });
+
+          console.log(`📦 ShipEngine label created: ${trackingNumber} via ${carrierCode}`);
+        } catch (labelError) {
+          console.error('Error creating ShipEngine label:', labelError);
+          // Payment is still valid — label can be created manually later
         }
+      }
 
-        // Create shipping label via Shippo
-        const shipment = await shippo.transactions.create({
-          rate: transaction.shippingEstimate?.shippoRateId,
-          labelFileType: 'PDF',
-          async: false,
-        });
+      // =====================================================================
+      // STEP 3: Mark article as sold
+      // =====================================================================
 
-        // Update transaction with shipping info
-        await db.collection('transactions').doc(transactionId).update({
-          status: 'paid',
-          paidAt: FieldValue.serverTimestamp(),
-          shippoTransactionId: shipment.objectId,
-          shippingLabelUrl: shipment.labelUrl,
-          trackingNumber: shipment.trackingNumber,
-          trackingUrl: shipment.trackingUrlProvider,
-          trackingStatus: 'TRANSIT',
-        });
-
-        // Mark article as sold
-        await db.collection('articles').doc(articleId).update({
+      if (transaction.articleId) {
+        await db.collection('articles').doc(transaction.articleId).update({
           isSold: true,
           soldAt: FieldValue.serverTimestamp(),
         });
-
-        // Add amount to seller's pending balance
-        const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
-        const sellerBalanceDoc = await sellerBalanceRef.get();
-
-        const saleTransaction = {
-          id: transactionId,
-          type: 'sale',
-          amount: transaction.amount,
-          description: `Vente de l'article`,
-          createdAt: FieldValue.serverTimestamp(),
-          status: 'pending',
-        };
-
-        if (!sellerBalanceDoc.exists) {
-          await sellerBalanceRef.set({
-            userId: sellerId,
-            availableBalance: 0,
-            pendingBalance: transaction.amount,
-            totalEarnings: 0,
-            transactions: [saleTransaction],
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-        } else {
-          await sellerBalanceRef.update({
-            pendingBalance: FieldValue.increment(transaction.amount),
-            transactions: FieldValue.arrayUnion(saleTransaction),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-        }
-
-        // Send system message in chat with shipping label
-        const chatQuery = await db
-          .collection('chats')
-          .where('articleId', '==', articleId)
-          .where('participants', 'array-contains', transaction.buyerId)
-          .limit(1)
-          .get();
-
-        if (!chatQuery.empty) {
-          const chatId = chatQuery.docs[0].id;
-
-          await db.collection('messages').add({
-            chatId,
-            senderId: 'system',
-            receiverId: 'system',
-            type: 'system',
-            content: `📦 Paiement confirmé ! Étiquette d'expédition générée.\n\nNuméro de suivi: ${shipment.trackingNumber}\n\nLe vendeur peut maintenant expédier l'article.`,
-            timestamp: FieldValue.serverTimestamp(),
-            status: 'sent',
-            isRead: true,
-            shippingLabel: {
-              labelUrl: shipment.labelUrl,
-              trackingNumber: shipment.trackingNumber,
-              trackingUrl: shipment.trackingUrlProvider,
-            },
-          });
-        }
-
-        console.log(`Payment confirmed and label created for transaction ${transactionId}`);
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error processing payment webhook:', message);
       }
-    }
 
-    res.json({ received: true });
+      // =====================================================================
+      // STEP 4: Add to seller's pending balance (seller payout, not full amount)
+      // =====================================================================
+
+      const sellerId = transaction.sellerId;
+      const sellerPayout = transaction.sellerPayout || transaction.amount;
+
+      const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
+      const sellerBalanceDoc = await sellerBalanceRef.get();
+
+      const saleTransaction = {
+        id: transactionId,
+        type: 'sale',
+        amount: sellerPayout,
+        description: `Vente de l'article`,
+        createdAt: FieldValue.serverTimestamp(),
+        status: 'pending',
+      };
+
+      if (!sellerBalanceDoc.exists) {
+        await sellerBalanceRef.set({
+          userId: sellerId,
+          availableBalance: 0,
+          pendingBalance: sellerPayout,
+          totalEarnings: 0,
+          transactions: [saleTransaction],
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } else {
+        await sellerBalanceRef.update({
+          pendingBalance: FieldValue.increment(sellerPayout),
+          transactions: FieldValue.arrayUnion(saleTransaction),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      // =====================================================================
+      // STEP 5: Send system message with shipping info
+      // =====================================================================
+
+      const chatId = transaction.chatId;
+      if (chatId) {
+        const labelInfo = trackingNumber
+          ? `\n\nNuméro de suivi: ${trackingNumber}\nÉtiquette: disponible dans les détails de la commande.`
+          : '\n\nL\'étiquette d\'expédition sera disponible sous peu.';
+
+        // Look up chat participants so the message is visible to listeners
+        // that filter messages by participants and respects rules.
+        let participants: string[] = [];
+        try {
+          const chatSnap = await db.collection('chats').doc(chatId).get();
+          if (chatSnap.exists) {
+            participants = (chatSnap.data()?.participants as string[]) || [];
+          }
+        } catch (lookupErr) {
+          console.warn('[webhooks] Could not load chat participants:', lookupErr);
+        }
+
+        await db.collection('messages').add({
+          chatId,
+          senderId: 'system',
+          receiverId: 'system',
+          type: 'system',
+          content: `Paiement confirmé !${labelInfo}\n\nLe vendeur peut maintenant expédier l'article.`,
+          participants,
+          timestamp: FieldValue.serverTimestamp(),
+          status: 'sent',
+          isRead: true,
+          ...(trackingNumber && {
+            shippingLabel: {
+              labelUrl,
+              trackingNumber,
+              trackingUrl,
+            },
+          }),
+        });
+      }
+
+      console.log(`✅ Transaction ${transactionId} fully processed`);
+      res.json({ received: true, processed: true });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error processing Helcim webhook:', message);
+      res.status(500).send(`Webhook processing error: ${message}`);
+    }
   }
 );

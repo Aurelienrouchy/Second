@@ -1,6 +1,7 @@
 /**
  * My Swaps Screen
- * Design System: Luxe Français + Street Energy
+ * Design System: Seconde UI Kit — Editorial Luxe
+ * Supports multi-article swaps with stacked image previews
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -18,10 +19,11 @@ import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserSwaps } from '@/services/swapService';
-import { Swap, SwapStatus } from '@/types';
+import { getUserSwaps, getSwapItems } from '@/services/swapService';
+import { Swap, SwapStatus, SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Button } from '@/components/ui';
+import { formatDisplayName } from '@/utils/formatName';
 
 const STATUS_LABELS: Record<SwapStatus, string> = {
   proposed: 'En attente',
@@ -36,13 +38,18 @@ const STATUS_LABELS: Record<SwapStatus, string> = {
 
 const STATUS_COLORS: Record<SwapStatus, string> = {
   proposed: colors.warning,
-  accepted: colors.success,
+  accepted: colors.sage,
   declined: colors.danger,
   cancelled: colors.muted,
   photos_pending: colors.primary,
-  shipping: '#5856D6',
-  completed: colors.success,
+  shipping: colors.secondary,
+  completed: colors.sage,
   disputed: colors.danger,
+};
+
+
+const getTotalValue = (items: SwapItemInfo[]): number => {
+  return items.reduce((sum, item) => sum + (item.price || 0), 0);
 };
 
 type FilterType = 'all' | 'pending' | 'active' | 'completed';
@@ -215,7 +222,48 @@ function FilterTab({
 }
 
 /**
+ * Stacked Images Component for Multi-Article Display
+ */
+function StackedImages({ items, maxDisplay = 3 }: { items: SwapItemInfo[]; maxDisplay?: number }) {
+  const displayCount = Math.min(items.length, maxDisplay);
+  const overflowCount = items.length - displayCount;
+
+  return (
+    <View style={styles.stackedImagesContainer}>
+      {items.slice(0, displayCount).map((item, index) => (
+        <View
+          key={`${item.articleId}-${index}`}
+          style={[
+            styles.stackedImage,
+            {
+              transform: [
+                { translateX: index * 20 },
+                { zIndex: displayCount - index },
+              ],
+              marginRight: index === displayCount - 1 ? 0 : -20,
+            },
+          ]}
+        >
+          <Image
+            source={{ uri: item.imageUrl || '' }}
+            style={styles.itemImage}
+          />
+        </View>
+      ))}
+      {overflowCount > 0 && (
+        <View style={[styles.stackedImage, styles.overflowBadge]}>
+          <Text variant="caption" style={styles.overflowText}>
+            +{overflowCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+/**
  * Swap Card Component
+ * Supports both single and multi-article swaps
  */
 function SwapCard({
   swap,
@@ -228,8 +276,15 @@ function SwapCard({
   const otherUser = isInitiator
     ? { name: swap.receiverName, image: swap.receiverImage }
     : { name: swap.initiatorName, image: swap.initiatorImage };
-  const myItem = isInitiator ? swap.initiatorItem : swap.receiverItem;
-  const theirItem = isInitiator ? swap.receiverItem : swap.initiatorItem;
+
+  // Support both multi-article and legacy single-article format
+  const myItems = isInitiator ? getSwapItems(swap, 'initiator') : getSwapItems(swap, 'receiver');
+  const theirItems = isInitiator ? getSwapItems(swap, 'receiver') : getSwapItems(swap, 'initiator');
+
+  const myTotal = getTotalValue(myItems);
+  const theirTotal = getTotalValue(theirItems);
+
+  const isMultiArticle = myItems.length > 1 || theirItems.length > 1;
 
   const handlePress = () => {
     router.push(`/swap/${swap.id}`);
@@ -265,7 +320,7 @@ function SwapCard({
               <Ionicons name="person" size={16} color={colors.muted} />
             </View>
           )}
-          <Text variant="body" style={styles.userName}>{otherUser.name}</Text>
+          <Text variant="body" style={styles.userName}>{formatDisplayName(otherUser.name)}</Text>
         </View>
         <View
           style={[
@@ -283,16 +338,36 @@ function SwapCard({
       </View>
 
       <View style={styles.itemsRow}>
-        <Image source={{ uri: myItem.imageUrl }} style={styles.itemImage} />
-        <View style={styles.swapIconSmall}>
-          <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-        </View>
-        <Image source={{ uri: theirItem.imageUrl }} style={styles.itemImage} />
+        {isMultiArticle ? (
+          <>
+            <StackedImages items={myItems} />
+            <View style={styles.swapIconSmall}>
+              <Ionicons name="swap-horizontal" size={14} color={colors.cream} />
+            </View>
+            <StackedImages items={theirItems} />
+          </>
+        ) : (
+          <>
+            <Image
+              source={{ uri: myItems[0]?.imageUrl || '' }}
+              style={styles.itemImage}
+            />
+            <View style={styles.swapIconSmall}>
+              <Ionicons name="swap-horizontal" size={14} color={colors.cream} />
+            </View>
+            <Image
+              source={{ uri: theirItems[0]?.imageUrl || '' }}
+              style={styles.itemImage}
+            />
+          </>
+        )}
       </View>
 
       <View style={styles.swapFooter}>
         <Text variant="body" style={styles.itemPrices}>
-          {myItem.price}€ ↔ {theirItem.price}€
+          {isMultiArticle
+            ? `${myItems.length} article${myItems.length > 1 ? 's' : ''} · ${myTotal}€ ↔ ${theirItems.length} article${theirItems.length > 1 ? 's' : ''} · ${theirTotal}€`
+            : `${myTotal}€ ↔ ${theirTotal}€`}
         </Text>
         <Caption style={styles.swapDate}>{formatDate(swap.createdAt)}</Caption>
       </View>
@@ -327,14 +402,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   filterTabActive: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.secondaryLight,
   },
   filterTabText: {
     fontFamily: fonts.sansMedium,
     color: colors.foregroundSecondary,
+    fontSize: 13,
   },
   filterTabTextActive: {
-    color: colors.primary,
+    color: colors.secondary,
   },
   badge: {
     backgroundColor: colors.danger,
@@ -349,6 +425,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: fonts.sansMedium,
     color: colors.white,
+    fontSize: 10,
   },
   listContent: {
     padding: spacing.md,
@@ -361,10 +438,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing['2xl'],
   },
   emptyTitle: {
+    fontFamily: fonts.displayMedium,
     color: colors.foreground,
     marginTop: spacing.md,
   },
   emptyText: {
+    fontFamily: fonts.sans,
     color: colors.foregroundSecondary,
     textAlign: 'center',
     marginTop: spacing.sm,
@@ -375,9 +454,9 @@ const styles = StyleSheet.create({
   },
   swapCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.none,
     padding: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
@@ -385,30 +464,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flex: 1,
   },
   userAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.surfaceWarm,
   },
   userAvatarPlaceholder: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.surfaceWarm,
     justifyContent: 'center',
     alignItems: 'center',
   },
   userName: {
     fontFamily: fonts.sansMedium,
     color: colors.foreground,
+    fontSize: 14,
   },
   statusBadge: {
     paddingHorizontal: spacing.sm,
@@ -417,25 +498,53 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: {
     fontFamily: fonts.sansMedium,
+    fontSize: 11,
   },
   itemsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  stackedImagesContainer: {
+    position: 'relative',
+    width: 100,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stackedImage: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
   itemImage: {
     width: 80,
     height: 80,
-    borderRadius: radius.sm,
-    backgroundColor: colors.backgroundSecondary,
+    borderRadius: radius.none,
+    backgroundColor: colors.surfaceWarm,
+  },
+  overflowBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.none,
+    backgroundColor: colors.surfaceWarm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overflowText: {
+    fontFamily: fonts.sansMedium,
+    color: colors.foregroundSecondary,
+    fontSize: 12,
   },
   swapIconSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primaryLight,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.charcoal,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -447,8 +556,12 @@ const styles = StyleSheet.create({
   itemPrices: {
     fontFamily: fonts.sansMedium,
     color: colors.foreground,
+    fontSize: 13,
+    flex: 1,
   },
   swapDate: {
+    fontFamily: fonts.sans,
     color: colors.foregroundSecondary,
+    fontSize: 11,
   },
 });

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ConfidenceLevel, ConfidenceScore } from '@/types/ai';
+import { colors } from '@/constants/theme';
 
 interface ConfidenceIndicatorProps {
   confidence?: ConfidenceScore | null;
@@ -25,7 +26,7 @@ const CONFIDENCE_COLORS = {
   high: {
     background: '#DCFCE7',
     text: '#166534',
-    border: '#22C55E',
+    border: colors.success,
   },
   medium: {
     background: '#FEF3C7',
@@ -35,7 +36,7 @@ const CONFIDENCE_COLORS = {
   low: {
     background: '#FEE2E2',
     text: '#991B1B',
-    border: '#EF4444',
+    border: colors.danger,
   },
 };
 
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
   },
   confidenceBar: {
     height: 24,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 16,
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
   tooltipCloseText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.muted,
   },
 
   // Label banner styles

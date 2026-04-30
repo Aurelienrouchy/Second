@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1A1814" />
+    <title>Seconde — La mode responsable, en toute simplicité</title>
+    <meta
+      name="description"
+      content="Seconde — Achetez et vendez des vêtements, accessoires et articles d'occasion à Montréal."
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Seconde — Mode seconde main" />
+    <meta property="og:description" content="Achetez et vendez en toute simplicité." />
+    <meta property="og:type" content="website" />
+
+    <!-- iOS smart banner (Universal Links handles real deep linking) -->
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --color-bg: #F5F0E8;
+        --color-charcoal: #1A1814;
+        --color-rust: #C4603A;
+        --color-cream: #F5F0E8;
+        --color-muted: #74809B;
+        --color-border: #DFE9F2;
+      }
+
+      html, body {
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: var(--color-charcoal);
+        background: var(--color-bg);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px;
+      }
+
+      .logo {
+        width: 96px;
+        height: 96px;
+        border-radius: 24px;
+        background: var(--color-charcoal);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 56px;
+        font-weight: 600;
+        color: var(--color-cream);
+        margin-bottom: 24px;
+      }
+
+      h1 {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 32px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+      }
+
+      .tagline {
+        font-size: 15px;
+        color: var(--color-muted);
+        margin-bottom: 32px;
+        max-width: 360px;
+        line-height: 1.5;
+      }
+
+      .cta-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        max-width: 320px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 52px;
+        padding: 0 24px;
+        border-radius: 14px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        transition: opacity 0.15s ease;
+      }
+
+      .btn:hover { opacity: 0.85; }
+
+      .btn-primary {
+        background: var(--color-charcoal);
+        color: var(--color-cream);
+      }
+
+      .btn-secondary {
+        background: transparent;
+        color: var(--color-charcoal);
+        border: 1.5px solid var(--color-charcoal);
+      }
+
+      .stores {
+        margin-top: 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .stores-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1.8px;
+        color: var(--color-muted);
+      }
+
+      .store-buttons {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .store-buttons a {
+        display: inline-block;
+        height: 44px;
+      }
+
+      .store-buttons img {
+        height: 100%;
+        width: auto;
+        border-radius: 8px;
+      }
+
+      footer {
+        margin-top: 48px;
+        font-size: 12px;
+        color: var(--color-muted);
+        letter-spacing: 0.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo" aria-hidden="true">S</div>
+    <h1>Seconde</h1>
+    <p class="tagline">La mode responsable, en toute simplicité.</p>
+
+    <div class="cta-stack">
+      <a id="open-app" class="btn btn-primary" href="#">Ouvrir dans l'app</a>
+      <a id="get-app-ios" class="btn btn-secondary" href="https://apps.apple.com/app/seconde">
+        Télécharger sur l'App Store
+      </a>
+      <a id="get-app-android" class="btn btn-secondary" href="https://play.google.com/store/apps/details?id=com.seconde.app">
+        Télécharger sur Google Play
+      </a>
+    </div>
+
+    <footer>© 2026 Seconde — Montréal</footer>
+
+    <script>
+      (function () {
+        var pathname = window.location.pathname || '/';
+        var search = window.location.search || '';
+
+        // Build the deep link target. The native app scheme is `seconde://`
+        // and Expo Router serves matching routes from this path.
+        var deepLink = 'seconde://' + pathname.replace(/^\//, '') + search;
+
+        // Wire the "Open in app" button to the deep link.
+        var openBtn = document.getElementById('open-app');
+        if (openBtn) {
+          openBtn.setAttribute('href', deepLink);
+        }
+
+        // On mobile, attempt to open the app automatically with a short fallback delay.
+        var ua = navigator.userAgent || '';
+        var isIOS = /iPad|iPhone|iPod/.test(ua);
+        var isAndroid = /Android/.test(ua);
+
+        if ((isIOS || isAndroid) && pathname !== '/' && pathname !== '/index.html') {
+          // Universal Links / App Links should handle this directly. The fallback
+          // below tries the custom scheme as a safety net.
+          setTimeout(function () {
+            window.location.href = deepLink;
+          }, 250);
+        }
+      })();
+    </script>
+  </body>
+</html>

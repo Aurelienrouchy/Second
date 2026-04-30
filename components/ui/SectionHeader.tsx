@@ -1,8 +1,11 @@
 /**
- * SectionHeader Component
- * Design System: Luxe Français + Street
+ * SectionHeader Component — Seconde UI Kit
+ * Design: Tendances MTL maquette
  *
- * Clean section headers with Cormorant Garamond serif typography
+ * Layout:
+ *   Title (Cormorant Garamond, 22px, weight 300)  ···  "Voir tout →" (rust, uppercase)
+ *   Both items sit on the same text baseline.
+ *   No subtitle.
  */
 
 import * as Haptics from 'expo-haptics';
@@ -20,7 +23,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { colors, spacing, typography, animations } from '@/constants/theme';
+import { colors, spacing, animations, fonts } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -28,11 +31,11 @@ import { colors, spacing, typography, animations } from '@/constants/theme';
 
 interface SectionHeaderProps {
   title: string;
-  subtitle?: string;
   onSeeAll?: () => void;
   seeAllLabel?: string;
   style?: ViewStyle;
   testID?: string;
+  variant?: 'default' | 'large' | 'compact';
 }
 
 // =============================================================================
@@ -43,11 +46,11 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const SectionHeader: React.FC<SectionHeaderProps> = ({
   title,
-  subtitle,
   onSeeAll,
-  seeAllLabel = 'Voir tout',
+  seeAllLabel = 'Voir tout →',
   style,
   testID,
+  variant = 'default',
 }) => {
   const scale = useSharedValue(1);
 
@@ -56,7 +59,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.95, animations.spring.snappy);
+    scale.value = withSpring(0.96, animations.spring.snappy);
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
@@ -68,12 +71,27 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
     onSeeAll?.();
   }, [onSeeAll]);
 
+  const isLarge = variant === 'large';
+  const isCompact = variant === 'compact';
+
   return (
-    <View style={[styles.container, style]} testID={testID}>
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-      </View>
+    <View
+      style={[
+        styles.container,
+        isCompact && styles.containerCompact,
+        style,
+      ]}
+      testID={testID}
+    >
+      <Text
+        style={[
+          styles.title,
+          isLarge && styles.titleLarge,
+          isCompact && styles.titleCompact,
+        ]}
+      >
+        {title}
+      </Text>
 
       {onSeeAll && (
         <AnimatedPressable
@@ -97,37 +115,48 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    alignItems: 'flex-end', // baseline alignment
     justifyContent: 'space-between',
-    alignItems: 'baseline',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg, // 24px — matches maquette
+    paddingTop: 28,
+    paddingBottom: spacing.md,
+  },
+  containerCompact: {
+    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
-  textContainer: {
-    flex: 1,
-  },
+
+  // Title — Cormorant Garamond, light weight, editorial
   title: {
-    fontFamily: typography.h2.fontFamily, // Cormorant Garamond SemiBold
-    fontSize: typography.h2.fontSize,     // 22px
-    lineHeight: typography.h2.lineHeight, // 28px
-    letterSpacing: typography.h2.letterSpacing,
+    fontFamily: fonts.display,
+    fontSize: 22,
+    fontWeight: '300',
+    lineHeight: 26,
+    letterSpacing: -0.3,
     color: colors.foreground,
   },
-  subtitle: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.muted,
-    marginTop: 2,
+  titleLarge: {
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -0.5,
   },
+  titleCompact: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+
+  // "Voir tout →" — rust/orange, uppercase, on the baseline (matches maquette)
   seeAllButton: {
-    paddingVertical: spacing.xs,
+    paddingVertical: 0,
     paddingLeft: spacing.sm,
+    marginBottom: 2,
   },
   seeAllText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary, // Bleu Klein
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    color: colors.primary, // rust — #C4603A (orange)
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });
 

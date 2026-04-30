@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ConfidenceIndicator from './ConfidenceIndicator';
 import { ConfidenceLevel } from '@/types/ai';
+import { colors } from '@/constants/theme';
 
 interface CategoryDisplayProps {
   icon: string;
@@ -46,7 +47,7 @@ export default function CategoryDisplay({
       >
         {isEmpty ? (
           <View style={styles.emptyContent}>
-            <Ionicons name="pricetag-outline" size={24} color="#9CA3AF" />
+            <Ionicons name="pricetag-outline" size={24} color={colors.muted} />
             <Text style={styles.emptyText}>Sélectionner une catégorie</Text>
           </View>
         ) : (
@@ -67,7 +68,7 @@ export default function CategoryDisplay({
         )}
 
         {/* Chevron */}
-        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </TouchableOpacity>
     </View>
   );
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   required: {
-    color: '#EF4444',
+    color: colors.danger,
   },
   selector: {
     flexDirection: 'row',
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   selectorEmpty: {
     borderStyle: 'dashed',
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   },
   context: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.muted,
     marginTop: 4,
     marginLeft: 34, // Align with name
   },
@@ -140,6 +141,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#9CA3AF',
+    color: colors.muted,
   },
 });

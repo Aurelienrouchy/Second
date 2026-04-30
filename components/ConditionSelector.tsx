@@ -1,43 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ConfidenceIndicator from './ConfidenceIndicator';
 import { ConfidenceLevel } from '@/types/ai';
+import { colors, fonts, radius } from '@/constants/theme';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
 interface ConditionOption {
   value: ConditionValue;
   label: string;
-  description: string;
-  icon: string;
 }
 
 const CONDITIONS: ConditionOption[] = [
-  {
-    value: 'neuf',
-    label: 'Neuf avec étiquettes',
-    description: 'Article jamais porté, étiquettes d\'origine',
-    icon: '✨',
-  },
-  {
-    value: 'très bon état',
-    label: 'Très bon état',
-    description: 'Porté quelques fois, aucun défaut visible',
-    icon: '👌',
-  },
-  {
-    value: 'bon état',
-    label: 'Bon état',
-    description: 'Porté, quelques défauts mineurs',
-    icon: '👍',
-  },
-  {
-    value: 'satisfaisant',
-    label: 'Satisfaisant',
-    description: 'Signes d\'usure visibles',
-    icon: '🤷',
-  },
+  { value: 'neuf', label: 'Neuf avec etiquettes' },
+  { value: 'très bon état', label: 'Tres bon etat' },
+  { value: 'bon état', label: 'Bon etat' },
+  { value: 'satisfaisant', label: 'Satisfaisant' },
 ];
 
 interface ConditionSelectorProps {
@@ -51,161 +29,71 @@ export default function ConditionSelector({
   onChange,
   confidenceLevel,
 }: ConditionSelectorProps) {
+  const currentLabel = CONDITIONS.find((c) => c.value === value)?.label || value;
+  const currentIndex = CONDITIONS.findIndex((c) => c.value === value);
+
+  const handleCycle = () => {
+    const nextIndex = (currentIndex + 1) % CONDITIONS.length;
+    onChange(CONDITIONS[nextIndex].value);
+  };
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.labelContainer}>
-          <Text style={styles.label}>
-            État
-            <Text style={styles.required}> *</Text>
-          </Text>
-          {confidenceLevel && (
-            <ConfidenceIndicator level={confidenceLevel} />
-          )}
-        </View>
+    <TouchableOpacity
+      style={styles.container}
+      onPress={handleCycle}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.label}>ETAT</Text>
+      <View style={styles.valueContainer}>
+        <Text style={styles.value}>{currentLabel}</Text>
+        {confidenceLevel && (
+          <View style={styles.aiBadge}>
+            <Text style={styles.aiBadgeText}>IA</Text>
+          </View>
+        )}
       </View>
-
-      {/* Options */}
-      <View style={styles.optionsContainer}>
-        {CONDITIONS.map((condition) => {
-          const isSelected = value === condition.value;
-          return (
-            <TouchableOpacity
-              key={condition.value}
-              style={[
-                styles.option,
-                isSelected && styles.optionSelected,
-              ]}
-              onPress={() => onChange(condition.value)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionContent}>
-                <View style={styles.optionHeader}>
-                  <Text style={styles.optionIcon}>{condition.icon}</Text>
-                  <Text
-                    style={[
-                      styles.optionLabel,
-                      isSelected && styles.optionLabelSelected,
-                    ]}
-                  >
-                    {condition.label}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.optionDescription,
-                    isSelected && styles.optionDescriptionSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {condition.description}
-                </Text>
-              </View>
-
-              {/* Radio indicator */}
-              <View
-                style={[
-                  styles.radio,
-                  isSelected && styles.radioSelected,
-                ]}
-              >
-                {isSelected && <View style={styles.radioInner} />}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.88,
+    color: colors.muted,
+    width: 80,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  required: {
-    color: '#EF4444',
-  },
-  optionsContainer: {
-    gap: 8,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  optionSelected: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#8B5CF6',
-  },
-  optionContent: {
+  valueContainer: {
     flex: 1,
-  },
-  optionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
+    gap: 6,
   },
-  optionIcon: {
-    fontSize: 16,
+  value: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.charcoal,
   },
-  optionLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+  aiBadge: {
+    backgroundColor: colors.sageLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+    marginLeft: 8,
   },
-  optionLabelSelected: {
-    color: '#5B21B6',
-  },
-  optionDescription: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginLeft: 24,
-  },
-  optionDescriptionSelected: {
-    color: '#7C3AED',
-  },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  radioSelected: {
-    borderColor: '#8B5CF6',
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#8B5CF6',
+  aiBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    color: colors.sage,
+    letterSpacing: 0.72,
   },
 });

@@ -42,6 +42,13 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const firebase_1 = require("../config/firebase");
 const notifications_1 = require("../utils/notifications");
+/** Resolve items arrays with backward compat for legacy single-item swaps */
+function getSwapItems(swap, side) {
+    if (side === 'initiator') {
+        return getSwapItems(swap, 'initiator');
+    }
+    return getSwapItems(swap, 'receiver');
+}
 /**
  * Send notification when a swap is proposed
  */
@@ -71,7 +78,22 @@ exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{s
         }
         // Build notification
         const title = "🔄 Nouvelle proposition d'échange";
-        const body = `${swap.initiatorName} te propose un échange pour "${(_a = swap.receiverItem) === null || _a === void 0 ? void 0 : _a.title}"`;
+        // Handle both single-item (legacy) and multi-item formats
+        const receiverItemsArray = getSwapItems(swap, 'receiver');
+        const initiatorItemsArray = getSwapItems(swap, 'initiator');
+        let body;
+        if (receiverItemsArray.length === 0) {
+            body = `${swap.initiatorName} te propose un échange`;
+        }
+        else if (receiverItemsArray.length === 1) {
+            body = `${swap.initiatorName} te propose un échange pour "${(_a = receiverItemsArray[0]) === null || _a === void 0 ? void 0 : _a.title}"`;
+        }
+        else {
+            // Multiple items: show count
+            const receiverCount = receiverItemsArray.length;
+            const initiatorCount = initiatorItemsArray.length;
+            body = `${initiatorCount} article(s) proposé(s) pour ${receiverCount} article(s)`;
+        }
         const messages = fcmTokens.map((token) => ({
             token,
             notification: {
@@ -129,6 +151,22 @@ exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{s
     }
 });
 /**
+ * Helper to get swap description for notifications
+ */
+function getSwapDescription(swap) {
+    var _a;
+    const initiatorItems = getSwapItems(swap, 'initiator');
+    const receiverItems = getSwapItems(swap, 'receiver');
+    if (initiatorItems.length === 0 && receiverItems.length === 0) {
+        return 'l\'échange';
+    }
+    if (initiatorItems.length === 1 && receiverItems.length === 1) {
+        return `l'échange de "${((_a = receiverItems[0]) === null || _a === void 0 ? void 0 : _a.title) || 'article'}"`;
+    }
+    // Multi-article: show count format
+    return `l'échange (${initiatorItems.length} article(s) pour ${receiverItems.length} article(s))`;
+}
+/**
  * Send notification when swap status changes
  */
 exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'swaps/{swapId}', memory: '512MiB' }, async (event) => {
@@ -151,17 +189,17 @@ exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'sw
             case 'accepted':
                 targetUserId = after.initiatorId;
                 title = '✅ Échange accepté !';
-                body = `${after.receiverName} a accepté ton échange`;
+                body = `${after.receiverName} a accepté ${getSwapDescription(after)}`;
                 break;
             case 'declined':
                 targetUserId = after.initiatorId;
                 title = '❌ Échange refusé';
-                body = `${after.receiverName} a refusé ton échange`;
+                body = `${after.receiverName} a refusé ${getSwapDescription(after)}`;
                 break;
             case 'cancelled':
                 targetUserId = after.receiverId;
                 title = '🚫 Échange annulé';
-                body = `${after.initiatorName} a annulé l'échange`;
+                body = `${after.initiatorName} a annulé ${getSwapDescription(after)}`;
                 break;
             case 'photos_pending':
                 // Notify both parties

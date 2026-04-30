@@ -11,6 +11,8 @@ export const useChat = (chatId: string | null, userId: string | null) => {
   useEffect(() => {
     if (!chatId || !userId) {
       setIsLoading(false);
+      setMessages([]);
+      setChat(null);
       return;
     }
 
@@ -21,6 +23,9 @@ export const useChat = (chatId: string | null, userId: string | null) => {
       try {
         setIsLoading(true);
         setError(null);
+        // Reset messages/chat to avoid showing previous chat's data while loading
+        setMessages([]);
+        setChat(null);
 
         // Load chat info
         const chatData = await ChatService.getChatById(chatId);

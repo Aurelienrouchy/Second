@@ -11,7 +11,7 @@ import {
   serverTimestamp,
   updateDoc,
   where
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 
 export class NotificationService {
   private static readonly COLLECTION = 'notifications';
@@ -252,7 +252,7 @@ export class NotificationService {
     return this.createNotification(
       sellerId,
       'article_favorited',
-      '❤️ Nouvel intérêt pour votre article',
+      'Nouvel intérêt pour votre article',
       `${buyerName} a ajouté "${articleTitle}" à ses favoris`,
       { articleId, articleTitle, userName: buyerName }
     );
@@ -272,7 +272,7 @@ export class NotificationService {
     return this.createNotification(
       userId,
       'price_drop',
-      '💰 Baisse de prix !',
+      'Baisse de prix !',
       `"${articleTitle}" est passé de ${oldPrice}€ à ${newPrice}€ (-${discount}%)`,
       { articleId, articleTitle, oldPrice, newPrice }
     );
@@ -310,7 +310,7 @@ export class NotificationService {
     return this.createNotification(
       userId,
       'swap_zone_reminder',
-      `📦 Swap Zone dans ${daysUntil} jours !`,
+      `Swap Zone dans ${daysUntil} jours !`,
       `N'oubliez pas d'ajouter vos articles à "${partyName}"`,
       { partyId, partyName, daysUntil }
     );
@@ -349,7 +349,7 @@ export class NotificationService {
     return this.createNotification(
       sellerId,
       'offer_received',
-      `💵 Nouvelle offre de ${buyerName}`,
+      `Nouvelle offre de ${buyerName}`,
       `${amount}€ pour "${articleTitle}"`,
       { articleId, articleTitle, amount, userName: buyerName, chatId }
     );
@@ -373,7 +373,7 @@ export class NotificationService {
 
     switch (status) {
       case 'accepted':
-        title = '🎉 Offre acceptée !';
+        title = 'Offre acceptée !';
         message = `${sellerName} a accepté votre offre pour "${articleTitle}"`;
         type = 'offer_accepted';
         break;
@@ -383,7 +383,7 @@ export class NotificationService {
         type = 'offer_rejected';
         break;
       case 'counter':
-        title = '🔄 Contre-offre reçue';
+        title = 'Contre-offre reçue';
         message = `${sellerName} propose ${counterAmount}€ pour "${articleTitle}"`;
         type = 'offer_counter';
         break;

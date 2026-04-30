@@ -1,20 +1,23 @@
 /**
- * Article Detail Screen
- * Design System: Luxe Français + Street
+ * Article Detail Screen — Proposal A: "Editorial Scroll"
+ *
+ * Layout: Hero image → Brand+Cat → Title → Price → Engagement → Tags →
+ *         Description → Delivery → Meetup Spots → Seller → CTA
  *
  * Features:
- * - Elegant image gallery with blur floating header
- * - Bleu Klein price accent
- * - Smooth animations with reanimated
- * - Haptic feedback on interactions
- * - Clean details grid with design tokens
+ * - Full-bleed hero image 460px with animated dots
+ * - Sticky header (back, like, share) with blur + scroll-based transitions
+ * - FadeInDown entry animations for the entire info block
+ * - Fullscreen image viewer via ImageGallery
+ * - Share functionality via React Native Share API
+ * - Discount badge computed from price + originalPrice
  */
 
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
+import { formatDisplayName } from '@/utils/formatName';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -25,33 +28,36 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
+  interpolate,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withSpring
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Design System
-import { colors, spacing, typography, radius, shadows, animations } from '@/constants/theme';
-import { Avatar, Button, H1, H2, Body, BodySmall, Caption, Price } from '@/components/ui';
+import { Avatar } from '@/components/ui';
+import { animations, colors, fonts, radius, spacing } from '@/constants/theme';
 
 // Components
 import ImageGallery from '@/components/ImageGallery';
 import MakeOfferModal, { MakeOfferModalRef } from '@/components/MakeOfferModal';
-import ProductLocationMap from '@/components/ProductLocationMap';
 import ReportBottomSheet, { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 import SimilarProducts from '@/components/SimilarProducts';
 
 // Hooks & Contexts
 import { useAuth } from '@/contexts/AuthContext';
-import { useFavorites } from '@/contexts/FavoritesContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useFavorites } from '@/hooks/useFavorites';
 
 // Services
 import { ArticlesService } from '@/services/articlesService';
@@ -67,25 +73,29 @@ import { Article, MeetupSpot } from '@/types';
 // CONSTANTS
 // =============================================================================
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const HERO_HEIGHT = SCREEN_WIDTH * 1.2; // Match ImageGallery aspect ratio
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 // =============================================================================
-// FLOATING BUTTON COMPONENT
+// HEADER BUTTON COMPONENT — Frosted glass circle
 // =============================================================================
 
-interface FloatingButtonProps {
+interface HeaderButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   isActive?: boolean;
   activeColor?: string;
+  size?: number;
 }
 
-const FloatingButton: React.FC<FloatingButtonProps> = ({
+const HeaderButton: React.FC<HeaderButtonProps> = ({
   icon,
   onPress,
   isActive = false,
-  activeColor = colors.danger,
+  activeColor = colors.primary,
+  size = 20,
 }) => {
   const scale = useSharedValue(1);
 
@@ -113,11 +123,11 @@ const FloatingButton: React.FC<FloatingButtonProps> = ({
       onPress={handlePress}
       style={animatedStyle}
     >
-      <BlurView intensity={80} tint="light" style={styles.floatingButton}>
+      <BlurView intensity={60} tint="dark" style={styles.headerButton}>
         <Ionicons
           name={icon}
-          size={24}
-          color={isActive ? activeColor : colors.foreground}
+          size={size}
+          color={isActive ? activeColor : '#FFFFFF'}
         />
       </BlurView>
     </AnimatedPressable>
@@ -125,61 +135,70 @@ const FloatingButton: React.FC<FloatingButtonProps> = ({
 };
 
 // =============================================================================
-// DETAIL ROW COMPONENT
-// =============================================================================
-
-interface DetailRowProps {
-  label: string;
-  value: string;
-  delay?: number;
-}
-
-const DetailRow: React.FC<DetailRowProps> = ({ label, value, delay = 0 }) => (
-  <Animated.View
-    entering={FadeInDown.duration(300).delay(delay)}
-    style={styles.detailRow}
-  >
-    <Caption style={styles.detailLabel}>{label}</Caption>
-    <Body style={styles.detailValue}>{value}</Body>
-  </Animated.View>
-);
-
-// =============================================================================
-// LOADING STATE COMPONENT
+// LOADING STATE
 // =============================================================================
 
 const LoadingState: React.FC = () => (
   <SafeAreaView style={styles.container}>
     <View style={styles.loadingContainer}>
       <ActivityIndicator size="large" color={colors.primary} />
-      <Caption style={styles.loadingText}>Chargement...</Caption>
+      <Text style={styles.loadingText}>Chargement...</Text>
     </View>
   </SafeAreaView>
 );
 
 // =============================================================================
-// ERROR STATE COMPONENT
+// ERROR STATE
 // =============================================================================
 
 const ErrorState: React.FC<{ onBack: () => void }> = ({ onBack }) => (
   <SafeAreaView style={styles.container}>
-    <Animated.View
-      entering={FadeIn.duration(300)}
-      style={styles.errorContainer}
-    >
-      <View style={styles.errorIconContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.muted} />
+    <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
+      <View style={styles.errorIconCircle}>
+        <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
       </View>
-      <H2 style={styles.errorTitle}>Article introuvable</H2>
-      <Body color="muted" center style={styles.errorText}>
+      <Text style={styles.errorTitle}>Article introuvable</Text>
+      <Text style={styles.errorText}>
         Cet article n'existe plus ou a été supprimé
-      </Body>
-      <Button variant="primary" onPress={onBack} style={styles.errorButton}>
-        Retour
-      </Button>
+      </Text>
+      <Pressable style={styles.errorButton} onPress={onBack}>
+        <Text style={styles.errorButtonText}>Retour</Text>
+      </Pressable>
     </Animated.View>
   </SafeAreaView>
 );
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+/** Build tags from real Article fields: size, condition, color, material, pattern */
+const buildTags = (article: Article) => {
+  const tags: string[] = [];
+  if (article.size) tags.push(`Taille ${article.size}`);
+  if (article.condition) tags.push(article.condition);
+  if (article.color) tags.push(article.color);
+  if (article.material) tags.push(article.material);
+  if (article.pattern) tags.push(article.pattern);
+  return tags;
+};
+
+/** Compute discount percentage from price + originalPrice */
+const getDiscountPercent = (price: number, originalPrice?: number) => {
+  if (!originalPrice || originalPrice <= price) return null;
+  return Math.round((1 - price / originalPrice) * 100);
+};
+
+/** Emoji for meetup spot category */
+const spotEmoji = (category: string) => {
+  switch (category) {
+    case 'cafe': return '☕';
+    case 'metro': return '🚇';
+    case 'park': return '🌳';
+    case 'library': return '📚';
+    default: return '📍';
+  }
+};
 
 // =============================================================================
 // MAIN COMPONENT
@@ -190,7 +209,8 @@ export default function ArticleDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, partyId, swapItemId } = useLocalSearchParams<{ id: string; partyId?: string; swapItemId?: string }>();
+  const isSwapContext = !!partyId;
   const router = useRouter();
   const { user } = useAuth();
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -198,6 +218,26 @@ export default function ArticleDetailScreen() {
   const makeOfferModalRef = useRef<MakeOfferModalRef>(null);
   const reportBottomSheetRef = useRef<ReportBottomSheetRef>(null);
   const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
+
+  // Scroll handler for sticky header background transition
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  // Header background: transparent over hero, cream when scrolled past
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollY.value, [0, HERO_HEIGHT - 100], [0, 1], 'clamp');
+    return { backgroundColor: `rgba(245, 240, 232, ${opacity})` };
+  });
+
+  // Header icon color transition: white over hero → charcoal when scrolled
+  const headerIconOpacity = useAnimatedStyle(() => {
+    const scrolledPast = interpolate(scrollY.value, [0, HERO_HEIGHT - 100], [0, 1], 'clamp');
+    return { opacity: scrolledPast };
+  });
 
   // ==========================================================================
   // EFFECTS
@@ -245,25 +285,38 @@ export default function ArticleDetailScreen() {
     }
   }, [article, isFavorite, requireAuth, toggleFavorite]);
 
-  const handleContact = useCallback(async () => {
-    if (!article || !user) {
-      requireAuth(() => {}, AUTH_MESSAGES.message);
-      return;
-    }
-
-    if (user.id === article.sellerId) {
-      Alert.alert('Erreur', 'Vous ne pouvez pas vous contacter vous-même.');
-      return;
-    }
-
+  const handleShare = useCallback(async () => {
+    if (!article) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const chat = await ChatService.createOrGetChat(user.id, article.sellerId, article.id);
-      router.push(`/chat/${chat.id}`);
+      await Share.share({
+        title: article.title,
+        message: `Regarde cet article sur Seconde : ${article.title} — ${article.price} $\nhttps://seconde.app/article/${article.id}`,
+        url: `https://seconde.app/article/${article.id}`,
+      });
     } catch (error) {
-      console.error('Error creating chat:', error);
-      Alert.alert('Erreur', 'Impossible de créer la conversation');
+      console.error('Error sharing:', error);
     }
+  }, [article]);
+
+  const handleBuy = useCallback(() => {
+    if (!article) return;
+
+    if (user && user.id === article.sellerId) {
+      Alert.alert('Erreur', 'Vous ne pouvez pas acheter votre propre article.');
+      return;
+    }
+
+    requireAuth(
+      () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        router.push({
+          pathname: '/checkout' as any,
+          params: { articleId: article.id },
+        });
+      },
+      AUTH_MESSAGES.buy
+    );
   }, [article, user, requireAuth, router]);
 
   const handleMakeOffer = useCallback(() => {
@@ -311,6 +364,28 @@ export default function ArticleDetailScreen() {
     }
   }, [article, user, router]);
 
+  const handleProposeSwap = useCallback(() => {
+    if (!article || !user || !partyId) return;
+
+    requireAuth(
+      () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        router.push({
+          pathname: '/propose-swap',
+          params: {
+            partyId,
+            targetItemId: swapItemId || '',
+            targetArticleId: article.id,
+            receiverId: article.sellerId,
+            receiverName: article.sellerName || '',
+            receiverImage: article.sellerImage || '',
+          },
+        });
+      },
+      AUTH_MESSAGES.swapParty
+    );
+  }, [article, user, partyId, swapItemId, requireAuth, router]);
+
   const handleViewProfile = useCallback(() => {
     if (!article) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -343,7 +418,7 @@ export default function ArticleDetailScreen() {
               Alert.alert('Erreur', 'Impossible de supprimer l\'article');
             }
           },
-        },
+        }, 
       ]
     );
   }, [article, router]);
@@ -355,7 +430,7 @@ export default function ArticleDetailScreen() {
   }, [article, router]);
 
   const handleMarkAsSold = useCallback(async () => {
-    if (!article) return;
+    if (!article) return; 
 
     try {
       await ArticlesService.updateArticle(article.id, { isSold: !article.isSold });
@@ -374,7 +449,6 @@ export default function ArticleDetailScreen() {
     const isOwner = user && user.id === article.sellerId;
 
     if (isOwner) {
-      // Owner options: Modifier, Marquer vendu/En vente, Supprimer
       const soldOption = article.isSold ? 'Remettre en vente' : 'Marquer comme vendu';
       const options = ['Modifier', soldOption, 'Supprimer', 'Annuler'];
       const destructiveButtonIndex = 2;
@@ -389,40 +463,24 @@ export default function ArticleDetailScreen() {
             title: article.title,
           },
           (buttonIndex) => {
-            if (buttonIndex === 0) {
-              handleEditArticle();
-            } else if (buttonIndex === 1) {
-              handleMarkAsSold();
-            } else if (buttonIndex === 2) {
-              handleDeleteArticle();
-            }
+            if (buttonIndex === 0) handleEditArticle();
+            else if (buttonIndex === 1) handleMarkAsSold();
+            else if (buttonIndex === 2) handleDeleteArticle();
           }
         );
       } else {
-        Alert.alert(
-          article.title,
-          'Que souhaitez-vous faire ?',
-          [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Modifier', onPress: handleEditArticle },
-            { text: soldOption, onPress: handleMarkAsSold },
-            { text: 'Supprimer', style: 'destructive', onPress: handleDeleteArticle },
-          ]
-        );
+        Alert.alert(article.title, 'Que souhaitez-vous faire ?', [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Modifier', onPress: handleEditArticle },
+          { text: soldOption, onPress: handleMarkAsSold },
+          { text: 'Supprimer', style: 'destructive', onPress: handleDeleteArticle },
+        ]);
       }
     } else {
-      // Non-owner options: Signaler
       const options = ['Signaler cet article', 'Annuler'];
-      const destructiveButtonIndex = 0;
-      const cancelButtonIndex = 1;
-
       if (Platform.OS === 'ios') {
         ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options,
-            destructiveButtonIndex,
-            cancelButtonIndex,
-          },
+          { options, destructiveButtonIndex: 0, cancelButtonIndex: 1 },
           (buttonIndex) => {
             if (buttonIndex === 0) {
               requireAuth(
@@ -433,23 +491,19 @@ export default function ArticleDetailScreen() {
           }
         );
       } else {
-        Alert.alert(
-          'Options',
-          undefined,
-          [
-            {
-              text: 'Signaler cet article',
-              style: 'destructive',
-              onPress: () => {
-                requireAuth(
-                  () => reportBottomSheetRef.current?.open('article', article.id, article.sellerId),
-                  'Connectez-vous pour signaler cet article'
-                );
-              },
+        Alert.alert('Options', undefined, [
+          {
+            text: 'Signaler cet article',
+            style: 'destructive',
+            onPress: () => {
+              requireAuth(
+                () => reportBottomSheetRef.current?.open('article', article.id, article.sellerId),
+                'Connectez-vous pour signaler cet article'
+              );
             },
-            { text: 'Annuler', style: 'cancel' },
-          ]
-        );
+          },
+          { text: 'Annuler', style: 'cancel' },
+        ]);
       }
     }
   }, [article, user, requireAuth, handleEditArticle, handleMarkAsSold, handleDeleteArticle]);
@@ -465,8 +519,8 @@ export default function ArticleDetailScreen() {
 
     if (diffInDays === 0) return 'Aujourd\'hui';
     if (diffInDays === 1) return 'Hier';
-    if (diffInDays < 7) return `Il y a ${diffInDays} jours`;
-    if (diffInDays < 30) return `Il y a ${Math.floor(diffInDays / 7)} semaines`;
+    if (diffInDays < 7) return `Il y a ${diffInDays}j`;
+    if (diffInDays < 30) return `Il y a ${Math.floor(diffInDays / 7)} sem.`;
     return date.toLocaleDateString('fr-FR');
   };
 
@@ -474,236 +528,225 @@ export default function ArticleDetailScreen() {
   // RENDER STATES
   // ==========================================================================
 
-  if (isLoading) {
-    return <LoadingState />;
-  }
-
-  if (!article) {
-    return <ErrorState onBack={handleBack} />;
-  }
+  if (isLoading) return <LoadingState />;
+  if (!article) return <ErrorState onBack={handleBack} />;
 
   const isOwnArticle = user && user.id === article.sellerId;
+  const categoryLabel = article.categoryIds?.length
+    ? getCategoryLabelFromIds(article.categoryIds)
+    : article.category;
+
+  const tags = buildTags(article);
+  const discount = getDiscountPercent(article.price, (article as any).originalPrice);
+  const sellerRating = (article as any).sellerRating;
+  const deliveryOptions = (article as any).deliveryOptions;
+  const shippingCost = deliveryOptions?.shippingCost;
 
   // ==========================================================================
-  // RENDER
+  // RENDER — Proposal A: Editorial Scroll
   // ==========================================================================
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Image Gallery */}
+      <AnimatedScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+      >
+        {/* ── Hero Image Gallery ── */}
         <ImageGallery
           images={article.images}
           onImageIndexChange={setCurrentImageIndex}
         />
 
-        {/* Price & Likes Section */}
-        <Animated.View
-          entering={FadeInDown.duration(300).delay(100)}
-          style={styles.priceSection}
-        >
-          <Price style={styles.price}>{article.price} €</Price>
-          <View style={styles.likesContainer}>
-            <Ionicons name="heart" size={16} color={colors.danger} />
-            <BodySmall style={styles.likesText}>{article.likes}</BodySmall>
+        {/* Discount badge — overlaid on bottom-right of hero */}
+        {discount && (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>–{discount}%</Text>
           </View>
-        </Animated.View>
+        )}
 
-        {/* Info Section */}
-        <View style={styles.infoSection}>
-          <Animated.View entering={FadeInDown.duration(300).delay(150)}>
-            <H1 style={styles.title}>{article.title}</H1>
+        {/* ══════════════════════════════════════════════════
+            INFO BLOCK — all animated with FadeInDown stagger
+            ══════════════════════════════════════════════════ */}
+
+        <View style={styles.infoBlock}>
+          {/* Brand + Category */}
+          <Animated.View entering={FadeInDown.duration(350).delay(80)}>
+            <Text style={styles.brandCategory}>
+              {article.brand ? `${article.brand} · ` : ''}{categoryLabel}
+            </Text>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(200)}
-            style={styles.metaInfo}
-          >
-            <Caption>
-              {article.categoryIds && article.categoryIds.length > 0
-                ? getCategoryLabelFromIds(article.categoryIds)
-                : article.category}
-            </Caption>
-            <Caption style={styles.metaDivider}>•</Caption>
-            <Caption>{formatDate(article.createdAt)}</Caption>
+          {/* Title — Cormorant Garamond */}
+          <Animated.View entering={FadeInDown.duration(350).delay(120)}>
+            <Text style={styles.title}>{article.title}</Text>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.duration(300).delay(250)}>
-            <Body style={styles.description}>{article.description}</Body>
+          {/* Price row: current + original strikethrough */}
+          <Animated.View entering={FadeInDown.duration(350).delay(160)} style={styles.priceRow}>
+            <Text style={styles.price}>${article.price}</Text>
+            {(article as any).originalPrice && (
+              <Text style={styles.originalPrice}>${(article as any).originalPrice}</Text>
+            )}
           </Animated.View>
 
-          {/* Meetup Badge */}
-          {article.isHandDelivery && article.neighborhood && (
-            <Animated.View
-              entering={FadeInDown.duration(300).delay(300)}
-              style={styles.meetupBadge}
-            >
-              <View style={styles.meetupIconContainer}>
-                <Ionicons name="location" size={20} color={colors.success} />
+          {/* Engagement: likes · views · date */}
+          <Animated.View entering={FadeInDown.duration(350).delay(200)} style={styles.engagementRow}>
+            <View style={styles.engagementItem}>
+              <Ionicons name="heart-outline" size={13} color={colors.muted} />
+              <Text style={styles.engagementText}>{article.likes}</Text>
+            </View>
+            <View style={styles.engagementItem}>
+              <Ionicons name="eye-outline" size={13} color={colors.muted} />
+              <Text style={styles.engagementText}>{article.views} vues</Text>
+            </View>
+            <Text style={styles.engagementDate}>
+              Publié {formatDate(article.createdAt)}
+            </Text>
+          </Animated.View>
+
+          {/* Tags — from size, condition, color, material, pattern */}
+          <Animated.View entering={FadeInDown.duration(350).delay(240)} style={styles.tagsRow}>
+            {tags.map((tag, i) => (
+              <View key={i} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
               </View>
-              <View style={styles.meetupBadgeContent}>
-                <Body style={styles.meetupBadgeTitle}>Meetup disponible</Body>
-                <Caption>
-                  {article.neighborhood.name}, {article.neighborhood.borough}
-                </Caption>
+            ))}
+            {/* packageSize badge (sage) */}
+            {article.packageSize && (
+              <View style={styles.packageTag}>
+                <Text style={styles.packageTagText}>Colis {article.packageSize}</Text>
+              </View>
+            )}
+          </Animated.View>
+
+          {/* Description */}
+          {article.description ? (
+            <Animated.View entering={FadeInDown.duration(350).delay(280)}>
+              <Text style={styles.description}>{article.description}</Text>
+            </Animated.View>
+          ) : null}
+
+          {/* Delivery options cards */}
+          {(article.isShipping || article.isHandDelivery) && (
+            <Animated.View entering={FadeInDown.duration(350).delay(320)} style={styles.deliveryRow}>
+              {article.isShipping && (
+                <View style={styles.deliveryCardShipping}>
+                  <Ionicons name="cube-outline" size={16} color={colors.sage} />
+                  <View style={styles.deliveryCardContent}>
+                    <Text style={styles.deliveryCardTitle}>Livraison</Text>
+                    <Text style={styles.deliveryCardSub}>
+                      {shippingCost ? `$${shippingCost.toFixed(2)}` : 'Gratuit'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {article.isHandDelivery && (
+                <View style={styles.deliveryCardPickup}>
+                  <Ionicons name="location-outline" size={16} color={colors.primary} />
+                  <View style={styles.deliveryCardContent}>
+                    <Text style={styles.deliveryCardTitle}>En personne</Text>
+                    <Text style={styles.deliveryCardSub}>
+                      {article.neighborhood?.name || 'À convenir'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </Animated.View>
+          )}
+
+          {/* Preferred meetup spots */}
+          {article.preferredMeetupSpots && article.preferredMeetupSpots.length > 0 && (
+            <Animated.View entering={FadeInDown.duration(350).delay(360)}>
+              <Text style={styles.sectionLabel}>Lieux de rencontre suggérés</Text>
+              <View style={styles.spotsRow}>
+                {article.preferredMeetupSpots.map((spot, i) => (
+                  <View key={i} style={styles.spotChip}>
+                    <Text style={styles.spotEmoji}>{spotEmoji(spot.category)}</Text>
+                    <Text style={styles.spotName}>{spot.name}</Text>
+                  </View>
+                ))}
               </View>
             </Animated.View>
           )}
 
-          {/* Details Grid */}
-          <View style={styles.detailsGrid}>
-            <DetailRow label="État" value={article.condition} delay={350} />
-            {article.brand && (
-              <DetailRow label="Marque" value={article.brand} delay={400} />
-            )}
-            {article.size && (
-              <DetailRow label="Taille" value={article.size} delay={450} />
-            )}
-            {article.color && (
-              <DetailRow label="Couleur" value={article.color} delay={500} />
-            )}
-            {article.material && (
-              <DetailRow label="Matière" value={article.material} delay={550} />
-            )}
-          </View>
-        </View>
-
-        {/* Seller Section */}
-        <View style={styles.sellerSection}>
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(400)}
-            style={styles.sellerHeader}
-          >
-            <Ionicons name="person-outline" size={20} color={colors.primary} />
-            <H2 style={styles.sectionTitle}>Vendeur</H2>
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(450)}
-          >
+          {/* Seller card */}
+          <Animated.View entering={FadeInDown.duration(350).delay(400)}>
             <Pressable style={styles.sellerCard} onPress={handleViewProfile}>
               <Avatar
                 source={article.sellerImage}
                 name={article.sellerName}
-                size="lg"
+                size="md"
               />
-              <View style={styles.sellerDetails}>
-                <Body style={styles.sellerName}>{article.sellerName}</Body>
-                <View style={styles.sellerRating}>
-                  <Ionicons name="star" size={14} color={colors.warning} />
-                  <Caption style={styles.sellerRatingText}>4.8 (124 avis)</Caption>
+              <View style={styles.sellerInfo}>
+                <Text style={styles.sellerName}>{formatDisplayName(article.sellerName)}</Text>
+                <Text style={styles.sellerMeta}>
+                  {article.neighborhood?.name}
+                  {article.neighborhood?.borough ? ` · ${article.neighborhood.borough}` : ''}
+                </Text>
+              </View>
+              {sellerRating && (
+                <View style={styles.sellerRatingContainer}>
+                  <Ionicons name="star" size={13} color={colors.primary} />
+                  <Text style={styles.sellerRatingText}>{sellerRating}</Text>
                 </View>
-                {article.location && (
-                  <View style={styles.sellerLocation}>
-                    <Ionicons name="location-outline" size={14} color={colors.muted} />
-                    <Caption>à 3,2 km</Caption>
-                  </View>
-                )}
-              </View>
-              <View style={styles.viewProfileButton}>
-                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-              </View>
+              )}
             </Pressable>
           </Animated.View>
+
+          {/* Similar Products */}
+          <SimilarProducts
+            currentArticleId={article.id}
+            category={article.category}
+            maxResults={10}
+          />
         </View>
 
-        {/* Location Map */}
-        <ProductLocationMap
-          sellerLocation={
-            article.location
-              ? {
-                  latitude: 48.8566,
-                  longitude: 2.3522,
-                  city: article.location,
-                }
-              : undefined
-          }
-          distance={3.2}
-          showMap={true}
-        />
+        {/* Bottom spacer for CTA bar */}
+        <View style={{ height: 110 }} />
+      </AnimatedScrollView>
 
-        {/* Similar Products */}
-        <SimilarProducts
-          currentArticleId={article.id}
-          category={article.category}
-          maxResults={10}
-        />
-
-        {/* Security Footer */}
-        <Animated.View
-          entering={FadeInDown.duration(300).delay(500)}
-          style={styles.securityFooter}
-        >
-          <Ionicons name="shield-checkmark" size={24} color={colors.success} />
-          <Body style={styles.securityText}>
-            Ne payez jamais en dehors de la plateforme
-          </Body>
-        </Animated.View>
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-
-      {/* Floating Header */}
-      <View style={[styles.floatingHeader, { top: insets.top }]}>
-        <FloatingButton icon="chevron-back" onPress={handleBack} />
-        <View style={styles.headerRight}>
-          {article.location && (
-            <BlurView intensity={80} tint="light" style={styles.distanceChip}>
-              <Ionicons name="location" size={14} color={colors.primary} />
-              <Caption style={styles.distanceText}>à 3,2 km</Caption>
-            </BlurView>
-          )}
-          <FloatingButton
+      {/* ── Sticky Floating Header ── */}
+      <Animated.View style={[styles.floatingHeader, headerAnimatedStyle, { paddingTop: insets.top }]}>
+        <HeaderButton icon="chevron-back" onPress={handleBack} />
+        <View style={styles.headerActions}>
+          <HeaderButton
             icon={isFavorite(article.id) ? 'heart' : 'heart-outline'}
             onPress={handleToggleFavorite}
             isActive={isFavorite(article.id)}
-            activeColor={colors.danger}
+            activeColor="#FFFFFF"
           />
-          <FloatingButton
-            icon="ellipsis-vertical"
-            onPress={handleMoreOptions}
-          />
+          <HeaderButton icon="share-outline" onPress={handleShare} />
+          <HeaderButton icon="ellipsis-horizontal" onPress={handleMoreOptions} size={18} />
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Bottom Actions */}
-      <SafeAreaView edges={['bottom']} style={styles.bottomSafeArea}>
+      {/* ── Bottom CTA Bar ── */}
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {isOwnArticle ? (
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            style={styles.ownArticleNotice}
-          >
-            <Ionicons name="information-circle-outline" size={20} color={colors.muted} />
-            <Body color="muted">C'est votre article</Body>
-          </Animated.View>
+          <View style={styles.ownArticleBar}>
+            <Ionicons name="checkmark-circle" size={18} color={colors.muted} />
+            <Text style={styles.ownArticleText}>C'est votre article</Text>
+          </View>
+        ) : isSwapContext ? (
+          <Pressable style={styles.swapButton} onPress={handleProposeSwap}>
+            <Ionicons name="swap-horizontal" size={18} color={colors.white} />
+            <Text style={styles.swapButtonText}>PROPOSER UN SWAP</Text>
+          </Pressable>
         ) : (
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(200)}
-            style={styles.actionButtons}
-          >
-            <Button
-              variant="secondary"
-              onPress={handleContact}
-              style={styles.contactButton}
-            >
-              <View style={styles.buttonContent}>
-                <Ionicons name="chatbubble-outline" size={18} color={colors.foreground} />
-                <Body style={styles.contactButtonText}>Contacter</Body>
-              </View>
-            </Button>
-            <Button
-              variant="primary"
-              onPress={handleMakeOffer}
-              style={styles.offerButton}
-            >
-              <View style={styles.buttonContent}>
-                <Ionicons name="cash-outline" size={18} color={colors.white} />
-                <Body style={styles.offerButtonText}>Faire une offre</Body>
-              </View>
-            </Button>
-          </Animated.View>
+          <View style={styles.ctaRow}>
+            <Pressable style={styles.offerOutlineButton} onPress={handleMakeOffer}>
+              <Text style={styles.offerOutlineText}>OFFRE</Text>
+            </Pressable>
+            <Pressable style={styles.buyButton} onPress={handleBuy}>
+              <Ionicons name="bag-handle-outline" size={16} color={colors.cream} />
+              <Text style={styles.buyButtonText}>ACHETER · ${article.price}</Text>
+            </Pressable>
+          </View>
         )}
-      </SafeAreaView>
+      </View>
 
       {/* Make Offer Modal */}
       <MakeOfferModal
@@ -723,305 +766,433 @@ export default function ArticleDetailScreen() {
 }
 
 // =============================================================================
-// STYLES
+// STYLES — Proposal A "Editorial Scroll"
 // =============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.cream,
   },
-  content: {
+  scrollView: {
     flex: 1,
   },
 
-  // Floating Header
+  // ── Floating Header ──
   floatingHeader: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    zIndex: 10,
+    paddingBottom: spacing.xs,
+    zIndex: 100,
   },
-  floatingButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  distanceChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    gap: spacing.xs,
-    overflow: 'hidden',
-  },
-  distanceText: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-
-  // Price Section
-  priceSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-  },
-  price: {
-    fontSize: 32,
-    color: colors.primary, // Bleu Klein!
-  },
-  likesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.dangerLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    gap: spacing.xs,
-  },
-  likesText: {
-    color: colors.danger,
-    fontWeight: '600',
-  },
-
-  // Info Section
-  infoSection: {
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderTopWidth: spacing.sm,
-    borderTopColor: colors.background,
-  },
-  title: {
-    marginBottom: spacing.sm,
-  },
-  metaInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  metaDivider: {
-    marginHorizontal: spacing.sm,
-  },
-  description: {
-    lineHeight: 24,
-    marginBottom: spacing.lg,
-  },
-
-  // Meetup Badge
-  meetupBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.successLight,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.success,
-  },
-  meetupIconContainer: {
+  headerButton: {
     width: 40,
     height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    backgroundColor: 'rgba(26, 24, 20, 0.4)',
   },
-  meetupBadgeContent: {
-    flex: 1,
-  },
-  meetupBadgeTitle: {
-    color: colors.success,
-    fontWeight: '600',
-  },
-
-  // Details Grid
-  detailsGrid: {
-    backgroundColor: colors.background,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  detailRow: {
+  headerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    color: colors.muted,
-  },
-  detailValue: {
-    fontWeight: '600',
-  },
-
-  // Seller Section
-  sellerSection: {
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderTopWidth: spacing.sm,
-    borderTopColor: colors.background,
-  },
-  sellerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
     gap: spacing.sm,
   },
-  sectionTitle: {
-    fontSize: 18,
+
+  // ── Discount Badge ──
+  discountBadge: {
+    position: 'absolute',
+    top: HERO_HEIGHT - 32,
+    right: 20,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    zIndex: 10,
   },
+  discountText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+
+  // ── Info Block (below images) ──
+  infoBlock: {
+    paddingHorizontal: 24,
+    paddingTop: 28,
+  },
+
+  // Brand + Category
+  brandCategory: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: 6,
+  },
+
+  // Title
+  title: {
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -0.5,
+    color: colors.charcoal,
+    marginBottom: 16,
+  },
+
+  // Price
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+    marginBottom: 6,
+  },
+  price: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 34,
+    color: colors.primary,
+    letterSpacing: -0.5,
+  },
+  originalPrice: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textDecorationLine: 'line-through',
+  },
+
+  // Engagement
+  engagementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  engagementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  engagementText: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  engagementDate: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+  },
+
+  // Tags
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 24,
+  },
+  tag: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  tagText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    letterSpacing: 0.3,
+    color: colors.charcoal,
+  },
+  packageTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(122, 140, 110, 0.25)',
+    backgroundColor: colors.sageLight,
+  },
+  packageTagText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.sage,
+  },
+
+  // Description
+  description: {
+    fontFamily: fonts.sans,
+    fontSize: 15,
+    lineHeight: 25,
+    color: colors.foregroundSecondary,
+    marginBottom: 24,
+  },
+
+  // Delivery
+  deliveryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  deliveryCardShipping: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: colors.sageLight,
+    borderWidth: 1,
+    borderColor: 'rgba(122, 140, 110, 0.2)',
+    borderRadius: radius.sm,
+  },
+  deliveryCardPickup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: 'rgba(196, 96, 58, 0.15)',
+    borderRadius: radius.sm,
+  },
+  deliveryCardContent: {
+    flex: 1,
+  },
+  deliveryCardTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.charcoal,
+  },
+  deliveryCardSub: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 1,
+  },
+
+  // Section label
+  sectionLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: 8,
+  },
+
+  // Meetup spots
+  spotsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 24,
+  },
+  spotChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+  },
+  spotEmoji: {
+    fontSize: 10,
+  },
+  spotName: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.charcoal,
+  },
+
+  // Seller card
   sellerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    gap: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    marginBottom: 24,
   },
-  sellerDetails: {
+  sellerInfo: {
     flex: 1,
-    marginLeft: spacing.md,
   },
   sellerName: {
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.charcoal,
+    marginBottom: 2,
   },
-  sellerRating: {
+  sellerMeta: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.muted,
+  },
+  sellerRatingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: 3,
   },
   sellerRatingText: {
-    color: colors.foreground,
-  },
-  sellerLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  viewProfileButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.card,
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
   },
 
-  // Security Footer
-  securityFooter: {
+  // Security notice
+  securityNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
     backgroundColor: colors.successLight,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    borderRadius: radius.lg,
-    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   securityText: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
     color: colors.success,
-    fontWeight: '600',
   },
 
-  // Bottom Actions
-  bottomSafeArea: {
-    backgroundColor: colors.surface,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    gap: spacing.md,
+  // ── Bottom CTA Bar ──
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.cream,
+    paddingTop: 16,
+    paddingHorizontal: 24,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  buttonContent: {
+  ctaRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  offerOutlineButton: {
+    flex: 1,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.charcoal,
+    borderRadius: radius.none,
+  },
+  offerOutlineText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    color: colors.charcoal,
+  },
+  buyButton: {
+    flex: 2,
+    height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: 8,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.none,
   },
-  contactButton: {
-    flex: 1,
+  buyButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    color: colors.cream,
   },
-  contactButtonText: {
-    fontWeight: '600',
+  swapButton: {
+    height: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: colors.sage,
+    borderRadius: radius.none,
   },
-  offerButton: {
-    flex: 1,
-  },
-  offerButtonText: {
+  swapButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.5,
     color: colors.white,
-    fontWeight: '600',
   },
-  ownArticleNotice: {
+  ownArticleBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
-    gap: spacing.sm,
-    backgroundColor: colors.background,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    height: 50,
+    gap: spacing.xs,
+  },
+  ownArticleText: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
   },
 
-  // Loading State
+  // ── Loading State ──
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   loadingText: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
     color: colors.muted,
   },
 
-  // Error State
+  // ── Error State ──
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
   },
-  errorIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.background,
+  errorIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.surfaceWarm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   errorTitle: {
-    marginBottom: spacing.sm,
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 18,
+    color: colors.foreground,
+    marginBottom: spacing.xs,
   },
   errorText: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
     marginBottom: spacing.lg,
   },
   errorButton: {
-    minWidth: 150,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
   },
-
-  // Bottom Padding
-  bottomPadding: {
-    height: 100,
+  errorButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.white,
   },
 });

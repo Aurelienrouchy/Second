@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   arrayUnion,
   increment,
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 import { firestore } from '../config/firebaseConfig';
 import { SellerBalance } from '../types';
 

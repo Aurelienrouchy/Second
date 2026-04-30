@@ -1,4 +1,5 @@
-import functions from '@react-native-firebase/functions';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/config/firebaseConfig';
 import { StyleProfile } from '@/types';
 import { GuestSession } from './guestPreferencesService';
 
@@ -38,7 +39,7 @@ export async function generateStyleProfile(
     }
 
     // Call Cloud Function
-    const generateStyleProfileFn = functions().httpsCallable('generateStyleProfile');
+    const generateStyleProfileFn = httpsCallable(functions, 'generateStyleProfile');
     const result = await generateStyleProfileFn({
       likedArticles,
       viewedArticles,

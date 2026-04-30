@@ -2,6 +2,7 @@ import { Shop, ShopTypeLabels } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '@/constants/theme';
 
 interface ShopValidationCardProps {
   shop: Shop;
@@ -25,9 +26,9 @@ export default function ShopValidationCard({
       case 'pending':
         return '#FF9500';
       case 'suspended':
-        return '#8E8E93';
+        return colors.muted;
       default:
-        return '#8E8E93';
+        return colors.muted;
     }
   };
 
@@ -55,7 +56,7 @@ export default function ShopValidationCard({
             <Image source={{ uri: shop.images[0] }} style={styles.image} />
           ) : (
             <View style={styles.imagePlaceholder}>
-              <Ionicons name="storefront-outline" size={32} color="#8E8E93" />
+              <Ionicons name="storefront-outline" size={32} color={colors.muted} />
             </View>
           )}
         </View>
@@ -66,7 +67,7 @@ export default function ShopValidationCard({
           </Text>
           <Text style={styles.type}>{ShopTypeLabels[shop.type]}</Text>
           <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color="#8E8E93" />
+            <Ionicons name="location-outline" size={14} color={colors.muted} />
             <Text style={styles.location} numberOfLines={1}>
               {shop.address.city}
             </Text>
@@ -83,11 +84,11 @@ export default function ShopValidationCard({
       {/* Info rapide */}
       <View style={styles.quickInfo}>
         <View style={styles.infoItem}>
-          <Ionicons name="call-outline" size={16} color="#8E8E93" />
+          <Ionicons name="call-outline" size={16} color={colors.muted} />
           <Text style={styles.infoText}>{shop.phoneNumber}</Text>
         </View>
         <View style={styles.infoItem}>
-          <Ionicons name="mail-outline" size={16} color="#8E8E93" />
+          <Ionicons name="mail-outline" size={16} color={colors.muted} />
           <Text style={styles.infoText} numberOfLines={1}>
             {shop.email}
           </Text>
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F2F2F7',
+    borderColor: colors.surfaceWarm,
   },
   header: {
     flexDirection: 'row',
@@ -163,12 +164,12 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -178,12 +179,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 4,
   },
   type: {
     fontSize: 14,
-    color: '#F79F24',
+    color: colors.primary,
     fontWeight: '500',
     marginBottom: 6,
   },
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
   },
   location: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.muted,
     flex: 1,
   },
   statusBadge: {
@@ -218,12 +219,12 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: '#1C1C1E',
+    color: colors.foreground,
     flex: 1,
   },
   date: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
     marginBottom: 12,
   },
   actions: {

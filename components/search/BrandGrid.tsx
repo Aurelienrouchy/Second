@@ -1,6 +1,6 @@
 import { firestore } from '@/config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, getDocs, limit, query } from '@react-native-firebase/firestore';
+import { collection, getDocs, limit, query } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '@/constants/theme';
 
 interface Brand {
   value: string;
@@ -89,7 +90,7 @@ export default function BrandGrid({ onBrandPress, onViewAllPress }: BrandGridPro
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F79F24" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -108,7 +109,7 @@ export default function BrandGrid({ onBrandPress, onViewAllPress }: BrandGridPro
         <TouchableOpacity onPress={onViewAllPress} activeOpacity={0.7}>
           <View style={styles.viewAllButton}>
             <Text style={styles.viewAllText}>Voir tout</Text>
-            <Ionicons name="chevron-forward" size={16} color="#F79F24" />
+            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
           </View>
         </TouchableOpacity>
       </View>
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   viewAllButton: {
     flexDirection: 'row',
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F79F24',
+    color: colors.primary,
   },
   scrollContent: {
     paddingRight: 20,
@@ -178,14 +179,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.border,
   },
   brandText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   loadingContainer: {
     height: 180,

@@ -1,4 +1,4 @@
-import { httpsCallable } from '@react-native-firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
 
 export interface Moment {

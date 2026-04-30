@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { AI_CONFIG } from '@/config/aiConfig';
 import { AIAnalysisError, AnalysisPhase, RecoveryOption } from '@/types/ai';
+import { colors } from '@/constants/theme';
 
 interface AIAnalysisLoaderProps {
   visible: boolean;
@@ -67,12 +68,12 @@ const RECOVERY_OPTIONS: Record<RecoveryOption, { icon: string; label: string; co
   retry: {
     icon: 'refresh',
     label: 'Reessayer',
-    color: '#8B5CF6',
+    color: colors.secondary,
   },
   manual_entry: {
     icon: 'create-outline',
     label: 'Remplir manuellement',
-    color: '#8B5CF6',
+    color: colors.secondary,
   },
   change_photos: {
     icon: 'camera-outline',
@@ -241,7 +242,7 @@ export default function AIAnalysisLoader({
                 <Ionicons
                   name={(errorInfo?.icon || 'alert-circle') as any}
                   size={48}
-                  color="#EF4444"
+                  color={colors.danger}
                 />
               </View>
             ) : (
@@ -256,7 +257,7 @@ export default function AIAnalysisLoader({
                   },
                 ]}
               >
-                <Ionicons name="sparkles" size={48} color="#8B5CF6" />
+                <Ionicons name="sparkles" size={48} color={colors.secondary} />
               </Animated.View>
             )}
           </View>
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.secondary,
     borderRadius: 3,
   },
   progressText: {
@@ -472,7 +473,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   dotActive: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.secondary,
   },
   loadingTitle: {
     fontSize: 22,
@@ -488,7 +489,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#EF4444',
+    color: colors.danger,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -513,7 +514,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   actionButtonPrimary: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.secondary,
   },
   actionButtonSecondary: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

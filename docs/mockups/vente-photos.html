@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seconde - Photo Capture & Review Flow</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #2a2a2a;
+      font-family: 'DM Sans', sans-serif;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .mockup-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 40px;
+    }
+
+    .screen-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .phone-frame {
+      position: relative;
+      width: 375px;
+      height: 812px;
+      background: #000;
+      border-radius: 40px;
+      border: 12px solid #000;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      margin: 0 auto;
+    }
+
+    .phone-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      background: #000;
+      z-index: 10;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .screen {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ====== SCREEN 1: Camera Capture (Empty State) ====== */
+    .camera-bg {
+      background: #0F0E0C;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .camera-top-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      position: relative;
+      z-index: 5;
+    }
+
+    .control-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      color: #F5F0E8;
+      transition: all 0.2s ease;
+    }
+
+    .control-btn:hover {
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    .counter-pill {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(245, 240, 232, 0.7);
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .camera-viewfinder {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 32px;
+    }
+
+    .viewfinder-corner {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border: 2px solid rgba(245, 240, 232, 0.5);
+    }
+
+    .viewfinder-corner.tl {
+      top: 32px;
+      left: 32px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .viewfinder-corner.tr {
+      top: 32px;
+      right: 32px;
+      border-left: none;
+      border-bottom: none;
+    }
+
+    .viewfinder-corner.bl {
+      bottom: 32px;
+      left: 32px;
+      border-right: none;
+      border-top: none;
+    }
+
+    .viewfinder-corner.br {
+      bottom: 32px;
+      right: 32px;
+      border-left: none;
+      border-top: none;
+    }
+
+    .viewfinder-text {
+      text-align: center;
+      z-index: 2;
+    }
+
+    .viewfinder-main {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(245, 240, 232, 0.8);
+      margin-bottom: 8px;
+    }
+
+    .viewfinder-sub {
+      font-size: 11px;
+      color: rgba(245, 240, 232, 0.35);
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .camera-bottom {
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      z-index: 5;
+    }
+
+    .thumbnail-strip {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      min-height: 68px;
+    }
+
+    .thumbnail {
+      width: 52px;
+      height: 68px;
+      background: linear-gradient(135deg, #8C8880 0%, #6B6660 100%);
+      border: 2px solid transparent;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .thumbnail.first {
+      border-color: #C4603A;
+    }
+
+    .thumbnail-dot {
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      background: #C4603A;
+      border-radius: 50%;
+    }
+
+    .thumbnail-remove {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 18px;
+      height: 18px;
+      background: #1A1814;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .camera-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .gallery-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 1px solid rgba(245, 240, 232, 0.15);
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #F5F0E8;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .capture-btn {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .capture-btn-outer {
+      position: absolute;
+      width: 72px;
+      height: 72px;
+      border: 2px solid rgba(245, 240, 232, 0.4);
+      border-radius: 50%;
+      inset: 0;
+    }
+
+    .capture-btn-inner {
+      width: 56px;
+      height: 56px;
+      background: #F5F0E8;
+      border-radius: 50%;
+      position: relative;
+      z-index: 2;
+    }
+
+    .capture-btn-inner.disabled {
+      background: #8C8880;
+    }
+
+    .continue-btn {
+      width: auto;
+      padding: 12px 20px;
+      background: #C4603A;
+      border: none;
+      border-radius: 20px;
+      color: #F5F0E8;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .continue-btn.visible {
+      display: flex;
+    }
+
+    /* ====== SCREEN 4: Photos Review ====== */
+    .review-screen {
+      background: #F5F0E8;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .review-header {
+      background: #F5F0E8;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(26, 24, 20, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-back-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(26, 24, 20, 0.2);
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1A1814;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .review-header-content {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .review-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: #1A1814;
+    }
+
+    .review-count {
+      font-size: 11px;
+      color: #8C8880;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+    }
+
+    .review-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: 62% 1fr;
+      gap: 3px;
+      margin-bottom: 20px;
+      height: 260px;
+    }
+
+    .photo-main {
+      position: relative;
+      background: linear-gradient(135deg, #D4C4A0 0%, #C4B090 100%);
+      overflow: hidden;
+    }
+
+    .photo-main-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.4);
+      color: #F5F0E8;
+      padding: 4px 8px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .photo-side-column {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .photo-side {
+      flex: 1;
+      background: linear-gradient(135deg, #B8A88C 0%, #A8986C 100%);
+      position: relative;
+    }
+
+    .photo-empty {
+      flex: 1;
+      border: 1.5px dashed rgba(26, 24, 20, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+    }
+
+    .add-photos-section {
+      border: 1.5px dashed rgba(26, 24, 20, 0.2);
+      border-radius: 8px;
+      padding: 24px 16px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.4);
+      margin-bottom: 24px;
+    }
+
+    .add-photos-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(26, 24, 20, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin: 0 auto 12px;
+      color: #8C8880;
+    }
+
+    .add-photos-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1A1814;
+      font-family: 'DM Sans', sans-serif;
+      margin-bottom: 4px;
+    }
+
+    .add-photos-subtitle {
+      font-size: 11px;
+      color: #8C8880;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .tips-section {
+      margin-bottom: 20px;
+    }
+
+    .tips-title {
+      font-size: 9px;
+      font-weight: 600;
+      color: #8C8880;
+      text-transform: uppercase;
+      letter-spacing: 1.8px;
+      margin-bottom: 12px;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .tip-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+      align-items: flex-start;
+      font-size: 13px;
+      color: #1A1814;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .tip-dot {
+      width: 4px;
+      height: 4px;
+      background: #7A8C6E;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .review-footer {
+      background: #F5F0E8;
+      border-top: 1px solid rgba(26, 24, 20, 0.1);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .analyze-btn {
+      background: #1A1814;
+      color: #F5F0E8;
+      border: none;
+      padding: 14px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2.16px;
+      text-transform: uppercase;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .analyze-link {
+      text-align: center;
+      font-size: 12px;
+      color: #8C8880;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+    }
+
+    /* Badge for max reached */
+    .max-badge {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #D64545;
+      color: #F5F0E8;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      z-index: 10;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* Scrollbar styling for review-content */
+    .review-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .review-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .review-content::-webkit-scrollbar-thumb {
+      background: rgba(26, 24, 20, 0.15);
+      border-radius: 3px;
+    }
+
+    .review-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(26, 24, 20, 0.25);
+    }
+  </style>
+</head>
+<body>
+  <div class="mockup-container">
+    <!-- SCREEN 1: Camera Capture (Empty State) -->
+    <div>
+      <div class="screen-label">Screen 1: Camera Capture - Empty State</div>
+      <div class="phone-frame">
+        <div class="screen camera-bg">
+          <!-- Top Controls -->
+          <div class="camera-top-controls">
+            <button class="control-btn">✕</button>
+            <div class="counter-pill">0 / 5</div>
+            <button class="control-btn">⟲</button>
+          </div>
+
+          <!-- Viewfinder -->
+          <div class="camera-viewfinder">
+            <div class="viewfinder-corner tl"></div>
+            <div class="viewfinder-corner tr"></div>
+            <div class="viewfinder-corner bl"></div>
+            <div class="viewfinder-corner br"></div>
+            <div class="viewfinder-text">
+              <div class="viewfinder-main">Cadre ton article</div>
+              <div class="viewfinder-sub">Photo principale face avant</div>
+            </div>
+          </div>
+
+          <!-- Bottom Controls -->
+          <div class="camera-bottom">
+            <div class="thumbnail-strip"></div>
+            <div class="camera-controls">
+              <button class="gallery-btn">📷</button>
+              <div class="capture-btn">
+                <div class="capture-btn-outer"></div>
+                <div class="capture-btn-inner"></div>
+              </div>
+              <div style="width: 48px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: Camera Capture (3 Photos) -->
+    <div>
+      <div class="screen-label">Screen 2: Camera Capture - 3 Photos Taken</div>
+      <div class="phone-frame">
+        <div class="screen camera-bg">
+          <!-- Top Controls -->
+          <div class="camera-top-controls">
+            <button class="control-btn">✕</button>
+            <div class="counter-pill">3 / 5</div>
+            <button class="control-btn">⟲</button>
+          </div>
+
+          <!-- Viewfinder -->
+          <div class="camera-viewfinder">
+            <div class="viewfinder-corner tl"></div>
+            <div class="viewfinder-corner tr"></div>
+            <div class="viewfinder-corner bl"></div>
+            <div class="viewfinder-corner br"></div>
+            <div class="viewfinder-text">
+              <div class="viewfinder-main">Continue !</div>
+              <div class="viewfinder-sub">Dos, cote, etiquette de taille...</div>
+            </div>
+          </div>
+
+          <!-- Bottom Controls -->
+          <div class="camera-bottom">
+            <div class="thumbnail-strip">
+              <div class="thumbnail first">
+                <div class="thumbnail-dot"></div>
+                <div class="thumbnail-remove">✕</div>
+              </div>
+              <div class="thumbnail">
+                <div class="thumbnail-remove">✕</div>
+              </div>
+              <div class="thumbnail">
+                <div class="thumbnail-remove">✕</div>
+              </div>
+            </div>
+            <div class="camera-controls">
+              <button class="gallery-btn">📷</button>
+              <div class="capture-btn">
+                <div class="capture-btn-outer"></div>
+                <div class="capture-btn-inner"></div>
+              </div>
+              <button class="continue-btn visible">
+                Continuer
+                <span>→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: Camera Capture (5 Photos - Max Reached) -->
+    <div>
+      <div class="screen-label">Screen 3: Camera Capture - Maximum Reached</div>
+      <div class="phone-frame">
+        <div class="screen camera-bg">
+          <!-- Top Controls -->
+          <div class="camera-top-controls">
+            <button class="control-btn">✕</button>
+            <div class="counter-pill">5 / 5</div>
+            <button class="control-btn">⟲</button>
+          </div>
+
+          <!-- Max Badge -->
+          <div class="max-badge">Maximum atteint</div>
+
+          <!-- Viewfinder -->
+          <div class="camera-viewfinder">
+            <div class="viewfinder-corner tl"></div>
+            <div class="viewfinder-corner tr"></div>
+            <div class="viewfinder-corner bl"></div>
+            <div class="viewfinder-corner br"></div>
+            <div class="viewfinder-text">
+              <!-- No text in max state -->
+            </div>
+          </div>
+
+          <!-- Bottom Controls -->
+          <div class="camera-bottom">
+            <div class="thumbnail-strip">
+              <div class="thumbnail first">
+                <div class="thumbnail-dot"></div>
+                <div class="thumbnail-remove">✕</div>
+              </div>
+              <div class="thumbnail">
+                <div class="thumbnail-remove">✕</div>
+              </div>
+              <div class="thumbnail">
+                <div class="thumbnail-remove">✕</div>
+              </div>
+              <div class="thumbnail">
+                <div class="thumbnail-remove">✕</div>
+              </div>
+              <div class="thumbnail">
+                <div class="thumbnail-remove">✕</div>
+              </div>
+            </div>
+            <div class="camera-controls">
+              <button class="gallery-btn">📷</button>
+              <div class="capture-btn">
+                <div class="capture-btn-outer" style="border-color: rgba(140, 136, 128, 0.4);"></div>
+                <div class="capture-btn-inner disabled"></div>
+              </div>
+              <button class="continue-btn visible">
+                Continuer
+                <span>→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: Photos Review -->
+    <div>
+      <div class="screen-label">Screen 4: Photos Review</div>
+      <div class="phone-frame">
+        <div class="screen review-screen">
+          <!-- Header -->
+          <div class="review-header">
+            <button class="header-back-btn">←</button>
+            <div class="review-header-content">
+              <div class="review-title">Tes photos</div>
+              <div class="review-count">3 / 5</div>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="review-content">
+            <!-- Photo Grid -->
+            <div class="photo-grid">
+              <div class="photo-main">
+                <div class="photo-main-badge">PRINCIPALE</div>
+              </div>
+              <div class="photo-side-column">
+                <div class="photo-side"></div>
+                <div class="photo-empty"></div>
+              </div>
+            </div>
+
+            <!-- Add Photos Section -->
+            <div class="add-photos-section">
+              <div class="add-photos-icon">+</div>
+              <div class="add-photos-title">Ajouter des photos</div>
+              <div class="add-photos-subtitle">2 emplacements restants</div>
+            </div>
+
+            <!-- Tips Section -->
+            <div class="tips-section">
+              <div class="tips-title">Conseils pour de meilleures photos</div>
+              <div class="tip-row">
+                <div class="tip-dot"></div>
+                <span>Bonne luminosite, fond neutre</span>
+              </div>
+              <div class="tip-row">
+                <div class="tip-dot"></div>
+                <span>Montrer tous les details et defauts</span>
+              </div>
+              <div class="tip-row">
+                <div class="tip-dot"></div>
+                <span>Photos claires, pas de reflets</span>
+              </div>
+            </div>
+
+            <div style="height: 80px;"></div>
+          </div>
+
+          <!-- Footer -->
+          <div class="review-footer">
+            <button class="analyze-btn">
+              ✨ Analyser avec l'IA
+            </button>
+            <div class="analyze-link">ou remplir manuellement</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

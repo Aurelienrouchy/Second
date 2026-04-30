@@ -6,35 +6,47 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { AuthProvider } from '@/contexts/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { AuthRequiredProvider } from '@/contexts/AuthRequiredContext';
 import { ChatProvider } from '@/contexts/ChatContext';
-import { FavoritesProvider } from '@/contexts/FavoritesContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { NotificationProvider } from '@/contexts/NotificationContext';
+import { useNotificationSetup } from '@/hooks/useNotificationSetup';
+import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { colors } from '@/constants/theme';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { StripeProvider } from '@stripe/stripe-react-native';
+// Helcim payment is handled via WebView (HelcimPay.js) — no native provider needed
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// TanStack Query client — shared across all features
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10 * 60 * 1000, // 10 min
+      retry: 2,
+    },
+  },
+});
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
-const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_YOUR_KEY_HERE';
+
 
 /**
- * Custom Navigation Theme
- * Design System: Luxe Français + Street
+ * Custom Navigation Theme — Seconde UI Kit
+ * Editorial Luxe — Cream, Charcoal, Rust
  */
 const CustomNavigationTheme = {
   dark: false,
   colors: {
-    primary: colors.primary,        // Bleu Klein
-    background: '#FFFFFF',          // Blanc pur
-    card: '#FFFFFF',                // Blanc pur
-    text: colors.foreground,        // Noir doux
-    border: colors.border,
+    primary: colors.primary,        // Rust / Terracotta
+    background: colors.background,  // Warm white
+    card: colors.surface,           // Pure white
+    text: colors.foreground,        // Deep charcoal
+    border: colors.borderLight,
     notification: colors.primary,
   },
   fonts: {
@@ -76,15 +88,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      // Hide splash screen once fonts are loaded
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
-
-  useEffect(() => {
-    // Firebase Auth initializes automatically
-    console.log('Firebase Auth initialized');
-  }, []);
 
   // Show nothing while fonts load (splash screen visible)
   if (!fontsLoaded && !fontError) {
@@ -92,64 +98,88 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
-          <AuthProvider>
-            <LanguageProvider>
-              <FavoritesProvider>
-                <ChatProvider>
-                  <NotificationProvider>
-                    <BottomSheetModalProvider>
-                      <AuthRequiredProvider>
-                        <ThemeProvider value={CustomNavigationTheme}>
-                          <Stack
-                            screenOptions={{
-                              headerShown: false,
-                              contentStyle: { backgroundColor: '#FFFFFF' },
-                              animation: 'slide_from_right',
-                            }}
-                          >
-                            <Stack.Screen name="index" />
-                            <Stack.Screen name="(tabs)" />
-                            <Stack.Screen name="article/[id]" />
-                            <Stack.Screen name="chat/[id]" />
-                            <Stack.Screen
-                              name="my-articles"
-                              options={{ presentation: 'card' }}
-                            />
-                            <Stack.Screen
-                              name="filters"
-                              options={{
-                                presentation: 'modal',
-                                animation: 'slide_from_bottom',
-                              }}
-                            />
-                            <Stack.Screen name="search-results" />
-                            <Stack.Screen name="shop/[id]" />
-                            <Stack.Screen name="settings" />
-                            <Stack.Screen
-                              name="sell"
-                              options={{ animation: 'slide_from_bottom' }}
-                            />
-                            <Stack.Screen name="admin/shops" />
-                            <Stack.Screen name="admin/shop-detail/[id]" />
-                            <Stack.Screen name="payment/[transactionId]" />
-                            <Stack.Screen name="visual-search-results" />
-                            <Stack.Screen name="search" />
-                            <Stack.Screen name="+not-found" />
-                          </Stack>
-                          <StatusBar style="dark" />
-                        </ThemeProvider>
-                      </AuthRequiredProvider>
-                    </BottomSheetModalProvider>
-                  </NotificationProvider>
-                </ChatProvider>
-              </FavoritesProvider>
-            </LanguageProvider>
-          </AuthProvider>
-        </StripeProvider>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+          <ThemeProvider value={CustomNavigationTheme}>
+            <AuthProvider>
+              <AppContent />
+            </AuthProvider>
+          </ThemeProvider>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    </QueryClientProvider>
+  );
+}
+
+/**
+ * AppContent — lives inside AuthProvider so hooks can access useAuth.
+ *
+ * Notifications : Zustand store + useNotificationSetup (plus de Context)
+ * Deep linking  : useDeepLinking + Expo Router (file-based routing automatique)
+ */
+function AppContent() {
+  const { user } = useAuth();
+
+  // ── Push notifications : listeners, channels, badge, token ──
+  useNotificationSetup(user?.id ?? null);
+
+  // ── Deep linking : custom URL patterns (Expo Router gère le reste) ──
+  useDeepLinking();
+
+  return (
+    <LanguageProvider>
+      <ChatProvider>
+        <BottomSheetModalProvider>
+          <AuthRequiredProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.background },
+                  animation: 'slide_from_right',
+                }}
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen
+                  name="onboarding"
+                  options={{ animation: 'fade', gestureEnabled: false }}
+                />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="article/[id]" />
+                <Stack.Screen name="chat/[id]" />
+                <Stack.Screen
+                  name="my-articles"
+                  options={{ presentation: 'card' }}
+                />
+                <Stack.Screen
+                  name="my-orders"
+                  options={{ presentation: 'card' }}
+                />
+                <Stack.Screen
+                  name="filters"
+                  options={{
+                    presentation: 'modal',
+                    animation: 'slide_from_bottom',
+                  }}
+                />
+
+                <Stack.Screen name="shop/[id]" />
+                <Stack.Screen name="settings" />
+                <Stack.Screen
+                  name="sell"
+                  options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen name="admin/shops" />
+                <Stack.Screen name="admin/shop-detail/[id]" />
+                <Stack.Screen name="payment/[transactionId]" />
+                <Stack.Screen name="visual-search-results" />
+                <Stack.Screen name="search" />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+              <StatusBar style="dark" />
+          </AuthRequiredProvider>
+        </BottomSheetModalProvider>
+      </ChatProvider>
+    </LanguageProvider>
   );
 }

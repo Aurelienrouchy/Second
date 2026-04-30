@@ -38,42 +38,56 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   // Subscribe to user's chats
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
+      let cancelled = false;
       const unsubscribe = ChatService.listenToUserChats(
         user.id,
         (userChats) => {
-          setChats(userChats);
+          if (!cancelled) setChats(userChats);
         },
         (error) => {
-          console.error('Error listening to chats:', error);
+          // Ignore permission-denied during sign-out
+          if (!cancelled) {
+            console.error('Error listening to chats:', error);
+          }
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
     } else {
       setChats([]);
     }
-  }, [user]);
+  }, [user?.id]);
 
   // Subscribe to current chat messages
   useEffect(() => {
-    if (currentChat && user) {
+    if (currentChat && user?.id) {
+      let cancelled = false;
       const unsubscribe = ChatService.listenToMessages(
         currentChat.id,
         user.id,
         (chatMessages) => {
-          setMessages(chatMessages);
+          if (!cancelled) setMessages(chatMessages);
         },
         (error) => {
-          console.error('Error listening to messages:', error);
+          if (!cancelled) {
+            console.error('Error listening to messages:', error);
+          }
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
     } else {
       setMessages([]);
+      setCurrentChat(null);
     }
-  }, [currentChat, user]);
+  }, [currentChat, user?.id]);
 
   const sendMessage = async (chatId: string, receiverId: string, content: string) => {
     if (!user) throw new Error('User not authenticated');

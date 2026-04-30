@@ -40,6 +40,8 @@ import { TransactionService } from '@/services/transactionService';
 
 // Import types
 import { Article, Message, MeetupSpot, Transaction } from '@/types';
+import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
+import { formatDisplayName } from '@/utils/formatName';
 
 export default function ChatScreen() {
   const [messageText, setMessageText] = useState('');
@@ -183,7 +185,6 @@ export default function ChatScreen() {
     amount: number,
     message: string,
     meetupSpot: MeetupSpot,
-    meetupDateTime: Date
   ) => {
     if (!chatId || !user || !chat) return;
 
@@ -194,7 +195,6 @@ export default function ChatScreen() {
         chat.participantsInfo.find(p => p.userId !== user.id)?.userId || '',
         amount,
         meetupSpot,
-        meetupDateTime,
         message
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -254,7 +254,7 @@ export default function ChatScreen() {
           } else if (buttonIndex === 1) {
             Alert.alert(
               'Bloquer cet utilisateur',
-              `Voulez-vous bloquer ${otherParticipant.userName} ? Cette personne ne pourra plus vous contacter.`,
+              `Voulez-vous bloquer ${formatDisplayName(otherParticipant.userName)} ? Cette personne ne pourra plus vous contacter.`,
               [
                 { text: 'Annuler', style: 'cancel' },
                 {
@@ -267,7 +267,7 @@ export default function ChatScreen() {
                         otherParticipant.userId,
                         otherParticipant.userName
                       );
-                      Alert.alert('Utilisateur bloqué', `${otherParticipant.userName} a été bloqué.`);
+                      Alert.alert('Utilisateur bloqué', `${formatDisplayName(otherParticipant.userName)} a été bloqué.`);
                       router.back();
                     } catch (error: any) {
                       Alert.alert('Erreur', error.message || 'Une erreur est survenue');
@@ -294,7 +294,7 @@ export default function ChatScreen() {
             onPress: () => {
               Alert.alert(
                 'Bloquer cet utilisateur',
-                `Voulez-vous bloquer ${otherParticipant.userName} ?`,
+                `Voulez-vous bloquer ${formatDisplayName(otherParticipant.userName)} ?`,
                 [
                   { text: 'Annuler', style: 'cancel' },
                   {
@@ -307,7 +307,7 @@ export default function ChatScreen() {
                           otherParticipant.userId,
                           otherParticipant.userName
                         );
-                        Alert.alert('Utilisateur bloqué', `${otherParticipant.userName} a été bloqué.`);
+                        Alert.alert('Utilisateur bloqué', `${formatDisplayName(otherParticipant.userName)} a été bloqué.`);
                         router.back();
                       } catch (error: any) {
                         Alert.alert('Erreur', error.message || 'Une erreur est survenue');
@@ -347,6 +347,7 @@ export default function ChatScreen() {
       <ChatBubble
         message={message}
         isOwnMessage={isOwnMessage}
+        senderImage={!isOwnMessage ? otherParticipant?.userImage : undefined}
       />
     );
   };
@@ -356,7 +357,7 @@ export default function ChatScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       </SafeAreaView>
@@ -381,13 +382,20 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header: User info (cream bg, border-bottom) */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+          <Ionicons name="arrow-back" size={20} color={colors.charcoal} />
         </Pressable>
 
-        <View style={styles.headerCenter}>
+        <Pressable
+          style={styles.headerCenter}
+          onPress={() => {
+            if (otherParticipant?.userId) {
+              router.push(`/user/${otherParticipant.userId}`);
+            }
+          }}
+        >
           {otherParticipant && (
             <>
               <Image
@@ -397,22 +405,54 @@ export default function ChatScreen() {
               />
               <View style={styles.headerInfo}>
                 <Text style={styles.headerTitle} numberOfLines={1}>
-                  {otherParticipant.userName}
+                  {formatDisplayName(otherParticipant.userName)}
                 </Text>
-                {chat?.articleTitle && (
+                {chat?.articlePrice && (
                   <Text style={styles.headerSubtitle} numberOfLines={1}>
-                    • {chat.articleTitle}
+                    ${chat.articlePrice.toFixed(2)}
                   </Text>
                 )}
               </View>
             </>
           )}
-        </View>
+        </Pressable>
 
         <Pressable style={styles.headerButton} onPress={handleMoreOptions}>
-          <Ionicons name="ellipsis-vertical" size={24} color="#1C1C1E" />
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.charcoal} />
         </Pressable>
       </View>
+
+      {/* Article context bar (white bg, border-bottom) */}
+      {article && (
+        <View style={[styles.header, { backgroundColor: colors.white, paddingVertical: spacing.sm }]}>
+          <Image
+            source={{ uri: article.images?.[0]?.url || 'https://via.placeholder.com/48x60' }}
+            style={{ width: 48, height: 60, borderRadius: radius.xs, marginRight: spacing.md }}
+            contentFit="cover"
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.headerTitle, { marginBottom: 2 }]} numberOfLines={1}>
+              {chat?.articleTitle}
+            </Text>
+            <Text style={{ fontFamily: fonts.displaySemiBold, fontSize: 18, color: colors.primary }}>
+              ${chat?.articlePrice?.toFixed(2)}
+            </Text>
+          </View>
+          <Pressable
+            style={{
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 4,
+              borderWidth: 1,
+              borderColor: colors.borderStrong,
+              borderRadius: radius.sm
+            }}
+          >
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 11, color: colors.charcoal, letterSpacing: 1.2 }}>
+              VOIR
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       <KeyboardAvoidingView 
         style={styles.content} 
@@ -422,10 +462,10 @@ export default function ChatScreen() {
         {/* Messages List */}
         {messages.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={64} color="#8E8E93" />
+            <Ionicons name="chatbubbles-outline" size={64} color={colors.muted} />
             <Text style={styles.emptyStateTitle}>Aucun message</Text>
             <Text style={styles.emptyStateText}>
-              Commencez la conversation avec {otherParticipant?.userName || 'ce vendeur'}
+              Commencez la conversation avec {formatDisplayName(otherParticipant?.userName) || 'ce vendeur'}
             </Text>
           </View>
         ) : (
@@ -450,20 +490,20 @@ export default function ChatScreen() {
 
         {/* Input Container */}
         <View style={styles.inputContainer}>
-          {/* Attachment button */}
-          <Pressable 
+          {/* Attachment button: 36px circle, white bg, 1px borderStrong, muted icon */}
+          <Pressable
             style={styles.attachButton}
             onPress={handlePickImage}
             disabled={isSendingImage}
           >
             {isSendingImage ? (
-              <ActivityIndicator size="small" color="#007AFF" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Ionicons name="image-outline" size={24} color="#007AFF" />
+              <Ionicons name="attach" size={18} color={colors.muted} />
             )}
           </Pressable>
 
-          {/* Message Input */}
+          {/* Message Input: white bg, 1px borderStrong, radius.md */}
           <TextInput
             style={styles.messageInput}
             placeholder="Message..."
@@ -471,21 +511,21 @@ export default function ChatScreen() {
             onChangeText={setMessageText}
             multiline
             maxLength={1000}
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.muted}
           />
 
           {/* Offer button (only if article exists) */}
           {chat?.articleId && (
-            <Pressable 
+            <Pressable
               style={styles.offerButton}
               onPress={handleMakeOffer}
             >
-              <Ionicons name="cash-outline" size={24} color="#F79F24" />
+              <Text style={{ fontSize: 18, color: colors.primary }}>$</Text>
             </Pressable>
           )}
 
           {/* Send button */}
-          <Pressable 
+          <Pressable
             style={[
               styles.sendButton,
               !messageText.trim() && styles.sendButtonDisabled
@@ -493,10 +533,10 @@ export default function ChatScreen() {
             onPress={handleSendMessage}
             disabled={!messageText.trim()}
           >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color={messageText.trim() ? "#FFFFFF" : "#8E8E93"} 
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color={messageText.trim() ? colors.cream : colors.muted}
             />
           </Pressable>
         </View>
@@ -524,87 +564,93 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
   },
   loadingText: {
+    fontFamily: fonts.sans,
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    gap: 16,
+    padding: spacing.xl,
+    gap: spacing.md,
   },
   errorTitle: {
+    fontFamily: fonts.displayMedium,
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   errorText: {
+    fontFamily: fonts.sans,
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
     textAlign: 'center',
   },
   backButton: {
-    backgroundColor: '#F79F24',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-    marginTop: 16,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
   },
   backButtonText: {
-    color: '#FFFFFF',
+    fontFamily: fonts.sansMedium,
+    color: colors.white,
     fontSize: 16,
-    fontWeight: '700',
   },
+  // Header styling (cream bg, border-bottom)
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surfaceWarm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.border,
   },
   headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
   headerCenter: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 12,
+    marginHorizontal: spacing.md,
   },
   headerAvatar: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F2F2F7',
-    marginRight: 12,
+    borderRadius: radius.full,
+    backgroundColor: colors.background,
+    marginRight: spacing.md,
   },
   headerInfo: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.foreground,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#8E8E93',
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
     marginTop: 2,
   },
   content: {
@@ -614,70 +660,83 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: spacing.xl,
   },
   emptyStateTitle: {
+    fontFamily: fonts.displayMedium,
     fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-    color: '#1C1C1E',
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    color: colors.foreground,
   },
   emptyStateText: {
+    fontFamily: fonts.sans,
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
     textAlign: 'center',
   },
   messagesList: {
-    paddingVertical: 16,
-    paddingHorizontal: 4,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
+  // Input bar styling (cream bg, border-top)
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surfaceWarm,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    gap: 8,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
   },
+  // Attach button: 36px circle, white bg, 1px borderStrong, muted icon
   attachButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
+  // Text input: white bg, 1px borderStrong, radius.md
   messageInput: {
     flex: 1,
     minHeight: 40,
     maxHeight: 100,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#1C1C1E',
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.foreground,
   },
+  // Offer button: 36px circle, primaryLight bg, $ icon in rust
   offerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFF9F0',
+    backgroundColor: colors.primaryLight,
   },
+  // Send button: 36px circle, charcoal bg (disabled=border bg), cream arrow icon
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.charcoal,
   },
   sendButtonDisabled: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 });

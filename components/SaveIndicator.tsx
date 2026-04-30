@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '@/constants/theme';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -60,8 +61,8 @@ export default function SaveIndicator({
         return {
           icon: 'cloud-upload-outline' as const,
           text: 'Sauvegarde...',
-          color: '#6B7280',
-          bgColor: '#F3F4F6',
+          color: colors.muted,
+          bgColor: colors.surfaceWarm,
         };
       case 'saved':
         return {
@@ -81,8 +82,8 @@ export default function SaveIndicator({
         return {
           icon: 'cloud-outline' as const,
           text: '',
-          color: '#6B7280',
-          bgColor: '#F3F4F6',
+          color: colors.muted,
+          bgColor: colors.surfaceWarm,
         };
     }
   };

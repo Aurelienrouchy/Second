@@ -3,11 +3,12 @@ import { guestPreferencesService, GuestSession } from '@/services/guestPreferenc
 import { generateStyleProfile } from '@/services/styleProfileService';
 import { UserService } from '@/services/userService';
 import { User } from '@/types';
+import { ONBOARDING_COMPLETED_KEY, ONBOARDING_PREFERENCES_KEY } from '@/constants/storageKeys';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import messaging from '@react-native-firebase/messaging';
-import * as Notifications from 'expo-notifications';
-import React, { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { httpsCallable } from 'firebase/functions';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useNotificationStore } from '@/store/notificationStore';
+import { functions } from '@/config/firebaseConfig';
 
 interface AuthContextType {
   user: User | null;
@@ -19,13 +20,13 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   skipAuth: () => Promise<void>;
   checkAuthRequired: () => boolean;
+  refreshUser: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
   signUpWithEmail: (email: string, password: string, username: string) => Promise<User>;
   signInWithGoogle: () => Promise<User>;
   signInWithApple: () => Promise<User>;
   initGuestSession: () => Promise<void>;
   mergeGuestToUser: (userId: string) => Promise<void>;
-  registerForPushNotifications: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,11 +48,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
   const [guestSession, setGuestSession] = useState<GuestSession | null>(null);
-  const fcmTokenRef = useRef<string | null>(null);
 
   // Computed: user is a guest if no user is logged in
   const isGuest = user === null;
 
+  // One-time initialization: auth service + auth state listener
   useEffect(() => {
     // Initialiser les services d'authentification
     AuthService.initialize().catch(console.error);
@@ -76,25 +77,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     });
 
-    // Listen for FCM token refresh
-    const unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
-      if (user?.id) {
-        // Remove old token if exists
-        if (fcmTokenRef.current && fcmTokenRef.current !== newToken) {
-          await UserService.removeFcmToken(user.id, fcmTokenRef.current);
-        }
-        // Save new token
-        await UserService.saveFcmToken(user.id, newToken);
-        fcmTokenRef.current = newToken;
-        console.log('FCM token refreshed and saved');
-      }
-    });
-
     return () => {
       unsubscribe();
-      unsubscribeTokenRefresh();
     };
-  }, [user?.id]);
+  }, []);
 
   const checkAuthState = async () => {
     try {
@@ -103,9 +89,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const savedUser = await AsyncStorage.getItem('user_data');
 
       if (!hasLaunchedBefore) {
-        // Premier lancement
-        setIsFirstLaunch(true);
-        setUser(null);
+        // Premier lancement — user is already null and isFirstLaunch already true from initial state
         // Initialize guest session for new users
         await initGuestSessionInternal();
       } else {
@@ -115,19 +99,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (savedUser) {
           // Utilisateur connecté - aller direct à l'accueil
           setUser(JSON.parse(savedUser));
-          // Clear guest session when user is logged in
-          setGuestSession(null);
+          // guestSession is already null from initial state
         } else {
-          // Utilisateur pas connecté - mode guest
-          setUser(null);
+          // Utilisateur pas connecté - mode guest (user already null from initial state)
           // Load or create guest session
           await initGuestSessionInternal();
         }
       }
     } catch (error) {
       console.log('Error checking auth state:', error);
-      setIsFirstLaunch(true);
-      setUser(null);
+      // user is already null and isFirstLaunch already true from initial state
     } finally {
       setIsLoading(false);
     }
@@ -151,53 +132,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await AsyncStorage.setItem('has_launched_before', 'true');
       setUser(userData);
       setIsFirstLaunch(false);
-
-      // Register for push notifications (non-blocking)
-      // We need to do this in a setTimeout to ensure user state is set
-      setTimeout(async () => {
-        try {
-          await registerForPushNotificationsInternal(userData.id);
-        } catch (e) {
-          console.log('FCM registration failed (silent):', e);
-        }
-      }, 1000);
+      // Push token registration is handled by useNotificationSetup
+      // which reacts to user.id changes
     } catch (error) {
       console.log('Error signing in:', error);
-    }
-  };
-
-  /**
-   * Internal helper for push notification registration
-   * Takes userId directly since user state might not be set yet
-   */
-  const registerForPushNotificationsInternal = async (userId: string): Promise<void> => {
-    try {
-      let hasPermission = false;
-
-      if (Platform.OS === 'ios') {
-        const authStatus = await messaging().requestPermission();
-        hasPermission =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-      } else {
-        const { status } = await Notifications.requestPermissionsAsync();
-        hasPermission = status === 'granted';
-      }
-
-      if (!hasPermission) {
-        console.log('Push notification permission denied');
-        return;
-      }
-
-      const fcmToken = await messaging().getToken();
-
-      if (fcmToken) {
-        await UserService.saveFcmToken(userId, fcmToken);
-        fcmTokenRef.current = fcmToken;
-        console.log('FCM token registered after login');
-      }
-    } catch (error) {
-      console.log('Error in push notification registration:', error);
     }
   };
 
@@ -205,6 +143,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await AuthService.signInWithEmail(email, password);
       await signIn(userData);
+      // Merge guest data (onboarding prefs + behavioral) into the user account
+      await mergeGuestToUser(userData.id);
       return userData;
     } catch (error: any) {
       throw new Error(error.message);
@@ -215,6 +155,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await AuthService.signUpWithEmail(email, password, username);
       await signIn(userData);
+      // Merge guest data (onboarding prefs + behavioral) into the new user account
+      await mergeGuestToUser(userData.id);
       return userData;
     } catch (error: any) {
       throw new Error(error.message);
@@ -225,6 +167,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await AuthService.signInWithGoogle();
       await signIn(userData);
+      // Merge guest data (onboarding prefs + behavioral) into the user account
+      await mergeGuestToUser(userData.id);
       return userData;
     } catch (error: any) {
       throw new Error(error.message);
@@ -235,6 +179,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await AuthService.signInWithApple();
       await signIn(userData);
+      // Merge guest data (onboarding prefs + behavioral) into the user account
+      await mergeGuestToUser(userData.id);
       return userData;
     } catch (error: any) {
       throw new Error(error.message);
@@ -244,61 +190,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = async () => {
     try {
       // Remove FCM token before signing out
-      if (user?.id && fcmTokenRef.current) {
-        await UserService.removeFcmToken(user.id, fcmTokenRef.current);
-        fcmTokenRef.current = null;
+      const pushToken = useNotificationStore.getState().pushToken;
+      if (user?.id && pushToken) {
+        await UserService.removeFcmToken(user.id, pushToken);
       }
+
+      // Reset notification store
+      useNotificationStore.getState().reset();
 
       await AuthService.signOut();
       await AsyncStorage.removeItem('user_data');
       setUser(null);
     } catch (error) {
       console.log('Error signing out:', error);
-    }
-  };
-
-  /**
-   * Register for push notifications and save FCM token
-   * Called after successful login
-   */
-  const registerForPushNotifications = async (): Promise<void> => {
-    if (!user?.id) {
-      console.log('Cannot register FCM: no user logged in');
-      return;
-    }
-
-    try {
-      // Request permission
-      let hasPermission = false;
-
-      if (Platform.OS === 'ios') {
-        const authStatus = await messaging().requestPermission();
-        hasPermission =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-      } else {
-        // Android
-        const { status } = await Notifications.requestPermissionsAsync();
-        hasPermission = status === 'granted';
-      }
-
-      if (!hasPermission) {
-        console.log('Push notification permission denied');
-        return;
-      }
-
-      // Get FCM token
-      const fcmToken = await messaging().getToken();
-
-      if (fcmToken) {
-        // Save to Firestore
-        await UserService.saveFcmToken(user.id, fcmToken);
-        fcmTokenRef.current = fcmToken;
-        console.log('FCM token registered successfully');
-      }
-    } catch (error) {
-      // Non-blocking - don't throw
-      console.log('Error registering for push notifications:', error);
     }
   };
 
@@ -317,12 +221,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return user === null;
   };
 
+  const refreshUser = async (): Promise<void> => {
+    if (!user?.id) return;
+    try {
+      const freshUser = await UserService.getUserById(user.id);
+      if (freshUser) {
+        setUser(freshUser);
+        await AsyncStorage.setItem('user_data', JSON.stringify(freshUser));
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
+  };
+
   const initGuestSession = async (): Promise<void> => {
     await initGuestSessionInternal();
   };
 
   const mergeGuestToUser = async (userId: string): Promise<void> => {
     try {
+      // ── 1. Merge onboarding preferences ──
+      // Read preferences saved during onboarding (before account creation)
+      const onboardingPrefsRaw = await AsyncStorage.getItem(ONBOARDING_PREFERENCES_KEY);
+      if (onboardingPrefsRaw) {
+        try {
+          const prefs = JSON.parse(onboardingPrefsRaw);
+          // Call Cloud Function to save onboarding data to the user's Firestore doc
+          const savePrefs = httpsCallable(functions, 'saveOnboardingPreferences');
+          await savePrefs({
+            sex: prefs.sex,
+            sizesTop: prefs.sizesTop || [],
+            sizesBottom: prefs.sizesBottom || [],
+            sizesShoes: prefs.sizesShoes || [],
+            userId,
+          });
+          console.log('Onboarding preferences merged to user:', userId);
+        } catch (prefError) {
+          console.log('Error merging onboarding preferences (silent):', prefError);
+        }
+      }
+
+      // ── 2. Merge guest behavioral data ──
       const guestData = await guestPreferencesService.exportGuestData();
       if (guestData) {
         const totalInteractions = guestData.likedArticles.length +
@@ -354,25 +293,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const contextValue = useMemo<AuthContextType>(() => ({
+    user,
+    isLoading,
+    isFirstLaunch,
+    isGuest,
+    guestSession,
+    signIn,
+    signOut,
+    skipAuth,
+    checkAuthRequired,
+    refreshUser,
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    signInWithApple,
+    initGuestSession,
+    mergeGuestToUser,
+  }), [user, isLoading, isFirstLaunch, isGuest, guestSession]);
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      isFirstLaunch,
-      isGuest,
-      guestSession,
-      signIn,
-      signOut,
-      skipAuth,
-      checkAuthRequired,
-      signInWithEmail,
-      signUpWithEmail,
-      signInWithGoogle,
-      signInWithApple,
-      initGuestSession,
-      mergeGuestToUser,
-      registerForPushNotifications,
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

@@ -191,8 +191,8 @@ interface Transaction {
   // Stripe
   paymentIntentId?: string;      // Stripe Payment Intent
 
-  // Shippo
-  shippoTransactionId?: string;  // Shippo transaction
+  // Intelcom
+  intelcomBookingId?: string;    // Intelcom booking
   shippingLabelUrl?: string;     // Label PDF URL
   trackingNumber?: string;       // Tracking number
   trackingStatus?: string;       // Current status
@@ -223,7 +223,7 @@ interface ShippingEstimate {
   estimatedDays: string;         // e.g., "2-3 days"
   amount: number;                // Cost in EUR
   currency: string;              // "EUR"
-  shippoRateId: string;          // Shippo rate ID
+  intelcomRateId: string;        // Intelcom rate ID
 }
 ```
 

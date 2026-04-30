@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  InputAccessoryView,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -13,11 +14,14 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SellFlowHeader from '@/components/SellFlowHeader';
 import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
+import StepProgressBar from '@/components/sell/StepProgressBar';
+import FormSectionTitle from '@/components/sell/FormSectionTitle';
 import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
 import draftService, { ArticleDraft, DraftPricing } from '@/services/draftService';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui';
 
 type PackageSize = 'small' | 'medium' | 'large';
 
@@ -29,25 +33,12 @@ interface PackageSizeOption {
 }
 
 const PACKAGE_SIZES: PackageSizeOption[] = [
-  {
-    value: 'small',
-    label: 'Petit',
-    weight: '<500g',
-    description: 'T-shirt, accessoires',
-  },
-  {
-    value: 'medium',
-    label: 'Moyen',
-    weight: '<1kg',
-    description: 'Pull, jean, robe',
-  },
-  {
-    value: 'large',
-    label: 'Grand',
-    weight: '<2kg',
-    description: 'Manteau, bottes, lot',
-  },
+  { value: 'small', label: 'Petit', weight: '<500g', description: 'T-shirt, accessoires' },
+  { value: 'medium', label: 'Moyen', weight: '<1kg', description: 'Pull, jean, robe' },
+  { value: 'large', label: 'Grand', weight: '<2kg', description: 'Manteau, bottes, lot' },
 ];
+
+const NEIGHBORHOOD_TAGS = ['Plateau', 'Mile End', 'Rosemont', 'Villeray'];
 
 export default function PricingScreen() {
   const router = useRouter();
@@ -71,18 +62,16 @@ export default function PricingScreen() {
   const [price, setPrice] = useState('');
   const [isHandDelivery, setIsHandDelivery] = useState(false);
   const [isShipping, setIsShipping] = useState(true);
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState<MeetupNeighborhood | null>(null);
+  const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<MeetupNeighborhood[]>([]);
   const [packageSize, setPackageSize] = useState<PackageSize | null>(
     aiResult?.packageSize?.suggested || null
   );
   const [errors, setErrors] = useState<string[]>([]);
-
-  // Track if pricing has been initialized from draft
   const [isInitialized, setIsInitialized] = useState(!isResuming);
-
-  // Draft state
   const [draft, setDraft] = useState<ArticleDraft | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  const aiSuggestedSize = aiResult?.packageSize?.suggested;
 
   // Load draft on mount
   useEffect(() => {
@@ -90,23 +79,23 @@ export default function PricingScreen() {
       const existingDraft = await draftService.loadDraft();
       if (existingDraft) {
         setDraft(existingDraft);
-
-        // If resuming, restore pricing from draft
         if (isResuming && existingDraft.pricing) {
-          console.log('[Pricing] Resuming draft, restoring pricing:', existingDraft.pricing);
           if (existingDraft.pricing.price !== null) {
             setPrice(existingDraft.pricing.price.toString());
           }
-          setIsHandDelivery(existingDraft.pricing.isHandDelivery);
-          setIsShipping(existingDraft.pricing.isShipping);
-          setSelectedNeighborhood(existingDraft.pricing.neighborhood);
+          setIsHandDelivery(!!existingDraft.pricing.isHandDelivery);
+          setIsShipping(!!existingDraft.pricing.isShipping);
+          // Support both legacy single neighborhood and new multi-neighborhoods
+          if (existingDraft.pricing.neighborhoods?.length) {
+            setSelectedNeighborhoods(existingDraft.pricing.neighborhoods);
+          } else if (existingDraft.pricing.neighborhood) {
+            setSelectedNeighborhoods([existingDraft.pricing.neighborhood]);
+          }
           if (existingDraft.pricing.packageSize) {
             setPackageSize(existingDraft.pricing.packageSize as PackageSize);
           }
         }
         setIsInitialized(true);
-
-        // Update step to 3 if not already
         if (existingDraft.currentStep < 3) {
           const updated = await draftService.updateDraftStep(existingDraft, 3);
           setDraft(updated);
@@ -118,11 +107,9 @@ export default function PricingScreen() {
     loadDraft();
   }, [isResuming]);
 
-  // Auto-save pricing to draft when it changes (debounced)
+  // Auto-save pricing
   useEffect(() => {
-    // Don't save until pricing is initialized (prevents overwriting draft with empty state)
     if (!draft || !isInitialized) return;
-
     const saveToDraft = async () => {
       setSaveStatus('saving');
       try {
@@ -130,8 +117,9 @@ export default function PricingScreen() {
           price: price ? parseFloat(price) : null,
           isHandDelivery,
           isShipping,
-          neighborhood: selectedNeighborhood,
-          packageSize: packageSize,
+          neighborhood: selectedNeighborhoods[0] || null,
+          neighborhoods: selectedNeighborhoods,
+          packageSize,
         };
         const updated = await draftService.updateDraftPricing(draft, pricingData);
         setDraft(updated);
@@ -142,17 +130,11 @@ export default function PricingScreen() {
         setSaveStatus('error');
       }
     };
-
-    // Debounce save
     const timeoutId = setTimeout(saveToDraft, 500);
     return () => clearTimeout(timeoutId);
-  }, [price, isHandDelivery, isShipping, selectedNeighborhood, packageSize, draft?.id, isInitialized]);
-
-  // AI suggested package size
-  const aiSuggestedSize = aiResult?.packageSize?.suggested;
+  }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize, draft?.id, isInitialized]);
 
   const handlePriceChange = (value: string) => {
-    // Only allow numbers and one decimal point
     const cleaned = value.replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
     if (parts.length > 2) return;
@@ -160,60 +142,41 @@ export default function PricingScreen() {
     setPrice(cleaned);
   };
 
-  const toggleHandDelivery = () => {
-    // Can't uncheck if it's the only option
-    if (isHandDelivery && !isShipping) {
-      Alert.alert('Erreur', 'Sélectionnez au moins une option de livraison');
-      return;
-    }
-    setIsHandDelivery(!isHandDelivery);
-    if (!isHandDelivery) {
-      // Reset neighborhood when disabling
-    }
+  const handleBack = () => {
+    router.back();
   };
 
-  const toggleShipping = () => {
-    // Can't uncheck if it's the only option
-    if (isShipping && !isHandDelivery) {
-      Alert.alert('Erreur', 'Sélectionnez au moins une option de livraison');
-      return;
-    }
-    setIsShipping(!isShipping);
-  };
-
-  const handleNeighborhoodSelect = (neighborhood: MeetupNeighborhood) => {
-    setSelectedNeighborhood(neighborhood);
+  const handleNeighborhoodToggle = (neighborhood: MeetupNeighborhood) => {
+    setSelectedNeighborhoods((prev) => {
+      const exists = prev.some((n) => n.id === neighborhood.id);
+      if (exists) {
+        return prev.filter((n) => n.id !== neighborhood.id);
+      }
+      return [...prev, neighborhood];
+    });
   };
 
   const validateForm = (): boolean => {
     const newErrors: string[] = [];
-
     const priceNum = parseFloat(price);
     if (!price || isNaN(priceNum) || priceNum <= 0) {
       newErrors.push('Entrez un prix valide');
     }
-
     if (!isHandDelivery && !isShipping) {
-      newErrors.push('Sélectionnez au moins une option de livraison');
+      newErrors.push('Selectionnez au moins une option de livraison');
     }
-
-    if (isHandDelivery && !selectedNeighborhood) {
-      newErrors.push('Sélectionnez un quartier pour la remise en main propre');
+    if (isHandDelivery && selectedNeighborhoods.length === 0) {
+      newErrors.push('Selectionnez au moins un quartier pour la remise en main propre');
     }
-
     if (isShipping && !packageSize) {
-      newErrors.push('Sélectionnez une taille de colis');
+      newErrors.push('Selectionnez une taille de colis');
     }
-
     setErrors(newErrors);
     return newErrors.length === 0;
   };
 
   const handleContinue = () => {
-    if (!validateForm()) {
-      return;
-    }
-
+    if (!validateForm()) return;
     router.push({
       pathname: '/sell/preview',
       params: {
@@ -223,7 +186,8 @@ export default function PricingScreen() {
           price: parseFloat(price),
           isHandDelivery,
           isShipping,
-          neighborhood: selectedNeighborhood,
+          neighborhood: selectedNeighborhoods[0] || null,
+          neighborhoods: selectedNeighborhoods,
           packageSize,
         }),
         aiResult: params.aiResult,
@@ -233,195 +197,232 @@ export default function PricingScreen() {
   };
 
   const priceNum = parseFloat(price);
+  const hasAtLeastOneDelivery = isHandDelivery || isShipping;
+  const handDeliveryValid = !isHandDelivery || selectedNeighborhoods.length > 0;
+  const shippingValid = !isShipping || !!packageSize;
   const isFormValid =
     !isNaN(priceNum) &&
     priceNum > 0 &&
-    (isHandDelivery || isShipping) &&
-    (!isHandDelivery || selectedNeighborhood) &&
-    (!isShipping || packageSize);
+    hasAtLeastOneDelivery &&
+    handDeliveryValid &&
+    shippingValid;
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <SellFlowHeader currentStep={3} confirmClose={true} />
+      <ScreenHeader
+        title="Prix & livraison"
+        onBack={handleBack}
+        topContent={<StepProgressBar currentStep={4} />}
+      />
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Price Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>💰</Text>
-            <Text style={styles.sectionTitle}>Fixez votre prix</Text>
-          </View>
+        {/* Price section */}
+        <FormSectionTitle title="Ton prix" />
 
-          <TouchableOpacity
-            style={styles.priceInputContainer}
-            onPress={() => priceInputRef.current?.focus()}
-            activeOpacity={1}
-          >
+        <TouchableOpacity
+          style={styles.priceCard}
+          onPress={() => priceInputRef.current?.focus()}
+          activeOpacity={1}
+        >
+          <Text style={styles.priceLabel}>Prix de vente</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceCurrency}>$</Text>
             <TextInput
               ref={priceInputRef}
               style={styles.priceInput}
               value={price}
               onChangeText={handlePriceChange}
               placeholder="0"
-              placeholderTextColor="#D1D5DB"
+              placeholderTextColor={colors.border}
               keyboardType="decimal-pad"
-              returnKeyType="done"
+              cursorColor={colors.rust}
+              selectionColor={colors.rust}
+              inputAccessoryViewID="pricing-empty"
             />
-            <Text style={styles.currency}>$</Text>
-          </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+
+        {/* Delivery section */}
+        <View style={{ marginTop: spacing.lg }}>
+          <FormSectionTitle title="Options de livraison" />
         </View>
 
-        {/* Delivery Options Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>🚚</Text>
-            <Text style={styles.sectionTitle}>Options de livraison</Text>
+        {/* Hand delivery card */}
+        <TouchableOpacity
+          style={[
+            styles.deliveryCard,
+            isHandDelivery && styles.deliveryCardActive,
+          ]}
+          onPress={() => setIsHandDelivery((prev) => !prev)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.deliveryCardHeader}>
+            <View
+              style={[
+                styles.radioOuter,
+                isHandDelivery && styles.radioOuterActive,
+              ]}
+            >
+              {isHandDelivery && <View style={styles.radioInner} />}
+            </View>
+            <View style={styles.deliveryCardContent}>
+              <Text style={styles.deliveryCardTitle}>Remise en main propre</Text>
+              <Text style={styles.deliveryCardSubtitle}>
+                Rencontre dans un quartier de Montreal
+              </Text>
+            </View>
           </View>
 
-          {/* Hand Delivery Option */}
-          <TouchableOpacity
-            style={[
-              styles.deliveryCard,
-              isHandDelivery && styles.deliveryCardActive,
-            ]}
-            onPress={toggleHandDelivery}
-            activeOpacity={0.7}
-          >
-            <View style={styles.deliveryCardHeader}>
-              <View
-                style={[
-                  styles.checkbox,
-                  isHandDelivery && styles.checkboxActive,
-                ]}
-              >
-                {isHandDelivery && (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                )}
-              </View>
-              <View style={styles.deliveryCardContent}>
-                <Text style={styles.deliveryCardTitle}>
-                  Remise en main propre
-                </Text>
-                <Text style={styles.deliveryCardSubtitle}>
-                  Rencontrez l'acheteur dans votre quartier
-                </Text>
-              </View>
-            </View>
-
-            {/* Neighborhood selector */}
-            {isHandDelivery && (
-              <TouchableOpacity
-                style={styles.neighborhoodSelector}
-                onPress={() => neighborhoodSheetRef.current?.show()}
-              >
-                <Ionicons name="location-outline" size={20} color="#6B7280" />
-                <Text
-                  style={[
-                    styles.neighborhoodText,
-                    !selectedNeighborhood && styles.neighborhoodPlaceholder,
-                  ]}
-                >
-                  {selectedNeighborhood?.name || 'Choisir un quartier'}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-
-          {/* Shipping Option */}
-          <TouchableOpacity
-            style={[
-              styles.deliveryCard,
-              isShipping && styles.deliveryCardActive,
-            ]}
-            onPress={toggleShipping}
-            activeOpacity={0.7}
-          >
-            <View style={styles.deliveryCardHeader}>
-              <View
-                style={[styles.checkbox, isShipping && styles.checkboxActive]}
-              >
-                {isShipping && (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                )}
-              </View>
-              <View style={styles.deliveryCardContent}>
-                <Text style={styles.deliveryCardTitle}>Livraison</Text>
-                <Text style={styles.deliveryCardSubtitle}>
-                  Mondial Relay, Colissimo, La Poste
-                </Text>
-              </View>
-            </View>
-
-            {/* Package size selector */}
-            {isShipping && (
-              <View style={styles.packageSizeContainer}>
-                <Text style={styles.packageSizeLabel}>📦 Taille du colis</Text>
-                <View style={styles.packageSizeCards}>
-                  {PACKAGE_SIZES.map((size) => {
-                    const isSelected = packageSize === size.value;
-                    const isAISuggested = aiSuggestedSize === size.value;
-                    return (
-                      <TouchableOpacity
-                        key={size.value}
+          {/* Neighborhood tags */}
+          {isHandDelivery && (
+            <View style={styles.deliveryBody}>
+              <Text style={styles.deliveryBodyLabel}>
+                Quartiers ({selectedNeighborhoods.length} sélectionné{selectedNeighborhoods.length > 1 ? 's' : ''})
+              </Text>
+              <View style={styles.deliveryTagRow}>
+                {NEIGHBORHOOD_TAGS.map((tag) => {
+                  const isActive = selectedNeighborhoods.some((n) => n.name === tag);
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[
+                        styles.deliveryTag,
+                        isActive && styles.deliveryTagActive,
+                      ]}
+                      onPress={() =>
+                        handleNeighborhoodToggle({
+                          id: tag.toLowerCase().replace(/\s/g, '-'),
+                          name: tag,
+                          borough: '',
+                        } as MeetupNeighborhood)
+                      }
+                    >
+                      <Text
                         style={[
-                          styles.packageSizeCard,
-                          isSelected && styles.packageSizeCardSelected,
+                          styles.deliveryTagText,
+                          isActive && styles.deliveryTagTextActive,
                         ]}
-                        onPress={() => setPackageSize(size.value)}
                       >
-                        <Text
-                          style={[
-                            styles.packageSizeName,
-                            isSelected && styles.packageSizeNameSelected,
-                          ]}
-                        >
-                          {size.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.packageSizeWeight,
-                            isSelected && styles.packageSizeWeightSelected,
-                          ]}
-                        >
-                          {size.weight}
-                        </Text>
-                        {isAISuggested && (
-                          <View style={styles.aiSuggestedBadge}>
-                            <Ionicons
-                              name="sparkles"
-                              size={10}
-                              color="#8B5CF6"
-                            />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {aiSuggestedSize && (
-                  <Text style={styles.aiSuggestedText}>
-                    ✨ Suggéré par l'IA
-                  </Text>
-                )}
+                        {tag}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={styles.deliveryTagMore}
+                  onPress={() => neighborhoodSheetRef.current?.show()}
+                >
+                  <Text style={styles.deliveryTagMoreText}>Voir plus</Text>
+                  <Ionicons name="chevron-forward" size={12} color={colors.muted} />
+                </TouchableOpacity>
               </View>
-            )}
-          </TouchableOpacity>
-        </View>
+              {/* Show extra selected neighborhoods not in quick tags */}
+              {selectedNeighborhoods.filter((n) => !NEIGHBORHOOD_TAGS.includes(n.name)).length > 0 && (
+                <View style={[styles.deliveryTagRow, { marginTop: 6 }]}>
+                  {selectedNeighborhoods
+                    .filter((n) => !NEIGHBORHOOD_TAGS.includes(n.name))
+                    .map((n) => (
+                      <TouchableOpacity
+                        key={n.id}
+                        style={[styles.deliveryTag, styles.deliveryTagActive]}
+                        onPress={() => handleNeighborhoodToggle(n)}
+                      >
+                        <Text style={[styles.deliveryTagText, styles.deliveryTagTextActive]}>
+                          {n.name}
+                        </Text>
+                        <Ionicons name="close" size={10} color={colors.cream} style={{ marginLeft: 4 }} />
+                      </TouchableOpacity>
+                    ))}
+                </View>
+              )}
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Shipping card */}
+        <TouchableOpacity
+          style={[
+            styles.deliveryCard,
+            isShipping && styles.deliveryCardActive,
+          ]}
+          onPress={() => setIsShipping((prev) => !prev)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.deliveryCardHeader}>
+            <View
+              style={[
+                styles.radioOuter,
+                isShipping && styles.radioOuterActive,
+              ]}
+            >
+              {isShipping && <View style={styles.radioInner} />}
+            </View>
+            <View style={styles.deliveryCardContent}>
+              <Text style={styles.deliveryCardTitle}>Expedition postale</Text>
+              <Text style={styles.deliveryCardSubtitle}>
+                Envoi par Postes Canada
+              </Text>
+            </View>
+          </View>
+
+          {/* Package size selector */}
+          {isShipping && (
+            <View style={styles.deliveryBody}>
+              <Text style={styles.deliveryBodyLabel}>Format du colis</Text>
+              <View style={styles.packageSizeCards}>
+                {PACKAGE_SIZES.map((size) => {
+                  const isSelected = packageSize === size.value;
+                  return (
+                    <TouchableOpacity
+                      key={size.value}
+                      style={[
+                        styles.packageCard,
+                        isSelected && styles.packageCardSelected,
+                      ]}
+                      onPress={() => setPackageSize(size.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.packageName,
+                          isSelected && styles.packageNameSelected,
+                        ]}
+                      >
+                        {size.label}
+                      </Text>
+                      <Text style={styles.packageWeight}>
+                        {size.weight}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {aiSuggestedSize && (
+                <View style={styles.aiSuggestRow}>
+                  <View style={styles.aiBadge}>
+                    <Text style={styles.aiBadgeText}>IA</Text>
+                  </View>
+                  <Text style={styles.aiSuggestText}>Format suggere selon l'article</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* Errors */}
         {errors.length > 0 && (
           <View style={styles.errorsContainer}>
             {errors.map((error, index) => (
               <View key={index} style={styles.errorRow}>
-                <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                <Ionicons name="alert-circle" size={16} color={colors.danger} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ))}
@@ -429,14 +430,15 @@ export default function PricingScreen() {
         )}
       </ScrollView>
 
-      {/* Continue button */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      {/* Footer */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
           style={[
             styles.continueButton,
             !isFormValid && styles.continueButtonDisabled,
           ]}
           onPress={handleContinue}
+          activeOpacity={0.85}
         >
           <Text
             style={[
@@ -444,16 +446,28 @@ export default function PricingScreen() {
               !isFormValid && styles.continueButtonTextDisabled,
             ]}
           >
-            Continuer
+            APERCU
           </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={18}
+            color={isFormValid ? colors.cream : colors.muted}
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Neighborhood Bottom Sheet */}
       <NeighborhoodBottomSheet
         ref={neighborhoodSheetRef}
-        onSelect={handleNeighborhoodSelect}
+        selectedNeighborhoods={selectedNeighborhoods}
+        onSelect={handleNeighborhoodToggle}
+        multiSelect
       />
+
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID="pricing-empty">
+          <View />
+        </InputAccessoryView>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -461,185 +475,227 @@ export default function PricingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceWarm,
   },
+  // Scroll
   scrollView: {
     flex: 1,
   },
-  content: {
-    padding: 16,
+  scrollContent: {
+    padding: 20,
     paddingBottom: 32,
   },
-  section: {
-    marginBottom: 32,
+  // Price card — matches design .price-input-wrap
+  priceCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 4,
+    marginBottom: 14,
+    overflow: 'hidden',
   },
-  sectionHeader: {
+  priceLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.88,
+    color: colors.muted,
+    textTransform: 'uppercase',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  priceRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  sectionIcon: {
-    fontSize: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  priceInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    alignItems: 'baseline',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
   },
   priceInput: {
-    fontSize: 56,
-    fontWeight: '700',
-    color: '#1F2937',
-    textAlign: 'center',
-    minWidth: 100,
+    fontFamily: fonts.sans,
+    fontSize: 38,
+    fontWeight: '600',
+    color: colors.rust,
+    minWidth: 60,
     padding: 0,
   },
-  currency: {
-    fontSize: 36,
+  priceCurrency: {
+    fontFamily: fonts.sans,
+    fontSize: 24,
     fontWeight: '600',
-    color: '#6B7280',
-    marginLeft: 8,
+    color: colors.muted,
+    marginRight: 4,
   },
+  // Delivery cards — matches design .delivery-option
   deliveryCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 4,
+    marginBottom: 10,
+    overflow: 'hidden',
   },
   deliveryCardActive: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#F79F24',
+    borderColor: colors.charcoal,
   },
   deliveryCardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
+  // Radio button — matches design .delivery-radio (round)
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
-    marginTop: 2,
+    flexShrink: 0,
   },
-  checkboxActive: {
-    backgroundColor: '#F79F24',
-    borderColor: '#F79F24',
+  radioOuterActive: {
+    borderColor: colors.charcoal,
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.charcoal,
   },
   deliveryCardContent: {
     flex: 1,
   },
   deliveryCardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
   },
   deliveryCardSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 2,
   },
-  neighborhoodSelector: {
+  // Delivery body — matches design .delivery-option-body (padding: 0 16px 14px 48px)
+  deliveryBody: {
+    paddingLeft: 48,
+    paddingRight: 16,
+    paddingBottom: 14,
+  },
+  deliveryBodyLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: 8,
+  },
+  // Delivery tags — matches design .delivery-tag
+  deliveryTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  deliveryTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 2,
+  },
+  deliveryTagActive: {
+    backgroundColor: colors.charcoal,
+    borderColor: colors.charcoal,
+  },
+  deliveryTagText: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.charcoal,
+  },
+  deliveryTagTextActive: {
+    color: colors.cream,
+  },
+  deliveryTagMore: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 14,
-    marginLeft: 40,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 10,
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  neighborhoodText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1F2937',
+  deliveryTagMoreText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    color: colors.muted,
+    letterSpacing: 0.2,
   },
-  neighborhoodPlaceholder: {
-    color: '#9CA3AF',
-  },
-  packageSizeContainer: {
-    marginTop: 14,
-    marginLeft: 40,
-  },
-  packageSizeLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 10,
-  },
+  // Package cards — matches design .pkg-option
   packageSizeCards: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 0,
   },
-  packageSizeCard: {
+  packageCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    position: 'relative',
+    backgroundColor: colors.white,
   },
-  packageSizeCardSelected: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#8B5CF6',
+  packageCardSelected: {
+    borderColor: colors.charcoal,
+    backgroundColor: 'rgba(26,24,20,0.03)',
   },
-  packageSizeName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+  packageName: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    color: colors.charcoal,
     marginBottom: 2,
   },
-  packageSizeNameSelected: {
-    color: '#5B21B6',
+  packageNameSelected: {
+    color: colors.charcoal,
   },
-  packageSizeWeight: {
-    fontSize: 12,
-    color: '#6B7280',
+  packageWeight: {
+    fontFamily: fonts.sans,
+    fontSize: 9,
+    color: colors.muted,
+    letterSpacing: 0.36,
   },
-  packageSizeWeightSelected: {
-    color: '#7C3AED',
+  // AI suggestion row below package options
+  aiSuggestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
   },
-  aiSuggestedBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: '#F5F3FF',
-    borderRadius: 10,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+  aiBadge: {
+    backgroundColor: colors.sageLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
   },
-  aiSuggestedText: {
-    fontSize: 12,
-    color: '#8B5CF6',
-    marginTop: 10,
-    textAlign: 'center',
+  aiBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    color: colors.sage,
+    letterSpacing: 0.72,
   },
+  aiSuggestText: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
+  },
+  // Errors
   errorsContainer: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
+    backgroundColor: colors.dangerLight,
+    borderRadius: 4,
     padding: 14,
     gap: 8,
+    marginTop: 16,
   },
   errorRow: {
     flexDirection: 'row',
@@ -647,31 +703,38 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorText: {
-    fontSize: 14,
-    color: '#DC2626',
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.danger,
     flex: 1,
   },
+  // Footer — matches design .sticky-footer (cream bg, 24px horizontal)
   footer: {
-    padding: 16,
+    backgroundColor: colors.cream,
+    paddingTop: 16,
+    paddingHorizontal: 24,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.border,
   },
   continueButton: {
-    backgroundColor: '#F79F24',
-    paddingVertical: 16,
-    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.charcoal,
+    paddingVertical: 16,
+    borderRadius: radius.md,
+    gap: 10,
   },
   continueButtonDisabled: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
   },
   continueButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 2.16,
+    color: colors.cream,
   },
   continueButtonTextDisabled: {
-    color: '#9CA3AF',
+    color: colors.muted,
   },
 });

@@ -5,19 +5,26 @@ import {
   onAuthStateChanged as firebaseOnAuthStateChanged,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
-  AppleAuthProvider,
+  OAuthProvider,
   signInWithCredential,
   signInWithEmailAndPassword,
   updateProfile,
-  EmailAuthProvider
-} from '@react-native-firebase/auth';
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updateEmail as firebaseUpdateEmail,
+  updatePassword as firebaseUpdatePassword,
+  deleteUser,
+  sendEmailVerification as firebaseSendEmailVerification,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  reload,
+} from 'firebase/auth';
 import {
   doc,
   getDoc,
   serverTimestamp,
   setDoc,
   updateDoc
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
@@ -219,10 +226,11 @@ export class AuthService {
       }
 
       // Créer un credential Firebase avec le token Apple
-      const appleCredential = AppleAuthProvider.credential(
-        credential.identityToken,
-        nonce
-      );
+      const provider = new OAuthProvider('apple.com');
+      const appleCredential = provider.credential({
+        idToken: credential.identityToken,
+        rawNonce: nonce,
+      });
 
       // Se connecter à Firebase avec le credential Apple
       const userCredential = await signInWithCredential(auth, appleCredential);
@@ -362,7 +370,7 @@ export class AuthService {
 
     const credential = EmailAuthProvider.credential(user.email, password);
     try {
-      await user.reauthenticateWithCredential(credential);
+      await reauthenticateWithCredential(user, credential);
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
@@ -376,8 +384,8 @@ export class AuthService {
     if (!user) throw new Error('Utilisateur non connecté');
 
     try {
-      await user.updateEmail(newEmail);
-      
+      await firebaseUpdateEmail(user, newEmail);
+
       // Mettre à jour Firestore
       await updateDoc(doc(firestore, 'users', user.uid), {
         email: newEmail,
@@ -396,7 +404,7 @@ export class AuthService {
     if (!user) throw new Error('Utilisateur non connecté');
 
     try {
-      await user.updatePassword(newPassword);
+      await firebaseUpdatePassword(user, newPassword);
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
@@ -418,7 +426,7 @@ export class AuthService {
    */
   static async sendPasswordResetEmail(email: string): Promise<void> {
     try {
-      await auth.sendPasswordResetEmail(email);
+      await firebaseSendPasswordResetEmail(auth, email);
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
@@ -434,7 +442,7 @@ export class AuthService {
 
     try {
       // Supprimer le compte Firebase Auth
-      await user.delete();
+      await deleteUser(user);
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
@@ -448,7 +456,7 @@ export class AuthService {
     if (!user) throw new Error('Utilisateur non connecté');
 
     try {
-      await user.sendEmailVerification();
+      await firebaseSendEmailVerification(user);
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
@@ -469,7 +477,7 @@ export class AuthService {
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
 
-    await user.reload();
+    await reload(user);
   }
 
   /**

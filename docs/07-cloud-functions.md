@@ -44,7 +44,7 @@ Firebase Cloud Functions provide serverless backend functionality for Freepe. Al
            ┌──────────────────┼──────────────────┐
            ▼                  ▼                  ▼
     ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-    │   Stripe    │   │   Shippo    │   │  Firebase   │
+    │   Stripe    │   │  Intelcom   │   │  Firebase   │
     │  Payments   │   │  Shipping   │   │   Admin     │
     └─────────────┘   └─────────────┘   └─────────────┘
 ```
@@ -73,16 +73,16 @@ const getStripe = () => {
 - Webhook event verification
 - Payment confirmation
 
-### Shippo
+### Intelcom
 
 Shipping label generation and tracking.
 
 ```typescript
-const getShippo = () => {
-  if (!shippoClient && shippoApiKey) {
-    shippoClient = new Shippo({ apiKeyHeader: shippoApiKey });
+const getIntelcom = () => {
+  if (!intelcomClient && intelcomApiKey) {
+    intelcomClient = new Intelcom({ apiKey: intelcomApiKey });
   }
-  return shippoClient;
+  return intelcomClient;
 };
 ```
 
@@ -272,7 +272,7 @@ function debounceUpdate(
 
 1. Verifies Stripe signature
 2. Handles `payment_intent.succeeded` event
-3. Creates shipping label via Shippo
+3. Creates shipping label via Intelcom
 4. Updates transaction status to `paid`
 5. Marks article as sold
 6. Adds funds to seller's pending balance
@@ -335,7 +335,7 @@ Set in `functions/.env`:
 ```env
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-SHIPPO_API_KEY=shippo_test_...
+INTELCOM_API_KEY=your_intelcom_api_key
 ```
 
 Or via Firebase config:
@@ -344,7 +344,7 @@ Or via Firebase config:
 firebase functions:config:set \
   stripe.secret="sk_..." \
   stripe.webhook="whsec_..." \
-  shippo.key="..."
+  intelcom.key="..."
 ```
 
 ### Deployment

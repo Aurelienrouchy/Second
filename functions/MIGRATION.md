@@ -27,7 +27,8 @@ functions/src/
 │   ├── secrets.ts              # ✅ Secret definitions
 │   ├── gemini.ts               # ✅ Gemini AI config & client
 │   ├── stripe.ts               # ✅ Stripe client init
-│   └── shippo.ts               # ✅ Shippo client init
+│   ├── shippo.ts               # ⚠️ Deprecated - redirects to intelcom.ts
+│   └── intelcom.ts             # ✅ Intelcom (Dragonfly) client init
 ├── utils/
 │   ├── geohash.ts              # ✅ Geohash encoding
 │   ├── search.ts               # ✅ Search keywords generation

@@ -154,6 +154,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
         backdropComponent={renderBackdrop}
         backgroundStyle={styles.bottomSheetBackground}
         handleIndicatorStyle={styles.handleIndicator}
+        enableDynamicSizing={false}
       >
         <BottomSheetScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>

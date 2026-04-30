@@ -1,4 +1,4 @@
-import { httpsCallable } from '@react-native-firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import {
   collection,
   doc,
@@ -14,7 +14,7 @@ import {
   onSnapshot,
   Timestamp,
   serverTimestamp,
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 import { firestore, functions } from '@/config/firebaseConfig';
 import {
   SwapParty,
@@ -25,7 +25,25 @@ import {
   SwapStatus,
   SwapExchangeMode,
   Article,
+  SwapItemInfo,
 } from '@/types';
+
+// ============================================
+// HELPERS
+// ============================================
+
+/** Resolve items arrays with backward compat for legacy single-item swaps */
+export function getSwapItems(swap: Swap, side: 'initiator' | 'receiver'): SwapItemInfo[] {
+  if (side === 'initiator') {
+    return swap.initiatorItems || (swap.initiatorItem ? [swap.initiatorItem] : []);
+  }
+  return swap.receiverItems || (swap.receiverItem ? [swap.receiverItem] : []);
+}
+
+/** Strip undefined values from an object (Firestore rejects undefined) */
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+}
 
 // ============================================
 // SWAP PARTIES
@@ -428,65 +446,97 @@ export async function getMatchingItems(
 // ============================================
 
 /**
- * Propose a swap
+ * Propose a swap (supports both single article and multi-article)
+ * Can be called with old params (single articles) or new params (arrays)
  */
-export async function proposeSwap(
-  initiatorId: string,
-  initiatorName: string,
-  initiatorImage: string | undefined,
-  initiatorArticle: Article,
-  receiverId: string,
-  receiverName: string,
-  receiverImage: string | undefined,
-  receiverArticle: Article,
-  message?: string,
-  cashTopUp?: { amount: number; payerId: string },
-  partyId?: string
-): Promise<string> {
-  // Build initiator item - only include defined values
-  const initiatorItem: Record<string, any> = {
-    articleId: initiatorArticle.id,
-    title: initiatorArticle.title,
-    price: initiatorArticle.price,
-  };
-  if (initiatorArticle.images?.[0]?.url) {
-    initiatorItem.imageUrl = initiatorArticle.images[0].url;
-  }
-
-  // Build receiver item - only include defined values
-  const receiverItem: Record<string, any> = {
-    articleId: receiverArticle.id,
-    title: receiverArticle.title,
-    price: receiverArticle.price,
-  };
-  if (receiverArticle.images?.[0]?.url) {
-    receiverItem.imageUrl = receiverArticle.images[0].url;
-  }
-
-  // Build swap data - only include defined values (Firestore doesn't accept undefined)
-  const swapData: Record<string, any> = {
+export async function proposeSwap(params: {
+  initiatorId: string;
+  initiatorName: string;
+  initiatorImage?: string;
+  initiatorItems: SwapItemInfo[];
+  receiverId: string;
+  receiverName: string;
+  receiverImage?: string;
+  receiverItems: SwapItemInfo[];
+  message?: string;
+  cashTopUp?: { amount: number; payerId: string };
+  partyId?: string;
+}): Promise<string> {
+  const {
     initiatorId,
     initiatorName,
-    initiatorItemId: initiatorArticle.id,
-    initiatorItem,
+    initiatorImage,
+    initiatorItems,
     receiverId,
     receiverName,
-    receiverItemId: receiverArticle.id,
-    receiverItem,
-    status: 'proposed',
+    receiverImage,
+    receiverItems,
+    message,
+    cashTopUp,
+    partyId,
+  } = params;
+
+  // Calculate total values from arrays
+  const initiatorTotalValue = initiatorItems.reduce((sum, item) => sum + item.price, 0);
+  const receiverTotalValue = receiverItems.reduce((sum, item) => sum + item.price, 0);
+
+  // Build swap data — strip undefined from items (Firestore rejects undefined)
+  const swapData = stripUndefined({
+    initiatorId,
+    initiatorName,
+    initiatorImage,
+    initiatorItems: initiatorItems.map(stripUndefined),
+    initiatorTotalValue,
+    receiverId,
+    receiverName,
+    receiverImage,
+    receiverItems: receiverItems.map(stripUndefined),
+    receiverTotalValue,
+    status: 'proposed' as SwapStatus,
+    message,
+    cashTopUp,
+    partyId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  };
-
-  // Only add optional fields if defined
-  if (partyId) swapData.partyId = partyId;
-  if (initiatorImage) swapData.initiatorImage = initiatorImage;
-  if (receiverImage) swapData.receiverImage = receiverImage;
-  if (message) swapData.message = message;
-  if (cashTopUp) swapData.cashTopUp = cashTopUp;
+  });
 
   const swapsRef = collection(firestore, 'swaps');
   const docRef = await addDoc(swapsRef, swapData);
+
+  // Mark all initiator items as pending in the party
+  if (partyId) {
+    const itemsRef = collection(firestore, 'swapPartyItems');
+    for (const item of initiatorItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', initiatorId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isPending: true,
+        });
+      }
+    }
+
+    // Mark all receiver items as pending in the party
+    for (const item of receiverItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', receiverId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isPending: true,
+        });
+      }
+    }
+  }
 
   return docRef.id;
 }
@@ -496,11 +546,55 @@ export async function proposeSwap(
  */
 export async function acceptSwap(swapId: string): Promise<void> {
   const swapRef = doc(firestore, 'swaps', swapId);
-  await updateDoc(swapRef, {
+  const swapDoc = await getDoc(swapRef);
+  const swap = swapDoc.data() as Swap;
+
+  const updateData: Record<string, any> = {
     status: 'accepted',
     acceptedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  // Mark all articles (both sides) as swapped if in a party
+  if (swap.partyId) {
+    const itemsRef = collection(firestore, 'swapPartyItems');
+
+    // Mark all initiator items as swapped
+    const initiatorItems = getSwapItems(swap, 'initiator');
+    for (const item of initiatorItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', swap.partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', swap.initiatorId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isSwapped: true,
+        });
+      }
+    }
+
+    // Mark all receiver items as swapped
+    const receiverItems = getSwapItems(swap, 'receiver');
+    for (const item of receiverItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', swap.partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', swap.receiverId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isSwapped: true,
+        });
+      }
+    }
+  }
+
+  await updateDoc(swapRef, updateData);
 }
 
 /**
@@ -508,10 +602,54 @@ export async function acceptSwap(swapId: string): Promise<void> {
  */
 export async function declineSwap(swapId: string): Promise<void> {
   const swapRef = doc(firestore, 'swaps', swapId);
-  await updateDoc(swapRef, {
+  const swapDoc = await getDoc(swapRef);
+  const swap = swapDoc.data() as Swap;
+
+  const updateData: Record<string, any> = {
     status: 'declined',
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  // Release all articles from pending state if in a party
+  if (swap.partyId) {
+    const itemsRef = collection(firestore, 'swapPartyItems');
+
+    // Release all initiator items
+    const initiatorItems = getSwapItems(swap, 'initiator');
+    for (const item of initiatorItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', swap.partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', swap.initiatorId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isPending: false,
+        });
+      }
+    }
+
+    // Release all receiver items
+    const receiverItems = getSwapItems(swap, 'receiver');
+    for (const item of receiverItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', swap.partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', swap.receiverId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isPending: false,
+        });
+      }
+    }
+  }
+
+  await updateDoc(swapRef, updateData);
 }
 
 /**
@@ -519,10 +657,54 @@ export async function declineSwap(swapId: string): Promise<void> {
  */
 export async function cancelSwap(swapId: string): Promise<void> {
   const swapRef = doc(firestore, 'swaps', swapId);
-  await updateDoc(swapRef, {
+  const swapDoc = await getDoc(swapRef);
+  const swap = swapDoc.data() as Swap;
+
+  const updateData: Record<string, any> = {
     status: 'cancelled',
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  // Release all articles from pending state if in a party
+  if (swap.partyId) {
+    const itemsRef = collection(firestore, 'swapPartyItems');
+
+    // Release all initiator items
+    const initiatorItems = getSwapItems(swap, 'initiator');
+    for (const item of initiatorItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', swap.partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', swap.initiatorId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isPending: false,
+        });
+      }
+    }
+
+    // Release all receiver items
+    const receiverItems = getSwapItems(swap, 'receiver');
+    for (const item of receiverItems) {
+      const query_ = query(
+        itemsRef,
+        where('partyId', '==', swap.partyId),
+        where('articleId', '==', item.articleId),
+        where('sellerId', '==', swap.receiverId)
+      );
+      const snapshot = await getDocs(query_);
+      if (!snapshot.empty) {
+        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
+          isPending: false,
+        });
+      }
+    }
+  }
+
+  await updateDoc(swapRef, updateData);
 }
 
 /**
@@ -633,30 +815,38 @@ export async function confirmReception(swapId: string, userId: string): Promise<
     if (swap.partyId) {
       const itemsRef = collection(firestore, 'swapPartyItems');
 
-      // Mark initiator item as swapped
-      const initiatorItemQuery = query(
-        itemsRef,
-        where('partyId', '==', swap.partyId),
-        where('articleId', '==', swap.initiatorItemId)
-      );
-      const initiatorItemSnapshot = await getDocs(initiatorItemQuery);
-      if (!initiatorItemSnapshot.empty) {
-        await updateDoc(doc(firestore, 'swapPartyItems', initiatorItemSnapshot.docs[0].id), {
-          isSwapped: true,
-        });
+      // Mark all initiator items as swapped
+      const initiatorItems = getSwapItems(swap, 'initiator');
+      for (const item of initiatorItems) {
+        const initiatorItemQuery = query(
+          itemsRef,
+          where('partyId', '==', swap.partyId),
+          where('articleId', '==', item.articleId),
+          where('sellerId', '==', swap.initiatorId)
+        );
+        const initiatorItemSnapshot = await getDocs(initiatorItemQuery);
+        if (!initiatorItemSnapshot.empty) {
+          await updateDoc(doc(firestore, 'swapPartyItems', initiatorItemSnapshot.docs[0].id), {
+            isSwapped: true,
+          });
+        }
       }
 
-      // Mark receiver item as swapped
-      const receiverItemQuery = query(
-        itemsRef,
-        where('partyId', '==', swap.partyId),
-        where('articleId', '==', swap.receiverItemId)
-      );
-      const receiverItemSnapshot = await getDocs(receiverItemQuery);
-      if (!receiverItemSnapshot.empty) {
-        await updateDoc(doc(firestore, 'swapPartyItems', receiverItemSnapshot.docs[0].id), {
-          isSwapped: true,
-        });
+      // Mark all receiver items as swapped
+      const receiverItems = getSwapItems(swap, 'receiver');
+      for (const item of receiverItems) {
+        const receiverItemQuery = query(
+          itemsRef,
+          where('partyId', '==', swap.partyId),
+          where('articleId', '==', item.articleId),
+          where('sellerId', '==', swap.receiverId)
+        );
+        const receiverItemSnapshot = await getDocs(receiverItemQuery);
+        if (!receiverItemSnapshot.empty) {
+          await updateDoc(doc(firestore, 'swapPartyItems', receiverItemSnapshot.docs[0].id), {
+            isSwapped: true,
+          });
+        }
       }
 
       // Increment swaps count on party
@@ -807,6 +997,29 @@ export async function getActiveSwaps(userId: string): Promise<Swap[]> {
   return allSwaps.filter((swap) =>
     ['accepted', 'photos_pending', 'shipping'].includes(swap.status)
   );
+}
+
+/**
+ * Get user's available items in a party (not swapped and not pending)
+ */
+export async function getUserAvailablePartyItems(partyId: string, userId: string): Promise<SwapPartyItem[]> {
+  const itemsRef = collection(firestore, 'swapPartyItems');
+  const q = query(
+    itemsRef,
+    where('partyId', '==', partyId),
+    where('sellerId', '==', userId),
+    where('isSwapped', '==', false)
+  );
+  const snapshot = await getDocs(q);
+
+  const items = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+    addedAt: doc.data().addedAt?.toDate(),
+  })) as SwapPartyItem[];
+
+  // Filter out pending items (those in an active pending swap)
+  return items.filter((item) => !item.isPending);
 }
 
 /**

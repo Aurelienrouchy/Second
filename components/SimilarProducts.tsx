@@ -11,12 +11,10 @@ import {
 import { colors, spacing, typography } from '@/constants/theme';
 import { ArticlesService } from '@/services/articlesService';
 import { RecommendationService, SimilarProduct } from '@/services/recommendationService';
-import { useFavorites } from '@/contexts/FavoritesContext';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
-import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { Article } from '@/types';
 
-import ProductCard, { COMPACT_CARD_WIDTH } from './ProductCard';
+import ProductCard from './ProductCard';
+import { COMPACT_CARD_WIDTH } from './ProductCard.constants';
 
 interface SimilarProductsProps {
   currentArticleId: string;
@@ -31,6 +29,7 @@ interface DisplayProduct {
   price: number;
   imageUrl: string;
   brand: string | null;
+  size?: string;
   condition: string;
 }
 
@@ -44,9 +43,6 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
   const [products, setProducts] = useState<DisplayProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [useAI, setUseAI] = useState(true);
-
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const { requireAuth } = useAuthRequired();
 
   useEffect(() => {
     loadSimilarProducts();
@@ -71,6 +67,7 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
             price: p.price,
             imageUrl: ArticlesService.fixStorageUrl(p.imageUrl),
             brand: p.brand,
+            size: p.size,
             condition: p.condition,
           }));
           setProducts(displayProducts);
@@ -109,6 +106,7 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
         price: article.price,
         imageUrl: article.images[0]?.url || '',
         brand: article.brand || null,
+        size: article.size,
         condition: article.condition,
       }));
 
@@ -124,13 +122,6 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
   const handleProductPress = useCallback((productId: string) => {
     router.push(`/article/${productId}`);
   }, []);
-
-  const handleToggleLike = useCallback((productId: string) => {
-    requireAuth(
-      () => toggleFavorite(productId),
-      AUTH_MESSAGES.like
-    );
-  }, [requireAuth, toggleFavorite]);
 
   if (isLoading) {
     return (
@@ -170,13 +161,11 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
                 title: item.title,
                 price: item.price,
                 images: item.imageUrl ? [{ url: item.imageUrl }] : [],
-                sellerName: item.brand || '',
                 brand: item.brand || undefined,
-                condition: item.condition as any,
-                isLiked: isFavorite(item.id),
+                size: item.size,
+                condition: item.condition,
               }}
               onPress={() => handleProductPress(item.id)}
-              onToggleLike={() => handleToggleLike(item.id)}
               compact
             />
           </View>
@@ -188,7 +177,6 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
     paddingVertical: spacing.md,
   },
   headerRow: {
@@ -216,7 +204,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
+    paddingLeft: 0,
+    paddingRight: spacing.md,
     gap: spacing.sm,
   },
   cardContainer: {

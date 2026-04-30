@@ -4,8 +4,8 @@
  */
 
 import { functions } from '@/config/firebaseConfig';
-import { httpsCallable } from '@react-native-firebase/functions';
-import * as FileSystem from 'expo-file-system';
+import { httpsCallable } from 'firebase/functions';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { ArticlesService } from '@/services/articlesService';
 
@@ -20,6 +20,7 @@ export interface VisualSearchResult {
   price: number;
   imageUrl: string;
   brand?: string;
+  size?: string;
   condition: string;
 }
 

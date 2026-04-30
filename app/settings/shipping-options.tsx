@@ -15,13 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
+import { colors } from '@/constants/theme';
 
 const CARRIERS = [
-  { id: 'mondial_relay', name: 'Mondial Relay', description: 'Livraison en point relais' },
-  { id: 'laposte', name: 'La Poste / Colissimo', description: 'Livraison à domicile' },
-  { id: 'relais_colis', name: 'Relais Colis', description: 'Livraison en point relais' },
-  { id: 'chronopost', name: 'Chronopost Shop2Shop', description: 'Livraison express en relais' },
-  { id: 'hand_delivery', name: 'Remise en main propre', description: 'Rencontre avec l\'acheteur' },
+  { id: 'postes_canada_bureau', name: 'Postes Canada — Bureau de poste', description: 'Retrait en bureau de poste · 200+ points à Montréal' },
+  { id: 'ups_access_point', name: 'UPS Access Point — Dépanneur', description: 'Retrait en dépanneur ou commerce · 47+ points à Montréal' },
+  { id: 'penguin_pickup', name: 'Penguin Pickup — Casier métro', description: 'Casier 24/7 en station de métro STM' },
+  { id: 'hand_delivery', name: 'Remise en main propre', description: 'Rencontre avec l\'acheteur · Gratuit' },
 ];
 
 export default function ShippingOptionsScreen() {
@@ -58,18 +58,18 @@ export default function ShippingOptionsScreen() {
   };
 
   const toggleCarrier = async (carrierId: string) => {
+    const previousCarriers = [...enabledCarriers];
     const isEnabled = enabledCarriers.includes(carrierId);
     let newCarriers: string[];
 
     if (isEnabled) {
-      // Cannot disable the last one? Maybe allow it.
       newCarriers = enabledCarriers.filter(id => id !== carrierId);
     } else {
       newCarriers = [...enabledCarriers, carrierId];
     }
 
     setEnabledCarriers(newCarriers);
-    
+
     // Auto-save
     if (user) {
       try {
@@ -78,8 +78,8 @@ export default function ShippingOptionsScreen() {
         });
       } catch (error) {
         console.error('Error saving shipping preferences:', error);
-        // Revert on error
-        setEnabledCarriers(enabledCarriers); 
+        // Revert on error avec l'état précédent capturé
+        setEnabledCarriers(previousCarriers);
         Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
       }
     }
@@ -89,14 +89,14 @@ export default function ShippingOptionsScreen() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={24} color="#007AFF" />
+          <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
           <Text style={styles.infoText}>
             Choisissez les modes de livraison que vous souhaitez proposer aux acheteurs.
           </Text>
         </View>
 
         {isLoading ? (
-          <ActivityIndicator size="large" color="#F79F24" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
         ) : (
           <View style={styles.carriersList}>
             {CARRIERS.map((carrier) => (
@@ -108,7 +108,7 @@ export default function ShippingOptionsScreen() {
                 <Switch
                   value={enabledCarriers.includes(carrier.id)}
                   onValueChange={() => toggleCarrier(carrier.id)}
-                  trackColor={{ false: '#767577', true: '#F79F24' }}
+                  trackColor={{ false: '#767577', true: colors.primary }}
                   thumbColor={'#f4f3f4'}
                 />
               </View>
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   carriersList: {
     backgroundColor: '#fff',

@@ -33,7 +33,7 @@ Freepe is a second-hand marketplace mobile application similar to Vinted. This d
 | **Backend** | Firebase (Firestore, Auth, Functions, Storage) |
 | **Language** | TypeScript |
 | **Payments** | Stripe |
-| **Shipping** | Shippo |
+| **Shipping** | Intelcom |
 
 ---
 
@@ -43,7 +43,7 @@ Freepe is a second-hand marketplace mobile application similar to Vinted. This d
 - Product listings with advanced search and filters
 - Real-time chat with offer system
 - Secure payments via Stripe
-- Shipping label generation via Shippo
+- Shipping label generation via Intelcom
 - Push notifications
 - Geolocated shop discovery
 - Admin moderation panel
@@ -96,7 +96,7 @@ See [Development Guide](./09-development-guide.md) for complete setup instructio
            ┌────────────┴────────────┐
            ▼                         ▼
       ┌─────────┐               ┌─────────┐
-      │ Stripe  │               │ Shippo  │
+      │ Stripe  │               │Intelcom │
       │Payments │               │Shipping │
       └─────────┘               └─────────┘
 ```

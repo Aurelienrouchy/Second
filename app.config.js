@@ -17,10 +17,23 @@ export default {
       "**/*"
     ],
     "plugins": [
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/CormorantGaramond-Regular.ttf",
+            "./assets/fonts/CormorantGaramond-Medium.ttf",
+            "./assets/fonts/CormorantGaramond-SemiBold.ttf",
+            "./assets/fonts/CormorantGaramond-Bold.ttf",
+            "./assets/fonts/Satoshi-Regular.otf",
+            "./assets/fonts/Satoshi-Medium.otf",
+            "./assets/fonts/Satoshi-Bold.otf"
+          ]
+        }
+      ],
       "expo-router",
       "expo-dev-client",
-      "@react-native-firebase/app",
-      "expo-apple-authentication",
+"expo-apple-authentication",
       [
         "expo-notifications"
       ],
@@ -33,11 +46,14 @@ export default {
       [
         "@react-native-google-signin/google-signin"
       ],
+      // Helcim payment via WebView — no native plugin needed
+      "expo-image",
+      "expo-maps",
+      "expo-sharing",
       [
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static",
             "deploymentTarget": "15.1"
           },
           "android": {
@@ -54,6 +70,10 @@ export default {
       "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
       "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:seconde.app",
+        "applinks:www.seconde.app"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleAllowMixedLocalizations": true,
@@ -84,6 +104,55 @@ export default {
         "android.permission.RECORD_AUDIO",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/article"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/chat"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/user"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/shop"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/swap-party"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/swap"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/notifications"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/search"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ],
       "package": "com.seconde.app"
     },

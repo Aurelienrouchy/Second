@@ -48,6 +48,12 @@ export const incrementProductView = onCall(
 
 /**
  * Toggle product like/unlike
+ *
+ * Updates atomically in a single transaction:
+ * 1. products/{productId} — likes counter + likedBy array
+ * 2. articles/{productId} — favoritesCount (denormalised, replaces getFavoriteCount query)
+ * 3. search_index/{productId} — likes for ranking
+ * 4. favorites/{userId} — articleIds array (unified structure, no more products[])
  */
 export const toggleProductLike = onCall({ memory: '512MiB' }, async (request) => {
   const { productId, isLiked } = request.data;
@@ -67,6 +73,7 @@ export const toggleProductLike = onCall({ memory: '512MiB' }, async (request) =>
 
   try {
     const productRef = db.collection('products').doc(productId);
+    const articleRef = db.collection('articles').doc(productId);
     const searchIndexRef = db.collection('search_index').doc(productId);
     const favoritesRef = db.collection('favorites').doc(userId);
 
@@ -79,68 +86,56 @@ export const toggleProductLike = onCall({ memory: '512MiB' }, async (request) =>
 
       const productData = productDoc.data()!;
       const currentLikes = productData.likes || 0;
-      const likedBy = productData.likedBy || [];
+      const likedBy: string[] = productData.likedBy || [];
 
       let newLikes = currentLikes;
       let newLikedBy = [...likedBy];
 
       if (isLiked && !likedBy.includes(userId)) {
-        // Add like
         newLikes = currentLikes + 1;
         newLikedBy.push(userId);
       } else if (!isLiked && likedBy.includes(userId)) {
-        // Remove like
         newLikes = Math.max(0, currentLikes - 1);
         newLikedBy = likedBy.filter((id: string) => id !== userId);
       }
 
-      // Update product
+      // 1. Update product likes + likedBy
       transaction.update(productRef, {
         likes: newLikes,
         likedBy: newLikedBy,
       });
 
-      // Update search index
+      // 2. Denormalised favoritesCount on article (replaces expensive getFavoriteCount)
+      transaction.update(articleRef, {
+        favoritesCount: newLikes,
+      });
+
+      // 3. Update search index for ranking
       transaction.update(searchIndexRef, {
         likes: newLikes,
       });
 
-      // Update user favorites
+      // 4. Unified favorites — articleIds array only (no more products[] with metadata)
       if (isLiked) {
-        const favoriteData = {
-          productId,
-          addedAt: FieldValue.serverTimestamp(),
-          productTitle: productData.title,
-          productPrice: productData.price,
-          productImage: productData.images?.[0]?.url || null,
-          sellerId: productData.sellerId,
-        };
-
         transaction.set(
           favoritesRef,
           {
             userId,
-            products: FieldValue.arrayUnion(favoriteData),
-            totalCount: FieldValue.increment(1),
+            articleIds: FieldValue.arrayUnion(productId),
             updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
       } else {
-        // Remove from favorites
-        const favoritesDoc = await transaction.get(favoritesRef);
-        if (favoritesDoc.exists) {
-          const favoritesData = favoritesDoc.data()!;
-          const updatedProducts = (favoritesData.products || []).filter(
-            (p: { productId: string }) => p.productId !== productId
-          );
-
-          transaction.update(favoritesRef, {
-            products: updatedProducts,
-            totalCount: updatedProducts.length,
+        transaction.set(
+          favoritesRef,
+          {
+            userId,
+            articleIds: FieldValue.arrayRemove(productId),
             updatedAt: FieldValue.serverTimestamp(),
-          });
-        }
+          },
+          { merge: true }
+        );
       }
     });
 

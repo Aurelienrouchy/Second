@@ -45,7 +45,7 @@
                     │  │   (Payments)      │                      │
                     │  └───────────────────┘                      │
                     │  ┌───────────────────┐                      │
-                    │  │     Shippo        │◄─────────────────────┤
+                    │  │     Intelcom      │◄─────────────────────┤
                     │  │   (Shipping)      │                      │
                     │  └───────────────────┘                      │
                     └─────────────────────────────────────────────┘
@@ -199,7 +199,7 @@ functions/src/index.ts
 │   ├── sendMessageNotification      - Triggered on new message
 │   └── sendOfferStatusNotification  - Triggered on offer status change
 │
-├── SHIPPING (Shippo)
+├── SHIPPING (Intelcom)
 │   └── getShippingEstimate   - Callable for rate quotes
 │
 └── PAYMENTS (Stripe)
@@ -229,7 +229,7 @@ User                 App                  Service              Firebase
 
 ### Purchase Flow
 ```
-Buyer        App           Functions         Stripe        Shippo
+Buyer        App           Functions         Stripe        Intelcom
  │            │                │                │             │
  │─ Accept ──>│                │                │             │
  │            │─ getShipping ─>│                │             │

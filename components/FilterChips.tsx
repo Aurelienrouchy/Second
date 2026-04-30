@@ -15,6 +15,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import { colors } from '@/constants/theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -74,13 +75,13 @@ const FilterChips: React.FC<FilterChipsProps> = ({
       const backgroundColor = interpolateColor(
         animatedValue.value,
         [0, 1],
-        ['#F2F2F7', '#007AFF']
+        [colors.surfaceWarm, colors.primary]
       );
 
       const borderColor = interpolateColor(
         animatedValue.value,
         [0, 1],
-        ['#E5E5EA', '#007AFF']
+        [colors.border, colors.primary]
       );
 
       return {
@@ -101,7 +102,7 @@ const FilterChips: React.FC<FilterChipsProps> = ({
       const color = interpolateColor(
         animatedValue.value,
         [0, 1],
-        ['#1C1C1E', '#FFFFFF']
+        [colors.foreground, '#FFFFFF']
       );
 
       return { color };
@@ -122,7 +123,7 @@ const FilterChips: React.FC<FilterChipsProps> = ({
             <Ionicons
               name={chip.icon}
               size={14}
-              color={isSelected ? '#FFFFFF' : '#1C1C1E'}
+              color={isSelected ? '#FFFFFF' : colors.foreground}
               style={styles.chipIcon}
             />
           )}
@@ -150,7 +151,7 @@ const FilterChips: React.FC<FilterChipsProps> = ({
         accessibilityLabel="Ouvrir les filtres avancés"
         accessibilityRole="button"
       >
-        <Ionicons name="options-outline" size={18} color="#007AFF" />
+        <Ionicons name="options-outline" size={18} color={colors.primary} />
         <Text style={styles.filterButtonText}>Filtres</Text>
       </Pressable>
     );
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   scrollView: {
     flexGrow: 0,
@@ -261,8 +262,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    backgroundColor: '#F2F2F7',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceWarm,
     minHeight: 36,
     justifyContent: 'center',
   },
@@ -276,12 +277,12 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   chipCount: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginLeft: 4,
     opacity: 0.7,
   },
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: colors.primary,
     backgroundColor: '#FFFFFF',
     marginLeft: 8,
     minHeight: 36,
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
   filterButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#007AFF',
+    color: colors.primary,
     marginLeft: 4,
   },
 });

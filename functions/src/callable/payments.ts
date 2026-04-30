@@ -1,15 +1,21 @@
 /**
  * Payment callable functions
  * Firebase Functions v7 - using onCall
+ *
+ * Shipping via ShipEngine (Intelcom + Canada Post)
+ * Payment via Helcim (HelcimPay.js checkout)
+ * Commission via service fee calculation
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db, FieldValue } from '../config/firebase';
-import { getStripe } from '../config/stripe';
-import { getShippo } from '../config/shippo';
+import { getShipEngine, ShipEngineClient } from '../config/shipEngine';
+import { getHelcim } from '../config/helcim';
+import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../utils/fees';
 
-/**
- * Get shipping estimate via Shippo
- */
+// =============================================================================
+// GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
+// =============================================================================
+
 export const getShippingEstimate = onCall({ memory: '512MiB' }, async (request) => {
   const { fromAddress, toAddress, weight, dimensions } = request.data;
 
@@ -17,65 +23,72 @@ export const getShippingEstimate = onCall({ memory: '512MiB' }, async (request) 
     throw new HttpsError('invalid-argument', 'From and to addresses are required');
   }
 
-  const shippo = getShippo();
-  if (!shippo) {
-    throw new HttpsError('failed-precondition', 'Shippo API not configured');
+  const shipEngine = getShipEngine();
+  if (!shipEngine) {
+    throw new HttpsError('failed-precondition', 'ShipEngine API not configured');
   }
 
   try {
-    // Use provided dimensions or default values
-    const parcelDimensions = {
-      length: dimensions?.length?.toString() || '30',
-      width: dimensions?.width?.toString() || '25',
-      height: dimensions?.height?.toString() || '10',
-      distanceUnit: 'cm' as const,
-      weight: weight?.toString() || '0.5',
-      massUnit: 'kg' as const,
-    };
+    const parcelWeight = parseFloat(weight) || 0.5;
+    const parcelLength = parseFloat(dimensions?.length) || 30;
+    const parcelWidth = parseFloat(dimensions?.width) || 25;
+    const parcelHeight = parseFloat(dimensions?.height) || 10;
 
-    console.log('📦 Creating Shippo shipment with:', {
-      fromAddress,
-      toAddress,
-      parcelDimensions,
+    console.log('📦 Getting ShipEngine multi-carrier rates:', {
+      from: fromAddress.postalCode,
+      to: toAddress.postalCode,
+      weight: parcelWeight,
     });
 
-    // Create shipment object
-    const shipment = await shippo.shipments.create({
-      addressFrom: {
-        name: fromAddress.name,
-        street1: fromAddress.street,
-        city: fromAddress.city,
-        zip: fromAddress.postalCode,
-        country: fromAddress.country,
+    // Rate shopping across Intelcom + Canada Post via ShipEngine
+    const rates = await shipEngine.getRates(
+      {
+        name: fromAddress.name || 'Vendeur',
+        addressLine1: fromAddress.street || '',
+        cityLocality: fromAddress.city || '',
+        stateProvince: fromAddress.province || 'QC',
+        postalCode: fromAddress.postalCode,
+        countryCode: 'CA',
       },
-      addressTo: {
-        name: toAddress.name,
-        street1: toAddress.street,
-        city: toAddress.city,
-        zip: toAddress.postalCode,
-        country: toAddress.country,
-        phone: toAddress.phoneNumber || '',
+      {
+        name: toAddress.name || 'Acheteur',
+        addressLine1: toAddress.street || '',
+        cityLocality: toAddress.city || '',
+        stateProvince: toAddress.province || 'QC',
+        postalCode: toAddress.postalCode,
+        countryCode: 'CA',
       },
-      parcels: [parcelDimensions],
-      async: false,
-    });
+      {
+        weight: { value: parcelWeight, unit: 'kilogram' },
+        dimensions: {
+          length: parcelLength,
+          width: parcelWidth,
+          height: parcelHeight,
+          unit: 'centimeter',
+        },
+      }
+    );
 
-    // Extract rates
-    const rates = shipment.rates.map((rate: any) => ({
-      carrier: rate.provider,
-      serviceName: rate.servicelevel.name,
-      estimatedDays: rate.estimatedDays || '3-5',
-      amount: parseFloat(rate.amount),
-      currency: rate.currency,
-      shippoRateId: rate.objectId,
-    }));
+    // Format rates for the client
+    const formattedRates = rates
+      .sort((a, b) => a.shippingAmount.amount - b.shippingAmount.amount)
+      .slice(0, 5)
+      .map((rate) => ({
+        rateId: rate.rateId,
+        carrier: rate.carrierFriendlyName,
+        carrierCode: rate.carrierCode,
+        serviceName: rate.serviceType,
+        estimatedDays: `${rate.estimatedDeliveryDays} jour${rate.estimatedDeliveryDays > 1 ? 's' : ''} ouvrable${rate.estimatedDeliveryDays > 1 ? 's' : ''}`,
+        amount: rate.shippingAmount.amount,
+        currency: rate.shippingAmount.currency,
+        deliveryType: rate.deliveryType,
+      }));
 
-    console.log(`✅ Retrieved ${rates.length} shipping rates`);
+    console.log(`✅ Retrieved ${formattedRates.length} shipping rates from ShipEngine`);
 
-    // Return cheapest and fastest options
     return {
       success: true,
-      rates: rates.slice(0, 3), // Return top 3 options
+      rates: formattedRates,
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -84,10 +97,34 @@ export const getShippingEstimate = onCall({ memory: '512MiB' }, async (request) 
   }
 });
 
-/**
- * Create Stripe Payment Intent
- */
-export const createPaymentIntent = onCall({ memory: '512MiB' }, async (request) => {
+// =============================================================================
+// GET SERVICE FEE — Returns fee info for client display
+// =============================================================================
+
+export const getServiceFee = onCall(async (request) => {
+  const { articlePrice } = request.data;
+
+  if (!articlePrice || articlePrice <= 0) {
+    throw new HttpsError('invalid-argument', 'Article price is required');
+  }
+
+  const serviceFee = calculateServiceFee(articlePrice);
+  const config = getServiceFeeConfig();
+
+  return {
+    success: true,
+    serviceFee,
+    serviceFeePercent: config.percent,
+    serviceFeeFixed: config.fixed,
+    serviceFeeMin: config.min,
+  };
+});
+
+// =============================================================================
+// CREATE HELCIM CHECKOUT — Initialize HelcimPay.js session
+// =============================================================================
+
+export const createHelcimCheckout = onCall({ memory: '512MiB' }, async (request) => {
   const { transactionId } = request.data;
 
   if (!request.auth) {
@@ -98,9 +135,9 @@ export const createPaymentIntent = onCall({ memory: '512MiB' }, async (request) 
     throw new HttpsError('invalid-argument', 'Transaction ID is required');
   }
 
-  const stripeClient = getStripe();
-  if (!stripeClient) {
-    throw new HttpsError('failed-precondition', 'Stripe API not configured');
+  const helcim = getHelcim();
+  if (!helcim) {
+    throw new HttpsError('failed-precondition', 'Helcim API not configured');
   }
 
   try {
@@ -118,55 +155,94 @@ export const createPaymentIntent = onCall({ memory: '512MiB' }, async (request) 
       throw new HttpsError('permission-denied', 'You are not authorized for this transaction');
     }
 
-    // Check if payment intent already exists
-    if (transaction.paymentIntentId) {
-      const existingIntent = await stripeClient.paymentIntents.retrieve(
-        transaction.paymentIntentId
-      );
-      if (existingIntent.status !== 'canceled') {
-        return {
-          success: true,
-          clientSecret: existingIntent.client_secret,
-          paymentIntentId: existingIntent.id,
-        };
-      }
+    // Check if already paid
+    if (transaction.status === 'paid') {
+      throw new HttpsError('already-exists', 'Transaction already paid');
     }
 
-    // Create new payment intent
-    const paymentIntent = await stripeClient.paymentIntents.create({
-      amount: Math.round(transaction.totalAmount * 100), // Convert to cents
-      currency: 'eur',
-      metadata: {
-        transactionId,
-        buyerId: transaction.buyerId,
-        sellerId: transaction.sellerId,
-        articleId: transaction.articleId,
-      },
-      automatic_payment_methods: {
-        enabled: true,
-      },
+    // Calculate fees
+    const fees = calculateFees(transaction.amount, transaction.shippingCost);
+
+    // Update transaction with fee info if not already set
+    if (!transaction.serviceFee) {
+      await db.collection('transactions').doc(transactionId).update({
+        serviceFee: fees.serviceFee,
+        serviceFeePercent: fees.serviceFeePercent,
+        totalAmount: fees.buyerTotal,
+        sellerPayout: fees.sellerPayout,
+      });
+    }
+
+    // Create Helcim checkout session
+    const checkout = await helcim.createCheckoutSession({
+      amount: fees.buyerTotal,
+      currency: 'CAD',
+      paymentType: 'purchase',
+      invoiceNumber: transactionId,
+      taxAmount: 0, // Pas de taxe sur les ventes C2C de seconde main
     });
 
-    // Update transaction with payment intent ID
+    // Store the secret token for webhook verification
     await db.collection('transactions').doc(transactionId).update({
-      paymentIntentId: paymentIntent.id,
+      helcimSecretToken: checkout.secretToken,
+      helcimCheckoutCreatedAt: FieldValue.serverTimestamp(),
     });
+
+    console.log(`✅ Helcim checkout created for transaction ${transactionId} — total: $${fees.buyerTotal}`);
 
     return {
       success: true,
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
+      checkoutToken: checkout.checkoutToken,
+      feeBreakdown: {
+        articlePrice: fees.articlePrice,
+        shippingCost: fees.shippingCost,
+        serviceFee: fees.serviceFee,
+        serviceFeePercent: fees.serviceFeePercent,
+        buyerTotal: fees.buyerTotal,
+      },
     };
   } catch (error: unknown) {
+    if (error instanceof HttpsError) throw error;
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error creating payment intent:', error);
-    throw new HttpsError('internal', `Failed to create payment intent: ${message}`);
+    console.error('Error creating Helcim checkout:', error);
+    throw new HttpsError('internal', `Failed to create checkout: ${message}`);
   }
 });
 
-/**
- * Check tracking status from Shippo
- */
+// =============================================================================
+// FIND PICKUP POINTS — ShipEngine PUDO search
+// =============================================================================
+
+export const findPickupPoints = onCall(async (request) => {
+  const { postalCode } = request.data;
+
+  if (!postalCode) {
+    throw new HttpsError('invalid-argument', 'Postal code is required');
+  }
+
+  const shipEngine = getShipEngine();
+  if (!shipEngine) {
+    throw new HttpsError('failed-precondition', 'ShipEngine API not configured');
+  }
+
+  try {
+    const locations = await shipEngine.findPUDOLocations(postalCode, 'CA', 10);
+
+    return {
+      success: true,
+      locations,
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error finding pickup points:', error);
+    throw new HttpsError('internal', `Failed to find pickup points: ${message}`);
+  }
+});
+
+// =============================================================================
+// CHECK TRACKING STATUS — Via ShipEngine
+// =============================================================================
+
 export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) => {
   const { transactionId } = request.data;
 
@@ -175,7 +251,6 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
   }
 
   try {
-    // Get transaction
     const transactionDoc = await db.collection('transactions').doc(transactionId).get();
 
     if (!transactionDoc.exists) {
@@ -188,18 +263,15 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
       throw new HttpsError('failed-precondition', 'No tracking number available');
     }
 
-    const shippo = getShippo();
-    if (!shippo) {
-      throw new HttpsError('failed-precondition', 'Shippo API not configured');
+    const shipEngine = getShipEngine();
+    if (!shipEngine) {
+      throw new HttpsError('failed-precondition', 'ShipEngine API not configured');
     }
 
-    // Get tracking info from Shippo
-    const tracking = await shippo.trackingStatus.get(
-      transaction.trackingNumber,
-      transaction.shippingEstimate?.carrier || 'usps'
-    );
+    const carrierCode = transaction.carrierCode || 'intelcom_ca';
+    const tracking = await shipEngine.getTracking(carrierCode, transaction.trackingNumber);
 
-    const trackingStatus = tracking.trackingStatus?.status || 'UNKNOWN';
+    const trackingStatus = ShipEngineClient.mapStatus(tracking.statusCode);
 
     // Update transaction
     await db.collection('transactions').doc(transactionId).update({
@@ -214,7 +286,7 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
       });
 
       const sellerId = transaction.sellerId;
-      const amount = transaction.amount;
+      const sellerPayout = transaction.sellerPayout || transaction.amount;
 
       // Move from pending to available balance
       const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
@@ -224,7 +296,6 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
         const balanceData = sellerBalanceDoc.data()!;
         const transactions = balanceData.transactions || [];
 
-        // Update the sale transaction status to completed
         const updatedTransactions = transactions.map((t: any) => {
           if (t.id === transactionId) {
             return { ...t, status: 'completed' };
@@ -233,32 +304,35 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
         });
 
         await sellerBalanceRef.update({
-          pendingBalance: FieldValue.increment(-amount),
-          availableBalance: FieldValue.increment(amount),
-          totalEarnings: FieldValue.increment(amount),
+          pendingBalance: FieldValue.increment(-sellerPayout),
+          availableBalance: FieldValue.increment(sellerPayout),
+          totalEarnings: FieldValue.increment(sellerPayout),
           transactions: updatedTransactions,
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
 
       // Send system message
-      const chatQuery = await db
-        .collection('chats')
-        .where('articleId', '==', transaction.articleId)
-        .where('participants', 'array-contains', transaction.buyerId)
-        .limit(1)
-        .get();
-
-      if (!chatQuery.empty) {
-        const chatId = chatQuery.docs[0].id;
+      if (transaction.chatId) {
+        // Look up chat participants so the message is visible to listeners
+        // that filter messages by participants and respects rules.
+        let participants: string[] = [];
+        try {
+          const chatSnap = await db.collection('chats').doc(transaction.chatId).get();
+          if (chatSnap.exists) {
+            participants = (chatSnap.data()?.participants as string[]) || [];
+          }
+        } catch (lookupErr) {
+          console.warn('[payments] Could not load chat participants:', lookupErr);
+        }
 
         await db.collection('messages').add({
-          chatId,
+          chatId: transaction.chatId,
           senderId: 'system',
           receiverId: 'system',
           type: 'system',
-          content:
-            '✅ Colis livré ! La transaction est terminée. Les fonds ont été transférés au vendeur.',
+          content: 'Colis livré ! La transaction est terminée. Les fonds ont été transférés au vendeur.',
+          participants,
           timestamp: FieldValue.serverTimestamp(),
           status: 'sent',
           isRead: true,
@@ -269,9 +343,10 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
     return {
       success: true,
       trackingStatus,
-      trackingHistory: tracking.trackingHistory || [],
+      trackingHistory: tracking.events || [],
     };
   } catch (error: unknown) {
+    if (error instanceof HttpsError) throw error;
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error checking tracking status:', error);
     throw new HttpsError('internal', `Failed to check tracking: ${message}`);

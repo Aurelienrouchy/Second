@@ -1,54 +1,42 @@
 /**
  * ProductCard Component
- * Design System: Luxe Français + Street Energy + Revolut Polish
+ * Design: Seconde UI Kit — Tendances MTL style
  *
- * Features:
- * - 4:5 portrait ratio with subtle bottom gradient
- * - Bleu Klein price accent (Satoshi Bold)
- * - Glass-effect like button
- * - Smooth press animations with haptic feedback
- * - Bounce animation on like
- * - Animated pulse skeleton
- * - Compact mode for horizontal sections
+ * Layout (top → bottom, no border on card body):
+ *   Image (aspect 3:4, radius 0, with save button + condition badge)
+ *   Brand — uppercase micro label
+ *   Title — Cormorant Garamond, single line
+ *   Footer row — Price (rust) | Size pill + Condition pill
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState, useCallback, useEffect, memo } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import Animated, {
+  Easing,
+  FadeIn,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withRepeat,
+  withSpring,
   withTiming,
-  Easing,
-  interpolate,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, shadows, typography, fonts, animations, components } from '@/constants/theme';
-import type { Article } from '@/types';
+import { AUTH_MESSAGES } from '@/constants/authMessages';
+import { animations, colors, fonts, radius, spacing } from '@/constants/theme';
+import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-
-const { width: screenWidth } = Dimensions.get('window');
-const CONTAINER_PADDING = spacing.md;
-const GRID_GAP = spacing.sm;
-export const CARD_WIDTH = (screenWidth - CONTAINER_PADDING * 2 - GRID_GAP) / 2;
-export const COMPACT_CARD_WIDTH = 160;
-
-const getImageHeight = (cardWidth: number) => cardWidth * (5 / 4); // 4:5 portrait
+import { CARD_WIDTH, COMPACT_CARD_WIDTH } from './ProductCard.constants';
 
 // =============================================================================
 // TYPES
@@ -62,25 +50,22 @@ export interface ProductCardProduct {
     url: string;
     blurhash?: string;
   }>;
-  sellerName: string;
-  sellerImage?: string;
   location?: {
     distance?: number;
   };
   size?: string;
   brand?: string;
-  condition?: Article['condition'];
+  condition?: string;
   likes?: number;
-  isLiked?: boolean;
-  isSponsored?: boolean;
 }
 
 export interface ProductCardProps {
   product: ProductCardProduct;
   onPress: () => void;
-  onToggleLike?: () => void;
   isLoading?: boolean;
   compact?: boolean;
+  /** When true the card stretches to fill its parent instead of using a fixed width */
+  fillWidth?: boolean;
   testID?: string;
 }
 
@@ -90,7 +75,55 @@ interface SkeletonCardProps {
 }
 
 // =============================================================================
-// SKELETON COMPONENT (Animated Pulse)
+// HELPERS
+// =============================================================================
+
+/**
+ * Fix Firebase Storage URLs that have un-encoded paths.
+ * The detail page applies this via ArticlesService.fixArticleImageUrls(),
+ * but data from Cloud Functions (home feed, discover, etc.) may arrive
+ * with raw, un-encoded paths that cause 400 errors on the CDN.
+ */
+const fixStorageUrl = (url: string): string => {
+  if (!url) return url;
+  const isStorage =
+    url.startsWith('https://firebasestorage.googleapis.com') ||
+    url.includes('.appspot.com') ||
+    url.includes('.firebasestorage.app');
+  if (!isStorage) return url;
+
+  try {
+    const pathMatch = url.match(/\/o\/([^?]+)/);
+    if (!pathMatch) return url;
+
+    const storagePath = pathMatch[1];
+    // Already encoded
+    if (storagePath.includes('%2F')) return url;
+
+    const encodedPath = storagePath
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('%2F');
+
+    return url.replace(`/o/${storagePath}`, `/o/${encodedPath}`);
+  } catch {
+    return url;
+  }
+};
+
+const getConditionLabel = (condition?: string): string | null => {
+  if (!condition) return null;
+  const map: Record<string, string> = {
+    neuf: 'Neuf',
+    'très bon état': 'Très bon',
+    'bon état': 'Bon',
+    satisfaisant: 'Correct',
+  };
+  return map[condition] || null;
+};
+
+// =============================================================================
+// SKELETON COMPONENT
 // =============================================================================
 
 export const SkeletonCard: React.FC<SkeletonCardProps> = ({ compact = false, testID }) => {
@@ -98,36 +131,69 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ compact = false, tes
 
   useEffect(() => {
     pulse.value = withRepeat(
-      withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
       -1,
       true,
     );
   }, [pulse]);
 
   const animatedOpacity = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [0.4, 1]),
+    opacity: interpolate(pulse.value, [0, 1], [0.3, 0.6]),
   }));
 
   const cardWidth = compact ? COMPACT_CARD_WIDTH : CARD_WIDTH;
-  const imageHeight = getImageHeight(cardWidth);
 
   return (
     <View style={[styles.cardWrapper, { width: cardWidth }]} testID={testID}>
-      <View style={styles.card}>
-        <Animated.View style={[{ width: '100%', height: imageHeight, backgroundColor: colors.borderLight, borderRadius: radius.sm }, animatedOpacity]} />
-        <View style={styles.content}>
-          <Animated.View style={[styles.skeletonPrice, animatedOpacity]} />
-          <Animated.View style={[styles.skeletonTitle, animatedOpacity]} />
-          <Animated.View style={[styles.skeletonMeta, animatedOpacity]} />
-          <View style={styles.skeletonSellerRow}>
-            <Animated.View style={[styles.skeletonAvatar, animatedOpacity]} />
-            <Animated.View style={[styles.skeletonSellerName, animatedOpacity]} />
-          </View>
-        </View>
+      <Animated.View style={[styles.skeletonImage, animatedOpacity]} />
+      <View style={styles.skeletonContent}>
+        <Animated.View style={[styles.skeletonBrand, animatedOpacity]} />
+        <Animated.View style={[styles.skeletonTitle, animatedOpacity]} />
+        <Animated.View style={[styles.skeletonFooter, animatedOpacity]} />
       </View>
     </View>
   );
 };
+
+// =============================================================================
+// SAVE BUTTON — top-right of image
+// =============================================================================
+
+const SaveButton: React.FC<{
+  isLiked: boolean;
+  onPress: () => void;
+  testID: string;
+}> = memo(({ isLiked, onPress, testID }) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = useCallback(() => {
+    scale.value = withSpring(1.3, animations.spring.bouncy, () => {
+      scale.value = withSpring(1, animations.spring.gentle);
+    });
+    onPress();
+  }, [onPress, scale]);
+
+  return (
+    <Animated.View style={[styles.saveButtonWrapper, animatedStyle]}>
+      <Pressable
+        style={styles.saveButton}
+        onPress={handlePress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        testID={testID}
+      >
+        <Ionicons
+          name={isLiked ? 'heart' : 'heart-outline'}
+          size={18}
+          color={isLiked ? colors.primary : colors.foreground}
+        />
+      </Pressable>
+    </Animated.View>
+  );
+});
 
 // =============================================================================
 // MAIN COMPONENT
@@ -136,43 +202,29 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ compact = false, tes
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onPress,
-  onToggleLike,
   isLoading = false,
   compact = false,
+  fillWidth = false,
   testID,
 }) => {
-  // Early return for invalid product
-  if (!product || !product.id) {
-    return <SkeletonCard compact={compact} testID={testID} />;
-  }
-
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
-
-  const cardWidth = compact ? COMPACT_CARD_WIDTH : CARD_WIDTH;
-  const imageHeight = getImageHeight(cardWidth);
-
-  // Animation values
   const scale = useSharedValue(1);
-  const likeScale = useSharedValue(1);
 
-  // Animated card style
+  const isLiked = useIsFavorite(product?.id ?? '');
+  const toggleFavorite = useToggleFavorite();
+  const { requireAuth } = useAuthRequired();
+
   const animatedCardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  // Animated like button style
-  const animatedLikeStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: likeScale.value }],
-  }));
-
-  // Press handlers
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(animations.scale.pressedCard, animations.spring.snappy);
+    scale.value = withSpring(0.97, animations.spring.snappy);
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.snappy);
+    scale.value = withSpring(1, animations.spring.gentle);
   }, [scale]);
 
   const handlePress = useCallback(() => {
@@ -180,61 +232,49 @@ const ProductCard: React.FC<ProductCardProps> = ({
     onPress();
   }, [onPress]);
 
-  // Like handler with bounce animation
   const handleLikePress = useCallback(() => {
-    if (!onToggleLike) return;
+    requireAuth(() => {
+      Haptics.notificationAsync(
+        isLiked
+          ? Haptics.NotificationFeedbackType.Warning
+          : Haptics.NotificationFeedbackType.Success,
+      );
+      toggleFavorite(product.id);
+    }, AUTH_MESSAGES.like);
+  }, [product?.id, isLiked, requireAuth, toggleFavorite]);
 
-    likeScale.value = withSpring(animations.scale.bounce, animations.spring.bouncy, () => {
-      likeScale.value = withSpring(1, animations.spring.gentle);
-    });
+  // Early return after all hooks
+  if (!product || !product.id) {
+    return <SkeletonCard compact={compact} testID={testID} />;
+  }
 
-    Haptics.notificationAsync(
-      product.isLiked
-        ? Haptics.NotificationFeedbackType.Warning
-        : Haptics.NotificationFeedbackType.Success,
-    );
-
-    onToggleLike();
-  }, [onToggleLike, product.isLiked, likeScale]);
-
-  // Format price
-  const formatPrice = (price: number) => `${price.toFixed(0)} \u20AC`;
-
-  // Format condition
-  const conditionLabel = (() => {
-    if (!product.condition) return null;
-    const map: Record<string, string> = {
-      neuf: 'Neuf',
-      'très bon état': 'Très bon',
-      'bon état': 'Bon',
-      satisfaisant: 'Satisfaisant',
-    };
-    return map[product.condition] || product.condition;
-  })();
-
-  const primaryImage = product.images?.[0];
-
-  // Build meta parts
-  const metaParts: string[] = [];
-  if (product.brand) metaParts.push(product.brand);
-  if (product.size) metaParts.push(product.size);
-  if (conditionLabel) metaParts.push(conditionLabel);
-  const metaText = metaParts.join(' \u2022 ');
+  const cardWidth = fillWidth ? undefined : compact ? COMPACT_CARD_WIDTH : CARD_WIDTH;
+  const rawImage = product.images?.[0];
+  const primaryImage = rawImage
+    ? { ...rawImage, url: fixStorageUrl(rawImage.url) }
+    : undefined;
+  const conditionLabel = getConditionLabel(product.condition);
 
   return (
-    <Animated.View style={[styles.cardWrapper, { width: cardWidth }, animatedCardStyle]}>
+    <Animated.View
+      style={[
+        styles.cardWrapper,
+        fillWidth ? { width: '100%' } : { width: cardWidth },
+        animatedCardStyle,
+      ]}
+      entering={FadeIn.duration(300)}
+    >
       <Pressable
-        style={styles.card}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={handlePress}
         testID={testID || `product-card-${product.id}`}
-        accessibilityLabel={`${product.title}, ${formatPrice(product.price)}`}
+        accessibilityLabel={`${product.title}, ${product.price}$`}
         accessibilityRole="button"
         disabled={isLoading}
       >
-        {/* ── Image Container ── */}
-        <View style={[styles.imageContainer, { height: imageHeight }]}>
+        {/* ── Image ── */}
+        <View style={[styles.imageContainer, fillWidth ? { aspectRatio: 3 / 4 } : { height: (cardWidth as number) * (4 / 3) }]}>
           {primaryImage && !imageError ? (
             <Image
               source={{ uri: primaryImage.url }}
@@ -242,7 +282,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               contentFit="cover"
               placeholder={primaryImage.blurhash}
               placeholderContentFit="cover"
-              transition={200}
+              transition={250}
               onLoadStart={() => setImageLoading(true)}
               onLoadEnd={() => setImageLoading(false)}
               onError={() => {
@@ -253,94 +293,51 @@ const ProductCard: React.FC<ProductCardProps> = ({
             />
           ) : (
             <View style={styles.imagePlaceholder}>
-              <Ionicons name="image-outline" size={28} color={colors.muted} />
+              <Ionicons name="image-outline" size={32} color={colors.muted} />
             </View>
           )}
 
-          {/* Subtle bottom gradient for readability */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.03)']}
-            style={styles.imageGradient}
-            pointerEvents="none"
-          />
-
-          {/* Loading overlay */}
           {imageLoading && primaryImage && !imageError && (
             <View style={styles.imageLoadingOverlay}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
           )}
 
-          {/* Like Button — Glass effect */}
-          {onToggleLike && (
-            <Animated.View style={[styles.likeButtonContainer, animatedLikeStyle]}>
-              <Pressable
-                style={styles.likeButton}
-                onPress={handleLikePress}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                testID={`like-button-${product.id}`}
-              >
-                <Ionicons
-                  name={product.isLiked ? 'heart' : 'heart-outline'}
-                  size={16}
-                  color={product.isLiked ? colors.danger : colors.foreground}
-                />
-              </Pressable>
-            </Animated.View>
-          )}
-
-          {/* Sponsored badge */}
-          {product.isSponsored && (
-            <View style={styles.sponsoredBadge}>
-              <Text style={styles.sponsoredText}>Sponsorisé</Text>
-            </View>
-          )}
+          {/* Save button — top-right */}
+          <SaveButton
+            isLiked={isLiked}
+            onPress={handleLikePress}
+            testID={`like-button-${product.id}`}
+          />
         </View>
 
-        {/* ── Content ── */}
+        {/* ── Content below image ── */}
         <View style={styles.content}>
-          {/* Price — Bleu Klein, Satoshi Bold */}
-          <Text style={styles.price} numberOfLines={1} testID={`price-${product.id}`}>
-            {formatPrice(product.price)}
+          {/* Brand */}
+          <Text style={styles.brand} numberOfLines={1}>
+            {product.brand ? product.brand.toUpperCase() : ''}
           </Text>
 
-          {/* Title */}
-          <Text style={styles.title} numberOfLines={2} testID={`title-${product.id}`}>
+          {/* Title — single line */}
+          <Text style={styles.title} numberOfLines={1}>
             {product.title}
           </Text>
 
-          {/* Meta: brand • size • condition */}
-          {metaText.length > 0 && (
-            <Text style={styles.meta} numberOfLines={1}>
-              {metaText}
-            </Text>
-          )}
-
-          {/* Seller Row */}
-          <View style={styles.sellerRow}>
-            {product.sellerImage ? (
-              <Image
-                source={{ uri: product.sellerImage }}
-                style={styles.sellerAvatar}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-              />
-            ) : (
-              <View style={[styles.sellerAvatar, styles.sellerAvatarPlaceholder]}>
-                <Ionicons name="person" size={10} color={colors.muted} />
-              </View>
-            )}
-            <Text style={styles.sellerName} numberOfLines={1}>
-              {product.sellerName}
-            </Text>
-
-            {/* Likes count */}
-            {product.likes !== undefined && product.likes > 0 && (
-              <View style={styles.likesCount}>
-                <Ionicons name="heart" size={10} color={colors.danger} />
-                <Text style={styles.likesText}>{product.likes}</Text>
-              </View>
-            )}
+          {/* Footer: Price | Size + Condition */}
+          <View style={styles.footer}>
+            <Text style={styles.price}>${product.price.toFixed(0)}</Text>
+            <View style={styles.footerRight}>
+              {product.size && (
+                <View style={styles.sizePill}>
+                  <Text style={styles.sizeText}>{product.size}</Text>
+                </View>
+              )}
+              {conditionLabel && (
+                <View style={styles.conditionPill}>
+                  <Text style={styles.conditionText}>{conditionLabel}</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </Pressable>
@@ -355,41 +352,28 @@ const ProductCard: React.FC<ProductCardProps> = ({
 const styles = StyleSheet.create({
   // ── Card Wrapper ──
   cardWrapper: {
-    marginBottom: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    ...shadows.card,
+    marginBottom: spacing.sm,
   },
 
   // ── Image ──
   imageContainer: {
-    position: 'relative',
     width: '100%',
-    borderTopLeftRadius: radius.md,
-    borderTopRightRadius: radius.md,
+    borderRadius: radius.none,
+    position: 'relative',
     overflow: 'hidden',
+    backgroundColor: colors.surfaceWarm,
+    marginBottom: 10,
   },
   image: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.borderLight,
   },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.surfaceWarm,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  imageGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 40,
   },
   imageLoadingOverlay: {
     position: 'absolute',
@@ -397,158 +381,131 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(250, 248, 245, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  // ── Like Button (Glass) ──
-  likeButtonContainer: {
+  // ── Save Button — top-right ──
+  saveButtonWrapper: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
+    top: 10,
+    right: 10,
   },
-  likeButton: {
+  saveButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(245, 240, 232, 0.90)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.card,
-  },
-
-  // ── Sponsored Badge ──
-  sponsoredBadge: {
-    position: 'absolute',
-    bottom: spacing.sm,
-    left: spacing.sm,
-    backgroundColor: colors.foreground,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.xs,
-  },
-  sponsoredText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    color: colors.white,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
   },
 
   // ── Content ──
   content: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm + 2,
+    paddingHorizontal: 10,
+    paddingBottom: 12,
   },
-  price: {
-    fontFamily: fonts.sansBold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: colors.primary, // Bleu Klein
+  brand: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    color: colors.muted,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
     marginBottom: 2,
   },
   title: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
+    fontFamily: fonts.display,
+    fontSize: 16,
+    fontWeight: '400',
+    lineHeight: 20,
     color: colors.foreground,
-    marginBottom: 3,
-  },
-  meta: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.muted,
-    marginBottom: spacing.sm,
+    marginBottom: 6,
   },
 
-  // ── Seller Row ──
-  sellerRow: {
+  // ── Footer row ──
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  sellerAvatar: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.borderLight,
-  },
-  sellerAvatarPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sellerName: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.muted,
-    marginLeft: spacing.xs + 2,
-    flex: 1,
-  },
-  likesCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: spacing.xs,
-  },
-  likesText: {
+  price: {
     fontFamily: fonts.sansMedium,
-    fontSize: 10,
-    color: colors.danger,
-    marginLeft: 2,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.primary, // rust
+  },
+  footerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sizePill: {
+    backgroundColor: 'rgba(26, 24, 20, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+  },
+  sizeText: {
+    fontFamily: fonts.sans,
+    fontSize: 9,
+    color: colors.muted,
+  },
+  conditionPill: {
+    backgroundColor: 'rgba(26, 24, 20, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+  },
+  conditionText: {
+    fontFamily: fonts.sans,
+    fontSize: 9,
+    color: colors.muted,
   },
 
   // ── Skeleton ──
-  skeletonPrice: {
-    width: 56,
-    height: 18,
+  skeletonImage: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    backgroundColor: colors.surfaceWarm,
+    marginBottom: 10,
+  },
+  skeletonContent: {
+    paddingHorizontal: 10,
+  },
+  skeletonBrand: {
+    height: 10,
+    width: 50,
     backgroundColor: colors.borderLight,
     borderRadius: radius.xs,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   skeletonTitle: {
-    width: '90%',
-    height: 13,
+    height: 16,
+    width: '75%',
     backgroundColor: colors.borderLight,
     borderRadius: radius.xs,
-    marginBottom: spacing.xs,
+    marginBottom: 6,
   },
-  skeletonMeta: {
-    width: '60%',
-    height: 11,
+  skeletonFooter: {
+    height: 15,
+    width: '50%',
     backgroundColor: colors.borderLight,
     borderRadius: radius.xs,
-    marginBottom: spacing.sm,
-  },
-  skeletonSellerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  skeletonAvatar: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.borderLight,
-  },
-  skeletonSellerName: {
-    width: 50,
-    height: 10,
-    backgroundColor: colors.borderLight,
-    borderRadius: radius.xs,
-    marginLeft: spacing.xs + 2,
   },
 });
 
-// Memoize to prevent re-renders when parent context changes
+// Memoize — isLiked is internal state so the comparison only covers external props
 export default memo(ProductCard, (prevProps, nextProps) => {
   return (
     prevProps.product.id === nextProps.product.id &&
-    prevProps.product.isLiked === nextProps.product.isLiked &&
     prevProps.product.price === nextProps.product.price &&
     prevProps.product.title === nextProps.product.title &&
     prevProps.product.images?.[0]?.url === nextProps.product.images?.[0]?.url &&
-    prevProps.product.likes === nextProps.product.likes &&
+    prevProps.product.size === nextProps.product.size &&
+    prevProps.product.condition === nextProps.product.condition &&
     prevProps.isLoading === nextProps.isLoading &&
-    prevProps.compact === nextProps.compact
+    prevProps.compact === nextProps.compact &&
+    prevProps.fillWidth === nextProps.fillWidth
   );
 });

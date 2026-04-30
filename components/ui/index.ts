@@ -1,6 +1,6 @@
 /**
- * UI Components Index
- * Design System: Luxe Français + Street
+ * UI Components Index — Seconde UI Kit
+ * Design: Editorial Luxe — Cream, Charcoal, Rust, Sage
  *
  * Exports all design system components for easy importing:
  * import { Button, Input, Avatar, Tag } from '@/components/ui';
@@ -22,7 +22,7 @@ export type { AvatarSize } from './Avatar';
 export { Tag, Badge, NotificationBadge, StatusIndicator } from './Tag';
 export type { BadgeVariant, StatusType } from './Tag';
 
-export { Text, H1, H2, H3, Body, BodySmall, Label, Caption, Price } from './Text';
+export { Text, Hero, H1, H2, H3, Body, BodySmall, Label, LabelUppercase, Caption, Price, PriceLarge } from './Text';
 export type { TextVariant } from './Text';
 
 // =============================================================================
@@ -40,6 +40,8 @@ export { SearchBar } from './SearchBar';
 export { CategoryChip } from './CategoryChip';
 export { SectionHeader } from './SectionHeader';
 export { PersonalizedHeader } from './PersonalizedHeader';
+export { ScreenHeader } from './ScreenHeader';
+export type { ScreenHeaderProps } from './ScreenHeader';
 
 // =============================================================================
 // OVERLAY COMPONENTS

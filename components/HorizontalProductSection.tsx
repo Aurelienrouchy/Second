@@ -1,9 +1,12 @@
 /**
  * HorizontalProductSection Component
- * Design System: Luxe Français + Street
+ * Design: Curated Editorial — Bulletin-Inspired
  *
- * Horizontal scrolling product section for homepage.
- * Used for "Pour Toi", "Près de toi", and similar sections.
+ * Features:
+ * - Editorial section headers with Sora typography
+ * - Horizontal scrolling product cards
+ * - Refined spacing and animations
+ * - Distance badges for nearby items
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -17,11 +20,12 @@ import {
   View,
 } from 'react-native';
 
-import { colors, spacing, typography, radius, shadows } from '@/constants/theme';
+import { colors, spacing, fonts, radius, shadows } from '@/constants/theme';
 import { SectionHeader } from '@/components/ui';
 import { Article, ArticleWithLocation } from '@/types';
 
-import ProductCard, { COMPACT_CARD_WIDTH } from './ProductCard';
+import ProductCard from './ProductCard';
+import { COMPACT_CARD_WIDTH } from './ProductCard.constants';
 
 // =============================================================================
 // TYPES
@@ -45,7 +49,7 @@ interface HorizontalProductSectionProps {
 // =============================================================================
 
 const CARD_WIDTH = COMPACT_CARD_WIDTH;
-const IMAGE_HEIGHT = CARD_WIDTH * (5 / 4); // 4:5 ratio
+const IMAGE_HEIGHT = CARD_WIDTH * 1.35;
 
 // =============================================================================
 // COMPONENT
@@ -81,8 +85,8 @@ export default function HorizontalProductSection({
       {/* Section Header */}
       <SectionHeader
         title={title}
-        subtitle={subtitle}
         onSeeAll={articles.length > 0 ? onSeeAll : undefined}
+        variant="compact"
       />
 
       {/* Content */}
@@ -92,7 +96,9 @@ export default function HorizontalProductSection({
         </View>
       ) : articles.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name={emptyIcon} size={32} color={colors.muted} />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name={emptyIcon} size={28} color={colors.muted} />
+          </View>
           <Text style={styles.emptyText}>{emptyMessage}</Text>
         </View>
       ) : (
@@ -100,6 +106,8 @@ export default function HorizontalProductSection({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          decelerationRate="fast"
+          snapToInterval={CARD_WIDTH + spacing.md}
         >
           {articles.map((article) => {
             const distance =
@@ -115,9 +123,9 @@ export default function HorizontalProductSection({
                     title: article.title,
                     price: article.price,
                     images: article.images,
-                    sellerName: article.sellerName,
-                    sellerImage: article.sellerImage,
-                    isLiked: false,
+                    brand: article.brand,
+                    size: article.size,
+                    condition: article.condition,
                     location:
                       distance !== undefined ? { distance } : undefined,
                   }}
@@ -128,7 +136,7 @@ export default function HorizontalProductSection({
                 {/* Distance Badge */}
                 {distance !== undefined && (
                   <View style={styles.distanceBadge}>
-                    <Ionicons name="location" size={12} color={colors.primary} />
+                    <Ionicons name="location" size={11} color={colors.primary} />
                     <Text style={styles.distanceText}>
                       {distance < 1
                         ? `${Math.round(distance * 1000)}m`
@@ -151,11 +159,12 @@ export default function HorizontalProductSection({
 
 const styles = StyleSheet.create({
   container: {
-    // No extra vertical padding - SectionHeader handles top padding
+    marginBottom: spacing.sm,
   },
   scrollContent: {
     paddingHorizontal: spacing.md,
-    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    gap: spacing.md,
   },
   cardContainer: {
     width: CARD_WIDTH,
@@ -164,7 +173,7 @@ const styles = StyleSheet.create({
 
   // Loading & Empty States
   loadingContainer: {
-    height: IMAGE_HEIGHT + 100,
+    height: IMAGE_HEIGHT + 80,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -174,12 +183,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
+  emptyIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surfaceWarm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   emptyText: {
-    fontFamily: typography.bodySmall.fontFamily,
-    fontSize: typography.bodySmall.fontSize,
+    fontFamily: fonts.sans,
+    fontSize: 13,
     color: colors.muted,
-    marginTop: spacing.sm,
     textAlign: 'center',
+    letterSpacing: 0.1,
   },
 
   // Distance Badge
@@ -191,15 +209,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 4,
     borderRadius: radius.full,
+    gap: 3,
     ...shadows.card,
   },
   distanceText: {
-    fontFamily: typography.caption.fontFamily,
+    fontFamily: fonts.sansMedium,
     fontSize: 11,
-    fontWeight: '600',
     color: colors.foreground,
-    marginLeft: spacing.xs,
+    letterSpacing: 0.1,
   },
 });

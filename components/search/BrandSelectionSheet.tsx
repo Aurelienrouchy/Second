@@ -1,7 +1,18 @@
+/**
+ * BrandSelectionSheet — Seconde (Editorial Design)
+ *
+ * Bottom sheet for brand selection with Firestore search.
+ * Supports single and multi-select modes.
+ * Allows adding custom brands.
+ *
+ * Design system: Cormorant Garamond (serif) + Satoshi (sans)
+ * Sharp corners. Charcoal selected state.
+ */
+
 import { firestore } from '@/config/firebaseConfig';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetFooter, BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, getDocs, limit, query, where, doc, setDoc } from '@react-native-firebase/firestore';
+import { collection, getDocs, limit, query, where, doc, setDoc, orderBy, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -43,26 +55,26 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
     const [filteredBrands, setFilteredBrands] = useState<Brand[]>([]);
     const [selectedBrands, setSelectedBrands] = useState<string[]>(initialSelectedBrands);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isAddingBrand, setIsAddingBrand] = useState(false);
+    const [hasMoreBrands, setHasMoreBrands] = useState(true);
+    const lastDocRef = useRef<QueryDocumentSnapshot | null>(null);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const hasInitializedSearch = useRef(false);
+    const PAGE_SIZE = 50;
 
-    // Fixed height: screen height minus safe area top - about 100px for status bar area
     const snapPoints = useMemo(() => [SCREEN_HEIGHT - insets.top - 50], [insets.top]);
     const inputRef = useRef<any>(null);
 
-    // Check if search query could be added as a new brand
     const canAddCustomBrand = useMemo(() => {
       if (!searchQuery.trim() || searchQuery.trim().length < 2) return false;
       const normalizedQuery = searchQuery.trim().toLowerCase();
-      // Check if exact match exists
       const exactMatch = filteredBrands.some(
         b => b.label.toLowerCase() === normalizedQuery
       );
       return !exactMatch;
     }, [searchQuery, filteredBrands]);
 
-    // State to track if we need to trigger initial search
     const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -73,12 +85,10 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         } else {
           setSelectedBrands(initialSelectedBrands);
         }
-        // Set initial search query if provided
         const queryToUse = searchQueryOverride || initialSearchQuery;
         if (queryToUse && !hasInitializedSearch.current) {
           setSearchQuery(queryToUse);
           hasInitializedSearch.current = true;
-          // Trigger search via state change (will be picked up by useEffect)
           setPendingSearchQuery(queryToUse);
         }
       },
@@ -91,10 +101,8 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
       loadBrands();
     }, []);
 
-    // Handle pending search query from show()
     useEffect(() => {
       if (pendingSearchQuery && brands.length > 0) {
-        // Perform Firestore search for initial query
         const performInitialSearch = async () => {
           try {
             const normalizedQuery = pendingSearchQuery.toLowerCase().trim();
@@ -124,7 +132,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             ));
           } catch (error) {
             console.error('Error performing initial search:', error);
-            // Fallback to local filtering
             const filtered = brands.filter((brand) =>
               brand.label.toLowerCase().includes(pendingSearchQuery.toLowerCase())
             );
@@ -147,11 +154,41 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
       }
     }, [searchQuery, brands]);
 
-    const loadBrands = async () => {
+    const loadBrands = async (loadMore = false) => {
+      if (loadMore && !hasMoreBrands) return;
+      if (loadMore && isLoadingMore) return;
+
       try {
-        setIsLoading(true);
-        const q = query(collection(firestore, 'brands'), limit(100));
+        if (loadMore) {
+          setIsLoadingMore(true);
+        } else {
+          setIsLoading(true);
+          lastDocRef.current = null;
+        }
+
+        let q;
+        if (loadMore && lastDocRef.current) {
+          q = query(
+            collection(firestore, 'brands'),
+            orderBy('label'),
+            startAfter(lastDocRef.current),
+            limit(PAGE_SIZE)
+          );
+        } else {
+          q = query(
+            collection(firestore, 'brands'),
+            orderBy('label'),
+            limit(PAGE_SIZE)
+          );
+        }
+
         const querySnapshot = await getDocs(q);
+
+        // Track last document for pagination
+        if (querySnapshot.docs.length > 0) {
+          lastDocRef.current = querySnapshot.docs[querySnapshot.docs.length - 1];
+        }
+        setHasMoreBrands(querySnapshot.docs.length === PAGE_SIZE);
 
         const brandsList: Brand[] = [];
         querySnapshot.forEach((doc: any) => {
@@ -164,20 +201,24 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           }
         });
 
-        brandsList.sort((a, b) => a.label.localeCompare(b.label));
-        setBrands(brandsList);
-        setFilteredBrands(brandsList);
+        if (loadMore) {
+          setBrands(prev => [...prev, ...brandsList]);
+          setFilteredBrands(prev => [...prev, ...brandsList]);
+        } else {
+          setBrands(brandsList);
+          setFilteredBrands(brandsList);
+        }
       } catch (error) {
         console.error('Error loading brands:', error);
       } finally {
         setIsLoading(false);
+        setIsLoadingMore(false);
       }
     };
 
     const handleSearch = useCallback((text: string) => {
       setSearchQuery(text);
 
-      // Clear previous timeout
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -187,7 +228,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         return;
       }
 
-      // Debounce the search to avoid losing focus
       searchTimeoutRef.current = setTimeout(async () => {
         try {
           const normalizedQuery = text.toLowerCase().trim();
@@ -223,7 +263,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
       }, 300);
     }, [brands]);
 
-    // Cleanup timeout on unmount
     useEffect(() => {
       return () => {
         if (searchTimeoutRef.current) {
@@ -247,23 +286,19 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           createdAt: new Date().toISOString(),
         };
 
-        // Add to Firestore
         await setDoc(doc(firestore, 'brands', searchKey), brandDoc);
 
-        // Add to local state
         const newBrand: Brand = { value: searchKey, label: brandName };
         setBrands(prev => [...prev, newBrand].sort((a, b) => a.label.localeCompare(b.label)));
         setFilteredBrands(prev => [...prev, newBrand].sort((a, b) => a.label.localeCompare(b.label)));
 
         if (singleSelect) {
-          // In single select mode, immediately select and close
           if (onSelectSingle) {
             onSelectSingle(brandName);
           }
           setSearchQuery('');
           bottomSheetRef.current?.close();
         } else {
-          // Select the new brand
           setSelectedBrands(prev => [...prev, brandName]);
           setSearchQuery('');
         }
@@ -276,7 +311,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
     const toggleBrand = useCallback((brandLabel: string) => {
       if (singleSelect) {
-        // In single select mode, immediately select and close
         if (onSelectSingle) {
           onSelectSingle(brandLabel);
         }
@@ -312,7 +346,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
     const renderFooter = useCallback(
       (props: any) => {
-        // No footer needed in single select mode
         if (singleSelect) return null;
 
         return (
@@ -328,8 +361,8 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
               >
                 <Text style={styles.confirmButtonText}>
                   {selectedBrands.length === 0
-                    ? 'Sélectionner une marque'
-                    : `Valider (${selectedBrands.length})`
+                    ? 'VALIDER'
+                    : `VALIDER (${selectedBrands.length})`
                   }
                 </Text>
               </TouchableOpacity>
@@ -339,6 +372,22 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
       },
       [selectedBrands, insets.bottom, handleConfirm, singleSelect]
     );
+
+    const handleLoadMore = useCallback(() => {
+      // Only paginate when not searching (search uses Firestore queries with different pagination)
+      if (!searchQuery.trim() && hasMoreBrands && !isLoadingMore) {
+        loadBrands(true);
+      }
+    }, [searchQuery, hasMoreBrands, isLoadingMore]);
+
+    const renderListFooter = useCallback(() => {
+      if (!isLoadingMore) return null;
+      return (
+        <View style={styles.loadMoreContainer}>
+          <ActivityIndicator size="small" color={colors.rust} />
+        </View>
+      );
+    }, [isLoadingMore]);
 
     const renderBrandItem = useCallback(({ item }: { item: Brand }) => {
       const isSelected = singleSelect
@@ -354,7 +403,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             {item.label}
           </Text>
           {isSelected && (
-            <Ionicons name="checkmark-circle" size={22} color="#F79F24" />
+            <Ionicons name="checkmark" size={18} color={colors.charcoal} />
           )}
         </TouchableOpacity>
       );
@@ -370,38 +419,42 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         enablePanDownToClose
         topInset={insets.top}
         handleIndicatorStyle={styles.handleIndicator}
+        backgroundStyle={styles.sheetBackground}
+        enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="none"
         android_keyboardInputMode="adjustResize"
       >
-        {/* Fixed Header - stays outside FlatList to prevent focus loss */}
+        {/* ── Header ── */}
         <View style={styles.headerContainer}>
-          {/* Title row */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={styles.title}>Marques</Text>
               {selectedBrands.length > 0 && (
-                <View style={styles.selectedBadge}>
-                  <Text style={styles.selectedCount}>{selectedBrands.length}</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{selectedBrands.length}</Text>
                 </View>
               )}
             </View>
             <TouchableOpacity
               onPress={() => bottomSheetRef.current?.close()}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.closeButton}
             >
-              <Ionicons name="close" size={24} color="#1C1C1E" />
+              <Ionicons name="close" size={22} color={colors.charcoal} />
             </TouchableOpacity>
           </View>
 
-          {/* Search bar - fixed, not in FlatList */}
+          <View style={styles.divider} />
+
+          {/* ── Search bar ── */}
           <View style={styles.searchContainer}>
-            <Ionicons name="search-outline" size={20} color="#8E8E93" style={styles.searchIcon} />
+            <Ionicons name="search-outline" size={18} color={colors.muted} style={styles.searchIcon} />
             <BottomSheetTextInput
               ref={inputRef}
               style={styles.searchInput}
               placeholder="Rechercher une marque..."
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.muted}
               value={searchQuery}
               onChangeText={handleSearch}
               autoCapitalize="words"
@@ -409,12 +462,12 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => { setSearchQuery(''); setFilteredBrands(brands); }}>
-                <Ionicons name="close-circle" size={20} color="#8E8E93" />
+                <Ionicons name="close" size={18} color={colors.muted} />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Add custom brand option */}
+          {/* ── Add custom brand ── */}
           {canAddCustomBrand && (
             <TouchableOpacity
               style={styles.addBrandButton}
@@ -422,16 +475,16 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
               disabled={isAddingBrand}
             >
               <View style={styles.addBrandContent}>
-                <Ionicons name="add-circle-outline" size={22} color="#F79F24" />
+                <Ionicons name="add" size={18} color={colors.rust} />
                 <Text style={styles.addBrandText}>
                   Ajouter "{searchQuery.trim()}"
                 </Text>
               </View>
-              {isAddingBrand && <ActivityIndicator size="small" color="#F79F24" />}
+              {isAddingBrand && <ActivityIndicator size="small" color={colors.rust} />}
             </TouchableOpacity>
           )}
 
-          {/* Selection controls */}
+          {/* ── Selection controls ── */}
           {selectedBrands.length > 0 && (
             <View style={styles.controls}>
               <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
@@ -441,10 +494,10 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           )}
         </View>
 
-        {/* Brand list */}
+        {/* ── Brand list ── */}
         {isLoading ? (
           <View style={styles.loadingContent}>
-            <ActivityIndicator size="large" color="#F79F24" />
+            <ActivityIndicator size="large" color={colors.rust} />
             <Text style={styles.loadingText}>Chargement des marques...</Text>
           </View>
         ) : (
@@ -455,10 +508,13 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={renderListFooter}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="search-outline" size={48} color="#8E8E93" />
-                <Text style={styles.emptyText}>Aucune marque trouvée</Text>
+                <Ionicons name="search-outline" size={40} color={colors.borderStrong} />
+                <Text style={styles.emptyText}>Aucune marque trouvee</Text>
               </View>
             }
           />
@@ -472,10 +528,18 @@ BrandSelectionSheet.displayName = 'BrandSelectionSheet';
 
 export default BrandSelectionSheet;
 
+// ─────────────────────────────────────────────────────────
+// STYLES — Editorial Design
+// ─────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
+  sheetBackground: {
+    backgroundColor: colors.surface,
+  },
   handleIndicator: {
-    backgroundColor: '#DDDDDD',
+    backgroundColor: colors.borderStrong,
     width: 40,
+    height: 4,
   },
   headerContainer: {
     paddingHorizontal: 20,
@@ -484,9 +548,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -494,50 +557,64 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 22,
+    letterSpacing: -0.3,
+    color: colors.charcoal,
   },
-  selectedBadge: {
-    backgroundColor: '#F79F24',
-    borderRadius: 12,
+  countBadge: {
+    backgroundColor: colors.charcoal,
     paddingHorizontal: 8,
     paddingVertical: 2,
+    borderRadius: 0,
   },
-  selectedCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  countBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.white,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 0,
+    paddingHorizontal: 14,
     height: 48,
-    marginTop: 16,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#1C1C1E',
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    letterSpacing: 0.1,
+    color: colors.charcoal,
     paddingVertical: 0,
   },
   addBrandButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF3E0',
-    borderRadius: 12,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.rust,
+    borderStyle: 'dashed',
+    borderRadius: 0,
     padding: 14,
     marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#F79F24',
-    borderStyle: 'dashed',
   },
   addBrandContent: {
     flexDirection: 'row',
@@ -545,9 +622,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   addBrandText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#F79F24',
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    letterSpacing: 0.3,
+    color: colors.rust,
   },
   controls: {
     flexDirection: 'row',
@@ -559,36 +637,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   clearButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FF3B30',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: colors.rust,
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 100, // Space for footer
+    paddingBottom: 100,
   },
   brandItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#F8F8F8',
-    marginBottom: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: 'transparent',
   },
   brandItemSelected: {
-    backgroundColor: '#FFF3E0',
-    borderWidth: 1,
-    borderColor: '#F79F24',
+    backgroundColor: colors.surfaceWarm,
   },
   brandItemText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1C1C1E',
+    fontFamily: fonts.sans,
+    fontSize: 15,
+    letterSpacing: 0.1,
+    color: colors.charcoal,
   },
   brandItemTextSelected: {
-    color: '#F79F24',
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
   },
   loadingContent: {
     flex: 1,
@@ -597,38 +676,46 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    fontSize: 16,
-    color: '#8E8E93',
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+  },
+  loadMoreContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: 16,
+    gap: 12,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#8E8E93',
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
   },
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    borderTopColor: colors.border,
   },
   confirmButton: {
-    backgroundColor: '#F79F24',
-    borderRadius: 12,
+    backgroundColor: colors.charcoal,
+    borderRadius: 0,
     paddingVertical: 16,
     alignItems: 'center',
   },
   confirmButtonDisabled: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.borderStrong,
   },
   confirmButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
 });

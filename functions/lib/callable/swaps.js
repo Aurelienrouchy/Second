@@ -1,12 +1,155 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = void 0;
+exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.proposeMultiSwap = void 0;
 /**
  * Swap callable functions
  * Firebase Functions v7 - using onCall
  */
 const https_1 = require("firebase-functions/v2/https");
+const admin = __importStar(require("firebase-admin"));
 const firebase_1 = require("../config/firebase");
+/**
+ * Propose a multi-article swap
+ * Supports swapping multiple items on each side with validation
+ */
+exports.proposeMultiSwap = (0, https_1.onCall)({ invoker: 'private', memory: '512MiB' }, async (request) => {
+    const { initiatorId, initiatorName, initiatorImage, initiatorItems, receiverItems, receiverId, receiverName, receiverImage, message, cashTopUp, partyId, } = request.data;
+    // Validate required fields
+    if (!initiatorId || !initiatorName || !receiverId || !receiverName) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing required user information');
+    }
+    if (!Array.isArray(initiatorItems) || initiatorItems.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Initiator must provide at least one item');
+    }
+    if (!Array.isArray(receiverItems) || receiverItems.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Receiver must provide at least one item');
+    }
+    try {
+        // Validate all items exist in articles collection
+        const articlesRef = admin.firestore().collection('articles');
+        for (const item of initiatorItems) {
+            const articleDoc = await articlesRef.doc(item.articleId).get();
+            if (!articleDoc.exists) {
+                throw new https_1.HttpsError('not-found', `Initiator item ${item.articleId} not found`);
+            }
+            // Verify article is active and not already swapped
+            const articleData = articleDoc.data();
+            if (!articleData.isActive) {
+                throw new https_1.HttpsError('failed-precondition', `Initiator item "${item.title}" is no longer active`);
+            }
+        }
+        for (const item of receiverItems) {
+            const articleDoc = await articlesRef.doc(item.articleId).get();
+            if (!articleDoc.exists) {
+                throw new https_1.HttpsError('not-found', `Receiver item ${item.articleId} not found`);
+            }
+            // Verify article is active and not already swapped
+            const articleData = articleDoc.data();
+            if (!articleData.isActive) {
+                throw new https_1.HttpsError('failed-precondition', `Receiver item "${item.title}" is no longer active`);
+            }
+        }
+        // Calculate total values
+        const initiatorTotalValue = initiatorItems.reduce((sum, item) => sum + (item.price || 0), 0);
+        const receiverTotalValue = receiverItems.reduce((sum, item) => sum + (item.price || 0), 0);
+        /** Strip undefined values (Firestore rejects undefined) */
+        const stripUndefined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+        // Build swap document
+        const swapData = stripUndefined({
+            initiatorId,
+            initiatorName,
+            initiatorImage,
+            initiatorItems: initiatorItems.map(stripUndefined),
+            initiatorTotalValue,
+            receiverId,
+            receiverName,
+            receiverImage,
+            receiverItems: receiverItems.map(stripUndefined),
+            receiverTotalValue,
+            status: 'proposed',
+            message,
+            cashTopUp: cashTopUp ? { amount: cashTopUp.amount, payerId: cashTopUp.payerId } : undefined,
+            partyId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // Create swap document
+        const swapsRef = admin.firestore().collection('swaps');
+        const newSwapRef = await swapsRef.add(swapData);
+        // Mark all items as isPending in party if partyId is provided
+        if (partyId) {
+            const partyItemsRef = admin.firestore().collection('swapPartyItems');
+            // Mark initiator items as pending
+            for (const item of initiatorItems) {
+                const partyItemQuery = await partyItemsRef
+                    .where('partyId', '==', partyId)
+                    .where('articleId', '==', item.articleId)
+                    .where('sellerId', '==', initiatorId)
+                    .get();
+                for (const doc of partyItemQuery.docs) {
+                    await doc.ref.update({ isPending: true });
+                }
+            }
+            // Mark receiver items as pending
+            for (const item of receiverItems) {
+                const partyItemQuery = await partyItemsRef
+                    .where('partyId', '==', partyId)
+                    .where('articleId', '==', item.articleId)
+                    .where('sellerId', '==', receiverId)
+                    .get();
+                for (const doc of partyItemQuery.docs) {
+                    await doc.ref.update({ isPending: true });
+                }
+            }
+        }
+        return {
+            swapId: newSwapRef.id,
+            success: true,
+            message: 'Swap proposal created successfully',
+        };
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error proposing multi-swap:', error);
+        if (error instanceof https_1.HttpsError) {
+            throw error;
+        }
+        throw new https_1.HttpsError('internal', 'Failed to propose swap: ' + message);
+    }
+});
 /**
  * Get active swap party info for homepage
  */

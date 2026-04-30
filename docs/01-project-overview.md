@@ -17,7 +17,7 @@ Freepe is a second-hand marketplace mobile application similar to Vinted, allowi
 - Browse local thrift shops and vintage stores
 - Chat with sellers and make offers
 - Complete secure payments via Stripe
-- Track shipments via Shippo integration
+- Track shipments via Intelcom integration
 
 ## Repository Structure
 
@@ -54,7 +54,7 @@ Seconde/
 - **Type**: Serverless Backend
 - **Runtime**: Node.js 20
 - **Platform**: Firebase Cloud Functions
-- **Integrations**: Stripe, Shippo, Firebase Admin
+- **Integrations**: Stripe, Intelcom, Firebase Admin
 
 ## Quick Start
 
@@ -81,7 +81,7 @@ Required environment variables (`.env`):
 - `FB_APP_ID` - Facebook App ID for social login
 - `STRIPE_PUBLISHABLE_KEY` - Stripe public key (mobile)
 - `STRIPE_SECRET_KEY` - Stripe secret key (functions)
-- `SHIPPO_API_KEY` - Shippo API key for shipping
+- `INTELCOM_API_KEY` - Intelcom API key for shipping
 
 ## Key Features
 
@@ -89,7 +89,7 @@ Required environment variables (`.env`):
 2. **Product Listings**: Create, edit, search with advanced filters
 3. **Real-time Chat**: Direct messaging with offer system
 4. **Payments**: Stripe integration with 3D Secure
-5. **Shipping**: Shippo label generation and tracking
+5. **Shipping**: Intelcom label generation and tracking
 6. **Push Notifications**: FCM for messages and offers
 7. **Shop Discovery**: Geolocated thrift store finder
 8. **Admin Panel**: Shop approval and moderation

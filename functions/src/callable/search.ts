@@ -158,6 +158,7 @@ export const visualSearch = onCall(
       price: number;
       imageUrl: string;
       brand?: string;
+      size?: string;
       condition: string;
     }> = [];
 
@@ -186,6 +187,7 @@ export const visualSearch = onCall(
         price: article.price,
         imageUrl: article.images?.[0]?.url,
         brand: article.brand || undefined,
+        size: article.size || undefined,
         condition: article.condition,
       });
     }
@@ -276,6 +278,7 @@ export const getSimilarProducts = onCall(
       price: number;
       imageUrl: string;
       brand?: string;
+      size?: string;
       condition: string;
     }> = [];
 
@@ -298,6 +301,7 @@ export const getSimilarProducts = onCall(
         price: number;
         imageUrl: string;
         brand?: string;
+        size?: string;
         condition: string;
       } = {
         articleId: doc.id,
@@ -305,6 +309,7 @@ export const getSimilarProducts = onCall(
         price: article.price,
         imageUrl: article.images?.[0]?.url,
         brand: article.brand || undefined,
+        size: article.size || undefined,
         condition: article.condition,
       };
 

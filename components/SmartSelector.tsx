@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import ConfidenceIndicator from './ConfidenceIndicator';
 import { ConfidenceLevel } from '@/types/ai';
+import { colors } from '@/constants/theme';
 
 interface SmartSelectorOption {
   value: string;
@@ -191,9 +192,9 @@ export default function SmartSelector({
 
       {/* View all link */}
       <TouchableOpacity style={styles.viewAllButton} onPress={onViewAll}>
-        <Ionicons name="list-outline" size={18} color="#8B5CF6" />
+        <Ionicons name="list-outline" size={18} color={colors.secondary} />
         <Text style={styles.viewAllText}>{viewAllLabel}</Text>
-        <Ionicons name="chevron-forward" size={16} color="#8B5CF6" />
+        <Ionicons name="chevron-forward" size={16} color={colors.secondary} />
       </TouchableOpacity>
     </View>
   );
@@ -222,10 +223,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   required: {
-    color: '#EF4444',
+    color: colors.danger,
   },
   countBadge: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.secondary,
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceWarm,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
@@ -253,8 +254,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   chipSelected: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#8B5CF6',
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
   },
   chipText: {
     fontSize: 14,
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.muted,
   },
   viewAllButton: {
     flexDirection: 'row',
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#8B5CF6',
+    color: colors.secondary,
     flex: 1,
   },
 });

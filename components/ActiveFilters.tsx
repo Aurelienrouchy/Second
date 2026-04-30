@@ -1,8 +1,9 @@
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
-import { colors } from '@/data/colors';
+import { colors as dataColors } from '@/data/colors';
 import { SearchFilters } from '@/types';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '@/constants/theme';
 
 interface ActiveFiltersProps {
   filters: SearchFilters;
@@ -21,7 +22,7 @@ export default function ActiveFilters({ filters, onFilterRemove, onClearAll, sel
 
   // Couleurs
   filters.colors.forEach(colorValue => {
-    const color = colors.find(c => c.value === colorValue);
+    const color = dataColors.find(c => c.value === colorValue);
     if (color) {
       activeFilters.push({
         type: 'colors' as keyof SearchFilters,
@@ -164,10 +165,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#F79F24',
+    borderColor: colors.primary,
     gap: 6,
   },
   colorDot: {

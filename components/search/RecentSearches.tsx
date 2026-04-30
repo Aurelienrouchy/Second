@@ -1,3 +1,13 @@
+/**
+ * RecentSearches — Seconde (Editorial Design)
+ *
+ * Shows trending searches as flat sharp-corner tags
+ * and recent search history as clean list items.
+ *
+ * Design system: Cormorant Garamond (serif) + Satoshi (sans)
+ * Sharp corners on tags. No emojis.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback } from 'react';
@@ -7,11 +17,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { colors, radius, spacing, typography } from '@/constants/theme';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
 
 // =============================================================================
@@ -19,14 +29,14 @@ import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistor
 // =============================================================================
 
 const TRENDING_SEARCHES = [
-  { label: 'Sac Polène', icon: 'trending-up-outline' as const },
-  { label: 'Veste en cuir', icon: 'trending-up-outline' as const },
-  { label: 'Jean Levi\'s 501', icon: 'trending-up-outline' as const },
-  { label: 'Robe vintage', icon: 'trending-up-outline' as const },
-  { label: 'Baskets Nike', icon: 'trending-up-outline' as const },
-  { label: 'Pull cachemire', icon: 'trending-up-outline' as const },
-  { label: 'Sézane', icon: 'trending-up-outline' as const },
-  { label: 'Manteau laine', icon: 'trending-up-outline' as const },
+  'Sac Polene',
+  'Veste en cuir',
+  'Jean Levi\'s 501',
+  'Robe vintage',
+  'Baskets Nike',
+  'Pull cachemire',
+  'Sezane',
+  'Manteau laine',
 ];
 
 // =============================================================================
@@ -60,7 +70,7 @@ export default function RecentSearches({
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.primary} />
+        <ActivityIndicator size="small" color={colors.rust} />
       </View>
     );
   }
@@ -69,37 +79,31 @@ export default function RecentSearches({
     return (
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.emptyContentContainer}
+        contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Trending Section */}
-        <View style={styles.trendingSection}>
-          <View style={styles.trendingHeader}>
-            <Ionicons name="flame-outline" size={18} color={colors.primary} />
-            <Text style={styles.sectionTitle}>Tendances</Text>
-          </View>
-
-          <View style={styles.trendingPills}>
+        {/* ── Trending Section ── */}
+        <Animated.View entering={FadeInDown.duration(300).delay(50)}>
+          <Text style={styles.sectionLabel}>TENDANCES</Text>
+          <View style={styles.trendingGrid}>
             {TRENDING_SEARCHES.map((item) => (
               <Pressable
-                key={item.label}
-                style={styles.trendingPill}
-                onPress={() => handleTrendingPress(item.label)}
+                key={item}
+                style={styles.trendingTag}
+                onPress={() => handleTrendingPress(item)}
               >
-                <Ionicons name={item.icon} size={14} color={colors.primary} />
-                <Text style={styles.trendingPillText}>{item.label}</Text>
+                <Text style={styles.trendingTagText}>{item}</Text>
               </Pressable>
             ))}
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Empty State Hint */}
-        <View style={styles.emptyHint}>
-          <Ionicons name="search-outline" size={32} color={colors.border} />
-          <Text style={styles.emptySubtitle}>
-            Vos recherches apparaîtront ici
-          </Text>
-        </View>
+        {/* ── Empty hint ── */}
+        <Animated.View entering={FadeInDown.duration(300).delay(150)} style={styles.emptyHint}>
+          <Ionicons name="search-outline" size={28} color={colors.borderStrong} />
+          <Text style={styles.emptyText}>Vos recherches apparaitront ici</Text>
+        </Animated.View>
       </ScrollView>
     );
   }
@@ -109,44 +113,63 @@ export default function RecentSearches({
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Recherches récentes</Text>
+      {/* ── Trending Section ── */}
+      <Animated.View entering={FadeInDown.duration(300).delay(50)}>
+        <Text style={styles.sectionLabel}>TENDANCES</Text>
+        <View style={styles.trendingGrid}>
+          {TRENDING_SEARCHES.map((item) => (
+            <Pressable
+              key={item}
+              style={styles.trendingTag}
+              onPress={() => handleTrendingPress(item)}
+            >
+              <Text style={styles.trendingTagText}>{item}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </Animated.View>
 
-      {searches.map((item) => (
-        <TouchableOpacity
-          key={item.id}
-          style={styles.searchItem}
-          onPress={() => onSearchTap(item)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="time-outline" size={20} color={colors.muted} style={styles.itemIcon} />
+      {/* ── Recent searches ── */}
+      <Animated.View entering={FadeInDown.duration(300).delay(100)}>
+        <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>RECHERCHES RECENTES</Text>
 
-          <View style={styles.itemContent}>
-            <Text style={styles.itemText} numberOfLines={1}>
-              {SearchHistoryService.formatSearchDisplay(item)}
-            </Text>
-            {item.resultCount !== undefined && item.resultCount > 0 && (
-              <Text style={styles.itemSubtext}>
-                {item.resultCount} résultat{item.resultCount > 1 ? 's' : ''}
-              </Text>
-            )}
-          </View>
-
-          <TouchableOpacity
-            onPress={() => onSearchDelete(item)}
-            style={styles.deleteButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        {searches.map((item) => (
+          <Pressable
+            key={item.id}
+            style={styles.searchItem}
+            onPress={() => onSearchTap(item)}
           >
-            <Ionicons name="close" size={18} color={colors.border} />
-          </TouchableOpacity>
-        </TouchableOpacity>
-      ))}
+            <Ionicons name="time-outline" size={18} color={colors.muted} style={styles.itemIcon} />
+
+            <View style={styles.itemContent}>
+              <Text style={styles.itemText} numberOfLines={1}>
+                {SearchHistoryService.formatSearchDisplay(item)}
+              </Text>
+              {item.resultCount !== undefined && item.resultCount > 0 && (
+                <Text style={styles.itemSubtext}>
+                  {item.resultCount} article{item.resultCount > 1 ? 's' : ''}
+                </Text>
+              )}
+            </View>
+
+            <Pressable
+              onPress={() => onSearchDelete(item)}
+              style={styles.deleteButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={16} color={colors.borderStrong} />
+            </Pressable>
+          </Pressable>
+        ))}
+      </Animated.View>
     </ScrollView>
   );
 }
 
 // =============================================================================
-// STYLES
+// STYLES — Editorial Design
 // =============================================================================
 
 const styles = StyleSheet.create({
@@ -155,9 +178,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingVertical: spacing.md,
-  },
-  emptyContentContainer: {
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   loadingContainer: {
     flex: 1,
@@ -165,90 +186,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Trending
-  trendingSection: {
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
+  // ── Section label ──
+  sectionLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: 12,
   },
-  trendingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  trendingPills: {
+
+  // ── Trending tags — sharp corners ──
+  trendingGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 8,
   },
-  trendingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
+  trendingTag: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: 'rgba(0, 47, 167, 0.15)',
+    borderColor: colors.borderStrong,
+    borderRadius: 0, // Sharp corners — editorial
+    backgroundColor: 'transparent',
   },
-  trendingPillText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: typography.label.fontSize,
-    color: colors.primary,
-  },
-
-  // Empty Hint
-  emptyHint: {
-    alignItems: 'center',
-    paddingTop: spacing.xl,
-    gap: spacing.sm,
-  },
-  emptySubtitle: {
-    fontFamily: typography.bodySmall.fontFamily,
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.muted,
-    textAlign: 'center',
+  trendingTagText: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: colors.charcoal,
   },
 
-  // Section Title
-  sectionTitle: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-
-  // Search Items
+  // ── Search items ──
   searchItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 4,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   itemIcon: {
-    marginRight: spacing.sm + 4,
+    marginRight: 12,
   },
   itemContent: {
     flex: 1,
   },
   itemText: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: colors.foreground,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    letterSpacing: 0.1,
+    color: colors.charcoal,
   },
   itemSubtext: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    letterSpacing: 0.2,
     color: colors.muted,
     marginTop: 2,
   },
   deleteButton: {
     padding: spacing.sm,
+  },
+
+  // ── Empty hint ──
+  emptyHint: {
+    alignItems: 'center',
+    paddingTop: 48,
+    gap: 10,
+  },
+  emptyText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    letterSpacing: 0.1,
+    color: colors.muted,
+    textAlign: 'center',
   },
 });

@@ -24,9 +24,6 @@ import { ActivityIndicator, TouchableOpacity } from 'react-native';
 
 import { colors, spacing, typography, radius, shadows } from '@/constants/theme';
 import { searchByImage, VisualSearchResult } from '@/services/visualSearchService';
-import { useFavorites } from '@/contexts/FavoritesContext';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
-import { AUTH_MESSAGES } from '@/constants/authMessages';
 import ProductCard from '@/components/ProductCard';
 
 // ============================================================
@@ -42,9 +39,6 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function VisualSearchResultsScreen() {
   const params = useLocalSearchParams<{ imageUri: string }>();
   const { imageUri } = params;
-
-  const { favorites, isFavorite, toggleFavorite } = useFavorites();
-  const { requireAuth } = useAuthRequired();
 
   const [results, setResults] = useState<VisualSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,17 +84,6 @@ export default function VisualSearchResultsScreen() {
     router.push(`/article/${articleId}`);
   }, []);
 
-  const handleToggleLike = useCallback((articleId: string) => {
-    requireAuth(
-      () => toggleFavorite(articleId),
-      AUTH_MESSAGES.like
-    );
-  }, [requireAuth, toggleFavorite]);
-
-  // Use ref to avoid re-creating renderProduct when isFavorite changes
-  const isFavoriteRef = React.useRef(isFavorite);
-  isFavoriteRef.current = isFavorite;
-
   // ─── Render Product Card ────────────────────────────────────
   const renderProductCard = useCallback(
     ({ item }: { item: VisualSearchResult }) => (
@@ -111,13 +94,11 @@ export default function VisualSearchResultsScreen() {
             title: item.title,
             price: item.price,
             images: item.imageUrl ? [{ url: item.imageUrl }] : [],
-            sellerName: item.brand || '',
             brand: item.brand,
-            condition: item.condition as any,
-            isLiked: isFavoriteRef.current(item.articleId),
+            size: item.size,
+            condition: item.condition,
           }}
           onPress={() => handleArticlePress(item.articleId)}
-          onToggleLike={() => handleToggleLike(item.articleId)}
         />
         {/* Similarity badge overlay */}
         <View style={styles.similarityBadge}>
@@ -125,7 +106,7 @@ export default function VisualSearchResultsScreen() {
         </View>
       </View>
     ),
-    [handleArticlePress, handleToggleLike]
+    [handleArticlePress]
   );
 
   // ─── Loading State ──────────────────────────────────────────
@@ -231,7 +212,7 @@ export default function VisualSearchResultsScreen() {
             estimatedItemSize={280}
             ListHeaderComponent={renderHeader}
             showsVerticalScrollIndicator={false}
-            extraData={favorites}
+
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl

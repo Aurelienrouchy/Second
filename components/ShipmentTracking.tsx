@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { httpsCallable } from '@react-native-firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +14,7 @@ import {
 
 import { functions } from '@/config/firebaseConfig';
 import { Transaction } from '@/types';
+import { colors } from '@/constants/theme';
 
 interface ShipmentTrackingProps {
   transaction: Transaction;
@@ -32,16 +33,16 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       case 'IN_TRANSIT':
         return {
           icon: 'airplane' as const,
-          color: '#F79F24',
+          color: colors.primary,
           label: 'En transit',
-          description: 'Votre colis est en cours d\'acheminement',
+          description: 'Votre colis est en cours d\'acheminement via Intelcom',
         };
       case 'OUT_FOR_DELIVERY':
         return {
           icon: 'car' as const,
           color: '#FF9500',
           label: 'En cours de livraison',
-          description: 'Votre colis est en cours de livraison aujourd\'hui',
+          description: 'Votre colis est en livraison avec Intelcom aujourd\'hui',
         };
       case 'DELIVERED':
         return {
@@ -61,7 +62,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       default:
         return {
           icon: 'cube' as const,
-          color: '#8E8E93',
+          color: colors.muted,
           label: 'En préparation',
           description: 'Le vendeur prépare votre colis',
         };
@@ -113,7 +114,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="cube-outline" size={24} color="#1C1C1E" />
+          <Ionicons name="cube-outline" size={24} color={colors.foreground} />
           <Text style={styles.headerTitle}>Suivi de livraison</Text>
         </View>
         <Pressable
@@ -122,12 +123,12 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
           style={styles.refreshButton}
         >
           {isRefreshing ? (
-            <ActivityIndicator size="small" color="#F79F24" />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <Ionicons
               name="refresh"
               size={20}
-              color={isDelivered ? '#8E8E93' : '#F79F24'}
+              color={isDelivered ? colors.muted : colors.primary}
             />
           )}
         </Pressable>
@@ -226,14 +227,14 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       <View style={styles.actions}>
         {transaction.trackingUrl && (
           <Pressable style={styles.actionButton} onPress={handleOpenTracking}>
-            <Ionicons name="open-outline" size={18} color="#F79F24" />
+            <Ionicons name="open-outline" size={18} color={colors.primary} />
             <Text style={styles.actionButtonText}>Suivre en ligne</Text>
           </Pressable>
         )}
 
         {transaction.shippingLabelUrl && (
           <Pressable style={styles.actionButton} onPress={handleDownloadLabel}>
-            <Ionicons name="download-outline" size={18} color="#F79F24" />
+            <Ionicons name="download-outline" size={18} color={colors.primary} />
             <Text style={styles.actionButtonText}>Télécharger l'étiquette</Text>
           </Pressable>
         )}
@@ -253,7 +254,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 16,
     padding: 16,
     marginVertical: 12,
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   refreshButton: {
     padding: 4,
@@ -309,19 +310,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   trackingNumberContainer: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 8,
     padding: 10,
   },
   trackingNumberLabel: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
     marginBottom: 4,
   },
   trackingNumber: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     fontFamily: 'monospace',
   },
   timeline: {
@@ -343,10 +344,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759',
   },
   timelineDotActive: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
   },
   timelineDotPending: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.border,
   },
   timelineContent: {
     flex: 1,
@@ -354,16 +355,16 @@ const styles = StyleSheet.create({
   timelineTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 2,
   },
   timelineDate: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   timelineActive: {
     fontSize: 12,
-    color: '#F79F24',
+    color: colors.primary,
     fontWeight: '600',
   },
   actions: {
@@ -381,12 +382,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#F79F24',
+    borderColor: colors.primary,
   },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F79F24',
+    color: colors.primary,
   },
   deliveryNote: {
     flexDirection: 'row',

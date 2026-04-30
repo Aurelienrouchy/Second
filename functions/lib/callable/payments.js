@@ -4,73 +4,58 @@ exports.checkTrackingStatus = exports.createPaymentIntent = exports.getShippingE
 /**
  * Payment callable functions
  * Firebase Functions v7 - using onCall
+ * Shipping via Intelcom (Dragonfly) API
  */
 const https_1 = require("firebase-functions/v2/https");
 const firebase_1 = require("../config/firebase");
 const stripe_1 = require("../config/stripe");
-const shippo_1 = require("../config/shippo");
+const intelcom_1 = require("../config/intelcom");
 /**
- * Get shipping estimate via Shippo
+ * Get shipping estimate via Intelcom Rate API
  */
 exports.getShippingEstimate = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
-    var _a, _b, _c;
     const { fromAddress, toAddress, weight, dimensions } = request.data;
     if (!fromAddress || !toAddress) {
         throw new https_1.HttpsError('invalid-argument', 'From and to addresses are required');
     }
-    const shippo = (0, shippo_1.getShippo)();
-    if (!shippo) {
-        throw new https_1.HttpsError('failed-precondition', 'Shippo API not configured');
+    const intelcom = (0, intelcom_1.getIntelcom)();
+    if (!intelcom) {
+        throw new https_1.HttpsError('failed-precondition', 'Intelcom API not configured');
     }
     try {
-        // Use provided dimensions or default values
-        const parcelDimensions = {
-            length: ((_a = dimensions === null || dimensions === void 0 ? void 0 : dimensions.length) === null || _a === void 0 ? void 0 : _a.toString()) || '30',
-            width: ((_b = dimensions === null || dimensions === void 0 ? void 0 : dimensions.width) === null || _b === void 0 ? void 0 : _b.toString()) || '25',
-            height: ((_c = dimensions === null || dimensions === void 0 ? void 0 : dimensions.height) === null || _c === void 0 ? void 0 : _c.toString()) || '10',
-            distanceUnit: 'cm',
-            weight: (weight === null || weight === void 0 ? void 0 : weight.toString()) || '0.5',
-            massUnit: 'kg',
-        };
-        console.log('📦 Creating Shippo shipment with:', {
-            fromAddress,
-            toAddress,
-            parcelDimensions,
+        const parcelWeight = parseFloat(weight) || 0.5;
+        const parcelLength = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.length) || 30;
+        const parcelWidth = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.width) || 25;
+        const parcelHeight = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.height) || 10;
+        console.log('📦 Getting Intelcom shipping rates:', {
+            fromPostalCode: fromAddress.postalCode,
+            toPostalCode: toAddress.postalCode,
+            weight: parcelWeight,
+            dimensions: { length: parcelLength, width: parcelWidth, height: parcelHeight },
         });
-        // Create shipment object
-        const shipment = await shippo.shipments.create({
-            addressFrom: {
-                name: fromAddress.name,
-                street1: fromAddress.street,
-                city: fromAddress.city,
-                zip: fromAddress.postalCode,
-                country: fromAddress.country,
-            },
-            addressTo: {
-                name: toAddress.name,
-                street1: toAddress.street,
-                city: toAddress.city,
-                zip: toAddress.postalCode,
-                country: toAddress.country,
-                phone: toAddress.phoneNumber || '',
-            },
-            parcels: [parcelDimensions],
-            async: false,
+        // Call Intelcom Rate API
+        const rates = await intelcom.getRates({
+            originPostalCode: fromAddress.postalCode,
+            destinationPostalCode: toAddress.postalCode,
+            weight: parcelWeight,
+            length: parcelLength,
+            width: parcelWidth,
+            height: parcelHeight,
         });
-        // Extract rates
-        const rates = shipment.rates.map((rate) => ({
-            carrier: rate.provider,
-            serviceName: rate.servicelevel.name,
-            estimatedDays: rate.estimatedDays || '3-5',
-            amount: parseFloat(rate.amount),
+        // Map to our ShippingEstimate format
+        const formattedRates = rates.map((rate) => ({
+            carrier: 'Intelcom',
+            serviceName: rate.serviceName,
+            estimatedDays: rate.estimatedDays,
+            amount: rate.amount,
             currency: rate.currency,
-            shippoRateId: rate.objectId,
+            intelcomRateId: rate.rateId,
+            intelcomServiceLevel: rate.serviceLevel,
         }));
-        console.log(`✅ Retrieved ${rates.length} shipping rates`);
-        // Return cheapest and fastest options
+        console.log(`✅ Retrieved ${formattedRates.length} Intelcom shipping rates`);
         return {
             success: true,
-            rates: rates.slice(0, 3), // Return top 3 options
+            rates: formattedRates.slice(0, 3), // Return top 3 options
         };
     }
     catch (error) {
@@ -119,7 +104,7 @@ exports.createPaymentIntent = (0, https_1.onCall)({ memory: '512MiB' }, async (r
         // Create new payment intent
         const paymentIntent = await stripeClient.paymentIntents.create({
             amount: Math.round(transaction.totalAmount * 100), // Convert to cents
-            currency: 'eur',
+            currency: 'cad',
             metadata: {
                 transactionId,
                 buyerId: transaction.buyerId,
@@ -147,10 +132,9 @@ exports.createPaymentIntent = (0, https_1.onCall)({ memory: '512MiB' }, async (r
     }
 });
 /**
- * Check tracking status from Shippo
+ * Check tracking status from Intelcom Tracking API
  */
 exports.checkTrackingStatus = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
-    var _a, _b;
     const { transactionId } = request.data;
     if (!transactionId) {
         throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
@@ -165,13 +149,14 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ memory: '512MiB' }, async (r
         if (!transaction.trackingNumber) {
             throw new https_1.HttpsError('failed-precondition', 'No tracking number available');
         }
-        const shippo = (0, shippo_1.getShippo)();
-        if (!shippo) {
-            throw new https_1.HttpsError('failed-precondition', 'Shippo API not configured');
+        const intelcom = (0, intelcom_1.getIntelcom)();
+        if (!intelcom) {
+            throw new https_1.HttpsError('failed-precondition', 'Intelcom API not configured');
         }
-        // Get tracking info from Shippo
-        const tracking = await shippo.trackingStatus.get(transaction.trackingNumber, ((_a = transaction.shippingEstimate) === null || _a === void 0 ? void 0 : _a.carrier) || 'usps');
-        const trackingStatus = ((_b = tracking.trackingStatus) === null || _b === void 0 ? void 0 : _b.status) || 'UNKNOWN';
+        // Get tracking info from Intelcom
+        const tracking = await intelcom.getTracking(transaction.trackingNumber);
+        // Map Intelcom status to our normalized status
+        const trackingStatus = mapIntelcomStatus(tracking.status);
         // Update transaction
         await firebase_1.db.collection('transactions').doc(transactionId).update({
             trackingStatus,
@@ -229,7 +214,7 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ memory: '512MiB' }, async (r
         return {
             success: true,
             trackingStatus,
-            trackingHistory: tracking.trackingHistory || [],
+            trackingHistory: tracking.events || [],
         };
     }
     catch (error) {
@@ -238,4 +223,22 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ memory: '512MiB' }, async (r
         throw new https_1.HttpsError('internal', `Failed to check tracking: ${message}`);
     }
 });
+/**
+ * Map Intelcom tracking status to our normalized status codes
+ * Intelcom uses statuses like: BOOKED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED, RETURNED
+ */
+function mapIntelcomStatus(intelcomStatus) {
+    const statusMap = {
+        BOOKED: 'TRANSIT',
+        PICKED_UP: 'TRANSIT',
+        IN_TRANSIT: 'IN_TRANSIT',
+        AT_STATION: 'IN_TRANSIT',
+        OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+        DELIVERED: 'DELIVERED',
+        FAILED: 'FAILURE',
+        RETURNED: 'RETURNED',
+        CANCELLED: 'FAILURE',
+    };
+    return statusMap[intelcomStatus === null || intelcomStatus === void 0 ? void 0 : intelcomStatus.toUpperCase()] || 'UNKNOWN';
+}
 //# sourceMappingURL=payments.js.map

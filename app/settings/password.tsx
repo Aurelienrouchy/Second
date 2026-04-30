@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
+import { colors } from '@/constants/theme';
 
 export default function PasswordSettingsScreen() {
   const router = useRouter();
@@ -80,7 +81,7 @@ export default function PasswordSettingsScreen() {
         headerRight: () => (
           <TouchableOpacity onPress={handleSave} disabled={isSaving}>
             {isSaving ? (
-              <ActivityIndicator color="#F79F24" />
+              <ActivityIndicator color={colors.primary} />
             ) : (
               <Text style={styles.headerButton}>Valider</Text>
             )}
@@ -94,7 +95,7 @@ export default function PasswordSettingsScreen() {
       >
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
           <View style={styles.infoBox}>
-            <Ionicons name="lock-closed-outline" size={24} color="#007AFF" />
+            <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
             <Text style={styles.infoText}>
               Utilisez un mot de passe fort avec au moins 6 caractères.
             </Text>
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   headerButton: {
-    color: '#F79F24',
+    color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   formSection: {
     gap: 24,

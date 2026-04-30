@@ -81,13 +81,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
-  }, [user]);
+  }, [user?.id]);
 
   const handleNotificationTap = async (response: Notifications.NotificationResponse) => {
     const data = response.notification.request.content.data as NotificationData;
@@ -148,7 +148,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               });
 
               router.push({
-                pathname: '/search-results',
+                pathname: '/search',
                 params: {
                   query: savedSearch.query || '',
                   filters: filtersParam,
@@ -157,7 +157,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
           } catch (error) {
             console.error('Error handling saved search notification:', error);
-            router.push('/search-results');
+            router.push('/search');
           }
         }
         return;

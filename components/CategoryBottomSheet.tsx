@@ -7,11 +7,14 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 interface CategoryBottomSheetProps {
   onSelect: (categoryIds: string[]) => void;
   selectedCategoryIds?: string[];
+  suggestedCategoryId?: string;
 }
 
 export interface CategoryBottomSheetRef {
@@ -20,7 +23,7 @@ export interface CategoryBottomSheetRef {
 }
 
 const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomSheetProps>(
-  ({ onSelect, selectedCategoryIds }, ref) => {
+  ({ onSelect, selectedCategoryIds, suggestedCategoryId }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['80%'], []);
@@ -63,6 +66,11 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
       []
     );
 
+    // Build breadcrumb from navigation path
+    const breadcrumb = categoryNav.navigationPath?.length > 0
+      ? categoryNav.navigationPath.map((p: any) => p.label || p.name).join(' > ')
+      : null;
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
@@ -71,17 +79,29 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
         backdropComponent={renderBackdrop}
         enablePanDownToClose
         topInset={insets.top}
+        handleIndicatorStyle={styles.handleIndicator}
+        backgroundStyle={styles.sheetBackground}
+        enableDynamicSizing={false}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
-            <Text style={styles.backButtonText}>
-              {categoryNav.isAtRoot ? '✕' : '←'}
-            </Text>
+            <Ionicons
+              name={categoryNav.isAtRoot ? 'close' : 'chevron-back'}
+              size={22}
+              color={colors.charcoal}
+            />
           </TouchableOpacity>
 
-          <Text style={styles.title}>
-            {categoryNav.isAtRoot ? 'Catégorie' : categoryNav.currentTitle}
-          </Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>
+              {categoryNav.isAtRoot ? 'Categorie' : categoryNav.currentTitle}
+            </Text>
+            {breadcrumb && !categoryNav.isAtRoot && (
+              <Text style={styles.breadcrumb} numberOfLines={1}>
+                {breadcrumb}
+              </Text>
+            )}
+          </View>
 
           <View style={styles.headerButton}>
             {!categoryNav.isAtRoot && (
@@ -96,21 +116,29 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
         >
-          {categoryNav.currentList.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.categoryItem}
-              onPress={() => categoryNav.selectCategory(item)}
-            >
-              <View style={styles.itemContent}>
-                <Text style={styles.categoryItemText}>{item.label}</Text>
-              </View>
+          {categoryNav.currentList.map((item: any) => {
+            const isSuggested = suggestedCategoryId && item.id === suggestedCategoryId;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.categoryItem}
+                onPress={() => categoryNav.selectCategory(item)}
+              >
+                <View style={styles.itemContent}>
+                  <Text style={styles.categoryItemText}>{item.label}</Text>
+                  {isSuggested && (
+                    <View style={styles.suggestedBadge}>
+                      <Text style={styles.suggestedBadgeText}>Suggere</Text>
+                    </View>
+                  )}
+                </View>
 
-              {item.children && item.children.length > 0 && (
-                <Text style={styles.categoryArrow}>›</Text>
-              )}
-            </TouchableOpacity>
-          ))}
+                {item.children && item.children.length > 0 && (
+                  <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </BottomSheetScrollView>
       </BottomSheet>
     );
@@ -118,58 +146,82 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
 );
 
 const styles = StyleSheet.create({
+  sheetBackground: {
+    backgroundColor: colors.cream,
+  },
+  handleIndicator: {
+    backgroundColor: 'rgba(26,24,20,0.15)',
+    width: 36,
+    height: 3,
+    borderRadius: 100,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
   headerButton: {
     minWidth: 40,
     justifyContent: 'center',
   },
-  backButtonText: {
-    fontSize: 20,
-    color: '#333',
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.charcoal,
+  },
+  breadcrumb: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 2,
+    letterSpacing: 0.66,
   },
   selectButtonText: {
-    fontSize: 16,
-    color: '#F79F24',
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.rust,
+    textAlign: 'right',
   },
   scrollViewContent: {
-    paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
   },
   categoryItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: colors.border,
   },
   itemContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   categoryItemText: {
-    fontSize: 16,
-    color: '#333',
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.charcoal,
   },
-  categoryArrow: {
-    fontSize: 18,
-    color: '#ccc',
+  suggestedBadge: {
+    backgroundColor: colors.sageLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+  },
+  suggestedBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    color: colors.sage,
+    letterSpacing: 0.72,
   },
 });
 

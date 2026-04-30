@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
 import { deleteDraftImagesFromStorage } from './aiService';
@@ -33,7 +33,9 @@ export interface DraftPricing {
   price: number | null;
   isHandDelivery: boolean;
   isShipping: boolean;
+  /** @deprecated Use neighborhoods instead */
   neighborhood: MeetupNeighborhood | null;
+  neighborhoods: MeetupNeighborhood[];
   packageSize: string | null;
 }
 

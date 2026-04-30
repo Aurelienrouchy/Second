@@ -12,6 +12,7 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 interface CameraCaptureProps {
   onPhotoTaken: (uri: string) => void;
@@ -95,7 +96,7 @@ export default function CameraCapture({
   if (!permission) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#F79F24" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -105,7 +106,7 @@ export default function CameraCapture({
     return (
       <View style={styles.container}>
         <View style={styles.permissionDenied}>
-          <Ionicons name="camera-outline" size={64} color="#9CA3AF" />
+          <Ionicons name="camera-outline" size={64} color={colors.muted} />
           <Text style={styles.permissionTitle}>Accès caméra requis</Text>
           <Text style={styles.permissionText}>
             Pour prendre des photos de vos articles, autorisez l'accès à la caméra dans les réglages.
@@ -119,7 +120,7 @@ export default function CameraCapture({
           <Text style={styles.orText}>ou</Text>
 
           <TouchableOpacity style={styles.galleryFallbackButton} onPress={handleGalleryPress}>
-            <Ionicons name="images-outline" size={24} color="#F79F24" />
+            <Ionicons name="images-outline" size={24} color={colors.primary} />
             <Text style={styles.galleryFallbackText}>
               Sélectionner depuis la galerie
             </Text>
@@ -167,7 +168,7 @@ export default function CameraCapture({
               <Ionicons
                 name="images-outline"
                 size={28}
-                color={canTakeMore ? '#FFFFFF' : '#6B7280'}
+                color={canTakeMore ? '#FFFFFF' : colors.muted}
               />
             </TouchableOpacity>
 
@@ -181,7 +182,7 @@ export default function CameraCapture({
               disabled={!canTakeMore || isCapturing || disabled}
             >
               {isCapturing ? (
-                <ActivityIndicator size="small" color="#F79F24" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <View
                   style={[
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   captureButtonDisabled: {
-    backgroundColor: '#6B7280',
+    backgroundColor: colors.muted,
     borderColor: 'rgba(107, 114, 128, 0.5)',
   },
   captureButtonInner: {
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   captureButtonInnerDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: colors.muted,
   },
   placeholderButton: {
     width: 56,
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
   },
   permissionText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.muted,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
@@ -318,7 +319,7 @@ const styles = StyleSheet.create({
   },
   orText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.muted,
     marginVertical: 16,
   },
   galleryFallbackButton: {
@@ -330,6 +331,6 @@ const styles = StyleSheet.create({
   galleryFallbackText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#F79F24',
+    color: colors.primary,
   },
 });

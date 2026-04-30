@@ -1,12 +1,11 @@
 /**
  * CategoryChip Component
- * Design inspired by Fitmuse - Minimal pill style
+ * Design: Curated Editorial — Bulletin-Inspired
  *
  * Features:
- * - Clean minimal design
- * - Black fill when selected
- * - No icons (optional)
- * - Animated press state
+ * - Refined pill shape with subtle border
+ * - Terracotta fill when selected
+ * - Smooth spring animations
  * - Haptic feedback
  */
 
@@ -26,7 +25,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, typography, animations } from '@/constants/theme';
+import { colors, radius, spacing, animations, fonts } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -40,6 +39,7 @@ interface CategoryChipProps {
   selected?: boolean;
   style?: ViewStyle;
   testID?: string;
+  size?: 'default' | 'small';
 }
 
 // =============================================================================
@@ -56,6 +56,7 @@ export const CategoryChip: React.FC<CategoryChipProps> = ({
   selected = false,
   style,
   testID,
+  size = 'default',
 }) => {
   const scale = useSharedValue(1);
 
@@ -76,11 +77,14 @@ export const CategoryChip: React.FC<CategoryChipProps> = ({
     onPress?.();
   }, [onPress]);
 
+  const isSmall = size === 'small';
+
   return (
     <AnimatedPressable
       style={[
         styles.container,
         selected && styles.containerSelected,
+        isSmall && styles.containerSmall,
         style,
         animatedStyle,
       ]}
@@ -95,12 +99,16 @@ export const CategoryChip: React.FC<CategoryChipProps> = ({
         <View style={styles.iconContainer}>
           <Ionicons
             name={icon}
-            size={16}
+            size={isSmall ? 14 : 16}
             color={selected ? colors.white : colors.foreground}
           />
         </View>
       )}
-      <Text style={[styles.label, selected && styles.labelSelected]}>
+      <Text style={[
+        styles.label,
+        selected && styles.labelSelected,
+        isSmall && styles.labelSmall,
+      ]}>
         {label}
       </Text>
     </AnimatedPressable>
@@ -116,28 +124,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.surface,
     borderRadius: radius.full,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md + 4,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: colors.transparent,
+    borderColor: colors.border,
   },
   containerSelected: {
-    backgroundColor: colors.foreground,
-    borderColor: colors.foreground,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  containerSmall: {
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.sm + 4,
   },
   iconContainer: {
-    marginRight: spacing.xs,
+    marginRight: spacing.xs + 2,
   },
   label: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 14,
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
     color: colors.foreground,
+    letterSpacing: 0.1,
   },
   labelSelected: {
     color: colors.white,
-    fontWeight: '500',
+  },
+  labelSmall: {
+    fontSize: 12,
   },
 });
 

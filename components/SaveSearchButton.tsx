@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/contexts/AuthRequiredContext';
 import { SavedSearchService } from '@/services/savedSearchService';
 import { SearchFilters } from '@/types';
+import { colors } from '@/constants/theme';
 
 interface SaveSearchButtonProps {
   query: string;
@@ -126,7 +127,7 @@ export default function SaveSearchButton({
         onPress={handleOpenModal}
         activeOpacity={0.7}
       >
-        <Ionicons name="bookmark-outline" size={20} color="#F79F24" />
+        <Ionicons name="bookmark-outline" size={20} color={colors.primary} />
         <Text style={styles.buttonText}>Sauvegarder</Text>
       </TouchableOpacity>
 
@@ -140,7 +141,7 @@ export default function SaveSearchButton({
           {/* Header */}
           <View style={styles.modalHeader}>
             <Pressable onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#1C1C1E" />
+              <Ionicons name="close" size={24} color={colors.foreground} />
             </Pressable>
             <Text style={styles.modalTitle}>Sauvegarder la recherche</Text>
             <View style={styles.placeholder} />
@@ -156,7 +157,7 @@ export default function SaveSearchButton({
                 value={searchName}
                 onChangeText={setSearchName}
                 placeholder="Ex: Nike Air Max taille 42"
-                placeholderTextColor="#8E8E93"
+                placeholderTextColor={colors.muted}
                 autoCapitalize="sentences"
                 maxLength={50}
               />
@@ -165,7 +166,7 @@ export default function SaveSearchButton({
             {/* Notification Toggle */}
             <View style={styles.switchRow}>
               <View style={styles.switchLabel}>
-                <Ionicons name="notifications-outline" size={22} color="#1C1C1E" />
+                <Ionicons name="notifications-outline" size={22} color={colors.foreground} />
                 <View style={styles.switchTextContainer}>
                   <Text style={styles.switchTitle}>Alertes nouveautés</Text>
                   <Text style={styles.switchSubtitle}>
@@ -176,7 +177,7 @@ export default function SaveSearchButton({
               <Switch
                 value={notifyNewItems}
                 onValueChange={setNotifyNewItems}
-                trackColor={{ false: '#E5E5EA', true: '#F79F24' }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -186,13 +187,13 @@ export default function SaveSearchButton({
               <Text style={styles.summaryTitle}>Résumé de la recherche</Text>
               {query ? (
                 <View style={styles.summaryRow}>
-                  <Ionicons name="search" size={16} color="#8E8E93" />
+                  <Ionicons name="search" size={16} color={colors.muted} />
                   <Text style={styles.summaryText}>"{query}"</Text>
                 </View>
               ) : null}
               {filters.categoryIds && filters.categoryIds.length > 0 && (
                 <View style={styles.summaryRow}>
-                  <Ionicons name="folder-outline" size={16} color="#8E8E93" />
+                  <Ionicons name="folder-outline" size={16} color={colors.muted} />
                   <Text style={styles.summaryText}>
                     Catégorie: {filters.categoryIds[filters.categoryIds.length - 1]}
                   </Text>
@@ -200,7 +201,7 @@ export default function SaveSearchButton({
               )}
               {filters.brands && filters.brands.length > 0 && (
                 <View style={styles.summaryRow}>
-                  <Ionicons name="pricetag-outline" size={16} color="#8E8E93" />
+                  <Ionicons name="pricetag-outline" size={16} color={colors.muted} />
                   <Text style={styles.summaryText}>
                     Marques: {filters.brands.join(', ')}
                   </Text>
@@ -208,7 +209,7 @@ export default function SaveSearchButton({
               )}
               {(filters.minPrice !== undefined || filters.maxPrice !== undefined) && (
                 <View style={styles.summaryRow}>
-                  <Ionicons name="cash-outline" size={16} color="#8E8E93" />
+                  <Ionicons name="cash-outline" size={16} color={colors.muted} />
                   <Text style={styles.summaryText}>
                     Prix: {filters.minPrice ?? 0}€ - {filters.maxPrice ?? '∞'}€
                   </Text>
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F79F24',
+    color: colors.primary,
   },
   modalContainer: {
     flex: 1,
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   closeButton: {
     padding: 4,
@@ -275,7 +276,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   placeholder: {
     width: 32,
@@ -290,18 +291,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   switchRow: {
     flexDirection: 'row',
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#F2F2F7',
+    borderColor: colors.surfaceWarm,
   },
   switchLabel: {
     flexDirection: 'row',
@@ -325,11 +326,11 @@ const styles = StyleSheet.create({
   switchTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   switchSubtitle: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.muted,
     marginTop: 2,
   },
   summaryContainer: {
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 12,
   },
   summaryRow: {
@@ -359,13 +360,13 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    borderTopColor: colors.surfaceWarm,
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,

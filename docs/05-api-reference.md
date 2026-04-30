@@ -72,7 +72,7 @@ Likes or unlikes a product and updates the user's favorites.
 
 ### `getShippingEstimate`
 
-Gets shipping rate quotes from Shippo.
+Gets shipping rate quotes from Intelcom.
 
 **Authentication**: Not required
 
@@ -113,7 +113,7 @@ Gets shipping rate quotes from Shippo.
     estimatedDays: string;  // e.g., "2-3"
     amount: number;         // Price in EUR
     currency: string;       // "EUR"
-    shippoRateId: string;   // Use for label creation
+    intelcomRateId: string; // Use for label creation
   }[];
 }
 ```
@@ -122,7 +122,7 @@ Gets shipping rate quotes from Shippo.
 | Code | Description |
 |------|-------------|
 | `invalid-argument` | From and to addresses are required |
-| `failed-precondition` | Shippo API not configured |
+| `failed-precondition` | Intelcom API not configured |
 | `internal` | Failed to get shipping estimate |
 
 ---
@@ -163,7 +163,7 @@ Creates a Stripe Payment Intent for a transaction.
 
 ### `checkTrackingStatus`
 
-Gets current tracking status from Shippo.
+Gets current tracking status from Intelcom.
 
 **Authentication**: Not required
 
@@ -192,7 +192,7 @@ Gets current tracking status from Shippo.
 |------|-------------|
 | `invalid-argument` | Transaction ID is required |
 | `not-found` | Transaction not found |
-| `failed-precondition` | No tracking number available / Shippo API not configured |
+| `failed-precondition` | No tracking number available / Intelcom API not configured |
 | `internal` | Failed to check tracking |
 
 ---
@@ -350,9 +350,9 @@ Cloud Functions require these environment variables:
 |----------|-------------|
 | `STRIPE_SECRET_KEY` | Stripe API secret key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `SHIPPO_API_KEY` | Shippo API key |
+| `INTELCOM_API_KEY` | Intelcom API key |
 
 Set via Firebase CLI:
 ```bash
-firebase functions:config:set stripe.secret="sk_..." stripe.webhook="whsec_..." shippo.key="..."
+firebase functions:config:set stripe.secret="sk_..." stripe.webhook="whsec_..." intelcom.key="..."
 ```

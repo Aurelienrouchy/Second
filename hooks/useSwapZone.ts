@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { httpsCallable } from '@react-native-firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
 import { getActiveSwapParty, getUpcomingSwapParties } from '@/services/swapService';
 

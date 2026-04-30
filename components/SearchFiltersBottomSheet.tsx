@@ -1,4 +1,4 @@
-import { colors } from '@/data/colors';
+import { colors as dataColors } from '@/data/colors';
 import { materials } from '@/data/materials';
 import { patterns } from '@/data/patterns';
 import { sizes } from '@/data/sizes';
@@ -7,6 +7,7 @@ import BottomSheet, { BottomSheetScrollView, BottomSheetView } from '@gorhom/bot
 import React, { forwardRef, useMemo } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 interface SearchFiltersBottomSheetProps {
   filters: SearchFilters;
@@ -141,6 +142,7 @@ const SearchFiltersBottomSheet = forwardRef<BottomSheet, SearchFiltersBottomShee
         enablePanDownToClose
         onClose={onClose}
         topInset={insets.top}
+        enableDynamicSizing={false}
       >
         <BottomSheetView style={styles.container}>
           <View style={styles.header}>
@@ -271,7 +273,7 @@ const SearchFiltersBottomSheet = forwardRef<BottomSheet, SearchFiltersBottomShee
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Couleurs</Text>
               <View style={styles.colorsGrid}>
-                {colors.map((color) => (
+                {dataColors.map((color) => (
                   <TouchableOpacity
                     key={color.value}
                     style={[
@@ -468,7 +470,7 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -495,8 +497,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   selectedOptionButton: {
-    backgroundColor: '#F79F24',
-    borderColor: '#F79F24',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   optionText: {
     fontSize: 14,
@@ -523,8 +525,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   selectedColorButton: {
-    backgroundColor: '#F79F24',
-    borderColor: '#F79F24',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   colorDot: {
     width: 16,
@@ -557,8 +559,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectedSizeButton: {
-    backgroundColor: '#F79F24',
-    borderColor: '#F79F24',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   sizeText: {
     fontSize: 14,

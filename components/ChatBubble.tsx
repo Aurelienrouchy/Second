@@ -2,53 +2,58 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
-    Modal,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 import { Message } from '@/types';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 
 interface ChatBubbleProps {
   message: Message;
   isOwnMessage: boolean;
   showTimestamp?: boolean;
+  senderImage?: string;
 }
 
-const ChatBubble: React.FC<ChatBubbleProps> = ({
+const ChatBubble = React.memo(function ChatBubble({
   message,
   isOwnMessage,
   showTimestamp = false,
-}) => {
+  senderImage,
+}: ChatBubbleProps) {
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
 
-  const formatTime = (date: Date) => {
+  const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('fr-FR', {
       hour: '2-digit',
       minute: '2-digit',
     });
   };
 
-  const renderStatusIcon = () => {
+  const renderStatusIcon = (): React.ReactNode => {
     if (!isOwnMessage) return null;
+
+    const iconColor = message.status === 'read' ? colors.primary : colors.muted;
 
     switch (message.status) {
       case 'sending':
-        return <Ionicons name="time-outline" size={12} color="#8E8E93" />;
+        return <Ionicons name="time-outline" size={10} color={iconColor} />;
       case 'sent':
-        return <Ionicons name="checkmark" size={12} color="#8E8E93" />;
+        return <Ionicons name="checkmark" size={10} color={iconColor} />;
       case 'delivered':
-        return <Ionicons name="checkmark-done" size={12} color="#8E8E93" />;
+        return <Ionicons name="checkmark-done" size={10} color={iconColor} />;
       case 'read':
-        return <Ionicons name="checkmark-done" size={12} color="#007AFF" />;
+        return <Ionicons name="checkmark-done" size={10} color={iconColor} />;
       default:
         return null;
     }
   };
 
-  // System message (centered, grey)
+  // System message (centered, muted text on subtle background)
   if (message.type === 'system') {
     return (
       <View style={styles.systemMessageContainer}>
@@ -57,13 +62,22 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
     );
   }
 
-  // Image message
+  // Image message (180x180 with radius.sm border-radius)
   if (message.type === 'image' && message.image) {
     return (
-      <View style={[
-        styles.bubbleContainer,
-        isOwnMessage ? styles.ownBubbleContainer : styles.otherBubbleContainer,
-      ]}>
+      <View
+        style={[
+          styles.bubbleContainer,
+          isOwnMessage ? styles.ownBubbleContainer : styles.otherBubbleContainer,
+        ]}
+      >
+        {!isOwnMessage && senderImage && (
+          <Image
+            source={{ uri: senderImage }}
+            style={styles.senderAvatar}
+            contentFit="cover"
+          />
+        )}
         <Pressable onPress={() => setIsImageModalVisible(true)}>
           <Image
             source={{ uri: message.image.thumbnail || message.image.url }}
@@ -71,12 +85,16 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
             contentFit="cover"
           />
         </Pressable>
-        
-        <View style={[
-          styles.timestampRow,
-          isOwnMessage && styles.ownTimestampRow,
-        ]}>
-          <Text style={styles.timestampText}>{formatTime(message.timestamp)}</Text>
+
+        <View
+          style={[
+            styles.timestampRow,
+            isOwnMessage && styles.ownTimestampRow,
+          ]}
+        >
+          <Text style={[styles.timestampText, isOwnMessage && styles.ownTimestampText]}>
+            {formatTime(message.timestamp)}
+          </Text>
           {renderStatusIcon()}
         </View>
 
@@ -96,7 +114,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
                   onPress={() => setIsImageModalVisible(false)}
                   style={styles.closeButton}
                 >
-                  <Ionicons name="close" size={28} color="#FFFFFF" />
+                  <Ionicons name="close" size={28} color={colors.white} />
                 </Pressable>
               </View>
               <Image
@@ -111,40 +129,60 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
     );
   }
 
-  // Text message (offer messages are handled separately by OfferBubble)
+  // Text message
   return (
-    <View style={[
-      styles.bubbleContainer,
-      isOwnMessage ? styles.ownBubbleContainer : styles.otherBubbleContainer,
-    ]}>
-      <View style={[
-        styles.bubble,
-        isOwnMessage ? styles.ownBubble : styles.otherBubble,
-      ]}>
-        <Text style={[
-          styles.messageText,
-          isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-        ]}>
+    <View
+      style={[
+        styles.bubbleContainer,
+        isOwnMessage ? styles.ownBubbleContainer : styles.otherBubbleContainer,
+      ]}
+    >
+      {!isOwnMessage && senderImage && (
+        <Image
+          source={{ uri: senderImage }}
+          style={styles.senderAvatar}
+          contentFit="cover"
+        />
+      )}
+      <View
+        style={[
+          styles.bubble,
+          isOwnMessage ? styles.ownBubble : styles.otherBubble,
+        ]}
+      >
+        <Text
+          style={[
+            styles.messageText,
+            isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+          ]}
+        >
           {message.content}
         </Text>
-        
-        <View style={[
-          styles.timestampRow,
-          isOwnMessage && styles.ownTimestampRow,
-        ]}>
-          <Text style={styles.timestampText}>{formatTime(message.timestamp)}</Text>
+
+        <View
+          style={[
+            styles.timestampRow,
+            isOwnMessage && styles.ownTimestampRow,
+          ]}
+        >
+          <Text style={[styles.timestampText, isOwnMessage && styles.ownTimestampText]}>
+            {formatTime(message.timestamp)}
+          </Text>
           {renderStatusIcon()}
         </View>
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   bubbleContainer: {
-    marginVertical: 2,
-    paddingHorizontal: 16,
+    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     maxWidth: '80%',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
   },
   ownBubbleContainer: {
     alignSelf: 'flex-end',
@@ -152,81 +190,102 @@ const styles = StyleSheet.create({
   otherBubbleContainer: {
     alignSelf: 'flex-start',
   },
+  senderAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceWarm,
+    flexShrink: 0,
+  },
   bubble: {
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 6,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     minWidth: 60,
   },
   ownBubble: {
-    backgroundColor: '#007AFF',
-    borderBottomRightRadius: 4,
+    backgroundColor: colors.charcoal,
+    borderTopLeftRadius: radius.md,
+    borderTopRightRadius: radius.md,
+    borderBottomRightRadius: radius.xs,
+    borderBottomLeftRadius: radius.md,
   },
   otherBubble: {
-    backgroundColor: '#F2F2F7',
-    borderBottomLeftRadius: 4,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderTopLeftRadius: radius.md,
+    borderTopRightRadius: radius.md,
+    borderBottomRightRadius: radius.md,
+    borderBottomLeftRadius: radius.xs,
   },
   messageText: {
-    fontSize: 16,
+    fontFamily: fonts.sans,
+    fontSize: 14,
     lineHeight: 21,
   },
   ownMessageText: {
-    color: '#FFFFFF',
+    color: colors.cream,
   },
   otherMessageText: {
-    color: '#1C1C1E',
+    color: colors.charcoal,
   },
   timestampRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 2,
+    marginTop: 4,
     gap: 4,
   },
   ownTimestampRow: {
     justifyContent: 'flex-end',
   },
   timestampText: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.muted,
+  },
+  ownTimestampText: {
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   systemMessageContainer: {
     alignSelf: 'center',
-    marginVertical: 8,
-    paddingHorizontal: 16,
+    marginVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(26, 24, 20, 0.04)',
+    borderRadius: radius.sm,
     maxWidth: '80%',
   },
   systemMessageText: {
-    fontSize: 13,
-    color: '#8E8E93',
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   imageMessage: {
-    width: 200,
-    height: 200,
-    borderRadius: 12,
-    backgroundColor: '#F2F2F7',
+    width: 180,
+    height: 180,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceWarm,
   },
   imageModalContainer: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.black,
   },
   imageModalBackground: {
     flex: 1,
   },
   imageModalHeader: {
     paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
   closeButton: {
-    padding: 8,
+    padding: spacing.sm,
   },
   fullImage: {
     flex: 1,

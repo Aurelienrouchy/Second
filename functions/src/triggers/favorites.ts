@@ -63,7 +63,7 @@ export const onArticleFavorited = onDocumentUpdated(
         // Send notification to seller
         await sendPushNotification(
           sellerId,
-          '❤️ Nouvel intérêt pour votre article',
+          'Nouvel intérêt pour votre article',
           `${buyerName} a ajouté "${articleData.title}" à ses favoris`,
           {
             articleId,
@@ -150,7 +150,7 @@ export const onArticlePriceDropped = onDocumentUpdated(
 
             await sendPushNotification(
               userId,
-              '💰 Baisse de prix !',
+              'Baisse de prix !',
               `"${articleTitle}" est passé de ${oldPrice}€ à ${newPrice}€ (-${discount}%)`,
               {
                 articleId,

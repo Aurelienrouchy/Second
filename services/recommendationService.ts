@@ -1,4 +1,4 @@
-import { httpsCallable } from '@react-native-firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
 
 export interface SimilarProduct {
@@ -8,6 +8,7 @@ export interface SimilarProduct {
   price: number;
   imageUrl: string;
   brand: string | null;
+  size?: string;
   condition: string;
 }
 

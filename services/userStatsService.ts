@@ -1,4 +1,3 @@
-import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import {
   collection,
   doc,
@@ -7,12 +6,14 @@ import {
   getDocs,
   orderBy,
   query,
+  QueryDocumentSnapshot,
   setDoc,
   updateDoc,
   where
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 import { firestore } from '../config/firebaseConfig';
 import { Article } from '../types';
+import { ArticlesService } from './articlesService';
 
 export interface UserStats {
   articlesEnVente: number;
@@ -45,7 +46,7 @@ export class UserStatsService {
       );
       
       const articlesSnapshot = await getDocs(articlesQuery);
-      const articles = articlesSnapshot.docs.map((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
+      const articles = articlesSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => ({
         id: docSnap.id,
         ...docSnap.data()
       } as Article));
@@ -78,7 +79,7 @@ export class UserStatsService {
       );
       
       const avisSnapshot = await getDocs(avisQuery);
-      const avis = avisSnapshot.docs.map((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => docSnap.data());
+      const avis = avisSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => docSnap.data());
       
       const nombreAvis = avis.length;
       const moyenneNote = nombreAvis > 0 
@@ -156,11 +157,15 @@ export class UserStatsService {
       
       const articlesSnapshot = await getDocs(articlesQuery);
       
-      return articlesSnapshot.docs.map((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-        createdAt: docSnap.data().createdAt.toDate()
-      } as Article));
+      return articlesSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          images: ArticlesService.fixArticleImageUrls(data.images),
+        } as Article;
+      });
       
     } catch (error: any) {
       console.error('Erreur lors de la récupération des articles en vente:', error);
@@ -183,11 +188,15 @@ export class UserStatsService {
       
       const articlesSnapshot = await getDocs(articlesQuery);
       
-      return articlesSnapshot.docs.map((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-        createdAt: docSnap.data().createdAt.toDate()
-      } as Article));
+      return articlesSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          images: ArticlesService.fixArticleImageUrls(data.images),
+        } as Article;
+      });
       
     } catch (error: any) {
       console.error('Erreur lors de la récupération des articles vendus:', error);

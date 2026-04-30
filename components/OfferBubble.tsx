@@ -20,6 +20,7 @@ import {
   MessageOfferWithMeetup,
   OfferStatus,
 } from '@/types';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 
 interface OfferBubbleProps {
   message: Message;
@@ -252,16 +253,16 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const getStatusColor = (s: OfferStatus) => {
     switch (s) {
       case 'accepted':
-        return '#34C759';
+        return colors.success;
       case 'rejected':
       case 'expired':
-        return '#FF3B30';
+        return colors.danger;
       case 'counter_price':
       case 'counter_location':
       case 'counter_time':
-        return '#007AFF';
+        return colors.sand;
       default:
-        return '#F79F24';
+        return colors.primary;
     }
   };
 
@@ -317,60 +318,60 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
 
   return (
     <View style={[styles.container, isOwnMessage ? styles.ownContainer : styles.otherContainer]}>
-      <View style={[styles.offerBubble, { borderColor: statusColor }, status !== 'pending' && styles.completedOfferBubble]}>
+      <View style={styles.offerBubble}>
         {/* Header */}
         <View style={styles.header}>
-          <Ionicons name={getStatusIcon(status)} size={20} color={statusColor} />
-          <Text style={[styles.headerText, { color: statusColor }]}>
-            {isOwnMessage ? 'Votre offre' : 'Offre reçue'}
+          <View style={[styles.statusIcon, { backgroundColor: getStatusIconBackground(status) }]}>
+            <Ionicons name={getStatusIcon(status)} size={16} color={statusColor} />
+          </View>
+          <Text style={styles.headerLabel}>
+            {isOwnMessage ? 'VOTRE OFFRE' : 'OFFRE RECUE'}
           </Text>
           {isMeetupOffer && (
             <View style={styles.meetupBadge}>
-              <Ionicons name="people" size={12} color="#007AFF" />
               <Text style={styles.meetupBadgeText}>Meetup</Text>
             </View>
           )}
         </View>
 
-        {/* Amount */}
-        <View style={styles.amountContainer}>
-          <View style={styles.amountRow}>
-            <Text style={styles.amountLabel}>Montant</Text>
-            <Text style={styles.amount}>{amount}$</Text>
+        {/* Amount Section */}
+        <View style={styles.amountSection}>
+          <View style={styles.amountDisplay}>
+            <Text style={styles.amountPrefix}>$</Text>
+            <Text style={styles.amount}>{amount}</Text>
           </View>
+          <Text style={styles.amountSubtext}>sur un prix affiche de $XX</Text>
 
           {/* Shipping info for legacy offers */}
           {shippingEstimate && !isMeetupOffer && (
-            <>
-              <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>
-                  Livraison ({shippingEstimate.carrier})
-                </Text>
-                <Text style={styles.shippingAmount}>
-                  + {shippingEstimate.amount.toFixed(2)}$
-                </Text>
-              </View>
-              {totalAmount && (
-                <>
-                  <View style={styles.amountDivider} />
-                  <View style={styles.amountRow}>
-                    <Text style={styles.totalLabel}>Total</Text>
-                    <Text style={styles.totalAmount}>{totalAmount.toFixed(2)}$</Text>
-                  </View>
-                </>
-              )}
-            </>
+            <View style={styles.shippingInfo}>
+              <Text style={styles.shippingLabel}>
+                Livraison ({shippingEstimate.carrier})
+              </Text>
+              <Text style={styles.shippingAmount}>
+                + {shippingEstimate.amount.toFixed(2)}$
+              </Text>
+            </View>
+          )}
+
+          {totalAmount && shippingEstimate && !isMeetupOffer && (
+            <View style={styles.totalInfo}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalAmount}>{totalAmount.toFixed(2)}$</Text>
+            </View>
           )}
         </View>
 
-        {/* Meetup details */}
+        {/* Meetup Details Card */}
         {isMeetupOffer && meetup && (
-          <View style={styles.meetupDetails}>
+          <View style={styles.meetupDetailsCard}>
             <View style={styles.meetupRow}>
-              <Ionicons name="location" size={16} color="#007AFF" />
-              <View style={styles.meetupInfo}>
-                <Text style={styles.meetupLocation}>{meetup.location.name}</Text>
-                <Text style={styles.meetupSubtext}>
+              <View style={styles.meetupIconCircle}>
+                <Ionicons name="location" size={14} color={colors.primary} />
+              </View>
+              <View style={styles.meetupContent}>
+                <Text style={styles.meetupSpotName}>{meetup.location.name}</Text>
+                <Text style={styles.meetupDetail}>
                   {MeetupSpotCategoryLabels[meetup.location.category]} • {meetup.location.neighborhood.name}
                 </Text>
               </View>
@@ -378,44 +379,41 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           </View>
         )}
 
-        {/* Optional message */}
+        {/* Message */}
         {offerMessage && (
           <Text style={styles.offerMessage}>"{offerMessage}"</Text>
         )}
 
-        {/* Status badge */}
-        <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {getStatusText(status)}
-          </Text>
+        {/* Status Badge + Expiry */}
+        <View style={styles.statusSection}>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusBgColor(status) }]}>
+            <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+              {getStatusText(status)}
+            </Text>
+          </View>
+          {expiryText && (
+            <Text style={styles.expiryText}>{expiryText}</Text>
+          )}
         </View>
 
-        {/* Expiry warning */}
-        {expiryText && (
-          <View style={styles.expiryContainer}>
-            <Ionicons name="time-outline" size={14} color="#8E8E93" />
-            <Text style={styles.expiryText}>{expiryText}</Text>
-          </View>
-        )}
-
-        {/* Counter price input */}
+        {/* Counter Price Input */}
         {showCounterPriceInput && (
-          <View style={styles.counterInputContainer}>
-            <Text style={styles.counterInputLabel}>Proposer un autre prix</Text>
+          <View style={styles.counterInputSection}>
+            <Text style={styles.counterInputLabel}>PROPOSER UN AUTRE PRIX</Text>
             <TextInput
-              style={styles.counterInput}
+              style={styles.counterAmountInput}
               placeholder="Montant en $"
               keyboardType="numeric"
               value={counterPriceAmount}
               onChangeText={setCounterPriceAmount}
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.muted}
             />
             <TextInput
-              style={[styles.counterInput, styles.counterMessageInput]}
+              style={[styles.counterMessageInput, { minHeight: 60 }]}
               placeholder="Message (optionnel)"
               value={counterMessage}
               onChangeText={setCounterMessage}
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.muted}
               multiline
             />
             <View style={styles.counterButtonsRow}>
@@ -435,7 +433,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
                 disabled={isCountering}
               >
                 {isCountering ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Text style={styles.counterSubmitText}>Envoyer</Text>
                 )}
@@ -444,9 +442,9 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           </View>
         )}
 
-        {/* Action buttons (only for receiver and pending offers) */}
+        {/* Action Buttons */}
         {canRespondToOffer && !showCounterPriceInput && (
-          <View style={styles.actionsContainer}>
+          <View style={styles.actionsSection}>
             <View style={styles.mainActionsRow}>
               <Pressable
                 style={[styles.actionButton, styles.rejectButton]}
@@ -454,10 +452,10 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
                 disabled={isRejecting || isAccepting}
               >
                 {isRejecting ? (
-                  <ActivityIndicator size="small" color="#FF3B30" />
+                  <ActivityIndicator size="small" color={colors.danger} />
                 ) : (
                   <>
-                    <Ionicons name="close" size={18} color="#FF3B30" />
+                    <Ionicons name="close" size={16} color={colors.danger} />
                     <Text style={styles.rejectButtonText}>Refuser</Text>
                   </>
                 )}
@@ -469,10 +467,10 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
                 disabled={isAccepting || isRejecting}
               >
                 {isAccepting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <>
-                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={16} color={colors.white} />
                     <Text style={styles.acceptButtonText}>Accepter</Text>
                   </>
                 )}
@@ -485,14 +483,14 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
                 style={styles.counterOfferButton}
                 onPress={() => setShowCounterPriceInput(true)}
               >
-                <Ionicons name="swap-horizontal" size={16} color="#007AFF" />
-                <Text style={styles.counterOfferText}>Proposer un autre prix</Text>
+                <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                <Text style={styles.counterOfferText}>Contre-offre</Text>
               </Pressable>
             )}
           </View>
         )}
 
-        {/* Payment button (only for buyer after offer accepted - shipping mode) */}
+        {/* Payment Button */}
         {canPay && (
           <Pressable
             style={styles.paymentButton}
@@ -500,45 +498,42 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             disabled={isLoadingTransaction}
           >
             {isLoadingTransaction ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.white} />
             ) : (
               <>
-                <Ionicons name="card" size={20} color="#FFFFFF" />
+                <Ionicons name="card" size={18} color={colors.white} />
                 <Text style={styles.paymentButtonText}>Payer maintenant</Text>
               </>
             )}
           </Pressable>
         )}
 
-        {/* Meetup confirmation actions */}
+        {/* Meetup Confirmation Actions */}
         {canConfirmMeetup && (
-          <View style={styles.meetupActionsContainer}>
-            <Text style={styles.meetupActionsTitle}>
-              Le meetup a eu lieu ?
-            </Text>
+          <View style={styles.meetupActionsSection}>
             <View style={styles.meetupActionsRow}>
               <Pressable
                 style={[styles.actionButton, styles.noShowButton]}
                 onPress={handleReportNoShow}
               >
-                <Ionicons name="person-remove" size={18} color="#FF3B30" />
+                <Ionicons name="person-remove" size={16} color={colors.danger} />
                 <Text style={styles.noShowButtonText}>No-show</Text>
               </Pressable>
               <Pressable
                 style={[styles.actionButton, styles.confirmMeetupButton]}
                 onPress={handleConfirmMeetup}
               >
-                <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
+                <Ionicons name="checkmark-done" size={16} color={colors.white} />
                 <Text style={styles.confirmMeetupText}>Confirmer</Text>
               </Pressable>
             </View>
           </View>
         )}
 
-        {/* Meetup completed badge */}
+        {/* Meetup Completed Badge */}
         {isMeetupOffer && meetup?.completedAt && (
           <View style={styles.completedBadge}>
-            <Ionicons name="checkmark-done-circle" size={20} color="#34C759" />
+            <Ionicons name="checkmark-done-circle" size={18} color={colors.success} />
             <Text style={styles.completedText}>Transaction terminée</Text>
           </View>
         )}
@@ -550,318 +545,430 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   );
 };
 
+// Helper function to get status icon background color
+const getStatusIconBackground = (status: OfferStatus): string => {
+  switch (status) {
+    case 'pending':
+      return colors.primaryLight;
+    case 'accepted':
+      return colors.successLight;
+    case 'rejected':
+    case 'expired':
+      return colors.dangerLight;
+    case 'counter_price':
+    case 'counter_location':
+    case 'counter_time':
+      return 'rgba(212, 196, 160, 0.12)'; // sand light
+    default:
+      return colors.primaryLight;
+  }
+};
+
+// Helper function to get status badge background color
+const getStatusBgColor = (status: OfferStatus): string => {
+  switch (status) {
+    case 'pending':
+      return colors.primaryLight;
+    case 'accepted':
+      return colors.successLight;
+    case 'rejected':
+    case 'expired':
+      return colors.dangerLight;
+    case 'counter_price':
+    case 'counter_location':
+    case 'counter_time':
+      return 'rgba(212, 196, 160, 0.12)'; // sand light
+    default:
+      return colors.primaryLight;
+  }
+};
+
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
-    paddingHorizontal: 16,
-    maxWidth: '90%',
+    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    width: '100%',
+    alignSelf: 'stretch',
   },
-  ownContainer: {
-    alignSelf: 'flex-end',
-  },
-  otherContainer: {
-    alignSelf: 'flex-start',
-  },
+  ownContainer: {},
+  otherContainer: {},
   offerBubble: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 2,
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: spacing.md,
   },
-  completedOfferBubble: {
-    opacity: 0.9,
-  },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
-  headerText: {
-    fontSize: 14,
-    fontWeight: '700',
+  statusIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLabel: {
     flex: 1,
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    fontWeight: '500',
+    color: colors.foreground,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
   },
   meetupBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F4FD',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    backgroundColor: colors.sageLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
   },
   meetupBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    color: colors.sage,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
   },
-  amountContainer: {
-    marginBottom: 12,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+
+  // Amount Section
+  amountSection: {
+    marginBottom: spacing.md,
     alignItems: 'center',
-    marginBottom: 6,
   },
-  amountLabel: {
-    fontSize: 14,
-    color: '#666',
+  amountDisplay: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
+  },
+  amountPrefix: {
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 22,
+    color: colors.muted,
+    marginRight: 4,
   },
   amount: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#F79F24',
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 36,
+    color: colors.charcoal,
+  },
+  amountSubtext: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
+  shippingInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: spacing.sm,
+  },
+  shippingLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
   },
   shippingAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
   },
-  amountDivider: {
-    height: 1,
-    backgroundColor: '#E5E5EA',
-    marginVertical: 6,
+  totalInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.foreground,
   },
   totalAmount: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F79F24',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.charcoal,
   },
-  meetupDetails: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    gap: 10,
+
+  // Meetup Details Card
+  meetupDetailsCard: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   meetupRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: spacing.md,
   },
-  meetupInfo: {
+  meetupIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  meetupContent: {
     flex: 1,
   },
-  meetupLocation: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  meetupSubtext: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  offerMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 20,
-    fontStyle: 'italic',
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  statusText: {
+  meetupSpotName: {
+    fontFamily: fonts.sansMedium,
     fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    color: colors.foreground,
+    marginBottom: spacing.xs,
   },
-  expiryContainer: {
+  meetupDetail: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.muted,
+  },
+
+  // Message
+  offerMessage: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginBottom: spacing.md,
+    lineHeight: 18,
+  },
+
+  // Status Section
+  statusSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+  },
+  statusBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
   },
   expiryText: {
-    fontSize: 12,
-    color: '#8E8E93',
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.muted,
   },
-  counterInputContainer: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+
+  // Counter Input Section
+  counterInputSection: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   counterInputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    color: colors.foreground,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: spacing.md,
   },
-  counterInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#1C1C1E',
-    marginBottom: 8,
+  counterAmountInput: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.foreground,
+    marginBottom: spacing.sm,
   },
   counterMessageInput: {
-    minHeight: 60,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.foreground,
     textAlignVertical: 'top',
+    marginBottom: spacing.md,
   },
   counterButtonsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   counterCancelButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: '#E5E5EA',
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
   },
   counterCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.muted,
   },
   counterSubmitButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: '#007AFF',
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
   },
   counterSubmitText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.white,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
-  actionsContainer: {
-    marginTop: 8,
-    gap: 8,
+
+  // Actions Section
+  actionsSection: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
   },
   mainActionsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
   },
   acceptButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.sage,
   },
   acceptButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.white,
   },
   rejectButton: {
-    backgroundColor: '#FFE5E5',
+    backgroundColor: colors.dangerLight,
   },
   rejectButtonText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.danger,
   },
   counterOfferButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    gap: 6,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.sm,
   },
   counterOfferText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.primary,
   },
+
+  // Payment Button
   paymentButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginTop: 12,
-    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
   },
   paymentButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.white,
   },
-  meetupActionsContainer: {
-    marginTop: 12,
-    paddingTop: 12,
+
+  // Meetup Actions Section
+  meetupActionsSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-  },
-  meetupActionsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 10,
-    textAlign: 'center',
+    borderTopColor: colors.border,
   },
   meetupActionsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   noShowButton: {
-    backgroundColor: '#FFE5E5',
+    backgroundColor: colors.dangerLight,
   },
   noShowButtonText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.danger,
   },
   confirmMeetupButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.success,
   },
   confirmMeetupText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.white,
   },
+
+  // Completed Badge
   completedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8F9ED',
-    borderRadius: 12,
-    paddingVertical: 10,
-    marginTop: 12,
-    gap: 8,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
   },
   completedText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#34C759',
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.success,
   },
+
+  // Timestamp
   timestamp: {
-    fontSize: 11,
-    color: '#8E8E93',
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.muted,
     textAlign: 'right',
-    marginTop: 8,
+    marginTop: spacing.md,
   },
 });
 

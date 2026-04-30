@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import messaging from '@react-native-firebase/messaging';
 import { UserService } from '@/services/userService';
 
 interface UseFcmTokenResult {
@@ -14,7 +12,7 @@ interface UseFcmTokenResult {
 }
 
 /**
- * Hook pour gérer l'enregistrement et le rafraîchissement des tokens FCM
+ * Hook pour gérer l'enregistrement et le rafraîchissement des tokens push
  * Gère les permissions iOS/Android et la persistance dans Firestore
  */
 export function useFcmToken(userId: string | null): UseFcmTokenResult {
@@ -28,28 +26,16 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
    */
   const requestPermission = useCallback(async (): Promise<boolean> => {
     try {
-      if (Platform.OS === 'ios') {
-        // iOS: Utiliser Firebase Messaging pour les permissions
-        const authStatus = await messaging().requestPermission();
-        const enabled =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
-        if (!enabled) {
-          console.log('iOS notification permission denied');
-          return false;
-        }
-      } else {
-        // Android 13+: Demander la permission POST_NOTIFICATIONS
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      if (existingStatus === 'granted') {
+        return true;
+      }
 
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          if (status !== 'granted') {
-            console.log('Android notification permission denied');
-            return false;
-          }
-        }
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Notification permission denied');
+        return false;
       }
 
       return true;
@@ -60,11 +46,11 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
   }, []);
 
   /**
-   * Enregistrer le token FCM dans Firestore
+   * Enregistrer le token push dans Firestore
    */
   const registerToken = useCallback(async (): Promise<string | null> => {
     if (!userId) {
-      console.log('Cannot register FCM token: no userId');
+      console.log('Cannot register push token: no userId');
       return null;
     }
 
@@ -80,25 +66,26 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
         return null;
       }
 
-      // Obtenir le token FCM
-      const fcmToken = await messaging().getToken();
+      // Obtenir le token push natif (FCM token on Android, APNs token on iOS)
+      const pushToken = await Notifications.getDevicePushTokenAsync();
+      const deviceToken = pushToken.data as string;
 
-      if (!fcmToken) {
-        setError('Failed to get FCM token');
+      if (!deviceToken) {
+        setError('Failed to get push token');
         setIsLoading(false);
         return null;
       }
 
       // Sauvegarder le token dans Firestore
-      await UserService.saveFcmToken(userId, fcmToken);
+      await UserService.saveFcmToken(userId, deviceToken);
 
-      setToken(fcmToken);
-      tokenRef.current = fcmToken;
-      console.log('FCM token registered successfully');
+      setToken(deviceToken);
+      tokenRef.current = deviceToken;
+      console.log('Push token registered successfully');
 
-      return fcmToken;
+      return deviceToken;
     } catch (err: any) {
-      console.error('Error registering FCM token:', err);
+      console.error('Error registering push token:', err);
       setError(err.message || 'Failed to register for push notifications');
       return null;
     } finally {
@@ -107,7 +94,7 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
   }, [userId, requestPermission]);
 
   /**
-   * Supprimer le token FCM de Firestore (déconnexion)
+   * Supprimer le token push de Firestore (déconnexion)
    */
   const unregisterToken = useCallback(async (): Promise<void> => {
     if (!userId || !tokenRef.current) {
@@ -118,9 +105,9 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
       await UserService.removeFcmToken(userId, tokenRef.current);
       setToken(null);
       tokenRef.current = null;
-      console.log('FCM token unregistered successfully');
+      console.log('Push token unregistered successfully');
     } catch (err) {
-      console.error('Error unregistering FCM token:', err);
+      console.error('Error unregistering push token:', err);
     }
   }, [userId]);
 
@@ -130,8 +117,9 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
   useEffect(() => {
     if (!userId) return;
 
-    const unsubscribe = messaging().onTokenRefresh(async (newToken) => {
-      console.log('FCM token refreshed');
+    const subscription = Notifications.addPushTokenListener(async (newPushToken) => {
+      const newToken = newPushToken.data as string;
+      console.log('Push token refreshed');
 
       // Supprimer l'ancien token si on en avait un
       if (tokenRef.current && tokenRef.current !== newToken) {
@@ -144,7 +132,7 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
       tokenRef.current = newToken;
     });
 
-    return () => unsubscribe();
+    return () => subscription.remove();
   }, [userId]);
 
   return {
@@ -162,16 +150,8 @@ export function useFcmToken(userId: string | null): UseFcmTokenResult {
  */
 export async function areNotificationsEnabled(): Promise<boolean> {
   try {
-    if (Platform.OS === 'ios') {
-      const authStatus = await messaging().hasPermission();
-      return (
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL
-      );
-    } else {
-      const { status } = await Notifications.getPermissionsAsync();
-      return status === 'granted';
-    }
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'granted';
   } catch {
     return false;
   }

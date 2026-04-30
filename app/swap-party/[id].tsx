@@ -1,6 +1,7 @@
 /**
  * Swap Party Detail Screen
- * Design System: Luxe Français + Street Energy
+ * Design: HTML UI Kit — Swap Zone active · Parcourir
+ * Exact design: Phone 3 — sticky header, "Mon article disponible" section, 2-col product grid
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -18,26 +19,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import {
   getSwapParty,
-  getPartyItems,
   getPartyItemsExtended,
-  getPartyParticipants,
   joinSwapParty,
   leaveSwapParty,
   isParticipant,
   addItemToParty,
   removeItemFromParty,
 } from '@/services/swapService';
-import { SwapParty, SwapPartyItem, SwapPartyItemExtended, SwapPartyParticipant, Article } from '@/types';
+import { SwapParty, SwapPartyItemExtended, Article } from '@/types';
 import { ArticlesService } from '@/services/articlesService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Caption, Label, Button } from '@/components/ui';
+import { Text, Caption } from '@/components/ui';
 import SwapZoneFilters from '@/components/SwapZoneFilters';
 import { useSwapFilters } from '@/hooks/useSwapFilters';
 
@@ -46,17 +44,24 @@ export default function SwapPartyDetailScreen() {
   const { user } = useAuth();
   const { requireAuth } = useAuthRequired();
 
+  // Party & items state
   const [party, setParty] = useState<SwapParty | null>(null);
   const [items, setItems] = useState<SwapPartyItemExtended[]>([]);
-  const [participants, setParticipants] = useState<SwapPartyParticipant[]>([]);
   const [userItems, setUserItems] = useState<SwapPartyItemExtended[]>([]);
   const [myArticles, setMyArticles] = useState<Article[]>([]);
+
+  // UI state
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [showMyArticles, setShowMyArticles] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Multi-select state
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [longPressItem, setLongPressItem] = useState<string | null>(null);
 
   // Filters hook
   const {
@@ -68,34 +73,42 @@ export default function SwapPartyDetailScreen() {
     clearFilters,
   } = useSwapFilters(items);
 
-  const formatDateRange = (startDate?: Date, endDate?: Date) => {
-    if (!startDate || !endDate) return '';
+  // Calculate countdown days
+  const getCountdownDays = useCallback((endDate?: Date) => {
+    if (!endDate) return null;
+    const now = new Date();
+    const diffMs = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  }, []);
 
-    const formatDate = (d: Date) => {
-      return d.toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    };
-
-    return `Du ${formatDate(startDate)} au ${formatDate(endDate)}`;
-  };
+  // Toggle item selection
+  const toggleItemSelection = useCallback((itemId: string) => {
+    setSelectedItemIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      if (newSet.size === 0) {
+        setIsMultiSelectMode(false);
+      }
+      return newSet;
+    });
+  }, []);
 
   const loadPartyData = useCallback(async () => {
     if (!id) return;
 
     try {
-      const [partyData, itemsData, participantsData] = await Promise.all([
+      const [partyData, itemsData] = await Promise.all([
         getSwapParty(id),
         getPartyItemsExtended(id),
-        getPartyParticipants(id),
       ]);
 
       setParty(partyData);
       setItems(itemsData);
-      setParticipants(participantsData);
 
       if (user) {
         const joined = await isParticipant(id, user.id);
@@ -115,7 +128,9 @@ export default function SwapPartyDetailScreen() {
 
     try {
       const articles = await ArticlesService.getUserArticles(user.id);
-      const availableArticles = articles.filter((a) => a.isActive && !a.isSold);
+      // getUserArticles already filters out isActive === false
+      // Only filter out sold articles here; treat missing isActive as active
+      const availableArticles = articles.filter((a) => a.isActive !== false && !a.isSold);
       setMyArticles(availableArticles);
     } catch (error) {
       console.error('Error loading my articles:', error);
@@ -126,11 +141,12 @@ export default function SwapPartyDetailScreen() {
     loadPartyData();
   }, [loadPartyData]);
 
+  // Preload user articles when joined (so modal opens instantly)
   useEffect(() => {
-    if (showMyArticles) {
+    if (isJoined || showMyArticles) {
       loadMyArticles();
     }
-  }, [showMyArticles, loadMyArticles]);
+  }, [isJoined, showMyArticles, loadMyArticles]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -190,8 +206,10 @@ export default function SwapPartyDetailScreen() {
 
     try {
       await addItemToParty(party.id, article, user.id, user.displayName || 'Utilisateur', user.profileImage);
-      setShowMyArticles(false);
+      // Reload data without closing the modal so user can add more articles
       loadPartyData();
+      // Re-fetch articles to update the "already added" filter
+      loadMyArticles();
     } catch (error) {
       console.error('Error adding item:', error);
       Alert.alert('Erreur', "Impossible d'ajouter l'article");
@@ -223,24 +241,53 @@ export default function SwapPartyDetailScreen() {
     );
   };
 
-  const handleItemPress = (item: SwapPartyItem) => {
+  // Handle item press with multi-select awareness
+  const handleItemPress = (item: SwapPartyItemExtended) => {
     if (!user) {
       requireAuth(() => {}, AUTH_MESSAGES.swapParty);
       return;
     }
 
-    if (item.sellerId !== user.id) {
+    // In multi-select mode, toggle selection
+    if (isMultiSelectMode) {
+      toggleItemSelection(item.id);
+      return;
+    }
+
+    // Navigate to article detail — pass swap context if it's another person's item
+    if (item.sellerId === user.id) {
+      router.push(`/article/${item.articleId}`);
+    } else {
       router.push({
-        pathname: '/propose-swap',
+        pathname: `/article/${item.articleId}`,
         params: {
           partyId: party?.id,
-          targetItemId: item.id,
-          targetArticleId: item.articleId,
+          swapItemId: item.id,
         },
       });
-    } else {
-      router.push(`/article/${item.articleId}`);
     }
+  };
+
+  // Handle long press to enter multi-select mode
+  const handleItemLongPress = (itemId: string) => {
+    if (!isJoined) return;
+    setIsMultiSelectMode(true);
+    toggleItemSelection(itemId);
+  };
+
+  // Handle propose swap with selected items
+  const handleProposeMultipleSwaps = () => {
+    if (selectedItemIds.size === 0 || !party) return;
+
+    const selectedItems = filteredItems.filter((item) => selectedItemIds.has(item.id));
+
+    router.push({
+      pathname: '/propose-swap',
+      params: {
+        partyId: party.id,
+        selectedItemIds: Array.from(selectedItemIds).join(','),
+      },
+    });
   };
 
   if (isLoading) {
@@ -248,7 +295,7 @@ export default function SwapPartyDetailScreen() {
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.sage} />
         </View>
       </SafeAreaView>
     );
@@ -257,33 +304,48 @@ export default function SwapPartyDetailScreen() {
   if (!party) {
     return (
       <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: 'Swap Party' }} />
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.errorContainer}>
-          <Text variant="body" style={styles.errorText}>Party non trouvée</Text>
+          <Text variant="body" color="foregroundSecondary">Swap Zone non trouvée</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const otherItems = items.filter((item) => item.sellerId !== user?.id);
+  const countdownDays = getCountdownDays(party.endDate);
+  const otherItems = filteredItems.filter((item) => item.sellerId !== user?.id);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header */}
+      {/* Sticky Header — Cream bg with border, 14px padding vertical */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            setIsMultiSelectMode(false);
+            setSelectedItemIds(new Set());
+            router.back();
+          }}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.foreground} />
+          <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
         </TouchableOpacity>
-        <Text variant="body" style={styles.headerTitle}>Swap Party</Text>
-        {isJoined && (
-          <TouchableOpacity style={styles.leaveButton} onPress={handleLeave}>
-            <Text variant="bodySmall" style={styles.leaveButtonText}>Quitter</Text>
-          </TouchableOpacity>
+
+        <View style={styles.headerTitleSection}>
+          {/* Label: "Swap Zone · En cours" */}
+          <Text style={styles.headerLabel}>
+            Swap Zone · {party.status === 'active' ? 'En cours' : 'À venir'}
+          </Text>
+          {/* Title: Cormorant 18px, weight 300 */}
+          <Text style={styles.headerTitle}>{party.name}</Text>
+        </View>
+
+        {/* Badge: "J-8" */}
+        {countdownDays !== null && (
+          <View style={styles.countdownBadge}>
+            <Text style={styles.badgeText}>J-{countdownDays}</Text>
+          </View>
         )}
       </View>
 
@@ -294,183 +356,209 @@ export default function SwapPartyDetailScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
+            tintColor={colors.sage}
           />
         }
       >
-        {/* Party Banner */}
-        <LinearGradient
-          colors={party.status === 'active' ? [colors.primary, '#1a4fd4'] : ['#667eea', '#764ba2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.banner}
-        >
-          <Text style={styles.bannerEmoji}>{party.emoji}</Text>
-          <Text variant="h2" style={styles.bannerTitle}>{party.name}</Text>
-          {party.description && (
-            <Text variant="bodySmall" style={styles.bannerDescription}>{party.description}</Text>
-          )}
+        {/* "Mes articles" Section — Only if joined */}
+        {isJoined && (
+          <View style={styles.myArticleSection}>
+            {/* Label with count */}
+            <View style={styles.myArticleLabelRow}>
+              <Text style={styles.myArticleLabel}>
+                Mes articles à l'échange · {userItems.length}
+              </Text>
+              {party.status !== 'ended' && (
+                <TouchableOpacity
+                  style={styles.addArticleButton}
+                  onPress={() => setShowMyArticles(true)}
+                >
+                  <Ionicons name="add" size={16} color={colors.sage} />
+                  <Text style={styles.addArticleButtonText}>Ajouter</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-          <View style={styles.countdownContainer}>
-            <Ionicons name="calendar-outline" size={18} color={colors.white} />
-            <Caption style={styles.countdownText}>
-              {formatDateRange(party.startDate, party.endDate)}
-            </Caption>
+            {userItems.length > 0 ? (
+              <View style={styles.myArticlesList}>
+                {userItems.map((item) => (
+                  <View key={item.id} style={styles.myArticleRow}>
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.myArticleImage}
+                    />
+                    <View style={styles.myArticleContent}>
+                      <Text style={styles.myArticleBrand}>
+                        {item.brand || 'BRAND'}
+                      </Text>
+                      <Text style={styles.myArticleTitle}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.myArticleStatus}>
+                        Disponible au swap
+                      </Text>
+                    </View>
+                    <View style={styles.myArticleValue}>
+                      <Text style={styles.myArticleValueLabel}>Valeur</Text>
+                      <Text style={styles.myArticlePrice}>
+                        {item.price}$
+                      </Text>
+                    </View>
+                    {party.status !== 'ended' && (
+                      <TouchableOpacity
+                        style={styles.removeItemButton}
+                        onPress={() => handleRemoveItem(item.articleId)}
+                      >
+                        <Ionicons name="close-circle" size={20} color={colors.muted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.myArticleEmpty}
+                onPress={() => setShowMyArticles(true)}
+              >
+                <Ionicons name="add-circle-outline" size={24} color={colors.sage} />
+                <Text style={styles.myArticleEmptyText}>
+                  Ajouter des articles à échanger
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
+        )}
 
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <Text variant="h3" style={styles.statValue}>{party.participantsCount || 0}</Text>
-              <Caption style={styles.statLabel}>participants</Caption>
-            </View>
-            <View style={styles.stat}>
-              <Text variant="h3" style={styles.statValue}>{party.itemsCount || 0}</Text>
-              <Caption style={styles.statLabel}>articles</Caption>
-            </View>
-            <View style={styles.stat}>
-              <Text variant="h3" style={styles.statValue}>{party.swapsCount || 0}</Text>
-              <Caption style={styles.statLabel}>échanges</Caption>
-            </View>
-          </View>
-
-          {!isJoined && party.status !== 'ended' && (
+        {/* Join/Leave Actions */}
+        {!isJoined && party.status !== 'ended' && (
+          <View style={styles.actionSection}>
             <TouchableOpacity
               style={styles.joinButton}
               onPress={handleJoin}
               disabled={isJoining}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <>
-                  <Text variant="body" style={styles.joinButtonText}>Rejoindre la Party</Text>
-                  <Ionicons name="arrow-forward" size={20} color={colors.primary} />
-                </>
+                <Text style={styles.joinButtonText}>Rejoindre la Swap Zone</Text>
               )}
             </TouchableOpacity>
-          )}
-        </LinearGradient>
-
-        {/* My Items Section (if joined) */}
-        {isJoined && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Label style={styles.sectionLabel}>Mes articles</Label>
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => setShowMyArticles(true)}
-              >
-                <Ionicons name="add" size={20} color={colors.primary} />
-                <Text variant="bodySmall" style={styles.addButtonText}>Ajouter</Text>
-              </TouchableOpacity>
-            </View>
-
-            {userItems.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Ionicons name="shirt-outline" size={40} color={colors.muted} />
-                <Caption style={styles.emptyText}>
-                  Ajoutez vos articles pour commencer à échanger
-                </Caption>
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              >
-                {userItems.map((item) => (
-                  <MyItemCard
-                    key={item.id}
-                    item={item}
-                    onRemove={() => handleRemoveItem(item.articleId)}
-                    onPress={() => router.push(`/article/${item.articleId}`)}
-                  />
-                ))}
-              </ScrollView>
-            )}
           </View>
         )}
 
-        {/* Browse Items Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Label style={styles.sectionLabel}>
-              {isJoined ? 'Proposer un échange' : 'Articles disponibles'}
-              {hasActiveFilters && (
-                <Text variant="caption" style={styles.filterCount}>
-                  {' '}({activeFilterCount} filtre{activeFilterCount > 1 ? 's' : ''})
-                </Text>
-              )}
-            </Label>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                hasActiveFilters && styles.filterButtonActive,
-              ]}
-              onPress={() => setShowFilters(true)}
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={hasActiveFilters ? colors.primary : colors.foreground}
-              />
-              {hasActiveFilters && (
-                <View style={styles.filterBadge}>
-                  <Text variant="caption" style={styles.filterBadgeText}>
-                    {activeFilterCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+        {isJoined && (
+          <TouchableOpacity
+            style={styles.leaveButton}
+            onPress={handleLeave}
+          >
+            <Text style={styles.leaveButtonText}>Quitter la party</Text>
+          </TouchableOpacity>
+        )}
 
-          {filteredItems.filter((item) => item.sellerId !== user?.id).length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons
-                name={hasActiveFilters ? 'funnel-outline' : 'swap-horizontal'}
-                size={40}
-                color={colors.muted}
-              />
-              <Caption style={styles.emptyText}>
-                {hasActiveFilters
-                  ? 'Aucun article ne correspond aux filtres'
-                  : 'Aucun article disponible pour le moment'}
-              </Caption>
-              {hasActiveFilters && (
-                <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
-                  <Text variant="bodySmall" style={styles.clearFiltersText}>
-                    Réinitialiser les filtres
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <View style={styles.itemsGrid}>
-              {filteredItems
-                .filter((item) => item.sellerId !== user?.id)
-                .map((item) => (
-                  <SwapItemCard
-                    key={item.id}
-                    item={item}
-                    onPress={() => handleItemPress(item)}
-                    canSwap={isJoined && userItems.length > 0}
-                  />
-                ))}
-            </View>
-          )}
+        {/* "Articles disponibles" label with count */}
+        <View style={styles.gridLabelSection}>
+          <Text style={styles.gridLabel}>
+            Articles disponibles · {otherItems.length}
+          </Text>
         </View>
+
+        {/* Product Grid — 2 columns with 1px divider background */}
+        {otherItems.length === 0 ? (
+          <View style={styles.emptyGrid}>
+            <Ionicons
+              name={hasActiveFilters ? 'funnel-outline' : 'swap-horizontal'}
+              size={48}
+              color={colors.sage}
+            />
+            <Text style={styles.emptyGridTitle}>
+              {hasActiveFilters
+                ? 'Aucun article ne correspond aux filtres'
+                : 'Aucun article disponible'}
+            </Text>
+            <Caption style={styles.emptyGridText}>
+              {hasActiveFilters
+                ? 'Essayez de modifier vos critères de recherche'
+                : 'Revenez plus tard'}
+            </Caption>
+            {hasActiveFilters && (
+              <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
+                <Text style={styles.clearFiltersText}>Réinitialiser</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <>
+            <FlatList
+              data={otherItems}
+              keyExtractor={(item) => item.id}
+              numColumns={2}
+              scrollEnabled={false}
+              columnWrapperStyle={styles.gridColumnWrapper}
+              contentContainerStyle={styles.gridContainer}
+              renderItem={({ item }) => (
+                <ProductCard
+                  item={item}
+                  isSelected={selectedItemIds.has(item.id)}
+                  isMultiSelectMode={isMultiSelectMode}
+                  onPress={() => handleItemPress(item)}
+                  onLongPress={() => handleItemLongPress(item.id)}
+                />
+              )}
+            />
+
+            {/* Multi-select action bar */}
+            {isMultiSelectMode && selectedItemIds.size > 0 && (
+              <View style={styles.multiSelectBar}>
+                <TouchableOpacity
+                  style={styles.cancelSelectButton}
+                  onPress={() => {
+                    setIsMultiSelectMode(false);
+                    setSelectedItemIds(new Set());
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Annuler</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.selectedCountText}>
+                  {selectedItemIds.size} sélectionné{selectedItemIds.size > 1 ? 's' : ''}
+                </Text>
+
+                {isJoined && userItems.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.proposeButton}
+                    onPress={handleProposeMultipleSwaps}
+                  >
+                    <Text style={styles.proposeButtonText}>Proposer</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
 
-      {/* Add Article Modal */}
+      {/* Add Articles Modal */}
       {showMyArticles && (
         <View style={styles.modal}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text variant="body" style={styles.modalTitle}>Ajouter un article</Text>
-              <TouchableOpacity onPress={() => setShowMyArticles(false)}>
-                <Ionicons name="close" size={24} color={colors.foreground} />
+              <Text variant="body" style={styles.modalTitle}>Ajouter des articles</Text>
+              <TouchableOpacity
+                style={styles.modalDoneButton}
+                onPress={() => setShowMyArticles(false)}
+              >
+                <Text style={styles.modalDoneText}>Terminé</Text>
               </TouchableOpacity>
             </View>
+
+            {userItems.length > 0 && (
+              <View style={styles.modalAddedCount}>
+                <Ionicons name="checkmark-circle" size={14} color={colors.sage} />
+                <Text style={styles.modalAddedCountText}>
+                  {userItems.length} article{userItems.length > 1 ? 's' : ''} dans la party
+                </Text>
+              </View>
+            )}
 
             <FlatList
               data={myArticles.filter(
@@ -479,26 +567,33 @@ export default function SwapPartyDetailScreen() {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.articleItem}
+                  style={styles.articleListItem}
                   onPress={() => handleAddItem(item)}
                 >
                   <Image
                     source={{ uri: item.images?.[0]?.url }}
-                    style={styles.articleImage}
+                    style={styles.articleListImage}
                   />
-                  <View style={styles.articleInfo}>
-                    <Text variant="body" style={styles.articleTitle} numberOfLines={1}>
+                  <View style={styles.articleListInfo}>
+                    <Text variant="label" style={styles.articleListTitle} numberOfLines={1}>
                       {item.title}
                     </Text>
-                    <Text variant="body" style={styles.articlePrice}>{item.price}€</Text>
+                    <Text variant="caption" color="muted">
+                      {item.brand}
+                    </Text>
                   </View>
-                  <Ionicons name="add-circle" size={24} color={colors.primary} />
+                  <Text variant="price" style={styles.articleListPrice}>
+                    {item.price}$
+                  </Text>
+                  <View style={styles.addItemIcon}>
+                    <Ionicons name="add-circle" size={24} color={colors.sage} />
+                  </View>
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyModal}>
                   <Caption style={styles.emptyModalText}>
-                    Aucun article disponible à ajouter
+                    Tous vos articles sont déjà dans la party
                   </Caption>
                 </View>
               }
@@ -519,76 +614,109 @@ export default function SwapPartyDetailScreen() {
 }
 
 /**
- * My Item Card Component
+ * Product Card Component — HTML UI Kit design
+ * cream background, image 3:4 aspect ratio, brand/title/price footer
  */
-function MyItemCard({
-  item,
-  onRemove,
-  onPress,
-}: {
-  item: SwapPartyItem;
-  onRemove: () => void;
+interface ProductCardProps {
+  item: SwapPartyItemExtended;
+  isSelected: boolean;
+  isMultiSelectMode: boolean;
   onPress: () => void;
-}) {
-  return (
-    <View style={styles.myItemCard}>
-      <TouchableOpacity onPress={onPress}>
-        <Image source={{ uri: item.imageUrl }} style={styles.myItemImage} />
-        <Text variant="caption" style={styles.myItemTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text variant="body" style={styles.myItemPrice}>{item.price}€</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
-        <Ionicons name="close-circle" size={20} color={colors.danger} />
-      </TouchableOpacity>
-    </View>
-  );
+  onLongPress: () => void;
 }
 
-/**
- * Swap Item Card Component
- */
-function SwapItemCard({
+function ProductCard({
   item,
+  isSelected,
+  isMultiSelectMode,
   onPress,
-  canSwap,
-}: {
-  item: SwapPartyItem;
-  onPress: () => void;
-  canSwap: boolean;
-}) {
+  onLongPress,
+}: ProductCardProps) {
+  // Determine if there's a price supplement
+  const hasValueDifference = item.price && item.price > 0;
+
   return (
-    <TouchableOpacity style={styles.swapItemCard} onPress={onPress}>
-      <Image source={{ uri: item.imageUrl }} style={styles.swapItemImage} />
-      <View style={styles.swapItemInfo}>
-        <Text variant="bodySmall" style={styles.swapItemTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text variant="body" style={styles.swapItemPrice}>{item.price}€</Text>
-        <View style={styles.sellerRow}>
-          {item.sellerImage ? (
-            <Image source={{ uri: item.sellerImage }} style={styles.sellerAvatar} />
-          ) : (
-            <View style={styles.sellerAvatarPlaceholder}>
-              <Ionicons name="person" size={12} color={colors.muted} />
-            </View>
-          )}
-          <Caption style={styles.sellerName} numberOfLines={1}>
-            {item.sellerName}
-          </Caption>
+    <TouchableOpacity
+      style={styles.productCard}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.7}
+    >
+      {/* Image wrapper with 3:4 aspect ratio */}
+      <View style={styles.productImageWrapper}>
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.productImage}
+          resizeMode="cover"
+        />
+
+        {/* Selection checkbox (only visible in multi-select mode) */}
+        {isMultiSelectMode && (
+          <View
+            style={[
+              styles.selectionCheckbox,
+              isSelected && styles.selectionCheckboxSelected,
+            ]}
+          >
+            {isSelected && (
+              <Ionicons name="checkmark" size={14} color={colors.white} />
+            )}
+          </View>
+        )}
+
+        {/* Save button: position absolute top 8px right 8px, 28x28px */}
+        <TouchableOpacity style={styles.saveButton}>
+          <Ionicons name="heart-outline" size={16} color={colors.charcoal} />
+        </TouchableOpacity>
+
+        {/* Swap badge: bottom 8px left 8px */}
+        <View
+          style={[
+            styles.swapBadge,
+            hasValueDifference && styles.swapBadgeWithPrice,
+          ]}
+        >
+          <Ionicons
+            name="swap-horizontal"
+            size={10}
+            color={colors.white}
+            style={styles.swapIcon}
+          />
+          <Text style={styles.swapBadgeText}>
+            {hasValueDifference ? `Swap + $${item.price}` : 'Swap'}
+          </Text>
         </View>
       </View>
-      {canSwap && (
-        <View style={styles.swapBadge}>
-          <Ionicons name="swap-horizontal" size={14} color={colors.white} />
+
+      {/* Product info: padding 10px 12px 14px */}
+      <View style={styles.productInfo}>
+        {/* Brand: 9px, uppercase, muted */}
+        <Text style={styles.productBrand}>
+          {item.brand || 'BRAND'}
+        </Text>
+        {/* Title: Cormorant 15px, weight 400 */}
+        <Text style={styles.productTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        {/* Footer: flex space-between, price left, size right */}
+        <View style={styles.productFooter}>
+          <Text style={[
+            styles.productPrice,
+            hasValueDifference && styles.productPriceRust,
+          ]}>
+            ${item.price}
+          </Text>
+          <Text style={styles.productSize}>
+            {item.size || 'U'}
+          </Text>
         </View>
-      )}
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  // ===== CONTAINER & LAYOUT =====
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -602,37 +730,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  errorText: {
-    color: colors.foregroundSecondary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foreground,
-  },
-  leaveButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  leaveButtonText: {
-    color: colors.danger,
-    fontFamily: fonts.sansMedium,
+    paddingHorizontal: spacing.lg,
   },
   scrollView: {
     flex: 1,
@@ -640,204 +738,424 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing['2xl'],
   },
-  banner: {
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  bannerEmoji: {
-    fontSize: 50,
-    marginBottom: spacing.sm,
-  },
-  bannerTitle: {
-    color: colors.white,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  bannerDescription: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: 20,
-    paddingHorizontal: spacing.md,
-  },
-  countdownContainer: {
+
+  // ===== STICKY HEADER (cream bg, 14px padding) =====
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    backgroundColor: `rgba(245, 240, 232, 0.95)`,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 12,
   },
-  countdownText: {
-    color: colors.white,
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  headerTitleSection: {
+    flex: 1,
+  },
+  headerLabel: {
+    fontSize: 9,
     fontFamily: fonts.sansMedium,
+    letterSpacing: 1.35,
+    textTransform: 'uppercase',
+    color: colors.sage,
+    marginBottom: 1,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing['2xl'],
-    marginBottom: spacing.lg,
+  headerTitle: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    fontWeight: '300',
+    color: colors.charcoal,
   },
-  stat: {
+  countdownBadge: {
+    backgroundColor: 'rgba(122, 140, 110, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(122, 140, 110, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
-  statValue: {
-    color: colors.white,
-  },
-  statLabel: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
-  },
-  joinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.full,
-    gap: spacing.sm,
-  },
-  joinButtonText: {
+  badgeText: {
+    fontSize: 9,
     fontFamily: fonts.sansMedium,
-    color: colors.primary,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.sage,
   },
-  section: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
+
+  // ===== MY ARTICLES SECTION =====
+  myArticleSection: {
+    backgroundColor: 'rgba(122, 140, 110, 0.06)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(122, 140, 110, 0.12)',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
-  sectionHeader: {
+  myArticleLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
-  sectionLabel: {
-    color: colors.foregroundSecondary,
+  myArticleLabel: {
+    fontSize: 10,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    color: colors.sage,
   },
-  addButton: {
+  addArticleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  addButtonText: {
-    fontFamily: fonts.sansMedium,
-    color: colors.primary,
-  },
-  emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing['2xl'],
-    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: 'rgba(122, 140, 110, 0.3)',
+    borderRadius: 2,
   },
-  emptyText: {
-    color: colors.foregroundSecondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  horizontalList: {
-    paddingRight: spacing.md,
-  },
-  myItemCard: {
-    width: 120,
-    marginRight: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  myItemImage: {
-    width: 120,
-    height: 120,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  myItemTitle: {
-    color: colors.foreground,
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-  myItemPrice: {
+  addArticleButtonText: {
+    fontSize: 10,
     fontFamily: fonts.sansMedium,
-    color: colors.foreground,
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
+    color: colors.sage,
   },
-  removeButton: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: colors.white,
-    borderRadius: 10,
+  myArticlesList: {
+    gap: 8,
   },
-  itemsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  swapItemCard: {
-    width: '48%',
-    marginHorizontal: '1%',
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  swapItemImage: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  swapItemInfo: {
-    padding: spacing.sm,
-  },
-  swapItemTitle: {
-    color: colors.foreground,
-    marginBottom: 4,
-  },
-  swapItemPrice: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foreground,
-    marginBottom: spacing.sm,
-  },
-  sellerRow: {
+  myArticleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 10,
   },
-  sellerAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.backgroundSecondary,
+  myArticleImage: {
+    width: 48,
+    height: 60,
+    backgroundColor: colors.background,
+    borderRadius: 0,
   },
-  sellerAvatarPlaceholder: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.backgroundSecondary,
+  myArticleContent: {
+    flex: 1,
+  },
+  myArticleBrand: {
+    fontSize: 10,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: 2,
+  },
+  myArticleTitle: {
+    fontFamily: fonts.display,
+    fontSize: 15,
+    fontWeight: '400',
+    color: colors.charcoal,
+    marginBottom: 6,
+  },
+  myArticleStatus: {
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.sage,
+  },
+  myArticleValue: {
+    alignItems: 'flex-end',
+  },
+  myArticleValueLabel: {
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+  },
+  myArticlePrice: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    fontWeight: '400',
+    color: colors.charcoal,
+  },
+  myArticleEmpty: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  myArticleEmptyText: {
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+  },
+  removeItemButton: {
+    padding: 4,
+    marginLeft: 4,
+  },
+
+  // ===== ACTION SECTION =====
+  actionSection: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  joinButton: {
+    backgroundColor: colors.sage,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sellerName: {
-    color: colors.foregroundSecondary,
-    flex: 1,
+  joinButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
-  swapBadge: {
+  leaveButton: {
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.lg,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  leaveButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.danger,
+  },
+
+  // ===== GRID LABEL SECTION =====
+  gridLabelSection: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    marginBottom: 12,
+  },
+  gridLabel: {
+    fontSize: 10,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+
+  // ===== PRODUCT GRID — 2 COLUMNS with 1px dividers =====
+  gridContainer: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: colors.border,
+  },
+  gridColumnWrapper: {
+    flexDirection: 'row',
+    backgroundColor: colors.border,
+  },
+  productCard: {
+    flex: 1,
+    backgroundColor: colors.cream,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  productImageWrapper: {
+    position: 'relative',
+    aspectRatio: 3 / 4,
+    backgroundColor: colors.background,
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  saveButton: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: colors.primary,
+    top: 8,
+    right: 8,
     width: 28,
     height: 28,
     borderRadius: 14,
+    backgroundColor: `rgba(245, 240, 232, 0.88)`,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  swapBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: `rgba(122, 140, 110, 0.9)`,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  swapBadgeWithPrice: {
+    backgroundColor: `rgba(196, 96, 58, 0.9)`,
+  },
+  swapIcon: {
+    marginRight: 2,
+  },
+  swapBadgeText: {
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.white,
+  },
+  selectionCheckbox: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  selectionCheckboxSelected: {
+    backgroundColor: colors.sage,
+    borderColor: colors.sage,
+  },
+
+  // ===== PRODUCT INFO =====
+  productInfo: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 14,
+  },
+  productBrand: {
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.35,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: 2,
+  },
+  productTitle: {
+    fontFamily: fonts.display,
+    fontSize: 15,
+    fontWeight: '400',
+    color: colors.charcoal,
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  productFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  productPrice: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.sage,
+  },
+  productPriceRust: {
+    color: colors.rust,
+  },
+  productSize: {
+    fontSize: 10,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+  },
+
+  // ===== EMPTY STATE =====
+  emptyGrid: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing['2xl'],
+    alignItems: 'center',
+  },
+  emptyGridTitle: {
+    marginTop: spacing.lg,
+    fontSize: 14,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
+    textAlign: 'center',
+  },
+  emptyGridText: {
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  clearFiltersButton: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.sage,
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.sage,
+  },
+
+  // ===== MULTI-SELECT BAR =====
+  multiSelectBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.md,
+  },
+  cancelSelectButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+  selectedCountText: {
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+  proposeButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.sage,
+    borderRadius: 0,
+  },
+  proposeButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.white,
+  },
+
+  // ===== MODAL (not used in this exact design but kept for compatibility) =====
   modal: {
     position: 'absolute',
     top: 0,
@@ -846,110 +1164,97 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    zIndex: 100,
   },
   modalContent: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
-    maxHeight: '70%',
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foreground,
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.charcoal,
   },
-  articleItem: {
+  modalDoneButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    backgroundColor: colors.sage,
+    borderRadius: 2,
+  },
+  modalDoneText: {
+    fontSize: 11,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
+    color: colors.white,
+  },
+  modalAddedCount: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.sm,
+    gap: 6,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(122, 140, 110, 0.08)',
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.border,
   },
-  articleImage: {
-    width: 60,
+  modalAddedCountText: {
+    fontSize: 12,
+    fontFamily: fonts.sans,
+    color: colors.sage,
+  },
+  addItemIcon: {
+    marginLeft: 4,
+  },
+  articleListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.md,
+  },
+  articleListImage: {
+    width: 48,
     height: 60,
-    borderRadius: radius.sm,
-    backgroundColor: colors.backgroundSecondary,
-    marginRight: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: 0,
   },
-  articleInfo: {
+  articleListInfo: {
     flex: 1,
   },
-  articleTitle: {
-    color: colors.foreground,
-    marginBottom: 4,
+  articleListTitle: {
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
+    marginBottom: 2,
   },
-  articlePrice: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foreground,
+  articleListPrice: {
+    fontSize: 14,
+    fontFamily: fonts.display,
+    color: colors.rust,
+    fontWeight: '500',
   },
   emptyModal: {
-    padding: spacing['2xl'],
+    paddingVertical: spacing['2xl'],
     alignItems: 'center',
   },
   emptyModalText: {
-    color: colors.foregroundSecondary,
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.muted,
     textAlign: 'center',
-  },
-  // Filter styles
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    position: 'relative',
-  },
-  filterButtonActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterBadgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontFamily: fonts.sansBold,
-  },
-  filterCount: {
-    color: colors.primary,
-    fontFamily: fonts.sansMedium,
-  },
-  clearFiltersButton: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  clearFiltersText: {
-    color: colors.primary,
-    fontFamily: fonts.sansMedium,
   },
 });

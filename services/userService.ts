@@ -13,7 +13,7 @@ import {
   updateDoc,
   where,
   writeBatch
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 
 export class UserService {
   private static readonly COLLECTION = 'users';
@@ -164,6 +164,7 @@ export class UserService {
     try {
       const updateData: any = {
         ...data,
+        isActive: true,
         updatedAt: serverTimestamp(),
       };
 

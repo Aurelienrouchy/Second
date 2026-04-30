@@ -1,4 +1,4 @@
-import { useNotifications } from '@/contexts/NotificationContext';
+import { useNotificationStore, selectUnreadCount } from '@/store/notificationStore';
 import { colors, fonts, radius } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -20,7 +20,7 @@ export function NotificationBellIcon({
   color = colors.foreground,
   showBadge = true,
 }: NotificationBellIconProps) {
-  const { notificationCount } = useNotifications();
+  const notificationCount = useNotificationStore(selectUnreadCount);
 
   const handlePress = () => {
     router.push('/notifications' as any);

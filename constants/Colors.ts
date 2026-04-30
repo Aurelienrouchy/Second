@@ -1,8 +1,8 @@
 /**
- * Colors - Legacy Support + New Design System
+ * Colors - Legacy Support + Seconde Design System
  *
  * This file maintains backwards compatibility while integrating
- * the new Luxe Français + Street design system.
+ * the Seconde UI Kit design system.
  *
  * For new code, prefer importing from '@/constants/theme':
  * import { colors } from '@/constants/theme';
@@ -11,7 +11,7 @@
 import { colors as themeColors } from './theme';
 
 // Legacy format for backwards compatibility
-const tintColorLight = themeColors.primary; // Bleu Klein
+const tintColorLight = themeColors.primary; // Rust / Terracotta
 
 export const Colors = {
   light: {

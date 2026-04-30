@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 export default function MyArticlesScreen() {
   const { user } = useAuth();
@@ -252,7 +253,7 @@ export default function MyArticlesScreen() {
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement de vos articles...</Text>
         </View>
       </SafeAreaView>
@@ -364,7 +365,7 @@ const styles = StyleSheet.create({
   articlePrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#F79F24',
+    color: colors.primary,
     marginBottom: 4,
   },
   articleSize: {
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sellButton: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
@@ -455,7 +456,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   connectButton: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,

@@ -1,4 +1,3 @@
-import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import {
     addDoc,
     arrayRemove,
@@ -11,13 +10,14 @@ import {
     increment,
     orderBy,
     query,
+    QueryDocumentSnapshot,
     startAfter,
     updateDoc,
     where
-} from '@react-native-firebase/firestore';
-import storageModule from '@react-native-firebase/storage';
-import * as FileSystem from 'expo-file-system';
-import { firestore, auth } from '../config/firebaseConfig';
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import { firestore, auth, storage } from '../config/firebaseConfig';
 import { Article, ArticleImage } from '../types';
 import { processImageWithBlurhash } from '../utils/imageUtils';
 
@@ -236,36 +236,27 @@ export class ArticlesService {
           const storagePath = `articles/${articleId}/image_${index}_${Date.now()}.jpg`;
           console.log(`☁️ Upload vers Firebase Storage:`, storagePath);
 
-          // Utiliser l'API namespaced pour React Native (putFile)
-          const localPath = compressedUri.startsWith('file://')
-            ? compressedUri.replace('file://', '')
-            : compressedUri;
-
           // Vérifier que le fichier local existe
           const fileInfo = await FileSystem.getInfoAsync(compressedUri);
           if (!fileInfo.exists) {
             throw new Error(`Local file does not exist: ${compressedUri}`);
           }
-          console.log(`📤 Upload fichier local (${(fileInfo.size || 0) / 1024}KB):`, localPath);
+          console.log(`📤 Upload fichier local (${(fileInfo.size || 0) / 1024}KB):`, compressedUri);
 
-          // Créer la référence et uploader avec l'API namespaced
-          const storageRef = storageModule().ref(storagePath);
+          // Read file as blob and upload using web SDK
+          const storageRef = ref(storage, storagePath);
 
           try {
-            // Attendre la completion de la tâche
-            const taskResult = await storageRef.putFile(localPath);
-            console.log(`✅ Upload terminé pour image ${index}:`, taskResult.state, `${taskResult.bytesTransferred} bytes`);
-
-            // Vérifier que l'upload a réussi
-            if (taskResult.state !== 'success') {
-              throw new Error(`Upload failed with state: ${taskResult.state}`);
-            }
+            const response = await fetch(compressedUri);
+            const blob = await response.blob();
+            await uploadBytes(storageRef, blob);
+            console.log(`✅ Upload terminé pour image ${index}`);
           } catch (uploadError: any) {
-            console.error(`❌ putFile error:`, uploadError.code, uploadError.message);
+            console.error(`❌ uploadBytes error:`, uploadError.code, uploadError.message);
             throw uploadError;
           }
 
-          const downloadURL = await storageRef.getDownloadURL();
+          const downloadURL = await getDownloadURL(storageRef);
           console.log(`🔗 URL générée pour image ${index}:`, downloadURL);
 
           const articleImage: ArticleImage = {
@@ -296,10 +287,10 @@ export class ArticlesService {
 
   static async getArticles(
     category?: string,
-    lastVisible?: FirebaseFirestoreTypes.QueryDocumentSnapshot,
+    lastVisible?: QueryDocumentSnapshot,
     limitCount: number = 20,
     excludeUserId?: string
-  ): Promise<{ articles: Article[], lastVisible: FirebaseFirestoreTypes.QueryDocumentSnapshot | null }> {
+  ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
     try {
       const articlesRef = collection(firestore, 'articles');
       let constraints: any[] = [
@@ -327,7 +318,7 @@ export class ArticlesService {
       const querySnapshot = await getDocs(q);
       const articles: Article[] = [];
       
-      querySnapshot.forEach((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+      querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
         const article = {
           id: docSnap.id,
@@ -342,7 +333,7 @@ export class ArticlesService {
         }
       });
 
-      const lastVisibleDoc = (querySnapshot.docs[querySnapshot.docs.length - 1] as FirebaseFirestoreTypes.QueryDocumentSnapshot) || null;
+      const lastVisibleDoc = (querySnapshot.docs[querySnapshot.docs.length - 1] as QueryDocumentSnapshot) || null;
 
       return { articles, lastVisible: lastVisibleDoc };
     } catch (error: any) {
@@ -402,8 +393,8 @@ export class ArticlesService {
       excludeUserId?: string;
     },
     limitCount: number = 20,
-    lastVisible?: FirebaseFirestoreTypes.QueryDocumentSnapshot
-  ): Promise<{ articles: Article[], lastVisible: FirebaseFirestoreTypes.QueryDocumentSnapshot | null }> {
+    lastVisible?: QueryDocumentSnapshot
+  ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
     try {
       console.log('🔍 searchArticles appelé avec:', { searchTerm, filters, limitCount });
       const articlesRef = collection(firestore, 'articles');
@@ -453,7 +444,7 @@ export class ArticlesService {
       console.log('📊 Nombre de documents récupérés:', querySnapshot.docs.length);
       const articles: Article[] = [];
 
-      querySnapshot.forEach((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+      querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
         console.log('📄 Document trouvé:', docSnap.id, 'images:', data.images?.length || 0);
         const article = {
@@ -538,7 +529,7 @@ export class ArticlesService {
       // Limiter les résultats après filtrage et tri
       const limitedArticles = articles.slice(0, limitCount);
       const idx = Math.min(querySnapshot.docs.length - 1, limitedArticles.length - 1);
-      const lastVisibleDoc = (querySnapshot.docs[idx] as FirebaseFirestoreTypes.QueryDocumentSnapshot) || null;
+      const lastVisibleDoc = (querySnapshot.docs[idx] as QueryDocumentSnapshot) || null;
 
       console.log('✅ Résultats finaux:', limitedArticles.length, 'articles');
       return { articles: limitedArticles, lastVisible: lastVisibleDoc };
@@ -566,7 +557,7 @@ export class ArticlesService {
       const querySnapshot = await getDocs(q);
       const articles: Article[] = [];
 
-      querySnapshot.forEach((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+      querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
         // Filtrer les articles supprimés (isActive === false)
         if (data.isActive === false) return;
@@ -616,11 +607,9 @@ export class ArticlesService {
     try {
       const uploadPromises = files.map(async (file, index) => {
         const storagePath = `articles/${articleId}/image_${index}_${Date.now()}`;
-        const imageRef = ref(storage, storagePath);
-        // For web, we'd use uploadBytes, but in RN we use putFile
-        // This method should primarily be used with uploadImagesReactNative for mobile
-        await storage.ref(storagePath).put(file);
-        return getDownloadURL(imageRef);
+        const storageRef = ref(storage, storagePath);
+        await uploadBytes(storageRef, file);
+        return getDownloadURL(storageRef);
       });
 
       return await Promise.all(uploadPromises);
@@ -632,7 +621,7 @@ export class ArticlesService {
   static async deleteImage(imageUrl: string): Promise<void> {
     try {
       const imageRef = ref(storage, imageUrl);
-      await imageRef.delete();
+      await deleteObject(imageRef);
     } catch (error: any) {
       throw new Error(`Erreur lors de la suppression de l'image: ${error.message}`);
     }

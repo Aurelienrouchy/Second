@@ -12,10 +12,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NEIGHBORHOODS_BY_BOROUGH, searchNeighborhoods } from '@/data/neighborhoods';
 import { MeetupNeighborhood } from '@/types';
+import { colors } from '@/constants/theme';
 
 interface NeighborhoodBottomSheetProps {
   selectedNeighborhood?: MeetupNeighborhood | null;
+  selectedNeighborhoods?: MeetupNeighborhood[];
   onSelect: (neighborhood: MeetupNeighborhood) => void;
+  multiSelect?: boolean;
 }
 
 export interface NeighborhoodBottomSheetRef {
@@ -29,7 +32,7 @@ interface SectionData {
 }
 
 const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, NeighborhoodBottomSheetProps>(
-  ({ selectedNeighborhood, onSelect }, ref) => {
+  ({ selectedNeighborhood, selectedNeighborhoods = [], onSelect, multiSelect = false }, ref) => {
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['75%', '90%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
@@ -45,8 +48,10 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
 
     const handleSelect = useCallback((neighborhood: MeetupNeighborhood) => {
       onSelect(neighborhood);
-      bottomSheetRef.current?.close();
-    }, [onSelect]);
+      if (!multiSelect) {
+        bottomSheetRef.current?.close();
+      }
+    }, [onSelect, multiSelect]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -79,7 +84,9 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
     ), []);
 
     const renderItem = useCallback(({ item }: { item: MeetupNeighborhood }) => {
-      const isSelected = selectedNeighborhood?.id === item.id;
+      const isSelected = multiSelect
+        ? selectedNeighborhoods.some((n) => n.id === item.id)
+        : selectedNeighborhood?.id === item.id;
 
       return (
         <Pressable
@@ -93,11 +100,11 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
             <Text style={styles.neighborhoodBorough}>{item.borough}</Text>
           </View>
           {isSelected && (
-            <Ionicons name="checkmark-circle" size={24} color="#F79F24" />
+            <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
           )}
         </Pressable>
       );
-    }, [selectedNeighborhood, handleSelect]);
+    }, [selectedNeighborhood, selectedNeighborhoods, multiSelect, handleSelect]);
 
     return (
       <BottomSheet
@@ -107,6 +114,7 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
         backdropComponent={renderBackdrop}
         enablePanDownToClose
         topInset={insets.top}
+        enableDynamicSizing={false}
       >
         <View style={styles.container}>
           <View style={styles.header}>
@@ -121,17 +129,17 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
           </Text>
 
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#8E8E93" />
+            <Ionicons name="search" size={20} color={colors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Rechercher un quartier..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.muted}
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color="#8E8E93" />
+                <Ionicons name="close-circle" size={20} color={colors.muted} />
               </Pressable>
             )}
           </View>
@@ -173,18 +181,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   subtitle: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.muted,
     paddingHorizontal: 20,
     marginBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -195,20 +203,20 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   listContent: {
     paddingBottom: 40,
   },
   sectionHeader: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     paddingHorizontal: 20,
     paddingVertical: 8,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.muted,
     textTransform: 'uppercase',
   },
   neighborhoodItem: {
@@ -218,7 +226,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.border,
   },
   selectedItem: {
     backgroundColor: '#FFF8F0',
@@ -229,15 +237,15 @@ const styles = StyleSheet.create({
   neighborhoodName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 2,
   },
   neighborhoodBorough: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   selectedText: {
-    color: '#F79F24',
+    color: colors.primary,
     fontWeight: '600',
   },
   emptyContainer: {
@@ -248,7 +256,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
     marginTop: 12,
   },
 });

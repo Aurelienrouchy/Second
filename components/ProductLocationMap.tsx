@@ -11,6 +11,7 @@ import {
     Text,
     View,
 } from 'react-native';
+import { colors } from '@/constants/theme';
 
 interface ProductLocationMapProps {
   sellerLocation?: {
@@ -114,7 +115,9 @@ const ProductLocationMap: React.FC<ProductLocationMapProps> = ({
     // return `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=${zoom}&size=${size}&markers=color:orange%7C${latitude},${longitude}&key=YOUR_API_KEY`;
     
     // Alternative: OpenStreetMap based static map
-    return `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+f79f24(${longitude},${latitude})/${longitude},${latitude},${zoom}/400x200?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw`;
+    const token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+    if (!token) return null;
+    return `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+f79f24(${longitude},${latitude})/${longitude},${latitude},${zoom}/400x200?access_token=${token}`;
   };
 
   const formatDistance = (dist: number | null) => {
@@ -132,7 +135,7 @@ const ProductLocationMap: React.FC<ProductLocationMapProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="location" size={20} color="#F79F24" />
+        <Ionicons name="location" size={20} color={colors.primary} />
         <Text style={styles.sectionTitle}>Emplacement</Text>
       </View>
 
@@ -165,7 +168,7 @@ const ProductLocationMap: React.FC<ProductLocationMapProps> = ({
           <Text style={styles.deliveryText}>Remise en main propre</Text>
         </View>
         <View style={styles.deliveryOption}>
-          <Ionicons name="cube-outline" size={20} color="#007AFF" />
+          <Ionicons name="cube-outline" size={20} color={colors.primary} />
           <Text style={styles.deliveryText}>Envoi possible</Text>
         </View>
       </View>
@@ -193,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 16,
     borderTopWidth: 8,
-    borderTopColor: '#F2F2F7',
+    borderTopColor: colors.surfaceWarm,
   },
   header: {
     flexDirection: 'row',
@@ -203,7 +206,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginLeft: 8,
   },
   infoRow: {
@@ -229,20 +232,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 8,
   },
   deliveryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginLeft: 12,
   },
   mapContainer: {
     height: 200,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     position: 'relative',
   },
   map: {

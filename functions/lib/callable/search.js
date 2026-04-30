@@ -152,6 +152,7 @@ exports.visualSearch = (0, https_1.onCall)({
             price: article.price,
             imageUrl: (_c = (_b = article.images) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.url,
             brand: article.brand || undefined,
+            size: article.size || undefined,
             condition: article.condition,
         });
     }
@@ -235,6 +236,7 @@ exports.getSimilarProducts = (0, https_1.onCall)({ invoker: 'public', timeoutSec
             price: article.price,
             imageUrl: (_b = (_a = article.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.url,
             brand: article.brand || undefined,
+            size: article.size || undefined,
             condition: article.condition,
         };
         if (includeScore) {

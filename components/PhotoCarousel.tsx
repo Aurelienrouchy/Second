@@ -8,6 +8,7 @@ import {
   ViewToken,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { colors } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
   },
   photo: {
     width: SCREEN_WIDTH,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceWarm,
   },
   dotsContainer: {
     position: 'absolute',

@@ -70,8 +70,8 @@ export const sendMessageNotification = onDocumentCreated(
         case 'image':
           title = senderName;
           body = articleTitle
-            ? `📷 Photo - "${articleTitle}"`
-            : '📷 Vous a envoyé une photo';
+            ? `Photo - "${articleTitle}"`
+            : 'Vous a envoyé une photo';
           notificationType = 'message';
           break;
 
@@ -220,7 +220,7 @@ export const sendOfferStatusNotification = onDocumentUpdated(
 
       // Build notification
       const title =
-        offerStatus === 'accepted' ? 'Offre acceptée ! 🎉' : 'Offre refusée';
+        offerStatus === 'accepted' ? 'Offre acceptée !' : 'Offre refusée';
       const body =
         offerStatus === 'accepted'
           ? `${sellerName} a accepté votre offre de ${amount}€`

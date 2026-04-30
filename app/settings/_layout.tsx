@@ -15,13 +15,13 @@ export default function SettingsLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: colors.cream,
         },
         headerShadowVisible: false,
         headerTintColor: colors.foreground,
         headerTitleStyle: {
-          fontFamily: fonts.sansMedium,
-          fontSize: 17,
+          fontFamily: fonts.displayMedium,
+          fontSize: 20,
         },
         headerBackTitle: ' ',
         presentation: 'card',

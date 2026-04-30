@@ -10,7 +10,7 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 import { firestore } from '../config/firebaseConfig';
 import { SearchFilters } from '../types';
 

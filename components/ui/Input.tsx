@@ -1,6 +1,6 @@
 /**
- * Input Component
- * Design System: Luxe Français + Street
+ * Input Component — Seconde UI Kit
+ * Design: Editorial Luxe — Clean border, warm accents
  *
  * Variants: default, search, price
  */

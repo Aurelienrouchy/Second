@@ -39,6 +39,7 @@ import { getCategoryInfoFromIds } from '@/data/categories-v2';
 import { ArticlesService } from '@/services/articlesService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Article } from '@/types';
+import { colors } from '@/constants/theme';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
@@ -225,7 +226,7 @@ export default function EditArticleScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#F79F24" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
@@ -243,7 +244,7 @@ export default function EditArticleScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="close" size={24} color="#1C1C1E" />
+          <Ionicons name="close" size={24} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Modifier l'article</Text>
         <View style={styles.headerPlaceholder} />
@@ -454,7 +455,7 @@ export default function EditArticleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -463,7 +464,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   header: {
     flexDirection: 'row',
@@ -472,8 +473,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: colors.surfaceWarm,
+    backgroundColor: colors.white,
   },
   backButton: {
     padding: 4,
@@ -481,7 +482,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   headerPlaceholder: {
     width: 32,
@@ -498,7 +499,7 @@ const styles = StyleSheet.create({
   mainPhoto: {
     width: '100%',
     height: 280,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceWarm,
   },
   thumbnailStrip: {
     marginTop: 8,
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceWarm,
   },
   formSection: {
     paddingHorizontal: 16,
@@ -525,36 +526,36 @@ const styles = StyleSheet.create({
   separatorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
   },
   separatorText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: colors.muted,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.border,
+    backgroundColor: colors.white,
   },
   saveButton: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   saveButtonTextDisabled: {
-    color: '#9CA3AF',
+    color: colors.muted,
   },
 });

@@ -16,6 +16,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "joseph.caling1@gmail.com",
+        "ascAppId": "6757828492",
+        "appleTeamId": "2VZTF24GKY",
+        "bundleIdentifier": "com.seconde.app"
+      }
+    }
   }
 }

@@ -4,6 +4,7 @@ import { useCallback, useState, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import DraftResumeModal from '@/components/DraftResumeModal';
 import draftService, { ArticleDraft } from '@/services/draftService';
+import { colors } from '@/constants/theme';
 
 /**
  * Sell Tab Entry Point
@@ -157,7 +158,7 @@ export default function SellTabScreen() {
   return (
     <View style={styles.container}>
       {(isLoading || isChecking) && !showModal && (
-        <ActivityIndicator size="large" color="#F79F24" />
+        <ActivityIndicator size="large" color={colors.primary} />
       )}
 
       <DraftResumeModal
@@ -175,6 +176,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
 });

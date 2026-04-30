@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 type TabType = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -162,7 +163,7 @@ export default function AdminShopsScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="storefront-outline" size={64} color="#8E8E93" />
+      <Ionicons name="storefront-outline" size={64} color={colors.muted} />
       <Text style={styles.emptyTitle}>Aucune boutique</Text>
       <Text style={styles.emptyText}>
         {selectedTab === 'pending'
@@ -176,7 +177,7 @@ export default function AdminShopsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Vérification des accès...</Text>
         </View>
       </SafeAreaView>
@@ -189,7 +190,7 @@ export default function AdminShopsScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Pressable onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="chevron-back" size={24} color="#1C1C1E" />
+            <Ionicons name="chevron-back" size={24} color={colors.foreground} />
           </Pressable>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Panel Admin</Text>
@@ -197,7 +198,7 @@ export default function AdminShopsScreen() {
           </View>
         </View>
         <Pressable onPress={loadShops} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="refresh" size={24} color="#F79F24" />
+          <Ionicons name="refresh" size={24} color={colors.primary} />
         </Pressable>
       </View>
 
@@ -248,7 +249,7 @@ export default function AdminShopsScreen() {
       {/* Liste des boutiques */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       ) : (
@@ -284,9 +285,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   headerContent: {
     flexDirection: 'row',
@@ -300,20 +301,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   tab: {
     flex: 1,
@@ -323,18 +324,18 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   tabActive: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.muted,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   badge: {
     backgroundColor: '#FF3B30',
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   listContent: {
     padding: 16,
@@ -360,7 +361,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   emptyContainer: {
     flex: 1,
@@ -372,11 +373,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   emptyText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
     textAlign: 'center',
     paddingHorizontal: 40,
   },

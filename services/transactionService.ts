@@ -8,13 +8,117 @@ import {
   serverTimestamp,
   updateDoc,
   where,
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 import { firestore } from '../config/firebaseConfig';
-import { ShippingAddress, Transaction } from '../types';
+import { MeetupSpot, ShippingAddress, Transaction, TransactionStatus } from '../types';
 
 export class TransactionService {
   /**
    * Create a new transaction after offer acceptance
+   */
+  /**
+   * Create a shipping transaction (requires Stripe payment)
+   */
+  static async createShippingTransaction(
+    articleId: string,
+    buyerId: string,
+    sellerId: string,
+    amount: number,
+    shippingCost: number,
+    shippingAddress: ShippingAddress,
+    chatId?: string,
+    serviceFee?: number,
+    shipEngineRateId?: string
+  ): Promise<string> {
+    try {
+      const fee = serviceFee || 0;
+      const totalAmount = amount + shippingCost + fee;
+
+      const transactionData: Record<string, any> = {
+        articleId,
+        buyerId,
+        sellerId,
+        amount,
+        shippingCost,
+        serviceFee: fee,
+        totalAmount,
+        sellerPayout: amount, // Vendeur reçoit 100% du prix article
+        deliveryType: 'shipping',
+        status: 'pending_payment',
+        shippingAddress,
+        createdAt: serverTimestamp(),
+      };
+
+      if (chatId) {
+        transactionData.chatId = chatId;
+      }
+
+      if (shipEngineRateId) {
+        transactionData.shipEngineRateId = shipEngineRateId;
+      }
+
+      const transactionsRef = collection(firestore, 'transactions');
+      const docRef = await addDoc(transactionsRef, transactionData);
+
+      return docRef.id;
+    } catch (error: any) {
+      throw new Error(`Erreur lors de la création de la transaction: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create a meetup transaction (no online payment, paid in person)
+   */
+  static async createMeetupTransaction(
+    articleId: string,
+    buyerId: string,
+    sellerId: string,
+    amount: number,
+    meetupSpot: MeetupSpot | null,
+    chatId?: string
+  ): Promise<string> {
+    try {
+      const transactionData: Record<string, any> = {
+        articleId,
+        buyerId,
+        sellerId,
+        amount,
+        shippingCost: 0,
+        totalAmount: amount,
+        deliveryType: 'meetup',
+        status: 'meetup_pending',
+        createdAt: serverTimestamp(),
+      };
+
+      // Only include meetupSpot if provided (null = to be decided via chat)
+      if (meetupSpot) {
+        const cleanSpot: Record<string, any> = {
+          name: meetupSpot.name,
+          category: meetupSpot.category,
+          neighborhood: meetupSpot.neighborhood,
+        };
+        if (meetupSpot.id) cleanSpot.id = meetupSpot.id;
+        if (meetupSpot.address) cleanSpot.address = meetupSpot.address;
+        if (meetupSpot.coordinates) cleanSpot.coordinates = meetupSpot.coordinates;
+        transactionData.meetupSpot = cleanSpot;
+      }
+
+      if (chatId) {
+        transactionData.chatId = chatId;
+      }
+
+      const transactionsRef = collection(firestore, 'transactions');
+      const docRef = await addDoc(transactionsRef, transactionData);
+
+      return docRef.id;
+    } catch (error: any) {
+      throw new Error(`Erreur lors de la création de la transaction meetup: ${error.message}`);
+    }
+  }
+
+  /**
+   * Legacy wrapper — Create a shipping transaction
+   * @deprecated Use createShippingTransaction instead
    */
   static async createTransaction(
     articleId: string,
@@ -25,33 +129,9 @@ export class TransactionService {
     shippingAddress: ShippingAddress,
     chatId?: string
   ): Promise<string> {
-    try {
-      const totalAmount = amount + shippingCost;
-
-      const transactionData: any = {
-        articleId,
-        buyerId,
-        sellerId,
-        amount,
-        shippingCost,
-        totalAmount,
-        status: 'pending_payment',
-        shippingAddress,
-        createdAt: serverTimestamp(),
-      };
-
-      // Add chatId if provided
-      if (chatId) {
-        transactionData.chatId = chatId;
-      }
-
-      const transactionsRef = collection(firestore, 'transactions');
-      const docRef = await addDoc(transactionsRef, transactionData);
-
-      return docRef.id;
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la création de la transaction: ${error.message}`);
-    }
+    return this.createShippingTransaction(
+      articleId, buyerId, sellerId, amount, shippingCost, shippingAddress, chatId
+    );
   }
 
   /**
@@ -90,7 +170,7 @@ export class TransactionService {
       const q = query(
         transactionsRef,
         where('chatId', '==', chatId),
-        where('status', 'in', ['pending_payment', 'paid', 'shipped', 'delivered'])
+        where('status', 'in', ['pending_payment', 'meetup_pending', 'meetup_confirmed', 'paid', 'shipped', 'delivered'])
       );
 
       const querySnapshot = await getDocs(q);
@@ -140,6 +220,10 @@ export class TransactionService {
         updateData.shippedAt = serverTimestamp();
       } else if (status === 'delivered') {
         updateData.deliveredAt = serverTimestamp();
+      } else if (status === 'meetup_confirmed') {
+        updateData.meetupConfirmedAt = serverTimestamp();
+      } else if (status === 'meetup_completed') {
+        updateData.meetupCompletedAt = serverTimestamp();
       }
 
       // Add any additional data
@@ -178,16 +262,16 @@ export class TransactionService {
    */
   static async updateShippingInfo(
     transactionId: string,
-    shippoTransactionId: string,
+    intelcomBookingId: string,
     shippingLabelUrl: string,
     trackingNumber: string,
     trackingUrl?: string
   ): Promise<void> {
     try {
       const transactionRef = doc(firestore, 'transactions', transactionId);
-      
+
       await updateDoc(transactionRef, {
-        shippoTransactionId,
+        intelcomBookingId,
         shippingLabelUrl,
         trackingNumber,
         trackingUrl: trackingUrl || '',

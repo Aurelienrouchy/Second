@@ -33,31 +33,101 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildDeepLink = buildDeepLink;
 exports.createInAppNotification = createInAppNotification;
 exports.sendPushNotification = sendPushNotification;
 exports.sendSwapNotification = sendSwapNotification;
 /**
  * Notification utilities
  * Firebase Functions v7
+ *
+ * Handles FCM push notifications + in-app notifications.
+ * Each notification includes a `deepLink` field for client-side routing.
  */
 const admin = __importStar(require("firebase-admin"));
 const firebase_1 = require("../config/firebase");
+// ─── Deep link builder ──────────────────────────────────────────────────────
+const DEEP_LINK_HOST = 'seconde.app';
+/**
+ * Build a deep link URL from notification type and data.
+ * Produces both scheme (seconde://) and universal (https://seconde.app/) links.
+ */
+function buildDeepLink(notificationType, data) {
+    switch (notificationType) {
+        case 'chat':
+        case 'message':
+            return data.chatId ? `https://${DEEP_LINK_HOST}/chat/${data.chatId}` : '';
+        case 'offer':
+        case 'offer_received':
+        case 'offer_accepted':
+        case 'offer_rejected':
+        case 'offer_counter':
+            return data.chatId ? `https://${DEEP_LINK_HOST}/chat/${data.chatId}` : '';
+        case 'article_favorited':
+        case 'price_drop':
+            return data.articleId
+                ? `https://${DEEP_LINK_HOST}/article/${data.articleId}`
+                : '';
+        case 'swap_zone_reminder':
+            return data.partyId
+                ? `https://${DEEP_LINK_HOST}/swap-party/${data.partyId}`
+                : '';
+        case 'swap_update':
+            return data.swapId
+                ? `https://${DEEP_LINK_HOST}/swap/${data.swapId}`
+                : '';
+        case 'saved_search':
+            return data.savedSearchId
+                ? `https://${DEEP_LINK_HOST}/search?savedSearchId=${data.savedSearchId}`
+                : '';
+        case 'shop_approved':
+        case 'shop_rejected':
+        case 'shop_created':
+            return `https://${DEEP_LINK_HOST}/notifications`;
+        default:
+            return '';
+    }
+}
+// ─── In-app notification ────────────────────────────────────────────────────
 /**
  * Create in-app notification in Firestore
  */
 async function createInAppNotification(userId, type, title, message, data) {
+    const deepLink = buildDeepLink(type, data);
     const notificationData = {
         userId,
         type,
         title,
         message,
-        data,
+        data: Object.assign(Object.assign({}, data), { deepLink }),
         isRead: false,
         createdAt: firebase_1.FieldValue.serverTimestamp(),
     };
     const docRef = await firebase_1.db.collection('notifications').add(notificationData);
     await docRef.update({ id: docRef.id });
     return docRef.id;
+}
+// ─── FCM push notification ──────────────────────────────────────────────────
+/**
+ * Resolve Android notification channel from notification type
+ */
+function getAndroidChannel(notificationType) {
+    switch (notificationType) {
+        case 'chat':
+        case 'message':
+            return 'messages';
+        case 'offer':
+        case 'offer_received':
+        case 'offer_accepted':
+        case 'offer_rejected':
+        case 'offer_counter':
+            return 'offers';
+        case 'swap_zone_reminder':
+        case 'swap_update':
+            return 'swaps';
+        default:
+            return 'notifications';
+    }
 }
 /**
  * Send FCM push notification and create in-app notification
@@ -87,16 +157,19 @@ async function sendPushNotification(userId, title, body, data, notificationType)
             console.log(`No FCM tokens for user ${userId}`);
             return { success: true, sentCount: 0 };
         }
+        // Build deep link for this notification
+        const deepLink = buildDeepLink(notificationType, data);
+        const channelId = getAndroidChannel(notificationType);
         // Build FCM messages
         const messages = fcmTokens.map((token) => ({
             token,
             notification: { title, body },
-            data: Object.assign(Object.assign({}, data), { type: notificationType }),
+            data: Object.assign(Object.assign({}, data), { type: notificationType, deepLink }),
             android: {
                 priority: 'high',
                 notification: {
                     sound: 'default',
-                    channelId: 'notifications',
+                    channelId,
                     priority: 'high',
                 },
             },
@@ -138,6 +211,7 @@ async function sendPushNotification(userId, title, body, data, notificationType)
         return { success: false, sentCount: 0 };
     }
 }
+// ─── Swap notification ──────────────────────────────────────────────────────
 /**
  * Send swap notification helper
  */
@@ -149,6 +223,7 @@ async function sendSwapNotification(userId, swapId, title, body, swapData) {
     const fcmTokens = userData.fcmTokens || [];
     if (fcmTokens.length === 0)
         return;
+    const deepLink = `https://${DEEP_LINK_HOST}/swap/${swapId}`;
     const messages = fcmTokens.map((token) => ({
         token,
         notification: {
@@ -159,6 +234,7 @@ async function sendSwapNotification(userId, swapId, title, body, swapData) {
             type: 'swap_update',
             swapId,
             status: String(swapData.status || ''),
+            deepLink,
         },
         android: {
             priority: 'high',

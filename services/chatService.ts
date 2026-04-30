@@ -10,8 +10,8 @@ import {
     serverTimestamp,
     updateDoc,
     where
-} from '@react-native-firebase/firestore';
-import { getDownloadURL, ref } from '@react-native-firebase/storage';
+} from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, firestore, storage } from '../config/firebaseConfig';
 import {
@@ -24,6 +24,26 @@ import {
   OfferHistoryEntry,
   OfferStatus,
 } from '../types';
+
+/**
+ * Recursively remove undefined values from an object.
+ * Firestore rejects documents containing undefined fields.
+ */
+function stripUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (obj instanceof Date) return obj;
+  if (Array.isArray(obj)) return obj.map(stripUndefined) as unknown as T;
+  if (typeof obj === 'object') {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, any>)) {
+      if (value !== undefined) {
+        result[key] = stripUndefined(value);
+      }
+    }
+    return result as T;
+  }
+  return obj;
+}
 
 export class ChatService {
   static async createOrGetChat(
@@ -42,19 +62,26 @@ export class ChatService {
       console.log('[ChatService] createOrGetChat - user1Id:', user1Id, 'user2Id:', user2Id, 'articleId:', articleId);
       console.log('[ChatService] Sorted participants:', participantIds);
 
-      // Check if chat already exists
+      // Check if chat already exists between these two participants.
+      // We deduplicate by participants pair only — one thread per user pair,
+      // regardless of the article (avoids creating multiple threads for the same user).
       const chatsRef = collection(firestore, 'chats');
       const q = query(
         chatsRef,
-        where('participants', '==', participantIds),
-        where('articleId', '==', articleId || null)
+        where('participants', '==', participantIds)
       );
 
       const querySnapshot = await getDocs(q);
       console.log('[ChatService] Existing chat query returned:', querySnapshot.size, 'results');
-      
+
       if (!querySnapshot.empty) {
-        const chatDoc = querySnapshot.docs[0];
+        // Pick the most recently updated chat (defensive against existing duplicates)
+        const sortedDocs = [...querySnapshot.docs].sort((a, b) => {
+          const aTime = a.data().updatedAt?.toMillis?.() ?? 0;
+          const bTime = b.data().updatedAt?.toMillis?.() ?? 0;
+          return bTime - aTime;
+        });
+        const chatDoc = sortedDocs[0];
         const chatData = chatDoc.data();
         return {
           id: chatDoc.id,
@@ -199,6 +226,9 @@ export class ChatService {
       // Sort participants for consistent querying
       const participants = [senderId, receiverId].sort();
 
+      // Strip undefined values from metadata to prevent Firestore rejection
+      const cleanMetadata = metadata ? stripUndefined(metadata) : {};
+
       const messageData = {
         chatId,
         senderId,
@@ -209,7 +239,7 @@ export class ChatService {
         timestamp: serverTimestamp(),
         status: 'sent' as MessageStatus,
         isRead: false,
-        ...metadata,
+        ...cleanMetadata,
       };
 
       console.log('[ChatService] Creating message with data:', JSON.stringify(messageData, null, 2));
@@ -275,7 +305,7 @@ export class ChatService {
         { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
       );
 
-      // Upload to Firebase Storage using React Native Firebase API
+      // Upload to Firebase Storage using web SDK
       const timestamp = Date.now();
       const imageName = `chat_images/${chatId}/${timestamp}.jpg`;
       const thumbnailName = `chat_images/${chatId}/${timestamp}_thumb.jpg`;
@@ -283,10 +313,18 @@ export class ChatService {
       const imageRef = ref(storage, imageName);
       const thumbnailRef = ref(storage, thumbnailName);
 
-      // Use putFile for React Native Firebase (not uploadBytes)
+      // Read files as blobs and upload using web SDK
+      const [imageResponse, thumbnailResponse] = await Promise.all([
+        fetch(manipulatedImage.uri),
+        fetch(thumbnail.uri),
+      ]);
+      const [imageBlob, thumbnailBlob] = await Promise.all([
+        imageResponse.blob(),
+        thumbnailResponse.blob(),
+      ]);
       await Promise.all([
-        imageRef.putFile(manipulatedImage.uri),
-        thumbnailRef.putFile(thumbnail.uri),
+        uploadBytes(imageRef, imageBlob),
+        uploadBytes(thumbnailRef, thumbnailBlob),
       ]);
 
       // Get download URLs
@@ -383,12 +421,24 @@ export class ChatService {
         content += `Lien de suivi: ${trackingUrl}`;
       }
 
+      // Fetch participants from the chat for proper rule/listener inclusion.
+      let participants: string[] = [];
+      try {
+        const chatDoc = await getDoc(doc(firestore, 'chats', chatId));
+        if (chatDoc.exists()) {
+          participants = (chatDoc.data().participants as string[]) || [];
+        }
+      } catch (lookupError) {
+        console.warn('[ChatService] Could not load chat participants for shipping label:', lookupError);
+      }
+
       const messageData = {
         chatId,
         senderId: 'system',
         receiverId: 'system',
         type: 'system' as const,
         content,
+        participants,
         timestamp: serverTimestamp(),
         status: 'sent' as const,
         isRead: true,
@@ -497,8 +547,11 @@ export class ChatService {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48h
 
+      // Strip undefined values from meetupLocation to avoid Firestore rejection
+      const cleanLocation = stripUndefined(meetupLocation);
+
       const meetupDetails: MeetupDetails = {
-        location: meetupLocation,
+        location: cleanLocation,
         proposedBy: 'buyer',
       };
 
@@ -510,21 +563,24 @@ export class ChatService {
       };
 
       // Format readable content for chat display
-      let content = `💰 Offre de ${amount}$\n`;
-      content += `📍 ${meetupLocation.name}`;
+      let content = `Offre de ${amount}$\n`;
+      content += meetupLocation.name;
       if (message) {
-        content += `\n💬 ${message}`;
+        content += `\n${message}`;
       }
 
-      const offerData = {
+      // Build offerData without undefined fields (Firestore rejects undefined)
+      const offerData: Record<string, any> = {
         amount,
         status: 'pending' as OfferStatus,
-        message: message || undefined,
-        meetup: meetupDetails,
-        history: [historyEntry],
+        meetup: stripUndefined(meetupDetails),
+        history: [stripUndefined(historyEntry)],
         expiresAt,
         offerId: `offer_${Date.now()}_${senderId}`,
       };
+      if (message) {
+        offerData.message = message;
+      }
 
       return await this.sendMessageWithType(
         chatId,
@@ -604,16 +660,18 @@ export class ChatService {
         content += `\n💬 ${message}`;
       }
 
-      const counterOfferData = {
+      const counterOfferData: Record<string, any> = {
         amount: newAmount,
         status: 'pending' as OfferStatus,
-        message: message || undefined,
-        meetup: meetupDetails,
-        history: newHistory,
+        meetup: stripUndefined(meetupDetails),
+        history: stripUndefined(newHistory),
         expiresAt,
         offerId: `offer_${Date.now()}_${userId}`,
         originalOfferId: originalOffer.offerId,
       };
+      if (message) {
+        counterOfferData.message = message;
+      }
 
       // Send system message about counter-offer
       await this.sendSystemMessage(
@@ -704,16 +762,18 @@ export class ChatService {
         content += `\n💬 ${message}`;
       }
 
-      const counterOfferData = {
+      const counterOfferData: Record<string, any> = {
         amount: originalOffer.amount,
         status: 'pending' as OfferStatus,
-        message: message || undefined,
-        meetup: newMeetupDetails,
-        history: newHistory,
+        meetup: stripUndefined(newMeetupDetails),
+        history: stripUndefined(newHistory),
         expiresAt,
         offerId: `offer_${Date.now()}_${userId}`,
         originalOfferId: originalOffer.offerId,
       };
+      if (message) {
+        counterOfferData.message = message;
+      }
 
       await this.sendSystemMessage(
         chatId,
@@ -802,16 +862,18 @@ export class ChatService {
         content += `\n💬 ${message}`;
       }
 
-      const counterOfferData = {
+      const counterOfferData: Record<string, any> = {
         amount: originalOffer.amount,
         status: 'pending' as OfferStatus,
-        message: message || undefined,
-        meetup: newMeetupDetails,
-        history: newHistory,
+        meetup: stripUndefined(newMeetupDetails),
+        history: stripUndefined(newHistory),
         expiresAt,
         offerId: `offer_${Date.now()}_${userId}`,
         originalOfferId: originalOffer.offerId,
       };
+      if (message) {
+        counterOfferData.message = message;
+      }
 
       await this.sendSystemMessage(
         chatId,
@@ -932,12 +994,25 @@ export class ChatService {
 
   static async sendSystemMessage(chatId: string, content: string): Promise<string> {
     try {
+      // Fetch participants from the chat so the message is included in
+      // listeners/rules that filter by `participants`.
+      let participants: string[] = [];
+      try {
+        const chatDoc = await getDoc(doc(firestore, 'chats', chatId));
+        if (chatDoc.exists()) {
+          participants = (chatDoc.data().participants as string[]) || [];
+        }
+      } catch (lookupError) {
+        console.warn('[ChatService] Could not load chat participants for system message:', lookupError);
+      }
+
       const messageData = {
         chatId,
         senderId: 'system',
         receiverId: 'system',
         type: 'system' as MessageType,
         content,
+        participants,
         timestamp: serverTimestamp(),
         status: 'sent' as MessageStatus,
         isRead: true,
@@ -980,15 +1055,17 @@ export class ChatService {
 
   static listenToMessages(
     chatId: string,
-    userId: string,
+    _userId: string,
     onUpdate: (messages: Message[]) => void,
     onError?: (error: Error) => void
   ): () => void {
+    // Filter only by chatId — including legacy messages and system messages
+    // (which don't have a `participants` field). Authorization is enforced by
+    // Firestore rules on the `chats` document containing the user.
     const messagesRef = collection(firestore, 'messages');
     const q = query(
       messagesRef,
       where('chatId', '==', chatId),
-      where('participants', 'array-contains', userId),
       orderBy('timestamp', 'asc')
     );
 

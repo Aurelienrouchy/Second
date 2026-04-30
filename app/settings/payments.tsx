@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 export default function PaymentsSettingsScreen() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function PaymentsSettingsScreen() {
         </View>
 
         <TouchableOpacity style={styles.addButton} onPress={handleAddCard}>
-          <Ionicons name="add" size={24} color="#F79F24" />
+          <Ionicons name="add" size={24} color={colors.primary} />
           <Text style={styles.addButtonText}>Ajouter une carte</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   sectionTitle: {
     fontSize: 16,
@@ -115,12 +116,12 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#F79F24',
+    borderColor: colors.primary,
     borderRadius: 8,
     gap: 8,
   },
   addButtonText: {
-    color: '#F79F24',
+    color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -1,11 +1,11 @@
 /**
  * SearchBar Component
- * Design inspired by Fitmuse - Premium fashion app aesthetic
+ * Design: Curated Editorial — Bulletin-Inspired
  *
  * Features:
- * - Rounded pill style
- * - Optional filter icon
- * - Animated focus state
+ * - Refined minimal style with subtle border
+ * - Warm ivory background
+ * - Smooth scale animation
  * - Haptic feedback
  */
 
@@ -25,7 +25,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, typography, animations } from '@/constants/theme';
+import { colors, radius, spacing, typography, animations, fonts, shadows } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -74,7 +74,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.snappy);
+    scale.value = withSpring(1, animations.spring.gentle);
   }, [scale]);
 
   const handlePress = useCallback(() => {
@@ -112,26 +112,26 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         accessibilityLabel={placeholder}
       >
         <View style={styles.iconContainer}>
-          <Ionicons name="search" size={20} color={colors.muted} />
+          <Ionicons name="search" size={16} color={colors.muted} />
         </View>
         <Text style={styles.placeholder}>{placeholder}</Text>
       </AnimatedPressable>
 
       {onCameraPress && (
         <Pressable
-          style={styles.cameraButton}
+          style={styles.actionButton}
           onPress={handleCameraPress}
           accessibilityLabel="Recherche visuelle"
         >
-          <Ionicons name="camera-outline" size={20} color={colors.primary} />
+          <Ionicons name="camera-outline" size={22} color={colors.foreground} />
         </Pressable>
       )}
 
       {showFilter && (
         <AnimatedPressable
           style={[
-            styles.filterButton,
-            hasActiveFilters && styles.filterButtonActive,
+            styles.actionButton,
+            hasActiveFilters && styles.actionButtonActive,
             filterAnimatedStyle,
           ]}
           onPressIn={handleFilterPressIn}
@@ -142,7 +142,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         >
           <Ionicons
             name="options-outline"
-            size={20}
+            size={16}
             color={hasActiveFilters ? colors.white : colors.foreground}
           />
           {hasActiveFilters && <View style={styles.filterDot} />}
@@ -167,48 +167,45 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.borderLight,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    height: 44,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm + 4,
+    height: 40,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   iconContainer: {
-    marginRight: spacing.sm,
+    marginRight: spacing.xs + 2,
   },
   placeholder: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
+    fontFamily: fonts.sans,
+    fontSize: 13,
     color: colors.muted,
     flex: 1,
   },
-  cameraButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryLight,
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.borderLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterButtonActive: {
+  actionButtonActive: {
     backgroundColor: colors.foreground,
+    borderColor: colors.foreground,
   },
   filterDot: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.danger,
-    borderWidth: 1.5,
+    top: 8,
+    right: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+    borderWidth: 1,
     borderColor: colors.foreground,
   },
 });

@@ -1,6 +1,7 @@
 /**
- * Tag & Badge Components
- * Design System: Luxe Français + Street
+ * Tag & Badge Components — Seconde UI Kit
+ * Design: Editorial Luxe — Sharp corners, border-only tags,
+ * refined uppercase badges.
  */
 
 import * as Haptics from 'expo-haptics';
@@ -18,10 +19,10 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, typography, animations } from '@/constants/theme';
+import { colors, radius, spacing, typography, animations, fonts } from '@/constants/theme';
 
 // =============================================================================
-// TAG COMPONENT (Selectable)
+// TAG COMPONENT (Selectable) — Editorial sharp border style
 // =============================================================================
 
 interface TagProps {
@@ -31,6 +32,8 @@ interface TagProps {
   disabled?: boolean;
   style?: ViewStyle;
   testID?: string;
+  /** Visual variant: 'default' = charcoal border, 'sage' = sage tint */
+  variant?: 'default' | 'sage';
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -42,6 +45,7 @@ export const Tag: React.FC<TagProps> = ({
   disabled = false,
   style,
   testID,
+  variant = 'default',
 }) => {
   const scale = useSharedValue(1);
 
@@ -62,10 +66,13 @@ export const Tag: React.FC<TagProps> = ({
     onPress?.();
   }, [onPress]);
 
+  const isSage = variant === 'sage';
+
   return (
     <AnimatedPressable
       style={[
         styles.tag,
+        isSage && styles.tagSage,
         selected && styles.tagSelected,
         disabled && styles.tagDisabled,
         style,
@@ -79,7 +86,11 @@ export const Tag: React.FC<TagProps> = ({
       accessibilityRole="button"
       accessibilityState={{ selected, disabled }}
     >
-      <Text style={[styles.tagText, selected && styles.tagTextSelected]}>
+      <Text style={[
+        styles.tagText,
+        isSage && styles.tagTextSage,
+        selected && styles.tagTextSelected,
+      ]}>
         {children}
       </Text>
     </AnimatedPressable>
@@ -121,7 +132,7 @@ const badgeVariantStyles: Record<BadgeVariant, { container: ViewStyle; text: { c
     text: { color: colors.danger },
   },
   outline: {
-    container: { backgroundColor: colors.transparent, borderWidth: 1, borderColor: colors.border },
+    container: { backgroundColor: colors.transparent, borderWidth: 1, borderColor: colors.borderStrong },
     text: { color: colors.foreground },
   },
 };
@@ -217,30 +228,40 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 // =============================================================================
 
 const styles = StyleSheet.create({
-  // Tag
+  // Tag — Editorial: sharp corners, border-only, no fill
   tag: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm,
-    backgroundColor: colors.borderLight,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.transparent,
+  },
+  tagSage: {
+    borderColor: 'rgba(122, 140, 110, 0.25)',
+    backgroundColor: colors.sageLight,
   },
   tagSelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.charcoal,
+    borderColor: colors.charcoal,
   },
   tagDisabled: {
     opacity: 0.5,
   },
   tagText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: typography.label.fontSize,
-    color: colors.foreground,
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    color: colors.charcoal,
     textAlign: 'center',
+  },
+  tagTextSage: {
+    color: colors.sage,
   },
   tagTextSelected: {
     color: colors.white,
   },
 
-  // Badge
+  // Badge — Sharp, minimal
   badge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -248,9 +269,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   badgeText: {
-    fontFamily: typography.caption.fontFamily,
+    fontFamily: fonts.sansMedium,
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    letterSpacing: 0.3,
   },
 
   // Notification Badge
@@ -264,7 +285,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   notificationBadgeText: {
-    fontFamily: typography.caption.fontFamily,
+    fontFamily: fonts.sansMedium,
     fontSize: 11,
     fontWeight: '700',
     color: colors.white,
@@ -281,7 +302,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusLabel: {
-    fontFamily: typography.caption.fontFamily,
+    fontFamily: fonts.sans,
     fontSize: typography.caption.fontSize,
     marginLeft: spacing.xs,
   },

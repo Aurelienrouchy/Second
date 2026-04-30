@@ -9,6 +9,7 @@ import {
 import { GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
 
 import { ShippingAddress } from '@/types';
+import { colors } from '@/constants/theme';
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '';
 
@@ -162,7 +163,7 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
           }}
           enablePoweredByContainer={false}
           textInputProps={{
-            placeholderTextColor: '#8E8E93',
+            placeholderTextColor: colors.muted,
             onFocus: () => setIsDropdownOpen(true),
             onBlur: () => {
               // Delay to allow onPress to fire before closing
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 16,
   },
   inputContainer: {
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 6,
   },
   required: {
@@ -282,15 +283,15 @@ const styles = StyleSheet.create({
   optional: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.muted,
   },
   input: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -300,18 +301,18 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
     marginTop: 4,
   },
   googleInputContainer: {
     backgroundColor: 'transparent',
   },
   googleInput: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     height: 48,
   },
   googleListView: {
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 4,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.border,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -331,7 +332,7 @@ const styles = StyleSheet.create({
   },
   googleDescription: {
     fontSize: 14,
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
 });
 

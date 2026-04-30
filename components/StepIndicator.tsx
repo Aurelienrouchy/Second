@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '@/constants/theme';
 
 interface StepIndicatorProps {
   currentStep: 1 | 2 | 3 | 4;
@@ -72,20 +73,20 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   dotCompleted: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.success,
   },
   dotCurrent: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
   },
   stepNumber: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: colors.muted,
   },
   stepNumberCurrent: {
     color: '#FFFFFF',
@@ -98,15 +99,15 @@ const styles = StyleSheet.create({
   connector: {
     width: 40,
     height: 3,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     marginHorizontal: 4,
   },
   connectorCompleted: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.success,
   },
   stepLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: colors.muted,
   },
 });

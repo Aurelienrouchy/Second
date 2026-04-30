@@ -10,6 +10,14 @@ import * as admin from 'firebase-admin';
 import { db } from '../config/firebase';
 import { sendSwapNotification } from '../utils/notifications';
 
+/** Resolve items arrays with backward compat for legacy single-item swaps */
+function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
+  if (side === 'initiator') {
+    return getSwapItems(swap, 'initiator');
+  }
+  return getSwapItems(swap, 'receiver');
+}
+
 /**
  * Send notification when a swap is proposed
  */
@@ -44,8 +52,23 @@ export const onSwapCreated = onDocumentCreated(
       }
 
       // Build notification
-      const title = "🔄 Nouvelle proposition d'échange";
-      const body = `${swap.initiatorName} te propose un échange pour "${swap.receiverItem?.title}"`;
+      const title = "Nouvelle proposition d'échange";
+
+      // Handle both single-item (legacy) and multi-item formats
+      const receiverItemsArray = getSwapItems(swap, 'receiver');
+      const initiatorItemsArray = getSwapItems(swap, 'initiator');
+
+      let body: string;
+      if (receiverItemsArray.length === 0) {
+        body = `${swap.initiatorName} te propose un échange`;
+      } else if (receiverItemsArray.length === 1) {
+        body = `${swap.initiatorName} te propose un échange pour "${receiverItemsArray[0]?.title}"`;
+      } else {
+        // Multiple items: show count
+        const receiverCount = receiverItemsArray.length;
+        const initiatorCount = initiatorItemsArray.length;
+        body = `${initiatorCount} article(s) proposé(s) pour ${receiverCount} article(s)`;
+      }
 
       const messages = fcmTokens.map((token: string) => ({
         token,
@@ -110,6 +133,25 @@ export const onSwapCreated = onDocumentCreated(
 );
 
 /**
+ * Helper to get swap description for notifications
+ */
+function getSwapDescription(swap: any): string {
+  const initiatorItems = getSwapItems(swap, 'initiator');
+  const receiverItems = getSwapItems(swap, 'receiver');
+
+  if (initiatorItems.length === 0 && receiverItems.length === 0) {
+    return 'l\'échange';
+  }
+
+  if (initiatorItems.length === 1 && receiverItems.length === 1) {
+    return `l'échange de "${receiverItems[0]?.title || 'article'}"`;
+  }
+
+  // Multi-article: show count format
+  return `l'échange (${initiatorItems.length} article(s) pour ${receiverItems.length} article(s))`;
+}
+
+/**
  * Send notification when swap status changes
  */
 export const onSwapStatusUpdated = onDocumentUpdated(
@@ -135,20 +177,20 @@ export const onSwapStatusUpdated = onDocumentUpdated(
       switch (newStatus) {
         case 'accepted':
           targetUserId = after.initiatorId;
-          title = '✅ Échange accepté !';
-          body = `${after.receiverName} a accepté ton échange`;
+          title = 'Échange accepté !';
+          body = `${after.receiverName} a accepté ${getSwapDescription(after)}`;
           break;
 
         case 'declined':
           targetUserId = after.initiatorId;
-          title = '❌ Échange refusé';
-          body = `${after.receiverName} a refusé ton échange`;
+          title = 'Échange refusé';
+          body = `${after.receiverName} a refusé ${getSwapDescription(after)}`;
           break;
 
         case 'cancelled':
           targetUserId = after.receiverId;
-          title = '🚫 Échange annulé';
-          body = `${after.initiatorName} a annulé l'échange`;
+          title = 'Échange annulé';
+          body = `${after.initiatorName} a annulé ${getSwapDescription(after)}`;
           break;
 
         case 'photos_pending':
@@ -156,14 +198,14 @@ export const onSwapStatusUpdated = onDocumentUpdated(
           await sendSwapNotification(
             after.initiatorId,
             swapId,
-            '📸 Photos requises',
+            'Photos requises',
             "N'oublie pas d'envoyer les photos de ton article",
             after
           );
           await sendSwapNotification(
             after.receiverId,
             swapId,
-            '📸 Photos requises',
+            'Photos requises',
             "N'oublie pas d'envoyer les photos de ton article",
             after
           );
@@ -174,14 +216,14 @@ export const onSwapStatusUpdated = onDocumentUpdated(
           await sendSwapNotification(
             after.initiatorId,
             swapId,
-            '📦 Prêt à expédier',
+            'Prêt à expédier',
             'Les photos sont validées, tu peux envoyer ton article',
             after
           );
           await sendSwapNotification(
             after.receiverId,
             swapId,
-            '📦 Prêt à expédier',
+            'Prêt à expédier',
             'Les photos sont validées, tu peux envoyer ton article',
             after
           );
@@ -192,14 +234,14 @@ export const onSwapStatusUpdated = onDocumentUpdated(
           await sendSwapNotification(
             after.initiatorId,
             swapId,
-            '🎉 Échange terminé !',
+            'Échange terminé !',
             "L'échange est complet. N'oublie pas de laisser une note.",
             after
           );
           await sendSwapNotification(
             after.receiverId,
             swapId,
-            '🎉 Échange terminé !',
+            'Échange terminé !',
             "L'échange est complet. N'oublie pas de laisser une note.",
             after
           );

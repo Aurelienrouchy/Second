@@ -107,13 +107,8 @@ export default function SettingsScreen() {
           <SettingItem
             icon="mail-outline"
             title="Email"
+            subtitle="Modifier votre adresse email"
             onPress={() => router.push('/settings/email')}
-          />
-          <SettingItem
-            icon="shield-checkmark-outline"
-            title="Vérifier l'email"
-            subtitle="Sécurisez votre compte"
-            onPress={() => router.push('/settings/verify-email')}
           />
           <SettingItem
             icon="call-outline"

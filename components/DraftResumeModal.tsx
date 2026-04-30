@@ -10,6 +10,7 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ArticleDraft, getDaysUntilExpiration } from '@/services/draftService';
+import { colors } from '@/constants/theme';
 
 interface DraftResumeModalProps {
   visible: boolean;
@@ -60,7 +61,7 @@ export default function DraftResumeModal({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="document-text" size={28} color="#F79F24" />
+              <Ionicons name="document-text" size={28} color={colors.primary} />
             </View>
             <Text style={styles.title}>Brouillon trouvé</Text>
             <Text style={styles.subtitle}>
@@ -79,7 +80,7 @@ export default function DraftResumeModal({
               />
             ) : (
               <View style={styles.noPhotoContainer}>
-                <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+                <Ionicons name="image-outline" size={32} color={colors.muted} />
               </View>
             )}
 
@@ -91,14 +92,14 @@ export default function DraftResumeModal({
 
               <View style={styles.previewMeta}>
                 <View style={styles.metaItem}>
-                  <Ionicons name="layers-outline" size={14} color="#6B7280" />
+                  <Ionicons name="layers-outline" size={14} color={colors.muted} />
                   <Text style={styles.metaText}>
                     Étape {draft.currentStep}/4 • {stepLabels[draft.currentStep]}
                   </Text>
                 </View>
 
                 <View style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={14} color="#6B7280" />
+                  <Ionicons name="time-outline" size={14} color={colors.muted} />
                   <Text style={styles.metaText}>
                     {formatDate(draft.updatedAt)}
                   </Text>
@@ -106,7 +107,7 @@ export default function DraftResumeModal({
 
                 {draft.photos.length > 0 && (
                   <View style={styles.metaItem}>
-                    <Ionicons name="images-outline" size={14} color="#6B7280" />
+                    <Ionicons name="images-outline" size={14} color={colors.muted} />
                     <Text style={styles.metaText}>
                       {draft.photos.length} photo{draft.photos.length > 1 ? 's' : ''}
                     </Text>
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: '#6B7280',
+    color: colors.muted,
     textAlign: 'center',
   },
   previewCard: {
@@ -204,13 +205,13 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 10,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
   },
   noPhotoContainer: {
     width: 72,
     height: 72,
     borderRadius: 10,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.muted,
   },
   expirationWarning: {
     flexDirection: 'row',
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
   },
@@ -275,7 +276,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   discardButtonText: {
-    color: '#6B7280',
+    color: colors.muted,
     fontSize: 15,
     fontWeight: '500',
   },

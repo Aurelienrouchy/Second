@@ -224,19 +224,18 @@ service cloud.firestore {
     }
     
     // Favorites Collection Rules
+    // Unified structure: { userId, articleIds[], updatedAt }
     match /favorites/{userId} {
-      // Allow read/write only by owner
-      allow read, write: if isOwner(userId);
-      
-      // Validate favorites data structure
-      allow write: if isValidFavoritesData(request.resource.data);
-      
+      // Allow read only by owner
+      allow read: if isOwner(userId);
+
+      // Allow write by owner with valid data
+      allow write: if isOwner(userId) && isValidFavoritesData(request.resource.data);
+
       function isValidFavoritesData(data) {
-        return data.keys().hasAll(['userId', 'products', 'totalCount']) &&
-               data.userId == request.auth.uid &&
-               data.products is list &&
-               data.totalCount is number &&
-               data.totalCount == data.products.size();
+        return data.userId == request.auth.uid &&
+               data.articleIds is list &&
+               data.articleIds.size() <= 500; // Cap at 500 favorites
       }
     }
     
@@ -467,7 +466,7 @@ service cloud.firestore {
                data.buyerId is string &&
                data.sellerId is string &&
                data.amount is number && data.amount > 0 &&
-               data.status in ['pending', 'paid', 'shipped', 'delivered', 'completed', 'cancelled', 'refunded', 'pending_payment'];
+               data.status in ['pending', 'paid', 'shipped', 'delivered', 'completed', 'cancelled', 'refunded', 'pending_payment', 'meetup_pending', 'meetup_confirmed', 'meetup_completed'];
       }
 
       function isValidTransactionUpdate(oldData, newData) {

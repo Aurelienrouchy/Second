@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
-} from '@react-native-firebase/firestore';
+} from 'firebase/firestore';
 
 export type ReportType = 'user' | 'article' | 'message';
 

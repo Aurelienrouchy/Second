@@ -10,7 +10,7 @@
  * - @google/genai: ^1.37.0
  *
  * File structure:
- * - /config       - Firebase, Stripe, Shippo, Gemini initialization
+ * - /config       - Firebase, Stripe, Intelcom, Gemini initialization
  * - /services     - AI services, brand matching
  * - /utils        - Geohash, search, notifications, debounce
  * - /callable     - onCall functions (client-callable)
@@ -19,7 +19,7 @@
  * - /http         - HTTP endpoints (webhooks)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.checkTrackingStatus = exports.createPaymentIntent = exports.getShippingEstimate = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.markSavedSearchViewed = exports.toggleProductLike = exports.incrementProductView = exports.getSimilarProducts = exports.visualSearch = exports.analyzeProductImage = void 0;
+exports.stripeWebhook = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.checkTrackingStatus = exports.createPaymentIntent = exports.getShippingEstimate = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.proposeMultiSwap = exports.markSavedSearchViewed = exports.toggleProductLike = exports.incrementProductView = exports.getSimilarProducts = exports.visualSearch = exports.analyzeProductImage = void 0;
 // ============================================================
 // CALLABLE FUNCTIONS (onCall)
 // ============================================================
@@ -37,6 +37,7 @@ Object.defineProperty(exports, "toggleProductLike", { enumerable: true, get: fun
 Object.defineProperty(exports, "markSavedSearchViewed", { enumerable: true, get: function () { return products_1.markSavedSearchViewed; } });
 // Swap Functions
 var swaps_1 = require("./callable/swaps");
+Object.defineProperty(exports, "proposeMultiSwap", { enumerable: true, get: function () { return swaps_1.proposeMultiSwap; } });
 Object.defineProperty(exports, "getActiveSwapPartyInfo", { enumerable: true, get: function () { return swaps_1.getActiveSwapPartyInfo; } });
 Object.defineProperty(exports, "getSwapPartyLeaderboard", { enumerable: true, get: function () { return swaps_1.getSwapPartyLeaderboard; } });
 // Payment Functions
@@ -51,6 +52,27 @@ Object.defineProperty(exports, "getMomentProducts", { enumerable: true, get: fun
 // Style Functions
 var style_1 = require("./callable/style");
 Object.defineProperty(exports, "generateStyleProfile", { enumerable: true, get: function () { return style_1.generateStyleProfile; } });
+// Onboarding Functions
+var onboarding_1 = require("./callable/onboarding");
+Object.defineProperty(exports, "saveOnboardingPreferences", { enumerable: true, get: function () { return onboarding_1.saveOnboardingPreferences; } });
+// Home Functions
+var home_1 = require("./callable/home");
+// Individual section callables (preferred)
+Object.defineProperty(exports, "getTrendingBrands", { enumerable: true, get: function () { return home_1.getTrendingBrands; } });
+Object.defineProperty(exports, "getPriceDrops", { enumerable: true, get: function () { return home_1.getPriceDrops; } });
+Object.defineProperty(exports, "getFeaturedSellers", { enumerable: true, get: function () { return home_1.getFeaturedSellers; } });
+Object.defineProperty(exports, "getNewArrivals", { enumerable: true, get: function () { return home_1.getNewArrivals; } });
+// Seller interactions
+Object.defineProperty(exports, "toggleSellerLike", { enumerable: true, get: function () { return home_1.toggleSellerLike; } });
+Object.defineProperty(exports, "getLikedSellers", { enumerable: true, get: function () { return home_1.getLikedSellers; } });
+Object.defineProperty(exports, "recordPriceDrop", { enumerable: true, get: function () { return home_1.recordPriceDrop; } });
+// Legacy combined feed
+Object.defineProperty(exports, "getHomeFeed", { enumerable: true, get: function () { return home_1.getHomeFeed; } });
+// Review Functions
+var reviews_1 = require("./callable/reviews");
+Object.defineProperty(exports, "createReview", { enumerable: true, get: function () { return reviews_1.createReview; } });
+Object.defineProperty(exports, "getUserReviews", { enumerable: true, get: function () { return reviews_1.getUserReviews; } });
+Object.defineProperty(exports, "getUserPublicProfile", { enumerable: true, get: function () { return reviews_1.getUserPublicProfile; } });
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================

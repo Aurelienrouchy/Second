@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Seconde — Checkout Flow</title>
+<style>
+  /* ============================================================
+     DESIGN SYSTEM TOKENS — Seconde Editorial Luxe
+     ============================================================ */
+  :root {
+    --cream: #F5F0E8;
+    --charcoal: #1A1814;
+    --rust: #C4603A;
+    --sage: #7A8C6E;
+    --sage-light: rgba(122, 140, 110, 0.12);
+    --sand: #D4C4A0;
+    --muted: #8C8880;
+    --white: #FFFFFF;
+    --border: rgba(26, 24, 20, 0.10);
+    --border-strong: rgba(26, 24, 20, 0.20);
+    --surface-warm: #F5F0E8;
+    --danger: #D64545;
+    --success: #3D9970;
+    --success-light: rgba(61, 153, 112, 0.1);
+    --overlay: rgba(26, 24, 20, 0.5);
+    --primary-light: rgba(196, 96, 58, 0.10);
+
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-sans: 'DM Sans', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: #E8E0D4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    padding: 40px;
+    justify-content: center;
+  }
+
+  .screen-wrapper {
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .screen-wrapper h3 {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .phone {
+    width: 390px;
+    height: 844px;
+    background: var(--surface-warm);
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+
+  /* Status bar */
+  .status-bar {
+    height: 54px;
+    flex-shrink: 0;
+  }
+
+  /* Header — cream bg, back + title */
+  .header {
+    background: var(--cream);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 56px;
+    flex-shrink: 0;
+  }
+  .header .back-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    border: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    cursor: pointer;
+  }
+  .header .back-btn svg { width: 16px; height: 16px; }
+  .header .title {
+    flex: 1;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 20px;
+    color: var(--charcoal);
+  }
+
+  /* Content area */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  /* Section title — 9px uppercase */
+  .section-title {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* Article summary card */
+  .article-summary {
+    display: flex;
+    gap: 14px;
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 14px;
+    margin-bottom: 24px;
+  }
+  .article-summary img {
+    width: 64px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 0;
+    background: var(--border);
+  }
+  .article-summary .info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .article-summary .brand {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .article-summary .name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+  .article-summary .price {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--rust);
+  }
+  .article-summary .condition {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* Delivery option card */
+  .delivery-option {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    transition: border-color 0.2s;
+  }
+  .delivery-option:hover {
+    border-color: var(--charcoal);
+  }
+  .delivery-option.selected {
+    border-color: var(--charcoal);
+    border-width: 2px;
+    padding: 17px;
+  }
+  .delivery-option .radio {
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .delivery-option.selected .radio {
+    border-color: var(--charcoal);
+  }
+  .delivery-option.selected .radio::after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--charcoal);
+  }
+  .delivery-option .option-content { flex: 1; }
+  .delivery-option .option-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .delivery-option .option-icon.meetup { background: var(--sage-light); color: var(--sage); }
+  .delivery-option .option-icon.shipping { background: var(--primary-light); color: var(--rust); }
+  .delivery-option .option-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--charcoal);
+    margin-bottom: 4px;
+  }
+  .delivery-option .option-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .delivery-option .option-price {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--charcoal);
+    margin-top: 8px;
+  }
+  .delivery-option .option-price .free { color: var(--sage); }
+
+  /* Meetup spots */
+  .meetup-spot {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .meetup-spot.selected {
+    border-color: var(--charcoal);
+    border-width: 2px;
+    padding: 13px;
+  }
+  .meetup-spot .spot-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    background: var(--sage-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sage);
+    flex-shrink: 0;
+  }
+  .meetup-spot .spot-info { flex: 1; }
+  .meetup-spot .spot-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--charcoal);
+    margin-bottom: 2px;
+  }
+  .meetup-spot .spot-details {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Form field */
+  .form-group {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .form-field {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-field:last-child { border-bottom: none; }
+  .form-field .field-label {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .form-field .field-value {
+    font-size: 14px;
+    color: var(--charcoal);
+  }
+  .form-field .field-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    color: var(--charcoal);
+    background: transparent;
+  }
+  .form-field .field-input::placeholder { color: var(--muted); }
+
+  /* Price breakdown */
+  .price-breakdown {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 16px;
+    margin-top: 20px;
+    margin-bottom: 16px;
+  }
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .price-row .label { color: var(--muted); }
+  .price-row .value { color: var(--charcoal); font-weight: 500; }
+  .price-row.total {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 6px;
+    margin-bottom: 0;
+  }
+  .price-row.total .label {
+    color: var(--charcoal);
+    font-weight: 500;
+    font-size: 14px;
+  }
+  .price-row.total .value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--rust);
+  }
+
+  /* Stripe card area */
+  .stripe-field {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stripe-field .card-icons {
+    display: flex;
+    gap: 6px;
+  }
+  .stripe-field .card-icon {
+    width: 32px;
+    height: 20px;
+    border-radius: 3px;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .stripe-field .card-input {
+    flex: 1;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  /* Info box */
+  .info-box {
+    display: flex;
+    gap: 10px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .info-box .info-icon {
+    color: var(--sage);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .info-box .info-text {
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .info-box .info-text strong {
+    color: var(--charcoal);
+    font-weight: 500;
+  }
+
+  /* Sticky footer */
+  .footer {
+    background: var(--cream);
+    border-top: 1px solid var(--border);
+    padding: 16px 20px;
+    flex-shrink: 0;
+  }
+  .footer .cta {
+    width: 100%;
+    height: 48px;
+    background: var(--charcoal);
+    color: var(--cream);
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 2.16px;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .footer .cta.rust {
+    background: var(--rust);
+  }
+  .footer .cta.disabled {
+    background: var(--border);
+    color: var(--muted);
+  }
+  .footer .cta svg { width: 16px; height: 16px; }
+  .footer .secondary-link {
+    text-align: center;
+    padding-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.72px;
+    cursor: pointer;
+  }
+  .footer-safe { height: 34px; flex-shrink: 0; }
+
+  /* Success screen */
+  .success-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+  }
+  .success-check {
+    width: 72px;
+    height: 72px;
+    border-radius: 36px;
+    background: var(--success-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .success-check svg { width: 32px; height: 32px; color: var(--success); }
+  .success-title {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--charcoal);
+    margin-bottom: 8px;
+  }
+  .success-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 280px;
+  }
+  .success-card {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 16px;
+    width: 100%;
+    margin-bottom: 32px;
+  }
+  .success-card .row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .success-card .row:last-child { margin-bottom: 0; }
+  .success-card .row .label { color: var(--muted); }
+  .success-card .row .value { color: var(--charcoal); font-weight: 500; }
+
+  /* Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 2px;
+  }
+  .badge.meetup { background: var(--sage-light); color: var(--sage); }
+  .badge.shipping { background: var(--primary-light); color: var(--rust); }
+  .badge.pending { background: rgba(224, 159, 62, 0.12); color: #E09F3E; }
+
+  /* Shipping estimate card */
+  .shipping-estimate {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .shipping-estimate.selected {
+    border-color: var(--charcoal);
+    border-width: 2px;
+    padding: 13px;
+  }
+  .shipping-estimate .carrier-info { flex: 1; }
+  .shipping-estimate .carrier-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--charcoal);
+    margin-bottom: 2px;
+  }
+  .shipping-estimate .carrier-delay {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .shipping-estimate .carrier-price {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--charcoal);
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SCREEN 1: DELIVERY TYPE SELECTION
+     ============================================================ -->
+<div class="screen-wrapper">
+  <h3>1 — Choix livraison</h3>
+  <div class="phone">
+    <div class="status-bar"></div>
+    <div class="header">
+      <button class="back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <span class="title">Commander</span>
+    </div>
+
+    <div class="content">
+      <p class="section-title">ARTICLE</p>
+      <div class="article-summary">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='80'%3E%3Crect fill='%23D4C4A0' width='64' height='80'/%3E%3C/svg%3E" alt="">
+        <div class="info">
+          <span class="brand">A.P.C.</span>
+          <span class="name">Sac demi-lune cuir</span>
+          <span class="price">145$</span>
+          <span class="condition">Tres bon etat</span>
+        </div>
+      </div>
+
+      <p class="section-title">MODE DE LIVRAISON</p>
+
+      <div class="delivery-option selected">
+        <div class="radio"></div>
+        <div class="option-content">
+          <div class="option-title">Remise en main propre</div>
+          <div class="option-desc">Rencontrez le vendeur dans un lieu public a Montreal</div>
+          <div class="option-price"><span class="free">Gratuit</span></div>
+        </div>
+        <div class="option-icon meetup">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><circle cx="12" cy="11" r="3"/></svg>
+        </div>
+      </div>
+
+      <div class="delivery-option">
+        <div class="radio"></div>
+        <div class="option-content">
+          <div class="option-title">Expedition postale</div>
+          <div class="option-desc">Livraison a votre adresse en 3-5 jours ouvrables</div>
+          <div class="option-price">A partir de 8.50$</div>
+        </div>
+        <div class="option-icon shipping">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="6" width="15" height="13" rx="1"/><path d="M16 10h4l3 3v6h-3"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
+      </div>
+
+      <div class="info-box" style="margin-top: 16px;">
+        <span class="info-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        </span>
+        <div class="info-text">
+          <strong>Paiement en main propre</strong><br>
+          Le paiement se fait directement lors du meetup. Aucun frais de plateforme.
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="cta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        CONTINUER
+      </button>
+    </div>
+    <div class="footer-safe"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN 2: MEETUP — SPOT SELECTION
+     ============================================================ -->
+<div class="screen-wrapper">
+  <h3>2a — Meetup : lieu</h3>
+  <div class="phone">
+    <div class="status-bar"></div>
+    <div class="header">
+      <button class="back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <span class="title">Lieu de rencontre</span>
+    </div>
+
+    <div class="content">
+      <div class="article-summary" style="margin-bottom: 20px;">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='80'%3E%3Crect fill='%23D4C4A0' width='64' height='80'/%3E%3C/svg%3E" alt="">
+        <div class="info">
+          <span class="brand">A.P.C.</span>
+          <span class="name">Sac demi-lune cuir</span>
+          <span class="price">145$</span>
+          <span class="badge meetup" style="margin-top: 4px;">Meetup</span>
+        </div>
+      </div>
+
+      <p class="section-title">LIEUX SUGGERES PAR LE VENDEUR</p>
+
+      <div class="meetup-spot selected">
+        <div class="spot-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><circle cx="12" cy="11" r="3"/></svg>
+        </div>
+        <div class="spot-info">
+          <div class="spot-name">Cafe Olimpico</div>
+          <div class="spot-details">Cafe · Mile End</div>
+        </div>
+        <div class="radio" style="width: 20px; height: 20px; border-radius: 10px; border: 1.5px solid var(--charcoal); display: flex; align-items: center; justify-content: center;">
+          <div style="width: 10px; height: 10px; border-radius: 5px; background: var(--charcoal);"></div>
+        </div>
+      </div>
+
+      <div class="meetup-spot">
+        <div class="spot-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><circle cx="12" cy="11" r="3"/></svg>
+        </div>
+        <div class="spot-info">
+          <div class="spot-name">Station Laurier</div>
+          <div class="spot-details">Metro · Plateau</div>
+        </div>
+        <div class="radio" style="width: 20px; height: 20px; border-radius: 10px; border: 1.5px solid var(--border-strong);"></div>
+      </div>
+
+      <div class="meetup-spot">
+        <div class="spot-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><circle cx="12" cy="11" r="3"/></svg>
+        </div>
+        <div class="spot-info">
+          <div class="spot-name">Parc La Fontaine</div>
+          <div class="spot-details">Parc · Plateau</div>
+        </div>
+        <div class="radio" style="width: 20px; height: 20px; border-radius: 10px; border: 1.5px solid var(--border-strong);"></div>
+      </div>
+
+      <div class="info-box" style="margin-top: 16px;">
+        <span class="info-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        </span>
+        <div class="info-text">
+          Vous conviendrez de la date et de l'heure avec le vendeur par messagerie apres la confirmation.
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="cta">
+        CONFIRMER LE MEETUP
+      </button>
+    </div>
+    <div class="footer-safe"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN 3: SHIPPING — ADDRESS + PAYMENT
+     ============================================================ -->
+<div class="screen-wrapper">
+  <h3>2b — Expedition : adresse + paiement</h3>
+  <div class="phone">
+    <div class="status-bar"></div>
+    <div class="header">
+      <button class="back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <span class="title">Paiement</span>
+    </div>
+
+    <div class="content">
+      <p class="section-title">ADRESSE DE LIVRAISON</p>
+      <div class="form-group">
+        <div class="form-field">
+          <div class="field-label">NOM COMPLET</div>
+          <input class="field-input" placeholder="Jean Dupont" value="Marie Laurent">
+        </div>
+        <div class="form-field">
+          <div class="field-label">ADRESSE</div>
+          <input class="field-input" placeholder="123 rue Exemple" value="4520 rue Saint-Denis">
+        </div>
+        <div class="form-field">
+          <div class="field-label">APPARTEMENT (OPTIONNEL)</div>
+          <input class="field-input" placeholder="Apt 2B" value="Apt 304">
+        </div>
+        <div class="form-field" style="display: flex; gap: 0;">
+          <div style="flex: 1; border-right: 1px solid var(--border);">
+            <div class="field-label">VILLE</div>
+            <input class="field-input" value="Montreal">
+          </div>
+          <div style="flex: 1; padding-left: 16px;">
+            <div class="field-label">CODE POSTAL</div>
+            <input class="field-input" value="H2J 2K1">
+          </div>
+        </div>
+      </div>
+
+      <p class="section-title">LIVRAISON</p>
+
+      <div class="shipping-estimate selected">
+        <div class="radio" style="width: 20px; height: 20px; border-radius: 10px; border: 1.5px solid var(--charcoal); display: flex; align-items: center; justify-content: center;">
+          <div style="width: 10px; height: 10px; border-radius: 5px; background: var(--charcoal);"></div>
+        </div>
+        <div class="carrier-info">
+          <div class="carrier-name">Intelcom Standard</div>
+          <div class="carrier-delay">3-5 jours ouvrables</div>
+        </div>
+        <div class="carrier-price">8.50$</div>
+      </div>
+
+      <div class="shipping-estimate">
+        <div class="radio" style="width: 20px; height: 20px; border-radius: 10px; border: 1.5px solid var(--border-strong);"></div>
+        <div class="carrier-info">
+          <div class="carrier-name">Intelcom Express</div>
+          <div class="carrier-delay">1-2 jours ouvrables</div>
+        </div>
+        <div class="carrier-price">14.50$</div>
+      </div>
+
+      <p class="section-title" style="margin-top: 20px;">PAIEMENT</p>
+      <div class="stripe-field">
+        <div class="card-icons">
+          <div class="card-icon">VISA</div>
+          <div class="card-icon">MC</div>
+        </div>
+        <div class="card-input">4242 •••• •••• 4242</div>
+      </div>
+
+      <div class="price-breakdown">
+        <div class="price-row">
+          <span class="label">Article</span>
+          <span class="value">145.00$</span>
+        </div>
+        <div class="price-row">
+          <span class="label">Livraison (Intelcom Standard)</span>
+          <span class="value">8.50$</span>
+        </div>
+        <div class="price-row">
+          <span class="label">Frais de service</span>
+          <span class="value">0.00$</span>
+        </div>
+        <div class="price-row total">
+          <span class="label">Total</span>
+          <span class="value">153.50$</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="cta rust">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+        PAYER 153.50$
+      </button>
+    </div>
+    <div class="footer-safe"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN 4: SUCCESS — MEETUP CONFIRMED
+     ============================================================ -->
+<div class="screen-wrapper">
+  <h3>3a — Succes meetup</h3>
+  <div class="phone">
+    <div class="status-bar"></div>
+
+    <div class="success-container">
+      <div class="success-check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div class="success-title">Meetup confirme</div>
+      <div class="success-subtitle">
+        Le vendeur a ete notifie. Convenez d'un creneau par messagerie pour finaliser la transaction.
+      </div>
+
+      <div class="success-card">
+        <div class="row">
+          <span class="label">Article</span>
+          <span class="value">Sac demi-lune cuir</span>
+        </div>
+        <div class="row">
+          <span class="label">Prix</span>
+          <span class="value" style="color: var(--rust);">145$</span>
+        </div>
+        <div class="row">
+          <span class="label">Lieu</span>
+          <span class="value">Cafe Olimpico</span>
+        </div>
+        <div class="row">
+          <span class="label">Type</span>
+          <span class="badge meetup">Meetup</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="cta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+        CONTACTER LE VENDEUR
+      </button>
+      <div class="secondary-link">Retour a l'accueil</div>
+    </div>
+    <div class="footer-safe"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN 5: SUCCESS — PAYMENT DONE (SHIPPING)
+     ============================================================ -->
+<div class="screen-wrapper">
+  <h3>3b — Succes paiement</h3>
+  <div class="phone">
+    <div class="status-bar"></div>
+
+    <div class="success-container">
+      <div class="success-check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div class="success-title">Paiement confirme</div>
+      <div class="success-subtitle">
+        Le vendeur a ete notifie et preparera l'expedition de votre article. Vous recevrez un numero de suivi.
+      </div>
+
+      <div class="success-card">
+        <div class="row">
+          <span class="label">Article</span>
+          <span class="value">Sac demi-lune cuir</span>
+        </div>
+        <div class="row">
+          <span class="label">Article</span>
+          <span class="value">145.00$</span>
+        </div>
+        <div class="row">
+          <span class="label">Livraison</span>
+          <span class="value">8.50$</span>
+        </div>
+        <div class="row">
+          <span class="label">Total paye</span>
+          <span class="value" style="color: var(--rust); font-family: var(--font-display); font-size: 16px; font-weight: 600;">153.50$</span>
+        </div>
+        <div class="row">
+          <span class="label">Type</span>
+          <span class="badge shipping">Expedition</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="cta">
+        VOIR MA COMMANDE
+      </button>
+      <div class="secondary-link">Retour a l'accueil</div>
+    </div>
+    <div class="footer-safe"></div>
+  </div>
+</div>
+
+</body>
+</html>

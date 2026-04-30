@@ -5,8 +5,9 @@
  */
 
 import { functions, storage, auth } from '@/config/firebaseConfig';
-import { httpsCallable } from '@react-native-firebase/functions';
-import * as FileSystem from 'expo-file-system';
+import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { AI_CONFIG, getPhaseProgress } from '@/config/aiConfig';
 import {
@@ -219,15 +220,17 @@ async function uploadImageToStorage(
   const filename = `${draftId}_${index}_${Date.now()}.${extension}`;
   const storagePath = `${DRAFTS_STORAGE_PATH}/${draftId}/${filename}`;
 
-  const reference = storage.ref(storagePath);
+  const storageRef = ref(storage, storagePath);
 
-  // Upload the file
-  await reference.putFile(uri);
+  // Read file as blob and upload using web SDK
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  await uploadBytes(storageRef, blob);
 
   // Get the download URL
-  const downloadUrl = await reference.getDownloadURL();
+  const downloadUrl = await getDownloadURL(storageRef);
 
-  // Fix URL encoding (React Native Firebase SDK sometimes returns un-encoded paths)
+  // Fix URL encoding if needed
   const fixedUrl = fixStorageUrl(downloadUrl);
 
   return fixedUrl;
@@ -258,12 +261,12 @@ async function uploadImagesToStorage(
  */
 export async function deleteDraftImagesFromStorage(draftId: string): Promise<void> {
   try {
-    const folderRef = storage.ref(`${DRAFTS_STORAGE_PATH}/${draftId}`);
-    const listResult = await folderRef.listAll();
+    const folderRef = ref(storage, `${DRAFTS_STORAGE_PATH}/${draftId}`);
+    const listResult = await listAll(folderRef);
 
     // Delete all files in the folder
     await Promise.all(
-      listResult.items.map(item => item.delete())
+      listResult.items.map(item => deleteObject(item))
     );
 
     console.log(`[aiService] Deleted ${listResult.items.length} images for draft ${draftId}`);
@@ -432,7 +435,7 @@ export async function analyzeProductImage(
     console.log(`[aiService] Uploading ${imageUris.length} image(s) to Storage... (user: ${auth.currentUser.uid})`);
     try {
       uploadedStorageUrls = await uploadImagesToStorage(
-        imageUris, // Use original URIs (they work with putFile)
+        imageUris, // Use original URIs (fetched as blobs for upload)
         effectiveDraftId,
         (uploaded, total) => {
           // Update progress during upload phase (0-30%)

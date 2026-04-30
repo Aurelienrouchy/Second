@@ -67,6 +67,7 @@ export function estimateTokens(text: string, isBase64: boolean = false): number 
 }
 
 // Cached prompt (generated once)
+// Cache invalidated on deploy — prompt is rebuilt on first call
 let cachedAnalysisPrompt: string | null = null;
 
 export function generateSingleStepAnalysisPrompt(): string {
@@ -82,7 +83,7 @@ export function generateSingleStepAnalysisPrompt(): string {
   // Materials: just names
   const materials = MATERIAL_REFERENCE.map((m) => m.name).join(', ');
 
-  cachedAnalysisPrompt = `Analyse cet article de mode. Réponds en JSON uniquement.
+  cachedAnalysisPrompt = `Analyse cet article de mode seconde main. Réponds en JSON uniquement.
 
 CATÉGORIES (choisis la plus précise):
 ${categoryLabels}
@@ -91,11 +92,15 @@ COULEURS: ${colors}
 MATIÈRES: ${materials}
 ÉTATS: Neuf avec étiquette, Très bon état, Bon état, Satisfaisant
 
+RÈGLES IMPORTANTES pour title et description:
+- title: 3-6 mots max, factuel, pas de superlatifs. Ex: "Robe fleurie Zara taille M"
+- description: 2-3 phrases courtes (20-40 mots MAX), style naturel comme entre amis. Décris ce que tu vois: coupe, détails, état. Pas de langage marketing, pas de "sublime", "magnifique", "incontournable". Reste simple et honnête.
+
 {
   "genre": "Femmes|Hommes|Enfants",
   "category": "Label exact de la liste",
-  "title": "Titre court accrocheur",
-  "description": "Description 50-100 mots",
+  "title": "Titre court factuel",
+  "description": "Description courte et naturelle, 20-40 mots max",
   "condition": "neuf|tres-bon-etat|bon-etat|satisfaisant",
   "color": "Couleur principale",
   "material": "Matière principale",

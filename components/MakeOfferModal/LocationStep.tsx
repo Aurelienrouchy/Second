@@ -19,6 +19,7 @@ import {
 import { MeetupNeighborhood, MeetupSpot, MeetupSpotCategory, MeetupSpotCategoryLabels } from '@/types';
 
 import { getNextStep, MakeOfferContext } from './types';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 
 interface LocationStepProps {
   context: MakeOfferContext;
@@ -114,26 +115,27 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
       </View>
       {sellerNeighborhood?.id === item.id && (
         <View style={styles.recommendedBadge}>
-          <Text style={styles.recommendedText}>Zone du vendeur</Text>
+          <Text style={styles.recommendedText}>RECOMMANDÉ</Text>
         </View>
       )}
-      <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+      <Ionicons name="chevron-forward" size={20} color={colors.muted} />
     </Pressable>
   );
 
   const renderSpotItem = ({ item }: { item: MeetupSpot }) => {
     const isSellerSpot = sellerPreferredSpots?.some((s) => s.name === item.name);
+    const categoryColor = item.category === 'cafe' || item.category === 'park' ? colors.sageLight : colors.primaryLight;
 
     return (
       <Pressable
         style={[styles.listItem, isSellerSpot && styles.sellerRecommended]}
         onPress={() => handleSpotSelect(item)}
       >
-        <View style={styles.spotIcon}>
+        <View style={[styles.spotIcon, { backgroundColor: categoryColor }]}>
           <Ionicons
             name={getCategoryIcon(item.category)}
-            size={24}
-            color="#007AFF"
+            size={20}
+            color={colors.sage}
           />
         </View>
         <View style={styles.listItemContent}>
@@ -146,8 +148,8 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
           )}
         </View>
         {isSellerSpot && (
-          <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedText}>Suggéré</Text>
+          <View style={styles.suggestedBadge}>
+            <Text style={styles.suggestedText}>SUGGÉRÉ</Text>
           </View>
         )}
       </Pressable>
@@ -173,34 +175,30 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
     }
   };
 
-  // Render neighborhood selection
   if (subStep === 'neighborhood') {
     return (
       <View style={styles.container}>
         <Text style={styles.stepTitle}>Où voulez-vous vous rencontrer?</Text>
-        <Text style={styles.stepSubtitle}>
-          Choisissez un quartier pour le point de rencontre
-        </Text>
 
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#8E8E93" />
+          <Ionicons name="search" size={18} color={colors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Rechercher un quartier..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.muted}
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#8E8E93" />
+              <Ionicons name="close-circle" size={18} color={colors.muted} />
             </Pressable>
           )}
         </View>
 
         {sellerNeighborhood && !searchQuery && (
           <View style={styles.sellerZoneSection}>
-            <Text style={styles.sectionTitle}>Zone du vendeur</Text>
+            <Text style={styles.sectionTitle}>ZONE DU VENDEUR</Text>
             <Pressable
               style={[styles.listItem, styles.sellerRecommended]}
               onPress={() => handleNeighborhoodSelect(sellerNeighborhood)}
@@ -210,15 +208,15 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
                 <Text style={styles.listItemSubtitle}>{sellerNeighborhood.borough}</Text>
               </View>
               <View style={styles.recommendedBadge}>
-                <Text style={styles.recommendedText}>Recommandé</Text>
+                <Text style={styles.recommendedText}>RECOMMANDÉ</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
             </Pressable>
           </View>
         )}
 
         <Text style={styles.sectionTitle}>
-          {searchQuery ? 'Résultats' : 'Tous les quartiers'}
+          {searchQuery ? 'RÉSULTATS' : 'TOUS LES QUARTIERS'}
         </Text>
 
         <FlatList
@@ -235,33 +233,29 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
     );
   }
 
-  // Render spot selection
   if (showCustomSpot) {
     return (
       <View style={styles.container}>
         <Pressable style={styles.backButton} onPress={handleBack}>
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Ionicons name="arrow-back" size={18} color={colors.rust} />
           <Text style={styles.backText}>Retour</Text>
         </Pressable>
 
         <Text style={styles.stepTitle}>Proposer un lieu</Text>
-        <Text style={styles.stepSubtitle}>
-          Décrivez le lieu public de rencontre
-        </Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Nom du lieu</Text>
+          <Text style={styles.inputLabel}>NOM DU LIEU</Text>
           <TextInput
             style={styles.textInput}
             placeholder="Ex: Café Olimpico, Station Laurier..."
             value={state.customSpotName}
             onChangeText={actions.setCustomSpotName}
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.muted}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Type de lieu</Text>
+          <Text style={styles.inputLabel}>TYPE DE LIEU</Text>
           <View style={styles.categoryGrid}>
             {(Object.keys(MeetupSpotCategoryLabels) as MeetupSpotCategory[]).map(
               (category) => (
@@ -275,8 +269,8 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
                 >
                   <Ionicons
                     name={getCategoryIcon(category)}
-                    size={20}
-                    color={customCategory === category ? '#FFFFFF' : '#007AFF'}
+                    size={18}
+                    color={customCategory === category ? colors.white : colors.rust}
                   />
                   <Text
                     style={[
@@ -309,18 +303,15 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
   return (
     <View style={styles.container}>
       <Pressable style={styles.backButton} onPress={handleBack}>
-        <Ionicons name="arrow-back" size={24} color="#007AFF" />
+        <Ionicons name="arrow-back" size={18} color={colors.rust} />
         <Text style={styles.backText}>Changer de quartier</Text>
       </Pressable>
 
       <Text style={styles.stepTitle}>{state.selectedNeighborhood?.name}</Text>
-      <Text style={styles.stepSubtitle}>
-        Choisissez un lieu de rencontre
-      </Text>
 
       {availableSpots.length > 0 ? (
         <>
-          <Text style={styles.sectionTitle}>Lieux populaires</Text>
+          <Text style={styles.sectionTitle}>LIEUX POPULAIRES</Text>
           <FlatList
             data={availableSpots}
             renderItem={renderSpotItem}
@@ -339,7 +330,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
         style={styles.customSpotButton}
         onPress={() => setShowCustomSpot(true)}
       >
-        <Ionicons name="add-circle-outline" size={24} color="#007AFF" />
+        <Ionicons name="add" size={20} color={colors.rust} />
         <Text style={styles.customSpotText}>Proposer un autre lieu</Text>
       </Pressable>
     </View>
@@ -351,41 +342,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 8,
-  },
-  stepSubtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginBottom: 24,
+    fontSize: 18,
+    fontFamily: fonts.displayMedium,
+    color: colors.charcoal,
+    marginBottom: spacing.lg,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 24,
-    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#1C1C1E',
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    color: colors.muted,
+    letterSpacing: 1.5,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
     textTransform: 'uppercase',
-    marginBottom: 12,
-    marginTop: 8,
   },
   sellerZoneSection: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   list: {
     flex: 1,
@@ -393,143 +383,169 @@ const styles = StyleSheet.create({
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.border,
   },
   sellerRecommended: {
-    borderColor: '#34C759',
-    backgroundColor: '#F0FFF4',
+    borderColor: colors.sage,
+    backgroundColor: colors.sageLight,
   },
   spotIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E8F4FD',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
   listItemContent: {
     flex: 1,
   },
   listItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 2,
+    fontSize: 13,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+    marginBottom: spacing.xs,
   },
   listItemSubtitle: {
-    fontSize: 14,
-    color: '#8E8E93',
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.muted,
   },
   addressText: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 4,
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+    marginTop: spacing.xs,
   },
   recommendedBadge: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
+    backgroundColor: colors.sageLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    marginRight: spacing.sm,
   },
   recommendedText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    color: colors.sage,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  suggestedBadge: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    marginRight: spacing.sm,
+  },
+  suggestedText: {
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    color: colors.rust,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#8E8E93',
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: colors.muted,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: spacing.lg,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   backText: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginLeft: 8,
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    color: colors.rust,
+    marginLeft: spacing.xs,
   },
   customSpotButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    marginTop: 16,
+    paddingVertical: spacing.md,
+    marginTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
+    borderTopColor: colors.border,
   },
   customSpotText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginLeft: 8,
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    color: colors.rust,
+    marginLeft: spacing.xs,
   },
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+    marginBottom: spacing.sm,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   textInput: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#1C1C1E',
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
   },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
   },
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 20,
-    backgroundColor: '#E8F4FD',
-    gap: 6,
+    backgroundColor: colors.primaryLight,
+    gap: spacing.xs,
   },
   categoryButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.rust,
   },
   categoryButtonText: {
-    fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '500',
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+    color: colors.rust,
   },
   categoryButtonTextActive: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   submitButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: spacing.lg,
   },
   submitButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+    opacity: 0.5,
   },
   submitButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: fonts.sansMedium,
+    color: colors.cream,
+    letterSpacing: 2.16,
+    textTransform: 'uppercase',
   },
 });
 

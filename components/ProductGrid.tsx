@@ -4,14 +4,13 @@
  *
  * Reusable 2-column product grid built on FlashList.
  * Handles loading skeletons, empty state, pagination footer.
+ * Each ProductCard manages its own favorite state internally.
  *
  * Usage:
  *   <ProductGrid
  *     articles={articles}
  *     isLoading={isLoading}
  *     onProductPress={(article) => router.push(`/article/${article.id}`)}
- *     onToggleLike={(id) => toggleFavorite(id)}
- *     isFavorite={(id) => checkFavorite(id)}
  *     onLoadMore={loadMore}
  *     isPaginating={isPaginating}
  *     ListHeaderComponent={<MyHeader />}
@@ -20,7 +19,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, FlashListProps } from '@shopify/flash-list';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -29,8 +28,8 @@ import {
   View,
 } from 'react-native';
 
-import ProductCard, { SkeletonCard, CARD_WIDTH } from '@/components/ProductCard';
-import type { ProductCardProduct } from '@/components/ProductCard';
+import ProductCard, { SkeletonCard } from '@/components/ProductCard';
+import { CARD_WIDTH } from '@/components/ProductCard.constants';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
 import type { Article, ArticleWithLocation } from '@/types';
 
@@ -51,13 +50,9 @@ export interface ProductGridProps {
   onLoadMore?: () => void;
   /** Product tap handler */
   onProductPress: (article: Article | ArticleWithLocation) => void;
-  /** Like toggle handler (receives article id) */
-  onToggleLike?: (articleId: string) => void;
-  /** Check if article is favorited */
-  isFavorite?: (articleId: string) => boolean;
   /** Custom list header */
   ListHeaderComponent?: React.ReactElement | (() => React.ReactElement);
-  /** Extra data to trigger re-render (e.g. favorites set) */
+  /** Extra data to trigger re-render */
   extraData?: any;
   /** Custom empty message */
   emptyMessage?: string;
@@ -73,10 +68,7 @@ export interface ProductGridProps {
 // =============================================================================
 
 /** Convert an Article/ArticleWithLocation to ProductCard product shape */
-function toProductCardProduct(
-  article: Article | ArticleWithLocation,
-  isLiked: boolean,
-): ProductCardProduct {
+function toProductCardProduct(article: Article | ArticleWithLocation) {
   const location =
     'location' in article &&
     article.location &&
@@ -90,13 +82,10 @@ function toProductCardProduct(
     title: article.title,
     price: article.price,
     images: article.images,
-    sellerName: article.sellerName,
-    sellerImage: article.sellerImage,
     size: article.size,
     brand: article.brand,
     condition: article.condition,
     likes: article.likes,
-    isLiked,
     location,
   };
 }
@@ -144,8 +133,6 @@ export default function ProductGrid({
   onRefresh,
   onLoadMore,
   onProductPress,
-  onToggleLike,
-  isFavorite,
   ListHeaderComponent,
   extraData,
   emptyMessage = 'Aucun article trouvé',
@@ -153,23 +140,15 @@ export default function ProductGrid({
   skeletonCount = 6,
   testID,
 }: ProductGridProps) {
-  // Keep a stable ref for isFavorite to avoid re-creating renderItem
-  const isFavoriteRef = useRef(isFavorite);
-  isFavoriteRef.current = isFavorite;
-
   const renderItem = useCallback(
-    ({ item }: { item: Article | ArticleWithLocation }) => {
-      const liked = isFavoriteRef.current ? isFavoriteRef.current(item.id) : false;
-      return (
-        <ProductCard
-          product={toProductCardProduct(item, liked)}
-          onPress={() => onProductPress(item)}
-          onToggleLike={onToggleLike ? () => onToggleLike(item.id) : undefined}
-          testID={`product-card-${item.id}`}
-        />
-      );
-    },
-    [onProductPress, onToggleLike],
+    ({ item }: { item: Article | ArticleWithLocation }) => (
+      <ProductCard
+        product={toProductCardProduct(item)}
+        onPress={() => onProductPress(item)}
+        testID={`product-card-${item.id}`}
+      />
+    ),
+    [onProductPress],
   );
 
   const keyExtractor = useCallback(
@@ -245,6 +224,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
+    paddingHorizontal: 0,               // Edge-to-edge grid (Seconde)
     paddingBottom: 100,
   },
 
@@ -252,8 +232,7 @@ const styles = StyleSheet.create({
   skeletonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
+    gap: 1,                              // 1px gap (Seconde editorial grid)
   },
 
   // Empty state
@@ -264,8 +243,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   emptyTitle: {
-    fontFamily: fonts.serifSemiBold,
-    fontSize: 20,
+    fontFamily: fonts.displayMedium,
+    fontSize: 22,
     color: colors.foreground,
     marginTop: spacing.md,
     marginBottom: spacing.xs,

@@ -28,7 +28,7 @@ import { Text, Label, Caption } from '@/components/ui';
 
 export default function ProfileDetailsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -83,6 +83,8 @@ export default function ProfileDetailsScreen() {
         bio: bio.trim(),
         profileImage: profileImage || undefined,
       });
+
+      await refreshUser();
 
       Alert.alert('Succès', 'Votre profil a été mis à jour', [
         { text: 'OK', onPress: () => router.back() }

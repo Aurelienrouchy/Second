@@ -4,6 +4,7 @@ import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { MakeOfferContext } from './types';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 
 interface OfferStepProps {
   context: MakeOfferContext;
@@ -67,11 +68,13 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
         <Text style={styles.articleTitle} numberOfLines={2}>
           {articleTitle}
         </Text>
-        <Text style={styles.currentPrice}>Prix actuel : {currentPrice}€</Text>
+        <Text style={styles.currentPrice}>
+          Prix affiché : <Text style={styles.priceValue}>{currentPrice} $</Text>
+        </Text>
       </View>
 
       <View style={styles.inputSection}>
-        <Text style={styles.label}>Votre offre</Text>
+        <Text style={styles.label}>VOTRE OFFRE</Text>
         <View style={styles.amountInputContainer}>
           <TextInput
             style={styles.amountInput}
@@ -79,9 +82,8 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
             keyboardType="decimal-pad"
             value={offerAmount}
             onChangeText={actions.setOfferAmount}
-            autoFocus
           />
-          <Text style={styles.currency}>€</Text>
+          <Text style={styles.currencySuffix}>$</Text>
         </View>
         {discount !== null && (
           <Text style={[styles.discountText, discount > 50 && styles.discountWarning]}>
@@ -91,9 +93,10 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       </View>
 
       <View style={styles.inputSection}>
-        <Text style={styles.label}>
-          Message au vendeur <Text style={styles.optional}>(optionnel)</Text>
-        </Text>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>MESSAGE AU VENDEUR</Text>
+          <Text style={styles.optionalLabel}>(optionnel)</Text>
+        </View>
         <TextInput
           style={styles.messageInput}
           placeholder="Expliquez pourquoi vous faites cette offre..."
@@ -103,14 +106,17 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
           onChangeText={actions.setMessage}
           maxLength={500}
           textAlignVertical="top"
+          placeholderTextColor={colors.muted}
         />
         <Text style={styles.characterCount}>{message.length}/500</Text>
       </View>
 
-      <View style={styles.tipsContainer}>
-        <Ionicons name="bulb-outline" size={20} color="#34C759" />
-        <Text style={styles.tipsText}>
-          Vous proposerez ensuite un lieu et une date pour le meetup
+      <View style={styles.tipBox}>
+        <View style={styles.tipIconContainer}>
+          <Ionicons name="information-circle" size={18} color={colors.sage} />
+        </View>
+        <Text style={styles.tipText}>
+          Vous proposerez ensuite un lieu de rencontre
         </Text>
       </View>
 
@@ -123,104 +129,137 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
 
 const styles = StyleSheet.create({
   articleInfo: {
-    marginBottom: 24,
-    padding: 16,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.cream,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   articleTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    fontFamily: fonts.displayMedium,
+    color: colors.charcoal,
+    marginBottom: spacing.sm,
   },
   currentPrice: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 15,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+  },
+  priceValue: {
+    fontFamily: fonts.sansBold,
+    fontSize: 15,
   },
   inputSection: {
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+    marginBottom: spacing.sm,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
-  optional: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#8E8E93',
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
+  },
+  optionalLabel: {
+    fontSize: 10,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
+    marginLeft: spacing.xs,
   },
   amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 56,
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing.md,
+    height: 60,
+  },
+  currencySuffix: {
+    fontSize: 18,
+    fontFamily: fonts.sansMedium,
+    color: colors.muted,
+    marginLeft: spacing.sm,
   },
   amountInput: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  currency: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#8E8E93',
-    marginLeft: 8,
+    fontSize: 32,
+    fontFamily: fonts.sansBold,
+    color: colors.charcoal,
   },
   discountText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#34C759',
-    marginTop: 8,
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.sage,
+    marginTop: spacing.sm,
   },
   discountWarning: {
     color: '#FF9500',
   },
   messageInput: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#1C1C1E',
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    padding: spacing.md,
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
     minHeight: 100,
   },
   characterCount: {
-    fontSize: 12,
-    color: '#8E8E93',
+    fontSize: 10,
+    fontFamily: fonts.sans,
+    color: colors.muted,
     textAlign: 'right',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
-  tipsContainer: {
+  tipBox: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFF9F0',
-    borderRadius: 12,
-    marginBottom: 24,
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    backgroundColor: colors.cream,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
-  tipsText: {
+  tipIconContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  tipText: {
     flex: 1,
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
-    lineHeight: 20,
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+    lineHeight: 16,
   },
   submitButton: {
-    backgroundColor: '#F79F24',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: 'auto',
+    marginTop: spacing.lg,
   },
   submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: colors.cream,
+    fontSize: 11,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 2.16,
+    textTransform: 'uppercase',
   },
 });
 

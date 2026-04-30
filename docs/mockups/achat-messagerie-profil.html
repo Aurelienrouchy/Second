@@ -1,0 +1,3071 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seconde — Achat, Messagerie & Profil — DA Mockups</title>
+<style>
+  /* ============================================================
+     FONTS
+     ============================================================ */
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap');
+
+  /* ============================================================
+     DESIGN TOKENS
+     ============================================================ */
+  :root {
+    /* Colors */
+    --cream: #F5F0E8;
+    --charcoal: #1A1814;
+    --rust: #C4603A;
+    --sage: #7A8C6E;
+    --sage-light: rgba(122, 140, 110, 0.12);
+    --sand: #D4C4A0;
+    --muted: #8C8880;
+    --border: rgba(26, 24, 20, 0.10);
+    --border-strong: rgba(26, 24, 20, 0.20);
+    --surface-warm: #F5F0E8;
+    --background: #FAF8F4;
+    --white: #FFFFFF;
+    --danger: #D64545;
+    --danger-light: rgba(214, 69, 69, 0.1);
+    --success: #3D9970;
+    --success-light: rgba(61, 153, 112, 0.1);
+    --overlay: rgba(26, 24, 20, 0.5);
+
+    /* Typography */
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-sans: 'DM Sans', system-ui, sans-serif;
+
+    /* Spacing */
+    --sp-xs: 4px;
+    --sp-sm: 8px;
+    --sp-md: 16px;
+    --sp-lg: 24px;
+    --sp-xl: 32px;
+    --sp-2xl: 48px;
+
+    /* Radius */
+    --r-xs: 2px;
+    --r-sm: 4px;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --r-full: 9999px;
+  }
+
+  /* ============================================================
+     RESET & BASE
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    background: #2A2824;
+    color: var(--charcoal);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============================================================
+     LAYOUT — Phone frames side by side
+     ============================================================ */
+  .screens-row {
+    display: flex;
+    gap: 32px;
+    padding: 40px;
+    overflow-x: auto;
+    align-items: flex-start;
+  }
+
+  .screen-wrapper {
+    flex-shrink: 0;
+  }
+
+  .screen-label {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    background: var(--background);
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .phone-frame.short {
+    height: 870px;
+  }
+
+  .phone-frame.tall {
+    height: 920px;
+  }
+
+  /* Notch */
+  .phone-frame::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 160px; height: 34px;
+    background: var(--charcoal);
+    border-radius: 0 0 20px 20px;
+    z-index: 100;
+  }
+
+  .screen-content {
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .screen-content::-webkit-scrollbar { display: none; }
+
+  /* ============================================================
+     SAFE AREA
+     ============================================================ */
+  .safe-top { height: 54px; flex-shrink: 0; }
+
+  /* ============================================================
+     SECTION HEADERS (for the page)
+     ============================================================ */
+  .section-header {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    padding: 60px 40px 20px;
+  }
+
+  .section-sub {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    padding: 0 40px 32px;
+    letter-spacing: 0.3px;
+    line-height: 1.6;
+  }
+
+  /* ============================================================
+     1. CONVERSATIONS LIST
+     ============================================================ */
+  .conv-header {
+    background: var(--cream);
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .conv-header-title {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--charcoal);
+    letter-spacing: -0.5px;
+  }
+
+  .conv-tabs {
+    display: flex;
+    gap: 0;
+    background: var(--cream);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .conv-tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+    position: relative;
+    cursor: pointer;
+  }
+
+  .conv-tab.active {
+    color: var(--charcoal);
+  }
+
+  .conv-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 24px; right: 24px;
+    height: 2px;
+    background: var(--charcoal);
+  }
+
+  .conv-tab .tab-badge {
+    display: inline-block;
+    background: var(--rust);
+    color: var(--white);
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    border-radius: var(--r-full);
+    text-align: center;
+    margin-left: 6px;
+    padding: 0 4px;
+    letter-spacing: 0;
+  }
+
+  .conv-list {
+    flex: 1;
+    background: var(--background);
+  }
+
+  .conv-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 24px;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .conv-item:hover { background: var(--cream); }
+
+  .conv-item-img {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .conv-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--r-full);
+    object-fit: cover;
+    background: var(--cream);
+  }
+
+  .conv-article-thumb {
+    width: 36px;
+    height: 44px;
+    border-radius: var(--r-xs);
+    object-fit: cover;
+    background: var(--cream);
+    position: absolute;
+    bottom: -4px;
+    right: -8px;
+    border: 2px solid var(--white);
+  }
+
+  .conv-unread-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--r-full);
+    background: var(--rust);
+    position: absolute;
+    top: 0; right: -2px;
+    border: 2px solid var(--white);
+  }
+
+  .conv-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .conv-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+  }
+
+  .conv-name {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--charcoal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .conv-article-tag {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .conv-preview {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .conv-preview.unread {
+    color: var(--charcoal);
+    font-weight: 500;
+  }
+
+  .conv-preview .offer-tag {
+    display: inline-block;
+    background: var(--sage-light);
+    color: var(--sage);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: var(--r-xs);
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .conv-preview .swap-tag {
+    display: inline-block;
+    background: rgba(196, 96, 58, 0.1);
+    color: var(--rust);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: var(--r-xs);
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .conv-meta {
+    flex-shrink: 0;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .conv-time {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+  }
+
+  .conv-badge {
+    background: var(--rust);
+    color: var(--white);
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    border-radius: var(--r-full);
+    text-align: center;
+    padding: 0 5px;
+  }
+
+  /* ============================================================
+     2. CHAT SCREEN
+     ============================================================ */
+  .chat-header {
+    background: var(--cream);
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .chat-back-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--charcoal);
+  }
+
+  .chat-header-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-full);
+    object-fit: cover;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .chat-header-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chat-header-name {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+
+  .chat-header-article {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+    margin-top: 1px;
+  }
+
+  .chat-header-more {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--muted);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Article context bar */
+  .chat-article-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chat-article-img {
+    width: 48px;
+    height: 60px;
+    border-radius: var(--r-xs);
+    object-fit: cover;
+    background: var(--cream);
+    flex-shrink: 0;
+  }
+
+  .chat-article-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chat-article-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--charcoal);
+    line-height: 1.2;
+  }
+
+  .chat-article-price {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--rust);
+    margin-top: 2px;
+  }
+
+  .chat-article-btn {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--charcoal);
+    border: 1px solid var(--border-strong);
+    padding: 8px 14px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Messages area */
+  .chat-messages {
+    flex: 1;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--background);
+  }
+
+  .chat-date-separator {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 12px 0;
+  }
+
+  /* Message bubbles */
+  .msg-row {
+    display: flex;
+    max-width: 78%;
+  }
+
+  .msg-row.own {
+    align-self: flex-end;
+  }
+
+  .msg-row.other {
+    align-self: flex-start;
+  }
+
+  .msg-bubble {
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  .msg-bubble.own {
+    background: var(--charcoal);
+    color: var(--cream);
+    border-radius: var(--r-md) var(--r-md) var(--r-xs) var(--r-md);
+  }
+
+  .msg-bubble.other {
+    background: var(--white);
+    color: var(--charcoal);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md) var(--r-md) var(--r-md) var(--r-xs);
+  }
+
+  .msg-time {
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    text-align: right;
+    margin-top: 4px;
+  }
+
+  .msg-bubble.other .msg-time {
+    color: var(--muted);
+  }
+
+  .msg-status {
+    font-size: 10px;
+    margin-left: 4px;
+  }
+
+  /* System messages */
+  .msg-system {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 8px 16px;
+    background: rgba(26, 24, 20, 0.04);
+    border-radius: var(--r-sm);
+    align-self: center;
+    max-width: 85%;
+    letter-spacing: 0.2px;
+  }
+
+  /* Image message */
+  .msg-image {
+    border-radius: var(--r-sm);
+    overflow: hidden;
+  }
+
+  .msg-image img {
+    width: 180px;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* ============================================================
+     3. OFFER BUBBLE
+     ============================================================ */
+  .offer-bubble {
+    width: 100%;
+    max-width: 280px;
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+  }
+
+  .offer-bubble.own { align-self: flex-end; }
+  .offer-bubble.other { align-self: flex-start; }
+
+  .offer-header {
+    padding: 14px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .offer-header-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--r-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .offer-header-icon.pending {
+    background: rgba(196, 96, 58, 0.1);
+    color: var(--rust);
+  }
+
+  .offer-header-icon.accepted {
+    background: var(--success-light);
+    color: var(--success);
+  }
+
+  .offer-header-icon.rejected {
+    background: var(--danger-light);
+    color: var(--danger);
+  }
+
+  .offer-header-icon.counter {
+    background: rgba(212, 196, 160, 0.3);
+    color: var(--sand);
+  }
+
+  .offer-header-label {
+    font-family: var(--font-sans);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .offer-header-badge {
+    margin-left: auto;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: var(--r-xs);
+  }
+
+  .offer-header-badge.meetup {
+    background: var(--sage-light);
+    color: var(--sage);
+  }
+
+  .offer-amount-section {
+    padding: 12px 16px;
+    text-align: center;
+  }
+
+  .offer-amount {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 600;
+    color: var(--charcoal);
+    line-height: 1;
+  }
+
+  .offer-amount .currency {
+    font-size: 22px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .offer-amount-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  .offer-message {
+    padding: 0 16px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  /* Meetup details in offer */
+  .offer-meetup {
+    margin: 0 16px 12px;
+    padding: 10px 12px;
+    background: var(--cream);
+    border-radius: var(--r-sm);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .offer-meetup-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--r-full);
+    background: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--sage);
+    flex-shrink: 0;
+  }
+
+  .offer-meetup-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+
+  .offer-meetup-detail {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 1px;
+    letter-spacing: 0.2px;
+  }
+
+  /* Offer status bar */
+  .offer-status-bar {
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+  }
+
+  .offer-status-badge {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: var(--r-xs);
+  }
+
+  .offer-status-badge.pending {
+    background: rgba(196, 96, 58, 0.1);
+    color: var(--rust);
+  }
+
+  .offer-status-badge.accepted {
+    background: var(--success-light);
+    color: var(--success);
+  }
+
+  .offer-status-badge.rejected {
+    background: var(--danger-light);
+    color: var(--danger);
+  }
+
+  .offer-status-badge.counter {
+    background: rgba(212, 196, 160, 0.2);
+    color: #8B7A52;
+  }
+
+  .offer-expiry {
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .offer-time {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 0 16px 10px;
+    text-align: right;
+  }
+
+  /* Offer actions */
+  .offer-actions {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .offer-actions-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .offer-action-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: var(--r-sm);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+  }
+
+  .offer-action-btn.accept {
+    background: var(--sage);
+    color: var(--white);
+  }
+
+  .offer-action-btn.reject {
+    background: var(--danger-light);
+    color: var(--danger);
+  }
+
+  .offer-action-btn.counter {
+    background: transparent;
+    color: var(--rust);
+    border: 1px solid var(--rust);
+  }
+
+  .offer-action-btn.pay {
+    background: var(--rust);
+    color: var(--cream);
+  }
+
+  /* Counter-offer input area */
+  .offer-counter-input {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--cream);
+  }
+
+  .counter-input-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .counter-input-field {
+    width: 100%;
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--charcoal);
+    text-align: center;
+    outline: none;
+    margin-bottom: 8px;
+  }
+
+  .counter-input-msg {
+    width: 100%;
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--charcoal);
+    resize: none;
+    outline: none;
+    margin-bottom: 10px;
+    min-height: 36px;
+  }
+
+  .counter-input-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* ============================================================
+     4. SWAP BUBBLE
+     ============================================================ */
+  .swap-bubble {
+    width: 100%;
+    max-width: 280px;
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+  }
+
+  .swap-header {
+    padding: 14px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .swap-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--r-full);
+    background: rgba(196, 96, 58, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--rust);
+    flex-shrink: 0;
+  }
+
+  .swap-header-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .swap-header-badge {
+    margin-left: auto;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: var(--r-xs);
+    background: rgba(196, 96, 58, 0.1);
+    color: var(--rust);
+  }
+
+  .swap-items-section {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .swap-item-stack {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .swap-item-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: var(--cream);
+    border-radius: var(--r-sm);
+  }
+
+  .swap-item-img {
+    width: 40px;
+    height: 50px;
+    border-radius: var(--r-xs);
+    object-fit: cover;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .swap-item-title {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--charcoal);
+    line-height: 1.3;
+  }
+
+  .swap-item-value {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--rust);
+    margin-top: 1px;
+  }
+
+  .swap-arrow {
+    font-size: 16px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .swap-party-name {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  .swap-value-diff {
+    margin: 0 16px 12px;
+    padding: 8px 12px;
+    background: var(--cream);
+    border-radius: var(--r-sm);
+    text-align: center;
+  }
+
+  .swap-value-diff-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .swap-value-diff-amount {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--sage);
+    margin-top: 2px;
+  }
+
+  .swap-message {
+    padding: 0 16px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  /* Swap status */
+  .swap-status-bar {
+    padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .swap-status-badge {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: var(--r-xs);
+  }
+
+  .swap-status-badge.proposed {
+    background: rgba(196, 96, 58, 0.1);
+    color: var(--rust);
+  }
+
+  .swap-status-badge.accepted {
+    background: var(--success-light);
+    color: var(--success);
+  }
+
+  .swap-status-badge.declined {
+    background: var(--danger-light);
+    color: var(--danger);
+  }
+
+  .swap-time {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 0 16px 10px;
+    text-align: right;
+  }
+
+  .swap-actions {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ============================================================
+     5. CHAT INPUT BAR
+     ============================================================ */
+  .chat-input-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--cream);
+    border-top: 1px solid var(--border);
+  }
+
+  .chat-input-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .chat-input-btn.attach {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    color: var(--muted);
+  }
+
+  .chat-input-btn.offer {
+    background: rgba(196, 96, 58, 0.08);
+    color: var(--rust);
+  }
+
+  .chat-input-btn.send {
+    background: var(--charcoal);
+    color: var(--cream);
+  }
+
+  .chat-input-btn.send.disabled {
+    background: var(--border);
+    color: var(--muted);
+  }
+
+  .chat-input-field {
+    flex: 1;
+    min-height: 36px;
+    max-height: 80px;
+    background: var(--white);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    padding: 8px 14px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--charcoal);
+    outline: none;
+    resize: none;
+  }
+
+  .chat-input-field::placeholder {
+    color: var(--muted);
+  }
+
+  /* ============================================================
+     6. USER PROFILE PAGE
+     ============================================================ */
+  .profile-header-zone {
+    background: var(--cream);
+    padding: 20px 24px 24px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .profile-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .profile-avatar-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .profile-avatar-lg {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--r-full);
+    object-fit: cover;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .profile-name {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--charcoal);
+    line-height: 1.1;
+  }
+
+  .profile-handle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+    letter-spacing: 0.3px;
+  }
+
+  .profile-member-since {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  .profile-bio {
+    font-size: 13px;
+    color: var(--charcoal);
+    line-height: 1.6;
+    margin-top: 14px;
+  }
+
+  .profile-stats-row {
+    display: flex;
+    margin-top: 18px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    gap: 0;
+  }
+
+  .profile-stat {
+    flex: 1;
+    text-align: center;
+  }
+
+  .profile-stat-value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--charcoal);
+    line-height: 1;
+  }
+
+  .profile-stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .profile-stat-divider {
+    width: 1px;
+    background: var(--border);
+    align-self: stretch;
+  }
+
+  /* Profile actions */
+  .profile-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .profile-action-btn {
+    flex: 1;
+    padding: 11px;
+    border-radius: var(--r-sm);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+  }
+
+  .profile-action-btn.primary {
+    background: var(--charcoal);
+    color: var(--cream);
+  }
+
+  .profile-action-btn.secondary {
+    background: transparent;
+    color: var(--charcoal);
+    border: 1px solid var(--border-strong);
+  }
+
+  /* Profile tabs */
+  .profile-tabs {
+    display: flex;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .profile-tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    position: relative;
+    cursor: pointer;
+  }
+
+  .profile-tab.active {
+    color: var(--charcoal);
+  }
+
+  .profile-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 24px; right: 24px;
+    height: 2px;
+    background: var(--charcoal);
+  }
+
+  /* Profile articles grid */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3px;
+    padding: 3px;
+    background: var(--background);
+  }
+
+  .profile-grid-item {
+    aspect-ratio: 4/5;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .profile-grid-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .profile-grid-price {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--white);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+
+  .profile-grid-sold {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26, 24, 20, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .profile-grid-sold-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--cream);
+    background: var(--charcoal);
+    padding: 4px 10px;
+    border-radius: var(--r-xs);
+  }
+
+  /* Rating section */
+  .profile-rating-section {
+    padding: 20px 24px;
+    background: var(--white);
+  }
+
+  .profile-rating-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .profile-rating-score {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--charcoal);
+    line-height: 1;
+  }
+
+  .profile-rating-stars {
+    display: flex;
+    gap: 2px;
+    font-size: 14px;
+    color: var(--sand);
+  }
+
+  .profile-rating-count {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .profile-review-item {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .profile-review-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .profile-review-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--r-full);
+    background: var(--cream);
+  }
+
+  .profile-review-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+
+  .profile-review-date {
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .profile-review-text {
+    font-size: 12px;
+    color: var(--charcoal);
+    line-height: 1.6;
+    opacity: 0.85;
+  }
+
+  /* ============================================================
+     PLACEHOLDER IMAGES
+     ============================================================ */
+  .placeholder-img {
+    background: linear-gradient(135deg, var(--sand) 0%, #B8A080 100%);
+  }
+
+  .placeholder-img-2 {
+    background: linear-gradient(135deg, var(--sage) 0%, #4A5C40 100%);
+  }
+
+  .placeholder-img-3 {
+    background: linear-gradient(135deg, var(--rust) 0%, #8B3A1A 100%);
+  }
+
+  .placeholder-img-4 {
+    background: linear-gradient(135deg, #8B7A6B 0%, #5A4A3B 100%);
+  }
+
+  /* ============================================================
+     EMPTY STATE
+     ============================================================ */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    color: var(--muted);
+    opacity: 0.4;
+    margin-bottom: 8px;
+  }
+
+  .empty-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+
+  .empty-text {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 220px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     SECTION A — CONVERSATIONS LIST
+     ================================================================ -->
+<h2 class="section-header">Messagerie</h2>
+<p class="section-sub">
+  Liste des conversations. Deux onglets : Achats (offres envoyees) et Ventes (offres recues).
+  Chaque conversation montre l'avatar, l'article, le dernier message et les non-lus.
+</p>
+
+<div class="screens-row">
+
+  <!-- Screen 1: Conversations List (Achats) -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Conversations — Achats</div>
+    <div class="phone-frame">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="conv-header">
+          <div class="conv-header-title">Messages</div>
+        </div>
+
+        <div class="conv-tabs">
+          <div class="conv-tab active">Achats<span class="tab-badge">3</span></div>
+          <div class="conv-tab">Ventes</div>
+          <div class="conv-tab">Swaps</div>
+        </div>
+
+        <div class="conv-list">
+          <!-- Conv 1 — unread offer -->
+          <div class="conv-item">
+            <div class="conv-item-img">
+              <div class="conv-avatar placeholder-img"></div>
+              <div class="conv-article-thumb placeholder-img-2"></div>
+              <div class="conv-unread-dot"></div>
+            </div>
+            <div class="conv-body">
+              <div class="conv-name-row">
+                <span class="conv-name">Marie L.</span>
+                <span class="conv-article-tag">Veste en jean vintage</span>
+              </div>
+              <div class="conv-preview unread">
+                <span class="offer-tag">OFFRE</span>
+                Offre acceptee — $45
+              </div>
+            </div>
+            <div class="conv-meta">
+              <span class="conv-time">14:32</span>
+              <span class="conv-badge">2</span>
+            </div>
+          </div>
+
+          <!-- Conv 2 — text -->
+          <div class="conv-item">
+            <div class="conv-item-img">
+              <div class="conv-avatar placeholder-img-3"></div>
+              <div class="conv-article-thumb placeholder-img-4"></div>
+            </div>
+            <div class="conv-body">
+              <div class="conv-name-row">
+                <span class="conv-name">Thomas R.</span>
+                <span class="conv-article-tag">Sac Fjallraven</span>
+              </div>
+              <div class="conv-preview">
+                C'est toujours disponible ?
+              </div>
+            </div>
+            <div class="conv-meta">
+              <span class="conv-time">Hier</span>
+            </div>
+          </div>
+
+          <!-- Conv 3 — swap -->
+          <div class="conv-item">
+            <div class="conv-item-img">
+              <div class="conv-avatar placeholder-img-2"></div>
+              <div class="conv-article-thumb placeholder-img"></div>
+            </div>
+            <div class="conv-body">
+              <div class="conv-name-row">
+                <span class="conv-name">Julie K.</span>
+                <span class="conv-article-tag">Pull Patagonia</span>
+              </div>
+              <div class="conv-preview">
+                <span class="swap-tag">SWAP</span>
+                Proposition de swap envoyee
+              </div>
+            </div>
+            <div class="conv-meta">
+              <span class="conv-time">Lun.</span>
+            </div>
+          </div>
+
+          <!-- Conv 4 — counter offer -->
+          <div class="conv-item">
+            <div class="conv-item-img">
+              <div class="conv-avatar placeholder-img-4"></div>
+              <div class="conv-article-thumb placeholder-img-3"></div>
+            </div>
+            <div class="conv-body">
+              <div class="conv-name-row">
+                <span class="conv-name">Alex M.</span>
+                <span class="conv-article-tag">Sneakers Nike</span>
+              </div>
+              <div class="conv-preview">
+                <span class="offer-tag">CONTRE-OFFRE</span>
+                Nouvelle proposition — $60
+              </div>
+            </div>
+            <div class="conv-meta">
+              <span class="conv-time">22/03</span>
+            </div>
+          </div>
+
+          <!-- Conv 5 — simple message -->
+          <div class="conv-item">
+            <div class="conv-item-img">
+              <div class="conv-avatar placeholder-img"></div>
+              <div class="conv-article-thumb placeholder-img-2"></div>
+            </div>
+            <div class="conv-body">
+              <div class="conv-name-row">
+                <span class="conv-name">Sara B.</span>
+                <span class="conv-article-tag">Robe Sezane</span>
+              </div>
+              <div class="conv-preview">
+                Merci beaucoup, a bientot !
+              </div>
+            </div>
+            <div class="conv-meta">
+              <span class="conv-time">19/03</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Conversations — Ventes tab -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Conversations — Ventes</div>
+    <div class="phone-frame">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="conv-header">
+          <div class="conv-header-title">Messages</div>
+        </div>
+
+        <div class="conv-tabs">
+          <div class="conv-tab">Achats</div>
+          <div class="conv-tab active">Ventes<span class="tab-badge">1</span></div>
+          <div class="conv-tab">Swaps</div>
+        </div>
+
+        <div class="conv-list">
+          <!-- Conv 1 — pending offer -->
+          <div class="conv-item">
+            <div class="conv-item-img">
+              <div class="conv-avatar placeholder-img-3"></div>
+              <div class="conv-article-thumb placeholder-img"></div>
+              <div class="conv-unread-dot"></div>
+            </div>
+            <div class="conv-body">
+              <div class="conv-name-row">
+                <span class="conv-name">Lucas D.</span>
+                <span class="conv-article-tag">Chemise APC</span>
+              </div>
+              <div class="conv-preview unread">
+                <span class="offer-tag">OFFRE</span>
+                Nouvelle offre — $70
+              </div>
+            </div>
+            <div class="conv-meta">
+              <span class="conv-time">11:05</span>
+              <span class="conv-badge">1</span>
+            </div>
+          </div>
+
+          <!-- Conv 2 -->
+          <div class="conv-item">
+            <div class="conv-item-img">
+              <div class="conv-avatar placeholder-img-2"></div>
+              <div class="conv-article-thumb placeholder-img-4"></div>
+            </div>
+            <div class="conv-body">
+              <div class="conv-name-row">
+                <span class="conv-name">Emma P.</span>
+                <span class="conv-article-tag">Jean Levi's 501</span>
+              </div>
+              <div class="conv-preview">
+                Super, on se retrouve Plateau ?
+              </div>
+            </div>
+            <div class="conv-meta">
+              <span class="conv-time">Hier</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SECTION B — CHAT SCREEN WITH MESSAGES & OFFERS
+     ================================================================ -->
+<h2 class="section-header">Conversation & Offres</h2>
+<p class="section-sub">
+  Ecran de chat avec messages texte, bulle d'offre (en attente), et barre d'article en contexte.
+  Les bulles propres sont charcoal, les recues sont blanches bordees.
+</p>
+
+<div class="screens-row">
+
+  <!-- Screen 3: Chat with pending offer (received) -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Chat — Offre recue</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="chat-header">
+          <div class="chat-back-btn">&larr;</div>
+          <div class="chat-header-avatar placeholder-img-3"></div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">Lucas D.</div>
+            <div class="chat-header-article">Chemise APC — $85</div>
+          </div>
+          <div class="chat-header-more">&middot;&middot;&middot;</div>
+        </div>
+
+        <!-- Article context bar -->
+        <div class="chat-article-bar">
+          <div class="chat-article-img placeholder-img"></div>
+          <div class="chat-article-info">
+            <div class="chat-article-title">Chemise APC blanche</div>
+            <div class="chat-article-price">$85</div>
+          </div>
+          <div class="chat-article-btn">VOIR</div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="chat-date-separator">Aujourd'hui</div>
+
+          <!-- Other message -->
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Salut, ta chemise APC est encore dispo ?
+              <div class="msg-time">10:42</div>
+            </div>
+          </div>
+
+          <!-- Own message -->
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              Oui elle est toujours disponible !
+              <div class="msg-time">10:45 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+
+          <!-- Other message -->
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Elle est en quelle taille ? Le tissu est epais ?
+              <div class="msg-time">10:47</div>
+            </div>
+          </div>
+
+          <!-- Own message -->
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              C'est une taille M, le tissu est un coton japonais assez epais, tres belle qualite
+              <div class="msg-time">10:50 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+
+          <!-- Offer received (pending) — receiver perspective -->
+          <div class="offer-bubble other" style="align-self: flex-start;">
+            <div class="offer-header">
+              <div class="offer-header-icon pending">$</div>
+              <span class="offer-header-label">Offre recue</span>
+              <span class="offer-header-badge meetup">MEETUP</span>
+            </div>
+
+            <div class="offer-amount-section">
+              <div class="offer-amount"><span class="currency">$</span>70</div>
+              <div class="offer-amount-sub">sur un prix affiche de $85</div>
+            </div>
+
+            <div class="offer-meetup">
+              <div class="offer-meetup-icon">&#9673;</div>
+              <div>
+                <div class="offer-meetup-name">Cafe Olimpico</div>
+                <div class="offer-meetup-detail">Cafe &bull; Mile End</div>
+              </div>
+            </div>
+
+            <div class="offer-message">"Tres interesse, je peux passer ce weekend !"</div>
+
+            <div class="offer-status-bar">
+              <span class="offer-status-badge pending">En attente</span>
+              <span class="offer-expiry">&#9200; 47h restantes</span>
+            </div>
+
+            <div class="offer-actions">
+              <div class="offer-actions-row">
+                <button class="offer-action-btn reject">Refuser</button>
+                <button class="offer-action-btn accept">Accepter</button>
+              </div>
+              <button class="offer-action-btn counter">Contre-offre</button>
+            </div>
+
+            <div class="offer-time">11:05</div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <button class="chat-input-btn attach">&#128247;</button>
+          <textarea class="chat-input-field" placeholder="Message..." rows="1"></textarea>
+          <button class="chat-input-btn offer">$</button>
+          <button class="chat-input-btn send disabled">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 4: Chat with counter-offer being written -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Chat — Contre-offre</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="chat-header">
+          <div class="chat-back-btn">&larr;</div>
+          <div class="chat-header-avatar placeholder-img-3"></div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">Lucas D.</div>
+            <div class="chat-header-article">Chemise APC — $85</div>
+          </div>
+          <div class="chat-header-more">&middot;&middot;&middot;</div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="chat-date-separator">Aujourd'hui</div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Salut, ta chemise APC est encore dispo ?
+              <div class="msg-time">10:42</div>
+            </div>
+          </div>
+
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              Oui elle est toujours disponible !
+              <div class="msg-time">10:45 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+
+          <!-- Offer with counter-offer input open -->
+          <div class="offer-bubble other" style="align-self: flex-start;">
+            <div class="offer-header">
+              <div class="offer-header-icon pending">$</div>
+              <span class="offer-header-label">Offre recue</span>
+            </div>
+
+            <div class="offer-amount-section">
+              <div class="offer-amount"><span class="currency">$</span>70</div>
+            </div>
+
+            <div class="offer-counter-input">
+              <div class="counter-input-label">Proposer un autre prix</div>
+              <input type="text" class="counter-input-field" value="$75" readonly />
+              <textarea class="counter-input-msg" placeholder="Message (optionnel)" readonly>Je peux descendre a 75$ mais pas moins</textarea>
+              <div class="counter-input-actions">
+                <button class="offer-action-btn reject" style="flex:1;">Annuler</button>
+                <button class="offer-action-btn accept" style="flex:1; background: var(--rust);">Envoyer</button>
+              </div>
+            </div>
+
+            <div class="offer-time">11:05</div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <button class="chat-input-btn attach">&#128247;</button>
+          <textarea class="chat-input-field" placeholder="Message..." rows="1"></textarea>
+          <button class="chat-input-btn offer">$</button>
+          <button class="chat-input-btn send disabled">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 5: Chat with accepted offer + payment CTA -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Chat — Offre acceptee</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="chat-header">
+          <div class="chat-back-btn">&larr;</div>
+          <div class="chat-header-avatar placeholder-img"></div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">Marie L.</div>
+            <div class="chat-header-article">Veste en jean vintage — $55</div>
+          </div>
+          <div class="chat-header-more">&middot;&middot;&middot;</div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="chat-date-separator">Hier</div>
+
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              Bonjour, j'adore la veste ! Possible d'avoir plus de photos ?
+              <div class="msg-time">16:20 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Bien sur, voici d'autres angles
+              <div class="msg-time">16:35</div>
+            </div>
+          </div>
+
+          <!-- Image message -->
+          <div class="msg-row other">
+            <div class="msg-image">
+              <div style="width:180px;height:180px;border-radius:4px;" class="placeholder-img-4"></div>
+            </div>
+          </div>
+
+          <div class="chat-date-separator">Aujourd'hui</div>
+
+          <!-- Offer sent (own) — accepted -->
+          <div class="offer-bubble own" style="align-self: flex-end;">
+            <div class="offer-header">
+              <div class="offer-header-icon accepted">&#10003;</div>
+              <span class="offer-header-label">Votre offre</span>
+              <span class="offer-header-badge meetup">MEETUP</span>
+            </div>
+
+            <div class="offer-amount-section">
+              <div class="offer-amount"><span class="currency">$</span>45</div>
+            </div>
+
+            <div class="offer-meetup">
+              <div class="offer-meetup-icon">&#9673;</div>
+              <div>
+                <div class="offer-meetup-name">Station Laurier</div>
+                <div class="offer-meetup-detail">Metro &bull; Plateau</div>
+              </div>
+            </div>
+
+            <div class="offer-status-bar">
+              <span class="offer-status-badge accepted">Acceptee</span>
+            </div>
+
+            <div class="offer-time">14:30</div>
+          </div>
+
+          <!-- System message -->
+          <div class="msg-system">
+            Offre acceptee. Convenez du moment de rencontre.
+          </div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Super ! Est-ce que samedi 15h te conviendrait a Laurier ?
+              <div class="msg-time">14:32</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <button class="chat-input-btn attach">&#128247;</button>
+          <textarea class="chat-input-field" placeholder="Message..." rows="1"></textarea>
+          <button class="chat-input-btn send disabled">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 6: Chat — Offer rejected -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Chat — Offre refusee</div>
+    <div class="phone-frame">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="chat-header">
+          <div class="chat-back-btn">&larr;</div>
+          <div class="chat-header-avatar placeholder-img-4"></div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">Alex M.</div>
+            <div class="chat-header-article">Sneakers Nike — $80</div>
+          </div>
+          <div class="chat-header-more">&middot;&middot;&middot;</div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="chat-date-separator">22 mars</div>
+
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              Salut, les sneakers font quelle pointure ?
+              <div class="msg-time">15:10 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              C'est du 42, portees 3 fois max
+              <div class="msg-time">15:25</div>
+            </div>
+          </div>
+
+          <!-- Offer sent — rejected -->
+          <div class="offer-bubble own" style="align-self: flex-end;">
+            <div class="offer-header">
+              <div class="offer-header-icon rejected">&#10007;</div>
+              <span class="offer-header-label">Votre offre</span>
+            </div>
+
+            <div class="offer-amount-section">
+              <div class="offer-amount" style="opacity: 0.5; text-decoration: line-through;"><span class="currency">$</span>50</div>
+            </div>
+
+            <div class="offer-status-bar">
+              <span class="offer-status-badge rejected">Refusee</span>
+            </div>
+
+            <div class="offer-time">15:40</div>
+          </div>
+
+          <!-- System message -->
+          <div class="msg-system">
+            Offre refusee. Vous pouvez faire une nouvelle proposition.
+          </div>
+
+          <!-- Counter offer from seller -->
+          <div class="offer-bubble other" style="align-self: flex-start;">
+            <div class="offer-header">
+              <div class="offer-header-icon counter">&#8644;</div>
+              <span class="offer-header-label">Contre-offre</span>
+            </div>
+
+            <div class="offer-amount-section">
+              <div class="offer-amount"><span class="currency">$</span>65</div>
+              <div class="offer-amount-sub">precedente offre : $50</div>
+            </div>
+
+            <div class="offer-message">"$65 c'est mon dernier prix, elles sont quasi neuves"</div>
+
+            <div class="offer-status-bar">
+              <span class="offer-status-badge counter">Contre-offre</span>
+              <span class="offer-expiry">&#9200; 23h restantes</span>
+            </div>
+
+            <div class="offer-actions">
+              <div class="offer-actions-row">
+                <button class="offer-action-btn reject">Refuser</button>
+                <button class="offer-action-btn accept">Accepter</button>
+              </div>
+              <button class="offer-action-btn counter">Nouvelle offre</button>
+            </div>
+
+            <div class="offer-time">16:05</div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <button class="chat-input-btn attach">&#128247;</button>
+          <textarea class="chat-input-field" placeholder="Message..." rows="1"></textarea>
+          <button class="chat-input-btn offer">$</button>
+          <button class="chat-input-btn send disabled">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SECTION C — SWAP MESSAGES
+     ================================================================ -->
+<h2 class="section-header">Messages Swap</h2>
+<p class="section-sub">
+  Propositions de swap dans la conversation. Les articles de chaque cote sont affiches
+  avec leur valeur estimee. Le recepteur peut accepter, refuser ou proposer un autre swap.
+</p>
+
+<div class="screens-row">
+
+  <!-- Screen 7: Chat with swap proposal (received) -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Chat — Swap propose</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="chat-header">
+          <div class="chat-back-btn">&larr;</div>
+          <div class="chat-header-avatar placeholder-img-2"></div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">Julie K.</div>
+            <div class="chat-header-article">Pull Patagonia — $60</div>
+          </div>
+          <div class="chat-header-more">&middot;&middot;&middot;</div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="chat-date-separator">Aujourd'hui</div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Salut ! Ton pull Patagonia m'interesse, ca te dit un swap ?
+              <div class="msg-time">09:15</div>
+            </div>
+          </div>
+
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              Pourquoi pas, tu proposes quoi ?
+              <div class="msg-time">09:20 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+
+          <!-- Swap proposal received -->
+          <div class="swap-bubble" style="align-self: flex-start;">
+            <div class="swap-header">
+              <div class="swap-icon">&#8644;</div>
+              <span class="swap-header-label">Proposition de swap</span>
+              <span class="swap-header-badge">SWAP</span>
+            </div>
+
+            <div class="swap-items-section">
+              <!-- Their items -->
+              <div class="swap-item-stack">
+                <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Elle propose</div>
+                <div class="swap-item-card">
+                  <div class="swap-item-img placeholder-img-3"></div>
+                  <div>
+                    <div class="swap-item-title">Veste Carhartt</div>
+                    <div class="swap-item-value">$55</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="swap-arrow">&#8644;</div>
+
+              <!-- Your items -->
+              <div class="swap-item-stack">
+                <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Ton article</div>
+                <div class="swap-item-card">
+                  <div class="swap-item-img placeholder-img-2"></div>
+                  <div>
+                    <div class="swap-item-title">Pull Patagonia</div>
+                    <div class="swap-item-value">$60</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="swap-value-diff">
+              <div class="swap-value-diff-label">Difference de valeur</div>
+              <div class="swap-value-diff-amount">$5 en ta faveur</div>
+            </div>
+
+            <div class="swap-message">"Ma Carhartt est en parfait etat, ca te dit ?"</div>
+
+            <div class="swap-status-bar">
+              <span class="swap-status-badge proposed">En attente</span>
+              <span class="offer-expiry">&#9200; 46h restantes</span>
+            </div>
+
+            <div class="swap-actions">
+              <div class="offer-actions-row">
+                <button class="offer-action-btn reject">Decliner</button>
+                <button class="offer-action-btn accept">Accepter</button>
+              </div>
+            </div>
+
+            <div class="swap-time">09:35</div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <button class="chat-input-btn attach">&#128247;</button>
+          <textarea class="chat-input-field" placeholder="Message..." rows="1"></textarea>
+          <button class="chat-input-btn send disabled">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 8: Chat with swap accepted + system messages -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Chat — Swap accepte</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="chat-header">
+          <div class="chat-back-btn">&larr;</div>
+          <div class="chat-header-avatar placeholder-img-2"></div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">Julie K.</div>
+            <div class="chat-header-article">Pull Patagonia — swap</div>
+          </div>
+          <div class="chat-header-more">&middot;&middot;&middot;</div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="chat-date-separator">Aujourd'hui</div>
+
+          <!-- Swap accepted -->
+          <div class="swap-bubble" style="align-self: flex-start;">
+            <div class="swap-header">
+              <div class="swap-icon" style="background: var(--success-light); color: var(--success);">&#10003;</div>
+              <span class="swap-header-label">Swap accepte</span>
+            </div>
+
+            <div class="swap-items-section">
+              <div class="swap-item-stack">
+                <div class="swap-item-card">
+                  <div class="swap-item-img placeholder-img-3"></div>
+                  <div>
+                    <div class="swap-item-title">Veste Carhartt</div>
+                    <div class="swap-item-value">$55</div>
+                  </div>
+                </div>
+              </div>
+              <div class="swap-arrow">&#8644;</div>
+              <div class="swap-item-stack">
+                <div class="swap-item-card">
+                  <div class="swap-item-img placeholder-img-2"></div>
+                  <div>
+                    <div class="swap-item-title">Pull Patagonia</div>
+                    <div class="swap-item-value">$60</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="swap-status-bar">
+              <span class="swap-status-badge accepted">Accepte</span>
+            </div>
+
+            <div class="swap-time">10:15</div>
+          </div>
+
+          <!-- System messages for swap flow -->
+          <div class="msg-system">
+            Swap accepte ! Convenez d'un mode d'echange.
+          </div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Super ! On se retrouve ou ? Je suis dans le Plateau
+              <div class="msg-time">10:18</div>
+            </div>
+          </div>
+
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              Ca me va, on peut se voir a la station Laurier samedi ?
+              <div class="msg-time">10:22 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Parfait, samedi 14h a Laurier !
+              <div class="msg-time">10:25</div>
+            </div>
+          </div>
+
+          <!-- System: Meetup confirmed -->
+          <div class="msg-system">
+            Meetup confirme : Station Laurier, samedi 14h
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <button class="chat-input-btn attach">&#128247;</button>
+          <textarea class="chat-input-field" placeholder="Message..." rows="1"></textarea>
+          <button class="chat-input-btn send disabled">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 9: Chat with swap declined -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Chat — Swap decline</div>
+    <div class="phone-frame">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="chat-header">
+          <div class="chat-back-btn">&larr;</div>
+          <div class="chat-header-avatar placeholder-img-4"></div>
+          <div class="chat-header-info">
+            <div class="chat-header-name">Marc T.</div>
+            <div class="chat-header-article">Hoodie Stussy</div>
+          </div>
+          <div class="chat-header-more">&middot;&middot;&middot;</div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="chat-date-separator">20 mars</div>
+
+          <!-- Swap declined -->
+          <div class="swap-bubble" style="align-self: flex-end;">
+            <div class="swap-header">
+              <div class="swap-icon" style="background: var(--danger-light); color: var(--danger);">&#10007;</div>
+              <span class="swap-header-label">Swap decline</span>
+            </div>
+
+            <div class="swap-items-section">
+              <div class="swap-item-stack">
+                <div class="swap-item-card">
+                  <div class="swap-item-img placeholder-img"></div>
+                  <div>
+                    <div class="swap-item-title">Pull Merino</div>
+                    <div class="swap-item-value" style="opacity:0.5;text-decoration:line-through;">$40</div>
+                  </div>
+                </div>
+              </div>
+              <div class="swap-arrow" style="opacity:0.3;">&#8644;</div>
+              <div class="swap-item-stack">
+                <div class="swap-item-card">
+                  <div class="swap-item-img placeholder-img-4"></div>
+                  <div>
+                    <div class="swap-item-title">Hoodie Stussy</div>
+                    <div class="swap-item-value" style="opacity:0.5;text-decoration:line-through;">$75</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="swap-status-bar">
+              <span class="swap-status-badge declined">Decline</span>
+            </div>
+
+            <div class="swap-time">16:30</div>
+          </div>
+
+          <div class="msg-system">
+            Proposition de swap declinee.
+          </div>
+
+          <div class="msg-row other">
+            <div class="msg-bubble other">
+              Desole, la difference de valeur est trop grande pour moi
+              <div class="msg-time">16:35</div>
+            </div>
+          </div>
+
+          <div class="msg-row own">
+            <div class="msg-bubble own">
+              Pas de souci, merci quand meme !
+              <div class="msg-time">16:40 <span class="msg-status">&#10003;&#10003;</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <button class="chat-input-btn attach">&#128247;</button>
+          <textarea class="chat-input-field" placeholder="Message..." rows="1"></textarea>
+          <button class="chat-input-btn send disabled">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SECTION D — USER PROFILE PAGE
+     ================================================================ -->
+<h2 class="section-header">Page Utilisateur</h2>
+<p class="section-sub">
+  Profil public d'un vendeur/acheteur. Avatar, stats, bio, grille d'articles,
+  evaluations. Deux CTAs : contacter et s'abonner.
+</p>
+
+<div class="screens-row">
+
+  <!-- Screen 10: User Profile — Articles tab -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Profil — Articles</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="profile-header-zone">
+          <div class="profile-top-bar">
+            <div class="chat-back-btn">&larr;</div>
+            <div class="chat-header-more">&middot;&middot;&middot;</div>
+          </div>
+
+          <div class="profile-avatar-section">
+            <div class="profile-avatar-lg placeholder-img"></div>
+            <div>
+              <div class="profile-name">Marie Leclerc</div>
+              <div class="profile-handle">@marie.lcrc</div>
+              <div class="profile-member-since">Membre depuis jan. 2024</div>
+            </div>
+          </div>
+
+          <div class="profile-bio">
+            Passionnee de vintage et de mode durable. Je vends des pieces que j'ai aimees et qui meritent une seconde vie.
+          </div>
+
+          <div class="profile-stats-row">
+            <div class="profile-stat">
+              <div class="profile-stat-value">23</div>
+              <div class="profile-stat-label">Articles</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">47</div>
+              <div class="profile-stat-label">Ventes</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">4.9</div>
+              <div class="profile-stat-label">Note</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">156</div>
+              <div class="profile-stat-label">Abonnes</div>
+            </div>
+          </div>
+
+          <div class="profile-actions">
+            <button class="profile-action-btn primary">Contacter</button>
+            <button class="profile-action-btn secondary">S'abonner</button>
+          </div>
+        </div>
+
+        <div class="profile-tabs">
+          <div class="profile-tab active">Articles</div>
+          <div class="profile-tab">Avis</div>
+        </div>
+
+        <div class="profile-grid">
+          <div class="profile-grid-item">
+            <div style="width:100%;height:100%;" class="placeholder-img"></div>
+            <div class="profile-grid-price">$55</div>
+          </div>
+          <div class="profile-grid-item">
+            <div style="width:100%;height:100%;" class="placeholder-img-2"></div>
+            <div class="profile-grid-price">$35</div>
+          </div>
+          <div class="profile-grid-item">
+            <div style="width:100%;height:100%;" class="placeholder-img-3"></div>
+            <div class="profile-grid-price">$42</div>
+          </div>
+          <div class="profile-grid-item">
+            <div style="width:100%;height:100%;" class="placeholder-img-4"></div>
+            <div class="profile-grid-sold">
+              <span class="profile-grid-sold-label">Vendu</span>
+            </div>
+          </div>
+          <div class="profile-grid-item">
+            <div style="width:100%;height:100%;" class="placeholder-img-2"></div>
+            <div class="profile-grid-price">$28</div>
+          </div>
+          <div class="profile-grid-item">
+            <div style="width:100%;height:100%;" class="placeholder-img"></div>
+            <div class="profile-grid-price">$65</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 11: User Profile — Avis tab -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Profil — Avis</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="profile-header-zone">
+          <div class="profile-top-bar">
+            <div class="chat-back-btn">&larr;</div>
+            <div class="chat-header-more">&middot;&middot;&middot;</div>
+          </div>
+
+          <div class="profile-avatar-section">
+            <div class="profile-avatar-lg placeholder-img"></div>
+            <div>
+              <div class="profile-name">Marie Leclerc</div>
+              <div class="profile-handle">@marie.lcrc</div>
+              <div class="profile-member-since">Membre depuis jan. 2024</div>
+            </div>
+          </div>
+
+          <div class="profile-stats-row">
+            <div class="profile-stat">
+              <div class="profile-stat-value">23</div>
+              <div class="profile-stat-label">Articles</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">47</div>
+              <div class="profile-stat-label">Ventes</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">4.9</div>
+              <div class="profile-stat-label">Note</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">156</div>
+              <div class="profile-stat-label">Abonnes</div>
+            </div>
+          </div>
+
+          <div class="profile-actions">
+            <button class="profile-action-btn primary">Contacter</button>
+            <button class="profile-action-btn secondary">S'abonner</button>
+          </div>
+        </div>
+
+        <div class="profile-tabs">
+          <div class="profile-tab">Articles</div>
+          <div class="profile-tab active">Avis</div>
+        </div>
+
+        <div class="profile-rating-section">
+          <div class="profile-rating-header">
+            <div class="profile-rating-score">4.9</div>
+            <div>
+              <div class="profile-rating-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+              <div class="profile-rating-count">47 evaluations</div>
+            </div>
+          </div>
+
+          <!-- Reviews -->
+          <div class="profile-review-item">
+            <div class="profile-review-top">
+              <div class="profile-review-avatar placeholder-img-3"></div>
+              <span class="profile-review-name">Thomas R.</span>
+              <span class="profile-review-date">mars 2026</span>
+            </div>
+            <div class="profile-review-text">
+              Article conforme a la description, vendeuse tres sympa et ponctuelle au meetup. Je recommande !
+            </div>
+          </div>
+
+          <div class="profile-review-item">
+            <div class="profile-review-top">
+              <div class="profile-review-avatar placeholder-img-2"></div>
+              <span class="profile-review-name">Julie K.</span>
+              <span class="profile-review-date">fev. 2026</span>
+            </div>
+            <div class="profile-review-text">
+              Swap tres agreable, les pieces etaient en excellent etat. Communication rapide et bienveillante.
+            </div>
+          </div>
+
+          <div class="profile-review-item">
+            <div class="profile-review-top">
+              <div class="profile-review-avatar placeholder-img-4"></div>
+              <span class="profile-review-name">Alex M.</span>
+              <span class="profile-review-date">jan. 2026</span>
+            </div>
+            <div class="profile-review-text">
+              Envoi rapide et soigne. La veste etait exactement comme sur les photos.
+            </div>
+          </div>
+
+          <div class="profile-review-item">
+            <div class="profile-review-top">
+              <div class="profile-review-avatar placeholder-img"></div>
+              <span class="profile-review-name">Sara B.</span>
+              <span class="profile-review-date">dec. 2025</span>
+            </div>
+            <div class="profile-review-text">
+              Tres bonne experience, article bien emballe. Merci Marie !
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 12: Own Profile (with edit) -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Mon profil</div>
+    <div class="phone-frame tall">
+      <div class="screen-content">
+        <div class="safe-top" style="background: var(--cream);"></div>
+
+        <div class="profile-header-zone">
+          <div class="profile-top-bar">
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:500;color:var(--charcoal);">Mon profil</div>
+            <div class="chat-article-btn">MODIFIER</div>
+          </div>
+
+          <div class="profile-avatar-section">
+            <div class="profile-avatar-lg placeholder-img-2"></div>
+            <div>
+              <div class="profile-name">Aurelien</div>
+              <div class="profile-handle">@aurelien</div>
+              <div class="profile-member-since">Membre depuis oct. 2025</div>
+            </div>
+          </div>
+
+          <div class="profile-bio">
+            Montreal. Streetwear, vintage et seconde main.
+          </div>
+
+          <div class="profile-stats-row">
+            <div class="profile-stat">
+              <div class="profile-stat-value">8</div>
+              <div class="profile-stat-label">Articles</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">12</div>
+              <div class="profile-stat-label">Ventes</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">5.0</div>
+              <div class="profile-stat-label">Note</div>
+            </div>
+            <div class="profile-stat-divider"></div>
+            <div class="profile-stat">
+              <div class="profile-stat-value">34</div>
+              <div class="profile-stat-label">Abonnes</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Menu items for own profile -->
+        <div style="background: var(--white); border-bottom: 1px solid var(--border);">
+          <div style="padding: 12px 24px; font-size: 9px; font-weight: 500; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted);">Mon compte</div>
+
+          <div style="display:flex;align-items:center;padding:14px 24px;border-top:1px solid var(--border);gap:14px;cursor:pointer;">
+            <div style="width:36px;height:36px;border-radius:var(--r-md);background:rgba(196,96,58,0.08);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--rust);flex-shrink:0;">&#9783;</div>
+            <span style="flex:1;font-size:13px;color:var(--charcoal);">Mes commandes</span>
+            <span style="color:var(--muted);font-size:14px;">&rsaquo;</span>
+          </div>
+
+          <div style="display:flex;align-items:center;padding:14px 24px;border-top:1px solid var(--border);gap:14px;cursor:pointer;">
+            <div style="width:36px;height:36px;border-radius:var(--r-md);background:var(--sage-light);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--sage);flex-shrink:0;">&#36;</div>
+            <span style="flex:1;font-size:13px;color:var(--charcoal);">Mes ventes</span>
+            <span style="color:var(--muted);font-size:14px;">&rsaquo;</span>
+          </div>
+
+          <div style="display:flex;align-items:center;padding:14px 24px;border-top:1px solid var(--border);gap:14px;cursor:pointer;">
+            <div style="width:36px;height:36px;border-radius:var(--r-md);background:var(--danger-light);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--danger);flex-shrink:0;">&#9825;</div>
+            <span style="flex:1;font-size:13px;color:var(--charcoal);">Mes favoris</span>
+            <span style="color:var(--muted);font-size:14px;">&rsaquo;</span>
+          </div>
+
+          <div style="display:flex;align-items:center;padding:14px 24px;border-top:1px solid var(--border);gap:14px;cursor:pointer;">
+            <div style="width:36px;height:36px;border-radius:var(--r-md);background:rgba(26,24,20,0.04);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--charcoal);flex-shrink:0;">&#9881;</div>
+            <span style="flex:1;font-size:13px;color:var(--charcoal);">Parametres</span>
+            <span style="color:var(--muted);font-size:14px;">&rsaquo;</span>
+          </div>
+
+          <div style="display:flex;align-items:center;padding:14px 24px;border-top:1px solid var(--border);gap:14px;cursor:pointer;">
+            <div style="width:36px;height:36px;border-radius:var(--r-md);background:rgba(26,24,20,0.04);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--charcoal);flex-shrink:0;">&#63;</div>
+            <span style="flex:1;font-size:13px;color:var(--charcoal);">Aide</span>
+            <span style="color:var(--muted);font-size:14px;">&rsaquo;</span>
+          </div>
+        </div>
+
+        <!-- Sign out -->
+        <div style="padding: 20px 24px;">
+          <div style="padding:14px;border:1px solid var(--danger);border-radius:var(--r-sm);text-align:center;font-family:var(--font-sans);font-size:11px;font-weight:500;letter-spacing:1.2px;text-transform:uppercase;color:var(--danger);cursor:pointer;">
+            Se deconnecter
+          </div>
+        </div>
+
+        <div style="text-align:center;padding:8px;font-size:10px;color:var(--muted);letter-spacing:0.5px;">
+          Version 1.0.0
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SECTION E — FAIRE UNE OFFRE (Bottom Sheet Flow)
+     ================================================================ -->
+<h2 class="section-header">Faire une offre</h2>
+<p class="section-sub">
+  Bottom sheet en 3 etapes : prix, lieu de rencontre, confirmation.
+  Le flow est toujours en mode meetup (remise en main propre).
+</p>
+
+<div class="screens-row">
+
+  <!-- Screen 13: Make Offer — Step 1: Price -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Offre — Etape 1 : Prix</div>
+    <div class="phone-frame tall">
+      <div class="screen-content" style="background: var(--overlay);">
+        <div class="safe-top" style="background: transparent;"></div>
+
+        <!-- Dimmed chat behind -->
+        <div style="flex:1; opacity:0.3; padding: 20px;">
+          <div style="height:50px; background:var(--cream); border-radius:8px; margin-bottom:8px;"></div>
+          <div style="height:30px; width:60%; background:var(--white); border-radius:8px; margin-bottom:6px;"></div>
+          <div style="height:30px; width:70%; background:var(--charcoal); border-radius:8px; margin-bottom:6px; align-self:flex-end; margin-left:auto;"></div>
+        </div>
+
+        <!-- Bottom sheet -->
+        <div style="background: var(--white); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 0; margin-top: auto; max-height: 75%;">
+          <!-- Handle -->
+          <div style="display:flex; justify-content:center; padding: 10px 0 6px;">
+            <div style="width:36px; height:4px; background:var(--border-strong); border-radius:var(--r-full);"></div>
+          </div>
+
+          <!-- Header -->
+          <div style="display:flex; align-items:center; padding: 8px 20px 14px; border-bottom: 1px solid var(--border);">
+            <div style="width:36px;"></div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-family:var(--font-display); font-size:20px; font-weight:500; color:var(--charcoal);">Faire une offre</div>
+              <div style="font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-top:2px;">Etape 1 sur 3</div>
+            </div>
+            <div class="chat-back-btn" style="font-size:14px;">&#10005;</div>
+          </div>
+
+          <!-- Progress bar -->
+          <div style="padding: 0 20px; margin: 12px 0;">
+            <div style="height:3px; background:var(--border); border-radius:2px; overflow:hidden;">
+              <div style="width:33%; height:100%; background:var(--sage); border-radius:2px;"></div>
+            </div>
+          </div>
+
+          <div style="padding: 0 20px 24px;">
+            <!-- Article info -->
+            <div style="padding:14px 16px; background:var(--cream); border-radius:var(--r-sm); border:1px solid var(--border); margin-bottom:20px;">
+              <div style="font-family:var(--font-display); font-size:16px; font-weight:500; color:var(--charcoal); margin-bottom:4px;">Chemise APC blanche</div>
+              <div style="font-size:12px; color:var(--muted);">Prix affiche : <span style="font-family:var(--font-display); font-size:15px; font-weight:600; color:var(--charcoal);">$85</span></div>
+            </div>
+
+            <!-- Price input -->
+            <div style="margin-bottom:20px;">
+              <div style="font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px;">Votre offre</div>
+              <div style="display:flex; align-items:center; border:1px solid var(--border-strong); border-radius:var(--r-sm); padding:12px 16px; background:var(--white);">
+                <span style="font-family:var(--font-display); font-size:18px; color:var(--muted); margin-right:4px;">$</span>
+                <span style="font-family:var(--font-display); font-size:32px; font-weight:600; color:var(--charcoal); flex:1;">70</span>
+              </div>
+              <div style="font-size:11px; color:var(--sage); margin-top:6px;">-18% par rapport au prix affiche</div>
+            </div>
+
+            <!-- Message -->
+            <div style="margin-bottom:20px;">
+              <div style="font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px;">Message au vendeur <span style="font-weight:400; letter-spacing:0; text-transform:none; font-size:10px;">(optionnel)</span></div>
+              <div style="border:1px solid var(--border-strong); border-radius:var(--r-sm); padding:12px; min-height:70px;">
+                <span style="font-size:13px; color:var(--charcoal); line-height:1.5;">Tres interesse, je peux passer ce weekend !</span>
+              </div>
+              <div style="font-size:10px; color:var(--muted); text-align:right; margin-top:4px;">42/500</div>
+            </div>
+
+            <!-- Tip -->
+            <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--cream); border-radius:var(--r-sm); border:1px solid var(--border); margin-bottom:20px;">
+              <div style="width:24px; height:24px; border-radius:var(--r-full); background:var(--sage-light); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--sage); flex-shrink:0;">i</div>
+              <span style="font-size:11px; color:var(--muted); line-height:1.5;">Vous proposerez ensuite un lieu de rencontre</span>
+            </div>
+
+            <!-- CTA -->
+            <button style="width:100%; padding:14px; background:var(--charcoal); color:var(--cream); border:none; border-radius:var(--r-sm); font-family:var(--font-sans); font-size:11px; font-weight:500; letter-spacing:2.16px; text-transform:uppercase; cursor:pointer;">Continuer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 14: Make Offer — Step 2: Location -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Offre — Etape 2 : Lieu</div>
+    <div class="phone-frame tall">
+      <div class="screen-content" style="background: var(--overlay);">
+        <div class="safe-top" style="background: transparent;"></div>
+
+        <div style="flex:1; opacity:0.3; padding: 20px;">
+          <div style="height:50px; background:var(--cream); border-radius:8px; margin-bottom:8px;"></div>
+        </div>
+
+        <!-- Bottom sheet -->
+        <div style="background: var(--white); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 0; margin-top: auto; max-height: 80%;">
+          <div style="display:flex; justify-content:center; padding: 10px 0 6px;">
+            <div style="width:36px; height:4px; background:var(--border-strong); border-radius:var(--r-full);"></div>
+          </div>
+
+          <div style="display:flex; align-items:center; padding: 8px 20px 14px; border-bottom: 1px solid var(--border);">
+            <div class="chat-back-btn" style="font-size:14px;">&larr;</div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-family:var(--font-display); font-size:20px; font-weight:500; color:var(--charcoal);">Lieu de rencontre</div>
+              <div style="font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-top:2px;">Etape 2 sur 3</div>
+            </div>
+            <div class="chat-back-btn" style="font-size:14px;">&#10005;</div>
+          </div>
+
+          <!-- Progress bar -->
+          <div style="padding: 0 20px; margin: 12px 0;">
+            <div style="height:3px; background:var(--border); border-radius:2px; overflow:hidden;">
+              <div style="width:66%; height:100%; background:var(--sage); border-radius:2px;"></div>
+            </div>
+          </div>
+
+          <div style="padding: 0 20px 24px; max-height:500px; overflow-y:auto;">
+            <div style="font-family:var(--font-display); font-size:18px; font-weight:500; color:var(--charcoal); margin-bottom:4px;">Ou se retrouver ?</div>
+            <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">Choisissez un quartier puis un lieu public</div>
+
+            <!-- Search -->
+            <div style="display:flex; align-items:center; gap:10px; border:1px solid var(--border-strong); border-radius:var(--r-sm); padding:10px 14px; margin-bottom:16px;">
+              <span style="font-size:14px; color:var(--muted);">&#x1F50D;</span>
+              <span style="font-size:13px; color:var(--muted);">Rechercher un quartier...</span>
+            </div>
+
+            <!-- Seller zone -->
+            <div style="font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px;">Zone du vendeur</div>
+
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--sage); border-radius:var(--r-sm); margin-bottom:16px; cursor:pointer; gap:12px;">
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Mile End</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:1px;">Le Plateau-Mont-Royal</div>
+              </div>
+              <div style="font-size:9px; font-weight:500; letter-spacing:0.5px; text-transform:uppercase; padding:3px 8px; border-radius:var(--r-xs); background:var(--sage-light); color:var(--sage);">Recommande</div>
+              <span style="color:var(--muted); font-size:14px;">&rsaquo;</span>
+            </div>
+
+            <!-- All neighborhoods -->
+            <div style="font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px;">Tous les quartiers</div>
+
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Plateau Mont-Royal</div>
+                <div style="font-size:11px; color:var(--muted);">Le Plateau-Mont-Royal</div>
+              </div>
+              <span style="color:var(--muted); font-size:14px;">&rsaquo;</span>
+            </div>
+
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Rosemont</div>
+                <div style="font-size:11px; color:var(--muted);">Rosemont-La Petite-Patrie</div>
+              </div>
+              <span style="color:var(--muted); font-size:14px;">&rsaquo;</span>
+            </div>
+
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Villeray</div>
+                <div style="font-size:11px; color:var(--muted);">Villeray-Saint-Michel-Parc-Extension</div>
+              </div>
+              <span style="color:var(--muted); font-size:14px;">&rsaquo;</span>
+            </div>
+
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Centre-ville</div>
+                <div style="font-size:11px; color:var(--muted);">Ville-Marie</div>
+              </div>
+              <span style="color:var(--muted); font-size:14px;">&rsaquo;</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 15: Make Offer — Step 2b: Spot selection -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Offre — Choix du lieu</div>
+    <div class="phone-frame tall">
+      <div class="screen-content" style="background: var(--overlay);">
+        <div class="safe-top" style="background: transparent;"></div>
+
+        <div style="flex:1; opacity:0.3; padding: 20px;">
+          <div style="height:50px; background:var(--cream); border-radius:8px;"></div>
+        </div>
+
+        <!-- Bottom sheet -->
+        <div style="background: var(--white); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 0; margin-top: auto; max-height: 80%;">
+          <div style="display:flex; justify-content:center; padding: 10px 0 6px;">
+            <div style="width:36px; height:4px; background:var(--border-strong); border-radius:var(--r-full);"></div>
+          </div>
+
+          <div style="display:flex; align-items:center; padding: 8px 20px 14px; border-bottom: 1px solid var(--border);">
+            <div class="chat-back-btn" style="font-size:14px;">&larr;</div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-family:var(--font-display); font-size:20px; font-weight:500; color:var(--charcoal);">Mile End</div>
+              <div style="font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-top:2px;">Etape 2 sur 3</div>
+            </div>
+            <div class="chat-back-btn" style="font-size:14px;">&#10005;</div>
+          </div>
+
+          <div style="padding: 0 20px; margin: 12px 0;">
+            <div style="height:3px; background:var(--border); border-radius:2px; overflow:hidden;">
+              <div style="width:66%; height:100%; background:var(--sage); border-radius:2px;"></div>
+            </div>
+          </div>
+
+          <div style="padding: 0 20px 24px; max-height:480px; overflow-y:auto;">
+            <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">Choisissez un lieu de rencontre</div>
+
+            <div style="font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px;">Lieux populaires</div>
+
+            <!-- Spot: Cafe Olimpico (seller suggested) -->
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--sage); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="width:40px; height:40px; border-radius:var(--r-full); background:var(--sage-light); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span style="font-size:16px; color:var(--sage);">&#9749;</span>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Cafe Olimpico</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:1px;">Cafe &bull; 124 Rue Saint-Viateur O</div>
+              </div>
+              <div style="font-size:9px; font-weight:500; letter-spacing:0.5px; text-transform:uppercase; padding:3px 8px; border-radius:var(--r-xs); background:var(--sage-light); color:var(--sage);">Suggere</div>
+            </div>
+
+            <!-- Spot: Station Laurier -->
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="width:40px; height:40px; border-radius:var(--r-full); background:rgba(196,96,58,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span style="font-size:14px; color:var(--rust);">M</span>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Station Laurier</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:1px;">Metro &bull; Av. Laurier</div>
+              </div>
+            </div>
+
+            <!-- Spot: Parc Lahaie -->
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="width:40px; height:40px; border-radius:var(--r-full); background:var(--sage-light); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span style="font-size:14px; color:var(--sage);">&#9752;</span>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Parc Lahaie</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:1px;">Parc &bull; Av. du Parc</div>
+              </div>
+            </div>
+
+            <!-- Spot: Bibliotheque Mile End -->
+            <div style="display:flex; align-items:center; padding:14px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; cursor:pointer; gap:12px;">
+              <div style="width:40px; height:40px; border-radius:var(--r-full); background:rgba(196,96,58,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span style="font-size:14px; color:var(--rust);">&#128218;</span>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:500; color:var(--charcoal);">Bibliotheque du Mile End</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:1px;">Bibliotheque &bull; 5434 Av. du Parc</div>
+              </div>
+            </div>
+
+            <!-- Add custom spot -->
+            <div style="display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border-top:1px solid var(--border); margin-top:10px; cursor:pointer;">
+              <span style="font-size:16px; color:var(--rust);">+</span>
+              <span style="font-size:12px; font-weight:500; color:var(--rust); letter-spacing:0.5px;">Proposer un autre lieu</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 16: Make Offer — Step 3: Confirmation -->
+  <div class="screen-wrapper">
+    <div class="screen-label">Offre — Etape 3 : Confirmer</div>
+    <div class="phone-frame tall">
+      <div class="screen-content" style="background: var(--overlay);">
+        <div class="safe-top" style="background: transparent;"></div>
+
+        <div style="flex:1; opacity:0.3; padding: 20px;">
+          <div style="height:50px; background:var(--cream); border-radius:8px;"></div>
+        </div>
+
+        <!-- Bottom sheet -->
+        <div style="background: var(--white); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 0; margin-top: auto; max-height: 82%;">
+          <div style="display:flex; justify-content:center; padding: 10px 0 6px;">
+            <div style="width:36px; height:4px; background:var(--border-strong); border-radius:var(--r-full);"></div>
+          </div>
+
+          <div style="display:flex; align-items:center; padding: 8px 20px 14px; border-bottom: 1px solid var(--border);">
+            <div class="chat-back-btn" style="font-size:14px;">&larr;</div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-family:var(--font-display); font-size:20px; font-weight:500; color:var(--charcoal);">Confirmer l'offre</div>
+              <div style="font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-top:2px;">Etape 3 sur 3</div>
+            </div>
+            <div class="chat-back-btn" style="font-size:14px;">&#10005;</div>
+          </div>
+
+          <!-- Progress bar (full) -->
+          <div style="padding: 0 20px; margin: 12px 0;">
+            <div style="height:3px; background:var(--border); border-radius:2px; overflow:hidden;">
+              <div style="width:100%; height:100%; background:var(--sage); border-radius:2px;"></div>
+            </div>
+          </div>
+
+          <div style="padding: 0 20px 24px;">
+            <div style="font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:14px;">Recapitulatif</div>
+
+            <!-- Summary card -->
+            <div style="border:1px solid var(--border-strong); border-radius:var(--r-sm); overflow:hidden; margin-bottom:16px;">
+              <!-- Offer section -->
+              <div style="padding:16px; border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                  <div style="width:24px; height:24px; border-radius:var(--r-full); background:rgba(196,96,58,0.08); display:flex; align-items:center; justify-content:center;">
+                    <span style="font-size:11px; color:var(--rust);">$</span>
+                  </div>
+                  <span style="font-size:9px; font-weight:500; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted);">Votre offre</span>
+                </div>
+                <div style="font-family:var(--font-display); font-size:36px; font-weight:600; color:var(--charcoal); line-height:1;">$70</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:4px;">Chemise APC blanche</div>
+              </div>
+
+              <!-- Message section -->
+              <div style="padding:12px 16px; background:var(--cream); border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:8px;">
+                <span style="font-size:12px; color:var(--muted); margin-top:1px;">&#x275D;</span>
+                <span style="font-size:12px; color:var(--charcoal); font-style:italic; line-height:1.5;">Tres interesse, je peux passer ce weekend !</span>
+              </div>
+
+              <!-- Meetup section -->
+              <div style="padding:16px; border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                  <div style="width:24px; height:24px; border-radius:var(--r-full); background:var(--sage-light); display:flex; align-items:center; justify-content:center;">
+                    <span style="font-size:11px; color:var(--sage);">&#9673;</span>
+                  </div>
+                  <span style="font-size:9px; font-weight:500; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted);">Lieu de rencontre</span>
+                </div>
+                <div style="font-size:14px; font-weight:500; color:var(--charcoal);">Cafe Olimpico</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:2px;">Cafe &bull; Mile End &bull; 124 Rue Saint-Viateur O</div>
+              </div>
+
+              <!-- Total -->
+              <div style="padding:16px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:500; color:var(--charcoal);">Montant a payer</span>
+                <span style="font-family:var(--font-display); font-size:22px; font-weight:600; color:var(--charcoal);">$70</span>
+              </div>
+            </div>
+
+            <div style="text-align:center; font-size:10px; color:var(--muted); margin-bottom:16px; line-height:1.5;">
+              Paiement en main propre lors du meetup.<br/>
+              L'offre expire apres 48h sans reponse.
+            </div>
+
+            <!-- Info box -->
+            <div style="display:flex; gap:10px; padding:12px 14px; background:var(--cream); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:20px;">
+              <div style="width:20px; height:20px; border-radius:var(--r-full); background:var(--sage-light); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--sage); flex-shrink:0; margin-top:1px;">i</div>
+              <div style="flex:1;">
+                <div style="font-size:11px; font-weight:500; color:var(--charcoal); margin-bottom:2px;">Comment ca marche ?</div>
+                <div style="font-size:10px; color:var(--muted); line-height:1.5;">Le vendeur peut accepter, refuser, ou proposer un autre prix ou lieu.</div>
+              </div>
+            </div>
+
+            <!-- CTA -->
+            <button style="width:100%; padding:14px; background:var(--charcoal); color:var(--cream); border:none; border-radius:var(--r-sm); font-family:var(--font-sans); font-size:11px; font-weight:500; letter-spacing:2.16px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+              <span>&#10148;</span> Envoyer l'offre
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

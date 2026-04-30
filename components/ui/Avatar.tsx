@@ -1,12 +1,14 @@
 /**
- * Avatar Component
- * Design System: Luxe Français + Street
+ * Avatar Component — Seconde UI Kit
+ * Design: Editorial Luxe — Warm sand gradient for placeholders,
+ * Cormorant Garamond serif initials, minimal chrome.
  *
  * Sizes: xs, sm, md, lg, xl, xxl
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
   View,
@@ -15,7 +17,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { colors, radius, sizing, shadows, typography } from '@/constants/theme';
+import { colors, sizing, fonts } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -37,14 +39,23 @@ interface AvatarProps {
 // SIZE CONFIG
 // =============================================================================
 
-const sizeConfig: Record<AvatarSize, { dimension: number; fontSize: number; iconSize: number; onlineSize: number }> = {
-  xs: { dimension: sizing.avatarXS, fontSize: 10, iconSize: 12, onlineSize: 8 },
-  sm: { dimension: sizing.avatarSM, fontSize: 12, iconSize: 14, onlineSize: 10 },
-  md: { dimension: sizing.avatarMD, fontSize: 14, iconSize: 18, onlineSize: 12 },
-  lg: { dimension: sizing.avatarLG, fontSize: 18, iconSize: 24, onlineSize: 14 },
-  xl: { dimension: sizing.avatarXL, fontSize: 24, iconSize: 32, onlineSize: 16 },
-  xxl: { dimension: sizing.avatarXXL, fontSize: 36, iconSize: 48, onlineSize: 20 },
+const sizeConfig: Record<AvatarSize, {
+  dimension: number;
+  fontSize: number;
+  iconSize: number;
+  onlineSize: number;
+  borderWidth: number;
+}> = {
+  xs: { dimension: sizing.avatarXS, fontSize: 10, iconSize: 12, onlineSize: 8, borderWidth: 1 },
+  sm: { dimension: sizing.avatarSM, fontSize: 12, iconSize: 14, onlineSize: 10, borderWidth: 1.5 },
+  md: { dimension: sizing.avatarMD, fontSize: 16, iconSize: 18, onlineSize: 12, borderWidth: 1.5 },
+  lg: { dimension: sizing.avatarLG, fontSize: 20, iconSize: 24, onlineSize: 14, borderWidth: 2 },
+  xl: { dimension: sizing.avatarXL, fontSize: 28, iconSize: 32, onlineSize: 16, borderWidth: 2 },
+  xxl: { dimension: sizing.avatarXXL, fontSize: 38, iconSize: 48, onlineSize: 20, borderWidth: 2 },
 };
+
+// Warm sand → taupe gradient for editorial placeholder
+const GRADIENT_COLORS = ['#D4C4A0', '#A09070'] as const;
 
 // =============================================================================
 // COMPONENT
@@ -61,27 +72,28 @@ export const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const config = sizeConfig[size];
 
-  // Get initials from name
+  // Get initial(s) from name
   const getInitials = (name?: string): string => {
     if (!name) return '';
     const parts = name.trim().split(' ');
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
-    return parts[0].substring(0, 2).toUpperCase();
+    return parts[0][0].toUpperCase();
   };
 
   const initials = getInitials(name);
   const hasImage = source && source.length > 0;
+  const dim = config.dimension;
 
   return (
     <View
       style={[
         styles.container,
         {
-          width: config.dimension,
-          height: config.dimension,
-          borderRadius: config.dimension / 2,
+          width: dim,
+          height: dim,
+          borderRadius: dim / 2,
         },
         style,
       ]}
@@ -93,9 +105,9 @@ export const Avatar: React.FC<AvatarProps> = ({
           style={[
             styles.image,
             {
-              width: config.dimension,
-              height: config.dimension,
-              borderRadius: config.dimension / 2,
+              width: dim,
+              height: dim,
+              borderRadius: dim / 2,
             },
           ]}
           contentFit="cover"
@@ -103,33 +115,39 @@ export const Avatar: React.FC<AvatarProps> = ({
           cachePolicy="memory-disk"
         />
       ) : initials ? (
-        <View
+        <LinearGradient
+          colors={[GRADIENT_COLORS[0], GRADIENT_COLORS[1]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={[
             styles.placeholder,
             {
-              width: config.dimension,
-              height: config.dimension,
-              borderRadius: config.dimension / 2,
+              width: dim,
+              height: dim,
+              borderRadius: dim / 2,
             },
           ]}
         >
           <Text style={[styles.initials, { fontSize: config.fontSize }]}>
             {initials}
           </Text>
-        </View>
+        </LinearGradient>
       ) : (
-        <View
+        <LinearGradient
+          colors={[GRADIENT_COLORS[0], GRADIENT_COLORS[1]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={[
             styles.placeholder,
             {
-              width: config.dimension,
-              height: config.dimension,
-              borderRadius: config.dimension / 2,
+              width: dim,
+              height: dim,
+              borderRadius: dim / 2,
             },
           ]}
         >
           <Ionicons name="person" size={config.iconSize} color={colors.white} />
-        </View>
+        </LinearGradient>
       )}
 
       {/* Online Indicator */}
@@ -141,7 +159,7 @@ export const Avatar: React.FC<AvatarProps> = ({
               width: config.onlineSize,
               height: config.onlineSize,
               borderRadius: config.onlineSize / 2,
-              borderWidth: config.onlineSize > 10 ? 2 : 1.5,
+              borderWidth: config.borderWidth,
             },
           ]}
         />
@@ -157,22 +175,19 @@ export const Avatar: React.FC<AvatarProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    borderWidth: 2,
-    borderColor: colors.white,
-    ...shadows.card,
+    overflow: 'hidden',
   },
   image: {
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderLight,
   },
   placeholder: {
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   initials: {
-    fontFamily: typography.label.fontFamily,
+    fontFamily: fonts.display,
     color: colors.white,
-    fontWeight: '600',
+    letterSpacing: -0.3,
   },
   onlineIndicator: {
     position: 'absolute',

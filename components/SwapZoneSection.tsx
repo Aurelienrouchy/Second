@@ -1,9 +1,12 @@
 /**
  * SwapZoneSection Component
- * Design System: Luxe Français + Street
+ * Design: Curated Editorial — Bulletin-Inspired
  *
- * Editorial-style swap party promotion
- * Inspired by Vestiaire Collective's clean banners
+ * Features:
+ * - Warm terracotta gradient background
+ * - Editorial typography
+ * - Refined card with subtle shadow
+ * - Smooth animations
  */
 
 import React from 'react';
@@ -13,9 +16,8 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  ImageBackground,
 } from 'react-native';
-import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -26,7 +28,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { colors, spacing, typography, radius, shadows, animations } from '@/constants/theme';
+import { colors, spacing, fonts, radius, shadows, animations } from '@/constants/theme';
 import { useSwapZone, SwapPartyInfo } from '@/hooks/useSwapZone';
 
 // =============================================================================
@@ -49,9 +51,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const LiveBadge: React.FC = () => (
   <View style={styles.liveBadge}>
-    <Animated.View
-      style={styles.liveDot}
-    />
+    <View style={styles.liveDot} />
     <Text style={styles.liveText}>LIVE</Text>
   </View>
 );
@@ -137,7 +137,10 @@ function ActivePartyCard({
           onPress={handleViewAll}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.seeAll}>Voir tout</Text>
+          <View style={styles.seeAllButton}>
+            <Text style={styles.seeAll}>Tout voir</Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+          </View>
         </Pressable>
       </View>
 
@@ -148,44 +151,43 @@ function ActivePartyCard({
         onPressOut={handlePressOut}
         onPress={handlePress}
       >
-        {/* Background Image or Gradient */}
-        <View style={styles.cardBackground}>
-          <View style={styles.cardBackgroundOverlay} />
-        </View>
+        <LinearGradient
+          colors={['#C45C3E', '#A34830']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardGradient}
+        >
+          {/* Content */}
+          <View style={styles.cardContent}>
+            <Text style={styles.partyLabel}>EN COURS</Text>
+            <Text style={styles.partyName}>{party.name}</Text>
 
-        {/* Content */}
-        <View style={styles.cardContent}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.partyLabel}>SWAP PARTY EN COURS</Text>
-          </View>
+            {party.description && (
+              <Text style={styles.partyDescription} numberOfLines={2}>
+                {party.description}
+              </Text>
+            )}
 
-          <Text style={styles.partyName}>{party.name}</Text>
-
-          {party.description && (
-            <Text style={styles.partyDescription} numberOfLines={2}>
-              {party.description}
-            </Text>
-          )}
-
-          {/* Stats */}
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>{party.participantsCount || 0}</Text>
-              <Text style={styles.statLabel}>participants</Text>
+            {/* Stats */}
+            <View style={styles.statsRow}>
+              <View style={styles.stat}>
+                <Text style={styles.statNumber}>{party.participantsCount || 0}</Text>
+                <Text style={styles.statLabel}>participants</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <Text style={styles.statNumber}>{party.itemsCount || 0}</Text>
+                <Text style={styles.statLabel}>articles</Text>
+              </View>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>{party.itemsCount || 0}</Text>
-              <Text style={styles.statLabel}>articles</Text>
+
+            {/* CTA */}
+            <View style={styles.ctaButton}>
+              <Text style={styles.ctaText}>Participer</Text>
+              <Ionicons name="arrow-forward" size={16} color={colors.primary} />
             </View>
           </View>
-
-          {/* CTA */}
-          <View style={styles.ctaButton}>
-            <Text style={styles.ctaText}>Participer</Text>
-            <Ionicons name="arrow-forward" size={16} color={colors.white} />
-          </View>
-        </View>
+        </LinearGradient>
       </AnimatedPressable>
     </Animated.View>
   );
@@ -244,7 +246,10 @@ function UpcomingPartyCard({
           onPress={handlePress}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.seeAll}>Calendrier</Text>
+          <View style={styles.seeAllButton}>
+            <Text style={styles.seeAll}>Calendrier</Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+          </View>
         </Pressable>
       </View>
 
@@ -257,18 +262,16 @@ function UpcomingPartyCard({
       >
         <View style={styles.upcomingContent}>
           <View style={styles.upcomingLeft}>
-            <Text style={styles.upcomingLabel}>Prochaine</Text>
+            <Text style={styles.upcomingLabel}>PROCHAINE</Text>
             <Text style={styles.upcomingTitle}>{party.name}</Text>
             <View style={styles.dateRow}>
-              <Ionicons name="calendar-outline" size={14} color={colors.muted} />
+              <Ionicons name="calendar-outline" size={12} color={colors.muted} />
               <Text style={styles.dateText}>{formatDate(party.startDate)}</Text>
             </View>
           </View>
 
-          <View style={styles.upcomingRight}>
-            <View style={styles.notifyButton}>
-              <Ionicons name="notifications-outline" size={18} color={colors.primary} />
-            </View>
+          <View style={styles.notifyButton}>
+            <Ionicons name="notifications-outline" size={18} color={colors.primary} />
           </View>
         </View>
       </AnimatedPressable>
@@ -284,7 +287,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   loadingContainer: {
     paddingVertical: spacing.lg,
@@ -295,7 +298,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
     marginBottom: spacing.sm,
   },
   titleRow: {
@@ -304,17 +307,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontFamily: typography.h2.fontFamily, // Cormorant Garamond SemiBold
-    fontSize: typography.h2.fontSize,     // 22px
-    lineHeight: typography.h2.lineHeight,
-    letterSpacing: typography.h2.letterSpacing,
+    fontFamily: fonts.displayMedium,
+    fontSize: 17,
+    lineHeight: 22,
+    letterSpacing: -0.3,
     color: colors.foreground,
   },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   seeAll: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
     color: colors.primary,
+    letterSpacing: 0.2,
   },
 
   // Live Badge
@@ -334,59 +342,45 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   liveText: {
-    fontFamily: typography.caption.fontFamily,
+    fontFamily: fonts.sansMedium,
     fontSize: 10,
-    fontWeight: '700',
     color: colors.white,
     letterSpacing: 0.5,
   },
 
   // Active Card
   card: {
-    backgroundColor: colors.foreground,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     overflow: 'hidden',
     ...shadows.medium,
   },
-  cardBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.foreground,
-  },
-  cardBackgroundOverlay: {
+  cardGradient: {
     flex: 1,
-    backgroundColor: 'rgba(0, 47, 167, 0.1)', // Subtle Bleu Klein tint
   },
   cardContent: {
     padding: spacing.lg,
   },
-  cardHeader: {
-    marginBottom: spacing.sm,
-  },
   partyLabel: {
-    fontFamily: typography.caption.fontFamily,
+    fontFamily: fonts.sansMedium,
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    color: 'rgba(255, 255, 255, 0.7)',
+    letterSpacing: 1.5,
+    marginBottom: spacing.xs,
   },
   partyName: {
-    fontFamily: typography.h1.fontFamily,
+    fontFamily: fonts.displaySemiBold,
     fontSize: 26,
-    fontWeight: '600',
+    lineHeight: 32,
     color: colors.white,
+    letterSpacing: -0.5,
     marginBottom: spacing.xs,
   },
   partyDescription: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: spacing.md,
-    lineHeight: 22,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: spacing.lg,
+    lineHeight: 20,
   },
 
   // Stats
@@ -394,26 +388,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.xl,
   },
   stat: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   statNumber: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: 24,
-    fontWeight: '700',
+    fontFamily: fonts.displayBold,
+    fontSize: 28,
     color: colors.white,
+    letterSpacing: -0.5,
   },
   statLabel: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
+    fontFamily: fonts.sans,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 2,
+    marginTop: -2,
   },
   statDivider: {
     width: 1,
-    height: 32,
+    height: 36,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
 
@@ -422,7 +416,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.white,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: radius.full,
@@ -430,10 +424,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   ctaText: {
-    fontFamily: typography.label.fontFamily,
+    fontFamily: fonts.sansMedium,
     fontSize: 15,
-    fontWeight: '600',
-    color: colors.white,
+    color: colors.primary,
+    letterSpacing: 0.2,
   },
 
   // Upcoming Card
@@ -448,46 +442,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   upcomingLeft: {
     flex: 1,
   },
   upcomingLabel: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: 11,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
     color: colors.muted,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+    letterSpacing: 0.8,
+    marginBottom: 2,
   },
   upcomingTitle: {
-    fontFamily: typography.h3.fontFamily,
-    fontSize: typography.h3.fontSize,
-    fontWeight: '600',
+    fontFamily: fonts.displayMedium,
+    fontSize: 15,
+    lineHeight: 20,
     color: colors.foreground,
-    marginBottom: spacing.sm,
+    letterSpacing: -0.2,
+    marginBottom: spacing.xs,
   },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 4,
   },
   dateText: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.bodySmall.fontSize,
+    fontFamily: fonts.sans,
+    fontSize: 12,
     color: colors.muted,
   },
-  upcomingRight: {
-    marginLeft: spacing.md,
-  },
   notifyButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: spacing.sm,
   },
 });

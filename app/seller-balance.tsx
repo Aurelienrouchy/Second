@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
 import { SellerBalance } from '@/types';
+import { colors } from '@/constants/theme';
 
 export default function SellerBalanceScreen() {
   const router = useRouter();
@@ -159,7 +160,7 @@ export default function SellerBalanceScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       </SafeAreaView>
@@ -175,7 +176,7 @@ export default function SellerBalanceScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
         </Pressable>
         <Text style={styles.headerTitle}>Ma balance vendeur</Text>
         <View style={{ width: 24 }} />
@@ -296,7 +297,7 @@ export default function SellerBalanceScreen() {
           <Text style={styles.historyTitle}>Historique</Text>
           {balance.transactions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="receipt-outline" size={48} color="#E5E5EA" />
+              <Ionicons name="receipt-outline" size={48} color={colors.border} />
               <Text style={styles.emptyStateText}>Aucune transaction</Text>
             </View>
           ) : (
@@ -316,7 +317,7 @@ export default function SellerBalanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   loadingContainer: {
     flex: 1,
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   backButton: {
     width: 24,
@@ -343,7 +344,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   content: {
     flex: 1,
@@ -361,18 +362,18 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   balanceCardPending: {
-    backgroundColor: '#F79F24',
+    backgroundColor: colors.primary,
   },
   balanceLabel: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: colors.white,
     opacity: 0.9,
     marginBottom: 8,
   },
   balanceAmount: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.white,
     marginBottom: 4,
   },
   balanceAmountPending: {
@@ -380,11 +381,11 @@ const styles = StyleSheet.create({
   },
   balanceHint: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: colors.white,
     opacity: 0.8,
   },
   totalCard: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     padding: 16,
     marginTop: 16,
@@ -397,12 +398,12 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   totalAmount: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#F79F24',
+    color: colors.primary,
   },
   withdrawalButton: {
     flexDirection: 'row',
@@ -415,12 +416,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   withdrawalButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '700',
   },
   withdrawalForm: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 16,
     padding: 20,
     marginTop: 20,
@@ -428,7 +429,7 @@ const styles = StyleSheet.create({
   withdrawalFormTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 20,
   },
   inputGroup: {
@@ -437,32 +438,32 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 10,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.border,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     paddingVertical: 12,
   },
   inputCurrency: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.muted,
   },
   inputHint: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
     marginTop: 6,
   },
   withdrawalActions: {
@@ -472,7 +473,7 @@ const styles = StyleSheet.create({
   },
   withdrawalCancelButton: {
     flex: 1,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.border,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
   withdrawalConfirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   historySection: {
     marginTop: 32,
@@ -504,13 +505,13 @@ const styles = StyleSheet.create({
   historyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 16,
   },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
@@ -535,16 +536,16 @@ const styles = StyleSheet.create({
   transactionDescription: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 2,
   },
   transactionDate: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   transactionStatusPending: {
     fontSize: 11,
-    color: '#F79F24',
+    color: colors.primary,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -562,7 +563,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
     marginTop: 16,
   },
 });

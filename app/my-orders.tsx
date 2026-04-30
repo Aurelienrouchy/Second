@@ -1,0 +1,313 @@
+/**
+ * My Orders Screen — Buyer-side purchase list
+ * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
+ */
+
+import { useAuth } from '@/contexts/AuthContext';
+import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { ArticlesService } from '@/services/articlesService';
+import { TransactionService } from '@/services/transactionService';
+import { Article, Transaction, TransactionStatus } from '@/types';
+import { AUTH_MESSAGES } from '@/constants/authMessages';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+interface OrderItem {
+  transaction: Transaction;
+  article: Article | null;
+}
+
+const STATUS_LABELS: Record<TransactionStatus, { label: string; color: string }> = {
+  pending_payment: { label: 'Paiement en attente', color: colors.warning },
+  meetup_pending: { label: 'Rencontre à confirmer', color: colors.warning },
+  meetup_confirmed: { label: 'Rencontre confirmée', color: colors.primary },
+  meetup_completed: { label: 'Échange terminé', color: colors.success },
+  paid: { label: 'Payée — en attente d\'envoi', color: colors.primary },
+  shipped: { label: 'Expédiée', color: colors.primary },
+  delivered: { label: 'Livrée', color: colors.success },
+  cancelled: { label: 'Annulée', color: colors.danger },
+};
+
+function OrderCard({
+  item,
+  onPress,
+}: {
+  item: OrderItem;
+  onPress: () => void;
+}) {
+  const { transaction, article } = item;
+  const status = STATUS_LABELS[transaction.status];
+  const firstImage = article?.images?.[0];
+  const dateLabel = transaction.createdAt.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  return (
+    <Pressable style={styles.card} onPress={onPress}>
+      <Image
+        source={{ uri: firstImage?.url || 'https://via.placeholder.com/100x100' }}
+        style={styles.cardImage}
+        contentFit="cover"
+        transition={200}
+        placeholder={firstImage?.blurhash ? { blurhash: firstImage.blurhash } : undefined}
+        cachePolicy="memory-disk"
+      />
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {article?.title || 'Article indisponible'}
+        </Text>
+        <Text style={styles.cardPrice}>{transaction.totalAmount.toFixed(2)} $</Text>
+        <View style={styles.statusRow}>
+          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+          <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
+        </View>
+        <Text style={styles.cardDate}>{dateLabel}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+export default function MyOrdersScreen() {
+  const { user } = useAuth();
+  const { showAuthSheet } = useAuthRequired();
+  const router = useRouter();
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadOrders = useCallback(
+    async (showRefresh = false) => {
+      if (!user) return;
+      try {
+        if (showRefresh) setRefreshing(true);
+        else setLoading(true);
+
+        const allTx = await TransactionService.getUserTransactions(user.id);
+        const purchases = allTx.filter((t) => t.buyerId === user.id);
+
+        const articles = await Promise.all(
+          purchases.map((t) =>
+            ArticlesService.getArticleById(t.articleId).catch(() => null),
+          ),
+        );
+
+        setOrders(purchases.map((tx, i) => ({ transaction: tx, article: articles[i] })));
+      } catch (error) {
+        console.error('Erreur chargement commandes:', error);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [user],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOrders();
+    }, [loadOrders]),
+  );
+
+  const handleOrderPress = useCallback(
+    (orderItem: OrderItem) => {
+      const { transaction } = orderItem;
+      if (transaction.status === 'pending_payment') {
+        router.push(`/payment/${transaction.id}`);
+        return;
+      }
+      if (transaction.chatId) {
+        router.push(`/chat/${transaction.chatId}`);
+        return;
+      }
+      if (orderItem.article) {
+        router.push(`/article/${orderItem.article.id}`);
+      }
+    },
+    [router],
+  );
+
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Mes commandes" onBack={() => router.back()} />
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>Connexion requise</Text>
+          <Text style={styles.emptyText}>
+            Connectez-vous pour voir vos commandes
+          </Text>
+          <Pressable
+            style={styles.connectButton}
+            onPress={() => showAuthSheet(AUTH_MESSAGES.default)}
+          >
+            <Text style={styles.connectButtonText}>SE CONNECTER</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScreenHeader title="Mes commandes" onBack={() => router.back()} />
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : orders.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cube-outline" size={64} color={colors.muted} />
+          <Text style={styles.emptyTitle}>Aucune commande</Text>
+          <Text style={styles.emptyText}>
+            Vos achats apparaîtront ici une fois que vous aurez passé votre première
+            commande.
+          </Text>
+        </View>
+      ) : (
+        <FlashList
+          data={orders}
+          keyExtractor={(item) => item.transaction.id}
+          renderItem={({ item }) => (
+            <OrderCard item={item} onPress={() => handleOrderPress(item)} />
+          )}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadOrders(true)}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContent: {
+    paddingVertical: spacing.sm,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    gap: spacing.md,
+  },
+  cardImage: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.sm,
+    backgroundColor: colors.borderLight,
+  },
+  cardInfo: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    lineHeight: 19,
+    color: colors.charcoal,
+    marginBottom: 4,
+  },
+  cardPrice: {
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.primary,
+    marginBottom: 6,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  cardDate: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginLeft: spacing.md + 72 + spacing.md,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyTitle: {
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 22,
+    lineHeight: 28,
+    color: colors.charcoal,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  connectButton: {
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 14,
+    borderRadius: radius.sm,
+    minWidth: 200,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  connectButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 2.16,
+    color: colors.cream,
+  },
+});

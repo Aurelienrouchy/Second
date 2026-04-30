@@ -1,6 +1,6 @@
 /**
- * Button Component
- * Design System: Luxe Français + Street
+ * Button Component — Seconde UI Kit
+ * Flat, editorial, uppercase labels
  *
  * Variants: primary, secondary, ghost, danger, muted
  */
@@ -54,26 +54,26 @@ interface ButtonProps {
 const variantStyles = {
   primary: {
     container: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      backgroundColor: colors.dark,
+      borderColor: colors.dark,
     },
     text: {
-      color: colors.white,
+      color: colors.cream,
     },
     pressed: {
-      backgroundColor: colors.primaryDark,
+      backgroundColor: colors.primary,
     },
   },
   secondary: {
     container: {
       backgroundColor: colors.transparent,
-      borderColor: colors.primary,
+      borderColor: colors.dark,
     },
     text: {
-      color: colors.primary,
+      color: colors.dark,
     },
     pressed: {
-      backgroundColor: colors.primaryLight,
+      backgroundColor: colors.surfaceWarm,
     },
   },
   ghost: {
@@ -181,7 +181,7 @@ export const Button: React.FC<ButtonProps> = ({
         styles.container,
         sizeStyles[size],
         variantStyle.container,
-        { borderWidth: 1.5 },
+        { borderWidth: 1 },
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
         style,
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.sm,
+    borderRadius: radius.md,        // 8px (Seconde)
     overflow: 'hidden',
   },
   fullWidth: {
@@ -244,11 +244,12 @@ const styles = StyleSheet.create({
     fontSize: typography.button.fontSize,
     lineHeight: typography.button.lineHeight,
     letterSpacing: typography.button.letterSpacing,
+    textTransform: 'uppercase',
     textAlign: 'center',
   },
   textSmall: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 11,
+    lineHeight: 16,
   },
   iconLeft: {
     marginRight: spacing.sm,

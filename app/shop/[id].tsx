@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 export default function ShopDetailScreen() {
   const router = useRouter();
@@ -95,7 +96,7 @@ export default function ShopDetailScreen() {
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="time-outline" size={20} color="#1C1C1E" />
+          <Ionicons name="time-outline" size={20} color={colors.foreground} />
           <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
         </View>
         {days.map((day) => {
@@ -117,7 +118,7 @@ export default function ShopDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F79F24" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       </SafeAreaView>
@@ -140,7 +141,7 @@ export default function ShopDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={24} color="#1C1C1E" />
+          <Ionicons name="chevron-back" size={24} color={colors.foreground} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {shop.name}
@@ -206,16 +207,16 @@ export default function ShopDetailScreen() {
           {/* Contact Actions */}
           <View style={styles.actionsContainer}>
             <Pressable style={styles.actionButton} onPress={handleCall}>
-              <Ionicons name="call-outline" size={20} color="#F79F24" />
+              <Ionicons name="call-outline" size={20} color={colors.primary} />
               <Text style={styles.actionButtonText}>Appeler</Text>
             </Pressable>
             <Pressable style={styles.actionButton} onPress={handleEmail}>
-              <Ionicons name="mail-outline" size={20} color="#F79F24" />
+              <Ionicons name="mail-outline" size={20} color={colors.primary} />
               <Text style={styles.actionButtonText}>Email</Text>
             </Pressable>
             {shop.website && (
               <Pressable style={styles.actionButton} onPress={handleWebsite}>
-                <Ionicons name="globe-outline" size={20} color="#F79F24" />
+                <Ionicons name="globe-outline" size={20} color={colors.primary} />
                 <Text style={styles.actionButtonText}>Site web</Text>
               </Pressable>
             )}
@@ -224,7 +225,7 @@ export default function ShopDetailScreen() {
           {/* Address */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="location-outline" size={20} color="#1C1C1E" />
+              <Ionicons name="location-outline" size={20} color={colors.foreground} />
               <Text style={styles.sectionTitle}>Adresse</Text>
             </View>
             <Text style={styles.addressText}>
@@ -264,7 +265,7 @@ export default function ShopDetailScreen() {
           {(shop.socialMedia?.instagram || shop.socialMedia?.facebook) && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Ionicons name="share-social-outline" size={20} color="#1C1C1E" />
+                <Ionicons name="share-social-outline" size={20} color={colors.foreground} />
                 <Text style={styles.sectionTitle}>Réseaux sociaux</Text>
               </View>
               <View style={styles.socialContainer}>
@@ -294,17 +295,17 @@ export default function ShopDetailScreen() {
           {shop.articlesCount > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Ionicons name="pricetag-outline" size={20} color="#1C1C1E" />
+                <Ionicons name="pricetag-outline" size={20} color={colors.foreground} />
                 <Text style={styles.sectionTitle}>
                   Articles en vente ({shop.articlesCount})
                 </Text>
               </View>
               <Pressable
                 style={styles.viewArticlesButton}
-                onPress={() => router.push(`/search-results?shopId=${shop.id}`)}
+                onPress={() => router.push(`/search?shopId=${shop.id}`)}
               >
                 <Text style={styles.viewArticlesButtonText}>Voir tous les articles</Text>
-                <Ionicons name="chevron-forward" size={20} color="#F79F24" />
+                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
               </Pressable>
             </View>
           )}
@@ -317,7 +318,7 @@ export default function ShopDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   header: {
     flexDirection: 'row',
@@ -326,13 +327,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   headerTitle: {
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     textAlign: 'center',
     marginHorizontal: 16,
   },
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.muted,
   },
   errorContainer: {
     flex: 1,
@@ -369,7 +370,7 @@ const styles = StyleSheet.create({
   mainImage: {
     width: '100%',
     height: 300,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   thumbnailScroll: {
     marginTop: 12,
@@ -381,18 +382,18 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: 80,
     height: 80,
-    borderRadius: 8,
+    borderRadius: 4,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
   },
   thumbnailSelected: {
-    borderColor: '#F79F24',
+    borderColor: colors.primary,
   },
   thumbnailImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   infoContainer: {
     paddingHorizontal: 20,
@@ -408,7 +409,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
   },
   nameContent: {
     flex: 1,
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
   shopName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 4,
   },
   verifiedBadge: {
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
   },
   typeBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFE8C8',
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -440,11 +441,11 @@ const styles = StyleSheet.create({
   typeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F79F24',
+    color: colors.primary,
   },
   description: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     lineHeight: 24,
     marginBottom: 24,
   },
@@ -459,14 +460,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 0,
   },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F79F24',
+    color: colors.primary,
   },
   section: {
     marginBottom: 24,
@@ -480,16 +481,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   addressText: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.foreground,
     lineHeight: 24,
   },
   mapContainer: {
     height: 200,
-    borderRadius: 12,
+    borderRadius: 0,
     overflow: 'hidden',
     marginBottom: 24,
   },
@@ -502,12 +503,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
   },
   dayLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   hoursText: {
     fontSize: 15,
@@ -515,7 +516,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   closedText: {
-    color: '#8E8E93',
+    color: colors.muted,
   },
   socialContainer: {
     gap: 12,
@@ -524,29 +525,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 0,
   },
   socialText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   viewArticlesButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF9F0',
+    backgroundColor: colors.surfaceWarm,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
-    borderColor: '#F79F24',
+    borderColor: colors.primary,
   },
   viewArticlesButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#F79F24',
+    color: colors.primary,
   },
 });
 

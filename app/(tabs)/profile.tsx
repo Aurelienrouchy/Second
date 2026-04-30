@@ -1,23 +1,25 @@
 /**
- * Profile Screen
- * Design System: Luxe Français + Street
+ * Profile Screen (Own Profile)
+ * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
  *
  * Features:
- * - Elegant profile header with Avatar component
- * - Animated stats with Bleu Klein accent
- * - Smooth press animations with haptic feedback
- * - Clean menu sections
+ * - Cream header with displayMedium title + MODIFIER CTA
+ * - Avatar + name + handle + member since (horizontal layout)
+ * - Bio section
+ * - Stats row matching public profile (Articles, Ventes, Note, Abonnes)
+ * - Menu sections with colored icon circles
+ * - Sign out button with danger border
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
+  Text,
   View,
 } from 'react-native';
 import Animated, {
@@ -29,14 +31,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Design System
-import { colors, spacing, typography, radius, shadows, animations } from '@/constants/theme';
-import { Avatar, Button, H1, H2, Body, Caption } from '@/components/ui';
-
-// Hooks & Contexts
+import { Avatar } from '@/components/ui';
+import { colors, fonts, radius, spacing, animations } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
+import { formatDisplayName } from '@/utils/formatName';
 
 // =============================================================================
 // TYPES
@@ -46,6 +47,8 @@ interface MenuItem {
   id: string;
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
   action: () => void;
 }
 
@@ -65,15 +68,17 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // STAT ITEM COMPONENT
 // =============================================================================
 
-const StatItem: React.FC<StatItemProps> = ({ value, label, delay = 0 }) => (
-  <Animated.View
-    entering={FadeInDown.duration(400).delay(delay)}
-    style={styles.statItem}
-  >
-    <Animated.Text style={styles.statNumber}>{value}</Animated.Text>
-    <Caption style={styles.statLabel}>{label}</Caption>
-  </Animated.View>
-);
+const StatItem = React.memo(function StatItem({ value, label, delay = 0 }: StatItemProps) {
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(400).delay(delay)}
+      style={styles.statItem}
+    >
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </Animated.View>
+  );
+});
 
 // =============================================================================
 // MENU ITEM COMPONENT
@@ -85,7 +90,11 @@ interface MenuItemComponentProps {
   index: number;
 }
 
-const MenuItemComponent: React.FC<MenuItemComponentProps> = ({ item, onPress, index }) => {
+const MenuItemComponent = React.memo(function MenuItemComponent({
+  item,
+  onPress,
+  index,
+}: MenuItemComponentProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -106,51 +115,52 @@ const MenuItemComponent: React.FC<MenuItemComponentProps> = ({ item, onPress, in
   }, [onPress]);
 
   return (
-    <Animated.View entering={FadeInDown.duration(300).delay(100 + index * 50)}>
-      <AnimatedPressable
-        style={[styles.menuItem, animatedStyle]}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        onPress={handlePress}
-        testID={`menu-item-${item.id}`}
-      >
-        <View style={styles.menuItemLeft}>
-          <View style={styles.menuIconContainer}>
-            <Ionicons name={item.icon} size={20} color={colors.primary} />
-          </View>
-          <Body style={styles.menuTitle}>{item.title}</Body>
+    <AnimatedPressable
+      entering={FadeInDown.duration(300).delay(100 + index * 50)}
+      style={[styles.menuItem, animatedStyle]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      testID={`menu-item-${item.id}`}
+    >
+      <View style={styles.menuItemLeft}>
+        <View style={[styles.menuIconContainer, { backgroundColor: item.iconBg }]}>
+          <Ionicons name={item.icon} size={16} color={item.iconColor} />
         </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-      </AnimatedPressable>
-    </Animated.View>
+        <Text style={styles.menuTitle}>{item.title}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+    </AnimatedPressable>
   );
-};
+});
 
 // =============================================================================
 // GUEST STATE COMPONENT
 // =============================================================================
 
-const GuestState: React.FC<{ onConnect: () => void }> = ({ onConnect }) => (
-  <Animated.View
-    entering={FadeInDown.duration(400).delay(100)}
-    style={styles.guestState}
-  >
-    <View style={styles.guestAvatarContainer}>
-      <Avatar size="xxl" name="" />
-    </View>
-    <H2 style={styles.guestTitle}>Pas encore connecté</H2>
-    <Body color="muted" center style={styles.guestSubtitle}>
-      Connectez-vous pour accéder à toutes les fonctionnalités
-    </Body>
-    <Button
-      variant="primary"
-      onPress={onConnect}
-      style={styles.connectButton}
+const GuestState = React.memo(function GuestState({
+  onConnect,
+}: {
+  onConnect: () => void;
+}) {
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(400).delay(100)}
+      style={styles.guestState}
     >
-      Se connecter
-    </Button>
-  </Animated.View>
-);
+      <View style={styles.guestAvatarContainer}>
+        <Avatar size="xxl" name="" />
+      </View>
+      <Text style={styles.guestTitle}>Pas encore connecté</Text>
+      <Text style={styles.guestSubtitle}>
+        Connectez-vous pour accéder à toutes les fonctionnalités
+      </Text>
+      <Pressable style={styles.connectButton} onPress={onConnect}>
+        <Text style={styles.connectButtonText}>SE CONNECTER</Text>
+      </Pressable>
+    </Animated.View>
+  );
+});
 
 // =============================================================================
 // MAIN COMPONENT
@@ -160,10 +170,6 @@ export default function ProfileScreen() {
   const { user, signOut, checkAuthRequired } = useAuth();
   const { requireAuth, showAuthSheet } = useAuthRequired();
   const router = useRouter();
-
-  // Settings state
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
   // Handlers
   const handleSignOut = useCallback(async () => {
@@ -175,59 +181,112 @@ export default function ProfileScreen() {
     }
   }, [signOut]);
 
-  const handleAction = useCallback((action: () => void, message?: string) => {
-    if (checkAuthRequired()) {
-      requireAuth(action, message);
-    } else {
-      action();
-    }
-  }, [checkAuthRequired, requireAuth]);
+  const handleAction = useCallback(
+    (action: () => void, message?: string) => {
+      if (checkAuthRequired()) {
+        requireAuth(action, message);
+      } else {
+        action();
+      }
+    },
+    [checkAuthRequired, requireAuth],
+  );
 
   const handleConnect = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     showAuthSheet(AUTH_MESSAGES.default);
   }, [showAuthSheet]);
 
-  const handleNotificationsToggle = useCallback((value: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setNotificationsEnabled(value);
-  }, []);
+  const handleEditProfile = useCallback(() => {
+    router.push('/settings/profile-details');
+  }, [router]);
 
-  const handleDarkModeToggle = useCallback((value: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setDarkModeEnabled(value);
-  }, []);
+  // Format member since
+  const memberSince = useMemo(() => {
+    if (!user?.createdAt) return '';
+    const date =
+      user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt);
+    return `Membre depuis ${date.toLocaleDateString('fr-FR', {
+      month: 'short',
+      year: 'numeric',
+    })}`;
+  }, [user?.createdAt]);
 
-  // Menu items with Ionicons
-  const menuItems: MenuItem[] = [
-    { id: 'orders', title: 'Mes commandes', icon: 'cube-outline', action: () => console.log('Orders') },
-    { id: 'selling', title: 'Mes ventes', icon: 'wallet-outline', action: () => router.push('/my-articles') },
-    { id: 'favorites', title: 'Mes favoris', icon: 'heart-outline', action: () => router.push('/(tabs)/favorites') },
-    { id: 'wallet', title: 'Mon portefeuille', icon: 'card-outline', action: () => console.log('Wallet') },
-    { id: 'settings', title: 'Paramètres', icon: 'settings-outline', action: () => router.push('/settings') },
-    { id: 'help', title: 'Aide', icon: 'help-circle-outline', action: () => console.log('Help') },
-  ];
+  // Menu items with DA-specific icon colors
+  const menuItems: MenuItem[] = useMemo(
+    () => [
+      {
+        id: 'orders',
+        title: 'Mes commandes',
+        icon: 'cube-outline',
+        iconColor: colors.rust,
+        iconBg: 'rgba(196, 96, 58, 0.08)',
+        action: () => router.push('/my-orders'),
+      },
+      {
+        id: 'selling',
+        title: 'Mes ventes',
+        icon: 'wallet-outline',
+        iconColor: colors.sage,
+        iconBg: colors.sageLight,
+        action: () => router.push('/my-articles'),
+      },
+      {
+        id: 'favorites',
+        title: 'Mes favoris',
+        icon: 'heart-outline',
+        iconColor: colors.danger,
+        iconBg: colors.dangerLight,
+        action: () => router.push('/(tabs)/favorites'),
+      },
+      {
+        id: 'settings',
+        title: 'Paramètres',
+        icon: 'settings-outline',
+        iconColor: colors.charcoal,
+        iconBg: 'rgba(26, 24, 20, 0.04)',
+        action: () => router.push('/settings'),
+      },
+      {
+        id: 'help',
+        title: 'Aide',
+        icon: 'help-circle-outline',
+        iconColor: colors.charcoal,
+        iconBg: 'rgba(26, 24, 20, 0.04)',
+        action: () => console.log('Help'),
+      },
+    ],
+    [router],
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Mon profil"
+        showBack={false}
+        rightContent={
+          user ? (
+            <Pressable style={styles.editButton} onPress={handleEditProfile}>
+              <Text style={styles.editButtonText}>MODIFIER</Text>
+            </Pressable>
+          ) : undefined
+        }
+      />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
-        <Animated.View
-          entering={FadeIn.duration(300)}
-          style={styles.header}
-        >
-          <H1>Profil</H1>
-        </Animated.View>
 
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
+        {/* Profile Header Zone */}
+        <View style={styles.profileHeaderZone}>
           {user ? (
             <>
-              <Animated.View entering={FadeInDown.duration(400)}>
+              {/* Avatar + Info */}
+              <Animated.View
+                entering={FadeInDown.duration(400)}
+                style={styles.avatarSection}
+              >
                 <Avatar
                   source={user.profileImage}
                   name={user.displayName || 'U'}
@@ -235,24 +294,47 @@ export default function ProfileScreen() {
                   showOnline
                   isOnline
                 />
-              </Animated.View>
-              <Animated.Text
-                entering={FadeInDown.duration(400).delay(50)}
-                style={styles.userName}
-              >
-                {user.displayName || 'Utilisateur'}
-              </Animated.Text>
-              <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-                <Caption>{user.email}</Caption>
+                <View style={styles.nameSection}>
+                  <Text style={styles.userName}>
+                    {formatDisplayName(user.displayName)}
+                  </Text>
+                  {user.displayName && (
+                    <Text style={styles.userHandle}>
+                      @{user.displayName.toLowerCase().replace(/\s+/g, '.')}
+                    </Text>
+                  )}
+                  <Text style={styles.memberSince}>{memberSince}</Text>
+                </View>
               </Animated.View>
 
+              {/* Bio */}
+              {user.bio && (
+                <Animated.View entering={FadeInDown.duration(400).delay(50)}>
+                  <Text style={styles.bio}>{user.bio}</Text>
+                </Animated.View>
+              )}
+
               {/* Stats */}
-              <View style={styles.statsContainer}>
-                <StatItem value="0" label="Abonnés" delay={150} />
+              <View style={styles.statsRow}>
+                <StatItem
+                  value={user.articlesCount ?? 0}
+                  label="Articles"
+                  delay={150}
+                />
                 <View style={styles.statDivider} />
-                <StatItem value="0" label="Abonnements" delay={200} />
+                <StatItem value={0} label="Ventes" delay={200} />
                 <View style={styles.statDivider} />
-                <StatItem value="4.8" label="Étoiles" delay={250} />
+                <StatItem
+                  value={user.rating ? user.rating.toFixed(1) : '-'}
+                  label="Note"
+                  delay={250}
+                />
+                <View style={styles.statDivider} />
+                <StatItem
+                  value={user.sellerLikesCount ?? 0}
+                  label="Abonnes"
+                  delay={300}
+                />
               </View>
             </>
           ) : (
@@ -266,7 +348,7 @@ export default function ProfileScreen() {
             entering={FadeIn.duration(300).delay(200)}
             style={styles.sectionTitleContainer}
           >
-            <Caption style={styles.sectionTitle}>MON COMPTE</Caption>
+            <Text style={styles.sectionTitle}>MON COMPTE</Text>
           </Animated.View>
           {menuItems.map((item, index) => (
             <MenuItemComponent
@@ -276,57 +358,11 @@ export default function ProfileScreen() {
               onPress={() =>
                 handleAction(
                   item.action,
-                  `Vous devez être connecté pour accéder à ${item.title.toLowerCase()}.`
+                  `Vous devez être connecté pour accéder à ${item.title.toLowerCase()}.`,
                 )
               }
             />
           ))}
-        </View>
-
-        {/* Settings Section */}
-        <View style={styles.settingsSection}>
-          <Animated.View
-            entering={FadeIn.duration(300).delay(300)}
-            style={styles.sectionTitleContainer}
-          >
-            <Caption style={styles.sectionTitle}>PRÉFÉRENCES</Caption>
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(350)}
-            style={styles.settingItem}
-          >
-            <View style={styles.settingLeft}>
-              <View style={styles.settingIconContainer}>
-                <Ionicons name="notifications-outline" size={20} color={colors.primary} />
-              </View>
-              <Body>Notifications</Body>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={handleNotificationsToggle}
-              trackColor={{ false: colors.border, true: colors.primaryLight }}
-              thumbColor={notificationsEnabled ? colors.primary : colors.muted}
-            />
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(400)}
-            style={styles.settingItem}
-          >
-            <View style={styles.settingLeft}>
-              <View style={styles.settingIconContainer}>
-                <Ionicons name="moon-outline" size={20} color={colors.primary} />
-              </View>
-              <Body>Mode sombre</Body>
-            </View>
-            <Switch
-              value={darkModeEnabled}
-              onValueChange={handleDarkModeToggle}
-              trackColor={{ false: colors.border, true: colors.primaryLight }}
-              thumbColor={darkModeEnabled ? colors.primary : colors.muted}
-            />
-          </Animated.View>
         </View>
 
         {/* Sign Out */}
@@ -335,16 +371,9 @@ export default function ProfileScreen() {
             entering={FadeInDown.duration(300).delay(450)}
             style={styles.signOutSection}
           >
-            <Button
-              variant="danger"
-              onPress={handleSignOut}
-              style={styles.signOutButton}
-            >
-              <View style={styles.signOutContent}>
-                <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-                <Body style={styles.signOutText}>Se déconnecter</Body>
-              </View>
-            </Button>
+            <Pressable style={styles.signOutButton} onPress={handleSignOut}>
+              <Text style={styles.signOutText}>SE DÉCONNECTER</Text>
+            </Pressable>
           </Animated.View>
         )}
 
@@ -353,12 +382,12 @@ export default function ProfileScreen() {
           entering={FadeIn.duration(300).delay(500)}
           style={styles.versionContainer}
         >
-          <Caption style={styles.versionText}>Version 1.0.0</Caption>
+          <Text style={styles.versionText}>Version 1.0.0</Text>
         </Animated.View>
 
         <View style={styles.bottomPadding} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -378,176 +407,225 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
 
-  // Header
-  header: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+  editButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    backgroundColor: colors.white,
+  },
+  editButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 1.8,
+    color: colors.charcoal,
+    textTransform: 'uppercase',
   },
 
-  // Profile Header
-  profileHeader: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
+  // Profile Header Zone
+  profileHeaderZone: {
+    backgroundColor: colors.cream,
     paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
+    paddingBottom: spacing.lg,
     marginBottom: spacing.md,
   },
+  avatarSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  nameSection: {
+    flex: 1,
+  },
   userName: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: typography.h2.fontSize,
-    lineHeight: typography.h2.lineHeight,
-    color: colors.foreground,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
+    fontFamily: fonts.displayMedium,
+    fontSize: 22,
+    lineHeight: 28,
+    color: colors.charcoal,
+  },
+  userHandle: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  memberSince: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+
+  // Bio
+  bio: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.charcoal,
+    marginBottom: spacing.md,
   },
 
   // Stats
-  statsContainer: {
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
   },
-  statNumber: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.primary, // Bleu Klein!
+  statValue: {
+    fontFamily: fonts.displaySemiBold,
+    fontSize: 22,
+    lineHeight: 28,
+    color: colors.charcoal,
   },
   statLabel: {
-    marginTop: spacing.xs,
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+    marginTop: 2,
   },
   statDivider: {
     width: 1,
-    height: 32,
+    height: 28,
     backgroundColor: colors.border,
   },
 
   // Guest State
   guestState: {
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
   },
   guestAvatarContainer: {
     marginBottom: spacing.md,
   },
   guestTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 20,
+    lineHeight: 26,
+    color: colors.charcoal,
     marginBottom: spacing.sm,
   },
   guestSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+    textAlign: 'center',
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
   connectButton: {
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 14,
+    borderRadius: radius.sm,
     minWidth: 200,
+    alignItems: 'center',
+  },
+  connectButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 2.16,
+    color: colors.cream,
+    textTransform: 'uppercase',
   },
 
   // Section Title
   sectionTitleContainer: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
   sectionTitle: {
-    letterSpacing: 1,
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 1.8,
     color: colors.muted,
+    textTransform: 'uppercase',
   },
 
   // Menu Section
   menuSection: {
-    backgroundColor: colors.surface,
-    marginBottom: spacing.md,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderLight,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
   },
   menuIconContainer: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: radius.md,
-    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
   },
   menuTitle: {
-    fontWeight: '500',
-  },
-
-  // Settings Section
-  settingsSection: {
-    backgroundColor: colors.surface,
-    marginBottom: spacing.md,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderLight,
-  },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.charcoal,
   },
 
   // Sign Out
   signOutSection: {
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
   },
   signOutButton: {
+    paddingVertical: 14,
+    borderWidth: 1,
     borderColor: colors.danger,
-  },
-  signOutContent: {
-    flexDirection: 'row',
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   signOutText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 1.2,
     color: colors.danger,
-    marginLeft: spacing.sm,
-    fontWeight: '600',
+    textTransform: 'uppercase',
   },
 
   // Version
   versionContainer: {
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   versionText: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
+    letterSpacing: 0.5,
   },
 
   // Bottom Padding

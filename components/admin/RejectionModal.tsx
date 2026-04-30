@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '@/constants/theme';
 
 export interface RejectionModalRef {
   show: () => void;
@@ -65,6 +66,7 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
         enablePanDownToClose
+        enableDynamicSizing={false}
       >
         <BottomSheetView style={styles.container}>
           {/* Header */}
@@ -77,7 +79,7 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
               onPress={() => bottomSheetRef.current?.close()}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="close" size={24} color="#1C1C1E" />
+              <Ionicons name="close" size={24} color={colors.foreground} />
             </TouchableOpacity>
           </View>
 
@@ -116,7 +118,7 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
           <TextInput
             style={styles.input}
             placeholder="Expliquez la raison du rejet..."
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.muted}
             value={reason}
             onChangeText={setReason}
             multiline
@@ -169,7 +171,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: colors.surfaceWarm,
     marginBottom: 16,
   },
   headerContent: {
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   shopInfo: {
     backgroundColor: '#F9F9F9',
@@ -191,12 +193,12 @@ const styles = StyleSheet.create({
   shopName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
     marginBottom: 12,
   },
   reasonsList: {
@@ -209,9 +211,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.border,
   },
   reasonChipSelected: {
     backgroundColor: '#FFEBEE',
@@ -220,24 +222,24 @@ const styles = StyleSheet.create({
   reasonChipText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   reasonChipTextSelected: {
     color: '#FF3B30',
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
-    color: '#1C1C1E',
+    color: colors.foreground,
     minHeight: 100,
     marginBottom: 8,
   },
   charCount: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.muted,
     textAlign: 'right',
     marginBottom: 20,
   },
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -255,7 +257,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: colors.foreground,
   },
   confirmButton: {
     flex: 1,
