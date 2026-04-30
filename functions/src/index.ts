@@ -41,6 +41,8 @@ export {
   createHelcimCheckout,
   findPickupPoints,
   checkTrackingStatus,
+  requestWithdrawal,
+  cancelPendingTransaction,
 } from './callable/payments';
 
 // Moments Functions

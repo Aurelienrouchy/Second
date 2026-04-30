@@ -474,47 +474,44 @@ service cloud.firestore {
       }
 
       function isValidTransactionUpdate(oldData, newData) {
+        // SECURITY: payment / shipping / delivery / cancellation transitions
+        // are owned by Cloud Functions (helcimWebhook, checkTrackingStatus,
+        // cancelPendingTransaction). Clients can only adjust meetup-related
+        // statuses (the meetup flow is peer-to-peer).
+        let allowedClientStatuses = ['meetup_pending', 'meetup_confirmed', 'meetup_completed'];
         return // Cannot change core transaction data
                newData.articleId == oldData.articleId &&
                newData.buyerId == oldData.buyerId &&
                newData.sellerId == oldData.sellerId &&
-               newData.amount == oldData.amount;
+               newData.amount == oldData.amount &&
+               // Status changes are restricted to the meetup flow
+               (newData.status == oldData.status ||
+                newData.status in allowedClientStatuses);
       }
     }
     
     // Seller Balances Collection Rules
+    //
+    // SECURITY: balance mutations are server-side ONLY. All writes go
+    // through Cloud Functions (helcimWebhook, checkTrackingStatus,
+    // requestWithdrawal) which use the Admin SDK and bypass these rules.
+    // Letting clients write was the vector for double-spend / forged
+    // crediting.
     match /seller_balances/{userId} {
       // Allow read only by owner
       allow read: if isOwner(userId);
-      
-      // Allow create only by owner with valid initial data
-      allow create: if isOwner(userId) && isValidBalanceData(request.resource.data);
-      
-      // Allow update only by owner or Cloud Functions
-      allow update: if isOwner(userId) && isValidBalanceUpdate(resource.data, request.resource.data);
-      
-      // No delete allowed
-      allow delete: if false;
-      
-      function isValidBalanceData(data) {
-        return data.keys().hasAll(['userId', 'availableBalance', 'pendingBalance', 'totalEarnings', 'transactions']) &&
-               data.userId == request.auth.uid &&
-               data.availableBalance is number && data.availableBalance >= 0 &&
-               data.pendingBalance is number && data.pendingBalance >= 0 &&
-               data.totalEarnings is number && data.totalEarnings >= 0 &&
-               data.transactions is list;
-      }
-      
-      function isValidBalanceUpdate(oldData, newData) {
-        return // User ID cannot change
-               newData.userId == oldData.userId &&
-               // Balances must be valid numbers
-               newData.availableBalance is number && newData.availableBalance >= 0 &&
-               newData.pendingBalance is number && newData.pendingBalance >= 0 &&
-               newData.totalEarnings is number && newData.totalEarnings >= 0 &&
-               // Transactions must be a list
-               newData.transactions is list;
-      }
+
+      // No client writes — Cloud Functions only (Admin SDK bypasses rules)
+      allow create, update, delete: if false;
+    }
+
+    // Withdrawal Requests Collection — read-only client view of pending
+    // / processed withdrawals. Created by requestWithdrawal CF.
+    match /withdrawal_requests/{withdrawalId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid ||
+                      request.auth.token.admin == true);
+      allow create, update, delete: if false;
     }
     
     // Chats Collection Rules

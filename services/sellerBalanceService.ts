@@ -7,7 +7,8 @@ import {
   arrayUnion,
   increment,
 } from 'firebase/firestore';
-import { firestore } from '../config/firebaseConfig';
+import { httpsCallable } from 'firebase/functions';
+import { firestore, functions } from '../config/firebaseConfig';
 import { SellerBalance } from '../types';
 
 export class SellerBalanceService {
@@ -143,49 +144,28 @@ export class SellerBalanceService {
   }
 
   /**
-   * Request withdrawal (creates a withdrawal transaction entry)
+   * Request withdrawal — delegates to a Cloud Function so the balance
+   * check + debit happen atomically server-side.
+   *
+   * The userId argument is kept for backwards compatibility but is
+   * ignored: the CF derives it from request.auth.uid.
    */
   static async requestWithdrawal(
-    userId: string,
+    _userId: string,
     amount: number,
     iban: string
   ): Promise<string> {
     try {
-      const balanceRef = doc(firestore, 'seller_balances', userId);
-      const balanceDoc = await getDoc(balanceRef);
-
-      if (!balanceDoc.exists()) {
-        throw new Error('Balance not found');
-      }
-
-      const currentData = balanceDoc.data();
-      const availableBalance = currentData?.availableBalance || 0;
-
-      if (availableBalance < amount) {
-        throw new Error('Solde insuffisant pour ce retrait');
-      }
-
-      const withdrawalId = `withdrawal_${Date.now()}`;
-      const withdrawalTransaction = {
-        id: withdrawalId,
-        type: 'withdrawal' as const,
-        amount: -amount, // Negative for withdrawal
-        description: `Retrait vers ${iban.slice(-4)}`,
-        createdAt: serverTimestamp(),
-        status: 'pending' as const,
-      };
-
-      const transactions = currentData?.transactions || [];
-
-      await updateDoc(balanceRef, {
-        availableBalance: increment(-amount),
-        transactions: [...transactions, withdrawalTransaction],
-        updatedAt: serverTimestamp(),
-      });
-
-      return withdrawalId;
+      const callable = httpsCallable<
+        { amount: number; iban: string },
+        { success: boolean; withdrawalId: string }
+      >(functions, 'requestWithdrawal');
+      const { data } = await callable({ amount, iban });
+      return data.withdrawalId;
     } catch (error: any) {
-      throw new Error(`Erreur lors de la demande de retrait: ${error.message}`);
+      throw new Error(
+        `Erreur lors de la demande de retrait: ${error.message ?? error}`
+      );
     }
   }
 

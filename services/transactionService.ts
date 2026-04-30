@@ -9,7 +9,8 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { firestore } from '../config/firebaseConfig';
+import { httpsCallable } from 'firebase/functions';
+import { firestore, functions } from '../config/firebaseConfig';
 import { MeetupSpot, ShippingAddress, Transaction, TransactionStatus } from '../types';
 
 export class TransactionService {
@@ -199,7 +200,13 @@ export class TransactionService {
   }
 
   /**
-   * Update transaction status
+   * Update transaction status.
+   *
+   * SECURITY: 'cancelled' goes through a Cloud Function that re-checks
+   * caller identity and current status. 'paid' / 'shipped' / 'delivered'
+   * are written by Cloud Functions (helcimWebhook, checkTrackingStatus)
+   * and should not be set from the client. Other statuses still go via
+   * direct Firestore update.
    */
   static async updateTransactionStatus(
     transactionId: string,
@@ -207,8 +214,17 @@ export class TransactionService {
     additionalData?: Partial<Transaction>
   ): Promise<void> {
     try {
+      if (status === 'cancelled') {
+        const callable = httpsCallable<
+          { transactionId: string },
+          { success: boolean }
+        >(functions, 'cancelPendingTransaction');
+        await callable({ transactionId });
+        return;
+      }
+
       const transactionRef = doc(firestore, 'transactions', transactionId);
-      
+
       const updateData: any = {
         status,
       };
