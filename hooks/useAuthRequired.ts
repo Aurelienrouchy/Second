@@ -1,30 +1,30 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useAuthRequired as useAuthRequiredContext } from '@/contexts/AuthRequiredContext';
+import { useAuthSheetStore } from '@/store/authSheetStore';
 
+/**
+ * Combine auth state + auth-sheet control for screens that need to
+ * gate actions behind a login.
+ */
 export const useAuthRequired = () => {
   const { user, checkAuthRequired, isLoading } = useAuth();
-  const { requireAuth: showAuthSheetWithAction } = useAuthRequiredContext();
+  const showSheet = useAuthSheetStore((s) => s.show);
 
-  /**
-   * Show auth bottom sheet with optional success callback and message
-   * Use this when you want to force show the auth modal
-   */
+  /** Force-show the sheet (e.g. tapping a "Sign in" button). */
   const showAuthSheet = (message?: string, onSuccess?: () => void) => {
-    showAuthSheetWithAction(onSuccess || (() => {}), message);
+    showSheet(message, onSuccess);
   };
 
   /**
-   * Conditionally require auth - if user is logged in, execute action
-   * Otherwise show auth modal with callback to execute action on success
+   * Run `action` immediately if the user is signed in; otherwise show
+   * the auth sheet and run it on success.
    */
-  const requireAuth = (action: () => void, message?: string) => {
+  const requireAuth = (action: () => void, message?: string): boolean => {
     if (checkAuthRequired()) {
-      showAuthSheetWithAction(action, message);
+      showSheet(message, action);
       return false;
-    } else {
-      action();
-      return true;
     }
+    action();
+    return true;
   };
 
   return {

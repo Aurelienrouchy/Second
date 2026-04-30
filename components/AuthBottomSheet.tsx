@@ -1,8 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
+import { useAuthSheetStore } from '@/store/authSheetStore';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -15,39 +16,42 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 
-interface AuthBottomSheetProps {}
-
-export interface AuthBottomSheetRef {
-  show: (onSuccess?: () => void, message?: string) => void;
-  hide: () => void;
-}
-
-const AuthBottomSheet = forwardRef<AuthBottomSheetRef, AuthBottomSheetProps>((_props, ref) => {
+/**
+ * Global auth bottom sheet.
+ *
+ * Driven entirely by `authSheetStore` — call
+ * `useAuthSheetStore.getState().show(message, onSuccess)` from anywhere
+ * in the app to open it. Render exactly ONCE in the root layout.
+ */
+const AuthBottomSheet: React.FC = () => {
   const [authType, setAuthType] = useState<'signIn' | 'signUp' | 'forgotPassword'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [onSuccessCallback, setOnSuccessCallback] = useState<(() => void) | undefined>();
-  const [displayMessage, setDisplayMessage] = useState('Connecte-toi pour continuer');
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, mergeGuestToUser, user } = useAuth();
   const insets = useSafeAreaInsets();
 
   const snapPoints = useMemo(() => ['82%'], []);
-  const bottomSheetRef = React.useRef<BottomSheet>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
-  useImperativeHandle(ref, () => ({
-    show: (onSuccess?: () => void, message?: string) => {
-      setOnSuccessCallback(() => onSuccess);
-      setDisplayMessage(message || 'Connecte-toi pour continuer');
+  // Drive the imperative bottom-sheet API from store state.
+  const isVisible = useAuthSheetStore((s) => s.isVisible);
+  const displayMessage = useAuthSheetStore((s) => s.message);
+  const onSuccessCallback = useAuthSheetStore((s) => s.onSuccess);
+  const sheetVersion = useAuthSheetStore((s) => s.version);
+
+  useEffect(() => {
+    if (isVisible) {
       bottomSheetRef.current?.expand();
-    },
-    hide: () => {
+    } else {
       bottomSheetRef.current?.close();
-    },
-  }));
+    }
+    // sheetVersion ensures we re-trigger expand even when isVisible
+    // didn't change (e.g. show() called twice in a row).
+  }, [isVisible, sheetVersion]);
 
   const handleClose = useCallback(() => {
     setEmail('');
@@ -55,10 +59,9 @@ const AuthBottomSheet = forwardRef<AuthBottomSheetRef, AuthBottomSheetProps>((_p
     setUsername('');
     setAuthType('signIn');
     setIsLoading(false);
-    setOnSuccessCallback(undefined);
-    setDisplayMessage('Connecte-toi pour continuer');
     setResetEmailSent(false);
-    bottomSheetRef.current?.close();
+    // Hiding the sheet via the store also clears message/onSuccess.
+    useAuthSheetStore.getState().hide();
   }, []);
 
   const handleForgotPassword = async () => {
@@ -331,7 +334,7 @@ const AuthBottomSheet = forwardRef<AuthBottomSheetRef, AuthBottomSheetProps>((_p
       </BottomSheetView>
     </BottomSheet>
   );
-});
+};
 
 export default AuthBottomSheet;
 

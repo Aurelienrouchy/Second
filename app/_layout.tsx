@@ -8,8 +8,8 @@ import 'react-native-reanimated';
 
 import { QueryClientProvider } from '@tanstack/react-query';
 
+import AuthBottomSheet from '@/components/AuthBottomSheet';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthRequiredProvider } from '@/contexts/AuthRequiredContext';
 import { useAuthListener } from '@/hooks/useAuthListener';
 import { useChatListener } from '@/hooks/useChatListener';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
@@ -124,7 +124,6 @@ function AppContent() {
 
   return (
     <BottomSheetModalProvider>
-      <AuthRequiredProvider>
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -170,7 +169,8 @@ function AppContent() {
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="dark" />
-      </AuthRequiredProvider>
+            {/* Global auth bottom sheet — driven by authSheetStore. */}
+            <AuthBottomSheet />
     </BottomSheetModalProvider>
   );
 }
