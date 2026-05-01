@@ -87,7 +87,7 @@ export class ArticlesService {
       const docRef = await addDoc(collection(firestore, 'articles'), cleanedArticle);
       const articleId = docRef.id;
 
-      console.log('📸 [ArticlesService] Article created:', {
+      if (__DEV__) console.log('📸 [ArticlesService] Article created:', {
         articleId,
         hasImages: !!(articleData.images && articleData.images.length > 0),
         imagesCount: articleData.images?.length || 0,
@@ -97,27 +97,27 @@ export class ArticlesService {
         try {
           const imageUris = articleData.images.map(img => img.url);
 
-          console.log('📸 [ArticlesService] Processing images:', {
+          if (__DEV__) console.log('📸 [ArticlesService] Processing images:', {
             count: imageUris.length,
             urls: imageUris,
           });
 
           // Check if images are already Storage URLs (pre-uploaded during AI analysis)
           const allStorageUrls = imageUris.every(uri => this.isStorageUrl(uri));
-          console.log('📸 [ArticlesService] isStorageUrl check:', {
+          if (__DEV__) console.log('📸 [ArticlesService] isStorageUrl check:', {
             allStorageUrls,
             urlChecks: imageUris.map(uri => ({ uri: uri.substring(0, 80), isStorage: this.isStorageUrl(uri) })),
           });
 
           if (allStorageUrls) {
             // Images already in Storage - just use them directly (fast path!)
-            console.log('📸 Images already in Storage, skipping re-upload');
+            if (__DEV__) console.log('📸 Images already in Storage, skipping re-upload');
             const existingImages: ArticleImage[] = articleData.images.map(img => ({
               url: img.url,
               ...(img.blurhash ? { blurhash: img.blurhash } : {}),
             }));
 
-            console.log('📸 [ArticlesService] Updating article with images:', {
+            if (__DEV__) console.log('📸 [ArticlesService] Updating article with images:', {
               articleId,
               imagesCount: existingImages.length,
               images: existingImages,
@@ -127,18 +127,18 @@ export class ArticlesService {
               await updateDoc(docRef, {
                 images: existingImages
               });
-              console.log('📸 [ArticlesService] ✅ Article images updated successfully');
+              if (__DEV__) console.log('📸 [ArticlesService] ✅ Article images updated successfully');
             } catch (updateError: any) {
               console.error('📸 [ArticlesService] ❌ Failed to update article with images:', updateError);
               throw updateError;
             }
           } else {
             // Local files - need to upload (legacy path)
-            console.log('📸 [ArticlesService] Uploading local images to Storage (legacy path)...');
-            console.log('📸 [ArticlesService] Local image URIs:', imageUris);
+            if (__DEV__) console.log('📸 [ArticlesService] Uploading local images to Storage (legacy path)...');
+            if (__DEV__) console.log('📸 [ArticlesService] Local image URIs:', imageUris);
             const uploadedImages = await this.uploadImagesReactNative(imageUris, articleId);
 
-            console.log('📸 [ArticlesService] Upload result:', {
+            if (__DEV__) console.log('📸 [ArticlesService] Upload result:', {
               uploadedCount: uploadedImages.length,
               uploadedImages,
             });
@@ -148,13 +148,13 @@ export class ArticlesService {
                 await updateDoc(docRef, {
                   images: uploadedImages
                 });
-                console.log('📸 [ArticlesService] ✅ Article updated with uploaded images');
+                if (__DEV__) console.log('📸 [ArticlesService] ✅ Article updated with uploaded images');
               } catch (updateError: any) {
                 console.error('📸 [ArticlesService] ❌ Failed to update article with uploaded images:', updateError);
                 throw updateError;
               }
             } else {
-              console.log('📸 [ArticlesService] ⚠️ No images were uploaded, marking as failed');
+              if (__DEV__) console.log('📸 [ArticlesService] ⚠️ No images were uploaded, marking as failed');
               try {
                 await updateDoc(docRef, {
                   images: articleData.images,
@@ -183,11 +183,11 @@ export class ArticlesService {
       if (!currentUser) {
         throw new Error('Utilisateur non authentifié - impossible d\'uploader');
       }
-      console.log('🚀 Début upload images avec compression et blurhash:', { imageUris, articleId, userId: currentUser.uid });
+      if (__DEV__) console.log('🚀 Début upload images avec compression et blurhash:', { imageUris, articleId, userId: currentUser.uid });
 
       const uploadPromises = imageUris.map(async (uri, index) => {
         try {
-          console.log(`📸 Traitement image ${index}:`, uri);
+          if (__DEV__) console.log(`📸 Traitement image ${index}:`, uri);
 
           // Compresser l'image et générer le blurhash
           const { compressedUri, blurhash } = await processImageWithBlurhash(uri, {
@@ -196,19 +196,19 @@ export class ArticlesService {
             quality: 0.8,
           });
 
-          console.log(`🗜️ Image ${index} compressée:`, compressedUri);
-          console.log(`🎨 Blurhash généré pour image ${index}:`, blurhash);
+          if (__DEV__) console.log(`🗜️ Image ${index} compressée:`, compressedUri);
+          if (__DEV__) console.log(`🎨 Blurhash généré pour image ${index}:`, blurhash);
 
           // Créer une référence Firebase Storage
           const storagePath = `articles/${articleId}/image_${index}_${Date.now()}.jpg`;
-          console.log(`☁️ Upload vers Firebase Storage:`, storagePath);
+          if (__DEV__) console.log(`☁️ Upload vers Firebase Storage:`, storagePath);
 
           // Vérifier que le fichier local existe
           const fileInfo = await FileSystem.getInfoAsync(compressedUri);
           if (!fileInfo.exists) {
             throw new Error(`Local file does not exist: ${compressedUri}`);
           }
-          console.log(`📤 Upload fichier local (${(fileInfo.size || 0) / 1024}KB):`, compressedUri);
+          if (__DEV__) console.log(`📤 Upload fichier local (${(fileInfo.size || 0) / 1024}KB):`, compressedUri);
 
           // Read file as blob and upload using web SDK
           const storageRef = ref(storage, storagePath);
@@ -217,14 +217,14 @@ export class ArticlesService {
             const response = await fetch(compressedUri);
             const blob = await response.blob();
             await uploadBytes(storageRef, blob);
-            console.log(`✅ Upload terminé pour image ${index}`);
+            if (__DEV__) console.log(`✅ Upload terminé pour image ${index}`);
           } catch (uploadError: any) {
             console.error(`❌ uploadBytes error:`, uploadError.code, uploadError.message);
             throw uploadError;
           }
 
           const downloadURL = await getDownloadURL(storageRef);
-          console.log(`🔗 URL générée pour image ${index}:`, downloadURL);
+          if (__DEV__) console.log(`🔗 URL générée pour image ${index}:`, downloadURL);
 
           const articleImage: ArticleImage = {
             url: downloadURL,
@@ -243,7 +243,7 @@ export class ArticlesService {
       });
 
       const uploadedImages = await Promise.all(uploadPromises);
-      console.log('✅ Tous les uploads terminés avec blurhash:', uploadedImages);
+      if (__DEV__) console.log('✅ Tous les uploads terminés avec blurhash:', uploadedImages);
 
       return uploadedImages;
     } catch (error: any) {
@@ -364,7 +364,7 @@ export class ArticlesService {
   ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
     try {
       if (__DEV__) {
-        console.log('🔍 searchArticles appelé avec:', { searchTerm, filters, limitCount });
+        if (__DEV__) console.log('🔍 searchArticles appelé avec:', { searchTerm, filters, limitCount });
       }
       const articlesRef = collection(firestore, 'articles');
       let constraints: any[] = [
@@ -422,7 +422,7 @@ export class ArticlesService {
       const q = query(articlesRef, ...constraints);
       const querySnapshot = await getDocs(q);
       if (__DEV__) {
-        console.log('📊 Nombre de documents récupérés:', querySnapshot.docs.length);
+        if (__DEV__) console.log('📊 Nombre de documents récupérés:', querySnapshot.docs.length);
       }
       const articles: Article[] = [];
 
@@ -513,7 +513,7 @@ export class ArticlesService {
       const lastVisibleDoc = (querySnapshot.docs[idx] as QueryDocumentSnapshot) || null;
 
       if (__DEV__) {
-        console.log('✅ Résultats finaux:', limitedArticles.length, 'articles');
+        if (__DEV__) console.log('✅ Résultats finaux:', limitedArticles.length, 'articles');
       }
       return { articles: limitedArticles, lastVisible: lastVisibleDoc };
     } catch (error: any) {

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
+import { queryClient } from '@/lib/queryClient';
 import { AuthService } from '@/services/authService';
 import {
   guestPreferencesService,
@@ -9,7 +10,7 @@ import {
 } from '@/services/guestPreferencesService';
 import { mergeGuestDataIntoUser } from '@/services/authMergeService';
 import { UserService } from '@/services/userService';
-import { resetAllStores } from '@/lib/resetAllStores';
+import { useChatStore } from '@/store/chatStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { User } from '@/types';
 
@@ -129,13 +130,15 @@ export const useAuthStore = create<AuthStore>()(
       if (user?.id && pushToken) {
         await UserService.removeFcmToken(user.id, pushToken);
       }
-      // Reset stores BEFORE the Firebase signOut so the listener-driven
-      // hydrateFromFirebase(null) doesn't fight a stale store. Static
-      // import (no circular hazard: resetAllStores is a leaf utility).
-      resetAllStores();
+      // Reset siblings inline — calling lib/resetAllStores would
+      // create a circular module graph (authStore → resetAllStores →
+      // authStore). Self-reset uses local `set` so we don't loop.
+      useNotificationStore.getState().reset();
+      useChatStore.getState().reset();
+      queryClient.clear();
       await AuthService.signOut();
       await AsyncStorage.removeItem(USER_DATA_KEY);
-      set({ user: null });
+      set({ ...initialState, isLoading: false });
     } catch (error) {
       console.log('[authStore] signOut error:', error);
     }

@@ -164,8 +164,8 @@ function AppContent() {
                 name="sell"
                 options={{ animation: 'slide_from_bottom' }}
               />
-              <Stack.Screen name="admin/shops" />
-              <Stack.Screen name="admin/shop-detail/[id]" />
+              {/* admin/* routes live under app/admin/_layout.tsx (centralised guard) */}
+              <Stack.Screen name="admin" />
               <Stack.Screen name="payment/[transactionId]" />
               <Stack.Screen name="visual-search-results" />
               <Stack.Screen name="search" />

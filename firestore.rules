@@ -269,10 +269,23 @@ service cloud.firestore {
     
     // Messages Collection Rules
     match /messages/{messageId} {
-      // Allow read if user is a participant or it's a system message in their chat
+      // Allow read if:
+      //   - the message has a participants list and the caller is in it; OR
+      //   - the message lacks participants (legacy docs) BUT the parent
+      //     chat doc lists the caller as a participant.
+      // The chat-doc fallback costs one extra read per non-cached query
+      // but keeps the query rules-aware: we do NOT need to add a
+      // participants filter on every messages query, which would fail
+      // for legacy docs missing the field.
       allow read: if isAuthenticated() &&
-                     (request.auth.uid in resource.data.participants ||
-                      resource.data.senderId == 'system');
+                     (
+                       ('participants' in resource.data &&
+                        request.auth.uid in resource.data.participants) ||
+                       ('chatId' in resource.data &&
+                        exists(/databases/$(database)/documents/chats/$(resource.data.chatId)) &&
+                        request.auth.uid in
+                          get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants)
+                     );
 
       // Allow create if user is the sender with valid data OR it's a system message
       allow create: if isAuthenticated() &&
@@ -281,8 +294,14 @@ service cloud.firestore {
 
       // Allow update for marking as read or updating offer status
       allow update: if isAuthenticated() &&
-                       (request.auth.uid in resource.data.participants ||
-                        resource.data.senderId == 'system');
+                       (
+                         ('participants' in resource.data &&
+                          request.auth.uid in resource.data.participants) ||
+                         ('chatId' in resource.data &&
+                          exists(/databases/$(database)/documents/chats/$(resource.data.chatId)) &&
+                          request.auth.uid in
+                            get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants)
+                       );
 
       // No delete allowed
       allow delete: if false;
