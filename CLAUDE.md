@@ -1,60 +1,140 @@
 # CLAUDE.md — Architecture & Conventions
 
-> Lu automatiquement par Claude a chaque session. Definit les regles du projet.
+> Lu automatiquement par Claude à chaque session. Définit les règles RÉELLES du projet (audit 2026-04, sprints 1-5 livrés).
 
 ## STACK
 
-Expo SDK 55+ · Expo Router v4+ (file-based) · Zustand 5+ · Firebase Web SDK modular v12+ · axios + axios-retry · Lingui 5.9+ · dayjs · Reanimated 4 · expo-image · @shopify/flash-list · @gorhom/bottom-sheet v5+ · @shopify/react-native-skia · react-native-gesture-handler · AsyncStorage · TypeScript 5.3+ strict
+Expo SDK 55+ · Expo Router v4+ (file-based) · React 19 · React Native 0.83 · Zustand 5 · React Query (TanStack) 5 · Firebase Web SDK modular v12+ · Helcim (paiement, via WebView/HelcimPay.js) · ShipEngine (shipping multi-carrier) · dayjs · Reanimated 4 · expo-image · @shopify/flash-list 2 · @gorhom/bottom-sheet 5+ · @shopify/react-native-skia · react-native-gesture-handler · AsyncStorage · TypeScript 5.3+ strict
 
-Path aliases : `@/` → `src/`, `@app/` → `app/`
+Path aliases : `@/` → racine, `@app/` → `app/`
 
 ---
 
-## ARCHITECTURE (FSD — Feature-Sliced Design)
+## ARCHITECTURE — racine plate (PAS `src/`)
 
 ```
-app/                        # Expo Router — ecrans complets (export default function)
-├── _layout.tsx             # Root layout : providers, fonts, bootstrap auth
-├── (auth)/                 # Routes non-authentifiees
-└── (app)/(tabs)/           # Routes protegees, chaque fichier = 1 ecran complet
+app/                        # Expo Router — chaque fichier = 1 écran
+├── _layout.tsx             # Root: providers (RQ, SafeArea, Theme), AppErrorBoundary, listeners (auth, chat), AuthBottomSheet
+├── (tabs)/                 # Tabs (home, messages, favorites, sell, profile)
+│   ├── _layout.tsx         # Badge unread via selectUnreadChatCount(uid)
+│   ├── index.tsx           # Home : flat FlashList de sections
+│   ├── messages.tsx        # FlashList de chats
+│   └── ...
+├── chat/[id].tsx           # FlashList de messages, header avatar live
+├── article/[id].tsx
+├── admin/
+│   ├── _layout.tsx         # Guard centralisé (token.admin || isAdmin field)
+│   ├── shops.tsx
+│   └── shop-detail/[id].tsx
+└── ...
 
-src/
-├── core/                   # Noyau partage (config, hooks, services, store, types, utils)
-│   └── services/firebase/  # Singletons : app, auth, database, storage, functions
-├── ui/                     # Design system (tokens, primitives, buttons, cards, inputs, layout, modals, feedback)
-└── features/{feature}/     # Modules business isoles
-    ├── components/hooks/services/store/types/constants/utils/
-    └── index.ts            # Barrel exports (PAS de Screen export)
+components/                 # Composants UI réutilisés (PAS dans src/)
+├── ui/                     # Design system primitives (Button, Tag, etc.)
+├── home/                   # SectionHeader spécifique home
+├── atoms/                  # Pill, FilterChip, Tag (Button/Badge supprimés — voir audit Sprint 4.5)
+├── ProductCard.tsx         # mémoisé
+├── ProductGrid.tsx         # mémoisé
+├── OfferBubble.tsx         # mémoisé (rendu dans FlashList)
+├── ChatBubble.tsx
+├── AuthBottomSheet.tsx     # Drivé par authSheetStore
+├── AppErrorBoundary.tsx    # Top-level safety net
+└── ...
+
+features/                   # Sous-features avec leur propre query-keys / hooks
+└── home/                   # discover, featured-sellers, header, new-arrivals, price-drops, swap-zone, trending-brands
+
+hooks/
+├── useAuthListener.ts      # Mount onAuthStateChanged ONCE
+├── useChatListener.ts      # Mount listenToUserChats ONCE
+├── useAuthRequired.ts      # gating action via authSheetStore
+├── useDebounce.ts
+├── useFavorites.ts
+├── useUserProfile.ts       # Live profile read (RQ-cached)
+└── ...
+
+services/                   # Fonctions pures async (Firebase, axios HTTP, etc.)
+store/                      # Stores Zustand (authStore, chatStore, authSheetStore, notificationStore)
+lib/                        # queryClient, resetAllStores
+utils/                      # formatName, fixStorageUrl (centralisé), imageUtils
+config/                     # firebaseConfig, i18n, aiConfig
+constants/                  # theme (Editorial Luxe palette), authMessages, storageKeys
+contexts/                   # SHIMS de compat — useAuth(), useChatContext(), useAuthRequired() délèguent aux stores. NE PAS étendre, préférer hooks ciblés.
+types/                      # Types partagés
+tests/security/             # Suite vitest + @firebase/rules-unit-testing
+firestore.rules · storage.rules · firestore.indexes.json
+functions/                  # Cloud Functions (callable, triggers, scheduled, http/webhooks)
 ```
 
-### Imports (stricte)
+### Imports
 
 ```
-core/          → importable par tout le monde
-ui/            → importable par features/ et app/
-features/{A}   → peut importer core/ et ui/ UNIQUEMENT
-features/{A}   → ❌ NE PEUT PAS importer features/{B}
-app/           → orchestre : importe features/, core/, ui/
+core (services, lib, utils, store, hooks) → importable partout
+ui (components/, components/ui/)          → importable par features/, app/
+features/{A}                               → peut importer core/ui UNIQUEMENT
+features/{A}                               → ❌ pas d'import features/{B}
+app/                                       → orchestre : importe features/, core/, ui/
 ```
 
-### Promotion (regle de trois)
-
-1 feature → reste local · 2 features → tolere temporairement · 3+ features → promouvoir dans core/
-
-### Ecrans (REGLE CRITIQUE)
+### Écrans (RÈGLE CRITIQUE)
 
 ```
 ⚠️ PAS DE COMPOSANTS "Screen" DANS features/ !
 
-Le contenu d'un ecran (state, hooks, data, JSX) va DIRECTEMENT dans le fichier route.
-  app/(app)/(tabs)/(dashboard)/sales.tsx  ← export default function SalesPage() { ... }
-  features/dashboard/sales/              ← composants, hooks, services, types, utils, constants
+Le contenu d'un écran (state, hooks, data, JSX) va DIRECTEMENT dans le fichier route.
+  app/(tabs)/messages.tsx  ← export default function MessagesScreen() { ... }
+  features/home/discover/  ← composants, hooks, services, types
 
-❌ features/dashboard/sales/SalesScreen.tsx
-❌ <SalesScreen /> wrapper dans app/sales.tsx
+❌ features/messages/MessagesScreen.tsx
+❌ <MessagesScreen /> wrapper dans app/messages.tsx
 ```
 
-Route files → `export default function` · Feature components → named exports + `React.memo`
+Route files → `export default function` · Feature components → named exports + `React.memo` quand utile.
+
+---
+
+## STORE PATTERNS — Zustand (règles d'or)
+
+1. **Lecture de 2+ champs d'un même store** → `useShallow` OBLIGATOIRE :
+   ```typescript
+   import { useShallow } from 'zustand/react/shallow';
+   const { a, b } = useStore(useShallow((s) => ({ a: s.a, b: s.b })));
+   ```
+2. **Sélecteurs qui retournent un nouvel objet/array** (`Object.values`, `{...x}`, `filter()`) → soit memoïser dans le store (champ dérivé maintenu dans l'action — ex: `unreadCountByUser` recalculé dans `setChats`), soit consommer via `useShallow`.
+3. **Listes lisant un dictionnaire indexé** → exporter un sélecteur indexé curried `selectXByUid(uid) => (state) => ...` pour qu'une mutation ciblée ne re-render qu'une seule row.
+4. **Actions stables** → préférer `useStore.getState().action()` pour appels one-shot dans des effets, ou les sortir du hook via getters statiques.
+5. **Compteurs/dérivés O(n)** → calculer dans l'action (`set({xCount, list})` au même moment).
+
+### Middlewares Zustand 5 utilisés
+
+- `subscribeWithSelector` : appliqué sur `authStore`, `chatStore`, `notificationStore` (stores hot). Permet `useStore.subscribe(selector, callback, { equalityFn })` depuis listeners Firebase.
+- `immer` : **non utilisé** — toutes les actions sont des `set({field})` plats. Audit interne 2026-04 : coût > bénéfice.
+
+### Stores actuels
+
+| Store | Rôle | Reset |
+|---|---|---|
+| `authStore` | user, isLoading, guestSession, actions auth | ✅ |
+| `chatStore` | chats list + unreadCountByUser dérivé | ✅ |
+| `authSheetStore` | { isVisible, message, onSuccess } pour AuthBottomSheet | ✅ |
+| `notificationStore` | unreadCount, pushToken, isSetupComplete | ✅ |
+
+**`resetAllStores()` (dans `lib/resetAllStores.ts`)** : appelé au logout, reset chaque store + `queryClient.clear()`. Toujours ajouter les nouveaux stores ici.
+
+### Hooks ciblés (préférer aux hooks aggregateurs legacy)
+
+`useUser`, `useIsLoading`, `useIsGuest`, `useGuestSession`, `useIsFirstLaunch`, `useAuthActions` (auth) · `useChatStore(selectXxx)` directs (chat) · `useAuthSheetStore.getState().show()` (sheet).
+
+---
+
+## SHIMS DE COMPAT (à éviter en nouveau code)
+
+Trois fichiers Context sont des **shims sans Provider** qui délèguent aux stores Zustand. Conservés pour ne pas casser les ~14 consumers historiques :
+
+- `contexts/AuthContext.tsx` → `useAuth()` shim, préférer `useUser()` + `useAuthActions()`
+- `contexts/ChatContext.tsx` → `useChatContext()` shim, préférer sélecteurs `chatStore`
+- `contexts/AuthRequiredContext.tsx` → `useAuthRequired()` shim, préférer `useAuthSheetStore.getState().show()`
+
+La règle : **ne pas étendre ces shims**. Migrer progressivement les consumers vers les hooks ciblés.
 
 ---
 
@@ -62,12 +142,14 @@ Route files → `export default function` · Feature components → named export
 
 ```
 ❌ Redux, moment, react-router-native, @react-native-firebase/* SDK natif
-❌ react-native-fast-image (→ expo-image), fichiers .js, any non documente
-❌ require() images, styles inline (→ StyleSheet.create), Context API (→ Zustand)
+❌ react-native-fast-image (→ expo-image), fichiers .js, any non documenté
+❌ require() images, styles inline (→ StyleSheet.create), Context API NEW (→ Zustand)
 ❌ Emojis dans l'UI (→ SVG/images), 2 components dans un fichier
 ❌ Composants Screen dans features/, cross-imports entre features
-❌ import { t } from '@lingui/macro' (→ '@lingui/core/macro')
-❌ Format functions avec prefixe/suffixe en dur ($/h → props valuePrefix/valueSuffix)
+❌ Stripe (le projet est 100% Helcim — Sprint 4.3 a supprimé toutes les déps)
+❌ Lingui pour l'instant (mono-langue FR assumée — Sprint 2.1)
+❌ console.log non gardés (toujours `if (__DEV__) console.log(...)`)
+❌ Format functions avec préfixe/suffixe en dur
 ```
 
 ---
@@ -76,110 +158,128 @@ Route files → `export default function` · Feature components → named export
 
 | Type | Convention | Exemple |
 |------|-----------|---------|
-| Composant | PascalCase | `ShiftCard.tsx` |
-| Hook | camelCase + `use` | `useWeeklySchedule.ts` |
+| Composant | PascalCase | `ProductCard.tsx` |
+| Hook | camelCase + `use` | `useUserProfile.ts` |
 | Store | camelCase + `Store` | `authStore.ts` |
 | Service | camelCase + `Service` | `chatService.ts` |
 | Type | PascalCase | `UserWithUid` |
-| Constante | UPPER_SNAKE_CASE | `MAX_HOURS_PER_WEEK` |
+| Constante | UPPER_SNAKE_CASE | `SEARCH_DEBOUNCE_MS` |
 | Dossier feature | kebab-case | `media-gallery/` |
 
-Import order (Prettier) : React/RN → libs externes → @/core → @/ui → @/features → relatifs
+Import order (Prettier) : React/RN → libs externes → @/ (alphabétique) → relatifs
 
 ---
 
 ## PATTERNS
 
-**Store** : `create<State>()` avec `initialState` extrait, action `reset()` obligatoire, selecteurs exportes. `resetAllStores()` au logout.
+**Store** : `create()(subscribeWithSelector((set, get) => ({ ...initialState, ...actions })))` avec `initialState` extrait, action `reset()` obligatoire, sélecteurs exportés (curried si paramétrés). `resetAllStores()` au logout.
 
-**Service** : fonctions async pures (pas classes, pas hooks). Interagissent avec Firebase/API. Ne touchent JAMAIS aux stores.
+**Service** : fonctions async pures (pas classes statique pour les nouveaux). Interagissent avec Firebase/API. Ne touchent JAMAIS aux stores. Si une action est sensible (paiement, balance, transition de status) → Cloud Function avec `runTransaction`.
 
-**Hook** : orchestrent services ↔ composants. Appellent services, mettent a jour stores, gerent lifecycle (cleanup useEffect).
+**Hook** : orchestre services ↔ composants. Appelle services, met à jour stores via leurs actions, gère lifecycle (cleanup `useEffect`). Single-listener-pour-toute-l-app : monter dans `_layout.tsx` (ex: `useAuthListener`, `useChatListener`).
 
-**Composant** : named export + `React.memo`, interface `{Name}Props`, `StyleSheet.create()` en bas, constantes au niveau module.
+**Composant** : named export + `React.memo` quand sous une liste/parent re-render hot, interface `{Name}Props`, `StyleSheet.create()` en bas, constantes au niveau module.
 
-**Route guard** : lecture synchrone stores Zustand, `<Redirect />` pour protection, `<Slot />` pour enfants.
+**Route guard** : lecture sync stores Zustand, `<Redirect />` pour protection (ex: `app/admin/_layout.tsx`), `<Slot />` pour enfants.
 
-**Formulaire** : useState local dans hook, validation avec fonctions pures, retourne `{ form, setField, handleSubmit }`.
+**Modals partagés** : pattern Layout+Store. Un seul rendu dans `_layout.tsx`, piloté par store Zustand (ex: `AuthBottomSheet` ↔ `authSheetStore`).
+
+**Firestore reads** : `useQuery` avec `staleTime` tuné par volatilité (1h trending brands, 30min sellers, 10min default). `gcTime: 15min` global. Pas de `useState + load on mount`.
+
+**Listes** : `FlashList` pour toute liste virtualisable. `keyExtractor` + `renderItem` au scope module ou `useCallback`.
 
 ---
 
-## i18n — LINGUI 5.9+
+## i18n — STATUS
 
-```typescript
-// ✅ Macros depuis les sous-modules
-import { t } from '@lingui/core/macro';
-import { Trans } from '@lingui/react/macro';
-// ❌ DEPRECATED : import { t } from '@lingui/macro'
-
-// Runtime (pas des macros)
-import { I18nProvider, useLingui } from '@lingui/react';
-```
-
-Source locale : francais · babel plugin `@lingui/babel-plugin-lingui-macro`
+**Mono-langue FR assumée** (Sprint 2.1 — `LanguageContext` supprimé, ~200+ strings hardcodés en FR). Le dictionnaire `config/i18n.ts` est conservé pour une migration Lingui éventuelle. Pas de Lingui ni d'`@lingui/macro` aujourd'hui.
 
 ---
 
 ## FIREBASE
 
-Singletons dans `core/services/firebase/` (app, auth, database, storage, functions). Client API dans `core/services/api/client.ts` : axios avec intercepteurs auth (injecte token, refresh sur 401).
+Singletons dans `config/firebaseConfig.ts` (auth, firestore, storage, functions). Auth credentials lues depuis `EXPO_PUBLIC_FIREBASE_*` avec fallback hardcodé (Sprint 1.8).
 
-Auth flow : `app/_layout.tsx` → `useAuth()` → `onAuthStateChanged` → hydrate stores ou `resetAllStores()`
+**Auth flow** : `app/_layout.tsx` → `useAuthListener()` → `onAuthStateChanged` → `authStore.hydrateFromFirebase` (single source). AsyncStorage lu seulement pour `isFirstLaunch` / guest session — n'authentifie jamais l'user.
+
+**Sécurité** (Sprint 1) :
+- Webhook Helcim : signature HMAC-SHA256 obligatoire (rejet 401 sinon)
+- `transactions` : règles filtrent par buyerId/sellerId, indexes composites en place
+- `seller_balances` : write-only via Cloud Functions (`runTransaction`), client refusé
+- `users` : rule rejette `isAdmin/role/customClaims` en self-update (anti privilege-escalation)
+- Storage : 10MB max + `image/.*` MIME sur tous les paths publics
+- Admin guard centralisé (`app/admin/_layout.tsx`)
+
+**Cloud Functions clés** :
+- `helcimWebhook` (HTTP) — signature mandatory + invoiceNumber shape check
+- `checkTrackingStatus` (callable) — auth check buyer|seller, marque delivered + transfère pending→available
+- `requestWithdrawal` (callable) — `runTransaction` atomique, 10€ min
+- `cancelPendingTransaction` (callable) — buyer-only, status pending uniquement
+- `consolidateChatDuplicates` (callable, admin-only) — one-shot migration
+- Home aggregators : `getTrendingBrands`, `getPriceDrops`, `getFeaturedSellers`, etc.
 
 ---
 
-## DESIGN SYSTEM
+## DESIGN SYSTEM — Editorial Luxe
 
-Style : **Glassmorphism iOS moderne** · Font : **Figtree uniquement** · Icones : SVG dans `assets/icons/`, JAMAIS d'emojis
+Style : **Editorial Luxe** (cream warm + charcoal foreground + rust primary)
+Fonts : **Cormorant Garamond** (display/serif) + **Satoshi** (sans)
+Icônes : SVG dans `assets/icons/`, `@expo/vector-icons` Ionicons, JAMAIS d'emojis
 
-Coins : 16-24px (cards), 12px (petits elements), 9999 (avatars) · Fonds : BlurView iOS / rgba fallback Android · Ombres : legeres (shadowOpacity 0.06-0.08) · Espacement base 4px : xs:4 sm:8 md:12 lg:16 xl:24 xxl:32
+Couleurs principales :
+- PRIMARY (rust) `#C4603A`
+- SECONDARY (sage) `#7A8C6E`
+- BACKGROUND (warm white) `#FAF8F4`
+- SURFACE_WARM (cream) `#F5F0E8`
+- FOREGROUND (charcoal) `#1A1814`
+- DANGER `#D64545` · SUCCESS `#3D9970`
 
-Couleurs principales : PRIMARY #3B82F6 · SURFACE #F2F2F7 · TEXT_PRIMARY #1A1A1A · TEXT_SECONDARY #74809B · SUCCESS #34C759 · ERROR #FF3B30 · BORDER #DFE9F2
-
-Typographie : HEADING_XL 28px ExtraBold → BODY 15px Regular → CAPTION 12px Medium
-
-Composants : CARD borderRadius 20 / BUTTON_PRIMARY borderRadius 14 h48 / INPUT borderRadius 14 h48 / PAGESHEET_HEADER via ui/layout/PageSheetHeader paddingTop 16
-
-Primitives : Text (resout fontWeight→ttf Android), PressableBounce, Image (expo-image), BlurView
+Coins : 14-20px (cards/buttons), 9999 (avatars/pills) · Espacement base 4px : xs:4 sm:8 md:12 lg:16 xl:24 xxl:32
 
 ---
 
-## MODALS PARTAGES (REGLE D'ARCHITECTURE)
+## TESTS
 
-Les modals utilises par plusieurs ecrans d'un meme groupe (ex: CalendarModal, TimePeriodModal, CustomRangeCalendar dans le dashboard) ne sont PAS dupliques dans chaque ecran.
+```bash
+# Tests règles Firestore + Storage (vitest + @firebase/rules-unit-testing)
+npm run test:security
+
+# Typecheck app
+npx tsc --noEmit
+
+# Typecheck functions
+cd functions && npx tsc --noEmit
+```
+
+Suite : `tests/security/{transactions,seller_balances,users,storage}.rules.test.ts` + `helpers.ts`. 17 tests, doivent rester verts à chaque modif des rules.
+
+---
+
+## CHECKLIST RÉCURRENTE
 
 ```
-Pattern : Layout + Store
-
-1. Les modals sont rendus UNE SEULE FOIS dans le _layout.tsx du groupe
-   Ex: app/(app)/(tabs)/(dashboard)/_layout.tsx rend CalendarModal, TimePeriodModal, etc.
-
-2. Un store Zustand dedie pilote l'etat des modals
-   Ex: features/dashboard/store/modalStore.ts
-   → openCalendarModal(onSelect, buttonPosition), closeCalendarModal(), etc.
-
-3. Chaque ecran appelle simplement openCalendarModal() au lieu de gerer le state local
-
-❌ Dupliquer CalendarModal + state dans chaque ecran
-✅ Un seul rendu dans le layout, pilote par un store
+[ ] npx tsc --noEmit → pas de NOUVELLE erreur (legacy errors documentés)
+[ ] npm run test:security → 17/17 ✅
+[ ] Aucun import interdit (redux, moment, @lingui/macro, @react-native-firebase, stripe, atoms/Button)
+[ ] Aucun Screen dans features/, aucun cross-import entre features
+[ ] Stores avec reset() + ajoutés à resetAllStores
+[ ] useShallow appliqué dès qu'on lit 2+ champs d'un store
+[ ] Sélecteurs paramétrés en curried `selectXByY(y) => state => …`
+[ ] Listes virtualisées (FlashList), renderItem mémoïsé
+[ ] console.log derrière `if (__DEV__)`
+[ ] Mutations financières / status sensibles → Cloud Function (pas client)
 ```
 
 ---
 
 ## CONFIG
 
-tsconfig : `strict: true`, paths `@/` → `src/`, `@app/` → `app/`
-babel : `babel-preset-expo` + `@lingui/babel-plugin-lingui-macro` + `react-native-worklets/plugin` (dernier)
+tsconfig : `strict: true`, paths `@/` → racine, `@app/` → `app/`
+babel : `babel-preset-expo` + `react-native-worklets/plugin` (dernier)
 prettier : singleQuote, semi, printWidth 100, tri imports via `@trivago/prettier-plugin-sort-imports`
+firestore.rules + storage.rules : déployer via `firebase deploy --only firestore:rules,storage`
+indexes : `firestore.indexes.json` est source de vérité, déployer via `firebase deploy --only firestore:indexes` (peut nécessiter `--force` pour purger les orphans serveur)
 
 ---
 
-## CHECKLIST
-
-```
-[ ] npx tsc --noEmit → 0 erreurs
-[ ] Aucun import interdit (redux, moment, @lingui/macro, @react-native-firebase)
-[ ] Aucun Screen dans features/, aucun cross-import entre features
-[ ] Stores avec reset(), services = fonctions pures, StyleSheet.create()
-[ ] Format functions sans prefixe/suffixe en dur
-```
+**Référence audit complet** : `AUDIT_REPORT.md` (sprints 1-5 livrés et déployés sur `seconde-b47a6`).

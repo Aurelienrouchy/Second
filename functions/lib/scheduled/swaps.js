@@ -51,11 +51,11 @@ exports.updateSwapPartyStatuses = (0, scheduler_1.onSchedule)({ schedule: 'every
 });
 /**
  * Send swap zone reminders 3 days before start
- * Runs daily at 10:00 AM Paris time
+ * Runs daily at 10:00 AM Montreal time
  */
 exports.sendSwapZoneReminders = (0, scheduler_1.onSchedule)({
     schedule: '0 10 * * *',
-    timeZone: 'Europe/Paris',
+    timeZone: 'America/Montreal',
     memory: '512MiB',
 }, async () => {
     try {
@@ -110,7 +110,7 @@ exports.sendSwapZoneReminders = (0, scheduler_1.onSchedule)({
                         return;
                     }
                 }
-                await (0, notifications_1.sendPushNotification)(userId, '📦 Swap Zone dans 3 jours !', `N'oubliez pas d'ajouter vos articles à "${partyName}"`, {
+                await (0, notifications_1.sendPushNotification)(userId, 'Swap Zone dans 3 jours !', `N'oubliez pas d'ajouter vos articles à "${partyName}"`, {
                     partyId,
                     partyName,
                     daysUntil: '3',

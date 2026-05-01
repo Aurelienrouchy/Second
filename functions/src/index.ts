@@ -25,6 +25,9 @@
 // AI Functions
 export { analyzeProductImage } from './callable/ai';
 
+// Chat admin functions
+export { consolidateChatDuplicates } from './callable/chats';
+
 // Visual Search & Similar Products
 export { visualSearch, getSimilarProducts } from './callable/search';
 
