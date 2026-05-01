@@ -306,12 +306,12 @@ export default function PreviewScreen() {
         onViewArticle={() => {
           setShowSuccessModal(false);
           if (publishedArticleId) {
-            // Navigate to home first, then push article on top
-            // so pressing back from article returns to home
-            router.replace('/(tabs)');
-            setTimeout(() => {
-              router.push(`/article/${publishedArticleId}` as any);
-            }, 100);
+            // Single replace into the article route so back navigation
+            // bubbles up cleanly to (tabs). The previous flow had a
+            // 100ms setTimeout between replace('/(tabs)') and push(...)
+            // that raced with focus-effects re-firing in the sell tab,
+            // dispatching an unhandled GO_BACK.
+            router.replace(`/article/${publishedArticleId}` as any);
           } else {
             router.replace('/(tabs)');
           }

@@ -1,12 +1,10 @@
 /**
  * Home Components - Barrel Export
- * All home feed section components
+ *
+ * Active home sections now live in features/home/*. The duplicate
+ * components/home/{TrendingBrands,PriceDrops,FeaturedSellers}Section.tsx
+ * files were dead code and have been removed.
  */
 
 export { SectionHeader } from './SectionHeader';
-export { TrendingBrandsSection } from './TrendingBrandsSection';
-export { PriceDropsSection } from './PriceDropsSection';
-export { FeaturedSellersSection } from './FeaturedSellersSection';
 export { SwapZoneSection } from './SwapZoneSection';
-
-export default {};

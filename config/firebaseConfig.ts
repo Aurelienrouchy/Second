@@ -32,17 +32,11 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || FALLBACK_CONFIG.appId,
 };
 
-if (
-  __DEV__ &&
-  Object.entries(firebaseConfig).some(
-    ([key, value]) => value === FALLBACK_CONFIG[key as keyof typeof FALLBACK_CONFIG]
-  )
-) {
-  console.warn(
-    '[firebaseConfig] Using hardcoded fallback for at least one Firebase key. ' +
-      'Configure EXPO_PUBLIC_FIREBASE_* in .env to override.'
-  );
-}
+// No warning when fallbacks are used: the hardcoded values ARE the
+// canonical prod config, kept here so the app boots even when no .env
+// is present (e.g. CI smoke runs, fresh clones). Set
+// EXPO_PUBLIC_FIREBASE_* in .env only when targeting a different
+// project (dev/staging) — they take precedence automatically.
 
 // Initialize Firebase (prevent double init)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];

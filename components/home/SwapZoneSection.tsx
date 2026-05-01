@@ -139,10 +139,11 @@ const ActivePartyCard: React.FC<ActivePartyCardProps> = ({ party, onPress }) => 
   const countdownDisplay = formatCountdownDisplay(countdown.days);
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(400).delay(100)}
-      style={[styles.activeCardWrapper, animatedStyle]}
-    >
+    // Outer wrapper owns the layout animation (FadeInDown).
+    // Inner Animated.View owns the press-scale transform — splitting
+    // them avoids 'transform may be overwritten by a layout animation'.
+    <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+    <Animated.View style={[styles.activeCardWrapper, animatedStyle]}>
       <Pressable
         style={styles.activeCard}
         onPressIn={handlePressIn}
@@ -192,6 +193,7 @@ const ActivePartyCard: React.FC<ActivePartyCardProps> = ({ party, onPress }) => 
           </View>
         </LinearGradient>
       </Pressable>
+    </Animated.View>
     </Animated.View>
   );
 };
@@ -249,10 +251,8 @@ const UpcomingPartyCard: React.FC<UpcomingPartyCardProps> = ({
   }
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(400).delay(200)}
-      style={[styles.upcomingCardWrapper, animatedStyle]}
-    >
+    <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+    <Animated.View style={[styles.upcomingCardWrapper, animatedStyle]}>
       <Pressable
         style={styles.upcomingCard}
         onPressIn={handlePressIn}
@@ -302,6 +302,7 @@ const UpcomingPartyCard: React.FC<UpcomingPartyCardProps> = ({
           )}
         </View>
       </Pressable>
+    </Animated.View>
     </Animated.View>
   );
 };

@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '@/config/firebaseConfig';
+import { auth, functions } from '@/config/firebaseConfig';
 
 export interface SimilarProduct {
   articleId: string;
@@ -27,6 +27,15 @@ class RecommendationServiceClass {
     limit: number = 10,
     includeScore: boolean = false
   ): Promise<SimilarProduct[]> {
+    // The CF is `invoker: public` so it tolerates unauthenticated callers,
+    // but the Firebase Functions client SDK still surfaces an
+    // 'unauthenticated' error during the brief window between app boot
+    // and Firebase Auth hydration. Skip silently — the consumer falls
+    // back to category-based recs.
+    if (!auth.currentUser) {
+      return [];
+    }
+
     try {
       const getSimilarFn = httpsCallable<
         { articleId: string; limit: number; includeScore: boolean },
@@ -39,13 +48,16 @@ class RecommendationServiceClass {
         includeScore,
       });
 
-      if (response.data.fallback) {
+      if (response.data.fallback && __DEV__) {
         console.log('getSimilarProducts: No embedding found, fallback mode');
       }
 
       return response.data.results;
-    } catch (error) {
-      console.error('Error getting similar products:', error);
+    } catch (error: any) {
+      // Don't pollute the console for the known transient auth race.
+      if (error?.code !== 'functions/unauthenticated' && __DEV__) {
+        console.error('Error getting similar products:', error);
+      }
       return [];
     }
   }
