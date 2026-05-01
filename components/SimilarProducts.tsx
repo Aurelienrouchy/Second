@@ -213,4 +213,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SimilarProducts;
+export default React.memo(SimilarProducts);

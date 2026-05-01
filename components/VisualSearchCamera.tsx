@@ -40,7 +40,7 @@ interface VisualSearchCameraProps {
 // Component
 // ============================================================
 
-export default function VisualSearchCamera({
+function VisualSearchCameraComponent({
   onClose,
   onPhotoCapture,
 }: VisualSearchCameraProps) {
@@ -542,3 +542,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
 });
+
+export default React.memo(VisualSearchCameraComponent);

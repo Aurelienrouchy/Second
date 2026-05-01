@@ -975,4 +975,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OfferBubble;
+// Memoised: rendered inside the chat FlashList, where new messages cause
+// the parent to re-render frequently. Without memo, every existing offer
+// bubble repaints on each new chat message.
+export default React.memo(OfferBubble);

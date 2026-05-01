@@ -31,7 +31,7 @@ interface SaveSearchButtonProps {
  * Button component to save a search with optional notification alerts.
  * Opens a modal to configure the saved search name and notification preferences.
  */
-export default function SaveSearchButton({
+function SaveSearchButtonComponent({
   query,
   filters,
   onSaved,
@@ -380,3 +380,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+export default React.memo(SaveSearchButtonComponent);

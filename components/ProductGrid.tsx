@@ -126,7 +126,7 @@ const PaginationFooter: React.FC<{ visible: boolean }> = ({ visible }) => {
 // MAIN COMPONENT
 // =============================================================================
 
-export default function ProductGrid({
+function ProductGridComponent({
   articles,
   isLoading = false,
   isPaginating = false,
@@ -264,3 +264,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export default React.memo(ProductGridComponent);
