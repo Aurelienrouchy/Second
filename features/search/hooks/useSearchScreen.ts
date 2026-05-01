@@ -1,0 +1,461 @@
+/**
+ * useSearchScreen — orchestrates state, derived values, and handlers for the
+ * search screen. The route file owns refs (for bottom sheets) + JSX only.
+ */
+
+import * as Haptics from 'expo-haptics';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, TextInput } from 'react-native';
+
+import { CATEGORIES, getCategoryLabelFromIds } from '@/data/categories-v2';
+import { colors as colorData } from '@/data/colors';
+
+import { useAuth } from '@/contexts/AuthContext';
+import { useArticleSearch } from '@/hooks/useArticleSearch';
+import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
+import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
+
+import type { Article, ArticleWithLocation, SortBy } from '@/types';
+
+import { CONDITION_ITEMS, SORT_ITEMS } from '../constants';
+
+export function useSearchScreen() {
+  // ─── Params (supports both old search & search-results params) ───
+  const params = useLocalSearchParams<{
+    categoryPath?: string;
+    category?: string;
+    brands?: string;
+    shopId?: string;
+    query?: string;
+    filters?: string;
+  }>();
+
+  const { user } = useAuth();
+
+  // ─── Derive initial values from params ───────────────────────────
+  const parsedFilters = useMemo(() => {
+    if (params.filters) {
+      try { return JSON.parse(params.filters); }
+      catch { return {}; }
+    }
+    return {};
+  }, [params.filters]);
+
+  const initialCategoryPath = useMemo(() => {
+    if (parsedFilters.categoryIds?.length > 0) return parsedFilters.categoryIds;
+    if (params.categoryPath) {
+      try { return JSON.parse(params.categoryPath) as string[]; }
+      catch { return undefined; }
+    }
+    if (params.category) return params.category.split(',');
+    return undefined;
+  }, [params.categoryPath, params.category, parsedFilters]);
+
+  const initialFilters = useMemo(() => {
+    const f: any = { ...parsedFilters };
+    if (params.brands) f.brands = params.brands.split(',');
+    const { categoryIds, ...rest } = f;
+    return Object.keys(rest).length > 0 ? rest : undefined;
+  }, [params.brands, parsedFilters]);
+
+  // Did we arrive with initial params that should show results immediately?
+  const hasInitialContext = !!(
+    params.query || params.category || params.categoryPath ||
+    params.brands || params.shopId || params.filters
+  );
+
+  // ─── State ───────────────────────────────────────────────────────
+  const [searchQuery, setSearchQueryLocal] = useState(params.query || '');
+  const [recentSearches, setRecentSearches] = useState<SearchHistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showVisualSearch, setShowVisualSearch] = useState(false);
+  const [isSearching, setIsSearching] = useState(hasInitialContext);
+  const [selectedSort, setSelectedSort] = useState<SortBy>('recent');
+  const [showPriceInputs, setShowPriceInputs] = useState(false);
+  const [minPriceText, setMinPriceText] = useState('');
+  const [maxPriceText, setMaxPriceText] = useState('');
+
+  // ─── Refs ────────────────────────────────────────────────────────
+  const inputRef = useRef<TextInput>(null);
+
+  // ─── Article search hook ─────────────────────────────────────────
+  const {
+    articles,
+    filters,
+    searchQuery: activeSearchQuery,
+    selectedCategoryPath,
+    isLoading,
+    isPaginating,
+    hasActiveFilters,
+    setFilters,
+    setSearchQuery: setActiveSearchQuery,
+    setSelectedCategoryPath,
+    loadMore,
+    clearAllFilters,
+    handleFilterRemove,
+  } = useArticleSearch({
+    initialFilters,
+    initialQuery: params.query,
+    initialCategoryPath,
+  });
+
+  // ─── Category navigation (used by CategoryBottomSheet) ──────────
+  const categoryNav = useCategoryNavigation({
+    onSelect: (categoryIds) => {
+      setSelectedCategoryPath(categoryIds);
+      setIsSearching(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+  });
+
+  // ─── Init ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!hasInitialContext) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+    loadRecentSearches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-hide results when everything is cleared
+  useEffect(() => {
+    if (
+      !searchQuery.trim() &&
+      selectedCategoryPath.length === 0 &&
+      !hasActiveFilters
+    ) {
+      setIsSearching(false);
+    }
+  }, [searchQuery, selectedCategoryPath, hasActiveFilters]);
+
+  // ─── Recent searches ────────────────────────────────────────────
+  const loadRecentSearches = async () => {
+    if (!user) return;
+    setIsLoadingHistory(true);
+    try {
+      const searches = await SearchHistoryService.getRecentSearches(user.id, 10);
+      setRecentSearches(searches);
+    } catch (error) {
+      console.error('Error loading recent searches:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // ─── Navigation handlers ────────────────────────────────────────
+  const handleClose = useCallback(() => {
+    Keyboard.dismiss();
+    router.back();
+  }, []);
+
+  const handleProductPress = useCallback(
+    (article: Article | ArticleWithLocation) => {
+      router.push(`/article/${article.id}`);
+    },
+    []
+  );
+
+  // ─── Search handlers ────────────────────────────────────────────
+  const handleSearch = useCallback(() => {
+    const trimmedQuery = searchQuery.trim();
+    if (user && (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0)) {
+      SearchHistoryService.addSearchToHistory(
+        user.id, trimmedQuery, { ...filters, categoryIds: selectedCategoryPath }
+      ).catch(console.error);
+    }
+    if (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0) {
+      setIsSearching(true);
+      setActiveSearchQuery(trimmedQuery);
+      Keyboard.dismiss();
+    }
+  }, [searchQuery, filters, selectedCategoryPath, hasActiveFilters, user, setActiveSearchQuery]);
+
+  const handleRecentSearchTap = useCallback((item: SearchHistoryItem) => {
+    setSearchQueryLocal(item.query);
+    setFilters(item.filters as any);
+    if (item.filters.categoryIds) {
+      setSelectedCategoryPath(item.filters.categoryIds);
+    }
+    setIsSearching(true);
+    setActiveSearchQuery(item.query || '');
+  }, [setActiveSearchQuery, setFilters, setSelectedCategoryPath]);
+
+  const handleTrendingTap = useCallback((query: string) => {
+    setSearchQueryLocal(query);
+    setIsSearching(true);
+    setActiveSearchQuery(query);
+  }, [setActiveSearchQuery]);
+
+  const handleRecentSearchDelete = useCallback(
+    async (item: SearchHistoryItem) => {
+      if (!user) return;
+      try {
+        await SearchHistoryService.deleteSearchFromHistory(user.id, item.id);
+        setRecentSearches((prev) => prev.filter((s) => s.id !== item.id));
+      } catch (error) {
+        console.error('Error deleting search:', error);
+      }
+    },
+    [user]
+  );
+
+  const handleClearAll = useCallback(() => {
+    setSearchQueryLocal('');
+    clearAllFilters();
+    categoryNav.goToRoot();
+    setIsSearching(false);
+    setSelectedSort('recent');
+    setMinPriceText('');
+    setMaxPriceText('');
+    setShowPriceInputs(false);
+  }, [clearAllFilters, categoryNav]);
+
+  // ─── Visual search ──────────────────────────────────────────────
+  const handleOpenVisualSearch = useCallback(() => {
+    Keyboard.dismiss();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowVisualSearch(true);
+  }, []);
+
+  const handleVisualSearchCapture = useCallback((imageUri: string) => {
+    setShowVisualSearch(false);
+    router.push({ pathname: '/visual-search-results', params: { imageUri } });
+  }, []);
+
+  // ─── Sort handler ───────────────────────────────────────────────
+  const handleSortSelect = useCallback(
+    (sortId: string) => {
+      setSelectedSort(sortId as SortBy);
+      setFilters({ ...filters, sortBy: sortId as SortBy });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    [filters, setFilters]
+  );
+
+  // ─── Filter handlers (multi-select) ─────────────────────────────
+  const handleCategorySelect = useCallback(
+    (categoryPath: string[]) => {
+      setSelectedCategoryPath(categoryPath);
+      setIsSearching(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    [setSelectedCategoryPath]
+  );
+
+  const handleColorSelect = useCallback(
+    (color: string) => {
+      const cur = filters.colors || [];
+      const next = cur.includes(color) ? cur.filter((c: string) => c !== color) : [...cur, color];
+      setFilters({ ...filters, colors: next });
+      if (!isSearching) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handleSizesConfirm = useCallback(
+    (sizes: string[]) => {
+      setFilters({ ...filters, sizes });
+      if (!isSearching && sizes.length > 0) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handleMaterialSelect = useCallback(
+    (material: string) => {
+      const cur = filters.materials || [];
+      const next = cur.includes(material) ? cur.filter((m: string) => m !== material) : [...cur, material];
+      setFilters({ ...filters, materials: next });
+      if (!isSearching) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handleConditionSelect = useCallback(
+    (condition: string) => {
+      setFilters({ ...filters, condition: filters.condition === condition ? undefined : condition });
+      if (!isSearching) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handleBrandsConfirm = useCallback(
+    (brands: string[]) => {
+      setFilters({ ...filters, brands: brands.length > 0 ? brands : undefined });
+      if (!isSearching && brands.length > 0) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handlePriceApply = useCallback(() => {
+    const minPrice = minPriceText ? parseFloat(minPriceText) : undefined;
+    const maxPrice = maxPriceText ? parseFloat(maxPriceText) : undefined;
+    setFilters({ ...filters, minPrice, maxPrice });
+    setShowPriceInputs(false);
+    if (!isSearching && (minPrice || maxPrice)) setIsSearching(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [minPriceText, maxPriceText, filters, setFilters, isSearching]);
+
+  const handlePriceClear = useCallback(() => {
+    setMinPriceText('');
+    setMaxPriceText('');
+    setFilters({ ...filters, minPrice: undefined, maxPrice: undefined });
+    setShowPriceInputs(false);
+  }, [filters, setFilters]);
+
+  // ─── Label helpers ──────────────────────────────────────────────
+  const getCategoryLabel = (): string =>
+    selectedCategoryPath.length > 0 ? getCategoryLabelFromIds(selectedCategoryPath) : 'Categorie';
+
+  const getColorLabel = (): string => {
+    const sel = filters.colors || [];
+    if (sel.length === 0) return 'Couleur';
+    if (sel.length === 1) return colorData.find((c) => c.id === sel[0])?.name || sel[0];
+    return `${sel.length} couleurs`;
+  };
+
+  const getSizeLabel = (): string => {
+    const sel = filters.sizes || [];
+    if (sel.length === 0) return 'Taille';
+    if (sel.length === 1) return sel[0];
+    return `${sel.length} tailles`;
+  };
+
+  const getMaterialLabel = (): string => {
+    const sel = filters.materials || [];
+    if (sel.length === 0) return 'Matiere';
+    if (sel.length === 1) return sel[0];
+    return `${sel.length} matieres`;
+  };
+
+  const getBrandLabel = (): string => {
+    const sel = filters.brands || [];
+    if (sel.length === 0) return 'Marque';
+    if (sel.length === 1) return sel[0];
+    return `${sel.length} marques`;
+  };
+
+  const getConditionLabel = (): string => {
+    if (!filters.condition) return 'Etat';
+    return CONDITION_ITEMS.find((c) => c.value === filters.condition)?.label || 'Etat';
+  };
+
+  const getPriceLabel = (): string => {
+    if (filters.minPrice && filters.maxPrice) return `${filters.minPrice}$ - ${filters.maxPrice}$`;
+    if (filters.minPrice) return `Min ${filters.minPrice}$`;
+    if (filters.maxPrice) return `Max ${filters.maxPrice}$`;
+    return 'Prix';
+  };
+
+  const getSortLabel = (): string => {
+    const item = SORT_ITEMS.find((s) => s.value === selectedSort);
+    return item ? item.label : 'Trier';
+  };
+
+  // ─── Active state helpers ───────────────────────────────────────
+  const isCategoryActive = selectedCategoryPath.length > 0;
+  const isColorActive = (filters.colors?.length || 0) > 0;
+  const isSizeActive = (filters.sizes?.length || 0) > 0;
+  const isMaterialActive = (filters.materials?.length || 0) > 0;
+  const isBrandActive = (filters.brands?.length || 0) > 0;
+  const isConditionActive = !!filters.condition;
+  const isPriceActive = !!(filters.minPrice || filters.maxPrice);
+  const isSortActive = selectedSort !== 'recent';
+
+  const anyFilterActive =
+    isCategoryActive || isColorActive || isSizeActive || isMaterialActive ||
+    isBrandActive || isConditionActive || isPriceActive;
+
+  // ─── Page title ─────────────────────────────────────────────────
+  const getPageTitle = (): string => {
+    if (params.brands) return 'Resultats par marque';
+    if (selectedCategoryPath.length > 0) return getCategoryLabelFromIds(selectedCategoryPath);
+    if (params.category) {
+      const cat = CATEGORIES.find((c) => c.id === params.category);
+      return cat?.label || params.category;
+    }
+    if (params.shopId) return 'Articles de la boutique';
+    return 'Rechercher';
+  };
+
+  return {
+    // params + auth
+    params,
+    user,
+
+    // refs
+    inputRef,
+
+    // input state
+    searchQuery,
+    setSearchQueryLocal,
+    minPriceText,
+    setMinPriceText,
+    maxPriceText,
+    setMaxPriceText,
+    showPriceInputs,
+    setShowPriceInputs,
+    showVisualSearch,
+    setShowVisualSearch,
+    selectedSort,
+
+    // search hook
+    articles,
+    filters,
+    activeSearchQuery,
+    selectedCategoryPath,
+    isLoading,
+    isPaginating,
+    hasActiveFilters,
+    isSearching,
+    setIsSearching,
+    loadMore,
+    handleFilterRemove,
+
+    // recent searches
+    recentSearches,
+    isLoadingHistory,
+
+    // active flags
+    isCategoryActive,
+    isColorActive,
+    isSizeActive,
+    isMaterialActive,
+    isBrandActive,
+    isConditionActive,
+    isPriceActive,
+    isSortActive,
+    anyFilterActive,
+
+    // labels
+    getCategoryLabel,
+    getColorLabel,
+    getSizeLabel,
+    getMaterialLabel,
+    getBrandLabel,
+    getConditionLabel,
+    getPriceLabel,
+    getSortLabel,
+    getPageTitle,
+
+    // handlers
+    handleClose,
+    handleProductPress,
+    handleSearch,
+    handleRecentSearchTap,
+    handleTrendingTap,
+    handleRecentSearchDelete,
+    handleClearAll,
+    handleOpenVisualSearch,
+    handleVisualSearchCapture,
+    handleSortSelect,
+    handleCategorySelect,
+    handleColorSelect,
+    handleSizesConfirm,
+    handleMaterialSelect,
+    handleConditionSelect,
+    handleBrandsConfirm,
+    handlePriceApply,
+    handlePriceClear,
+  };
+}
