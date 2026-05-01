@@ -119,22 +119,26 @@ export class ChatService {
       const user1Data = user1Doc.exists() ? user1Doc.data() : null;
       const user2Data = user2Doc.exists() ? user2Doc.data() : null;
 
-      // Prepare participant info, ensuring no undefined values
+      // Prepare participant info, ensuring no undefined values.
+      // Try every avatar field a user doc might carry (profileImage is
+      // the canonical one; photoURL/avatarUrl come from older flows or
+      // OAuth provider snapshots).
+      const pickAvatar = (d: any): string | undefined =>
+        d?.profileImage || d?.photoURL || d?.avatarUrl || undefined;
+
       const participant1Info: any = {
         userId: user1Id,
         userName: (user1Data?.displayName || user1Data?.email || 'Utilisateur') as string,
       };
-      if (user1Data?.profileImage) {
-        participant1Info.userImage = user1Data.profileImage;
-      }
+      const av1 = pickAvatar(user1Data);
+      if (av1) participant1Info.userImage = av1;
 
       const participant2Info: any = {
         userId: user2Id,
         userName: (user2Data?.displayName || user2Data?.email || 'Utilisateur') as string,
       };
-      if (user2Data?.profileImage) {
-        participant2Info.userImage = user2Data.profileImage;
-      }
+      const av2 = pickAvatar(user2Data);
+      if (av2) participant2Info.userImage = av2;
 
       // Create new chat
       if (__DEV__) console.log('[ChatService] Creating new chat...');

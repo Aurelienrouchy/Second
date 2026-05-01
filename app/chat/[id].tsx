@@ -37,6 +37,7 @@ import { useChat } from '@/hooks/useChat';
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
 import { TransactionService } from '@/services/transactionService';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 // Import types
 import { Article, Message, MeetupSpot, Transaction } from '@/types';
@@ -231,6 +232,12 @@ export default function ChatScreen() {
   };
 
   const otherParticipant = getOtherParticipant();
+  // Live profile so the avatar reflects the user's CURRENT photo, not
+  // whatever was snapshotted into participantsInfo when the chat was
+  // created.
+  const { data: otherProfile } = useUserProfile(otherParticipant?.userId);
+  const otherAvatar =
+    otherProfile?.profileImage || otherParticipant?.userImage;
 
   // Handle more options (report/block user)
   const handleMoreOptions = useCallback(() => {
@@ -347,7 +354,7 @@ export default function ChatScreen() {
       <ChatBubble
         message={message}
         isOwnMessage={isOwnMessage}
-        senderImage={!isOwnMessage ? otherParticipant?.userImage : undefined}
+        senderImage={!isOwnMessage ? otherAvatar : undefined}
       />
     );
   };
@@ -398,11 +405,17 @@ export default function ChatScreen() {
         >
           {otherParticipant && (
             <>
-              <Image
-                source={{ uri: otherParticipant.userImage || 'https://via.placeholder.com/40' }}
-                style={styles.headerAvatar}
-                contentFit="cover"
-              />
+              {otherAvatar ? (
+                <Image
+                  source={{ uri: otherAvatar }}
+                  style={styles.headerAvatar}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.headerAvatar, styles.headerAvatarPlaceholder]}>
+                  <Ionicons name="person" size={18} color={colors.muted} />
+                </View>
+              )}
               <View style={styles.headerInfo}>
                 <Text style={styles.headerTitle} numberOfLines={1}>
                   {formatDisplayName(otherParticipant.userName)}
@@ -638,6 +651,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     backgroundColor: colors.background,
     marginRight: spacing.md,
+  },
+  headerAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceWarm,
   },
   headerInfo: {
     flex: 1,
