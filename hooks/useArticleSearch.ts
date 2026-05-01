@@ -1,6 +1,9 @@
 import { ArticlesService } from '@/services/articlesService';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Article, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+const SEARCH_DEBOUNCE_MS = 350;
 
 interface GeolocationCenter {
   lat: number;
@@ -74,6 +77,10 @@ export function useArticleSearch({
   excludeUserId
 }: UseArticleSearchArgs = {}) {
   const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
+  // Debounced view of the query — used in the effect that triggers Firestore
+  // reads + in service calls. The raw `searchQuery` stays for input binding
+  // so typing remains snappy.
+  const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
   const [selectedCategoryPath, setSelectedCategoryPath] = useState<string[]>(initialCategoryPath || []);
   const [filters, setFilters] = useState<SearchFilters>({
     colors: [],
@@ -189,7 +196,7 @@ export function useArticleSearch({
     try {
       const fetchFn = async () => {
         return await ArticlesService.searchArticles(
-          searchQuery.trim() || undefined,
+          debouncedSearchQuery.trim() || undefined,
           buildSearchFilters(),
           20,
           reset ? undefined : lastVisibleRef.current || undefined
@@ -203,7 +210,7 @@ export function useArticleSearch({
 
       // Transform articles with geolocation
       const transformedArticles = transformArticlesWithLocation(results);
-      
+
       // Sort articles (including by distance if center is provided)
       const sortedArticles = sortArticles(transformedArticles);
 
@@ -212,11 +219,11 @@ export function useArticleSearch({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
       setError(errorMessage);
-      console.error('Error searching articles:', error);
+      if (__DEV__) console.error('Error searching articles:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, buildSearchFilters, enableRetry, maxRetries, transformArticlesWithLocation, sortArticles]);
+  }, [debouncedSearchQuery, buildSearchFilters, enableRetry, maxRetries, transformArticlesWithLocation, sortArticles]);
 
   const loadMore = useCallback(async () => {
     if (isPaginating || isLoading || !lastVisibleRef.current) return;
@@ -241,27 +248,27 @@ export function useArticleSearch({
       if (results.length > 0) {
         // Transform articles with geolocation
         const transformedArticles = transformArticlesWithLocation(results);
-        
+
         // Sort articles (including by distance if center is provided)
         const sortedArticles = sortArticles(transformedArticles);
-        
+
         setArticles(prev => [...prev, ...sortedArticles]);
         lastVisibleRef.current = lastVisible;
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
       setError(errorMessage);
-      console.error('Error loading more articles:', error);
+      if (__DEV__) console.error('Error loading more articles:', error);
     } finally {
       setIsPaginating(false);
     }
-  }, [isLoading, isPaginating, searchQuery, buildSearchFilters, enableRetry, maxRetries, transformArticlesWithLocation, sortArticles]);
+  }, [isLoading, isPaginating, debouncedSearchQuery, buildSearchFilters, enableRetry, maxRetries, transformArticlesWithLocation, sortArticles]);
 
-  // Single effect to handle both initial load and filter changes
+  // Re-run search when filters or the *debounced* query change. The raw
+  // searchQuery typing doesn't trigger Firestore reads anymore.
   useEffect(() => {
-    console.log('🔄 useArticleSearch: Déclenchement de la recherche');
     search(true);
-  }, [filters, selectedCategoryPath, searchQuery]);
+  }, [filters, selectedCategoryPath, debouncedSearchQuery]);
 
   // Safe setter that merges partial filters with defaults
   const setFiltersSafe = useCallback((partial: Partial<SearchFilters>) => {

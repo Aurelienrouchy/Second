@@ -10,6 +10,7 @@ import { httpsCallable } from 'firebase/functions';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { AI_CONFIG, getPhaseProgress } from '@/config/aiConfig';
+import { fixStorageUrl } from '@/utils/fixStorageUrl';
 import {
   AIAnalysisResult,
   AIAnalysisResponse,
@@ -167,45 +168,7 @@ async function processImage(uri: string): Promise<ProcessedImage> {
   };
 }
 
-/**
- * Fix Firebase Storage URL to ensure path is properly URL-encoded
- * React Native Firebase SDK sometimes returns URLs with un-encoded paths
- * which causes 400 errors when loading images
- */
-function fixStorageUrl(url: string): string {
-  try {
-    // Parse the URL to extract the path
-    const urlObj = new URL(url);
-
-    // The path in Firebase Storage URLs is after /o/
-    // e.g., /v0/b/bucket/o/drafts/draftId/file.jpg
-    const pathMatch = urlObj.pathname.match(/\/o\/(.+)$/);
-    if (!pathMatch) {
-      return url; // Not a Firebase Storage URL format we recognize
-    }
-
-    const storagePath = pathMatch[1];
-
-    // Check if already encoded (contains %2F)
-    if (storagePath.includes('%2F')) {
-      return url; // Already encoded
-    }
-
-    // Encode the path segments
-    const encodedPath = storagePath
-      .split('/')
-      .map(segment => encodeURIComponent(segment))
-      .join('%2F');
-
-    // Reconstruct the URL
-    const fixedUrl = url.replace(`/o/${storagePath}`, `/o/${encodedPath}`);
-    console.log('[aiService] Fixed Storage URL encoding:', { original: url, fixed: fixedUrl });
-    return fixedUrl;
-  } catch (error) {
-    console.warn('[aiService] Failed to fix Storage URL:', error);
-    return url; // Return original if parsing fails
-  }
-}
+// fixStorageUrl moved to @/utils/fixStorageUrl.
 
 /**
  * Upload a single image to Firebase Storage

@@ -27,6 +27,7 @@ export function useFeaturedSellers() {
   return useQuery({
     queryKey: homeKeys.featuredSellers(),
     queryFn: fetchFeaturedSellers,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 60 * 1000, // 30 min — featured sellers are server-curated
+    gcTime: 2 * 60 * 60 * 1000, // 2 h
   });
 }

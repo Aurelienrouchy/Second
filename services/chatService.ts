@@ -60,8 +60,8 @@ export class ChatService {
       }
 
       const participantIds = [user1Id, user2Id].sort();
-      console.log('[ChatService] createOrGetChat - user1Id:', user1Id, 'user2Id:', user2Id, 'articleId:', articleId);
-      console.log('[ChatService] Sorted participants:', participantIds);
+      if (__DEV__) console.log('[ChatService] createOrGetChat - user1Id:', user1Id, 'user2Id:', user2Id, 'articleId:', articleId);
+      if (__DEV__) console.log('[ChatService] Sorted participants:', participantIds);
 
       // Check if chat already exists between these two participants.
       // We deduplicate by participants pair only — one thread per user pair,
@@ -73,7 +73,7 @@ export class ChatService {
       );
 
       const querySnapshot = await getDocs(q);
-      console.log('[ChatService] Existing chat query returned:', querySnapshot.size, 'results');
+      if (__DEV__) console.log('[ChatService] Existing chat query returned:', querySnapshot.size, 'results');
 
       if (!querySnapshot.empty) {
         // Pick the most recently updated chat (defensive against existing duplicates)
@@ -137,7 +137,7 @@ export class ChatService {
       }
 
       // Create new chat
-      console.log('[ChatService] Creating new chat...');
+      if (__DEV__) console.log('[ChatService] Creating new chat...');
       const now = serverTimestamp();
       const newChatData: any = {
         participants: participantIds,
@@ -164,12 +164,12 @@ export class ChatService {
         newChatData.articlePrice = articlePrice;
       }
 
-      console.log('[ChatService] New chat data:', JSON.stringify(newChatData, null, 2));
+      if (__DEV__) console.log('[ChatService] New chat data:', JSON.stringify(newChatData, null, 2));
 
       let docRef;
       try {
         docRef = await addDoc(chatsRef, newChatData);
-        console.log('[ChatService] Chat created successfully with ID:', docRef.id);
+        if (__DEV__) console.log('[ChatService] Chat created successfully with ID:', docRef.id);
       } catch (chatCreateError: any) {
         console.error('[ChatService] Failed to create chat:', chatCreateError.code, chatCreateError.message);
         throw chatCreateError;
@@ -243,20 +243,20 @@ export class ChatService {
         ...cleanMetadata,
       };
 
-      console.log('[ChatService] Creating message with data:', JSON.stringify(messageData, null, 2));
+      if (__DEV__) console.log('[ChatService] Creating message with data:', JSON.stringify(messageData, null, 2));
 
       const messagesRef = collection(firestore, 'messages');
       let docRef;
       try {
         docRef = await addDoc(messagesRef, messageData);
-        console.log('[ChatService] Message created successfully with ID:', docRef.id);
+        if (__DEV__) console.log('[ChatService] Message created successfully with ID:', docRef.id);
       } catch (messageError: any) {
         console.error('[ChatService] Failed to create message:', messageError.code, messageError.message);
         throw new Error(`Erreur création message: ${messageError.code} - ${messageError.message}`);
       }
 
       // Update chat with last message
-      console.log('[ChatService] Updating chat:', chatId);
+      if (__DEV__) console.log('[ChatService] Updating chat:', chatId);
       const chatRef = doc(firestore, 'chats', chatId);
 
       // SECURITY: atomic increment avoids race condition when multiple messages
@@ -269,11 +269,11 @@ export class ChatService {
         [`unreadCount.${receiverId}`]: increment(1),
       };
 
-      console.log('[ChatService] Chat update data:', JSON.stringify(updateData, null, 2));
+      if (__DEV__) console.log('[ChatService] Chat update data:', JSON.stringify(updateData, null, 2));
 
       try {
         await updateDoc(chatRef, updateData);
-        console.log('[ChatService] Chat updated successfully');
+        if (__DEV__) console.log('[ChatService] Chat updated successfully');
       } catch (chatError: any) {
         console.error('[ChatService] Failed to update chat:', chatError.code, chatError.message);
         throw new Error(`Erreur mise à jour chat: ${chatError.code} - ${chatError.message}`);
