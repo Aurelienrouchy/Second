@@ -52,7 +52,8 @@
       "Bash(npm view:*)",
       "WebFetch(domain:www.canadapost-postescanada.ca)",
       "Bash(npx eas-cli:*)",
-      "WebFetch(domain:)"
+      "WebFetch(domain:)",
+      "Bash(npm run *)"
     ],
     "deny": [],
     "ask": []

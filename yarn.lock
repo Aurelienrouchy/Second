@@ -2774,11 +2774,6 @@
   resolved "https://registry.npmjs.org/@standard-schema/spec/-/spec-1.1.0.tgz"
   integrity sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==
 
-"@stripe/stripe-react-native@0.58.0":
-  version "0.58.0"
-  resolved "https://registry.npmjs.org/@stripe/stripe-react-native/-/stripe-react-native-0.58.0.tgz"
-  integrity sha512-5JSx/4thMMubVewUZezIfWOrwkeSjAsMjusf1eR5A85MUxmbDer71gXbKSt+hjAuJfhqw4W6F4nCPqsYwPjUZA==
-
 "@tanstack/query-core@5.90.6":
   version "5.90.6"
   resolved "https://registry.npmjs.org/@tanstack/query-core/-/query-core-5.90.6.tgz"
@@ -5549,6 +5544,11 @@ fs.realpath@^1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz"
   integrity sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==
+
+fsevents@^2.3.2, fsevents@~2.3.3:
+  version "2.3.3"
+  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
+  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
 
 function-bind@^1.1.2:
   version "1.1.2"

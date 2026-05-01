@@ -38,7 +38,7 @@ export { Skeleton, SkeletonText, SkeletonAvatar, SkeletonImage } from './Skeleto
 export { TabBar } from './TabBar';
 export { SearchBar } from './SearchBar';
 export { CategoryChip } from './CategoryChip';
-export { SectionHeader } from './SectionHeader';
+// SectionHeader removed — duplicate of components/home/SectionHeader, no consumers.
 export { PersonalizedHeader } from './PersonalizedHeader';
 export { ScreenHeader } from './ScreenHeader';
 export type { ScreenHeaderProps } from './ScreenHeader';

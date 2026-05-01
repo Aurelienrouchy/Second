@@ -1,7 +1,9 @@
 // Atom components for Seconde Design System
-
-export { Badge } from './Badge';
-export type { BadgeProps } from './Badge';
+//
+// Note: only the atoms still in use are re-exported here. Button,
+// Badge, IconButton, and AIBadge were duplicated in components/ui and
+// removed (audit Sprint 4.5). Use the components/ui equivalents
+// instead.
 
 export { Tag } from './Tag';
 export type { TagProps } from './Tag';
@@ -11,12 +13,3 @@ export type { PillProps } from './Pill';
 
 export { FilterChip } from './FilterChip';
 export type { FilterChipProps } from './FilterChip';
-
-export { IconButton } from './IconButton';
-export type { IconButtonProps } from './IconButton';
-
-export { Button } from './Button';
-export type { ButtonProps } from './Button';
-
-export { AIBadge } from './AIBadge';
-export type { AIBadgeProps } from './AIBadge';

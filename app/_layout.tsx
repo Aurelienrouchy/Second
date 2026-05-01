@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { QueryClientProvider } from '@tanstack/react-query';
 
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import AuthBottomSheet from '@/components/AuthBottomSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthListener } from '@/hooks/useAuthListener';
@@ -89,15 +90,17 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-          <ThemeProvider value={CustomNavigationTheme}>
-            <AppContent />
-          </ThemeProvider>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+            <ThemeProvider value={CustomNavigationTheme}>
+              <AppContent />
+            </ThemeProvider>
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }
 

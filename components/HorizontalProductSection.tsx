@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 
 import { colors, spacing, fonts, radius, shadows } from '@/constants/theme';
-import { SectionHeader } from '@/components/ui';
+import { SectionHeader } from '@/components/home/SectionHeader';
 import { Article, ArticleWithLocation } from '@/types';
 
 import ProductCard from './ProductCard';
@@ -85,8 +85,8 @@ export default function HorizontalProductSection({
       {/* Section Header */}
       <SectionHeader
         title={title}
-        onSeeAll={articles.length > 0 ? onSeeAll : undefined}
-        variant="compact"
+        action={articles.length > 0 && onSeeAll ? 'Voir tout' : undefined}
+        onActionPress={articles.length > 0 ? onSeeAll : undefined}
       />
 
       {/* Content */}

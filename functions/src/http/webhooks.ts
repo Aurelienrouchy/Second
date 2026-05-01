@@ -61,6 +61,21 @@ export const helcimWebhook = onRequest(
         return;
       }
 
+      // Sanity bounds: Firestore doc IDs are 1–1500 chars and cannot
+      // contain '/'. Reject anything outside that envelope before we
+      // round-trip Firestore — keeps log noise down for malformed
+      // payloads (and bots).
+      if (
+        typeof invoiceNumber !== 'string' ||
+        invoiceNumber.length === 0 ||
+        invoiceNumber.length > 200 ||
+        invoiceNumber.includes('/')
+      ) {
+        console.error('Helcim webhook: invalid invoiceNumber shape');
+        res.status(400).send('Invalid invoiceNumber');
+        return;
+      }
+
       const transactionId = invoiceNumber;
 
       // Get transaction
