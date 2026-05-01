@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,7 +9,6 @@ import {
     ActionSheetIOS,
     ActivityIndicator,
     Alert,
-    FlatList,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -44,6 +44,9 @@ import { Article, Message, MeetupSpot, Transaction } from '@/types';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
 
+// Module-level so the FlashList prop identity stays stable across renders.
+const messageKeyExtractor = (item: Message): string => item.id;
+
 export default function ChatScreen() {
   const [messageText, setMessageText] = useState('');
   const [isSendingImage, setIsSendingImage] = useState(false);
@@ -51,7 +54,7 @@ export default function ChatScreen() {
   const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
   const [article, setArticle] = useState<Article | null>(null);
 
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<Message>>(null);
   const makeOfferModalRef = useRef<MakeOfferModalRef>(null);
   const reportBottomSheetRef = useRef<ReportBottomSheetRef>(null);
   
@@ -332,32 +335,33 @@ export default function ChatScreen() {
   }, [otherParticipant, user, router]);
 
   // Render message item
-  const renderMessage = ({ item: message }: { item: Message }) => {
-    const isOwnMessage = message.senderId === user?.id;
+  const renderMessage = useCallback(
+    ({ item: message }: ListRenderItemInfo<Message>) => {
+      const isOwnMessage = message.senderId === user?.id;
 
-    // Render offer message
-    if (message.type === 'offer' && message.offer) {
+      if (message.type === 'offer' && message.offer) {
+        return (
+          <OfferBubble
+            message={message}
+            isOwnMessage={isOwnMessage}
+            chatId={chatId || ''}
+            currentUserId={user?.id || ''}
+            onAcceptOffer={handleAcceptOffer}
+            onRejectOffer={handleRejectOffer}
+          />
+        );
+      }
+
       return (
-        <OfferBubble
+        <ChatBubble
           message={message}
           isOwnMessage={isOwnMessage}
-          chatId={chatId || ''}
-          currentUserId={user?.id || ''}
-          onAcceptOffer={handleAcceptOffer}
-          onRejectOffer={handleRejectOffer}
+          senderImage={!isOwnMessage ? otherAvatar : undefined}
         />
       );
-    }
-
-    // Render regular message (text, image, system)
-    return (
-      <ChatBubble
-        message={message}
-        isOwnMessage={isOwnMessage}
-        senderImage={!isOwnMessage ? otherAvatar : undefined}
-      />
-    );
-  };
+    },
+    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar]
+  );
 
   // Loading state
   if (isLoading) {
@@ -482,14 +486,16 @@ export default function ChatScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
+          <FlashList
             ref={flatListRef}
             data={messages}
             renderItem={renderMessage}
-            keyExtractor={(item) => item.id}
+            keyExtractor={messageKeyExtractor}
             contentContainerStyle={styles.messagesList}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: false })
+            }
             ListHeaderComponent={
               transaction && transaction.status !== 'pending_payment' ? (
                 <ShipmentTracking

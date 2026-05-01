@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -24,6 +24,10 @@ import { formatDisplayName } from '@/utils/formatName';
 
 type ConversationType = 'achats' | 'ventes' | 'swaps';
 
+// Stable references for FlashList (defined at module scope so the
+// FlashList prop identity doesn't change across renders).
+const chatKeyExtractor = (item: Chat): string => item.id;
+
 export default function MessagesScreen() {
   const { user } = useAuth();
   const { showAuthSheet } = useAuthRequired();
@@ -31,9 +35,27 @@ export default function MessagesScreen() {
   const { chats, isLoading, error } = useChats(user?.id || null);
   const [activeTab, setActiveTab] = useState<ConversationType>('ventes');
 
-  const handleChatPress = (chatId: string) => {
-    router.push(`/chat/${chatId}`);
-  };
+  const handleChatPress = useCallback(
+    (chatId: string) => {
+      router.push(`/chat/${chatId}`);
+    },
+    [router]
+  );
+
+  const renderConversation = useCallback(
+    ({ item: chat }: ListRenderItemInfo<Chat>) => {
+      const unread = user ? chat.unreadCount?.[user.id] || 0 : 0;
+      return (
+        <ConversationItem
+          chat={chat}
+          onPress={() => handleChatPress(chat.id)}
+          isUnread={unread > 0}
+          unreadCount={unread}
+        />
+      );
+    },
+    [handleChatPress, user]
+  );
 
   const formatTimestamp = (timestamp?: Date) => {
     if (!timestamp) return '';
@@ -191,17 +213,10 @@ export default function MessagesScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredChats}
-          renderItem={({ item: chat }) => (
-            <ConversationItem
-              chat={chat}
-              onPress={() => handleChatPress(chat.id)}
-              isUnread={(user ? chat.unreadCount[user.id] || 0 : 0) > 0}
-              unreadCount={user ? chat.unreadCount[user.id] || 0 : 0}
-            />
-          )}
-          keyExtractor={(item) => item.id}
+          renderItem={renderConversation}
+          keyExtractor={chatKeyExtractor}
           contentContainerStyle={styles.conversationsList}
           showsVerticalScrollIndicator={false}
         />
