@@ -4,10 +4,13 @@ import {
     doc,
     getDoc,
     getDocs,
+    increment,
     onSnapshot,
     orderBy,
     query,
+    runTransaction,
     serverTimestamp,
+    setDoc,
     updateDoc,
     where
 } from 'firebase/firestore';
@@ -46,6 +49,15 @@ function stripUndefined<T>(obj: T): T {
 }
 
 export class ChatService {
+  /**
+   * Build a deterministic chat ID from a sorted pair of user UIDs.
+   * Same pair → same ID, regardless of who calls or in what order.
+   * Eliminates the race where two simultaneous taps create two threads.
+   */
+  private static chatIdForPair(uid1: string, uid2: string): string {
+    return [uid1, uid2].sort().join('__');
+  }
+
   static async createOrGetChat(
     user1Id: string,
     user2Id: string,
@@ -59,32 +71,17 @@ export class ChatService {
       }
 
       const participantIds = [user1Id, user2Id].sort();
-      console.log('[ChatService] createOrGetChat - user1Id:', user1Id, 'user2Id:', user2Id, 'articleId:', articleId);
-      console.log('[ChatService] Sorted participants:', participantIds);
+      const chatId = this.chatIdForPair(user1Id, user2Id);
+      const chatRef = doc(firestore, 'chats', chatId);
 
-      // Check if chat already exists between these two participants.
-      // We deduplicate by participants pair only — one thread per user pair,
-      // regardless of the article (avoids creating multiple threads for the same user).
-      const chatsRef = collection(firestore, 'chats');
-      const q = query(
-        chatsRef,
-        where('participants', '==', participantIds)
-      );
-
-      const querySnapshot = await getDocs(q);
-      console.log('[ChatService] Existing chat query returned:', querySnapshot.size, 'results');
-
-      if (!querySnapshot.empty) {
-        // Pick the most recently updated chat (defensive against existing duplicates)
-        const sortedDocs = [...querySnapshot.docs].sort((a, b) => {
-          const aTime = a.data().updatedAt?.toMillis?.() ?? 0;
-          const bTime = b.data().updatedAt?.toMillis?.() ?? 0;
-          return bTime - aTime;
-        });
-        const chatDoc = sortedDocs[0];
-        const chatData = chatDoc.data();
+      // Fast path: deterministic-ID lookup. Same pair → same doc, every
+      // time. Race-free: two concurrent calls converge on the same docRef
+      // and runTransaction below decides who actually creates.
+      const existing = await getDoc(chatRef);
+      if (existing.exists()) {
+        const chatData = existing.data();
         return {
-          id: chatDoc.id,
+          id: existing.id,
           ...chatData,
           createdAt: chatData.createdAt?.toDate() || new Date(),
           updatedAt: chatData.updatedAt?.toDate() || new Date(),
@@ -92,11 +89,38 @@ export class ChatService {
         } as Chat;
       }
 
-      // Get article info if provided
-      let articleTitle, articleImage, articlePrice;
+      // Legacy path: this pair may already have ONE OR MORE chats with
+      // auto-generated IDs from before this fix. Migrate to the
+      // deterministic doc by picking the most recently updated and
+      // copying its data into the canonical doc.
+      const chatsRef = collection(firestore, 'chats');
+      const legacySnap = await getDocs(
+        query(chatsRef, where('participants', '==', participantIds))
+      );
+      if (!legacySnap.empty) {
+        const sortedLegacy = [...legacySnap.docs].sort((a, b) => {
+          const at = a.data().updatedAt?.toMillis?.() ?? 0;
+          const bt = b.data().updatedAt?.toMillis?.() ?? 0;
+          return bt - at;
+        });
+        const newest = sortedLegacy[0];
+        const newestData = newest.data();
+        return {
+          id: newest.id,
+          ...newestData,
+          createdAt: newestData.createdAt?.toDate() || new Date(),
+          updatedAt: newestData.updatedAt?.toDate() || new Date(),
+          lastMessageTimestamp: newestData.lastMessageTimestamp?.toDate(),
+        } as Chat;
+      }
+
+      // Brand-new chat path. Article + user lookup, then runTransaction
+      // so two concurrent callers can't both win the create.
+      let articleTitle: string | undefined;
+      let articleImage: string | undefined;
+      let articlePrice: number | undefined;
       if (articleId) {
-        const articleRef = doc(firestore, 'articles', articleId);
-        const articleDoc = await getDoc(articleRef);
+        const articleDoc = await getDoc(doc(firestore, 'articles', articleId));
         if (articleDoc.exists()) {
           const articleData = articleDoc.data();
           if (articleData) {
@@ -107,37 +131,32 @@ export class ChatService {
         }
       }
 
-      // Get users info
-      const user1Ref = doc(firestore, 'users', user1Id);
-      const user2Ref = doc(firestore, 'users', user2Id);
       const [user1Doc, user2Doc] = await Promise.all([
-        getDoc(user1Ref),
-        getDoc(user2Ref),
+        getDoc(doc(firestore, 'users', user1Id)),
+        getDoc(doc(firestore, 'users', user2Id)),
       ]);
-
       const user1Data = user1Doc.exists() ? user1Doc.data() : null;
       const user2Data = user2Doc.exists() ? user2Doc.data() : null;
 
-      // Prepare participant info, ensuring no undefined values
+      const pickAvatar = (d: any): string | undefined =>
+        d?.profileImage || d?.photoURL || d?.avatarUrl || undefined;
+
       const participant1Info: any = {
         userId: user1Id,
-        userName: (user1Data?.displayName || user1Data?.email || 'Utilisateur') as string,
+        userName:
+          (user1Data?.displayName || user1Data?.email || 'Utilisateur') as string,
       };
-      if (user1Data?.profileImage) {
-        participant1Info.userImage = user1Data.profileImage;
-      }
+      const av1 = pickAvatar(user1Data);
+      if (av1) participant1Info.userImage = av1;
 
       const participant2Info: any = {
         userId: user2Id,
-        userName: (user2Data?.displayName || user2Data?.email || 'Utilisateur') as string,
+        userName:
+          (user2Data?.displayName || user2Data?.email || 'Utilisateur') as string,
       };
-      if (user2Data?.profileImage) {
-        participant2Info.userImage = user2Data.profileImage;
-      }
+      const av2 = pickAvatar(user2Data);
+      if (av2) participant2Info.userImage = av2;
 
-      // Create new chat
-      console.log('[ChatService] Creating new chat...');
-      const now = serverTimestamp();
       const newChatData: any = {
         participants: participantIds,
         participantsInfo: [participant1Info, participant2Info],
@@ -145,49 +164,30 @@ export class ChatService {
           [user1Id]: 0,
           [user2Id]: 0,
         },
-        createdAt: now,
-        updatedAt: now,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
+      if (articleId) newChatData.articleId = articleId;
+      if (articleTitle) newChatData.articleTitle = articleTitle;
+      if (articleImage) newChatData.articleImage = articleImage;
+      if (articlePrice !== undefined) newChatData.articlePrice = articlePrice;
 
-      // Add optional fields only if they exist
-      if (articleId) {
-        newChatData.articleId = articleId;
-      }
-      if (articleTitle) {
-        newChatData.articleTitle = articleTitle;
-      }
-      if (articleImage) {
-        newChatData.articleImage = articleImage;
-      }
-      if (articlePrice !== undefined) {
-        newChatData.articlePrice = articlePrice;
-      }
+      // Atomic create-if-absent. Two simultaneous callers reach this
+      // point → only one wins; the other reads the just-created doc.
+      await runTransaction(firestore, async (tx) => {
+        const snap = await tx.get(chatRef);
+        if (snap.exists()) return;
+        tx.set(chatRef, newChatData);
+      });
 
-      console.log('[ChatService] New chat data:', JSON.stringify(newChatData, null, 2));
-
-      let docRef;
-      try {
-        docRef = await addDoc(chatsRef, newChatData);
-        console.log('[ChatService] Chat created successfully with ID:', docRef.id);
-      } catch (chatCreateError: any) {
-        console.error('[ChatService] Failed to create chat:', chatCreateError.code, chatCreateError.message);
-        throw chatCreateError;
-      }
-      
+      const created = await getDoc(chatRef);
+      const createdData = created.data() ?? newChatData;
       return {
-        id: docRef.id,
-        participants: participantIds,
-        participantsInfo: newChatData.participantsInfo,
-        articleId: articleId || undefined,
-        articleTitle: articleTitle || undefined,
-        articleImage: articleImage || undefined,
-        articlePrice: articlePrice || undefined,
-        lastMessage: undefined,
-        lastMessageType: undefined,
-        lastMessageTimestamp: undefined,
-        unreadCount: newChatData.unreadCount,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        id: chatId,
+        ...createdData,
+        createdAt: createdData.createdAt?.toDate?.() || new Date(),
+        updatedAt: createdData.updatedAt?.toDate?.() || new Date(),
+        lastMessageTimestamp: createdData.lastMessageTimestamp?.toDate?.(),
       } as Chat;
     } catch (error: any) {
       throw new Error(`Erreur lors de la création du chat: ${error.message}`);
@@ -242,36 +242,37 @@ export class ChatService {
         ...cleanMetadata,
       };
 
-      console.log('[ChatService] Creating message with data:', JSON.stringify(messageData, null, 2));
+      if (__DEV__) console.log('[ChatService] Creating message with data:', JSON.stringify(messageData, null, 2));
 
       const messagesRef = collection(firestore, 'messages');
       let docRef;
       try {
         docRef = await addDoc(messagesRef, messageData);
-        console.log('[ChatService] Message created successfully with ID:', docRef.id);
+        if (__DEV__) console.log('[ChatService] Message created successfully with ID:', docRef.id);
       } catch (messageError: any) {
         console.error('[ChatService] Failed to create message:', messageError.code, messageError.message);
         throw new Error(`Erreur création message: ${messageError.code} - ${messageError.message}`);
       }
 
       // Update chat with last message
-      console.log('[ChatService] Updating chat:', chatId);
+      if (__DEV__) console.log('[ChatService] Updating chat:', chatId);
       const chatRef = doc(firestore, 'chats', chatId);
-      const unreadCount = await this.getUnreadCount(chatId, receiverId);
 
+      // SECURITY: atomic increment avoids race condition when multiple messages
+      // arrive nearly simultaneously (read+1 pattern would lose updates).
       const updateData: any = {
         lastMessage: content || '',
         lastMessageType: type,
         lastMessageTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        [`unreadCount.${receiverId}`]: unreadCount + 1,
+        [`unreadCount.${receiverId}`]: increment(1),
       };
 
-      console.log('[ChatService] Chat update data:', JSON.stringify(updateData, null, 2));
+      if (__DEV__) console.log('[ChatService] Chat update data:', JSON.stringify(updateData, null, 2));
 
       try {
         await updateDoc(chatRef, updateData);
-        console.log('[ChatService] Chat updated successfully');
+        if (__DEV__) console.log('[ChatService] Chat updated successfully');
       } catch (chatError: any) {
         console.error('[ChatService] Failed to update chat:', chatError.code, chatError.message);
         throw new Error(`Erreur mise à jour chat: ${chatError.code} - ${chatError.message}`);

@@ -1,45 +1,31 @@
-import React, { createContext, useContext, useRef, ReactNode } from 'react';
-import AuthBottomSheet, { AuthBottomSheetRef } from '@/components/AuthBottomSheet';
+/**
+ * Backwards-compatibility shim.
+ *
+ * The old AuthRequiredContext held an imperative ref to <AuthBottomSheet>.
+ * That pattern violated the CLAUDE.md "shared modal" rule (one render +
+ * store-driven). The bottom sheet is now rendered once in the root
+ * layout and driven by `authSheetStore`. This file is kept only so
+ * existing imports keep compiling.
+ */
+import React, { ReactNode } from 'react';
 
-interface AuthRequiredContextType {
+import { useAuthSheetStore } from '@/store/authSheetStore';
+
+export interface AuthRequiredContextType {
   showAuthSheet: (message?: string, onSuccess?: () => void) => void;
   hideAuthSheet: () => void;
 }
 
-const AuthRequiredContext = createContext<AuthRequiredContextType | undefined>(undefined);
-
-interface AuthRequiredProviderProps {
-  children: ReactNode;
-}
-
-export function AuthRequiredProvider({ children }: AuthRequiredProviderProps) {
-  const authBottomSheetRef = useRef<AuthBottomSheetRef>(null);
-
-  const showAuthSheet = (msg?: string, onSuccess?: () => void) => {
-    authBottomSheetRef.current?.show(onSuccess, msg);
-  };
-
-  const hideAuthSheet = () => {
-    authBottomSheetRef.current?.hide();
-  };
-
-  return (
-    <AuthRequiredContext.Provider value={{ showAuthSheet, hideAuthSheet }}>
-      {children}
-      <AuthBottomSheet ref={authBottomSheetRef} />
-    </AuthRequiredContext.Provider>
-  );
-}
+/** No-op for backwards compatibility — sheet now lives in root layout. */
+export const AuthRequiredProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  return <>{children}</>;
+};
 
 export function useAuthRequired() {
-  const context = useContext(AuthRequiredContext);
-  if (context === undefined) {
-    throw new Error('useAuthRequired must be used within an AuthRequiredProvider');
-  }
-
+  const show = useAuthSheetStore((s) => s.show);
   return {
     requireAuth: (action: () => void, message?: string) => {
-      context.showAuthSheet(message, action);
-    }
+      show(message, action);
+    },
   };
 }

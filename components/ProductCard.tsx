@@ -35,6 +35,7 @@ import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { animations, colors, fonts, radius, spacing } from '@/constants/theme';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
+import { fixStorageUrl } from '@/utils/fixStorageUrl';
 
 import { CARD_WIDTH, COMPACT_CARD_WIDTH } from './ProductCard.constants';
 
@@ -84,32 +85,7 @@ interface SkeletonCardProps {
  * but data from Cloud Functions (home feed, discover, etc.) may arrive
  * with raw, un-encoded paths that cause 400 errors on the CDN.
  */
-const fixStorageUrl = (url: string): string => {
-  if (!url) return url;
-  const isStorage =
-    url.startsWith('https://firebasestorage.googleapis.com') ||
-    url.includes('.appspot.com') ||
-    url.includes('.firebasestorage.app');
-  if (!isStorage) return url;
-
-  try {
-    const pathMatch = url.match(/\/o\/([^?]+)/);
-    if (!pathMatch) return url;
-
-    const storagePath = pathMatch[1];
-    // Already encoded
-    if (storagePath.includes('%2F')) return url;
-
-    const encodedPath = storagePath
-      .split('/')
-      .map((segment) => encodeURIComponent(segment))
-      .join('%2F');
-
-    return url.replace(`/o/${storagePath}`, `/o/${encodedPath}`);
-  } catch {
-    return url;
-  }
-};
+// fixStorageUrl moved to @/utils/fixStorageUrl (single source of truth).
 
 const getConditionLabel = (condition?: string): string | null => {
   if (!condition) return null;

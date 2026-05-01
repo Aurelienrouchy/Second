@@ -10,7 +10,7 @@
  * - @google/genai: ^1.37.0
  *
  * File structure:
- * - /config       - Firebase, Stripe, Intelcom, Gemini initialization
+ * - /config       - Firebase, Helcim, ShipEngine, Gemini initialization
  * - /services     - AI services, brand matching
  * - /utils        - Geohash, search, notifications, debounce
  * - /callable     - onCall functions (client-callable)
@@ -19,7 +19,7 @@
  * - /http         - HTTP endpoints (webhooks)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.checkTrackingStatus = exports.createPaymentIntent = exports.getShippingEstimate = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.proposeMultiSwap = exports.markSavedSearchViewed = exports.toggleProductLike = exports.incrementProductView = exports.getSimilarProducts = exports.visualSearch = exports.analyzeProductImage = void 0;
+exports.helcimWebhook = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.cancelPendingTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.createHelcimCheckout = exports.getServiceFee = exports.getShippingEstimate = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.proposeMultiSwap = exports.markSavedSearchViewed = exports.toggleProductLike = exports.incrementProductView = exports.getSimilarProducts = exports.visualSearch = exports.analyzeProductImage = void 0;
 // ============================================================
 // CALLABLE FUNCTIONS (onCall)
 // ============================================================
@@ -40,11 +40,15 @@ var swaps_1 = require("./callable/swaps");
 Object.defineProperty(exports, "proposeMultiSwap", { enumerable: true, get: function () { return swaps_1.proposeMultiSwap; } });
 Object.defineProperty(exports, "getActiveSwapPartyInfo", { enumerable: true, get: function () { return swaps_1.getActiveSwapPartyInfo; } });
 Object.defineProperty(exports, "getSwapPartyLeaderboard", { enumerable: true, get: function () { return swaps_1.getSwapPartyLeaderboard; } });
-// Payment Functions
+// Payment & Shipping Functions
 var payments_1 = require("./callable/payments");
 Object.defineProperty(exports, "getShippingEstimate", { enumerable: true, get: function () { return payments_1.getShippingEstimate; } });
-Object.defineProperty(exports, "createPaymentIntent", { enumerable: true, get: function () { return payments_1.createPaymentIntent; } });
+Object.defineProperty(exports, "getServiceFee", { enumerable: true, get: function () { return payments_1.getServiceFee; } });
+Object.defineProperty(exports, "createHelcimCheckout", { enumerable: true, get: function () { return payments_1.createHelcimCheckout; } });
+Object.defineProperty(exports, "findPickupPoints", { enumerable: true, get: function () { return payments_1.findPickupPoints; } });
 Object.defineProperty(exports, "checkTrackingStatus", { enumerable: true, get: function () { return payments_1.checkTrackingStatus; } });
+Object.defineProperty(exports, "requestWithdrawal", { enumerable: true, get: function () { return payments_1.requestWithdrawal; } });
+Object.defineProperty(exports, "cancelPendingTransaction", { enumerable: true, get: function () { return payments_1.cancelPendingTransaction; } });
 // Moments Functions
 var moments_1 = require("./callable/moments");
 Object.defineProperty(exports, "getActiveMoments", { enumerable: true, get: function () { return moments_1.getActiveMoments; } });
@@ -118,7 +122,7 @@ Object.defineProperty(exports, "checkSavedSearchNotifications", { enumerable: tr
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
-// Stripe Webhook
+// Helcim Webhook (payment confirmation + shipping label)
 var webhooks_1 = require("./http/webhooks");
-Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return webhooks_1.stripeWebhook; } });
+Object.defineProperty(exports, "helcimWebhook", { enumerable: true, get: function () { return webhooks_1.helcimWebhook; } });
 //# sourceMappingURL=index.js.map

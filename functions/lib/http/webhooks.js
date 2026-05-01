@@ -1,175 +1,222 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = void 0;
+exports.helcimWebhook = void 0;
 /**
  * HTTP webhook handlers
  * Firebase Functions v7 - using onRequest
- * Shipping via Intelcom (Dragonfly) Booking + Label API
+ *
+ * Helcim webhook: payment confirmation + ShipEngine label creation
+ * Replaces the previous Stripe webhook flow.
  */
 const https_1 = require("firebase-functions/v2/https");
 const firebase_1 = require("../config/firebase");
-const stripe_1 = require("../config/stripe");
-const intelcom_1 = require("../config/intelcom");
+const shipEngine_1 = require("../config/shipEngine");
+const helcim_1 = require("../config/helcim");
+// =============================================================================
+// HELCIM WEBHOOK — Payment confirmed → Create shipping label
+// =============================================================================
 /**
- * Stripe Webhook - Confirm payment and create shipping label via Intelcom
+ * Helcim calls this endpoint after a successful HelcimPay.js payment.
+ *
+ * Flow:
+ * 1. Verify webhook signature
+ * 2. Find transaction by invoiceNumber
+ * 3. Mark as paid
+ * 4. Create shipping label via ShipEngine
+ * 5. Update seller balance
+ * 6. Send system message with tracking info
  */
-exports.stripeWebhook = (0, https_1.onRequest)({
+exports.helcimWebhook = (0, https_1.onRequest)({
     cors: false,
     memory: '512MiB',
 }, async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-    const sig = req.headers['stripe-signature'];
-    const stripeClient = (0, stripe_1.getStripe)();
-    if (!stripeClient) {
-        res.status(500).send('Stripe API not configured');
+    var _a;
+    if (req.method !== 'POST') {
+        res.status(405).send('Method not allowed');
         return;
     }
-    let event;
     try {
-        // Verify webhook signature
-        event = stripeClient.webhooks.constructEvent(req.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
-    }
-    catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        console.error('Webhook signature verification failed:', message);
-        res.status(400).send(`Webhook Error: ${message}`);
-        return;
-    }
-    // Handle payment_intent.succeeded event
-    if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object;
-        const { transactionId, sellerId, articleId } = paymentIntent.metadata;
-        try {
-            // Get transaction details
-            const transactionDoc = await firebase_1.db.collection('transactions').doc(transactionId).get();
-            if (!transactionDoc.exists) {
-                throw new Error('Transaction not found');
+        const payload = req.body;
+        const { transactionId: helcimTransactionId, status, amount, invoiceNumber, // This is our Firestore transactionId
+        approvalCode, cardNumber, cardType, } = payload;
+        // Only process successful payments
+        if (status !== 'APPROVED') {
+            console.log(`Helcim webhook: payment not approved (status: ${status})`);
+            res.json({ received: true, processed: false });
+            return;
+        }
+        if (!invoiceNumber) {
+            console.error('Helcim webhook: missing invoiceNumber');
+            res.status(400).send('Missing invoiceNumber');
+            return;
+        }
+        // Sanity bounds: Firestore doc IDs are 1–1500 chars and cannot
+        // contain '/'. Reject anything outside that envelope before we
+        // round-trip Firestore — keeps log noise down for malformed
+        // payloads (and bots).
+        if (typeof invoiceNumber !== 'string' ||
+            invoiceNumber.length === 0 ||
+            invoiceNumber.length > 200 ||
+            invoiceNumber.includes('/')) {
+            console.error('Helcim webhook: invalid invoiceNumber shape');
+            res.status(400).send('Invalid invoiceNumber');
+            return;
+        }
+        const transactionId = invoiceNumber;
+        // Get transaction
+        const transactionDoc = await firebase_1.db.collection('transactions').doc(transactionId).get();
+        if (!transactionDoc.exists) {
+            console.error(`Helcim webhook: transaction ${transactionId} not found`);
+            res.status(404).send('Transaction not found');
+            return;
+        }
+        const transaction = transactionDoc.data();
+        // SECURITY: Webhook signature verification is MANDATORY.
+        // Falls back to HELCIM_WEBHOOK_SECRET env var if the per-transaction
+        // secretToken was not stored (older flow), so legitimate webhooks
+        // for legacy transactions can still be authenticated.
+        const secretToken = transaction.helcimSecretToken || process.env.HELCIM_WEBHOOK_SECRET;
+        if (!secretToken) {
+            console.error(`Helcim webhook: no secret token for transaction ${transactionId}`);
+            res.status(401).send('Unauthorized: missing secret');
+            return;
+        }
+        const signature = req.headers['x-helcim-signature'];
+        if (!signature) {
+            console.error('Helcim webhook: missing x-helcim-signature header');
+            res.status(401).send('Unauthorized: missing signature');
+            return;
+        }
+        const isValid = helcim_1.HelcimClient.verifyWebhookSignature(JSON.stringify(req.body), signature, secretToken);
+        if (!isValid) {
+            console.error('Helcim webhook: invalid signature');
+            res.status(401).send('Unauthorized: invalid signature');
+            return;
+        }
+        // Skip if already processed
+        if (transaction.status === 'paid' || transaction.status === 'shipped') {
+            console.log(`Transaction ${transactionId} already processed`);
+            res.json({ received: true, processed: false });
+            return;
+        }
+        console.log(`💳 Helcim payment confirmed for transaction ${transactionId} — $${amount}`);
+        // =====================================================================
+        // STEP 1: Mark transaction as paid
+        // =====================================================================
+        await firebase_1.db.collection('transactions').doc(transactionId).update({
+            status: 'paid',
+            paidAt: firebase_1.FieldValue.serverTimestamp(),
+            helcimTransactionId,
+            helcimApprovalCode: approvalCode,
+            helcimCardLast4: cardNumber, // Masked by Helcim: ****1234
+            helcimCardType: cardType,
+        });
+        // =====================================================================
+        // STEP 2: Create shipping label via ShipEngine
+        // =====================================================================
+        let trackingNumber = '';
+        let labelUrl = '';
+        let trackingUrl = '';
+        let carrierCode = '';
+        const shipEngine = (0, shipEngine_1.getShipEngine)();
+        if (shipEngine && transaction.shipEngineRateId) {
+            try {
+                const label = await shipEngine.createLabel(transaction.shipEngineRateId);
+                trackingNumber = label.trackingNumber;
+                labelUrl = label.labelDownload.href;
+                trackingUrl = label.trackingUrl;
+                carrierCode = label.carrierCode;
+                await firebase_1.db.collection('transactions').doc(transactionId).update({
+                    trackingNumber,
+                    shippingLabelUrl: labelUrl,
+                    trackingUrl,
+                    carrierCode,
+                    trackingStatus: 'TRANSIT',
+                    shipEngineLabelId: label.labelId,
+                });
+                console.log(`📦 ShipEngine label created: ${trackingNumber} via ${carrierCode}`);
             }
-            const transaction = transactionDoc.data();
-            const intelcom = (0, intelcom_1.getIntelcom)();
-            if (!intelcom) {
-                throw new Error('Intelcom API not configured');
+            catch (labelError) {
+                console.error('Error creating ShipEngine label:', labelError);
+                // Payment is still valid — label can be created manually later
             }
-            const shippingAddress = transaction.shippingAddress;
-            const sellerAddress = transaction.sellerAddress || {};
-            // Step 1: Create booking via Intelcom Booking API
-            const booking = await intelcom.createBooking({
-                clientCode: process.env.INTELCOM_CLIENT_CODE || '',
-                trackingNumberPrefix: process.env.INTELCOM_TRACKING_PREFIX || '',
-                parcels: [
-                    {
-                        referenceNumber: transactionId,
-                        recipient: {
-                            name: (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.name) || '',
-                            address: (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.street) || '',
-                            city: (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.city) || '',
-                            postalCode: (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.postalCode) || '',
-                            province: (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.province) || 'QC',
-                            country: (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.country) || 'CA',
-                            phone: (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.phoneNumber) || '',
-                        },
-                        sender: {
-                            name: (sellerAddress === null || sellerAddress === void 0 ? void 0 : sellerAddress.name) || 'Vendeur',
-                            address: (sellerAddress === null || sellerAddress === void 0 ? void 0 : sellerAddress.street) || '',
-                            city: (sellerAddress === null || sellerAddress === void 0 ? void 0 : sellerAddress.city) || '',
-                            postalCode: (sellerAddress === null || sellerAddress === void 0 ? void 0 : sellerAddress.postalCode) || '',
-                            province: (sellerAddress === null || sellerAddress === void 0 ? void 0 : sellerAddress.province) || 'QC',
-                            country: (sellerAddress === null || sellerAddress === void 0 ? void 0 : sellerAddress.country) || 'CA',
-                        },
-                        weight: ((_a = transaction.shippingEstimate) === null || _a === void 0 ? void 0 : _a.weight) || 0.5,
-                        length: ((_b = transaction.dimensions) === null || _b === void 0 ? void 0 : _b.length) || 30,
-                        width: ((_c = transaction.dimensions) === null || _c === void 0 ? void 0 : _c.width) || 25,
-                        height: ((_d = transaction.dimensions) === null || _d === void 0 ? void 0 : _d.height) || 10,
-                        serviceLevel: ((_e = transaction.shippingEstimate) === null || _e === void 0 ? void 0 : _e.intelcomServiceLevel) || 'STANDARD',
-                    },
-                ],
-            });
-            // Check if booking was accepted
-            if (!((_g = (_f = booking.data) === null || _f === void 0 ? void 0 : _f.accepted) === null || _g === void 0 ? void 0 : _g.length)) {
-                const rejection = (_j = (_h = booking.data) === null || _h === void 0 ? void 0 : _h.rejected) === null || _j === void 0 ? void 0 : _j[0];
-                throw new Error(`Intelcom booking rejected: ${(rejection === null || rejection === void 0 ? void 0 : rejection.errorMessage) || 'Unknown error'}`);
-            }
-            const acceptedParcel = booking.data.accepted[0];
-            const trackingNumber = acceptedParcel.trackingNumber;
-            // Step 2: Generate shipping label via Intelcom Label API
-            const label = await intelcom.getLabel(trackingNumber, 'PDF');
-            // Build tracking URL
-            const trackingUrl = intelcom.getTrackingUrl(trackingNumber);
-            // Update transaction with shipping info
-            await firebase_1.db.collection('transactions').doc(transactionId).update({
-                status: 'paid',
-                paidAt: firebase_1.FieldValue.serverTimestamp(),
-                intelcomBookingId: acceptedParcel.trackingNumber,
-                shippingLabelUrl: label.labelUrl,
-                trackingNumber: trackingNumber,
-                trackingUrl: trackingUrl,
-                trackingStatus: 'TRANSIT',
-            });
-            // Mark article as sold
-            await firebase_1.db.collection('articles').doc(articleId).update({
+        }
+        // =====================================================================
+        // STEP 3: Mark article as sold
+        // =====================================================================
+        if (transaction.articleId) {
+            await firebase_1.db.collection('articles').doc(transaction.articleId).update({
                 isSold: true,
                 soldAt: firebase_1.FieldValue.serverTimestamp(),
             });
-            // Add amount to seller's pending balance
-            const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-            const sellerBalanceDoc = await sellerBalanceRef.get();
-            const saleTransaction = {
-                id: transactionId,
-                type: 'sale',
-                amount: transaction.amount,
-                description: `Vente de l'article`,
-                createdAt: firebase_1.FieldValue.serverTimestamp(),
-                status: 'pending',
-            };
-            if (!sellerBalanceDoc.exists) {
-                await sellerBalanceRef.set({
-                    userId: sellerId,
-                    availableBalance: 0,
-                    pendingBalance: transaction.amount,
-                    totalEarnings: 0,
-                    transactions: [saleTransaction],
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-            else {
-                await sellerBalanceRef.update({
-                    pendingBalance: firebase_1.FieldValue.increment(transaction.amount),
-                    transactions: firebase_1.FieldValue.arrayUnion(saleTransaction),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-            // Send system message in chat with shipping label
-            const chatQuery = await firebase_1.db
-                .collection('chats')
-                .where('articleId', '==', articleId)
-                .where('participants', 'array-contains', transaction.buyerId)
-                .limit(1)
-                .get();
-            if (!chatQuery.empty) {
-                const chatId = chatQuery.docs[0].id;
-                await firebase_1.db.collection('messages').add({
-                    chatId,
-                    senderId: 'system',
-                    receiverId: 'system',
-                    type: 'system',
-                    content: `📦 Paiement confirmé ! Étiquette d'expédition Intelcom générée.\n\nNuméro de suivi: ${trackingNumber}\n\nLe vendeur peut maintenant expédier l'article.`,
-                    timestamp: firebase_1.FieldValue.serverTimestamp(),
-                    status: 'sent',
-                    isRead: true,
-                    shippingLabel: {
-                        labelUrl: label.labelUrl,
-                        trackingNumber: trackingNumber,
-                        trackingUrl: trackingUrl,
-                    },
-                });
-            }
-            console.log(`Payment confirmed and Intelcom label created for transaction ${transactionId}`);
         }
-        catch (error) {
-            const message = error instanceof Error ? error.message : 'Unknown error';
-            console.error('Error processing payment webhook:', message);
+        // =====================================================================
+        // STEP 4: Add to seller's pending balance (seller payout, not full amount)
+        // =====================================================================
+        const sellerId = transaction.sellerId;
+        const sellerPayout = transaction.sellerPayout || transaction.amount;
+        const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
+        const sellerBalanceDoc = await sellerBalanceRef.get();
+        const saleTransaction = {
+            id: transactionId,
+            type: 'sale',
+            amount: sellerPayout,
+            description: `Vente de l'article`,
+            createdAt: firebase_1.FieldValue.serverTimestamp(),
+            status: 'pending',
+        };
+        if (!sellerBalanceDoc.exists) {
+            await sellerBalanceRef.set({
+                userId: sellerId,
+                availableBalance: 0,
+                pendingBalance: sellerPayout,
+                totalEarnings: 0,
+                transactions: [saleTransaction],
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
         }
+        else {
+            await sellerBalanceRef.update({
+                pendingBalance: firebase_1.FieldValue.increment(sellerPayout),
+                transactions: firebase_1.FieldValue.arrayUnion(saleTransaction),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+        }
+        // =====================================================================
+        // STEP 5: Send system message with shipping info
+        // =====================================================================
+        const chatId = transaction.chatId;
+        if (chatId) {
+            const labelInfo = trackingNumber
+                ? `\n\nNuméro de suivi: ${trackingNumber}\nÉtiquette: disponible dans les détails de la commande.`
+                : '\n\nL\'étiquette d\'expédition sera disponible sous peu.';
+            // Look up chat participants so the message is visible to listeners
+            // that filter messages by participants and respects rules.
+            let participants = [];
+            try {
+                const chatSnap = await firebase_1.db.collection('chats').doc(chatId).get();
+                if (chatSnap.exists) {
+                    participants = ((_a = chatSnap.data()) === null || _a === void 0 ? void 0 : _a.participants) || [];
+                }
+            }
+            catch (lookupErr) {
+                console.warn('[webhooks] Could not load chat participants:', lookupErr);
+            }
+            await firebase_1.db.collection('messages').add(Object.assign({ chatId, senderId: 'system', receiverId: 'system', type: 'system', content: `Paiement confirmé !${labelInfo}\n\nLe vendeur peut maintenant expédier l'article.`, participants, timestamp: firebase_1.FieldValue.serverTimestamp(), status: 'sent', isRead: true }, (trackingNumber && {
+                shippingLabel: {
+                    labelUrl,
+                    trackingNumber,
+                    trackingUrl,
+                },
+            })));
+        }
+        console.log(`✅ Transaction ${transactionId} fully processed`);
+        res.json({ received: true, processed: true });
     }
-    res.json({ received: true });
+    catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error processing Helcim webhook:', message);
+        res.status(500).send(`Webhook processing error: ${message}`);
+    }
 });
 //# sourceMappingURL=webhooks.js.map

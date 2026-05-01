@@ -52,7 +52,7 @@ exports.onArticleFavorited = (0, firestore_1.onDocumentUpdated)({ document: 'fav
                 }
             }
             // Send notification to seller
-            await (0, notifications_1.sendPushNotification)(sellerId, '❤️ Nouvel intérêt pour votre article', `${buyerName} a ajouté "${articleData.title}" à ses favoris`, {
+            await (0, notifications_1.sendPushNotification)(sellerId, 'Nouvel intérêt pour votre article', `${buyerName} a ajouté "${articleData.title}" à ses favoris`, {
                 articleId,
                 articleTitle: articleData.title,
                 userName: buyerName,
@@ -114,7 +114,7 @@ exports.onArticlePriceDropped = (0, firestore_1.onDocumentUpdated)({ document: '
                         return;
                     }
                 }
-                await (0, notifications_1.sendPushNotification)(userId, '💰 Baisse de prix !', `"${articleTitle}" est passé de ${oldPrice}€ à ${newPrice}€ (-${discount}%)`, {
+                await (0, notifications_1.sendPushNotification)(userId, 'Baisse de prix !', `"${articleTitle}" est passé de ${oldPrice}€ à ${newPrice}€ (-${discount}%)`, {
                     articleId,
                     articleTitle,
                     oldPrice: oldPrice.toString(),

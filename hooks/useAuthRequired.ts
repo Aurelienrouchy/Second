@@ -1,36 +1,41 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { useAuthRequired as useAuthRequiredContext } from '@/contexts/AuthRequiredContext';
+import { useUser, useIsLoading } from '@/contexts/AuthContext';
+import { useAuthSheetStore } from '@/store/authSheetStore';
 
+/**
+ * Combine auth state + auth-sheet control for screens that need to
+ * gate actions behind a login.
+ *
+ * Subscribes only to `user` (one selector) instead of going through the
+ * legacy `useAuth()` aggregator. The sheet's `show` action is read via
+ * `getState()` since it's a stable reference and we don't need to
+ * re-render on its change.
+ */
 export const useAuthRequired = () => {
-  const { user, checkAuthRequired, isLoading } = useAuth();
-  const { requireAuth: showAuthSheetWithAction } = useAuthRequiredContext();
+  const user = useUser();
+  const isLoading = useIsLoading();
+  const isLoggedIn = user !== null;
 
-  /**
-   * Show auth bottom sheet with optional success callback and message
-   * Use this when you want to force show the auth modal
-   */
   const showAuthSheet = (message?: string, onSuccess?: () => void) => {
-    showAuthSheetWithAction(onSuccess || (() => {}), message);
+    useAuthSheetStore.getState().show(message, onSuccess);
   };
 
   /**
-   * Conditionally require auth - if user is logged in, execute action
-   * Otherwise show auth modal with callback to execute action on success
+   * Run `action` immediately if the user is signed in; otherwise show
+   * the auth sheet and run it on success.
    */
-  const requireAuth = (action: () => void, message?: string) => {
-    if (checkAuthRequired()) {
-      showAuthSheetWithAction(action, message);
+  const requireAuth = (action: () => void, message?: string): boolean => {
+    if (!isLoggedIn) {
+      useAuthSheetStore.getState().show(message, action);
       return false;
-    } else {
-      action();
-      return true;
     }
+    action();
+    return true;
   };
 
   return {
     user,
     isLoading,
-    isLoggedIn: !checkAuthRequired(),
+    isLoggedIn,
     requireAuth,
     showAuthSheet,
   };

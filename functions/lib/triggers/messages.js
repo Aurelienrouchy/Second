@@ -92,8 +92,8 @@ exports.sendMessageNotification = (0, firestore_1.onDocumentCreated)({ document:
             case 'image':
                 title = senderName;
                 body = articleTitle
-                    ? `📷 Photo - "${articleTitle}"`
-                    : '📷 Vous a envoyé une photo';
+                    ? `Photo - "${articleTitle}"`
+                    : 'Vous a envoyé une photo';
                 notificationType = 'message';
                 break;
             case 'offer':
@@ -213,7 +213,7 @@ exports.sendOfferStatusNotification = (0, firestore_1.onDocumentUpdated)({ docum
             ? sellerDoc.data().displayName || 'Le vendeur'
             : 'Le vendeur';
         // Build notification
-        const title = offerStatus === 'accepted' ? 'Offre acceptée ! 🎉' : 'Offre refusée';
+        const title = offerStatus === 'accepted' ? 'Offre acceptée !' : 'Offre refusée';
         const body = offerStatus === 'accepted'
             ? `${sellerName} a accepté votre offre de ${amount}€`
             : `${sellerName} a refusé votre offre de ${amount}€`;

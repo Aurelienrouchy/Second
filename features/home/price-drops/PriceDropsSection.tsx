@@ -29,33 +29,13 @@ import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { usePriceDrops, PriceDropArticle } from './usePriceDrops';
+import { fixStorageUrl } from '@/utils/fixStorageUrl';
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-/** Fix un-encoded Firebase Storage paths that cause 400 errors on the CDN. */
-const fixStorageUrl = (url: string): string => {
-  if (!url) return url;
-  const isStorage =
-    url.startsWith('https://firebasestorage.googleapis.com') ||
-    url.includes('.appspot.com') ||
-    url.includes('.firebasestorage.app');
-  if (!isStorage) return url;
-  try {
-    const pathMatch = url.match(/\/o\/([^?]+)/);
-    if (!pathMatch) return url;
-    const storagePath = pathMatch[1];
-    if (storagePath.includes('%2F')) return url;
-    const encodedPath = storagePath
-      .split('/')
-      .map((segment) => encodeURIComponent(segment))
-      .join('%2F');
-    return url.replace(`/o/${storagePath}`, `/o/${encodedPath}`);
-  } catch {
-    return url;
-  }
-};
+// fixStorageUrl moved to @/utils/fixStorageUrl.
 
 // =============================================================================
 // CONSTANTS

@@ -9,7 +9,8 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { firestore } from '../config/firebaseConfig';
+import { httpsCallable } from 'firebase/functions';
+import { firestore, functions } from '../config/firebaseConfig';
 import { MeetupSpot, ShippingAddress, Transaction, TransactionStatus } from '../types';
 
 export class TransactionService {
@@ -161,45 +162,83 @@ export class TransactionService {
   }
 
   /**
-   * Get transaction by chat ID
+   * Get the active transaction for a chat from the caller's perspective.
+   *
+   * SECURITY: the transactions read rule requires the caller to be either
+   * buyer or seller of each returned doc. To match that, we run two
+   * queries scoped by uid (buyer-side and seller-side) instead of a bare
+   * chatId filter, which Firestore would reject under rules-aware
+   * queries.
+   *
+   * Requires composite indexes (buyerId, chatId) and (sellerId, chatId).
    */
-  static async getTransactionByChat(chatId: string): Promise<Transaction | null> {
+  static async getTransactionByChat(
+    chatId: string,
+    userId: string
+  ): Promise<Transaction | null> {
+    if (!userId) {
+      throw new Error('userId is required to query a transaction');
+    }
     try {
-      // Query transactions by chatId only (secure and efficient)
+      const allowedStatuses = [
+        'pending_payment',
+        'meetup_pending',
+        'meetup_confirmed',
+        'paid',
+        'shipped',
+        'delivered',
+      ] as const;
       const transactionsRef = collection(firestore, 'transactions');
-      const q = query(
+      const buyerQuery = query(
         transactionsRef,
+        where('buyerId', '==', userId),
         where('chatId', '==', chatId),
-        where('status', 'in', ['pending_payment', 'meetup_pending', 'meetup_confirmed', 'paid', 'shipped', 'delivered'])
+        where('status', 'in', allowedStatuses as unknown as string[])
+      );
+      const sellerQuery = query(
+        transactionsRef,
+        where('sellerId', '==', userId),
+        where('chatId', '==', chatId),
+        where('status', 'in', allowedStatuses as unknown as string[])
       );
 
-      const querySnapshot = await getDocs(q);
+      const [buyerSnap, sellerSnap] = await Promise.all([
+        getDocs(buyerQuery),
+        getDocs(sellerQuery),
+      ]);
 
-      if (querySnapshot.empty) {
-        // No transaction found for this chat
-        console.log('[TransactionService] No transaction found for chatId:', chatId);
-        return null;
-      }
+      const docs = [...buyerSnap.docs, ...sellerSnap.docs];
+      if (docs.length === 0) return null;
 
-      // Return the most recent transaction
-      const transactionDoc = querySnapshot.docs[0];
-      const data = transactionDoc.data();
+      // Pick the most recent
+      const sorted = docs
+        .map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            createdAt: data?.createdAt?.toDate() || new Date(0),
+            paidAt: data?.paidAt?.toDate(),
+            shippedAt: data?.shippedAt?.toDate(),
+            deliveredAt: data?.deliveredAt?.toDate(),
+          } as Transaction;
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-      return {
-        id: transactionDoc.id,
-        ...data,
-        createdAt: data?.createdAt?.toDate() || new Date(),
-        paidAt: data?.paidAt?.toDate(),
-        shippedAt: data?.shippedAt?.toDate(),
-        deliveredAt: data?.deliveredAt?.toDate(),
-      } as Transaction;
+      return sorted[0];
     } catch (error: any) {
       throw new Error(`Erreur lors de la récupération de la transaction: ${error.message}`);
     }
   }
 
   /**
-   * Update transaction status
+   * Update transaction status.
+   *
+   * SECURITY: 'cancelled' goes through a Cloud Function that re-checks
+   * caller identity and current status. 'paid' / 'shipped' / 'delivered'
+   * are written by Cloud Functions (helcimWebhook, checkTrackingStatus)
+   * and should not be set from the client. Other statuses still go via
+   * direct Firestore update.
    */
   static async updateTransactionStatus(
     transactionId: string,
@@ -207,8 +246,17 @@ export class TransactionService {
     additionalData?: Partial<Transaction>
   ): Promise<void> {
     try {
+      if (status === 'cancelled') {
+        const callable = httpsCallable<
+          { transactionId: string },
+          { success: boolean }
+        >(functions, 'cancelPendingTransaction');
+        await callable({ transactionId });
+        return;
+      }
+
       const transactionRef = doc(firestore, 'transactions', transactionId);
-      
+
       const updateData: any = {
         status,
       };
@@ -238,76 +286,50 @@ export class TransactionService {
   }
 
   /**
-   * Update payment information
+   * @deprecated Server-side only — handled by helcimWebhook Cloud Function.
+   * Stub throws to surface any straggling caller instead of silently
+   * hitting Firestore permission-denied (the transactions rule rejects
+   * client status='paid' updates).
    */
   static async updatePaymentInfo(
-    transactionId: string,
-    paymentIntentId: string
+    _transactionId: string,
+    _paymentIntentId: string
   ): Promise<void> {
-    try {
-      const transactionRef = doc(firestore, 'transactions', transactionId);
-      
-      await updateDoc(transactionRef, {
-        paymentIntentId,
-        status: 'paid',
-        paidAt: serverTimestamp(),
-      });
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la mise à jour du paiement: ${error.message}`);
-    }
+    throw new Error(
+      'TransactionService.updatePaymentInfo is server-side only ' +
+        '(handled by helcimWebhook Cloud Function).'
+    );
   }
 
   /**
-   * Update shipping information
+   * @deprecated Server-side only — handled by helcimWebhook (label
+   * generation + status='shipped').
    */
   static async updateShippingInfo(
-    transactionId: string,
-    intelcomBookingId: string,
-    shippingLabelUrl: string,
-    trackingNumber: string,
-    trackingUrl?: string
+    _transactionId: string,
+    _intelcomBookingId: string,
+    _shippingLabelUrl: string,
+    _trackingNumber: string,
+    _trackingUrl?: string
   ): Promise<void> {
-    try {
-      const transactionRef = doc(firestore, 'transactions', transactionId);
-
-      await updateDoc(transactionRef, {
-        intelcomBookingId,
-        shippingLabelUrl,
-        trackingNumber,
-        trackingUrl: trackingUrl || '',
-        trackingStatus: 'TRANSIT',
-        status: 'shipped',
-        shippedAt: serverTimestamp(),
-      });
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la mise à jour des informations d'expédition: ${error.message}`);
-    }
+    throw new Error(
+      'TransactionService.updateShippingInfo is server-side only ' +
+        '(handled by helcimWebhook Cloud Function).'
+    );
   }
 
   /**
-   * Update tracking status
+   * @deprecated Server-side only — handled by checkTrackingStatus
+   * Cloud Function (which marks status='delivered' atomically).
    */
   static async updateTrackingStatus(
-    transactionId: string,
-    trackingStatus: string
+    _transactionId: string,
+    _trackingStatus: string
   ): Promise<void> {
-    try {
-      const transactionRef = doc(firestore, 'transactions', transactionId);
-      
-      const updateData: any = {
-        trackingStatus,
-      };
-
-      // If delivered, update status and timestamp
-      if (trackingStatus === 'DELIVERED') {
-        updateData.status = 'delivered';
-        updateData.deliveredAt = serverTimestamp();
-      }
-
-      await updateDoc(transactionRef, updateData);
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la mise à jour du statut de suivi: ${error.message}`);
-    }
+    throw new Error(
+      'TransactionService.updateTrackingStatus is server-side only ' +
+        '(handled by checkTrackingStatus Cloud Function).'
+    );
   }
 
   /**

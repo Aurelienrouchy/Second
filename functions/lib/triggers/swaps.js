@@ -77,7 +77,7 @@ exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{s
             return;
         }
         // Build notification
-        const title = "🔄 Nouvelle proposition d'échange";
+        const title = "Nouvelle proposition d'échange";
         // Handle both single-item (legacy) and multi-item formats
         const receiverItemsArray = getSwapItems(swap, 'receiver');
         const initiatorItemsArray = getSwapItems(swap, 'initiator');
@@ -188,33 +188,33 @@ exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'sw
         switch (newStatus) {
             case 'accepted':
                 targetUserId = after.initiatorId;
-                title = '✅ Échange accepté !';
+                title = 'Échange accepté !';
                 body = `${after.receiverName} a accepté ${getSwapDescription(after)}`;
                 break;
             case 'declined':
                 targetUserId = after.initiatorId;
-                title = '❌ Échange refusé';
+                title = 'Échange refusé';
                 body = `${after.receiverName} a refusé ${getSwapDescription(after)}`;
                 break;
             case 'cancelled':
                 targetUserId = after.receiverId;
-                title = '🚫 Échange annulé';
+                title = 'Échange annulé';
                 body = `${after.initiatorName} a annulé ${getSwapDescription(after)}`;
                 break;
             case 'photos_pending':
                 // Notify both parties
-                await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, '📸 Photos requises', "N'oublie pas d'envoyer les photos de ton article", after);
-                await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, '📸 Photos requises', "N'oublie pas d'envoyer les photos de ton article", after);
+                await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, 'Photos requises', "N'oublie pas d'envoyer les photos de ton article", after);
+                await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, 'Photos requises', "N'oublie pas d'envoyer les photos de ton article", after);
                 return;
             case 'shipping':
                 // Notify both parties
-                await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, '📦 Prêt à expédier', 'Les photos sont validées, tu peux envoyer ton article', after);
-                await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, '📦 Prêt à expédier', 'Les photos sont validées, tu peux envoyer ton article', after);
+                await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, 'Prêt à expédier', 'Les photos sont validées, tu peux envoyer ton article', after);
+                await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, 'Prêt à expédier', 'Les photos sont validées, tu peux envoyer ton article', after);
                 return;
             case 'completed':
                 // Notify both parties
-                await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, '🎉 Échange terminé !', "L'échange est complet. N'oublie pas de laisser une note.", after);
-                await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, '🎉 Échange terminé !', "L'échange est complet. N'oublie pas de laisser une note.", after);
+                await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, 'Échange terminé !', "L'échange est complet. N'oublie pas de laisser une note.", after);
+                await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, 'Échange terminé !', "L'échange est complet. N'oublie pas de laisser une note.", after);
                 return;
             default:
                 return;

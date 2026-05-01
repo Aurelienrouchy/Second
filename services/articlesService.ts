@@ -19,54 +19,21 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import * as FileSystem from 'expo-file-system/legacy';
 import { firestore, auth, storage } from '../config/firebaseConfig';
 import { Article, ArticleImage } from '../types';
+import {
+  fixStorageUrl as fixStorageUrlUtil,
+  isStorageUrl as isStorageUrlUtil,
+} from '../utils/fixStorageUrl';
 import { processImageWithBlurhash } from '../utils/imageUtils';
 
 export class ArticlesService {
-  /**
-   * Check if a URL is already a Firebase Storage URL
-   */
+  /** @deprecated Import { isStorageUrl } from '@/utils/fixStorageUrl'. */
   static isStorageUrl(url: string): boolean {
-    return url.startsWith('https://firebasestorage.googleapis.com') ||
-           url.includes('.appspot.com') ||
-           url.includes('.firebasestorage.app');
+    return isStorageUrlUtil(url);
   }
 
-  /**
-   * Fix Firebase Storage URL to ensure path is properly URL-encoded
-   * Some URLs may have been stored with un-encoded paths which causes 400 errors
-   */
+  /** @deprecated Import { fixStorageUrl } from '@/utils/fixStorageUrl'. */
   static fixStorageUrl(url: string): string {
-    if (!url || !this.isStorageUrl(url)) {
-      return url;
-    }
-
-    try {
-      // The path in Firebase Storage URLs is after /o/
-      // e.g., https://firebasestorage.googleapis.com/v0/b/bucket/o/drafts/draftId/file.jpg
-      const pathMatch = url.match(/\/o\/([^?]+)/);
-      if (!pathMatch) {
-        return url;
-      }
-
-      const storagePath = pathMatch[1];
-
-      // Check if already encoded (contains %2F)
-      if (storagePath.includes('%2F')) {
-        return url; // Already encoded
-      }
-
-      // Encode the path segments
-      const encodedPath = storagePath
-        .split('/')
-        .map(segment => encodeURIComponent(segment))
-        .join('%2F');
-
-      // Reconstruct the URL
-      return url.replace(`/o/${storagePath}`, `/o/${encodedPath}`);
-    } catch (error) {
-      console.warn('[ArticlesService] Failed to fix Storage URL:', error);
-      return url;
-    }
+    return fixStorageUrlUtil(url);
   }
 
   /**
@@ -396,7 +363,9 @@ export class ArticlesService {
     lastVisible?: QueryDocumentSnapshot
   ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
     try {
-      console.log('🔍 searchArticles appelé avec:', { searchTerm, filters, limitCount });
+      if (__DEV__) {
+        console.log('🔍 searchArticles appelé avec:', { searchTerm, filters, limitCount });
+      }
       const articlesRef = collection(firestore, 'articles');
       let constraints: any[] = [
         where('isActive', '==', true),
@@ -429,9 +398,21 @@ export class ArticlesService {
         constraints.push(where('price', '<=', filters.maxPrice));
       }
 
-      // Ordre et limite (on utilise createdAt desc par défaut côté serveur)
+      // Ordre et limite. Quand des filtres ne peuvent pas être poussés à
+      // Firestore (text, color, size, material, brand, pattern), on doit
+      // sur-fetcher pour compenser les rejets côté client. Sinon on
+      // demande exactement la limite.
+      const hasClientSideFilter = !!(
+        (searchTerm && searchTerm.trim()) ||
+        (filters?.colors && filters.colors.length > 0) ||
+        (filters?.sizes && filters.sizes.length > 0) ||
+        (filters?.materials && filters.materials.length > 0) ||
+        (filters?.brands && filters.brands.length > 0) ||
+        (filters?.patterns && filters.patterns.length > 0)
+      );
+      const fetchLimit = hasClientSideFilter ? limitCount * 3 : limitCount;
       constraints.push(orderBy('createdAt', 'desc'));
-      constraints.push(firestoreLimit(limitCount * 5)); // récupérer plus pour filtrage client
+      constraints.push(firestoreLimit(fetchLimit));
 
       // Pagination
       if (lastVisible) {
@@ -439,14 +420,14 @@ export class ArticlesService {
       }
 
       const q = query(articlesRef, ...constraints);
-      console.log('🔍 Exécution de la requête Firestore...');
       const querySnapshot = await getDocs(q);
-      console.log('📊 Nombre de documents récupérés:', querySnapshot.docs.length);
+      if (__DEV__) {
+        console.log('📊 Nombre de documents récupérés:', querySnapshot.docs.length);
+      }
       const articles: Article[] = [];
 
       querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
-        console.log('📄 Document trouvé:', docSnap.id, 'images:', data.images?.length || 0);
         const article = {
           id: docSnap.id,
           ...data,
@@ -531,10 +512,12 @@ export class ArticlesService {
       const idx = Math.min(querySnapshot.docs.length - 1, limitedArticles.length - 1);
       const lastVisibleDoc = (querySnapshot.docs[idx] as QueryDocumentSnapshot) || null;
 
-      console.log('✅ Résultats finaux:', limitedArticles.length, 'articles');
+      if (__DEV__) {
+        console.log('✅ Résultats finaux:', limitedArticles.length, 'articles');
+      }
       return { articles: limitedArticles, lastVisible: lastVisibleDoc };
     } catch (error: any) {
-      console.error('❌ Erreur searchArticles:', error);
+      if (__DEV__) console.error('❌ Erreur searchArticles:', error);
       throw new Error(`Erreur lors de la recherche: ${error.message}`);
     }
   }

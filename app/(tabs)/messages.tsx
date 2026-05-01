@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useChats } from '@/hooks/useChat';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { Chat } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
@@ -23,6 +24,10 @@ import { formatDisplayName } from '@/utils/formatName';
 
 type ConversationType = 'achats' | 'ventes' | 'swaps';
 
+// Stable references for FlashList (defined at module scope so the
+// FlashList prop identity doesn't change across renders).
+const chatKeyExtractor = (item: Chat): string => item.id;
+
 export default function MessagesScreen() {
   const { user } = useAuth();
   const { showAuthSheet } = useAuthRequired();
@@ -30,9 +35,27 @@ export default function MessagesScreen() {
   const { chats, isLoading, error } = useChats(user?.id || null);
   const [activeTab, setActiveTab] = useState<ConversationType>('ventes');
 
-  const handleChatPress = (chatId: string) => {
-    router.push(`/chat/${chatId}`);
-  };
+  const handleChatPress = useCallback(
+    (chatId: string) => {
+      router.push(`/chat/${chatId}`);
+    },
+    [router]
+  );
+
+  const renderConversation = useCallback(
+    ({ item: chat }: ListRenderItemInfo<Chat>) => {
+      const unread = user ? chat.unreadCount?.[user.id] || 0 : 0;
+      return (
+        <ConversationItem
+          chat={chat}
+          onPress={() => handleChatPress(chat.id)}
+          isUnread={unread > 0}
+          unreadCount={unread}
+        />
+      );
+    },
+    [handleChatPress, user]
+  );
 
   const formatTimestamp = (timestamp?: Date) => {
     if (!timestamp) return '';
@@ -190,17 +213,10 @@ export default function MessagesScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredChats}
-          renderItem={({ item: chat }) => (
-            <ConversationItem
-              chat={chat}
-              onPress={() => handleChatPress(chat.id)}
-              isUnread={(user ? chat.unreadCount[user.id] || 0 : 0) > 0}
-              unreadCount={user ? chat.unreadCount[user.id] || 0 : 0}
-            />
-          )}
-          keyExtractor={(item) => item.id}
+          renderItem={renderConversation}
+          keyExtractor={chatKeyExtractor}
           contentContainerStyle={styles.conversationsList}
           showsVerticalScrollIndicator={false}
         />
@@ -228,6 +244,15 @@ const ConversationItem = React.memo(function ConversationItem({
     ? chat.participantsInfo.find((p) => p.userId !== user.id)
     : null;
 
+  // Live profile read — falls back to the snapshot in participantsInfo
+  // when the live doc hasn't loaded yet, so we never show a placeholder
+  // when an avatar is in fact set.
+  const { data: liveProfile } = useUserProfile(otherParticipant?.userId);
+  const avatarUri =
+    liveProfile?.profileImage ||
+    otherParticipant?.userImage ||
+    undefined;
+
   const lastMessagePreview = getLastMessagePreviewStatic(chat);
   const timestamp = formatTimestampStatic(chat.lastMessageTimestamp);
 
@@ -235,15 +260,17 @@ const ConversationItem = React.memo(function ConversationItem({
     <Pressable style={styles.conversationItem} onPress={onPress}>
       {/* Avatar */}
       <View style={styles.avatarContainer}>
-        <Image
-          source={{
-            uri:
-              otherParticipant?.userImage ||
-              'https://via.placeholder.com/50',
-          }}
-          style={styles.userAvatar}
-          contentFit="cover"
-        />
+        {avatarUri ? (
+          <Image
+            source={{ uri: avatarUri }}
+            style={styles.userAvatar}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.userAvatar, styles.avatarPlaceholder]}>
+            <Ionicons name="person" size={22} color={colors.muted} />
+          </View>
+        )}
         {isUnread && <View style={styles.unreadDot} />}
 
         {/* Article Thumbnail Overlay */}
@@ -410,6 +437,10 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.surfaceWarm,
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   unreadDot: {
     position: 'absolute',

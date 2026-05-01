@@ -244,6 +244,10 @@ export const findPickupPoints = onCall(async (request) => {
 // =============================================================================
 
 export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
   const { transactionId } = request.data;
 
   if (!transactionId) {
@@ -258,6 +262,17 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
     }
 
     const transaction = transactionDoc.data()!;
+
+    // SECURITY: only the buyer or seller can trigger tracking status checks.
+    // Without this, any authenticated user could force DELIVERED status and
+    // trigger fund transfer to the seller.
+    const callerUid = request.auth.uid;
+    if (transaction.buyerId !== callerUid && transaction.sellerId !== callerUid) {
+      throw new HttpsError(
+        'permission-denied',
+        'You are not authorized for this transaction'
+      );
+    }
 
     if (!transaction.trackingNumber) {
       throw new HttpsError('failed-precondition', 'No tracking number available');
@@ -352,3 +367,158 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
     throw new HttpsError('internal', `Failed to check tracking: ${message}`);
   }
 });
+
+// =============================================================================
+// REQUEST WITHDRAWAL — Atomic balance debit + withdrawal record creation
+// =============================================================================
+
+/**
+ * Caller (the seller) requests a withdrawal of `amount` to `iban`.
+ *
+ * Why this is a CF, not a client mutation:
+ * - The previous client implementation read the balance, then issued an
+ *   updateDoc with `increment(-amount)`. Two concurrent requests could both
+ *   pass the read-side check and double-spend.
+ * - Validation (min amount, IBAN format, balance check) must run on a
+ *   server we trust.
+ *
+ * Authorization: caller must be the balance owner (request.auth.uid).
+ */
+export const requestWithdrawal = onCall({ memory: '512MiB' }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { amount, iban } = request.data ?? {};
+  const userId = request.auth.uid;
+
+  if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
+    throw new HttpsError('invalid-argument', 'Invalid amount');
+  }
+  if (amount < 10) {
+    throw new HttpsError('invalid-argument', 'Minimum withdrawal is 10');
+  }
+  if (typeof iban !== 'string' || iban.replace(/\s/g, '').length < 15) {
+    throw new HttpsError('invalid-argument', 'Invalid IBAN');
+  }
+
+  const sanitizedIban = iban.replace(/\s/g, '');
+  const balanceRef = db.collection('seller_balances').doc(userId);
+
+  try {
+    const withdrawalId = `withdrawal_${Date.now()}_${userId.slice(0, 6)}`;
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(balanceRef);
+      if (!snap.exists) {
+        throw new HttpsError('not-found', 'Balance not found');
+      }
+      const data = snap.data()!;
+      const available = typeof data.availableBalance === 'number' ? data.availableBalance : 0;
+      if (available < amount) {
+        throw new HttpsError('failed-precondition', 'Insufficient balance');
+      }
+
+      const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+      const withdrawalEntry = {
+        id: withdrawalId,
+        type: 'withdrawal',
+        amount: -amount,
+        description: `Withdrawal to ****${sanitizedIban.slice(-4)}`,
+        // serverTimestamp() can't be used inside an array element; use Date instead.
+        createdAt: new Date(),
+        status: 'pending',
+      };
+
+      tx.update(balanceRef, {
+        availableBalance: FieldValue.increment(-amount),
+        transactions: [...transactions, withdrawalEntry],
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+
+    // Persist the withdrawal request as a separate doc so admins can act on
+    // it without parsing the embedded array.
+    await db.collection('withdrawal_requests').doc(withdrawalId).set({
+      withdrawalId,
+      userId,
+      amount,
+      ibanLast4: sanitizedIban.slice(-4),
+      status: 'pending',
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, withdrawalId };
+  } catch (error: unknown) {
+    if (error instanceof HttpsError) throw error;
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error requesting withdrawal:', error);
+    throw new HttpsError('internal', `Failed to request withdrawal: ${message}`);
+  }
+});
+
+// =============================================================================
+// CANCEL PENDING TRANSACTION — Buyer cancels a non-paid transaction
+// =============================================================================
+
+/**
+ * Buyer cancels a transaction that has not been paid yet (e.g. Helcim
+ * checkout failed or was abandoned).
+ *
+ * Authorization: caller must be the buyer of the transaction. We refuse to
+ * cancel transactions whose current status is anything beyond pending —
+ * we cannot mark a paid/shipped/delivered transaction as cancelled this way.
+ */
+export const cancelPendingTransaction = onCall(
+  { memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { transactionId } = request.data ?? {};
+    if (typeof transactionId !== 'string' || transactionId.length === 0) {
+      throw new HttpsError('invalid-argument', 'Transaction ID is required');
+    }
+
+    const txRef = db.collection('transactions').doc(transactionId);
+    const callerUid = request.auth.uid;
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(txRef);
+        if (!snap.exists) {
+          throw new HttpsError('not-found', 'Transaction not found');
+        }
+        const data = snap.data()!;
+        if (data.buyerId !== callerUid) {
+          throw new HttpsError(
+            'permission-denied',
+            'Only the buyer can cancel this transaction'
+          );
+        }
+        const cancellableStatuses = new Set([
+          'pending',
+          'pending_payment',
+          'meetup_pending',
+        ]);
+        if (!cancellableStatuses.has(data.status)) {
+          throw new HttpsError(
+            'failed-precondition',
+            `Cannot cancel transaction in status ${data.status}`
+          );
+        }
+        tx.update(txRef, {
+          status: 'cancelled',
+          cancelledAt: FieldValue.serverTimestamp(),
+        });
+      });
+
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error cancelling transaction:', error);
+      throw new HttpsError('internal', `Failed to cancel: ${message}`);
+    }
+  }
+);

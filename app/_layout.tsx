@@ -6,29 +6,21 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { AuthRequiredProvider } from '@/contexts/AuthRequiredContext';
-import { ChatProvider } from '@/contexts/ChatContext';
-import { LanguageProvider } from '@/contexts/LanguageContext';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import AuthBottomSheet from '@/components/AuthBottomSheet';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAuthListener } from '@/hooks/useAuthListener';
+import { useChatListener } from '@/hooks/useChatListener';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { colors } from '@/constants/theme';
+import { queryClient } from '@/lib/queryClient';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 // Helcim payment is handled via WebView (HelcimPay.js) — no native provider needed
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-// TanStack Query client — shared across all features
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 10 * 60 * 1000, // 10 min
-      retry: 2,
-    },
-  },
-});
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -98,17 +90,17 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-          <ThemeProvider value={CustomNavigationTheme}>
-            <AuthProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+            <ThemeProvider value={CustomNavigationTheme}>
               <AppContent />
-            </AuthProvider>
-          </ThemeProvider>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+            </ThemeProvider>
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }
 
@@ -119,6 +111,12 @@ export default function RootLayout() {
  * Deep linking  : useDeepLinking + Expo Router (file-based routing automatique)
  */
 function AppContent() {
+  // ── Auth : Firebase listener + AsyncStorage bootstrap (single source) ──
+  useAuthListener();
+
+  // ── Chat list : single global listener (replaces ChatContext + useChats) ──
+  useChatListener();
+
   const { user } = useAuth();
 
   // ── Push notifications : listeners, channels, badge, token ──
@@ -128,58 +126,54 @@ function AppContent() {
   useDeepLinking();
 
   return (
-    <LanguageProvider>
-      <ChatProvider>
-        <BottomSheetModalProvider>
-          <AuthRequiredProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: colors.background },
-                  animation: 'slide_from_right',
+    <BottomSheetModalProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+                animation: 'slide_from_right',
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen
+                name="onboarding"
+                options={{ animation: 'fade', gestureEnabled: false }}
+              />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="article/[id]" />
+              <Stack.Screen name="chat/[id]" />
+              <Stack.Screen
+                name="my-articles"
+                options={{ presentation: 'card' }}
+              />
+              <Stack.Screen
+                name="my-orders"
+                options={{ presentation: 'card' }}
+              />
+              <Stack.Screen
+                name="filters"
+                options={{
+                  presentation: 'modal',
+                  animation: 'slide_from_bottom',
                 }}
-              >
-                <Stack.Screen name="index" />
-                <Stack.Screen
-                  name="onboarding"
-                  options={{ animation: 'fade', gestureEnabled: false }}
-                />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="article/[id]" />
-                <Stack.Screen name="chat/[id]" />
-                <Stack.Screen
-                  name="my-articles"
-                  options={{ presentation: 'card' }}
-                />
-                <Stack.Screen
-                  name="my-orders"
-                  options={{ presentation: 'card' }}
-                />
-                <Stack.Screen
-                  name="filters"
-                  options={{
-                    presentation: 'modal',
-                    animation: 'slide_from_bottom',
-                  }}
-                />
+              />
 
-                <Stack.Screen name="shop/[id]" />
-                <Stack.Screen name="settings" />
-                <Stack.Screen
-                  name="sell"
-                  options={{ animation: 'slide_from_bottom' }}
-                />
-                <Stack.Screen name="admin/shops" />
-                <Stack.Screen name="admin/shop-detail/[id]" />
-                <Stack.Screen name="payment/[transactionId]" />
-                <Stack.Screen name="visual-search-results" />
-                <Stack.Screen name="search" />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <StatusBar style="dark" />
-          </AuthRequiredProvider>
-        </BottomSheetModalProvider>
-      </ChatProvider>
-    </LanguageProvider>
+              <Stack.Screen name="shop/[id]" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen
+                name="sell"
+                options={{ animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen name="admin/shops" />
+              <Stack.Screen name="admin/shop-detail/[id]" />
+              <Stack.Screen name="payment/[transactionId]" />
+              <Stack.Screen name="visual-search-results" />
+              <Stack.Screen name="search" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="dark" />
+            {/* Global auth bottom sheet — driven by authSheetStore. */}
+            <AuthBottomSheet />
+    </BottomSheetModalProvider>
   );
 }

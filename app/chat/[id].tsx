@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,7 +9,6 @@ import {
     ActionSheetIOS,
     ActivityIndicator,
     Alert,
-    FlatList,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -37,11 +37,15 @@ import { useChat } from '@/hooks/useChat';
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
 import { TransactionService } from '@/services/transactionService';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 // Import types
 import { Article, Message, MeetupSpot, Transaction } from '@/types';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
+
+// Module-level so the FlashList prop identity stays stable across renders.
+const messageKeyExtractor = (item: Message): string => item.id;
 
 export default function ChatScreen() {
   const [messageText, setMessageText] = useState('');
@@ -50,7 +54,7 @@ export default function ChatScreen() {
   const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
   const [article, setArticle] = useState<Article | null>(null);
 
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<Message>>(null);
   const makeOfferModalRef = useRef<MakeOfferModalRef>(null);
   const reportBottomSheetRef = useRef<ReportBottomSheetRef>(null);
   
@@ -105,11 +109,11 @@ export default function ChatScreen() {
   };
 
   const loadTransaction = async () => {
-    if (!chatId) return;
-    
+    if (!chatId || !user) return;
+
     try {
       setIsLoadingTransaction(true);
-      const trans = await TransactionService.getTransactionByChat(chatId);
+      const trans = await TransactionService.getTransactionByChat(chatId, user.id);
       setTransaction(trans);
     } catch (error) {
       console.error('Error loading transaction:', error);
@@ -231,6 +235,12 @@ export default function ChatScreen() {
   };
 
   const otherParticipant = getOtherParticipant();
+  // Live profile so the avatar reflects the user's CURRENT photo, not
+  // whatever was snapshotted into participantsInfo when the chat was
+  // created.
+  const { data: otherProfile } = useUserProfile(otherParticipant?.userId);
+  const otherAvatar =
+    otherProfile?.profileImage || otherParticipant?.userImage;
 
   // Handle more options (report/block user)
   const handleMoreOptions = useCallback(() => {
@@ -325,32 +335,33 @@ export default function ChatScreen() {
   }, [otherParticipant, user, router]);
 
   // Render message item
-  const renderMessage = ({ item: message }: { item: Message }) => {
-    const isOwnMessage = message.senderId === user?.id;
+  const renderMessage = useCallback(
+    ({ item: message }: ListRenderItemInfo<Message>) => {
+      const isOwnMessage = message.senderId === user?.id;
 
-    // Render offer message
-    if (message.type === 'offer' && message.offer) {
+      if (message.type === 'offer' && message.offer) {
+        return (
+          <OfferBubble
+            message={message}
+            isOwnMessage={isOwnMessage}
+            chatId={chatId || ''}
+            currentUserId={user?.id || ''}
+            onAcceptOffer={handleAcceptOffer}
+            onRejectOffer={handleRejectOffer}
+          />
+        );
+      }
+
       return (
-        <OfferBubble
+        <ChatBubble
           message={message}
           isOwnMessage={isOwnMessage}
-          chatId={chatId || ''}
-          currentUserId={user?.id || ''}
-          onAcceptOffer={handleAcceptOffer}
-          onRejectOffer={handleRejectOffer}
+          senderImage={!isOwnMessage ? otherAvatar : undefined}
         />
       );
-    }
-
-    // Render regular message (text, image, system)
-    return (
-      <ChatBubble
-        message={message}
-        isOwnMessage={isOwnMessage}
-        senderImage={!isOwnMessage ? otherParticipant?.userImage : undefined}
-      />
-    );
-  };
+    },
+    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar]
+  );
 
   // Loading state
   if (isLoading) {
@@ -398,11 +409,17 @@ export default function ChatScreen() {
         >
           {otherParticipant && (
             <>
-              <Image
-                source={{ uri: otherParticipant.userImage || 'https://via.placeholder.com/40' }}
-                style={styles.headerAvatar}
-                contentFit="cover"
-              />
+              {otherAvatar ? (
+                <Image
+                  source={{ uri: otherAvatar }}
+                  style={styles.headerAvatar}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.headerAvatar, styles.headerAvatarPlaceholder]}>
+                  <Ionicons name="person" size={18} color={colors.muted} />
+                </View>
+              )}
               <View style={styles.headerInfo}>
                 <Text style={styles.headerTitle} numberOfLines={1}>
                   {formatDisplayName(otherParticipant.userName)}
@@ -469,14 +486,16 @@ export default function ChatScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
+          <FlashList
             ref={flatListRef}
             data={messages}
             renderItem={renderMessage}
-            keyExtractor={(item) => item.id}
+            keyExtractor={messageKeyExtractor}
             contentContainerStyle={styles.messagesList}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: false })
+            }
             ListHeaderComponent={
               transaction && transaction.status !== 'pending_payment' ? (
                 <ShipmentTracking
@@ -638,6 +657,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     backgroundColor: colors.background,
     marginRight: spacing.md,
+  },
+  headerAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceWarm,
   },
   headerInfo: {
     flex: 1,

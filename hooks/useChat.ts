@@ -1,4 +1,5 @@
 import { ChatService } from '@/services/chatService';
+import { useChatStore } from '@/store/chatStore';
 import { Chat, Message, ShippingAddress, ShippingEstimate } from '@/types';
 import { useEffect, useState } from 'react';
 
@@ -154,43 +155,21 @@ export const useChat = (chatId: string | null, userId: string | null) => {
   };
 };
 
-export const useChats = (userId: string | null) => {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+/**
+ * Read the user's chat list from chatStore. Subscribes to the global
+ * listener mounted once in the root layout via useChatListener — does
+ * NOT spin up its own Firestore subscription anymore (that was the
+ * "double listener" issue flagged in the audit perf #3).
+ *
+ * The `userId` param is kept for API compatibility with the old hook
+ * but is unused: chatStore is already keyed off the authenticated user
+ * via the shared listener.
+ */
+export const useChats = (_userId?: string | null) => {
+  const chats = useChatStore((s) => s.chats);
+  const isLoading = useChatStore((s) => s.isLoading);
+  const error = useChatStore((s) => s.error);
 
-  useEffect(() => {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    // Listen to user's chats in real-time
-    const unsubscribe = ChatService.listenToUserChats(
-      userId,
-      (updatedChats) => {
-        setChats(updatedChats);
-        setIsLoading(false);
-      },
-      (err) => {
-        console.error('Error listening to chats:', err);
-        setError('Erreur lors du chargement des conversations');
-        setIsLoading(false);
-      }
-    );
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [userId]);
-
-  return {
-    chats,
-    isLoading,
-    error,
-  };
+  return { chats, isLoading, error };
 };
 

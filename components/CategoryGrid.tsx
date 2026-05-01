@@ -133,7 +133,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 // MAIN COMPONENT
 // =============================================================================
 
-export const CategoryGrid: React.FC<CategoryGridProps> = ({
+const CategoryGridComponent: React.FC<CategoryGridProps> = ({
   categories,
   onCategoryPress,
   testID,
@@ -154,6 +154,8 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
     </View>
   );
 };
+
+export const CategoryGrid = React.memo(CategoryGridComponent);
 
 // =============================================================================
 // SKELETON
