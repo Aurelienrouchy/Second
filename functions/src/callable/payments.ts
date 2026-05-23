@@ -213,7 +213,7 @@ export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', 
 // FIND PICKUP POINTS — ShipEngine PUDO search
 // =============================================================================
 
-export const findPickupPoints = onCall({ region: 'northamerica-northeast1' }, async (request) => {
+export const findPickupPoints = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   const { postalCode } = request.data;
 
   if (!postalCode) {
