@@ -61,7 +61,7 @@ export default function VisualSearchResultsScreen() {
       const searchResults = await searchByImage(imageUri);
       setResults(searchResults);
     } catch (err: any) {
-      console.error('[VisualSearchResults] Search failed:', err);
+      if (__DEV__) console.error('[VisualSearchResults] Search failed:', err);
       setError(err.message || "Impossible d'analyser l'image");
     } finally {
       setIsLoading(false);

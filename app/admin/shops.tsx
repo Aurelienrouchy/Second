@@ -90,7 +90,7 @@ export default function AdminShopsScreen() {
 
       setShops(fetchedShops);
     } catch (error) {
-      console.error('Error loading shops:', error);
+      if (__DEV__) console.error('Error loading shops:', error);
       Alert.alert('Erreur', 'Impossible de charger les boutiques');
     } finally {
       setIsLoading(false);
@@ -115,7 +115,7 @@ export default function AdminShopsScreen() {
               Alert.alert('Succès', 'La boutique a été approuvée');
               loadShops();
             } catch (error) {
-              console.error('Error approving shop:', error);
+              if (__DEV__) console.error('Error approving shop:', error);
               Alert.alert('Erreur', 'Impossible d\'approuver la boutique');
             }
           },
@@ -138,7 +138,7 @@ export default function AdminShopsScreen() {
       Alert.alert('Succès', 'La boutique a été rejetée');
       loadShops();
     } catch (error) {
-      console.error('Error rejecting shop:', error);
+      if (__DEV__) console.error('Error rejecting shop:', error);
       Alert.alert('Erreur', 'Impossible de rejeter la boutique');
     }
   };

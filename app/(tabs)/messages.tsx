@@ -93,7 +93,7 @@ export default function MessagesScreen() {
       case 'image':
         return '[Photo]';
       case 'offer':
-        return '[Offre envoyee]';
+        return '[Offre envoyée]';
       case 'system':
         return chat.lastMessage;
       default:
@@ -327,7 +327,7 @@ function getLastMessagePreviewStatic(chat: Chat): string {
     case 'image':
       return '[Photo]';
     case 'offer':
-      return '[Offre envoyee]';
+      return '[Offre envoyée]';
     case 'system':
       return chat.lastMessage;
     default:

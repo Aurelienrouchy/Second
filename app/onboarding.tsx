@@ -164,7 +164,7 @@ export default function OnboardingScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)');
     } catch (err) {
-      console.error('Error saving onboarding preferences:', err);
+      if (__DEV__) console.error('Error saving onboarding preferences:', err);
       // Still navigate even if save fails
       router.replace('/(tabs)');
     } finally {
@@ -268,7 +268,7 @@ export default function OnboardingScreen() {
 
           {/* Size system toggle */}
           <Animated.View entering={FadeInDown.duration(400).delay(130)} style={styles.sizeSection}>
-            <Text style={styles.sectionLabel}>SYSTEME DE TAILLE</Text>
+            <Text style={styles.sectionLabel}>SYSTÈME DE TAILLE</Text>
             <View style={styles.sizeSystemRow}>
               {SIZE_SYSTEM_OPTIONS.map(opt => (
                 <Pressable

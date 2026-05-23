@@ -40,7 +40,7 @@ export default function AdminLayout() {
         setState(isAdmin ? 'allowed' : 'denied');
       })
       .catch((error) => {
-        console.error('[AdminLayout] admin check failed:', error);
+        if (__DEV__) console.error('[AdminLayout] admin check failed:', error);
         if (cancelled) return;
         setState('denied');
       });

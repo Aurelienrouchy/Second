@@ -27,6 +27,7 @@ import { colors, spacing, typography, radius, animations, sizing } from '@/const
 import { SectionHeader } from '@/components/home/SectionHeader';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { formatPrice } from '@/utils/formatPrice';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { usePriceDrops, PriceDropArticle } from './usePriceDrops';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
@@ -150,9 +151,9 @@ const PriceDropCard = React.memo<PriceDropCardProps>(({ article, index }) => {
               {article.title}
             </Text>
             <View style={styles.priceRow}>
-              <Text style={styles.price}>{article.price.toFixed(2)}€</Text>
+              <Text style={styles.price}>{formatPrice(article.price)}</Text>
               <Text style={styles.originalPrice} numberOfLines={1}>
-                {article.originalPrice.toFixed(2)}€
+                {formatPrice(article.originalPrice)}
               </Text>
             </View>
           </View>

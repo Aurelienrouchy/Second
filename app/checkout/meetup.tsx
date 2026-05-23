@@ -73,7 +73,7 @@ export default function MeetupCheckoutScreen() {
           }
         }
       } catch (error) {
-        console.error('Error loading article:', error);
+        if (__DEV__) console.error('Error loading article:', error);
       } finally {
         setLoading(false);
       }
@@ -147,7 +147,7 @@ export default function MeetupCheckoutScreen() {
         },
       });
     } catch (error: any) {
-      console.error('Error creating meetup transaction:', error);
+      if (__DEV__) console.error('Error creating meetup transaction:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erreur', error.message || 'Impossible de confirmer le meetup.');
     } finally {

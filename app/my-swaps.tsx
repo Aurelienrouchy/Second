@@ -26,6 +26,7 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Button } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDisplayName } from '@/utils/formatName';
+import { formatPrice } from '@/utils/formatPrice';
 
 const STATUS_LABELS: Record<SwapStatus, string> = {
   proposed: 'En attente',
@@ -383,8 +384,8 @@ function SwapCard({
       <View style={styles.swapFooter}>
         <Text variant="body" style={styles.itemPrices}>
           {isMultiArticle
-            ? `${myItems.length} article${myItems.length > 1 ? 's' : ''} · ${myTotal}€ ↔ ${theirItems.length} article${theirItems.length > 1 ? 's' : ''} · ${theirTotal}€`
-            : `${myTotal}€ ↔ ${theirTotal}€`}
+            ? `${myItems.length} article${myItems.length > 1 ? 's' : ''} · ${formatPrice(myTotal)} ↔ ${theirItems.length} article${theirItems.length > 1 ? 's' : ''} · ${formatPrice(theirTotal)}`
+            : `${formatPrice(myTotal)} ↔ ${formatPrice(theirTotal)}`}
         </Text>
         <Caption style={styles.swapDate}>{formatDate(swap.createdAt)}</Caption>
       </View>

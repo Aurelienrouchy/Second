@@ -84,7 +84,7 @@ export default function PhotosReviewScreen() {
         });
       }
     } catch (error) {
-      console.error('Error picking images:', error);
+      if (__DEV__) console.error('Error picking images:', error);
     }
   };
 

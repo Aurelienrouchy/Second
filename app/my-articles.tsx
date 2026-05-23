@@ -52,7 +52,7 @@ export default function MyArticlesScreen() {
   const handleDeleteArticle = (article: Article) => {
     Alert.alert(
       'Supprimer l\'article',
-      `Etes-vous sur de vouloir supprimer "${article.title}" ?`,
+      `Êtes-vous sûr de vouloir supprimer "${article.title}" ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -189,7 +189,7 @@ export default function MyArticlesScreen() {
                   {item.title}
                 </Text>
                 <Text style={styles.articlePrice}>{formatPrice(item.price)}</Text>
-                <Text style={styles.articleSize}>{item.size || 'Taille non specifiee'}</Text>
+                <Text style={styles.articleSize}>{item.size || 'Taille non spécifiée'}</Text>
                 <View style={styles.articleStats}>
                   <View style={styles.articleStatRow}>
                     <Ionicons name="eye-outline" size={14} color={colors.muted} />
@@ -290,7 +290,7 @@ export default function MyArticlesScreen() {
           <Ionicons name="cube-outline" size={48} color={colors.muted} style={styles.emptyIcon} />
           <Text style={styles.emptyTitle}>Aucun article</Text>
           <Text style={styles.emptyText}>
-            {'Vous n\'avez pas encore publie d\'articles.\nCommencez a vendre maintenant !'}
+            {'Vous n\'avez pas encore publié d\'articles.\nCommencez à vendre maintenant !'}
           </Text>
           <Pressable
             style={({ pressed }) => [

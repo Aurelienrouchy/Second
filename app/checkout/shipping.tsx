@@ -98,7 +98,7 @@ export default function ShippingCheckoutScreen() {
           setArticle({ id: articleDoc.id, ...articleDoc.data() } as Article);
         }
       } catch (error) {
-        console.error('Error loading article:', error);
+        if (__DEV__) console.error('Error loading article:', error);
       } finally {
         setLoading(false);
       }
@@ -129,7 +129,7 @@ export default function ShippingCheckoutScreen() {
         setSelectedEstimate(data.rates[0]);
       }
     } catch (error) {
-      console.error('Error fetching shipping estimates:', error);
+      if (__DEV__) console.error('Error fetching shipping estimates:', error);
       // Fallback estimates
       const fallback: ShippingEstimate[] = [
         {
@@ -251,7 +251,7 @@ export default function ShippingCheckoutScreen() {
       setCheckoutToken(data.checkoutToken);
       setShowHelcimPayment(true);
     } catch (error: any) {
-      console.error('Error initiating payment:', error);
+      if (__DEV__) console.error('Error initiating payment:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erreur', error.message || 'Impossible d\'initier le paiement.');
     } finally {

@@ -315,7 +315,7 @@ export default function EditArticleScreen() {
             onSave={(value) => updateField('price', parseFloat(value) || 0)}
             placeholder="0"
             keyboardType="numeric"
-            suffix="€"
+            suffix="$"
             required
           />
 

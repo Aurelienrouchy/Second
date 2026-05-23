@@ -342,7 +342,7 @@ export default function ProfileScreen() {
                 <View style={styles.statDivider} />
                 <StatItem
                   value={user.sellerLikesCount ?? 0}
-                  label="Abonnes"
+                  label="Abonnés"
                   delay={300}
                 />
               </View>

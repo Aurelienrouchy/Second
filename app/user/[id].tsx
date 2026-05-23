@@ -135,7 +135,7 @@ export default function UserProfileScreen() {
     try {
       const name = formatDisplayName(profileUser.displayName);
       await Share.share({
-        message: `Decouvre le profil de ${name} sur Seconde !`,
+        message: `Découvre le profil de ${name} sur Seconde !`,
         url: `https://seconde.app/user/${id}`,
       });
     } catch {
@@ -149,7 +149,7 @@ export default function UserProfileScreen() {
       'Signaler cet utilisateur',
       'Pour quelle raison souhaitez-vous signaler ce profil ?',
       [
-        { text: 'Contenu inapproprie', onPress: () => { if (__DEV__) console.log('Report: inappropriate'); } },
+        { text: 'Contenu inapproprié', onPress: () => { if (__DEV__) console.log('Report: inappropriate'); } },
         { text: 'Comportement suspect', onPress: () => { if (__DEV__) console.log('Report: suspicious'); } },
         { text: 'Spam', onPress: () => { if (__DEV__) console.log('Report: spam'); } },
         { text: 'Annuler', style: 'cancel' },
