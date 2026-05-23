@@ -1,9 +1,10 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import DraftResumeModal from '@/components/DraftResumeModal';
 import draftService, { ArticleDraft } from '@/services/draftService';
-import { colors } from '@/constants/theme';
+import { colors, radius } from '@/constants/theme';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 /**
  * Sell Tab Entry Point
@@ -105,7 +106,7 @@ export default function SellTabScreen() {
   return (
     <View style={styles.container}>
       {isChecking && !showModal && (
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Skeleton width={48} height={48} borderRadius={radius.md} />
       )}
 
       <DraftResumeModal

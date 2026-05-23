@@ -12,7 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   StyleSheet,
   View,
@@ -20,6 +19,7 @@ import {
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDisplayName } from '@/utils/formatName';
+import { Skeleton, SkeletonAvatar } from '@/components/ui/Skeleton';
 
 export default function BlockedUsersScreen() {
   const user = useUser();
@@ -121,9 +121,17 @@ export default function BlockedUsersScreen() {
       <Stack.Screen options={{ title: 'Utilisateurs bloqués' }} />
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text variant="body" style={styles.loadingText}>Chargement...</Text>
+        <View style={styles.skeletonContainer}>
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={styles.skeletonRow}>
+              <SkeletonAvatar size={sizing.avatarMD} />
+              <View style={styles.skeletonRowText}>
+                <Skeleton width="50%" height={14} />
+                <Skeleton width="35%" height={12} style={{ marginTop: spacing.xs }} />
+              </View>
+              <Skeleton width={90} height={36} borderRadius={radius.md} />
+            </View>
+          ))}
         </View>
       ) : (
         <FlashList
@@ -164,14 +172,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  skeletonContainer: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     gap: spacing.md,
   },
-  loadingText: {
-    color: colors.foregroundSecondary,
+  skeletonRowText: {
+    flex: 1,
   },
   list: {
     padding: spacing.md,

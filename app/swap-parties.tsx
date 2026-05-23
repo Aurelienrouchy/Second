@@ -9,7 +9,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
   Text as RNText,
 } from 'react-native';
@@ -26,7 +25,8 @@ import {
 } from '@/services/swapService';
 import { queryKeys } from '@/lib/queryKeys';
 import { SwapParty } from '@/types';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { ZoneCard, FilterTabs } from '@/features/swap-parties';
 import type { FilterTab } from '@/features/swap-parties';
 
@@ -90,8 +90,28 @@ export default function SwapPartiesScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.cream} />
+        {/* Header skeleton */}
+        <View style={styles.header}>
+          <Skeleton width={36} height={36} borderRadius={50} style={styles.skeletonDark} />
+          <Skeleton width={140} height={24} borderRadius={radius.sm} style={styles.skeletonDark} />
+        </View>
+
+        {/* Filter tabs skeleton */}
+        <View style={styles.skeletonFilterRow}>
+          <Skeleton width={60} height={32} borderRadius={radius.full} style={styles.skeletonDark} />
+          <Skeleton width={70} height={32} borderRadius={radius.full} style={styles.skeletonDark} />
+          <Skeleton width={80} height={32} borderRadius={radius.full} style={styles.skeletonDark} />
+        </View>
+
+        {/* Zone cards skeleton */}
+        <View style={styles.skeletonCards}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={styles.skeletonCard}>
+              <Skeleton width="100%" height={200} borderRadius={radius.md} style={styles.skeletonDark} />
+              <Skeleton width="60%" height={18} borderRadius={radius.sm} style={styles.skeletonDarkSpaced} />
+              <Skeleton width={80} height={24} borderRadius={radius.full} style={styles.skeletonDarkSpaced} />
+            </View>
+          ))}
         </View>
       </SafeAreaView>
     );
@@ -158,10 +178,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#131510',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  skeletonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  skeletonDarkSpaced: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginTop: spacing.sm,
+  },
+  skeletonFilterRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  skeletonCards: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: 10,
+  },
+  skeletonCard: {
+    marginBottom: spacing.sm,
   },
   header: {
     flexDirection: 'row',

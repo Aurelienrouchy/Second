@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -14,7 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
-import { colors } from '@/constants/theme';
+import { colors, spacing, radius } from '@/constants/theme';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const CARRIERS = [
   { id: 'postes_canada_bureau', name: 'Postes Canada — Bureau de poste', description: 'Retrait en bureau de poste · 200+ points à Montréal' },
@@ -95,7 +95,17 @@ export default function ShippingOptionsScreen() {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+          <View style={styles.skeletonCards}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={styles.carrierItem}>
+                <View style={styles.carrierInfo}>
+                  <Skeleton width="65%" height={16} />
+                  <Skeleton width="90%" height={13} style={{ marginTop: spacing.xs }} />
+                </View>
+                <Skeleton width={51} height={31} borderRadius={16} />
+              </View>
+            ))}
+          </View>
         ) : (
           <View style={styles.carriersList}>
             {CARRIERS.map((carrier) => (
@@ -159,6 +169,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: colors.foreground,
+  },
+  skeletonCards: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
   carriersList: {
     backgroundColor: '#fff',

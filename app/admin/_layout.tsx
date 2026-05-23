@@ -11,7 +11,9 @@ import { colors } from '@/constants/theme';
 import { UserService } from '@/services/userService';
 import { Redirect, Slot } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { radius } from '@/constants/theme';
 
 type GuardState = 'checking' | 'allowed' | 'denied';
 
@@ -53,7 +55,7 @@ export default function AdminLayout() {
   if (state === 'checking') {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Skeleton width={48} height={48} borderRadius={radius.md} />
       </View>
     );
   }

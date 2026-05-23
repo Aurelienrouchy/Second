@@ -14,14 +14,14 @@ import {
   Text,
   StyleSheet,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, radius } from '@/constants/theme';
+import { Skeleton } from '@/components/ui/Skeleton';
 import BlurOverlay from '@/components/sell/BlurOverlay';
 import CameraGuides from '@/components/sell/CameraGuides';
 import draftService, { ArticleDraft, createEmptyDraft } from '@/services/draftService';
@@ -182,7 +182,12 @@ export default function CaptureScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={colors.cream} />
+          <Skeleton
+            width={200}
+            height={200}
+            borderRadius={radius.lg}
+            style={styles.skeletonCamera}
+          />
         </View>
       </View>
     );
@@ -296,6 +301,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.cream,
     letterSpacing: 0.3,
+  },
+  skeletonCamera: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   bottomSection: {
     position: 'absolute',

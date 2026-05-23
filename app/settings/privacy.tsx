@@ -11,7 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -20,6 +19,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface RgpdItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -98,8 +98,24 @@ export default function PrivacySettingsScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={styles.skeletonContent}>
+          <View style={styles.settingsList}>
+            {[0, 1, 2, 3].map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.settingItem,
+                  i === 3 && styles.settingItemLast,
+                ]}
+              >
+                <View style={styles.settingInfo}>
+                  <Skeleton width="55%" height={14} />
+                  <Skeleton width="70%" height={12} style={{ marginTop: spacing.xs }} />
+                </View>
+                <Skeleton width={51} height={31} borderRadius={16} />
+              </View>
+            ))}
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -200,10 +216,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  skeletonContent: {
+    padding: spacing.md,
   },
   scrollView: {
     flex: 1,
