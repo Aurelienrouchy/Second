@@ -113,7 +113,7 @@ export default function PhoneSettingsScreen() {
               <Text style={styles.label}>Numéro de téléphone</Text>
               <View style={styles.phoneRow}>
                 <View style={styles.countryCode}>
-                  <Text style={styles.countryCodeText}>🇨🇦 +1</Text>
+                  <Text style={styles.countryCodeText}>CA +1</Text>
                 </View>
                 <TextInput
                   style={[styles.input, styles.phoneInput]}
