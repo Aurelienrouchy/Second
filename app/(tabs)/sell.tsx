@@ -1,4 +1,3 @@
-import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -8,101 +7,49 @@ import { colors } from '@/constants/theme';
 
 /**
  * Sell Tab Entry Point
- * - Checks authentication
- * - Checks for existing draft
- * - Shows resume modal or navigates to capture
+ *
+ * Auth is handled by the tab layout (tabPress listener intercepts
+ * unauthenticated taps and shows the auth sheet before navigating).
+ * This screen only runs when the user is authenticated.
  */
 export default function SellTabScreen() {
-  const { isLoggedIn, isLoading, requireAuth } = useAuthRequired();
   const router = useRouter();
 
   const [draft, setDraft] = useState<ArticleDraft | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
 
-  // Refs to prevent stale closures and multiple checks
   const isCheckingRef = useRef(false);
   const showModalRef = useRef(false);
-  const routerRef = useRef(router);
-  const requireAuthRef = useRef(requireAuth);
 
-  // Keep refs updated
-  routerRef.current = router;
-  requireAuthRef.current = requireAuth;
-
-  // Single useFocusEffect with cleanup
   useFocusEffect(
     useCallback(() => {
-      if (__DEV__) console.log('[SellTab] useFocusEffect triggered', { isLoading, isLoggedIn, isCheckingRef: isCheckingRef.current });
-
-      // Don't do anything while auth is loading
-      if (isLoading) {
-        if (__DEV__) console.log('[SellTab] Auth is loading, returning early');
-        return;
-      }
-
-      // Prevent multiple simultaneous checks or if modal is showing
-      if (isCheckingRef.current || showModalRef.current) {
-        if (__DEV__) console.log('[SellTab] Already checking or modal showing, skipping', {
-          isChecking: isCheckingRef.current,
-          showModal: showModalRef.current
-        });
-        return;
-      }
+      if (isCheckingRef.current || showModalRef.current) return;
 
       const checkDraftAndNavigate = async () => {
-        if (__DEV__) console.log('[SellTab] checkDraftAndNavigate START', { isLoggedIn, isLoading });
-
-        // Not logged in - show auth sheet
-        if (!isLoggedIn) {
-          if (__DEV__) console.log('[SellTab] User not logged in, showing auth sheet');
-          requireAuthRef.current(
-            () => {
-              routerRef.current.replace('/sell/capture');
-            },
-            'Connectez-vous pour vendre un article'
-          );
-          return;
-        }
-
-        // Logged in - check for existing draft
-        if (__DEV__) console.log('[SellTab] User logged in, setting isChecking=true');
         isCheckingRef.current = true;
         setIsChecking(true);
 
         try {
-          if (__DEV__) console.log('[SellTab] Calling draftService.loadDraft()...');
           const existingDraft = await draftService.loadDraft();
-          if (__DEV__) console.log('[SellTab] loadDraft() returned:', existingDraft ? `Draft with ${existingDraft.photos.length} photos` : 'null');
 
           if (existingDraft && existingDraft.photos.length > 0) {
-            // Has draft with photos - show modal
-            if (__DEV__) console.log('[SellTab] Showing draft resume modal');
             setDraft(existingDraft);
             showModalRef.current = true;
             setShowModal(true);
           } else {
-            // No draft - go to capture
-            if (__DEV__) console.log('[SellTab] No draft, navigating to /sell/capture');
-            routerRef.current.replace('/sell/capture');
+            router.replace('/sell/capture');
           }
-        } catch (error) {
-          if (__DEV__) console.error('[SellTab] Error checking draft:', error);
-          routerRef.current.replace('/sell/capture');
+        } catch {
+          router.replace('/sell/capture');
         } finally {
-          if (__DEV__) console.log('[SellTab] Finally block, resetting isChecking');
           isCheckingRef.current = false;
           setIsChecking(false);
         }
       };
 
       checkDraftAndNavigate();
-
-      return () => {
-        if (__DEV__) console.log('[SellTab] Cleanup function called');
-        // Don't reset isCheckingRef here - let the async function complete
-      };
-    }, [isLoading, isLoggedIn])
+    }, [router])
   );
 
   const handleResume = useCallback(() => {
@@ -157,7 +104,7 @@ export default function SellTabScreen() {
 
   return (
     <View style={styles.container}>
-      {(isLoading || isChecking) && !showModal && (
+      {isChecking && !showModal && (
         <ActivityIndicator size="large" color={colors.primary} />
       )}
 

@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/TabBarIcons';
 import { colors, fonts, radius } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/store/authStore';
+import { useAuthSheetStore } from '@/store/authSheetStore';
+import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useChatStore, selectUnreadChatCount } from '@/store/chatStore';
 
 // ── Badge component for tab icons ──
@@ -111,6 +114,17 @@ export default function TabLayout() {
           title: 'Vendre',
           tabBarIcon: () => <SellTabIcon />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (!useAuthStore.getState().user) {
+              e.preventDefault();
+              useAuthSheetStore.getState().show(
+                AUTH_MESSAGES.sell,
+                () => navigation.navigate('sell')
+              );
+            }
+          },
+        })}
       />
       <Tabs.Screen
         name="favorites"
