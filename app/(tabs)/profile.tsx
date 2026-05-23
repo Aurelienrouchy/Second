@@ -11,6 +11,7 @@
  * - Sign out button with danger border
  */
 
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
@@ -19,12 +20,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
-import { ScreenHeader } from '@/components/ui';
+import { ScreenHeader, Text } from '@/components/ui';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useAuthActions } from '@/contexts/AuthContext';
@@ -126,7 +126,7 @@ export default function ProfileScreen() {
         icon: 'help-circle-outline',
         iconColor: colors.charcoal,
         iconBg: 'rgba(26, 24, 20, 0.04)',
-        action: () => router.push('/settings/help' as any),
+        action: () => router.push('/settings/help'),
       },
     ],
     [router],
@@ -159,7 +159,7 @@ export default function ProfileScreen() {
               bio={user.bio}
               createdAt={user.createdAt}
               articlesCount={user.articlesCount ?? 0}
-              salesCount={0}
+              salesCount={user.salesCount ?? 0}
               rating={user.rating}
               followersCount={user.sellerLikesCount ?? 0}
             />
@@ -188,7 +188,7 @@ export default function ProfileScreen() {
           entering={FadeIn.duration(300).delay(500)}
           style={styles.versionContainer}
         >
-          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={styles.versionText}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </Animated.View>
 
         <View style={styles.bottomPadding} />

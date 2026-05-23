@@ -58,10 +58,12 @@ export interface User {
   preferences?: UserPreferences;
   styleProfile?: StyleProfile;
   onboardingCompleted?: boolean;
+  authProvider?: 'email' | 'google' | 'apple';
   fcmTokens?: string[];  // Firebase Cloud Messaging tokens for push notifications
   likedSellers?: string[];     // IDs des vendeurs aimés
   sellerLikesCount?: number;   // Nombre de likes reçus en tant que vendeur
   articlesCount?: number;      // Nombre d'articles actifs
+  salesCount?: number;         // Nombre de ventes réalisées
 }
 
 export interface ArticleImage {

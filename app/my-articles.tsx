@@ -20,12 +20,10 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { ScreenHeader, Skeleton, Text } from '@/components/ui';
 
 export default function MyArticlesScreen() {
   const user = useUser();

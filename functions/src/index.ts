@@ -35,12 +35,13 @@ export { visualSearch, getSimilarProducts } from './callable/search';
 export { incrementProductView, toggleProductLike, markSavedSearchViewed } from './callable/products';
 
 // Swap Functions
-export { proposeMultiSwap, getActiveSwapPartyInfo, getSwapPartyLeaderboard } from './callable/swaps';
+export { proposeMultiSwap, acceptSwap, getActiveSwapPartyInfo, getSwapPartyLeaderboard } from './callable/swaps';
 
 // Payment & Shipping Functions
 export {
   getShippingEstimate,
   getServiceFee,
+  createTransaction,
   createHelcimCheckout,
   findPickupPoints,
   checkTrackingStatus,

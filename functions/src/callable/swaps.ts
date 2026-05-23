@@ -4,15 +4,88 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
+
+/** Strip undefined values (Firestore rejects undefined) */
+const stripUndefined = <T extends Record<string, any>>(obj: T): T =>
+  Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+
+/** Resolve items arrays with backward compat for legacy single-item swaps */
+function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
+  if (side === 'initiator') {
+    return swap.initiatorItems || (swap.initiatorItem ? [swap.initiatorItem] : []);
+  }
+  return swap.receiverItems || (swap.receiverItem ? [swap.receiverItem] : []);
+}
+
+/**
+ * Validate that all articles in a list are available (exist, isActive, not isSold).
+ * Must be called inside a transaction; reads via the transaction handle.
+ */
+async function validateArticlesAvailable(
+  tx: FirebaseFirestore.Transaction,
+  items: { articleId: string; title?: string }[],
+  label: string
+): Promise<void> {
+  for (const item of items) {
+    const articleRef = db.collection('articles').doc(item.articleId);
+    const articleSnap = await tx.get(articleRef);
+
+    if (!articleSnap.exists) {
+      throw new HttpsError(
+        'not-found',
+        `${label} : l'article "${item.title || item.articleId}" n'existe plus`
+      );
+    }
+
+    const data = articleSnap.data()!;
+    if (data.isActive === false) {
+      throw new HttpsError(
+        'failed-precondition',
+        `${label} : l'article "${item.title || item.articleId}" n'est plus actif`
+      );
+    }
+    if (data.isSold === true) {
+      throw new HttpsError(
+        'failed-precondition',
+        `${label} : l'article "${item.title || item.articleId}" a déjà été vendu`
+      );
+    }
+  }
+}
+
+/**
+ * Check if either user has blocked the other.
+ * Reads user docs to inspect blockedUsers arrays.
+ */
+async function areUsersBlocked(userId1: string, userId2: string): Promise<boolean> {
+  const [user1Snap, user2Snap] = await Promise.all([
+    db.collection('users').doc(userId1).get(),
+    db.collection('users').doc(userId2).get(),
+  ]);
+
+  const blockedBy1 = user1Snap.data()?.blockedUsers || [];
+  const blockedBy2 = user2Snap.data()?.blockedUsers || [];
+
+  return (
+    blockedBy1.some((u: any) => u.userId === userId2 || u === userId2) ||
+    blockedBy2.some((u: any) => u.userId === userId1 || u === userId1)
+  );
+}
 
 /**
  * Propose a multi-article swap
- * Supports swapping multiple items on each side with validation
+ * Supports swapping multiple items on each side with validation.
+ * Uses runTransaction to atomically verify article availability before creating the swap.
  */
 export const proposeMultiSwap = onCall(
   { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
     const {
       initiatorId,
       initiatorName,
@@ -27,12 +100,24 @@ export const proposeMultiSwap = onCall(
       partyId,
     } = request.data;
 
+    // Auth: initiatorId must match the authenticated user
+    if (initiatorId !== request.auth.uid) {
+      throw new HttpsError(
+        'permission-denied',
+        'L\'initiateur doit correspondre à l\'utilisateur authentifié'
+      );
+    }
+
     // Validate required fields
     if (!initiatorId || !initiatorName || !receiverId || !receiverName) {
       throw new HttpsError(
         'invalid-argument',
         'Missing required user information'
       );
+    }
+
+    if (initiatorId === receiverId) {
+      throw new HttpsError('invalid-argument', 'Impossible de proposer un échange avec soi-même');
     }
 
     if (!Array.isArray(initiatorItems) || initiatorItems.length === 0) {
@@ -44,88 +129,63 @@ export const proposeMultiSwap = onCall(
     }
 
     try {
-      // Validate all items exist in articles collection
-      const articlesRef = admin.firestore().collection('articles');
-
-      for (const item of initiatorItems) {
-        const articleDoc = await articlesRef.doc(item.articleId).get();
-        if (!articleDoc.exists) {
-          throw new HttpsError(
-            'not-found',
-            `Initiator item ${item.articleId} not found`
-          );
-        }
-        // Verify article is active and not already swapped
-        const articleData = articleDoc.data()!;
-        if (!articleData.isActive) {
-          throw new HttpsError(
-            'failed-precondition',
-            `Initiator item "${item.title}" is no longer active`
-          );
-        }
+      // Check user blocking BEFORE the transaction (not a transactional read, acceptable here
+      // because blocking is a social feature, not a financial invariant)
+      const blocked = await areUsersBlocked(initiatorId, receiverId);
+      if (blocked) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Impossible de proposer un échange avec cet utilisateur'
+        );
       }
 
-      for (const item of receiverItems) {
-        const articleDoc = await articlesRef.doc(item.articleId).get();
-        if (!articleDoc.exists) {
-          throw new HttpsError(
-            'not-found',
-            `Receiver item ${item.articleId} not found`
-          );
-        }
-        // Verify article is active and not already swapped
-        const articleData = articleDoc.data()!;
-        if (!articleData.isActive) {
-          throw new HttpsError(
-            'failed-precondition',
-            `Receiver item "${item.title}" is no longer active`
-          );
-        }
-      }
+      // Use runTransaction to atomically verify all articles and create the swap
+      const swapId = await db.runTransaction(async (tx) => {
+        // Validate all articles are available (exist + isActive + !isSold)
+        await validateArticlesAvailable(tx, initiatorItems, 'Article proposé');
+        await validateArticlesAvailable(tx, receiverItems, 'Article demandé');
 
-      // Calculate total values
-      const initiatorTotalValue = initiatorItems.reduce(
-        (sum, item) => sum + (item.price || 0),
-        0
-      );
-      const receiverTotalValue = receiverItems.reduce(
-        (sum, item) => sum + (item.price || 0),
-        0
-      );
+        // Calculate total values
+        const initiatorTotalValue = initiatorItems.reduce(
+          (sum: number, item: any) => sum + (item.price || 0),
+          0
+        );
+        const receiverTotalValue = receiverItems.reduce(
+          (sum: number, item: any) => sum + (item.price || 0),
+          0
+        );
 
-      /** Strip undefined values (Firestore rejects undefined) */
-      const stripUndefined = <T extends Record<string, any>>(obj: T): T =>
-        Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+        // Build swap document
+        const swapData = stripUndefined({
+          initiatorId,
+          initiatorName,
+          initiatorImage,
+          initiatorItems: initiatorItems.map(stripUndefined),
+          initiatorTotalValue,
+          receiverId,
+          receiverName,
+          receiverImage,
+          receiverItems: receiverItems.map(stripUndefined),
+          receiverTotalValue,
+          status: 'proposed',
+          message,
+          cashTopUp: cashTopUp ? { amount: cashTopUp.amount, payerId: cashTopUp.payerId } : undefined,
+          partyId,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
 
-      // Build swap document
-      const swapData = stripUndefined({
-        initiatorId,
-        initiatorName,
-        initiatorImage,
-        initiatorItems: initiatorItems.map(stripUndefined),
-        initiatorTotalValue,
-        receiverId,
-        receiverName,
-        receiverImage,
-        receiverItems: receiverItems.map(stripUndefined),
-        receiverTotalValue,
-        status: 'proposed',
-        message,
-        cashTopUp: cashTopUp ? { amount: cashTopUp.amount, payerId: cashTopUp.payerId } : undefined,
-        partyId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Create swap document inside transaction
+        const newSwapRef = db.collection('swaps').doc();
+        tx.set(newSwapRef, swapData);
+
+        return newSwapRef.id;
       });
 
-      // Create swap document
-      const swapsRef = admin.firestore().collection('swaps');
-      const newSwapRef = await swapsRef.add(swapData);
-
-      // Mark all items as isPending in party if partyId is provided
+      // Mark party items as pending AFTER transaction succeeds (non-critical, outside tx)
       if (partyId) {
-        const partyItemsRef = admin.firestore().collection('swapPartyItems');
+        const partyItemsRef = db.collection('swapPartyItems');
 
-        // Mark initiator items as pending
         for (const item of initiatorItems) {
           const partyItemQuery = await partyItemsRef
             .where('partyId', '==', partyId)
@@ -133,12 +193,11 @@ export const proposeMultiSwap = onCall(
             .where('sellerId', '==', initiatorId)
             .get();
 
-          for (const doc of partyItemQuery.docs) {
-            await doc.ref.update({ isPending: true });
+          for (const d of partyItemQuery.docs) {
+            await d.ref.update({ isPending: true });
           }
         }
 
-        // Mark receiver items as pending
         for (const item of receiverItems) {
           const partyItemQuery = await partyItemsRef
             .where('partyId', '==', partyId)
@@ -146,26 +205,136 @@ export const proposeMultiSwap = onCall(
             .where('sellerId', '==', receiverId)
             .get();
 
-          for (const doc of partyItemQuery.docs) {
-            await doc.ref.update({ isPending: true });
+          for (const d of partyItemQuery.docs) {
+            await d.ref.update({ isPending: true });
           }
         }
       }
 
+      logger.info('Swap proposal created', { swapId, initiatorId, receiverId });
+
       return {
-        swapId: newSwapRef.id,
+        swapId,
         success: true,
         message: 'Swap proposal created successfully',
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error proposing multi-swap:', error);
-
       if (error instanceof HttpsError) {
         throw error;
       }
 
-      throw new HttpsError('internal', 'Failed to propose swap: ' + message);
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error proposing multi-swap', { error: errMsg, initiatorId, receiverId });
+      throw new HttpsError('internal', 'Failed to propose swap: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Accept a swap — callable by the receiver only.
+ * Uses runTransaction to atomically verify:
+ *   1. The swap exists and is still in 'proposed' status
+ *   2. ALL articles on both sides are still available (exist + isActive + !isSold)
+ * Then transitions the swap to 'accepted'.
+ */
+export const acceptSwap = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+
+    try {
+      await db.runTransaction(async (tx) => {
+        // 1. Read the swap
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+
+        // 2. Auth: only the receiver can accept
+        if (swap.receiverId !== request.auth!.uid) {
+          throw new HttpsError(
+            'permission-denied',
+            'Seul le destinataire peut accepter cet échange'
+          );
+        }
+
+        // 3. Status must be 'proposed'
+        if (swap.status !== 'proposed') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible d'accepter un échange en statut "${swap.status}"`
+          );
+        }
+
+        // 4. Validate ALL articles on both sides are still available
+        const initiatorItems = getSwapItems(swap, 'initiator');
+        const receiverItems = getSwapItems(swap, 'receiver');
+
+        await validateArticlesAvailable(tx, initiatorItems, 'Article du proposant');
+        await validateArticlesAvailable(tx, receiverItems, 'Votre article');
+
+        // 5. Transition to accepted
+        tx.update(swapRef, {
+          status: 'accepted',
+          acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+
+      // Mark party items as swapped AFTER transaction succeeds (non-critical)
+      const swapSnap = await db.collection('swaps').doc(swapId).get();
+      const swap = swapSnap.data();
+
+      if (swap?.partyId) {
+        const partyItemsRef = db.collection('swapPartyItems');
+
+        const initiatorItems = getSwapItems(swap, 'initiator');
+        for (const item of initiatorItems) {
+          const q = await partyItemsRef
+            .where('partyId', '==', swap.partyId)
+            .where('articleId', '==', item.articleId)
+            .where('sellerId', '==', swap.initiatorId)
+            .get();
+          for (const d of q.docs) {
+            await d.ref.update({ isSwapped: true });
+          }
+        }
+
+        const receiverItems = getSwapItems(swap, 'receiver');
+        for (const item of receiverItems) {
+          const q = await partyItemsRef
+            .where('partyId', '==', swap.partyId)
+            .where('articleId', '==', item.articleId)
+            .where('sellerId', '==', swap.receiverId)
+            .get();
+          for (const d of q.docs) {
+            await d.ref.update({ isSwapped: true });
+          }
+        }
+      }
+
+      logger.info('Swap accepted', { swapId, receiverId: request.auth.uid });
+
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error accepting swap', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de l\'acceptation: ' + errMsg);
     }
   }
 );

@@ -32,6 +32,7 @@ import { firestore, auth } from '@/config/firebaseConfig';
 import { Article, MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
 import { TransactionService } from '@/services/transactionService';
 import { ChatService } from '@/services/chatService';
+import { ModerationService } from '@/services/moderationService';
 
 // Special sentinel for "to be decided via chat"
 const VIA_CHAT_OPTION = '__via_chat__';
@@ -105,6 +106,13 @@ export default function MeetupCheckoutScreen() {
       setSubmitting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      // Check if users are blocked before proceeding
+      const blocked = await ModerationService.areUsersBlocked(currentUser.uid, article.sellerId);
+      if (blocked) {
+        Alert.alert('Action impossible', 'Vous ne pouvez pas acheter cet article.');
+        return;
+      }
+
       // Create or get chat
       const chat = await ChatService.createOrGetChat(
         currentUser.uid,
@@ -150,7 +158,14 @@ export default function MeetupCheckoutScreen() {
     } catch (error: any) {
       if (__DEV__) console.error('Error creating meetup transaction:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Erreur', error.message || 'Impossible de confirmer le meetup.');
+
+      // Cloud Function errors arrive as FirebaseError with a readable
+      // message (e.g. "Cet article a deja ete vendu"). Surface it
+      // directly so the buyer understands why the purchase failed.
+      const msg = error?.message || 'Impossible de confirmer le meetup.';
+      Alert.alert('Article indisponible', msg, [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
     } finally {
       setSubmitting(false);
     }

@@ -4,7 +4,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
 
@@ -57,16 +57,18 @@ function SignInFormComponent({
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
       {/* Social auth */}
-      <Pressable
-        style={styles.appleButton}
-        onPress={() => onSocialAuth('Apple')}
-        disabled={isLoading}
-        accessibilityLabel="Se connecter avec Apple"
-        accessibilityRole="button"
-      >
-        <Ionicons name="logo-apple" size={20} color={colors.white} />
-        <Text style={styles.appleButtonText}>Continuer avec Apple</Text>
-      </Pressable>
+      {Platform.OS === 'ios' && (
+        <Pressable
+          style={styles.appleButton}
+          onPress={() => onSocialAuth('Apple')}
+          disabled={isLoading}
+          accessibilityLabel="Se connecter avec Apple"
+          accessibilityRole="button"
+        >
+          <Ionicons name="logo-apple" size={20} color={colors.white} />
+          <Text style={styles.appleButtonText}>Continuer avec Apple</Text>
+        </Pressable>
+      )}
 
       <Pressable
         style={styles.socialButton}

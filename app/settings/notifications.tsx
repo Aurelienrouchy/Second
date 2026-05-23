@@ -1,6 +1,5 @@
 /**
  * Notifications Settings
- * Design System: Luxe Français + Street Energy
  */
 
 import { useUser } from '@/contexts/AuthContext';
@@ -59,7 +58,7 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
     title: 'Nouveaux messages',
     description: 'Quand quelqu\'un vous envoie un message',
     icon: 'chatbubble-outline',
-    iconColor: '#5856D6',
+    iconColor: colors.secondary,
   },
   {
     id: 'newOrders',
@@ -78,7 +77,7 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
   {
     id: 'articleFavorited',
     title: 'Articles favoris',
-    description: 'Quand quelqu\'un ajoute ton article en favori',
+    description: 'Quand quelqu\'un ajoute votre article en favori',
     icon: 'heart-outline',
     iconColor: colors.danger,
   },
@@ -87,19 +86,19 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
     title: 'Rappels Swap Zone',
     description: 'Rappel 3 jours avant l\'événement',
     icon: 'calendar-outline',
-    iconColor: '#FF9500',
+    iconColor: colors.warning,
   },
   {
     id: 'offerReceived',
     title: 'Propositions d\'achat',
-    description: 'Quand tu reçois une offre',
+    description: 'Quand vous recevez une offre',
     icon: 'cash-outline',
-    iconColor: '#FF9500',
+    iconColor: colors.warning,
   },
   {
     id: 'offerResponse',
     title: 'Réponses aux offres',
-    description: 'Quand le vendeur répond à ton offre',
+    description: 'Quand le vendeur répond à votre offre',
     icon: 'checkmark-circle-outline',
     iconColor: colors.primary,
   },

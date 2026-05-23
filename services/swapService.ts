@@ -12,7 +12,6 @@ import {
   orderBy,
   limit,
   onSnapshot,
-  Timestamp,
   serverTimestamp,
 } from 'firebase/firestore';
 import { firestore, functions } from '@/config/firebaseConfig';
@@ -22,7 +21,6 @@ import {
   SwapPartyItem,
   SwapPartyItemExtended,
   Swap,
-  SwapStatus,
   SwapExchangeMode,
   Article,
   SwapItemInfo,
@@ -447,7 +445,8 @@ export async function getMatchingItems(
 
 /**
  * Propose a swap (supports both single article and multi-article)
- * Can be called with old params (single articles) or new params (arrays)
+ * Delegates to Cloud Function `proposeMultiSwap` which validates article availability
+ * and user blocking atomically via runTransaction.
  */
 export async function proposeSwap(params: {
   initiatorId: string;
@@ -462,139 +461,25 @@ export async function proposeSwap(params: {
   cashTopUp?: { amount: number; payerId: string };
   partyId?: string;
 }): Promise<string> {
-  const {
-    initiatorId,
-    initiatorName,
-    initiatorImage,
-    initiatorItems,
-    receiverId,
-    receiverName,
-    receiverImage,
-    receiverItems,
-    message,
-    cashTopUp,
-    partyId,
-  } = params;
-
-  // Calculate total values from arrays
-  const initiatorTotalValue = initiatorItems.reduce((sum, item) => sum + item.price, 0);
-  const receiverTotalValue = receiverItems.reduce((sum, item) => sum + item.price, 0);
-
-  // Build swap data — strip undefined from items (Firestore rejects undefined)
-  const swapData = stripUndefined({
-    initiatorId,
-    initiatorName,
-    initiatorImage,
-    initiatorItems: initiatorItems.map(stripUndefined),
-    initiatorTotalValue,
-    receiverId,
-    receiverName,
-    receiverImage,
-    receiverItems: receiverItems.map(stripUndefined),
-    receiverTotalValue,
-    status: 'proposed' as SwapStatus,
-    message,
-    cashTopUp,
-    partyId,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  const swapsRef = collection(firestore, 'swaps');
-  const docRef = await addDoc(swapsRef, swapData);
-
-  // Mark all initiator items as pending in the party
-  if (partyId) {
-    const itemsRef = collection(firestore, 'swapPartyItems');
-    for (const item of initiatorItems) {
-      const query_ = query(
-        itemsRef,
-        where('partyId', '==', partyId),
-        where('articleId', '==', item.articleId),
-        where('sellerId', '==', initiatorId)
-      );
-      const snapshot = await getDocs(query_);
-      if (!snapshot.empty) {
-        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
-          isPending: true,
-        });
-      }
-    }
-
-    // Mark all receiver items as pending in the party
-    for (const item of receiverItems) {
-      const query_ = query(
-        itemsRef,
-        where('partyId', '==', partyId),
-        where('articleId', '==', item.articleId),
-        where('sellerId', '==', receiverId)
-      );
-      const snapshot = await getDocs(query_);
-      if (!snapshot.empty) {
-        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
-          isPending: true,
-        });
-      }
-    }
-  }
-
-  return docRef.id;
+  const proposeMultiSwapFn = httpsCallable<typeof params, { swapId: string; success: boolean }>(
+    functions,
+    'proposeMultiSwap'
+  );
+  const result = await proposeMultiSwapFn(params);
+  return result.data.swapId;
 }
 
 /**
- * Accept a swap
+ * Accept a swap — delegates to Cloud Function `acceptSwap` which validates
+ * article availability atomically via runTransaction before accepting.
+ * Rejects if any article has been sold, deleted, or deactivated since the proposal.
  */
 export async function acceptSwap(swapId: string): Promise<void> {
-  const swapRef = doc(firestore, 'swaps', swapId);
-  const swapDoc = await getDoc(swapRef);
-  const swap = swapDoc.data() as Swap;
-
-  const updateData: Record<string, any> = {
-    status: 'accepted',
-    acceptedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  // Mark all articles (both sides) as swapped if in a party
-  if (swap.partyId) {
-    const itemsRef = collection(firestore, 'swapPartyItems');
-
-    // Mark all initiator items as swapped
-    const initiatorItems = getSwapItems(swap, 'initiator');
-    for (const item of initiatorItems) {
-      const query_ = query(
-        itemsRef,
-        where('partyId', '==', swap.partyId),
-        where('articleId', '==', item.articleId),
-        where('sellerId', '==', swap.initiatorId)
-      );
-      const snapshot = await getDocs(query_);
-      if (!snapshot.empty) {
-        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
-          isSwapped: true,
-        });
-      }
-    }
-
-    // Mark all receiver items as swapped
-    const receiverItems = getSwapItems(swap, 'receiver');
-    for (const item of receiverItems) {
-      const query_ = query(
-        itemsRef,
-        where('partyId', '==', swap.partyId),
-        where('articleId', '==', item.articleId),
-        where('sellerId', '==', swap.receiverId)
-      );
-      const snapshot = await getDocs(query_);
-      if (!snapshot.empty) {
-        await updateDoc(doc(firestore, 'swapPartyItems', snapshot.docs[0].id), {
-          isSwapped: true,
-        });
-      }
-    }
-  }
-
-  await updateDoc(swapRef, updateData);
+  const acceptSwapFn = httpsCallable<{ swapId: string }, { success: boolean }>(
+    functions,
+    'acceptSwap'
+  );
+  await acceptSwapFn({ swapId });
 }
 
 /**

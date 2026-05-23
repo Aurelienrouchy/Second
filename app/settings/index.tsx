@@ -1,17 +1,15 @@
 /**
  * Settings Main Page
- * Design System: Luxe Français + Street Energy
  */
 
-import { useAuthActions } from '@/contexts/AuthContext';
+import Constants from 'expo-constants';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
-import { Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type SettingItemProps = {
@@ -66,31 +64,8 @@ const SettingSection = ({ title, children }: { title: string; children: React.Re
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { signOut } = useAuthActions();
   const authProvider = AuthService.getAuthProvider();
   const isPasswordUser = authProvider === 'password';
-
-  const handleSignOut = async () => {
-    Alert.alert(
-      "Déconnexion",
-      "Êtes-vous sûr de vouloir vous déconnecter ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Déconnexion",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await signOut();
-              router.replace('/(tabs)/profile');
-            } catch (error) {
-              if (__DEV__) console.error('Error signing out:', error);
-            }
-          }
-        }
-      ]
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -207,20 +182,9 @@ export default function SettingsScreen() {
           />
         </SettingSection>
 
-        {/* Logout Button */}
-        <View style={styles.logoutSection}>
-          <Button
-            variant="danger"
-            fullWidth
-            onPress={handleSignOut}
-          >
-            Se déconnecter
-          </Button>
-        </View>
-
         {/* Version */}
         <View style={styles.versionContainer}>
-          <Caption>Version 1.0.0</Caption>
+          <Caption>Version {Constants.expoConfig?.version ?? '1.0.0'}</Caption>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -292,10 +256,6 @@ const styles = StyleSheet.create({
   },
   settingSubtitle: {
     marginTop: 2,
-  },
-  logoutSection: {
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.md,
   },
   versionContainer: {
     alignItems: 'center',

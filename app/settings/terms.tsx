@@ -1,6 +1,5 @@
 /**
  * Terms of Service (CGU)
- * Design System: Luxe Français + Street Energy
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +16,7 @@ export default function TermsScreen() {
       <Stack.Screen options={{ title: 'Conditions Générales' }} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Caption style={styles.lastUpdate}>Dernière mise à jour : Janvier 2025</Caption>
+        <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
 
         <Text variant="h3" style={styles.sectionTitle}>1. Objet</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
@@ -172,7 +171,7 @@ export default function TermsScreen() {
 
         <View style={styles.footer}>
           <Caption style={styles.footerText}>
-            © 2025 Seconde SAS - Tous droits réservés
+            © 2026 Seconde SAS - Tous droits réservés
           </Caption>
         </View>
       </ScrollView>

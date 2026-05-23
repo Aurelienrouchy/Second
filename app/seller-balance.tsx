@@ -10,14 +10,12 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 
-import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { ScreenHeader, Skeleton, Text } from '@/components/ui';
 import { useUser } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
@@ -32,7 +30,9 @@ export default function SellerBalanceScreen() {
 
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
-  const [iban, setIban] = useState('');
+  const [transitNumber, setTransitNumber] = useState('');
+  const [institutionNumber, setInstitutionNumber] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
   const [isProcessingWithdrawal, setIsProcessingWithdrawal] = useState(false);
 
   const {
@@ -59,8 +59,16 @@ export default function SellerBalanceScreen() {
       return;
     }
 
-    if (!iban || iban.length < 15) {
-      Alert.alert('Erreur', 'Veuillez entrer un IBAN valide');
+    if (transitNumber.length !== 5) {
+      Alert.alert('Erreur', 'Le numéro de transit doit contenir 5 chiffres');
+      return;
+    }
+    if (institutionNumber.length !== 3) {
+      Alert.alert('Erreur', "Le numéro d'institution doit contenir 3 chiffres");
+      return;
+    }
+    if (accountNumber.length < 7) {
+      Alert.alert('Erreur', 'Le numéro de compte doit contenir au moins 7 chiffres');
       return;
     }
 
@@ -76,7 +84,7 @@ export default function SellerBalanceScreen() {
 
     Alert.alert(
       'Confirmer le retrait',
-      `Voulez-vous retirer ${formatPrice(amount)} vers le compte ${iban.slice(-4)} ?`,
+      `Voulez-vous retirer ${formatPrice(amount)} vers le compte se terminant par ${accountNumber.slice(-4)} ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -84,7 +92,8 @@ export default function SellerBalanceScreen() {
           onPress: async () => {
             try {
               setIsProcessingWithdrawal(true);
-              await SellerBalanceService.requestWithdrawal(user!.id, amount, iban);
+              const bankAccount = `${transitNumber}-${institutionNumber}-${accountNumber}`;
+              await SellerBalanceService.requestWithdrawal(user!.id, amount, bankAccount);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert(
                 'Demande envoyée',
@@ -92,7 +101,9 @@ export default function SellerBalanceScreen() {
               );
               setShowWithdrawalModal(false);
               setWithdrawalAmount('');
-              setIban('');
+              setTransitNumber('');
+              setInstitutionNumber('');
+              setAccountNumber('');
               await queryClient.invalidateQueries({
                 queryKey: queryKeys.sellers.balance(user!.id),
               });
@@ -269,14 +280,41 @@ export default function SellerBalanceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>IBAN</Text>
+              <Text style={styles.inputLabel}>Numéro de transit</Text>
               <TextInput
                 style={[styles.input, styles.inputStandalone]}
-                placeholder="FR76 1234 5678 9012 3456 7890 123"
+                placeholder="12345"
                 placeholderTextColor={colors.muted}
-                value={iban}
-                onChangeText={(text) => setIban(text.toUpperCase())}
-                autoCapitalize="characters"
+                value={transitNumber}
+                onChangeText={(t) => setTransitNumber(t.replace(/\D/g, '').slice(0, 5))}
+                keyboardType="number-pad"
+                maxLength={5}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{"Numéro d'institution"}</Text>
+              <TextInput
+                style={[styles.input, styles.inputStandalone]}
+                placeholder="001"
+                placeholderTextColor={colors.muted}
+                value={institutionNumber}
+                onChangeText={(t) => setInstitutionNumber(t.replace(/\D/g, '').slice(0, 3))}
+                keyboardType="number-pad"
+                maxLength={3}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Numéro de compte</Text>
+              <TextInput
+                style={[styles.input, styles.inputStandalone]}
+                placeholder="1234567"
+                placeholderTextColor={colors.muted}
+                value={accountNumber}
+                onChangeText={(t) => setAccountNumber(t.replace(/\D/g, '').slice(0, 12))}
+                keyboardType="number-pad"
+                maxLength={12}
               />
             </View>
 
@@ -286,7 +324,9 @@ export default function SellerBalanceScreen() {
                 onPress={() => {
                   setShowWithdrawalModal(false);
                   setWithdrawalAmount('');
-                  setIban('');
+                  setTransitNumber('');
+                  setInstitutionNumber('');
+                  setAccountNumber('');
                 }}
               >
                 <Text style={styles.withdrawalCancelButtonText}>Annuler</Text>

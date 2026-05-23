@@ -9,20 +9,21 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useUser } from '@/contexts/AuthContext';
+import { Text, Label, Caption } from '@/components/ui';
+import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
-import { colors } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 export default function PhoneSettingsScreen() {
   const router = useRouter();
   const user = useUser();
-  
+  const { refreshUser } = useAuthActions();
+
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -71,6 +72,9 @@ export default function PhoneSettingsScreen() {
         phoneNumber: `+1${cleanPhone}`,
       });
 
+      // Rafraîchir les données utilisateur depuis Firestore
+      await refreshUser();
+
       Alert.alert('Succès', 'Votre numéro de téléphone a été mis à jour', [
         { text: 'OK', onPress: () => router.back() }
       ]);
@@ -90,7 +94,7 @@ export default function PhoneSettingsScreen() {
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text style={styles.headerButton}>Enregistrer</Text>
+              <Text variant="body" style={styles.headerButton}>Enregistrer</Text>
             )}
           </Pressable>
         ),
@@ -103,17 +107,17 @@ export default function PhoneSettingsScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
-            <Text style={styles.infoText}>
+            <Text variant="body" style={styles.infoText}>
               Ajouter un numéro de téléphone vérifié aide à sécuriser votre compte et facilite les transactions.
             </Text>
           </View>
 
           <View style={styles.formSection}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Numéro de téléphone</Text>
+              <Label style={styles.label}>Numéro de téléphone</Label>
               <View style={styles.phoneRow}>
                 <View style={styles.countryCode}>
-                  <Text style={styles.countryCodeText}>CA +1</Text>
+                  <Text variant="body" style={styles.countryCodeText}>CA +1</Text>
                 </View>
                 <TextInput
                   style={[styles.input, styles.phoneInput]}
@@ -125,9 +129,9 @@ export default function PhoneSettingsScreen() {
                   maxLength={14}
                 />
               </View>
-              <Text style={styles.helperText}>
+              <Caption>
                 Numéro de téléphone canadien à 10 chiffres.
-              </Text>
+              </Caption>
             </View>
           </View>
         </ScrollView>
@@ -139,12 +143,12 @@ export default function PhoneSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   headerButton: {
     color: colors.primary,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
   },
   keyboardView: {
     flex: 1,
@@ -153,68 +157,60 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: spacing.md,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: '#F0F9FF',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 24,
+    gap: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
   },
   infoText: {
     flex: 1,
-    fontSize: 14,
-    color: colors.foreground,
-    lineHeight: 20,
   },
   formSection: {
-    gap: 24,
+    gap: spacing.lg,
   },
   inputContainer: {
-    gap: 8,
+    gap: spacing.sm,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    color: colors.foregroundSecondary,
     textTransform: 'uppercase',
   },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   countryCode: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#f9f9f9',
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   countryCodeText: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    fontFamily: fonts.sansMedium,
+    color: colors.foreground,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
     fontSize: 16,
-    color: '#333',
-    backgroundColor: '#fff',
+    fontFamily: fonts.sans,
+    color: colors.foreground,
+    backgroundColor: colors.background,
   },
   phoneInput: {
     flex: 1,
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#999',
   },
 });

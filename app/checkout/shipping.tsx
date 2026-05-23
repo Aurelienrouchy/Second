@@ -19,6 +19,7 @@ import { firestore, functions, auth } from '@/config/firebaseConfig';
 import { Article, ShippingAddress } from '@/types';
 import { TransactionService } from '@/services/transactionService';
 import { ChatService } from '@/services/chatService';
+import { ModerationService } from '@/services/moderationService';
 import { HelcimPayment, HelcimPaymentResult } from '@/components/HelcimPayment';
 import {
   ShippingAddressForm,
@@ -146,6 +147,13 @@ export default function ShippingCheckoutScreen() {
       setSubmitting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      // Check if users are blocked before proceeding
+      const blocked = await ModerationService.areUsersBlocked(currentUser.uid, article.sellerId);
+      if (blocked) {
+        Alert.alert('Action impossible', 'Vous ne pouvez pas acheter cet article.');
+        return;
+      }
+
       const shippingAddress: ShippingAddress = {
         name: addressForm.fullName,
         street: addressForm.apartment
@@ -173,7 +181,14 @@ export default function ShippingCheckoutScreen() {
     } catch (error: unknown) {
       if (__DEV__) console.error('Error initiating payment:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Erreur', error instanceof Error ? error.message : 'Impossible d\'initier le paiement.');
+
+      // Cloud Function errors arrive as FirebaseError with a readable
+      // message (e.g. "Cet article a deja ete vendu"). Surface it so
+      // the buyer understands why the purchase failed.
+      const msg = error instanceof Error ? error.message : 'Impossible d\'initier le paiement.';
+      Alert.alert('Article indisponible', msg, [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
     } finally {
       setSubmitting(false);
     }

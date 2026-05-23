@@ -110,31 +110,31 @@ async function cacheImage(uri: string, draftId: string, index: number): Promise<
 
 // Delete cached images for a draft
 async function deleteCachedImages(draftId: string): Promise<void> {
-  console.log('[DraftService] deleteCachedImages() START for draftId:', draftId);
+  if (__DEV__) console.log('[DraftService] deleteCachedImages() START for draftId:', draftId);
   try {
-    console.log('[DraftService] Checking if image directory exists...');
+    if (__DEV__) console.log('[DraftService] Checking if image directory exists...');
     const dirInfo = await FileSystem.getInfoAsync(DRAFT_IMAGES_DIR);
-    console.log('[DraftService] Directory exists?', dirInfo.exists);
+    if (__DEV__) console.log('[DraftService] Directory exists?', dirInfo.exists);
 
     if (!dirInfo.exists) {
-      console.log('[DraftService] Directory does not exist, returning');
+      if (__DEV__) console.log('[DraftService] Directory does not exist, returning');
       return;
     }
 
-    console.log('[DraftService] Reading directory...');
+    if (__DEV__) console.log('[DraftService] Reading directory...');
     const files = await FileSystem.readDirectoryAsync(DRAFT_IMAGES_DIR);
-    console.log('[DraftService] Found files:', files.length);
+    if (__DEV__) console.log('[DraftService] Found files:', files.length);
 
     const draftFiles = files.filter(f => f.startsWith(draftId));
-    console.log('[DraftService] Files matching draftId:', draftFiles.length);
+    if (__DEV__) console.log('[DraftService] Files matching draftId:', draftFiles.length);
 
-    console.log('[DraftService] Deleting files...');
+    if (__DEV__) console.log('[DraftService] Deleting files...');
     await Promise.all(
       draftFiles.map(file =>
         FileSystem.deleteAsync(`${DRAFT_IMAGES_DIR}${file}`, { idempotent: true })
       )
     );
-    console.log('[DraftService] deleteCachedImages() COMPLETE');
+    if (__DEV__) console.log('[DraftService] deleteCachedImages() COMPLETE');
   } catch (error) {
     console.warn('[DraftService] Failed to delete cached images:', error);
   }
@@ -147,7 +147,7 @@ function isDraftExpired(draft: ArticleDraft): boolean {
   expirationDate.setDate(expirationDate.getDate() + DRAFT_EXPIRATION_DAYS);
   const now = new Date();
   const expired = now > expirationDate;
-  console.log('[DraftService] isDraftExpired check:', {
+  if (__DEV__) console.log('[DraftService] isDraftExpired check:', {
     createdAt: draft.createdAt,
     expirationDate: expirationDate.toISOString(),
     now: now.toISOString(),
@@ -201,32 +201,32 @@ class DraftService {
    * Load draft from AsyncStorage
    */
   async loadDraft(): Promise<ArticleDraft | null> {
-    console.log('[DraftService] loadDraft() START');
+    if (__DEV__) console.log('[DraftService] loadDraft() START');
     try {
-      console.log('[DraftService] Getting item from AsyncStorage...');
+      if (__DEV__) console.log('[DraftService] Getting item from AsyncStorage...');
       const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
-      console.log('[DraftService] AsyncStorage returned:', draftJson ? 'has data' : 'null');
+      if (__DEV__) console.log('[DraftService] AsyncStorage returned:', draftJson ? 'has data' : 'null');
 
       if (!draftJson) {
-        console.log('[DraftService] No draft found, returning null');
+        if (__DEV__) console.log('[DraftService] No draft found, returning null');
         return null;
       }
 
       const draft: ArticleDraft = JSON.parse(draftJson);
-      console.log('[DraftService] Draft parsed, id:', draft.id, 'createdAt:', draft.createdAt);
+      if (__DEV__) console.log('[DraftService] Draft parsed, id:', draft.id, 'createdAt:', draft.createdAt);
 
       // Check expiration
       const expired = isDraftExpired(draft);
-      console.log('[DraftService] Draft expired?', expired);
+      if (__DEV__) console.log('[DraftService] Draft expired?', expired);
 
       if (expired) {
-        console.log('[DraftService] Draft is expired, calling deleteDraft()...');
+        if (__DEV__) console.log('[DraftService] Draft is expired, calling deleteDraft()...');
         await this.deleteDraft();
-        console.log('[DraftService] deleteDraft() completed, returning null');
+        if (__DEV__) console.log('[DraftService] deleteDraft() completed, returning null');
         return null;
       }
 
-      console.log('[DraftService] Returning valid draft');
+      if (__DEV__) console.log('[DraftService] Returning valid draft');
       return draft;
     } catch (error) {
       console.error('[DraftService] Failed to load draft:', error);
@@ -240,35 +240,35 @@ class DraftService {
    * @param keepStorageImages - If true, don't delete images from Firebase Storage (used after publishing)
    */
   async deleteDraft(keepStorageImages: boolean = false): Promise<void> {
-    console.log('[DraftService] deleteDraft() START, keepStorageImages:', keepStorageImages);
+    if (__DEV__) console.log('[DraftService] deleteDraft() START, keepStorageImages:', keepStorageImages);
     try {
       // Read directly from AsyncStorage - DO NOT call loadDraft() here!
       // loadDraft() calls deleteDraft() for expired drafts, causing infinite recursion
-      console.log('[DraftService] Reading AsyncStorage directly...');
+      if (__DEV__) console.log('[DraftService] Reading AsyncStorage directly...');
       const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
-      console.log('[DraftService] deleteDraft got draftJson:', draftJson ? 'has data' : 'null');
+      if (__DEV__) console.log('[DraftService] deleteDraft got draftJson:', draftJson ? 'has data' : 'null');
 
       if (draftJson) {
         const draft: ArticleDraft = JSON.parse(draftJson);
-        console.log('[DraftService] Deleting cached images for draft:', draft.id);
+        if (__DEV__) console.log('[DraftService] Deleting cached images for draft:', draft.id);
 
         // Delete local cached images
         await deleteCachedImages(draft.id);
-        console.log('[DraftService] Local cached images deleted');
+        if (__DEV__) console.log('[DraftService] Local cached images deleted');
 
         // Delete images from Firebase Storage (unless we're keeping them for a published article)
         if (!keepStorageImages && draft.storageUrls && draft.storageUrls.length > 0) {
-          console.log('[DraftService] Deleting Storage images for draft:', draft.id);
+          if (__DEV__) console.log('[DraftService] Deleting Storage images for draft:', draft.id);
           await deleteDraftImagesFromStorage(draft.id);
-          console.log('[DraftService] Storage images deleted');
+          if (__DEV__) console.log('[DraftService] Storage images deleted');
         } else if (keepStorageImages) {
-          console.log('[DraftService] 📸 Keeping Storage images for published article');
+          if (__DEV__) console.log('[DraftService] Keeping Storage images for published article');
         }
       }
 
-      console.log('[DraftService] Removing draft from AsyncStorage...');
+      if (__DEV__) console.log('[DraftService] Removing draft from AsyncStorage...');
       await AsyncStorage.removeItem(DRAFT_KEY);
-      console.log('[DraftService] deleteDraft() COMPLETE');
+      if (__DEV__) console.log('[DraftService] deleteDraft() COMPLETE');
     } catch (error) {
       console.error('[DraftService] Failed to delete draft:', error);
     }
@@ -379,7 +379,7 @@ class DraftService {
     aiResult: AIAnalysisResult,
     storageUrls?: string[]
   ): Promise<ArticleDraft> {
-    console.log('[DraftService] 📸 updateDraftAIResult called with:', {
+    if (__DEV__) console.log('[DraftService] updateDraftAIResult called with:', {
       draftId: draft.id,
       hasAiResult: !!aiResult,
       storageUrlsCount: storageUrls?.length || 0,
@@ -394,7 +394,7 @@ class DraftService {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('[DraftService] 📸 Saving draft with storageUrls:', updatedDraft.storageUrls);
+    if (__DEV__) console.log('[DraftService] Saving draft with storageUrls:', updatedDraft.storageUrls);
     await this.saveDraft(updatedDraft);
     return updatedDraft;
   }

@@ -6,15 +6,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  Text,
   View
 } from 'react-native';
 import { GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Text, Label, Caption } from '@/components/ui';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
-import { colors } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '';
 
@@ -89,7 +89,7 @@ export default function AddressSettingsScreen() {
         <View style={styles.content}>
           {user?.address && (user.address.street || user.address.city) ? (
             <View style={styles.currentAddressCard}>
-              <Text style={styles.currentAddressLabel}>Adresse actuelle :</Text>
+              <Label style={styles.currentAddressLabel}>Adresse actuelle :</Label>
               <View style={styles.addressRow}>
                 <Ionicons name="location" size={24} color={colors.primary} />
                 <View style={styles.addressDetails}>
@@ -104,9 +104,9 @@ export default function AddressSettingsScreen() {
           ) : (
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
-              <Text style={styles.infoText}>
+              <Caption style={styles.infoText}>
                 Aucune adresse enregistrée. Ajoutez-en une pour faciliter vos ventes et achats.
-              </Text>
+              </Caption>
             </View>
           )}
 
@@ -127,29 +127,30 @@ export default function AddressSettingsScreen() {
                 fetchDetails={true}
                 styles={{
                   container: { flex: 0 },
-                  textInputContainer: { 
+                  textInputContainer: {
                     backgroundColor: 'transparent',
                     borderWidth: 1,
-                    borderColor: '#e0e0e0',
-                    borderRadius: 8,
-                    paddingHorizontal: 4,
+                    borderColor: colors.border,
+                    borderRadius: radius.md,
+                    paddingHorizontal: spacing.xs,
                   },
                   textInput: {
                     height: 44,
-                    color: '#333',
+                    color: colors.foreground,
                     fontSize: 16,
+                    fontFamily: fonts.sans,
                   },
-                  listView: { 
-                    position: 'absolute', 
-                    top: 50, 
-                    left: 0, 
-                    right: 0, 
-                    zIndex: 1000, 
-                    backgroundColor: 'white', 
-                    borderWidth: 1, 
-                    borderColor: '#ccc',
-                    borderRadius: 5,
-                    elevation: 5, 
+                  listView: {
+                    position: 'absolute',
+                    top: 50,
+                    left: 0,
+                    right: 0,
+                    zIndex: 1000,
+                    backgroundColor: colors.white,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: radius.sm,
+                    elevation: 5,
                   },
                 }}
                 enablePoweredByContainer={false}
@@ -165,79 +166,76 @@ export default function AddressSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
   content: {
-    padding: 20,
+    padding: spacing.md,
   },
   currentAddressCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
+    borderColor: colors.borderLight,
+    shadowColor: colors.charcoal,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   currentAddressLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    fontWeight: '600',
+    color: colors.foregroundSecondary,
+    marginBottom: spacing.md,
     textTransform: 'uppercase',
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
   },
   addressDetails: {
     flex: 1,
   },
   addressText: {
     fontSize: 16,
+    fontFamily: fonts.sansMedium,
     color: colors.foreground,
-    fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   countryText: {
     fontSize: 14,
-    color: '#666',
+    fontFamily: fonts.sans,
+    color: colors.foregroundSecondary,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#F0F9FF',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 24,
+    gap: spacing.md,
+    backgroundColor: colors.primaryLight,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
   },
   infoText: {
     flex: 1,
     fontSize: 14,
+    fontFamily: fonts.sans,
     color: colors.foreground,
   },
   formSection: {
-    gap: 12,
+    gap: spacing.md,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.md,
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
     color: colors.foreground,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
 });

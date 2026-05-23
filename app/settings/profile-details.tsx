@@ -1,11 +1,11 @@
 /**
  * Profile Details Settings
- * Design System: Luxe Français + Street Energy
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +21,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { storage } from '@/config/firebaseConfig';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
@@ -79,10 +80,24 @@ export default function ProfileDetailsScreen() {
 
     setIsSaving(true);
     try {
+      // Upload profile image to Firebase Storage if it is a new local file
+      let imageUrl = profileImage;
+      if (
+        profileImage &&
+        profileImage.startsWith('file://') &&
+        profileImage !== user.profileImage
+      ) {
+        const response = await fetch(profileImage);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `users/${user.id}/profile.jpg`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+      }
+
       await UserService.updateUserProfile(user.id, {
         displayName: displayName.trim(),
         bio: bio.trim(),
-        profileImage: profileImage || undefined,
+        profileImage: imageUrl || undefined,
       });
 
       await refreshUser();

@@ -1,6 +1,5 @@
 /**
  * Help & FAQ Settings
- * Design System: Luxe Français + Street Energy
  */
 
 import { Ionicons } from '@expo/vector-icons';

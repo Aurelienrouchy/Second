@@ -121,6 +121,166 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1' }, async
 });
 
 // =============================================================================
+// CREATE TRANSACTION — Atomic article check + transaction creation
+// =============================================================================
+
+/**
+ * Atomically verifies that an article is still available (not sold, not
+ * inactive, not deleted) and creates a transaction for it.
+ *
+ * Why this is a Cloud Function rather than a client-side write:
+ * - The buyer cannot update `isSold` on the article (Firestore rules
+ *   restrict article updates to the seller). Only the Admin SDK can set
+ *   isSold from the buyer's context.
+ * - A client-side `addDoc` followed by a separate `updateDoc` is NOT
+ *   atomic — two buyers can race and both succeed.
+ * - Using `runTransaction` with the Admin SDK guarantees exactly one
+ *   buyer wins.
+ *
+ * Supports both delivery types: 'shipping' and 'meetup'.
+ */
+export const createTransaction = onCall(
+  { region: 'northamerica-northeast1', memory: '256MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const {
+      articleId,
+      deliveryType,
+      amount,
+      shippingCost,
+      serviceFee: clientServiceFee,
+      shippingAddress,
+      meetupSpot,
+      chatId,
+      shipEngineRateId,
+    } = request.data ?? {};
+
+    const buyerId = request.auth.uid;
+
+    // --- Input validation ---------------------------------------------------
+
+    if (typeof articleId !== 'string' || articleId.length === 0) {
+      throw new HttpsError('invalid-argument', 'articleId is required');
+    }
+    if (deliveryType !== 'shipping' && deliveryType !== 'meetup') {
+      throw new HttpsError('invalid-argument', 'deliveryType must be "shipping" or "meetup"');
+    }
+    if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
+      throw new HttpsError('invalid-argument', 'amount must be a positive number');
+    }
+
+    if (deliveryType === 'shipping') {
+      if (typeof shippingCost !== 'number' || !isFinite(shippingCost) || shippingCost < 0) {
+        throw new HttpsError('invalid-argument', 'shippingCost is required for shipping');
+      }
+      if (!shippingAddress || typeof shippingAddress !== 'object') {
+        throw new HttpsError('invalid-argument', 'shippingAddress is required for shipping');
+      }
+    }
+
+    // --- Atomic check + create -----------------------------------------------
+
+    const articleRef = db.collection('articles').doc(articleId);
+
+    try {
+      const transactionId = await db.runTransaction(async (tx) => {
+        const articleSnap = await tx.get(articleRef);
+
+        if (!articleSnap.exists) {
+          throw new HttpsError('not-found', 'Cet article n\'existe plus');
+        }
+
+        const articleData = articleSnap.data()!;
+
+        if (articleData.isSold === true) {
+          throw new HttpsError('failed-precondition', 'Cet article a déjà été vendu');
+        }
+
+        if (articleData.isActive === false) {
+          throw new HttpsError('failed-precondition', 'Cet article n\'est plus disponible');
+        }
+
+        if (articleData.sellerId === buyerId) {
+          throw new HttpsError('invalid-argument', 'Vous ne pouvez pas acheter votre propre article');
+        }
+
+        // Verify the price matches what the seller listed
+        if (articleData.price !== amount) {
+          throw new HttpsError(
+            'failed-precondition',
+            'Le prix de l\'article a changé. Veuillez rafraîchir la page.'
+          );
+        }
+
+        // Mark article as sold
+        tx.update(articleRef, { isSold: true });
+
+        // Build transaction data
+        const fee = typeof clientServiceFee === 'number' ? clientServiceFee : 0;
+        const shipping = deliveryType === 'shipping' ? (shippingCost || 0) : 0;
+        const totalAmount = amount + shipping + fee;
+
+        const transactionData: Record<string, any> = {
+          articleId,
+          buyerId,
+          sellerId: articleData.sellerId,
+          amount,
+          shippingCost: shipping,
+          serviceFee: fee,
+          totalAmount,
+          sellerPayout: amount,
+          deliveryType,
+          status: deliveryType === 'shipping' ? 'pending_payment' : 'meetup_pending',
+          createdAt: FieldValue.serverTimestamp(),
+        };
+
+        if (chatId && typeof chatId === 'string') {
+          transactionData.chatId = chatId;
+        }
+
+        if (deliveryType === 'shipping') {
+          transactionData.shippingAddress = shippingAddress;
+          if (shipEngineRateId && typeof shipEngineRateId === 'string') {
+            transactionData.shipEngineRateId = shipEngineRateId;
+          }
+        }
+
+        if (deliveryType === 'meetup' && meetupSpot && typeof meetupSpot === 'object') {
+          const cleanSpot: Record<string, any> = {
+            name: meetupSpot.name,
+            category: meetupSpot.category,
+            neighborhood: meetupSpot.neighborhood,
+          };
+          if (meetupSpot.id) cleanSpot.id = meetupSpot.id;
+          if (meetupSpot.address) cleanSpot.address = meetupSpot.address;
+          if (meetupSpot.coordinates) cleanSpot.coordinates = meetupSpot.coordinates;
+          transactionData.meetupSpot = cleanSpot;
+        }
+
+        const newTxRef = db.collection('transactions').doc();
+        tx.set(newTxRef, transactionData);
+
+        return newTxRef.id;
+      });
+
+      console.log(
+        `✅ Transaction ${transactionId} created for article ${articleId} (${deliveryType}) by buyer ${buyerId}`
+      );
+
+      return { success: true, transactionId };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error creating transaction:', error);
+      throw new HttpsError('internal', `Failed to create transaction: ${message}`);
+    }
+  }
+);
+
+// =============================================================================
 // CREATE HELCIM CHECKOUT — Initialize HelcimPay.js session
 // =============================================================================
 
@@ -512,6 +672,14 @@ export const cancelPendingTransaction = onCall(
           status: 'cancelled',
           cancelledAt: FieldValue.serverTimestamp(),
         });
+
+        // Release the article so it can be purchased again.
+        // createTransaction marks isSold=true atomically at creation
+        // time; cancelling must undo that.
+        if (data.articleId) {
+          const articleRef = db.collection('articles').doc(data.articleId);
+          tx.update(articleRef, { isSold: false });
+        }
       });
 
       return { success: true };

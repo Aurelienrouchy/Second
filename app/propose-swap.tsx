@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@/contexts/AuthContext';
 import { ArticlesService } from '@/services/articlesService';
 import { proposeSwap } from '@/services/swapService';
+import { ModerationService } from '@/services/moderationService';
 import { queryKeys } from '@/lib/queryKeys';
 import { SwapItemInfo } from '@/types';
 import { colors } from '@/constants/theme';
@@ -164,6 +165,13 @@ export default function ProposeSwapScreen() {
 
     setIsSubmitting(true);
     try {
+      // Check if users are blocked before proceeding
+      const blocked = await ModerationService.areUsersBlocked(user.id, receiverId || '');
+      if (blocked) {
+        Alert.alert('Action impossible', 'Vous ne pouvez pas proposer un echange avec cet utilisateur.');
+        return;
+      }
+
       await proposeSwap({
         initiatorId: user.id,
         initiatorName: user.displayName || 'Utilisateur',

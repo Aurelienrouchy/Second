@@ -1,6 +1,5 @@
 /**
  * Email Settings
- * Design System: Luxe Français + Street Energy
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +22,7 @@ import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
+import { Button } from '@/components/ui';
 
 export default function EmailSettingsScreen() {
   const router = useRouter();
@@ -35,10 +35,43 @@ export default function EmailSettingsScreen() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [reauthDone, setReauthDone] = useState(false);
+  const [reauthLoading, setReauthLoading] = useState(false);
+
+  const provider = AuthService.getAuthProvider();
+  const isPasswordUser = provider === 'password';
+
+  const handleReauthSocial = async () => {
+    setReauthLoading(true);
+    try {
+      if (provider === 'google.com') {
+        await AuthService.reauthenticateWithGoogle();
+      } else {
+        await AuthService.reauthenticateWithApple();
+      }
+      setReauthDone(true);
+    } catch (error: any) {
+      if (error.code !== 'ERR_REQUEST_CANCELED' && error.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Erreur', 'La vérification a échoué. Veuillez réessayer.');
+      }
+    } finally {
+      setReauthLoading(false);
+    }
+  };
 
   const handleSave = async () => {
-    if (!newEmail.trim() || !password || !confirmNewEmail.trim()) {
+    if (!newEmail.trim() || !confirmNewEmail.trim()) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      return;
+    }
+
+    if (isPasswordUser && !password) {
+      Alert.alert('Erreur', 'Veuillez entrer votre mot de passe');
+      return;
+    }
+
+    if (!isPasswordUser && !reauthDone) {
+      Alert.alert('Erreur', 'Veuillez d\'abord vérifier votre identité');
       return;
     }
 
@@ -51,8 +84,10 @@ export default function EmailSettingsScreen() {
 
     setIsSaving(true);
     try {
-      // 1. Re-authentifier
-      await AuthService.reauthenticate(password);
+      // 1. Re-authentifier (social providers already re-authed via button)
+      if (isPasswordUser) {
+        await AuthService.reauthenticate(password);
+      }
 
       // 2. Mettre à jour l'email
       await AuthService.updateEmail(newEmail.trim());
@@ -143,32 +178,66 @@ export default function EmailSettingsScreen() {
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Label style={styles.label}>Mot de passe actuel</Label>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.passwordInput}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Votre mot de passe"
-                  placeholderTextColor={colors.muted}
-                  secureTextEntry={!showPassword}
-                />
-                <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={({ pressed }) => [styles.eyeButton, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={24}
-                    color={colors.muted}
+            {/* Re-authentication section */}
+            {isPasswordUser ? (
+              <View style={styles.inputContainer}>
+                <Label style={styles.label}>Mot de passe actuel</Label>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Votre mot de passe"
+                    placeholderTextColor={colors.muted}
+                    secureTextEntry={!showPassword}
                   />
-                </Pressable>
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={({ pressed }) => [styles.eyeButton, pressed && { opacity: 0.7 }]}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={24}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+                <Caption style={styles.helperText}>
+                  Pour votre sécurité, confirmez votre mot de passe pour valider le changement.
+                </Caption>
               </View>
-              <Caption style={styles.helperText}>
-                Pour votre sécurité, confirmez votre mot de passe pour valider le changement.
-              </Caption>
-            </View>
+            ) : (
+              <View style={styles.inputContainer}>
+                <Label style={styles.label}>Vérification d'identité</Label>
+                {reauthDone ? (
+                  <View style={styles.reauthSuccess}>
+                    <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                    <Caption style={styles.reauthSuccessText}>Identité vérifiée</Caption>
+                  </View>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    loading={reauthLoading}
+                    onPress={handleReauthSocial}
+                    leftIcon={
+                      <Ionicons
+                        name={provider === 'google.com' ? 'logo-google' : 'logo-apple'}
+                        size={18}
+                        color={colors.foreground}
+                      />
+                    }
+                  >
+                    {provider === 'google.com'
+                      ? 'Se reconnecter avec Google'
+                      : 'Se reconnecter avec Apple'}
+                  </Button>
+                )}
+                <Caption style={styles.helperText}>
+                  Pour votre sécurité, vérifiez votre identité pour valider le changement.
+                </Caption>
+              </View>
+            )}
           </View>
 
           {/* Security Notice */}
@@ -264,6 +333,18 @@ const styles = StyleSheet.create({
   helperText: {
     color: colors.muted,
     marginTop: spacing.xs,
+  },
+  reauthSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  reauthSuccessText: {
+    color: colors.success,
+    flex: 1,
   },
   securityBox: {
     flexDirection: 'row',

@@ -13,9 +13,9 @@ import { sendSwapNotification } from '../utils/notifications';
 /** Resolve items arrays with backward compat for legacy single-item swaps */
 function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
   if (side === 'initiator') {
-    return getSwapItems(swap, 'initiator');
+    return swap.initiatorItems || (swap.initiatorItem ? [swap.initiatorItem] : []);
   }
-  return getSwapItems(swap, 'receiver');
+  return swap.receiverItems || (swap.receiverItem ? [swap.receiverItem] : []);
 }
 
 /**

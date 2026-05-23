@@ -88,6 +88,7 @@ export class AuthService {
         displayName: userData.displayName,
         createdAt: serverTimestamp(),
         isActive: true,
+        authProvider: 'email',
       };
 
       if (userData.profileImage) {
@@ -136,9 +137,8 @@ export class AuthService {
       const idToken = (userInfo as any)?.idToken ?? (userInfo as any)?.data?.idToken;
       const accessToken = (userInfo as any)?.accessToken ?? (userInfo as any)?.data?.accessToken;
 
-      // Vérifier que nous avons un idToken
       if (!idToken) {
-        throw new Error('No ID token received from Google Sign-In. Please check your Google Sign-In configuration.');
+        throw new Error('Connexion Google impossible. Vérifiez la configuration SHA-1 dans Firebase Console.');
       }
       
       // Créer un credential Firebase avec le token Google  
@@ -169,6 +169,7 @@ export class AuthService {
           displayName: userData.displayName,
           createdAt: serverTimestamp(),
           isActive: true,
+          authProvider: 'google',
         };
 
         if (userData.profileImage) {
@@ -183,14 +184,17 @@ export class AuthService {
 
       return userData;
     } catch (error: any) {
-      if (error?.code === 'SIGN_IN_CANCELLED') {
+      if (error?.code === 'SIGN_IN_CANCELLED' || error?.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Connexion Google annulée');
       } else if (error?.code === 'IN_PROGRESS') {
         throw new Error('Une connexion Google est déjà en cours');
       } else if (error?.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
         throw new Error('Google Play Services non disponible');
+      } else if (error?.code === 'DEVELOPER_ERROR') {
+        throw new Error('Configuration Google Sign-In incorrecte. Vérifiez le SHA-1 dans Firebase Console.');
       }
 
+      if (__DEV__) console.error('[AuthService] Google Sign-In error:', error?.code, error?.message);
       throw new Error('Erreur lors de la connexion Google. Veuillez réessayer.');
     }
   }
@@ -259,6 +263,7 @@ export class AuthService {
           displayName: userData.displayName,
           createdAt: serverTimestamp(),
           isActive: true,
+          authProvider: 'apple',
         };
 
         if (userData.profileImage) {
@@ -359,6 +364,9 @@ export class AuthService {
       }
       if (data.isActive !== undefined) {
         userData.isActive = data.isActive;
+      }
+      if (data.authProvider) {
+        userData.authProvider = data.authProvider;
       }
 
       return userData;

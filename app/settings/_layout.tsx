@@ -4,12 +4,18 @@
  */
 
 import { HeaderBackButton } from '@react-navigation/elements';
-import { Stack, useRouter } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
 import { colors, fonts } from '@/constants/theme';
+import { useUser } from '@/contexts/AuthContext';
 
 export default function SettingsLayout() {
   const router = useRouter();
+  const user = useUser();
+
+  if (!user) {
+    return <Redirect href="/(tabs)/profile" />;
+  }
 
   return (
     <Stack

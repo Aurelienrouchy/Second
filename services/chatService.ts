@@ -27,6 +27,7 @@ import {
   OfferHistoryEntry,
   OfferStatus,
 } from '../types';
+import { ModerationService } from './moderationService';
 
 /**
  * Recursively remove undefined values from an object.
@@ -68,6 +69,12 @@ export class ChatService {
       if (user1Id === user2Id) {
         console.error('[ChatService] Cannot create chat with same user:', user1Id);
         throw new Error('Impossible de créer une conversation avec vous-même.');
+      }
+
+      // Prevent chat creation/access when either user has blocked the other
+      const blocked = await ModerationService.areUsersBlocked(user1Id, user2Id);
+      if (blocked) {
+        throw new Error('Impossible de contacter cet utilisateur');
       }
 
       const participantIds = [user1Id, user2Id].sort();
@@ -221,6 +228,19 @@ export class ChatService {
       if (currentUser.uid !== senderId) {
         console.error('[ChatService] sendMessageWithType auth mismatch - Firebase UID:', currentUser.uid, 'senderId:', senderId);
         throw new Error('Session invalide');
+      }
+
+      // Prevent sending messages when either user has blocked the other
+      const chatDoc = await getDoc(doc(firestore, 'chats', chatId));
+      if (chatDoc.exists()) {
+        const chatParticipants = chatDoc.data().participants as string[];
+        const otherUserId = chatParticipants.find((id: string) => id !== senderId);
+        if (otherUserId) {
+          const isBlocked = await ModerationService.areUsersBlocked(senderId, otherUserId);
+          if (isBlocked) {
+            throw new Error("Impossible d'envoyer un message à cet utilisateur");
+          }
+        }
       }
 
       // Sort participants for consistent querying

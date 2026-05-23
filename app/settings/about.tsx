@@ -1,8 +1,8 @@
 /**
  * About Settings
- * Design System: Luxe Français + Street Energy
  */
 
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
@@ -58,7 +58,7 @@ export default function AboutSettingsScreen() {
           <Text style={styles.appName}>Seconde</Text>
           <Caption style={styles.tagline}>La mode responsable, en toute simplicité</Caption>
           <View style={styles.versionBadge}>
-            <Text variant="bodySmall" style={styles.versionText}>Version 1.0.0 (Build 1)</Text>
+            <Text variant="bodySmall" style={styles.versionText}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
           </View>
         </View>
 
@@ -90,7 +90,7 @@ export default function AboutSettingsScreen() {
 
         {/* Copyright */}
         <Caption style={styles.copyright}>
-          © 2025 Seconde. Tous droits réservés.
+          © 2026 Seconde. Tous droits réservés.
         </Caption>
       </ScrollView>
     </SafeAreaView>

@@ -1,6 +1,5 @@
 /**
  * Legal Notice (Mentions Légales)
- * Design System: Luxe Français + Street Energy
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +28,7 @@ export default function LegalNoticeScreen() {
       <Stack.Screen options={{ title: 'Mentions légales' }} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Caption style={styles.lastUpdate}>Dernière mise à jour : Janvier 2025</Caption>
+        <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
 
         <Text variant="h3" style={styles.sectionTitle}>1. Éditeur de l'application</Text>
         <InfoCard title="Seconde SAS">
@@ -179,7 +178,7 @@ export default function LegalNoticeScreen() {
 
         <View style={styles.footer}>
           <Caption style={styles.footerText}>
-            © 2025 Seconde SAS - Tous droits réservés
+            © 2026 Seconde SAS - Tous droits réservés
           </Caption>
         </View>
       </ScrollView>

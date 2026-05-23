@@ -114,9 +114,10 @@ export default function ChatScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await sendMessage(messageText.trim());
       setMessageText('');
-    } catch (err) {
+    } catch (err: any) {
       if (__DEV__) console.error('Error sending message:', err);
-      Alert.alert('Erreur', "Impossible d'envoyer le message");
+      const msg = err?.message || '';
+      Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer le message");
     }
   }, [messageText, user, sendMessage]);
 
@@ -139,9 +140,10 @@ export default function ChatScreen() {
         await sendImage(result.assets[0].uri);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } catch (err) {
+    } catch (err: any) {
       if (__DEV__) console.error('Error picking image:', err);
-      Alert.alert('Erreur', "Impossible d'envoyer l'image");
+      const msg = err?.message || '';
+      Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer l'image");
     } finally {
       setIsSendingImage(false);
     }
@@ -172,8 +174,12 @@ export default function ChatScreen() {
         message,
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
+    } catch (err: any) {
       if (__DEV__) console.error('Error sending meetup offer:', err);
+      const msg = err?.message || '';
+      if (msg.includes('Impossible')) {
+        Alert.alert('Erreur', msg);
+      }
       throw err;
     }
   }, [chatId, user, chat]);

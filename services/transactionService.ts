@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -15,10 +14,12 @@ import { MeetupSpot, ShippingAddress, Transaction, TransactionStatus } from '../
 
 export class TransactionService {
   /**
-   * Create a new transaction after offer acceptance
-   */
-  /**
-   * Create a shipping transaction (requires Stripe payment)
+   * Create a shipping transaction via Cloud Function.
+   *
+   * The Cloud Function atomically verifies that the article is still
+   * available (not sold, not deleted, not inactive) and creates the
+   * transaction in a single Firestore runTransaction. This prevents
+   * the race condition where two buyers purchase the same article.
    */
   static async createShippingTransaction(
     articleId: string,
@@ -31,44 +32,35 @@ export class TransactionService {
     serviceFee?: number,
     shipEngineRateId?: string
   ): Promise<string> {
-    try {
-      const fee = serviceFee || 0;
-      const totalAmount = amount + shippingCost + fee;
+    const callable = httpsCallable<
+      Record<string, any>,
+      { success: boolean; transactionId: string }
+    >(functions, 'createTransaction');
 
-      const transactionData: Record<string, any> = {
-        articleId,
-        buyerId,
-        sellerId,
-        amount,
-        shippingCost,
-        serviceFee: fee,
-        totalAmount,
-        sellerPayout: amount, // Vendeur reçoit 100% du prix article
-        deliveryType: 'shipping',
-        status: 'pending_payment',
-        shippingAddress,
-        createdAt: serverTimestamp(),
-      };
+    const result = await callable({
+      articleId,
+      deliveryType: 'shipping',
+      amount,
+      shippingCost,
+      serviceFee: serviceFee || 0,
+      shippingAddress,
+      chatId: chatId || null,
+      shipEngineRateId: shipEngineRateId || null,
+    });
 
-      if (chatId) {
-        transactionData.chatId = chatId;
-      }
-
-      if (shipEngineRateId) {
-        transactionData.shipEngineRateId = shipEngineRateId;
-      }
-
-      const transactionsRef = collection(firestore, 'transactions');
-      const docRef = await addDoc(transactionsRef, transactionData);
-
-      return docRef.id;
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la création de la transaction: ${error.message}`);
+    if (!result.data.success || !result.data.transactionId) {
+      throw new Error('Erreur lors de la création de la transaction');
     }
+
+    return result.data.transactionId;
   }
 
   /**
-   * Create a meetup transaction (no online payment, paid in person)
+   * Create a meetup transaction via Cloud Function.
+   *
+   * Same atomic safety as createShippingTransaction: the Cloud Function
+   * checks article availability and marks it sold in a single
+   * runTransaction.
    */
   static async createMeetupTransaction(
     articleId: string,
@@ -78,47 +70,28 @@ export class TransactionService {
     meetupSpot: MeetupSpot | null,
     chatId?: string
   ): Promise<string> {
-    try {
-      const transactionData: Record<string, any> = {
-        articleId,
-        buyerId,
-        sellerId,
-        amount,
-        shippingCost: 0,
-        totalAmount: amount,
-        deliveryType: 'meetup',
-        status: 'meetup_pending',
-        createdAt: serverTimestamp(),
-      };
+    const callable = httpsCallable<
+      Record<string, any>,
+      { success: boolean; transactionId: string }
+    >(functions, 'createTransaction');
 
-      // Only include meetupSpot if provided (null = to be decided via chat)
-      if (meetupSpot) {
-        const cleanSpot: Record<string, any> = {
-          name: meetupSpot.name,
-          category: meetupSpot.category,
-          neighborhood: meetupSpot.neighborhood,
-        };
-        if (meetupSpot.id) cleanSpot.id = meetupSpot.id;
-        if (meetupSpot.address) cleanSpot.address = meetupSpot.address;
-        if (meetupSpot.coordinates) cleanSpot.coordinates = meetupSpot.coordinates;
-        transactionData.meetupSpot = cleanSpot;
-      }
+    const result = await callable({
+      articleId,
+      deliveryType: 'meetup',
+      amount,
+      meetupSpot: meetupSpot || null,
+      chatId: chatId || null,
+    });
 
-      if (chatId) {
-        transactionData.chatId = chatId;
-      }
-
-      const transactionsRef = collection(firestore, 'transactions');
-      const docRef = await addDoc(transactionsRef, transactionData);
-
-      return docRef.id;
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la création de la transaction meetup: ${error.message}`);
+    if (!result.data.success || !result.data.transactionId) {
+      throw new Error('Erreur lors de la création de la transaction meetup');
     }
+
+    return result.data.transactionId;
   }
 
   /**
-   * Legacy wrapper — Create a shipping transaction
+   * Legacy wrapper -- Create a shipping transaction
    * @deprecated Use createShippingTransaction instead
    */
   static async createTransaction(

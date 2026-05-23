@@ -1,11 +1,12 @@
 /**
  * Delete Account Settings
- * Design System: Luxe Français + Street Energy
  */
 
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
+import { SellerBalanceService } from '@/services/sellerBalanceService';
 import { UserService } from '@/services/userService';
+import { formatPrice } from '@/utils/formatPrice';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
 import { Button } from '@/components/ui';
@@ -65,6 +66,32 @@ export default function DeleteAccountScreen() {
     try {
       if (isPasswordUser) {
         await AuthService.reauthenticate(password);
+      }
+
+      // Vérifier le solde vendeur avant suppression
+      try {
+        const balance = await SellerBalanceService.getBalance(user.id);
+        if (balance.availableBalance > 0) {
+          Alert.alert(
+            'Solde en attente',
+            `Vous avez ${formatPrice(balance.availableBalance)} disponible sur votre porte-monnaie. Veuillez effectuer un retrait avant de supprimer votre compte.`,
+            [{ text: 'OK' }]
+          );
+          setLoading(false);
+          return;
+        }
+        if (balance.pendingBalance > 0) {
+          Alert.alert(
+            'Transactions en cours',
+            `Vous avez ${formatPrice(balance.pendingBalance)} en attente de traitement. Veuillez attendre que toutes les transactions soient terminées avant de supprimer votre compte.`,
+            [{ text: 'OK' }]
+          );
+          setLoading(false);
+          return;
+        }
+      } catch (balanceError) {
+        // Si on ne peut pas vérifier le solde, ne pas bloquer silencieusement
+        if (__DEV__) console.error('Error checking seller balance:', balanceError);
       }
 
       await UserService.deleteAllUserData(user.id);

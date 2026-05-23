@@ -6,14 +6,14 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
-import { colors, spacing, radius } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { Text, Caption } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 const CARRIERS = [
@@ -89,7 +89,7 @@ export default function ShippingOptionsScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
-          <Text style={styles.infoText}>
+          <Text variant="bodySmall" style={styles.infoText}>
             Choisissez les modes de livraison que vous souhaitez proposer aux acheteurs.
           </Text>
         </View>
@@ -111,14 +111,15 @@ export default function ShippingOptionsScreen() {
             {CARRIERS.map((carrier) => (
               <View key={carrier.id} style={styles.carrierItem}>
                 <View style={styles.carrierInfo}>
-                  <Text style={styles.carrierName}>{carrier.name}</Text>
-                  <Text style={styles.carrierDescription}>{carrier.description}</Text>
+                  <Text variant="body" style={styles.carrierName}>{carrier.name}</Text>
+                  <Caption style={styles.carrierDescription}>{carrier.description}</Caption>
                 </View>
                 <Switch
                   value={enabledCarriers.includes(carrier.id)}
                   onValueChange={() => toggleCarrier(carrier.id)}
-                  trackColor={{ false: '#767577', true: colors.primary }}
-                  thumbColor={'#f4f3f4'}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={colors.white}
+                  ios_backgroundColor={colors.border}
                 />
               </View>
             ))}
@@ -132,77 +133,57 @@ export default function ShippingOptionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: spacing.md,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#F0F9FF',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 24,
+    gap: spacing.md,
+    backgroundColor: colors.primaryLight,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
   },
   infoText: {
     flex: 1,
-    fontSize: 14,
     color: colors.foreground,
   },
   skeletonCards: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: colors.borderLight,
   },
   carriersList: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: colors.borderLight,
   },
   carrierItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.borderLight,
   },
   carrierInfo: {
     flex: 1,
-    marginRight: 16,
+    marginRight: spacing.md,
   },
   carrierName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    fontFamily: fonts.sansMedium,
+    marginBottom: spacing.xs,
   },
   carrierDescription: {
-    fontSize: 13,
-    color: '#999',
+    color: colors.muted,
   },
 });
 

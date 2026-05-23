@@ -51,9 +51,15 @@ export class UserService {
     preferences: Partial<UserPreferences>
   ): Promise<void> {
     try {
+      // Use dot notation so partial updates merge into the existing
+      // preferences map instead of overwriting unrelated sub-fields.
+      const dottedPreferences: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(preferences)) {
+        dottedPreferences[`preferences.${key}`] = value;
+      }
+
       await updateDoc(doc(firestore, this.COLLECTION, userId), {
-        preferences,
-        onboardingCompleted: true,
+        ...dottedPreferences,
         isActive: true, // S'assurer que l'utilisateur est actif pour valider les règles
         updatedAt: serverTimestamp(),
       });
@@ -284,7 +290,13 @@ export class UserService {
    */
   static async deleteAllUserData(userId: string): Promise<void> {
     try {
-      const batch = writeBatch(firestore);
+      // Firestore writeBatch is limited to 500 operations. We collect all
+      // operations as callbacks that receive a batch, then execute them in
+      // chunks of BATCH_LIMIT to stay safely under the cap.
+      const BATCH_LIMIT = 450;
+
+      type BatchOp = (b: ReturnType<typeof writeBatch>) => void;
+      const operations: BatchOp[] = [];
 
       // 1. Supprimer les articles de l'utilisateur
       const articlesQuery = query(
@@ -292,8 +304,8 @@ export class UserService {
         where('sellerId', '==', userId)
       );
       const articlesSnapshot = await getDocs(articlesQuery);
-      articlesSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
+      articlesSnapshot.forEach((d) => {
+        operations.push((b) => b.delete(d.ref));
       });
 
       // 2. Supprimer les favoris de l'utilisateur
@@ -302,8 +314,8 @@ export class UserService {
         where('userId', '==', userId)
       );
       const favoritesSnapshot = await getDocs(favoritesQuery);
-      favoritesSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
+      favoritesSnapshot.forEach((d) => {
+        operations.push((b) => b.delete(d.ref));
       });
 
       // 3. Supprimer les notifications de l'utilisateur
@@ -312,8 +324,8 @@ export class UserService {
         where('userId', '==', userId)
       );
       const notificationsSnapshot = await getDocs(notificationsQuery);
-      notificationsSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
+      notificationsSnapshot.forEach((d) => {
+        operations.push((b) => b.delete(d.ref));
       });
 
       // 4. Anonymiser les messages dans les chats (on ne supprime pas les chats pour l'autre participant)
@@ -323,7 +335,6 @@ export class UserService {
       );
       const chatsSnapshot = await getDocs(chatsQuery);
       for (const chatDoc of chatsSnapshot.docs) {
-        // Mettre à jour les infos du participant pour anonymiser
         const participantsInfo = chatDoc.data().participantsInfo || [];
         const updatedParticipantsInfo = participantsInfo.map((p: any) => {
           if (p.userId === userId) {
@@ -331,7 +342,9 @@ export class UserService {
           }
           return p;
         });
-        batch.update(chatDoc.ref, { participantsInfo: updatedParticipantsInfo });
+        operations.push((b) =>
+          b.update(chatDoc.ref, { participantsInfo: updatedParticipantsInfo })
+        );
       }
 
       // 5. Supprimer les swaps de l'utilisateur
@@ -340,8 +353,8 @@ export class UserService {
         where('initiatorId', '==', userId)
       );
       const swapsInitiatorSnapshot = await getDocs(swapsInitiatorQuery);
-      swapsInitiatorSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
+      swapsInitiatorSnapshot.forEach((d) => {
+        operations.push((b) => b.delete(d.ref));
       });
 
       const swapsReceiverQuery = query(
@@ -349,15 +362,23 @@ export class UserService {
         where('receiverId', '==', userId)
       );
       const swapsReceiverSnapshot = await getDocs(swapsReceiverQuery);
-      swapsReceiverSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
+      swapsReceiverSnapshot.forEach((d) => {
+        operations.push((b) => b.delete(d.ref));
       });
 
       // 6. Supprimer le profil utilisateur
-      batch.delete(doc(firestore, this.COLLECTION, userId));
+      operations.push((b) =>
+        b.delete(doc(firestore, this.COLLECTION, userId))
+      );
 
-      // Exécuter toutes les suppressions
-      await batch.commit();
+      // Exécuter par chunks pour respecter la limite Firestore de 500 ops/batch
+      for (let i = 0; i < operations.length; i += BATCH_LIMIT) {
+        const chunk = operations.slice(i, i + BATCH_LIMIT);
+        const batch = writeBatch(firestore);
+        chunk.forEach((op) => op(batch));
+        await batch.commit();
+      }
+
       if (__DEV__) console.log('All user data deleted successfully');
     } catch (error) {
       if (__DEV__) console.error('Error deleting user data:', error);

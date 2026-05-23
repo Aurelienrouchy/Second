@@ -1,6 +1,5 @@
 /**
  * User Preferences Settings Page
- * Design System: Luxe Français + Street Energy
  */
 
 import BrandSelectionSheet, {
@@ -21,7 +20,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -46,17 +44,6 @@ export default function PreferencesScreen() {
     city: string;
   } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [notificationPrefs, setNotificationPrefs] = useState({
-    email: true,
-    push: true,
-    newMessages: true,
-    newOrders: true,
-    priceDrops: true,
-    articleFavorited: true,
-    swapZoneReminder: true,
-    offerReceived: true,
-    offerResponse: true,
-  });
 
   useEffect(() => {
     if (user) {
@@ -74,19 +61,6 @@ export default function PreferencesScreen() {
         setSelectedSizes(preferences.sizes || []);
         setSelectedBrands(preferences.favoriteBrands || []);
         setLocation(preferences.location || null);
-        if (preferences.notifications) {
-          setNotificationPrefs({
-            email: preferences.notifications.email ?? true,
-            push: preferences.notifications.push ?? true,
-            newMessages: preferences.notifications.newMessages ?? true,
-            newOrders: preferences.notifications.newOrders ?? true,
-            priceDrops: preferences.notifications.priceDrops ?? true,
-            articleFavorited: preferences.notifications.articleFavorited ?? true,
-            swapZoneReminder: preferences.notifications.swapZoneReminder ?? true,
-            offerReceived: preferences.notifications.offerReceived ?? true,
-            offerResponse: preferences.notifications.offerResponse ?? true,
-          });
-        }
       }
     } catch (error) {
       if (__DEV__) console.error('Error loading preferences:', error);
@@ -104,7 +78,6 @@ export default function PreferencesScreen() {
         sizes: selectedSizes,
         favoriteBrands: selectedBrands,
         location: location || undefined,
-        notifications: notificationPrefs,
       });
 
       Alert.alert('Succès', 'Vos préférences ont été enregistrées', [
@@ -117,13 +90,6 @@ export default function PreferencesScreen() {
       setIsSaving(false);
     }
   };
-
-  const toggleNotificationPref = useCallback((key: keyof typeof notificationPrefs) => {
-    setNotificationPrefs((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  }, []);
 
   const toggleSize = useCallback((size: string) => {
     setSelectedSizes((prev) =>
@@ -306,88 +272,22 @@ export default function PreferencesScreen() {
 
           {/* Notifications Section */}
           <View style={styles.section}>
-            <Label style={styles.sectionHeader}>Notifications rapides</Label>
-            <Caption style={styles.sectionSubtitle}>
-              Choisissez les notifications que vous souhaitez recevoir
-            </Caption>
-
-            <View style={styles.notificationsList}>
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationInfo}>
-                  <View style={[styles.notificationIcon, { backgroundColor: colors.dangerLight }]}>
-                    <Ionicons name="heart-outline" size={20} color={colors.danger} />
-                  </View>
-                  <View style={styles.notificationTextContainer}>
-                    <Text variant="body" style={styles.notificationTitle}>Articles favoris</Text>
-                    <Caption>Quand quelqu'un ajoute ton article en favori</Caption>
-                  </View>
+            <Label style={styles.sectionHeader}>Notifications</Label>
+            <Pressable
+              style={({ pressed }) => [styles.notificationLink, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push('/settings/notifications')}
+            >
+              <View style={styles.notificationLinkLeft}>
+                <View style={[styles.notificationIcon, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="notifications-outline" size={20} color={colors.primary} />
                 </View>
-                <Switch
-                  value={notificationPrefs.articleFavorited}
-                  onValueChange={() => toggleNotificationPref('articleFavorited')}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.white}
-                  ios_backgroundColor={colors.border}
-                />
-              </View>
-
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationInfo}>
-                  <View style={[styles.notificationIcon, { backgroundColor: colors.successLight }]}>
-                    <Ionicons name="pricetag-outline" size={20} color={colors.success} />
-                  </View>
-                  <View style={styles.notificationTextContainer}>
-                    <Text variant="body" style={styles.notificationTitle}>Baisses de prix</Text>
-                    <Caption>Quand un article en favoris baisse de prix</Caption>
-                  </View>
+                <View>
+                  <Text variant="body" style={styles.notificationTitle}>Gérer les notifications</Text>
+                  <Caption>Personnalisez vos alertes et rappels</Caption>
                 </View>
-                <Switch
-                  value={notificationPrefs.priceDrops}
-                  onValueChange={() => toggleNotificationPref('priceDrops')}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.white}
-                  ios_backgroundColor={colors.border}
-                />
               </View>
-
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationInfo}>
-                  <View style={[styles.notificationIcon, { backgroundColor: colors.warningLight }]}>
-                    <Ionicons name="cube-outline" size={20} color={colors.warning} />
-                  </View>
-                  <View style={styles.notificationTextContainer}>
-                    <Text variant="body" style={styles.notificationTitle}>Swap Zone</Text>
-                    <Caption>Rappel 3 jours avant l'événement</Caption>
-                  </View>
-                </View>
-                <Switch
-                  value={notificationPrefs.swapZoneReminder}
-                  onValueChange={() => toggleNotificationPref('swapZoneReminder')}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.white}
-                  ios_backgroundColor={colors.border}
-                />
-              </View>
-
-              <View style={[styles.notificationItem, styles.notificationItemLast]}>
-                <View style={styles.notificationInfo}>
-                  <View style={[styles.notificationIcon, { backgroundColor: colors.primaryLight }]}>
-                    <Ionicons name="cash-outline" size={20} color={colors.primary} />
-                  </View>
-                  <View style={styles.notificationTextContainer}>
-                    <Text variant="body" style={styles.notificationTitle}>Propositions d'achat</Text>
-                    <Caption>Quand tu reçois une offre</Caption>
-                  </View>
-                </View>
-                <Switch
-                  value={notificationPrefs.offerReceived}
-                  onValueChange={() => toggleNotificationPref('offerReceived')}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.white}
-                  ios_backgroundColor={colors.border}
-                />
-              </View>
-            </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+            </Pressable>
           </View>
 
           {/* Info box */}
@@ -532,29 +432,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     color: colors.foreground,
   },
-  notificationsList: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    overflow: 'hidden',
-  },
-  notificationItem: {
+  notificationLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
-  notificationItemLast: {
-    borderBottomWidth: 0,
-  },
-  notificationInfo: {
+  notificationLinkLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
     flex: 1,
-    marginRight: spacing.md,
   },
   notificationIcon: {
     width: 36,
@@ -562,10 +454,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  notificationTextContainer: {
-    flex: 1,
   },
   notificationTitle: {
     fontFamily: fonts.sansMedium,

@@ -1,6 +1,5 @@
 /**
  * Verify Email Settings
- * Design System: Luxe Français + Street Energy
  */
 
 import { useUser } from '@/contexts/AuthContext';
