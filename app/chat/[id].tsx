@@ -104,7 +104,7 @@ export default function ChatScreen() {
       const loadedArticle = await ArticlesService.getArticleById(chat.articleId);
       setArticle(loadedArticle);
     } catch (error) {
-      console.error('Error loading article:', error);
+      if (__DEV__) console.error('Error loading article:', error);
     }
   };
 
@@ -116,7 +116,7 @@ export default function ChatScreen() {
       const trans = await TransactionService.getTransactionByChat(chatId, user.id);
       setTransaction(trans);
     } catch (error) {
-      console.error('Error loading transaction:', error);
+      if (__DEV__) console.error('Error loading transaction:', error);
     } finally {
       setIsLoadingTransaction(false);
     }
@@ -131,7 +131,7 @@ export default function ChatScreen() {
       await sendMessage(messageText.trim());
       setMessageText('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      if (__DEV__) console.error('Error sending message:', error);
       Alert.alert('Erreur', 'Impossible d\'envoyer le message');
     }
   };
@@ -167,7 +167,7 @@ export default function ChatScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      if (__DEV__) console.error('Error picking image:', error);
       Alert.alert('Erreur', 'Impossible d\'envoyer l\'image');
     } finally {
       setIsSendingImage(false);
@@ -203,7 +203,7 @@ export default function ChatScreen() {
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      console.error('Error sending meetup offer:', error);
+      if (__DEV__) console.error('Error sending meetup offer:', error);
       throw error;
     }
   };
@@ -213,7 +213,7 @@ export default function ChatScreen() {
     try {
       await acceptOffer(messageId, offerId);
     } catch (error) {
-      console.error('Error accepting offer:', error);
+      if (__DEV__) console.error('Error accepting offer:', error);
       throw error;
     }
   };
@@ -223,7 +223,7 @@ export default function ChatScreen() {
     try {
       await rejectOffer(messageId, offerId);
     } catch (error) {
-      console.error('Error rejecting offer:', error);
+      if (__DEV__) console.error('Error rejecting offer:', error);
       throw error;
     }
   };
@@ -443,7 +443,7 @@ export default function ChatScreen() {
       {article && (
         <View style={[styles.header, { backgroundColor: colors.white, paddingVertical: spacing.sm }]}>
           <Image
-            source={{ uri: article.images?.[0]?.url || 'https://via.placeholder.com/48x60' }}
+            source={article.images?.[0]?.url ? { uri: article.images[0].url } : undefined}
             style={{ width: 48, height: 60, borderRadius: radius.xs, marginRight: spacing.md }}
             contentFit="cover"
           />

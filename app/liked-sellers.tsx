@@ -8,9 +8,9 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -183,7 +183,7 @@ export default function LikedSellersScreen() {
   }, [user?.id, likedSellerIds.length]);
 
   const handleSellerPress = useCallback((sellerId: string) => {
-    router.push(`/seller/${sellerId}` as any);
+    router.push(`/user/${sellerId}` as any);
   }, []);
 
   const handleToggleLike = useCallback((sellerId: string) => {
@@ -237,7 +237,7 @@ export default function LikedSellersScreen() {
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={sellers}
           renderItem={renderSeller}
           keyExtractor={(item) => item.id}

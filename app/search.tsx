@@ -92,7 +92,7 @@ export default function SearchScreen() {
           <View style={styles.resultsInfoBar}>
             {!screen.isLoading && screen.articles.length > 0 && (
               <Text style={styles.resultsCountInline}>
-                {screen.articles.length} article{screen.articles.length > 1 ? 's' : ''} trouve{screen.articles.length > 1 ? 's' : ''}
+                {screen.articles.length} article{screen.articles.length > 1 ? 's' : ''} trouvé{screen.articles.length > 1 ? 's' : ''}
               </Text>
             )}
             {screen.anyFilterActive && (
@@ -124,8 +124,8 @@ export default function SearchScreen() {
             onProductPress={screen.handleProductPress}
             emptyMessage={
               screen.activeSearchQuery
-                ? `Aucun resultat pour "${screen.activeSearchQuery}"`
-                : 'Aucun article trouve avec ces filtres'
+                ? `Aucun résultat pour "${screen.activeSearchQuery}"`
+                : 'Aucun article trouvé avec ces filtres'
             }
             testID="search-results-grid"
           />
@@ -171,7 +171,7 @@ export default function SearchScreen() {
 
       <SelectionBottomSheet
         ref={materialSheetRef}
-        title="Matiere"
+        title="Matière"
         items={getMaterialItems()}
         selectedValue={screen.filters.materials?.[0]}
         selectedValues={screen.filters.materials || []}
@@ -181,7 +181,7 @@ export default function SearchScreen() {
 
       <SelectionBottomSheet
         ref={conditionSheetRef}
-        title="Etat"
+        title="État"
         items={CONDITION_ITEMS}
         selectedValue={screen.filters.condition}
         onSelect={screen.handleConditionSelect}

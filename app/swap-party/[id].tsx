@@ -13,9 +13,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Image,
-  FlatList,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -116,7 +116,7 @@ export default function SwapPartyDetailScreen() {
         setUserItems(itemsData.filter((item) => item.sellerId === user.id));
       }
     } catch (error) {
-      console.error('Error loading party data:', error);
+      if (__DEV__) console.error('Error loading party data:', error);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -133,7 +133,7 @@ export default function SwapPartyDetailScreen() {
       const availableArticles = articles.filter((a) => a.isActive !== false && !a.isSold);
       setMyArticles(availableArticles);
     } catch (error) {
-      console.error('Error loading my articles:', error);
+      if (__DEV__) console.error('Error loading my articles:', error);
     }
   }, [user]);
 
@@ -167,7 +167,7 @@ export default function SwapPartyDetailScreen() {
       setIsJoined(true);
       loadPartyData();
     } catch (error) {
-      console.error('Error joining party:', error);
+      if (__DEV__) console.error('Error joining party:', error);
       Alert.alert('Erreur', 'Impossible de rejoindre la party');
     } finally {
       setIsJoining(false);
@@ -192,7 +192,7 @@ export default function SwapPartyDetailScreen() {
               setUserItems([]);
               loadPartyData();
             } catch (error) {
-              console.error('Error leaving party:', error);
+              if (__DEV__) console.error('Error leaving party:', error);
               Alert.alert('Erreur', 'Impossible de quitter la party');
             }
           },
@@ -211,7 +211,7 @@ export default function SwapPartyDetailScreen() {
       // Re-fetch articles to update the "already added" filter
       loadMyArticles();
     } catch (error) {
-      console.error('Error adding item:', error);
+      if (__DEV__) console.error('Error adding item:', error);
       Alert.alert('Erreur', "Impossible d'ajouter l'article");
     }
   };
@@ -232,7 +232,7 @@ export default function SwapPartyDetailScreen() {
               await removeItemFromParty(party.id, articleId, user.id);
               loadPartyData();
             } catch (error) {
-              console.error('Error removing item:', error);
+              if (__DEV__) console.error('Error removing item:', error);
               Alert.alert('Erreur', "Impossible de retirer l'article");
             }
           },
@@ -488,12 +488,11 @@ export default function SwapPartyDetailScreen() {
           </View>
         ) : (
           <>
-            <FlatList
+            <FlashList
               data={otherItems}
               keyExtractor={(item) => item.id}
               numColumns={2}
               scrollEnabled={false}
-              columnWrapperStyle={styles.gridColumnWrapper}
               contentContainerStyle={styles.gridContainer}
               renderItem={({ item }) => (
                 <ProductCard
@@ -560,7 +559,7 @@ export default function SwapPartyDetailScreen() {
               </View>
             )}
 
-            <FlatList
+            <FlashList
               data={myArticles.filter(
                 (article) => !userItems.some((ui) => ui.articleId === article.id)
               )}
@@ -956,10 +955,6 @@ const styles = StyleSheet.create({
   gridContainer: {
     paddingHorizontal: 0,
     paddingVertical: 0,
-    backgroundColor: colors.border,
-  },
-  gridColumnWrapper: {
-    flexDirection: 'row',
     backgroundColor: colors.border,
   },
   productCard: {

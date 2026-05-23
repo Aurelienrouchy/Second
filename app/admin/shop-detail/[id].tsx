@@ -14,13 +14,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
@@ -46,7 +46,7 @@ export default function AdminShopDetailScreen() {
       const shopData = await ShopService.getShopById(id!);
       setShop(shopData);
     } catch (error) {
-      console.error('Error loading shop details:', error);
+      if (__DEV__) console.error('Error loading shop details:', error);
       Alert.alert('Erreur', 'Impossible de charger les détails de la boutique');
     } finally {
       setIsLoading(false);
@@ -72,7 +72,7 @@ export default function AdminShopDetailScreen() {
                 { text: 'OK', onPress: () => router.back() },
               ]);
             } catch (error) {
-              console.error('Error approving shop:', error);
+              if (__DEV__) console.error('Error approving shop:', error);
               Alert.alert('Erreur', 'Impossible d\'approuver la boutique');
             }
           },
@@ -95,7 +95,7 @@ export default function AdminShopDetailScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error('Error rejecting shop:', error);
+      if (__DEV__) console.error('Error rejecting shop:', error);
       Alert.alert('Erreur', 'Impossible de rejeter la boutique');
     }
   };

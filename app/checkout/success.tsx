@@ -79,12 +79,12 @@ export default function CheckoutSuccessScreen() {
 
         {/* Title */}
         <Text style={styles.title}>
-          {isMeetup ? 'Meetup confirme' : 'Paiement confirme'}
+          {isMeetup ? 'Meetup confirmé' : 'Paiement confirmé'}
         </Text>
         <Text style={styles.subtitle}>
           {isMeetup
-            ? 'Le vendeur a ete notifie. Convenez d\'un creneau par messagerie pour finaliser la transaction.'
-            : 'Le vendeur a ete notifie et preparera l\'expedition de votre article. Vous recevrez un numero de suivi.'}
+            ? 'Le vendeur a été notifié. Convenez d\'un créneau par messagerie pour finaliser la transaction.'
+            : 'Le vendeur a été notifié et préparera l\'expédition de votre article. Vous recevrez un numéro de suivi.'}
         </Text>
 
         {/* Summary card */}
@@ -127,7 +127,7 @@ export default function CheckoutSuccessScreen() {
               )}
               {totalAmount && (
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Total paye</Text>
+                  <Text style={styles.summaryLabel}>Total payé</Text>
                   <Text style={[styles.summaryValue, styles.summaryPrice]}>
                     {parseFloat(totalAmount).toFixed(2)}$
                   </Text>
@@ -136,7 +136,7 @@ export default function CheckoutSuccessScreen() {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Type</Text>
                 <View style={styles.shippingBadge}>
-                  <Text style={styles.shippingBadgeText}>EXPEDITION</Text>
+                  <Text style={styles.shippingBadgeText}>EXPÉDITION</Text>
                 </View>
               </View>
             </>
@@ -157,7 +157,7 @@ export default function CheckoutSuccessScreen() {
           )}
         </Pressable>
         <Pressable style={styles.secondaryLink} onPress={handleGoHome}>
-          <Text style={styles.secondaryLinkText}>Retour a l'accueil</Text>
+          <Text style={styles.secondaryLinkText}>Retour à l'accueil</Text>
         </Pressable>
       </View>
     </View>

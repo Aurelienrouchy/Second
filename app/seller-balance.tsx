@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +47,7 @@ export default function SellerBalanceScreen() {
       const balanceData = await SellerBalanceService.getBalance(user.id);
       setBalance(balanceData);
     } catch (error) {
-      console.error('Error loading balance:', error);
+      if (__DEV__) console.error('Error loading balance:', error);
       Alert.alert('Erreur', 'Impossible de charger votre balance');
     } finally {
       setIsLoading(false);
@@ -104,7 +104,7 @@ export default function SellerBalanceScreen() {
               setIban('');
               await loadBalance();
             } catch (error: any) {
-              console.error('Error requesting withdrawal:', error);
+              if (__DEV__) console.error('Error requesting withdrawal:', error);
               Alert.alert('Erreur', error.message || 'Impossible de traiter la demande');
             } finally {
               setIsProcessingWithdrawal(false);
@@ -301,7 +301,7 @@ export default function SellerBalanceScreen() {
               <Text style={styles.emptyStateText}>Aucune transaction</Text>
             </View>
           ) : (
-            <FlatList
+            <FlashList
               data={balance.transactions.slice().reverse()}
               renderItem={renderTransaction}
               keyExtractor={(item) => item.id}

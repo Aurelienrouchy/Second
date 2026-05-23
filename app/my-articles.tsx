@@ -43,7 +43,7 @@ export default function MyArticlesScreen() {
       const userArticles = await ArticlesService.getUserArticles(user.id);
       setArticles(userArticles);
     } catch (error) {
-      console.error('Erreur chargement articles:', error);
+      if (__DEV__) console.error('Erreur chargement articles:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,7 +79,7 @@ export default function MyArticlesScreen() {
               setArticles((prev) => prev.filter((a) => a.id !== article.id));
               closeAllSwipeables();
             } catch (error) {
-              console.error('Erreur suppression:', error);
+              if (__DEV__) console.error('Erreur suppression:', error);
               Alert.alert('Erreur', 'Impossible de supprimer l\'article');
             }
           },
@@ -95,7 +95,7 @@ export default function MyArticlesScreen() {
         prev.map((a) => (a.id === article.id ? { ...a, isSold: !a.isSold } : a))
       );
     } catch (error) {
-      console.error('Erreur mise à jour:', error);
+      if (__DEV__) console.error('Erreur mise à jour:', error);
       Alert.alert('Erreur', 'Impossible de mettre à jour l\'article');
     }
   };
@@ -183,7 +183,7 @@ export default function MyArticlesScreen() {
             activeOpacity={0.7}
           >
             <Image
-              source={{ uri: firstImage?.url || 'https://via.placeholder.com/120x120' }}
+              source={firstImage?.url ? { uri: firstImage.url } : undefined}
               style={styles.articleImage}
               contentFit="cover"
               transition={500}
@@ -196,8 +196,14 @@ export default function MyArticlesScreen() {
               <Text style={styles.articlePrice}>{item.price}€</Text>
               <Text style={styles.articleSize}>{item.size || 'Taille non spécifiée'}</Text>
               <View style={styles.articleStats}>
-                <Text style={styles.articleStat}>👀 {item.views}</Text>
-                <Text style={styles.articleStat}>❤️ {item.likes}</Text>
+                <View style={styles.articleStatRow}>
+                  <Ionicons name="eye-outline" size={14} color="#666" />
+                  <Text style={styles.articleStat}> {item.views}</Text>
+                </View>
+                <View style={styles.articleStatRow}>
+                  <Ionicons name="heart-outline" size={14} color="#666" />
+                  <Text style={styles.articleStat}> {item.likes}</Text>
+                </View>
                 <Text
                   style={[
                     styles.articleStatus,
@@ -272,7 +278,7 @@ export default function MyArticlesScreen() {
 
       {articles.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📦</Text>
+          <Ionicons name="cube-outline" size={48} color="#999" style={styles.emptyIcon} />
           <Text style={styles.emptyTitle}>Aucun article</Text>
           <Text style={styles.emptyText}>
             Vous n'avez pas encore publié d'articles.{'\n'}
@@ -427,8 +433,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyIcon: {
-    fontSize: 64,
     marginBottom: 16,
+  },
+  articleStatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 24,

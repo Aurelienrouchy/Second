@@ -54,7 +54,7 @@ export default function CategoryDisplay({
           <View style={styles.content}>
             {/* Icon + Name */}
             <View style={styles.mainRow}>
-              <Text style={styles.icon}>{icon}</Text>
+              <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={24} color={colors.foregroundSecondary} />
               <Text style={styles.name}>{name}</Text>
             </View>
 
@@ -118,9 +118,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  icon: {
-    fontSize: 24,
   },
   name: {
     fontSize: 17,

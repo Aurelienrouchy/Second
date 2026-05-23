@@ -61,7 +61,7 @@ function OrderCard({
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <Image
-        source={{ uri: firstImage?.url || 'https://via.placeholder.com/100x100' }}
+        source={firstImage?.url ? { uri: firstImage.url } : undefined}
         style={styles.cardImage}
         contentFit="cover"
         transition={200}
@@ -110,7 +110,7 @@ export default function MyOrdersScreen() {
 
         setOrders(purchases.map((tx, i) => ({ transaction: tx, article: articles[i] })));
       } catch (error) {
-        console.error('Erreur chargement commandes:', error);
+        if (__DEV__) console.error('Erreur chargement commandes:', error);
       } finally {
         setLoading(false);
         setRefreshing(false);

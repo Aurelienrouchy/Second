@@ -14,10 +14,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   StyleSheet,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDisplayName } from '@/utils/formatName';
 
@@ -126,7 +126,7 @@ export default function BlockedUsersScreen() {
           <Text variant="body" style={styles.loadingText}>Chargement...</Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={blockedUsers}
           keyExtractor={(item) => item.blockedUserId}
           renderItem={renderItem}

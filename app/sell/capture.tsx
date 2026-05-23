@@ -101,7 +101,7 @@ export default function CaptureScreen() {
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (error) {
         setSaveStatus('error');
-        console.error('Failed to save photos:', error);
+        if (__DEV__) console.error('Failed to save photos:', error);
       }
     };
 
@@ -136,7 +136,7 @@ export default function CaptureScreen() {
         });
       }
     } catch (error) {
-      console.error('Error taking photo:', error);
+      if (__DEV__) console.error('Error taking photo:', error);
     } finally {
       setIsCapturing(false);
     }
@@ -162,7 +162,7 @@ export default function CaptureScreen() {
         });
       }
     } catch (error) {
-      console.error('Error picking images:', error);
+      if (__DEV__) console.error('Error picking images:', error);
     }
   };
 
@@ -178,7 +178,7 @@ export default function CaptureScreen() {
     if (photos.length > 0) {
       Alert.alert(
         'Quitter ?',
-        'Votre brouillon sera sauvegarde. Vous pourrez le reprendre plus tard.',
+        'Votre brouillon sera sauvegardé. Vous pourrez le reprendre plus tard.',
         [
           { text: 'Annuler', style: 'cancel' },
           {
@@ -232,9 +232,9 @@ export default function CaptureScreen() {
           <View style={styles.permissionIconCircle}>
             <Ionicons name="camera-outline" size={32} color={colors.muted} />
           </View>
-          <Text style={styles.permissionTitle}>Acces camera requis</Text>
+          <Text style={styles.permissionTitle}>Accès caméra requis</Text>
           <Text style={styles.permissionText}>
-            Pour prendre des photos de vos articles, autorisez l'acces a la camera dans les reglages.
+            Pour prendre des photos de vos articles, autorisez l'accès à la caméra dans les réglages.
           </Text>
 
           <Pressable
@@ -242,7 +242,7 @@ export default function CaptureScreen() {
             onPress={() => Linking.openSettings()}
           >
             <Ionicons name="settings-outline" size={18} color={colors.cream} />
-            <Text style={styles.settingsButtonText}>OUVRIR LES REGLAGES</Text>
+            <Text style={styles.settingsButtonText}>OUVRIR LES RÉGLAGES</Text>
           </Pressable>
 
           <Text style={styles.orText}>ou</Text>
@@ -250,7 +250,7 @@ export default function CaptureScreen() {
           <Pressable style={styles.galleryFallbackButton} onPress={handleGalleryPress}>
             <Ionicons name="images-outline" size={20} color={colors.rust} />
             <Text style={styles.galleryFallbackText}>
-              Selectionner depuis la galerie
+              Sélectionner depuis la galerie
             </Text>
           </Pressable>
         </View>
@@ -286,7 +286,7 @@ export default function CaptureScreen() {
             photos.length === 0
               ? 'Cadre ton article'
               : photos.length === 1
-                ? 'Ajoute un detail'
+                ? 'Ajoute un détail'
                 : photos.length < MAX_PHOTOS
                   ? 'Continue !'
                   : undefined
@@ -295,9 +295,9 @@ export default function CaptureScreen() {
             photos.length === 0
               ? 'Photo principale face avant'
               : photos.length === 1
-                ? 'Etiquette, defaut, texture...'
+                ? 'Étiquette, défaut, texture...'
                 : photos.length < MAX_PHOTOS
-                  ? 'Dos, cote, etiquette de taille...'
+                  ? 'Dos, côté, étiquette de taille...'
                   : undefined
           }
         />

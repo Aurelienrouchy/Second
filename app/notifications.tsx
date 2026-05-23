@@ -9,13 +9,13 @@ import { router, Stack } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 
@@ -129,7 +129,7 @@ export default function NotificationsScreen() {
       const data = await NotificationService.getUserNotifications(user.id);
       setNotifications(data);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      if (__DEV__) console.error('Error loading notifications:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -172,7 +172,7 @@ export default function NotificationsScreen() {
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       refreshBadgeCount();
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      if (__DEV__) console.error('Error deleting notification:', error);
     }
   };
 
@@ -184,7 +184,7 @@ export default function NotificationsScreen() {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       refreshBadgeCount();
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      if (__DEV__) console.error('Error marking all as read:', error);
     }
   };
 
@@ -225,7 +225,7 @@ export default function NotificationsScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
+          <FlashList
             data={notifications}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (

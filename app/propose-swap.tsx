@@ -72,7 +72,7 @@ export default function ProposeSwapScreen() {
         const parsed = JSON.parse(receiverItemsJson);
         setReceiverItems(Array.isArray(parsed) ? parsed : [parsed]);
       } catch (error) {
-        console.error('Error parsing receiver items:', error);
+        if (__DEV__) console.error('Error parsing receiver items:', error);
       }
       setIsLoading(false);
     } else if (targetArticleId) {
@@ -93,7 +93,7 @@ export default function ProposeSwapScreen() {
           }
         })
         .catch((error) => {
-          console.error('Error fetching target article:', error);
+          if (__DEV__) console.error('Error fetching target article:', error);
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -125,7 +125,7 @@ export default function ProposeSwapScreen() {
         }));
       setAllAvailableItems(available);
     } catch (error) {
-      console.error('Error loading user items:', error);
+      if (__DEV__) console.error('Error loading user items:', error);
     }
   };
 
@@ -214,7 +214,7 @@ export default function ProposeSwapScreen() {
         ]
       );
     } catch (error) {
-      console.error('Error proposing swap:', error);
+      if (__DEV__) console.error('Error proposing swap:', error);
       Alert.alert('Erreur', "Impossible d'envoyer la proposition");
     } finally {
       setIsSubmitting(false);

@@ -176,7 +176,7 @@ export default function CheckoutScreen() {
             <View style={styles.optionContent}>
               <Text style={styles.optionTitle}>Remise en main propre</Text>
               <Text style={styles.optionDesc}>
-                Rencontrez le vendeur dans un lieu public a Montreal
+                Rencontrez le vendeur dans un lieu public à Montréal
               </Text>
               <Text style={styles.optionPriceFree}>Gratuit</Text>
             </View>
@@ -203,11 +203,11 @@ export default function CheckoutScreen() {
               {selectedDelivery === 'shipping' && <View style={styles.radioInner} />}
             </View>
             <View style={styles.optionContent}>
-              <Text style={styles.optionTitle}>Expedition postale</Text>
+              <Text style={styles.optionTitle}>Expédition postale</Text>
               <Text style={styles.optionDesc}>
-                Livraison a votre adresse en 3-5 jours ouvrables
+                Livraison à votre adresse en 3-5 jours ouvrables
               </Text>
-              <Text style={styles.optionPrice}>A partir de 8.50$</Text>
+              <Text style={styles.optionPrice}>À partir de 8.50$</Text>
             </View>
             <View style={[styles.optionIcon, styles.optionIconShipping]}>
               <Ionicons name="cube-outline" size={20} color={colors.rust} />
@@ -230,8 +230,8 @@ export default function CheckoutScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={16} color={colors.sage} />
             <Text style={styles.infoText}>
-              <Text style={styles.infoTextBold}>Paiement securise</Text>
-              {'\n'}Votre paiement est protege. Le vendeur est paye apres la livraison confirmee.
+              <Text style={styles.infoTextBold}>Paiement sécurisé</Text>
+              {'\n'}Votre paiement est protégé. Le vendeur est payé après la livraison confirmée.
             </Text>
           </View>
         )}

@@ -198,7 +198,7 @@ export default function OnboardingScreen() {
               entering={FadeInDown.duration(500).delay(350)}
               style={styles.welcomeSubtitle}
             >
-              Dis-nous en un peu plus sur toi pour personnaliser ton experience.
+              Dis-nous en un peu plus sur toi pour personnaliser ton expérience.
             </Animated.Text>
           </View>
           <Animated.View

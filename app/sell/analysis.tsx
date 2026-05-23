@@ -52,10 +52,10 @@ export default function AnalysisScreen() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [detectedPills, setDetectedPills] = useState<string[]>([]);
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
-    { label: 'Categorie detectee', state: 'pending' },
-    { label: 'Couleur et matiere identifiees', state: 'pending' },
-    { label: "Lecture de l'etiquette...", state: 'pending' },
-    { label: 'Generation du titre et description', state: 'pending' },
+    { label: 'Catégorie détectée', state: 'pending' },
+    { label: 'Couleur et matière identifiées', state: 'pending' },
+    { label: "Lecture de l'étiquette...", state: 'pending' },
+    { label: 'Génération du titre et description', state: 'pending' },
   ]);
 
   // Animated spinner rotation
@@ -92,10 +92,10 @@ export default function AnalysisScreen() {
     const activeIndex = phaseIndex[phase] ?? -1;
 
     setProgressSteps([
-      { label: 'Categorie detectee', state: activeIndex > 0 ? 'done' : activeIndex === 0 ? 'active' : 'pending' },
-      { label: 'Couleur et matiere identifiees', state: activeIndex > 1 ? 'done' : activeIndex === 1 ? 'active' : 'pending' },
-      { label: "Lecture de l'etiquette...", state: activeIndex > 2 ? 'done' : activeIndex === 2 ? 'active' : 'pending' },
-      { label: 'Generation du titre et description', state: activeIndex > 3 ? 'done' : activeIndex === 3 ? 'active' : 'pending' },
+      { label: 'Catégorie détectée', state: activeIndex > 0 ? 'done' : activeIndex === 0 ? 'active' : 'pending' },
+      { label: 'Couleur et matière identifiées', state: activeIndex > 1 ? 'done' : activeIndex === 1 ? 'active' : 'pending' },
+      { label: "Lecture de l'étiquette...", state: activeIndex > 2 ? 'done' : activeIndex === 2 ? 'active' : 'pending' },
+      { label: 'Génération du titre et description', state: activeIndex > 3 ? 'done' : activeIndex === 3 ? 'active' : 'pending' },
     ]);
   };
 
@@ -123,9 +123,9 @@ export default function AnalysisScreen() {
           setCurrentPhase(message);
           updateProgressSteps(phase);
           // Progressively add pills
-          if (phase === 'category') setDetectedPills((prev) => [...new Set([...prev, 'Categorie'])]);
-          if (phase === 'analysis') setDetectedPills((prev) => [...new Set([...prev, 'Categorie', 'Couleur', 'Matiere'])]);
-          if (phase === 'brand') setDetectedPills((prev) => [...new Set([...prev, 'Categorie', 'Couleur', 'Matiere', 'Marque'])]);
+          if (phase === 'category') setDetectedPills((prev) => [...new Set([...prev, 'Catégorie'])]);
+          if (phase === 'analysis') setDetectedPills((prev) => [...new Set([...prev, 'Catégorie', 'Couleur', 'Matière'])]);
+          if (phase === 'brand') setDetectedPills((prev) => [...new Set([...prev, 'Catégorie', 'Couleur', 'Matière', 'Marque'])]);
         },
       });
 
@@ -262,7 +262,7 @@ export default function AnalysisScreen() {
 
               <Text style={styles.analysisTitle}>Analyse en cours</Text>
               <Text style={styles.analysisSubtitle}>
-                Notre IA identifie les details{'\n'}de ton article
+                Notre IA identifie les détails{'\n'}de ton article
               </Text>
 
               {/* Progress bar */}
@@ -281,9 +281,9 @@ export default function AnalysisScreen() {
                 <Ionicons name="checkmark" size={20} color={colors.white} />
               </Animated.View>
 
-              <Text style={styles.completeTitleInline}>Analyse terminee</Text>
+              <Text style={styles.completeTitleInline}>Analyse terminée</Text>
               <Text style={styles.completeSubInline}>
-                {prefilledCount} champs pre-remplis
+                {prefilledCount} champs pré-remplis
               </Text>
             </>
           )}
@@ -357,7 +357,7 @@ export default function AnalysisScreen() {
         {screenState === 'complete' && aiResult && (
           <Animated.View entering={FadeInDown.delay(200).duration(300)}>
             <View style={styles.sectionTitle}>
-              <Text style={styles.sectionTitleText}>RESUME DE L'ANALYSE</Text>
+              <Text style={styles.sectionTitleText}>RÉSUMÉ DE L'ANALYSE</Text>
               <View style={styles.sectionTitleLine} />
             </View>
             <FormFieldGroup>
@@ -379,7 +379,7 @@ export default function AnalysisScreen() {
               ) : null}
               {aiResult.category?.displayName ? (
                 <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>CATEGORIE</Text>
+                  <Text style={styles.resultLabel}>CATÉGORIE</Text>
                   <Text style={styles.resultValue}>
                     {aiResult.category.fullLabel
                       ? aiResult.category.fullLabel.split(' > ').slice(0, 2).join(' / ')
@@ -390,7 +390,7 @@ export default function AnalysisScreen() {
               ) : null}
               {aiResult.condition?.conditionId ? (
                 <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>ETAT</Text>
+                  <Text style={styles.resultLabel}>ÉTAT</Text>
                   <Text style={styles.resultValue}>
                     {CONDITION_DISPLAY[aiResult.condition.conditionId] || aiResult.condition.conditionId}
                   </Text>
@@ -419,7 +419,7 @@ export default function AnalysisScreen() {
               ) : null}
               {aiResult.materials?.primaryMaterialId ? (
                 <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>MATIERE</Text>
+                  <Text style={styles.resultLabel}>MATIÈRE</Text>
                   <Text style={styles.resultValue}>{aiResult.materials.primaryMaterialId}</Text>
                   <View style={styles.aiBadge}>
                     <Text style={styles.aiBadgeText}>IA</Text>
@@ -439,7 +439,7 @@ export default function AnalysisScreen() {
             onPress={handleContinue}
             activeOpacity={0.85}
           >
-            <Text style={styles.primaryButtonText}>MODIFIER LES DETAILS</Text>
+            <Text style={styles.primaryButtonText}>MODIFIER LES DÉTAILS</Text>
             <Ionicons name="arrow-forward" size={18} color={colors.cream} />
           </TouchableOpacity>
         )}
@@ -452,7 +452,7 @@ export default function AnalysisScreen() {
               activeOpacity={0.85}
             >
               <Ionicons name="refresh-outline" size={18} color={colors.cream} />
-              <Text style={styles.primaryButtonText}>REESSAYER</Text>
+              <Text style={styles.primaryButtonText}>RÉESSAYER</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.manualLink}

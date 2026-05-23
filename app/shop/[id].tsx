@@ -6,12 +6,10 @@
 import { ShopService } from '@/services/shopService';
 import { Shop, ShopTypeLabels } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -19,6 +17,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
@@ -42,7 +41,7 @@ export default function ShopDetailScreen() {
       const shopData = await ShopService.getShopById(id!);
       setShop(shopData);
     } catch (error) {
-      console.error('Error loading shop details:', error);
+      if (__DEV__) console.error('Error loading shop details:', error);
     } finally {
       setIsLoading(false);
     }

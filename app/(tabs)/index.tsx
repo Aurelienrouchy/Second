@@ -21,15 +21,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import VisualSearchCamera from '@/components/VisualSearchCamera';
 import { colors } from '@/constants/theme';
 
-import { DiscoverGrid } from '@/features/home/discover/DiscoverGrid';
-import { FeaturedSellersSection } from '@/features/home/featured-sellers/FeaturedSellersSection';
-import { HomeHeader } from '@/features/home/header/HomeHeader';
-import { useHomeHeader } from '@/features/home/header/useHomeHeader';
-import { NewArrivalsSection } from '@/features/home/new-arrivals/NewArrivalsSection';
-import { PriceDropsSection } from '@/features/home/price-drops/PriceDropsSection';
-import { SectionErrorBoundary } from '@/features/home/SectionErrorBoundary';
-import { SwapZoneWrapper } from '@/features/home/swap-zone/SwapZoneSection';
-import { TrendingBrandsSection } from '@/features/home/trending-brands/TrendingBrandsSection';
+import {
+  DiscoverGrid,
+  FeaturedSellersSection,
+  HomeHeader,
+  useHomeHeader,
+  NewArrivalsSection,
+  PriceDropsSection,
+  SectionErrorBoundary,
+  SwapZoneWrapper,
+  TrendingBrandsSection,
+} from '@/features/home';
 
 // =============================================================================
 // SECTION REGISTRY

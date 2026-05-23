@@ -71,7 +71,7 @@ export default function EditArticleScreen() {
     title: '',
     description: '',
     categoryIds: [],
-    categoryDisplay: { icon: '📦', name: '', context: '' },
+    categoryDisplay: { icon: 'pricetag-outline', name: '', context: '' },
     condition: 'très bon état',
     color: null,
     material: null,
@@ -124,10 +124,10 @@ export default function EditArticleScreen() {
         description: articleData.description || '',
         categoryIds: articleData.categoryIds || [],
         categoryDisplay: categoryInfo ? {
-          icon: categoryInfo.icon || '📦',
+          icon: categoryInfo.icon || 'pricetag-outline',
           name: categoryInfo.displayName || '',
           context: categoryInfo.fullLabel?.split(' > ').slice(0, -1).join(' · ') || '',
-        } : { icon: '📦', name: articleData.category || '', context: '' },
+        } : { icon: 'pricetag-outline', name: articleData.category || '', context: '' },
         condition: (articleData.condition as ConditionValue) || 'très bon état',
         color: articleData.color?.toLowerCase().replace(/\s+/g, '-') || null,
         material: articleData.material?.toLowerCase().replace(/\s+/g, '-') || null,
@@ -136,7 +136,7 @@ export default function EditArticleScreen() {
         price: articleData.price || 0,
       });
     } catch (error) {
-      console.error('Error loading article:', error);
+      if (__DEV__) console.error('Error loading article:', error);
       Alert.alert('Erreur', 'Impossible de charger l\'article');
       router.back();
     } finally {
@@ -156,7 +156,7 @@ export default function EditArticleScreen() {
     const categoryInfo = getCategoryInfoFromIds(categoryIds);
     if (categoryInfo) {
       updateField('categoryDisplay', {
-        icon: categoryInfo.icon || '📦',
+        icon: categoryInfo.icon || 'pricetag-outline',
         name: categoryInfo.displayName || '',
         context: categoryInfo.fullLabel?.split(' > ').slice(0, -1).join(' · ') || '',
       });
@@ -206,7 +206,7 @@ export default function EditArticleScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
-      console.error('Error updating article:', error);
+      if (__DEV__) console.error('Error updating article:', error);
       Alert.alert('Erreur', 'Impossible de modifier l\'article');
     } finally {
       setIsSaving(false);

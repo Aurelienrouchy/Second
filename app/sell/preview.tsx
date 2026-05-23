@@ -27,8 +27,8 @@ const HERO_HEIGHT = 340;
 
 const conditionLabels: Record<string, string> = {
   neuf: 'Neuf',
-  'très bon état': 'Tres bon etat',
-  'bon état': 'Bon etat',
+  'très bon état': 'Très bon état',
+  'bon état': 'Bon état',
   satisfaisant: 'Satisfaisant',
 };
 
@@ -117,7 +117,7 @@ export default function PreviewScreen() {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        throw new Error('Utilisateur non connecte');
+        throw new Error('Utilisateur non connecté');
       }
 
       const imageUrls = storageUrls.length > 0 ? storageUrls : photos;
@@ -184,7 +184,7 @@ export default function PreviewScreen() {
     { label: 'Condition', value: conditionLabels[fields.condition] || fields.condition },
     { label: 'Taille', value: fields.size },
     { label: 'Couleur', value: fields.color },
-    { label: 'Matiere', value: fields.material },
+    { label: 'Matière', value: fields.material },
   ].filter((s) => s.value);
 
   return (
@@ -209,7 +209,7 @@ export default function PreviewScreen() {
 
           {/* Preview badge */}
           <View style={[styles.previewBadge, { top: insets.top + 12 }]}>
-            <Text style={styles.previewBadgeText}>APERCU</Text>
+            <Text style={styles.previewBadgeText}>APERÇU</Text>
           </View>
         </View>
 
@@ -274,7 +274,7 @@ export default function PreviewScreen() {
             {pricing.isShipping && (
               <View style={styles.deliveryBadge}>
                 <Ionicons name="cube-outline" size={14} color={colors.charcoal} />
-                <Text style={styles.deliveryBadgeText}>Expedition</Text>
+                <Text style={styles.deliveryBadgeText}>Expédition</Text>
               </View>
             )}
           </View>

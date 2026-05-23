@@ -141,7 +141,7 @@ export default function DetailsScreen() {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (error) {
-        console.error('Failed to save draft fields:', error);
+        if (__DEV__) console.error('Failed to save draft fields:', error);
         setSaveStatus('error');
       }
     };
@@ -206,7 +206,7 @@ export default function DetailsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScreenHeader
-        title="Details"
+        title="Détails"
         onBack={handleBack}
         topContent={<StepProgressBar currentStep={3} />}
       />
@@ -256,7 +256,7 @@ export default function DetailsScreen() {
             style={styles.textareaContent}
             value={fields.title}
             onChangeText={(text) => updateField('title', text)}
-            placeholder="Ex: Robe d'ete fleurie Zara"
+            placeholder="Ex: Robe d'été fleurie Zara"
             placeholderTextColor={colors.muted}
             maxLength={80}
             cursorColor={colors.rust}
@@ -281,7 +281,7 @@ export default function DetailsScreen() {
             style={[styles.textareaContent, styles.textareaMultiline]}
             value={fields.description}
             onChangeText={(text) => updateField('description', text)}
-            placeholder="Decrivez votre article en detail..."
+            placeholder="Décrivez votre article en détail..."
             placeholderTextColor={colors.muted}
             maxLength={500}
             multiline
@@ -300,7 +300,7 @@ export default function DetailsScreen() {
             onPress={() => categorySheetRef.current?.show()}
             activeOpacity={0.7}
           >
-            <Text style={styles.fieldRowLabel}>CATEGORIE</Text>
+            <Text style={styles.fieldRowLabel}>CATÉGORIE</Text>
             <View style={styles.fieldRowValueContainer}>
               <Text
                 style={[
@@ -309,7 +309,7 @@ export default function DetailsScreen() {
                 ]}
                 numberOfLines={1}
               >
-                {fields.categoryDisplay.name || 'Selectionner'}
+                {fields.categoryDisplay.name || 'Sélectionner'}
               </Text>
               {aiResult?.category?.confidence?.level && (
                 <View style={styles.aiBadge}>
@@ -330,7 +330,7 @@ export default function DetailsScreen() {
 
         {/* Section: Caracteristiques */}
         <View style={{ marginTop: spacing.lg }}>
-          <FormSectionTitle title="Caracteristiques" />
+          <FormSectionTitle title="Caractéristiques" />
         </View>
 
         {/* Brand + Size grouped */}
@@ -350,7 +350,7 @@ export default function DetailsScreen() {
                 ]}
                 numberOfLines={1}
               >
-                {fields.brand || 'Selectionner'}
+                {fields.brand || 'Sélectionner'}
               </Text>
               {aiResult?.brand?.confidence?.level && (
                 <View style={styles.aiBadge}>
@@ -375,7 +375,7 @@ export default function DetailsScreen() {
                   !fields.size && styles.fieldRowPlaceholder,
                 ]}
               >
-                {fields.size || 'Selectionner'}
+                {fields.size || 'Sélectionner'}
               </Text>
               {aiResult?.size?.confidence?.level && (
                 <View style={styles.aiBadge}>
@@ -470,7 +470,7 @@ export default function DetailsScreen() {
         {/* Material chips */}
         <View style={styles.chipSection}>
           <View style={styles.chipHeader}>
-            <Text style={styles.chipLabel}>Matiere</Text>
+            <Text style={styles.chipLabel}>Matière</Text>
             {aiResult?.materials?.confidence?.level && (
               <View style={styles.aiBadge}>
                 <Text style={styles.aiBadgeText}>IA</Text>
@@ -591,7 +591,7 @@ export default function DetailsScreen() {
       />
       <SelectionBottomSheet
         ref={materialSheetRef}
-        title="Matiere"
+        title="Matière"
         items={allMaterialItems}
         selectedValues={fields.materials}
         onSelect={(value) => {

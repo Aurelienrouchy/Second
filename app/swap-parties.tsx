@@ -74,7 +74,7 @@ export default function SwapPartiesScreen() {
         setParticipatingIds(participating);
       }
     } catch (error) {
-      console.error('Error loading parties:', error);
+      if (__DEV__) console.error('Error loading parties:', error);
     } finally {
       setIsLoading(false);
       setRefreshing(false);

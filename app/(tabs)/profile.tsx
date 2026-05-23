@@ -267,7 +267,7 @@ export default function ProfileScreen() {
         icon: 'help-circle-outline',
         iconColor: colors.charcoal,
         iconBg: 'rgba(26, 24, 20, 0.04)',
-        action: () => console.log('Help'),
+        action: () => router.push('/settings/help' as any),
       },
     ],
     [router],

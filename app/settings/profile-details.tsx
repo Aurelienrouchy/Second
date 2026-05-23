@@ -124,7 +124,7 @@ export default function ProfileDetailsScreen() {
           <View style={styles.imageSection}>
             <TouchableOpacity onPress={pickImage} style={styles.imageContainer} activeOpacity={0.8}>
               <Image
-                source={{ uri: profileImage || 'https://via.placeholder.com/120x120' }}
+                source={profileImage ? { uri: profileImage } : undefined}
                 style={styles.profileImage}
               />
               <View style={styles.cameraButton}>

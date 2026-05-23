@@ -126,7 +126,7 @@ export default function PricingScreen() {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (error) {
-        console.error('Failed to save draft pricing:', error);
+        if (__DEV__) console.error('Failed to save draft pricing:', error);
         setSaveStatus('error');
       }
     };
@@ -163,13 +163,13 @@ export default function PricingScreen() {
       newErrors.push('Entrez un prix valide');
     }
     if (!isHandDelivery && !isShipping) {
-      newErrors.push('Selectionnez au moins une option de livraison');
+      newErrors.push('Sélectionnez au moins une option de livraison');
     }
     if (isHandDelivery && selectedNeighborhoods.length === 0) {
-      newErrors.push('Selectionnez au moins un quartier pour la remise en main propre');
+      newErrors.push('Sélectionnez au moins un quartier pour la remise en main propre');
     }
     if (isShipping && !packageSize) {
-      newErrors.push('Selectionnez une taille de colis');
+      newErrors.push('Sélectionnez une taille de colis');
     }
     setErrors(newErrors);
     return newErrors.length === 0;
@@ -276,7 +276,7 @@ export default function PricingScreen() {
             <View style={styles.deliveryCardContent}>
               <Text style={styles.deliveryCardTitle}>Remise en main propre</Text>
               <Text style={styles.deliveryCardSubtitle}>
-                Rencontre dans un quartier de Montreal
+                Rencontre dans un quartier de Montréal
               </Text>
             </View>
           </View>
@@ -366,7 +366,7 @@ export default function PricingScreen() {
               {isShipping && <View style={styles.radioInner} />}
             </View>
             <View style={styles.deliveryCardContent}>
-              <Text style={styles.deliveryCardTitle}>Expedition postale</Text>
+              <Text style={styles.deliveryCardTitle}>Expédition postale</Text>
               <Text style={styles.deliveryCardSubtitle}>
                 Envoi par Postes Canada
               </Text>
@@ -410,7 +410,7 @@ export default function PricingScreen() {
                   <View style={styles.aiBadge}>
                     <Text style={styles.aiBadgeText}>IA</Text>
                   </View>
-                  <Text style={styles.aiSuggestText}>Format suggere selon l'article</Text>
+                  <Text style={styles.aiSuggestText}>Format suggéré selon l'article</Text>
                 </View>
               )}
             </View>
@@ -446,7 +446,7 @@ export default function PricingScreen() {
               !isFormValid && styles.continueButtonTextDisabled,
             ]}
           >
-            APERCU
+            APERÇU
           </Text>
           <Ionicons
             name="arrow-forward"

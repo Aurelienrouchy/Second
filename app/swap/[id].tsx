@@ -81,7 +81,7 @@ export default function SwapDetailScreen() {
     try {
       await acceptSwap(id);
     } catch (error) {
-      console.error('Error accepting swap:', error);
+      if (__DEV__) console.error('Error accepting swap:', error);
       Alert.alert('Erreur', "Impossible d'accepter l'échange");
     } finally {
       setIsProcessing(false);
@@ -103,7 +103,7 @@ export default function SwapDetailScreen() {
             try {
               await declineSwap(id);
             } catch (error) {
-              console.error('Error declining swap:', error);
+              if (__DEV__) console.error('Error declining swap:', error);
               Alert.alert('Erreur', "Impossible de refuser l'échange");
             } finally {
               setIsProcessing(false);
@@ -130,7 +130,7 @@ export default function SwapDetailScreen() {
               await cancelSwap(id);
               router.back();
             } catch (error) {
-              console.error('Error cancelling swap:', error);
+              if (__DEV__) console.error('Error cancelling swap:', error);
               Alert.alert('Erreur', "Impossible d'annuler l'échange");
             } finally {
               setIsProcessing(false);
@@ -148,7 +148,7 @@ export default function SwapDetailScreen() {
     try {
       await setExchangeMode(id, mode);
     } catch (error) {
-      console.error('Error setting exchange mode:', error);
+      if (__DEV__) console.error('Error setting exchange mode:', error);
       Alert.alert('Erreur', "Impossible de définir le mode d'échange");
     } finally {
       setIsProcessing(false);
@@ -177,7 +177,7 @@ export default function SwapDetailScreen() {
       await uploadSwapPhotos(id, user.id, photoUrls);
       Alert.alert('Photos envoyées', "Tes photos ont été ajoutées à l'échange.");
     } catch (error) {
-      console.error('Error uploading photos:', error);
+      if (__DEV__) console.error('Error uploading photos:', error);
       Alert.alert('Erreur', "Impossible d'envoyer les photos");
     } finally {
       setIsProcessing(false);
@@ -196,7 +196,7 @@ export default function SwapDetailScreen() {
           try {
             await confirmShipping(id, user.id);
           } catch (error) {
-            console.error('Error confirming shipping:', error);
+            if (__DEV__) console.error('Error confirming shipping:', error);
             Alert.alert('Erreur', "Impossible de confirmer l'envoi");
           } finally {
             setIsProcessing(false);
@@ -218,7 +218,7 @@ export default function SwapDetailScreen() {
           try {
             await confirmReception(id, user.id);
           } catch (error) {
-            console.error('Error confirming reception:', error);
+            if (__DEV__) console.error('Error confirming reception:', error);
             Alert.alert('Erreur', 'Impossible de confirmer la réception');
           } finally {
             setIsProcessing(false);
@@ -236,7 +236,7 @@ export default function SwapDetailScreen() {
       await rateSwap(id, user.id, score);
       Alert.alert('Merci !', 'Ta note a été enregistrée.');
     } catch (error) {
-      console.error('Error rating swap:', error);
+      if (__DEV__) console.error('Error rating swap:', error);
       Alert.alert('Erreur', "Impossible d'enregistrer la note");
     } finally {
       setIsProcessing(false);
@@ -327,7 +327,7 @@ export default function SwapDetailScreen() {
               </View>
               <View style={styles.senderInfoColumn}>
                 <Text style={styles.senderUsername}>{senderName}</Text>
-                <Text style={styles.senderSubtext}>Villeray · 2.8 km · ⭐ 4.9 · 22 swaps</Text>
+                <Text style={styles.senderSubtext}>Villeray · 2.8 km · <Ionicons name="star" size={10} color="#FFD700" /> 4.9 · 22 swaps</Text>
               </View>
               <Text style={styles.senderTime}>il y a 2h</Text>
             </View>
@@ -417,7 +417,7 @@ export default function SwapDetailScreen() {
             <View style={styles.compactSenderCard}>
               <View style={styles.avatarSmall}>
                 <Image
-                  source={{ uri: senderImage || 'https://via.placeholder.com/36x36' }}
+                  source={senderImage ? { uri: senderImage } : undefined}
                   style={styles.avatarImageSmall}
                   contentFit="cover"
                 />

@@ -8,12 +8,12 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,7 +68,7 @@ export default function MySwapsScreen() {
       const allSwaps = await getUserSwaps(user.id);
       setSwaps(allSwaps);
     } catch (error) {
-      console.error('Error loading swaps:', error);
+      if (__DEV__) console.error('Error loading swaps:', error);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -148,7 +148,7 @@ export default function MySwapsScreen() {
         />
       </View>
 
-      <FlatList
+      <FlashList
         data={filteredSwaps}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
