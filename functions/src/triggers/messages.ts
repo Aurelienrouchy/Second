@@ -13,7 +13,7 @@ import { db } from '../config/firebase';
  * Send push notification when a message is created
  */
 export const sendMessageNotification = onDocumentCreated(
-  { document: 'messages/{messageId}', memory: '512MiB' },
+  { document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     try {
       const snapshot = event.data;
@@ -171,7 +171,7 @@ export const sendMessageNotification = onDocumentCreated(
  * Send notification when offer status changes
  */
 export const sendOfferStatusNotification = onDocumentUpdated(
-  { document: 'messages/{messageId}', memory: '512MiB' },
+  { document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     try {
       const before = event.data?.before?.data();

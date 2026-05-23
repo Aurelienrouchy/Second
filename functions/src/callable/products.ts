@@ -9,7 +9,7 @@ import { db, FieldValue } from '../config/firebase';
  * Increment product view count
  */
 export const incrementProductView = onCall(
-  { invoker: 'public', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
   const { productId } = request.data;
 
@@ -55,7 +55,7 @@ export const incrementProductView = onCall(
  * 3. search_index/{productId} — likes for ranking
  * 4. favorites/{userId} — articleIds array (unified structure, no more products[])
  */
-export const toggleProductLike = onCall({ memory: '512MiB' }, async (request) => {
+export const toggleProductLike = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   const { productId, isLiked } = request.data;
 
   if (!request.auth) {
@@ -149,7 +149,7 @@ export const toggleProductLike = onCall({ memory: '512MiB' }, async (request) =>
 /**
  * Mark saved search as viewed (resets newItemsCount)
  */
-export const markSavedSearchViewed = onCall({ memory: '512MiB' }, async (request) => {
+export const markSavedSearchViewed = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }

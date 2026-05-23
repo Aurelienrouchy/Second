@@ -9,6 +9,7 @@
  */
 import React, { ReactNode } from 'react';
 
+import { useAuthStore } from '@/store/authStore';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 
 export interface AuthRequiredContextType {
@@ -22,10 +23,13 @@ export const AuthRequiredProvider: React.FC<{ children: ReactNode }> = ({ childr
 };
 
 export function useAuthRequired() {
-  const show = useAuthSheetStore((s) => s.show);
   return {
     requireAuth: (action: () => void, message?: string) => {
-      show(message, action);
+      if (useAuthStore.getState().user) {
+        action();
+      } else {
+        useAuthSheetStore.getState().show(message, action);
+      }
     },
   };
 }

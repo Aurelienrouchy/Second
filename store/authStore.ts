@@ -28,7 +28,7 @@ interface AuthState {
 
 interface AuthActions {
   /** Called by useAuthListener after onAuthStateChanged resolves. */
-  hydrateFromFirebase: (user: User | null) => Promise<void>;
+  hydrateFromFirebase: (firebaseUser: unknown) => Promise<void>;
   /** Called once at startup to read AsyncStorage flags. */
   bootstrap: () => Promise<void>;
 
@@ -87,7 +87,7 @@ export const useAuthStore = create<AuthStore>()(
         await get().initGuestSession();
       }
     } catch (error) {
-      console.log('[authStore] bootstrap error:', error);
+      if (__DEV__) console.log('[authStore] bootstrap error:', error);
     }
   },
 
@@ -108,7 +108,7 @@ export const useAuthStore = create<AuthStore>()(
         await get().initGuestSession();
       }
     } catch (error) {
-      console.error('[authStore] hydrateFromFirebase error:', error);
+      if (__DEV__) console.error('[authStore] hydrateFromFirebase error:', error);
       set({ isLoading: false });
     }
   },
@@ -119,7 +119,7 @@ export const useAuthStore = create<AuthStore>()(
       await AsyncStorage.setItem(HAS_LAUNCHED_KEY, 'true');
       set({ user: userData, isFirstLaunch: false });
     } catch (error) {
-      console.log('[authStore] signIn error:', error);
+      if (__DEV__) console.log('[authStore] signIn error:', error);
     }
   },
 
@@ -130,7 +130,7 @@ export const useAuthStore = create<AuthStore>()(
       if (user?.id && pushToken) {
         await UserService.removeFcmToken(user.id, pushToken);
       }
-      // Reset siblings inline — calling lib/resetAllStores would
+      // Reset siblings inline — calling store/resetAllStores would
       // create a circular module graph (authStore → resetAllStores →
       // authStore). Self-reset uses local `set` so we don't loop.
       useNotificationStore.getState().reset();
@@ -140,7 +140,7 @@ export const useAuthStore = create<AuthStore>()(
       await AsyncStorage.removeItem(USER_DATA_KEY);
       set({ ...initialState, isLoading: false });
     } catch (error) {
-      console.log('[authStore] signOut error:', error);
+      if (__DEV__) console.log('[authStore] signOut error:', error);
     }
   },
 
@@ -149,7 +149,7 @@ export const useAuthStore = create<AuthStore>()(
       await AsyncStorage.setItem(HAS_LAUNCHED_KEY, 'true');
       set({ isFirstLaunch: false, user: null });
     } catch (error) {
-      console.log('[authStore] skipAuth error:', error);
+      if (__DEV__) console.log('[authStore] skipAuth error:', error);
     }
   },
 
@@ -163,7 +163,7 @@ export const useAuthStore = create<AuthStore>()(
         await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
       }
     } catch (error) {
-      console.error('[authStore] refreshUser error:', error);
+      if (__DEV__) console.error('[authStore] refreshUser error:', error);
     }
   },
 
@@ -203,7 +203,7 @@ export const useAuthStore = create<AuthStore>()(
       }
       set({ guestSession: session });
     } catch (error) {
-      console.log('[authStore] initGuestSession error:', error);
+      if (__DEV__) console.log('[authStore] initGuestSession error:', error);
     }
   },
 
@@ -211,7 +211,7 @@ export const useAuthStore = create<AuthStore>()(
     try {
       await mergeGuestDataIntoUser(userId);
     } catch (error) {
-      console.log('[authStore] mergeGuestToUser error:', error);
+      if (__DEV__) console.log('[authStore] mergeGuestToUser error:', error);
     } finally {
       // Even if merge fails, drop the guest session — staying in guest
       // mode after sign-up would re-attribute future events to the wrong

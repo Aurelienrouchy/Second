@@ -221,7 +221,7 @@ async function updateEmbeddingMetadata(
  * Generate embedding when article is created
  */
 export const generateEmbeddingOnCreate = onDocumentCreated(
-  { document: 'articles/{articleId}', memory: '512MiB', timeoutSeconds: 120 },
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120 },
   async (event) => {
     const articleId = event.params.articleId;
     const article = event.data?.data();
@@ -242,7 +242,7 @@ export const generateEmbeddingOnCreate = onDocumentCreated(
  * Update embedding when article is updated
  */
 export const generateEmbeddingOnUpdate = onDocumentUpdated(
-  { document: 'articles/{articleId}', memory: '512MiB', timeoutSeconds: 120 },
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120 },
   async (event) => {
     const articleId = event.params.articleId;
     const before = event.data?.before.data();

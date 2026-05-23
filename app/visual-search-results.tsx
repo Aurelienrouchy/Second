@@ -209,7 +209,6 @@ export default function VisualSearchResultsScreen() {
             renderItem={renderProductCard}
             keyExtractor={(item) => item.articleId}
             numColumns={2}
-            estimatedItemSize={280}
             ListHeaderComponent={renderHeader}
             showsVerticalScrollIndicator={false}
 

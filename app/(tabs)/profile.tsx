@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -172,13 +173,26 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   // Handlers
-  const handleSignOut = useCallback(async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+  const handleSignOut = useCallback(() => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Se déconnecter',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            try {
+              await signOut();
+            } catch (error) {
+              if (__DEV__) console.error('Error signing out:', error);
+            }
+          },
+        },
+      ]
+    );
   }, [signOut]);
 
   const handleAction = useCallback(

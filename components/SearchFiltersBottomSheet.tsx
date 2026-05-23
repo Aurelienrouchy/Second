@@ -30,30 +30,30 @@ const SearchFiltersBottomSheet = forwardRef<BottomSheet, SearchFiltersBottomShee
 
     // Obtenir les tailles appropriées selon la catégorie
     const getAvailableSizes = () => {
-      if (!selectedCategory) return sizes.femmes.vetements;
-      
+      if (!selectedCategory) return sizes.women.clothing;
+
       const categoryLower = selectedCategory.toLowerCase();
-      
+
       if (categoryLower.includes('chaussure')) {
-        if (categoryLower.includes('homme')) return sizes.hommes.chaussures;
-        if (categoryLower.includes('enfant')) return sizes.enfants.chaussures;
-        return sizes.femmes.chaussures;
+        if (categoryLower.includes('homme')) return sizes.men.shoes;
+        if (categoryLower.includes('enfant')) return sizes.kids.shoes;
+        return sizes.women.shoes;
       }
-      
+
       if (categoryLower.includes('accessoire')) {
-        if (categoryLower.includes('homme')) return sizes.hommes.accessoires;
-        return sizes.femmes.accessoires;
+        if (categoryLower.includes('homme')) return sizes.men.accessories;
+        return sizes.women.accessories;
       }
-      
+
       if (categoryLower.includes('enfant')) {
-        return sizes.enfants.enfant;
+        return sizes.kids.clothing;
       }
-      
+
       if (categoryLower.includes('homme')) {
-        return sizes.hommes.vetements;
+        return sizes.men.clothing;
       }
-      
-      return sizes.femmes.vetements;
+
+      return sizes.women.clothing;
     };
 
     const availableSizes = getAvailableSizes();
@@ -275,19 +275,19 @@ const SearchFiltersBottomSheet = forwardRef<BottomSheet, SearchFiltersBottomShee
               <View style={styles.colorsGrid}>
                 {dataColors.map((color) => (
                   <TouchableOpacity
-                    key={color.value}
+                    key={color.id}
                     style={[
                       styles.colorButton,
-                      filters.colors.includes(color.value) && styles.selectedColorButton
+                      filters.colors.includes(color.id) && styles.selectedColorButton
                     ]}
-                    onPress={() => toggleColor(color.value)}
+                    onPress={() => toggleColor(color.id)}
                   >
-                    <View 
-                      style={[styles.colorDot, { backgroundColor: color.hex }]} 
+                    <View
+                      style={[styles.colorDot, { backgroundColor: color.hex }]}
                     />
                     <Text style={[
                       styles.colorText,
-                      filters.colors.includes(color.value) && styles.selectedColorText
+                      filters.colors.includes(color.id) && styles.selectedColorText
                     ]}>
                       {color.name}
                     </Text>
@@ -300,7 +300,7 @@ const SearchFiltersBottomSheet = forwardRef<BottomSheet, SearchFiltersBottomShee
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Tailles</Text>
               <View style={styles.sizesGrid}>
-                {availableSizes.map((size) => (
+                {availableSizes.map((size: string) => (
                   <TouchableOpacity
                     key={size}
                     style={[
@@ -355,18 +355,18 @@ const SearchFiltersBottomSheet = forwardRef<BottomSheet, SearchFiltersBottomShee
               <View style={styles.optionsGrid}>
                 {materials.map((material) => (
                   <TouchableOpacity
-                    key={material}
+                    key={material.id}
                     style={[
                       styles.optionButton,
-                      filters.materials.includes(material) && styles.selectedOptionButton
+                      filters.materials.includes(material.id) && styles.selectedOptionButton
                     ]}
-                    onPress={() => toggleMaterial(material)}
+                    onPress={() => toggleMaterial(material.id)}
                   >
                     <Text style={[
                       styles.optionText,
-                      filters.materials.includes(material) && styles.selectedOptionText
+                      filters.materials.includes(material.id) && styles.selectedOptionText
                     ]}>
-                      {material}
+                      {material.name}
                     </Text>
                   </TouchableOpacity>
                 ))}

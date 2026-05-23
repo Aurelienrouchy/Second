@@ -27,6 +27,7 @@ import { HelcimClient } from '../config/helcim';
  */
 export const helcimWebhook = onRequest(
   {
+    region: 'northamerica-northeast1',
     cors: false,
     memory: '512MiB',
   },

@@ -122,8 +122,8 @@ export function getErrorInfo(code: AIErrorCode) {
 }
 
 // Helper to get recovery options for an error
-export function getRecoveryOptions(code: AIErrorCode): RecoveryOption[] {
-  return AI_CONFIG.recoveryOptions[code] || ['retry', 'manual_entry'];
+export function getRecoveryOptions(code: AIErrorCode): readonly RecoveryOption[] {
+  return AI_CONFIG.recoveryOptions[code] || (['retry', 'manual_entry'] as const);
 }
 
 // Helper to check if format is supported

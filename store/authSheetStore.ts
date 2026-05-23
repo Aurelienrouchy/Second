@@ -18,7 +18,7 @@ interface AuthSheetActions {
   reset: () => void;
 }
 
-const DEFAULT_MESSAGE = 'Connecte-toi pour continuer';
+const DEFAULT_MESSAGE = 'Connectez-vous pour continuer';
 
 const initialState: AuthSheetState = {
   isVisible: false,

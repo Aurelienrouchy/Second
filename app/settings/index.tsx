@@ -81,7 +81,7 @@ export default function SettingsScreen() {
               await signOut();
               router.replace('/(tabs)/profile');
             } catch (error) {
-              console.error('Error signing out:', error);
+              if (__DEV__) console.error('Error signing out:', error);
             }
           }
         }

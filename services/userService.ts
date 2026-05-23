@@ -38,7 +38,7 @@ export class UserService {
         createdAt: data.createdAt?.toDate() || new Date(),
       } as User;
     } catch (error) {
-      console.error('Error fetching user:', error);
+      if (__DEV__) console.error('Error fetching user:', error);
       return null;
     }
   }
@@ -48,7 +48,7 @@ export class UserService {
    */
   static async updateUserPreferences(
     userId: string,
-    preferences: UserPreferences
+    preferences: Partial<UserPreferences>
   ): Promise<void> {
     try {
       await updateDoc(doc(firestore, this.COLLECTION, userId), {
@@ -58,7 +58,7 @@ export class UserService {
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error('Error updating user preferences:', error);
+      if (__DEV__) console.error('Error updating user preferences:', error);
       throw new Error('Erreur lors de la mise à jour des préférences');
     }
   }
@@ -71,7 +71,7 @@ export class UserService {
       const user = await this.getUserById(userId);
       return user?.preferences || null;
     } catch (error) {
-      console.error('Error fetching user preferences:', error);
+      if (__DEV__) console.error('Error fetching user preferences:', error);
       return null;
     }
   }
@@ -99,38 +99,8 @@ export class UserService {
       const user = await this.getUserById(userId);
       return user?.isAdmin === true;
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      if (__DEV__) console.error('Error checking admin status:', error);
       return false;
-    }
-  }
-
-  /**
-   * Définir un utilisateur comme admin (super admin uniquement)
-   */
-  static async setUserAsAdmin(userId: string): Promise<void> {
-    try {
-      await updateDoc(doc(firestore, this.COLLECTION, userId), {
-        isAdmin: true,
-        updatedAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('Error setting user as admin:', error);
-      throw new Error('Erreur lors de la définition de l\'utilisateur comme admin');
-    }
-  }
-
-  /**
-   * Retirer les droits admin d'un utilisateur
-   */
-  static async removeAdminRights(userId: string): Promise<void> {
-    try {
-      await updateDoc(doc(firestore, this.COLLECTION, userId), {
-        isAdmin: false,
-        updatedAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('Error removing admin rights:', error);
-      throw new Error('Erreur lors du retrait des droits admin');
     }
   }
 
@@ -148,7 +118,7 @@ export class UserService {
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error('Error updating account type:', error);
+      if (__DEV__) console.error('Error updating account type:', error);
       throw new Error('Erreur lors de la mise à jour du type de compte');
     }
   }
@@ -164,7 +134,7 @@ export class UserService {
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error('Error marking onboarding completed:', error);
+      if (__DEV__) console.error('Error marking onboarding completed:', error);
       throw new Error('Erreur lors de la finalisation de l\'onboarding');
     }
   }
@@ -191,7 +161,7 @@ export class UserService {
 
       await updateDoc(doc(firestore, this.COLLECTION, userId), updateData);
     } catch (error) {
-      console.error('Error updating user profile:', error);
+      if (__DEV__) console.error('Error updating user profile:', error);
       throw new Error('Erreur lors de la mise à jour du profil');
     }
   }
@@ -210,9 +180,9 @@ export class UserService {
         fcmTokens: arrayUnion(token),
         updatedAt: serverTimestamp(),
       });
-      console.log('FCM token saved successfully');
+      if (__DEV__) console.log('FCM token saved successfully');
     } catch (error) {
-      console.error('Error saving FCM token:', error);
+      if (__DEV__) console.error('Error saving FCM token:', error);
       throw new Error('Erreur lors de l\'enregistrement du token FCM');
     }
   }
@@ -226,9 +196,9 @@ export class UserService {
         fcmTokens: arrayRemove(token),
         updatedAt: serverTimestamp(),
       });
-      console.log('FCM token removed successfully');
+      if (__DEV__) console.log('FCM token removed successfully');
     } catch (error) {
-      console.error('Error removing FCM token:', error);
+      if (__DEV__) console.error('Error removing FCM token:', error);
       // Ne pas throw ici car ce n'est pas critique
     }
   }
@@ -241,7 +211,7 @@ export class UserService {
       const user = await this.getUserById(userId);
       return user?.fcmTokens || [];
     } catch (error) {
-      console.error('Error fetching FCM tokens:', error);
+      if (__DEV__) console.error('Error fetching FCM tokens:', error);
       return [];
     }
   }
@@ -263,7 +233,7 @@ export class UserService {
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error('Error updating notification preferences:', error);
+      if (__DEV__) console.error('Error updating notification preferences:', error);
       throw new Error('Erreur lors de la mise à jour des préférences de notification');
     }
   }
@@ -288,7 +258,7 @@ export class UserService {
         offerResponse: true,
       };
     } catch (error) {
-      console.error('Error fetching notification preferences:', error);
+      if (__DEV__) console.error('Error fetching notification preferences:', error);
       // Retourner les valeurs par défaut en cas d'erreur
       return {
         email: true,
@@ -388,9 +358,9 @@ export class UserService {
 
       // Exécuter toutes les suppressions
       await batch.commit();
-      console.log('All user data deleted successfully');
+      if (__DEV__) console.log('All user data deleted successfully');
     } catch (error) {
-      console.error('Error deleting user data:', error);
+      if (__DEV__) console.error('Error deleting user data:', error);
       throw new Error('Erreur lors de la suppression des données');
     }
   }
@@ -496,7 +466,7 @@ export class UserService {
 
       return exportData;
     } catch (error) {
-      console.error('Error exporting user data:', error);
+      if (__DEV__) console.error('Error exporting user data:', error);
       throw new Error('Erreur lors de l\'export des données');
     }
   }

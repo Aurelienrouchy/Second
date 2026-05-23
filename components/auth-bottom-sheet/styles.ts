@@ -178,6 +178,16 @@ export const styles = StyleSheet.create({
     color: colors.primary,
   },
 
+  // ── Field error ──
+  fieldError: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.danger,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+
   // ── Success state ──
   successBox: {
     alignItems: 'center',

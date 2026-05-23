@@ -41,7 +41,7 @@ interface ReviewResponse {
  * Submit a review for another user after a completed transaction
  */
 export const createReview = onCall(
-  { memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
@@ -151,7 +151,7 @@ export const createReview = onCall(
  * Fetch reviews for a specific user with pagination
  */
 export const getUserReviews = onCall(
-  { memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     const { userId, limit: limitCount = 20, startAfter } = request.data;
 
@@ -228,7 +228,7 @@ export const getUserReviews = onCall(
  * in a single call to avoid multiple round trips
  */
 export const getUserPublicProfile = onCall(
-  { memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     const { userId } = request.data;
     const currentUserId = request.auth?.uid;

@@ -15,7 +15,7 @@ import { debounceUpdate } from '../utils/debounce';
  * Update search index when product is created/updated/deleted
  */
 export const updateSearchIndex = onDocumentWritten(
-  { document: 'products/{productId}', memory: '512MiB' },
+  { document: 'products/{productId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     const productId = event.params.productId;
 
@@ -161,7 +161,7 @@ export const updateSearchIndex = onDocumentWritten(
  * Update user stats when product is created/updated/sold
  */
 export const updateUserStats = onDocumentWritten(
-  { document: 'products/{productId}', memory: '512MiB' },
+  { document: 'products/{productId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     const productId = event.params.productId;
 

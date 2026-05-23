@@ -290,7 +290,6 @@ export default function MyArticlesScreen() {
           data={articles}
           renderItem={renderArticleItem as any}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={100}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }

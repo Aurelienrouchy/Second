@@ -256,10 +256,10 @@ export default function SwapPartyDetailScreen() {
 
     // Navigate to article detail — pass swap context if it's another person's item
     if (item.sellerId === user.id) {
-      router.push(`/article/${item.articleId}`);
+      router.push(`/article/${item.articleId}` as any);
     } else {
       router.push({
-        pathname: `/article/${item.articleId}`,
+        pathname: `/article/${item.articleId}` as any,
         params: {
           partyId: party?.id,
           swapItemId: item.id,
@@ -633,7 +633,7 @@ function ProductCard({
   onLongPress,
 }: ProductCardProps) {
   // Determine if there's a price supplement
-  const hasValueDifference = item.price && item.price > 0;
+  const hasValueDifference = item.price != null && item.price > 0;
 
   return (
     <TouchableOpacity

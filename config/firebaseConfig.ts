@@ -1,5 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth } from 'firebase/auth';
+// @ts-expect-error getReactNativePersistence exists at runtime
+import { getReactNativePersistence } from '@firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';

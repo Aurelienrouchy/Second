@@ -5,9 +5,12 @@ import {
   collection,
   deleteDoc,
   doc,
+  DocumentData,
   getDoc,
   getDocs,
   query,
+  QueryDocumentSnapshot,
+  QuerySnapshot,
   serverTimestamp,
   updateDoc,
   where
@@ -205,12 +208,12 @@ export class ShopService {
     radiusKm: number = 10
   ): Promise<Shop[]> {
     try {
-      const center = [lat, lng];
+      const center: [number, number] = [lat, lng];
       const radiusInM = radiusKm * 1000;
 
       // Calculer les bounds de geohash
       const bounds = geohashQueryBounds(center, radiusInM);
-      const promises: Promise<any>[] = [];
+      const promises: Promise<QuerySnapshot<DocumentData>>[] = [];
 
       // Effectuer une requête pour chaque bound
       for (const b of bounds) {

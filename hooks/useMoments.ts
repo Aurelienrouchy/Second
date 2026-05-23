@@ -61,17 +61,18 @@ export function useMoments(limit: number = 10): UseMomentsResult {
           price: product.price,
           images: product.imageUrl ? [{ url: product.imageUrl }] : [],
           brand: product.brand || undefined,
-          condition: product.condition,
+          condition: (product.condition || 'bon état') as Article['condition'],
           // Additional fields for Article type
           description: '',
-          categoryPath: [],
+          category: '',
           categoryIds: [],
           sellerId: '',
           sellerName: '',
           isActive: true,
           isSold: false,
+          likes: 0,
+          views: 0,
           createdAt: new Date(),
-          updatedAt: new Date(),
         })) || [];
 
         return {
@@ -134,16 +135,17 @@ export function useMomentProducts(momentId: string, limit: number = 20) {
             price: product.price,
             images: product.imageUrl ? [{ url: product.imageUrl }] : [],
             brand: product.brand || undefined,
-            condition: product.condition,
+            condition: (product.condition || 'bon état') as Article['condition'],
             description: '',
-            categoryPath: [],
+            category: '',
             categoryIds: [],
             sellerId: '',
             sellerName: '',
             isActive: true,
             isSold: false,
+            likes: 0,
+            views: 0,
             createdAt: new Date(),
-            updatedAt: new Date(),
           }))
         );
       }

@@ -217,9 +217,9 @@ export default function AnalysisScreen() {
 
   const getConfidence = (field: string): ConfidenceLevel | undefined => {
     if (!aiResult) return undefined;
-    if (field === 'brand') return aiResult.brand?.confidence as ConfidenceLevel | undefined;
-    if (field === 'condition') return aiResult.condition?.confidence as ConfidenceLevel | undefined;
-    if (field === 'size') return aiResult.size?.confidence as ConfidenceLevel | undefined;
+    if (field === 'brand') return aiResult.brand?.confidence as unknown as ConfidenceLevel | undefined;
+    if (field === 'condition') return aiResult.condition?.confidence as unknown as ConfidenceLevel | undefined;
+    if (field === 'size') return aiResult.size?.confidence as unknown as ConfidenceLevel | undefined;
     return undefined;
   };
 

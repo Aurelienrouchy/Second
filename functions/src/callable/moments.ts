@@ -10,7 +10,7 @@ import { computeCosineSimilarity } from '../services/ai';
  * Get active moments based on current date
  */
 export const getActiveMoments = onCall(
-  { invoker: 'public', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async () => {
   try {
     const today = new Date();
@@ -65,7 +65,7 @@ export const getActiveMoments = onCall(
  * Get products matching a specific moment using vector similarity
  */
 export const getMomentProducts = onCall(
-  { invoker: 'public', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
   try {
     const { momentId, limit: limitParam = 20, minScore = 0.5 } = request.data;

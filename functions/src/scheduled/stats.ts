@@ -9,7 +9,7 @@ import { db, FieldValue } from '../config/firebase';
  * Update global stats periodically
  * Runs every hour
  */
-export const updateGlobalStats = onSchedule({ schedule: 'every 1 hours', memory: '512MiB' }, async () => {
+export const updateGlobalStats = onSchedule({ schedule: 'every 1 hours', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
   try {
     console.log('Starting global stats update...');
 

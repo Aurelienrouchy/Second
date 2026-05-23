@@ -33,17 +33,17 @@ export default function SellTabScreen() {
   // Single useFocusEffect with cleanup
   useFocusEffect(
     useCallback(() => {
-      console.log('[SellTab] useFocusEffect triggered', { isLoading, isLoggedIn, isCheckingRef: isCheckingRef.current });
+      if (__DEV__) console.log('[SellTab] useFocusEffect triggered', { isLoading, isLoggedIn, isCheckingRef: isCheckingRef.current });
 
       // Don't do anything while auth is loading
       if (isLoading) {
-        console.log('[SellTab] Auth is loading, returning early');
+        if (__DEV__) console.log('[SellTab] Auth is loading, returning early');
         return;
       }
 
       // Prevent multiple simultaneous checks or if modal is showing
       if (isCheckingRef.current || showModalRef.current) {
-        console.log('[SellTab] Already checking or modal showing, skipping', {
+        if (__DEV__) console.log('[SellTab] Already checking or modal showing, skipping', {
           isChecking: isCheckingRef.current,
           showModal: showModalRef.current
         });
@@ -51,11 +51,11 @@ export default function SellTabScreen() {
       }
 
       const checkDraftAndNavigate = async () => {
-        console.log('[SellTab] checkDraftAndNavigate START', { isLoggedIn, isLoading });
+        if (__DEV__) console.log('[SellTab] checkDraftAndNavigate START', { isLoggedIn, isLoading });
 
         // Not logged in - show auth sheet
         if (!isLoggedIn) {
-          console.log('[SellTab] User not logged in, showing auth sheet');
+          if (__DEV__) console.log('[SellTab] User not logged in, showing auth sheet');
           requireAuthRef.current(
             () => {
               routerRef.current.replace('/sell/capture');
@@ -66,31 +66,31 @@ export default function SellTabScreen() {
         }
 
         // Logged in - check for existing draft
-        console.log('[SellTab] User logged in, setting isChecking=true');
+        if (__DEV__) console.log('[SellTab] User logged in, setting isChecking=true');
         isCheckingRef.current = true;
         setIsChecking(true);
 
         try {
-          console.log('[SellTab] Calling draftService.loadDraft()...');
+          if (__DEV__) console.log('[SellTab] Calling draftService.loadDraft()...');
           const existingDraft = await draftService.loadDraft();
-          console.log('[SellTab] loadDraft() returned:', existingDraft ? `Draft with ${existingDraft.photos.length} photos` : 'null');
+          if (__DEV__) console.log('[SellTab] loadDraft() returned:', existingDraft ? `Draft with ${existingDraft.photos.length} photos` : 'null');
 
           if (existingDraft && existingDraft.photos.length > 0) {
             // Has draft with photos - show modal
-            console.log('[SellTab] Showing draft resume modal');
+            if (__DEV__) console.log('[SellTab] Showing draft resume modal');
             setDraft(existingDraft);
             showModalRef.current = true;
             setShowModal(true);
           } else {
             // No draft - go to capture
-            console.log('[SellTab] No draft, navigating to /sell/capture');
+            if (__DEV__) console.log('[SellTab] No draft, navigating to /sell/capture');
             routerRef.current.replace('/sell/capture');
           }
         } catch (error) {
-          console.error('[SellTab] Error checking draft:', error);
+          if (__DEV__) console.error('[SellTab] Error checking draft:', error);
           routerRef.current.replace('/sell/capture');
         } finally {
-          console.log('[SellTab] Finally block, resetting isChecking');
+          if (__DEV__) console.log('[SellTab] Finally block, resetting isChecking');
           isCheckingRef.current = false;
           setIsChecking(false);
         }
@@ -99,7 +99,7 @@ export default function SellTabScreen() {
       checkDraftAndNavigate();
 
       return () => {
-        console.log('[SellTab] Cleanup function called');
+        if (__DEV__) console.log('[SellTab] Cleanup function called');
         // Don't reset isCheckingRef here - let the async function complete
       };
     }, [isLoading, isLoggedIn])
@@ -111,7 +111,7 @@ export default function SellTabScreen() {
     if (draft) {
       // Navigate to the correct step based on draft.currentStep
       const step = draft.currentStep;
-      console.log('[SellTab] Resuming draft at step:', step);
+      if (__DEV__) console.log('[SellTab] Resuming draft at step:', step);
 
       if (step >= 4) {
         // Step 4: Preview

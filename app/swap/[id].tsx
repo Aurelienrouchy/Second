@@ -477,7 +477,7 @@ export default function SwapDetailScreen() {
           {swap.status === 'proposed' && isReceiver && (
             <>
               <TouchableOpacity
-                style={styles.acceptButton}
+                style={styles.acceptBtn}
                 onPress={handleAccept}
                 disabled={isProcessing}
               >
@@ -494,7 +494,7 @@ export default function SwapDetailScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.declineButton}
+                style={styles.declineBtn}
                 onPress={handleDecline}
                 disabled={isProcessing}
               >
@@ -509,11 +509,11 @@ export default function SwapDetailScreen() {
           {/* Proposed - Initiator can cancel */}
           {swap.status === 'proposed' && isInitiator && (
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={styles.declineBtn}
               onPress={handleCancel}
               disabled={isProcessing}
             >
-              <Text variant="body" style={styles.cancelButtonText}>
+              <Text variant="body" style={styles.declineButtonText}>
                 Annuler la proposition
               </Text>
             </TouchableOpacity>
@@ -1199,5 +1199,43 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: colors.sage,
+  },
+  acceptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sage,
+    paddingVertical: 15,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 8,
+  },
+  declineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    paddingVertical: 15,
+    borderRadius: 8,
+    gap: 8,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    paddingVertical: 15,
+    borderRadius: 8,
+    gap: 8,
+  },
+  cancelButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.12,
+    textTransform: 'uppercase',
+    color: colors.charcoal,
   },
 });

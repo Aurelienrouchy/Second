@@ -257,7 +257,6 @@ export default function AdminShopsScreen() {
           data={shops}
           renderItem={renderShopItem}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={200}
           ListEmptyComponent={renderEmpty}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

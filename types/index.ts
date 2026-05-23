@@ -52,6 +52,7 @@ export interface User {
     postalCode: string;
     country: string;
   };
+  isActive?: boolean;
   accountType?: 'user' | 'shop';
   isAdmin?: boolean;
   preferences?: UserPreferences;

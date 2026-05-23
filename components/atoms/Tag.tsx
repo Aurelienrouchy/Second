@@ -25,7 +25,7 @@ function getStyles(variant: TagVariant) {
     container: {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
-      alignSelf: 'flex-start',
+      alignSelf: 'flex-start' as const,
     },
     label: {
       fontFamily: fonts.sansMedium,

@@ -1019,7 +1019,7 @@ export async function getUserAvailablePartyItems(partyId: string, userId: string
   })) as SwapPartyItem[];
 
   // Filter out pending items (those in an active pending swap)
-  return items.filter((item) => !item.isPending);
+  return items.filter((item) => !(item as SwapPartyItem & { isPending?: boolean }).isPending);
 }
 
 /**

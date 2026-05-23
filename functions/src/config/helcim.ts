@@ -11,6 +11,8 @@
  * 5. Webhook processes the payment and creates shipping label
  */
 
+import crypto from 'crypto';
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -215,13 +217,17 @@ class HelcimClient {
     signature: string,
     secretToken: string
   ): boolean {
-    // Helcim uses HMAC-SHA256 for webhook verification
-    const crypto = require('crypto');
     const expectedSignature = crypto
       .createHmac('sha256', secretToken)
       .update(payload)
       .digest('hex');
-    return signature === expectedSignature;
+    if (signature.length !== expectedSignature.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'utf8'),
+      Buffer.from(expectedSignature, 'utf8')
+    );
   }
 }
 

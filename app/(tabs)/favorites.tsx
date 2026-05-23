@@ -185,13 +185,8 @@ export default function FavoritesScreen() {
           emptyMessage="Aucun favori trouvé"
           emptyIcon="heart-outline"
           testID="favorites-grid"
-          onEndReached={handleLoadMore}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : null
+          onLoadMore={handleLoadMore}
+          isPaginating={isFetchingNextPage
           }
         />
       )}

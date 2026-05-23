@@ -22,7 +22,7 @@ export default function ActiveFilters({ filters, onFilterRemove, onClearAll, sel
 
   // Couleurs
   filters.colors.forEach(colorValue => {
-    const color = dataColors.find(c => c.value === colorValue);
+    const color = dataColors.find(c => c.id === colorValue);
     if (color) {
       activeFilters.push({
         type: 'colors' as keyof SearchFilters,

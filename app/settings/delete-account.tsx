@@ -65,7 +65,7 @@ export default function DeleteAccountScreen() {
         ]
       );
     } catch (error: any) {
-      console.error('Error deleting account:', error);
+      if (__DEV__) console.error('Error deleting account:', error);
       Alert.alert(
         'Erreur',
         error.message || 'Une erreur est survenue lors de la suppression du compte'

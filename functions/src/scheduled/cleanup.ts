@@ -9,7 +9,7 @@ import { db } from '../config/firebase';
  * Clean up old search index entries
  * Runs every 24 hours
  */
-export const cleanupSearchIndex = onSchedule({ schedule: 'every 24 hours', memory: '512MiB' }, async () => {
+export const cleanupSearchIndex = onSchedule({ schedule: 'every 24 hours', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
   try {
     console.log('Starting search index cleanup...');
 

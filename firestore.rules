@@ -212,7 +212,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) &&
                        !request.resource.data.diff(resource.data)
                           .affectedKeys()
-                          .hasAny(['isAdmin', 'role', 'customClaims']);
+                          .hasAny(['isAdmin', 'role', 'customClaims', 'onboardingCompleted', 'onboardingPreferences', 'createdAt', 'id']);
 
       // No delete allowed (soft delete by setting isActive = false)
       allow delete: if false;

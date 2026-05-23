@@ -35,7 +35,7 @@ import { db, FieldValue } from '../config/firebase';
  *   await fn({ dryRun: true, maxPairs: 50 });
  */
 export const consolidateChatDuplicates = onCall(
-  { memory: '1GiB', timeoutSeconds: 540 },
+  { region: 'northamerica-northeast1', memory: '1GiB', timeoutSeconds: 540 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Sign-in required');

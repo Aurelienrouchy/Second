@@ -75,7 +75,7 @@ export default function HomeScreen() {
     handleCategoryPress,
   } = useHomeHeader();
 
-  const listRef = useRef<FlashList<SectionId>>(null);
+  const listRef = useRef<any>(null);
   const navigation = useNavigation();
 
   // Scroll-to-top on tab re-press while already on Home.

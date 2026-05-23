@@ -23,7 +23,7 @@ interface SavedSearchFilters {
  * Runs every 15 minutes
  */
 export const checkSavedSearchNotifications = onSchedule(
-  { schedule: 'every 15 minutes', memory: '512MiB' },
+  { schedule: 'every 15 minutes', region: 'northamerica-northeast1', memory: '512MiB' },
   async () => {
     console.log('Starting saved search notification check...');
 

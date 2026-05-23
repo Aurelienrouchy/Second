@@ -16,7 +16,7 @@ import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../util
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
 // =============================================================================
 
-export const getShippingEstimate = onCall({ memory: '512MiB' }, async (request) => {
+export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   const { fromAddress, toAddress, weight, dimensions } = request.data;
 
   if (!fromAddress || !toAddress) {
@@ -101,7 +101,7 @@ export const getShippingEstimate = onCall({ memory: '512MiB' }, async (request) 
 // GET SERVICE FEE — Returns fee info for client display
 // =============================================================================
 
-export const getServiceFee = onCall(async (request) => {
+export const getServiceFee = onCall({ region: 'northamerica-northeast1' }, async (request) => {
   const { articlePrice } = request.data;
 
   if (!articlePrice || articlePrice <= 0) {
@@ -124,7 +124,7 @@ export const getServiceFee = onCall(async (request) => {
 // CREATE HELCIM CHECKOUT — Initialize HelcimPay.js session
 // =============================================================================
 
-export const createHelcimCheckout = onCall({ memory: '512MiB' }, async (request) => {
+export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   const { transactionId } = request.data;
 
   if (!request.auth) {
@@ -213,7 +213,7 @@ export const createHelcimCheckout = onCall({ memory: '512MiB' }, async (request)
 // FIND PICKUP POINTS — ShipEngine PUDO search
 // =============================================================================
 
-export const findPickupPoints = onCall(async (request) => {
+export const findPickupPoints = onCall({ region: 'northamerica-northeast1' }, async (request) => {
   const { postalCode } = request.data;
 
   if (!postalCode) {
@@ -243,7 +243,7 @@ export const findPickupPoints = onCall(async (request) => {
 // CHECK TRACKING STATUS — Via ShipEngine
 // =============================================================================
 
-export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) => {
+export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -303,29 +303,30 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
       const sellerId = transaction.sellerId;
       const sellerPayout = transaction.sellerPayout || transaction.amount;
 
-      // Move from pending to available balance
       const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
-      const sellerBalanceDoc = await sellerBalanceRef.get();
 
-      if (sellerBalanceDoc.exists) {
-        const balanceData = sellerBalanceDoc.data()!;
-        const transactions = balanceData.transactions || [];
+      await db.runTransaction(async (t) => {
+        const sellerBalanceDoc = await t.get(sellerBalanceRef);
+        if (sellerBalanceDoc.exists) {
+          const balanceData = sellerBalanceDoc.data()!;
+          const txns = balanceData.transactions || [];
 
-        const updatedTransactions = transactions.map((t: any) => {
-          if (t.id === transactionId) {
-            return { ...t, status: 'completed' };
-          }
-          return t;
-        });
+          const updatedTransactions = txns.map((txn: any) => {
+            if (txn.id === transactionId) {
+              return { ...txn, status: 'completed' };
+            }
+            return txn;
+          });
 
-        await sellerBalanceRef.update({
-          pendingBalance: FieldValue.increment(-sellerPayout),
-          availableBalance: FieldValue.increment(sellerPayout),
-          totalEarnings: FieldValue.increment(sellerPayout),
-          transactions: updatedTransactions,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      }
+          t.update(sellerBalanceRef, {
+            pendingBalance: FieldValue.increment(-sellerPayout),
+            availableBalance: FieldValue.increment(sellerPayout),
+            totalEarnings: FieldValue.increment(sellerPayout),
+            transactions: updatedTransactions,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      });
 
       // Send system message
       if (transaction.chatId) {
@@ -384,7 +385,7 @@ export const checkTrackingStatus = onCall({ memory: '512MiB' }, async (request) 
  *
  * Authorization: caller must be the balance owner (request.auth.uid).
  */
-export const requestWithdrawal = onCall({ memory: '512MiB' }, async (request) => {
+export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -470,7 +471,7 @@ export const requestWithdrawal = onCall({ memory: '512MiB' }, async (request) =>
  * we cannot mark a paid/shipped/delivered transaction as cancelled this way.
  */
 export const cancelPendingTransaction = onCall(
-  { memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');

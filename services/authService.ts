@@ -29,15 +29,16 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 
+function generateDefaultUsername(uid: string): string {
+  return `user${uid.slice(-6)}`;
+}
+
 export class AuthService {
   /**
    * Initialise les services d'authentification
    */
   static async initialize(): Promise<void> {
     try {
-      // Client IDs from Firebase project seconde-b47a6 (project number: 628214013296)
-      // webClientId: OAuth 2.0 Web Client from google-services.json (client_type: 3)
-      // iosClientId: iOS Client from GoogleService-Info.plist (client_type: 2)
       const config = {
         webClientId: '628214013296-pggun4ig3j52v6r2me4k33ljsh5rc4tg.apps.googleusercontent.com',
         iosClientId: '628214013296-fspuqlslcg8tln3aonhce95c435oauts.apps.googleusercontent.com',
@@ -45,9 +46,8 @@ export class AuthService {
       };
 
       GoogleSignin.configure(config);
-      console.log('[AuthService] Google Sign-In configured successfully');
     } catch (error) {
-      console.error('[AuthService] Failed to configure Google Sign-In:', error);
+      if (__DEV__) console.error('[AuthService] Failed to configure Google Sign-In:', error);
       throw error;
     }
   }
@@ -66,19 +66,17 @@ export class AuthService {
       // Créer l'utilisateur dans Firestore
       const userData: User = {
         id: firebaseUser.uid,
-        email: firebaseUser.email!,
+        email: firebaseUser.email || '',
         displayName,
         createdAt: new Date(),
         isActive: true,
       };
 
-      // Ajouter profileImage seulement s'il existe
       if (firebaseUser.photoURL) {
         userData.profileImage = firebaseUser.photoURL;
       }
 
-      // Préparer les données pour Firestore
-      const firestoreData: any = {
+      const firestoreData: Record<string, unknown> = {
         id: userData.id,
         email: userData.email,
         displayName: userData.displayName,
@@ -86,7 +84,6 @@ export class AuthService {
         isActive: true,
       };
 
-      // Ajouter profileImage seulement s'il existe
       if (userData.profileImage) {
         firestoreData.profileImage = userData.profileImage;
       }
@@ -149,14 +146,14 @@ export class AuthService {
       if (!userData) {
         userData = {
           id: firebaseUser.uid,
-          email: firebaseUser.email!,
-          displayName: firebaseUser.displayName || 'Utilisateur Google',
+          email: firebaseUser.email || '',
+          displayName: firebaseUser.displayName || generateDefaultUsername(firebaseUser.uid),
           profileImage: firebaseUser.photoURL || undefined,
           createdAt: new Date(),
           isActive: true,
         };
 
-        const firestoreData: any = {
+        const firestoreData: Record<string, unknown> = {
           id: userData.id,
           email: userData.email,
           displayName: userData.displayName,
@@ -173,28 +170,15 @@ export class AuthService {
 
       return userData;
     } catch (error: any) {
-      // Log detailed error for debugging
-      console.error('[AuthService] Google Sign-In error details:', {
-        code: error?.code,
-        message: error?.message,
-        name: error?.name,
-        stack: error?.stack?.substring(0, 500)
-      });
-
-      // Provide more specific error messages
       if (error?.code === 'SIGN_IN_CANCELLED') {
         throw new Error('Connexion Google annulée');
       } else if (error?.code === 'IN_PROGRESS') {
         throw new Error('Une connexion Google est déjà en cours');
       } else if (error?.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
         throw new Error('Google Play Services non disponible');
-      } else if (error?.code === 'DEVELOPER_ERROR' || error?.code === '10') {
-        throw new Error('Erreur de configuration Google Sign-In. Vérifiez les Client IDs et SHA-1.');
-      } else if (error?.message?.includes('No ID token')) {
-        throw new Error('Token Google non reçu. Vérifiez la configuration OAuth.');
       }
 
-      throw new Error('Erreur lors de la connexion Google: ' + (error?.message || 'Erreur inconnue'));
+      throw new Error('Erreur lors de la connexion Google. Veuillez réessayer.');
     }
   }
 
@@ -204,8 +188,10 @@ export class AuthService {
    */
   static async signInWithApple(): Promise<User> {
     try {
-      // Générer un nonce pour la sécurité
-      const nonce = Math.random().toString(36).substring(2, 10);
+      const nonceBytes = await Crypto.getRandomBytesAsync(32);
+      const nonce = Array.from(new Uint8Array(nonceBytes))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
       const hashedNonce = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         nonce
@@ -238,21 +224,21 @@ export class AuthService {
 
       let userData = await this.getUserData(firebaseUser.uid);
       if (!userData) {
-        // Créer un nouveau compte utilisateur
-        const displayName = credential.fullName
+        const appleFullName = credential.fullName
           ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
-          : firebaseUser.displayName || 'Utilisateur Apple';
+          : '';
+        const displayName = appleFullName || firebaseUser.displayName || generateDefaultUsername(firebaseUser.uid);
 
         userData = {
           id: firebaseUser.uid,
           email: firebaseUser.email || credential.email || '',
-          displayName: displayName || 'Utilisateur Apple',
+          displayName,
           profileImage: firebaseUser.photoURL || undefined,
           createdAt: new Date(),
           isActive: true,
         };
 
-        const firestoreData: any = {
+        const firestoreData: Record<string, unknown> = {
           id: userData.id,
           email: userData.email,
           displayName: userData.displayName,
@@ -269,7 +255,6 @@ export class AuthService {
 
       return userData;
     } catch (error: any) {
-      console.error('Apple Sign-In error:', error);
       if (error.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Connexion Apple annulée');
       }
@@ -315,7 +300,7 @@ export class AuthService {
   /**
    * Écouter les changements d'état d'authentification
    */
-  static onAuthStateChanged(callback: (user: any | null) => void): () => void {
+  static onAuthStateChanged(callback: (user: import('firebase/auth').User | null) => void): () => void {
     return firebaseOnAuthStateChanged(auth, callback);
   }
 
@@ -353,6 +338,9 @@ export class AuthService {
       }
       if (data.bio) {
         userData.bio = data.bio;
+      }
+      if (data.isActive !== undefined) {
+        userData.isActive = data.isActive;
       }
 
       return userData;

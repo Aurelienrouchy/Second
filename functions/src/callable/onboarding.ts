@@ -19,7 +19,6 @@ interface OnboardingData {
   sizesTop: string[];
   sizesBottom: string[];
   sizesShoes: string[];
-  userId?: string | null;
 }
 
 /**
@@ -32,9 +31,9 @@ interface OnboardingData {
  * The data feeds into the personalized "Pour Toi" feed via usePersonalizedFeed.
  */
 export const saveOnboardingPreferences = onCall(
-  { invoker: 'public', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
-    const { sex, sizesTop, sizesBottom, sizesShoes, userId } = request.data as OnboardingData;
+    const { sex, sizesTop, sizesBottom, sizesShoes } = request.data as OnboardingData;
 
     // ── Validation ──
     if (!sex || !VALID_SEX_VALUES.includes(sex)) {
@@ -64,16 +63,10 @@ export const saveOnboardingPreferences = onCall(
     };
 
     try {
-      // Determine target: authenticated user or guest
-      const authUid = request.auth?.uid;
-      const targetUserId = authUid || userId;
-
-      if (targetUserId) {
-        // ── Authenticated user or known userId ──
-        // Save as part of user preferences for the personalized feed
+      if (request.auth?.uid) {
         const allSizes = [...cleanData.sizesTop, ...cleanData.sizesBottom];
 
-        await db.collection('users').doc(targetUserId).set(
+        await db.collection('users').doc(request.auth.uid).set(
           {
             onboardingPreferences: cleanData,
             preferences: {
@@ -87,10 +80,8 @@ export const saveOnboardingPreferences = onCall(
           { merge: true }
         );
 
-        return { success: true, saved: 'user', userId: targetUserId };
+        return { success: true, saved: 'user', userId: request.auth.uid };
       } else {
-        // ── Guest (no auth, no userId) ──
-        // Save to guest_preferences collection with auto-generated ID
         const docRef = await db.collection('guest_preferences').add({
           ...cleanData,
           createdAt: FieldValue.serverTimestamp(),

@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -97,15 +98,28 @@ export default function OnboardingScreen() {
   }, []);
 
   const handleSizeSystemChange = useCallback((newSystem: SizeSystem) => {
-    if (newSystem !== sizeSystem) {
+    if (newSystem === sizeSystem) return;
+    const hasSelections = sizesTop.length > 0 || sizesBottom.length > 0 || sizesShoes.length > 0;
+    const doSwitch = () => {
       setSizeSystem(newSystem);
-      // Reset selections since size values differ between systems
       setSizesTop([]);
       setSizesBottom([]);
       setSizesShoes([]);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    };
+    if (hasSelections) {
+      Alert.alert(
+        'Changer de système',
+        'Vos sélections de tailles seront réinitialisées. Continuer ?',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Continuer', onPress: doSwitch },
+        ]
+      );
+    } else {
+      doSwitch();
     }
-  }, [sizeSystem]);
+  }, [sizeSystem, sizesTop.length, sizesBottom.length, sizesShoes.length]);
 
   const handleSexChange = useCallback((newSex: OnboardingPreferences['sex']) => {
     // Reset sizes when switching to/from enfant
@@ -144,7 +158,7 @@ export default function OnboardingScreen() {
         ...preferences,
         userId: user?.id || null,
       }).catch((err: unknown) => {
-        console.error('Error saving onboarding preferences to Firebase:', err);
+        if (__DEV__) console.error('Error saving onboarding preferences to Firebase:', err);
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

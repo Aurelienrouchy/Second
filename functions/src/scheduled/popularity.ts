@@ -10,7 +10,7 @@ import { calculatePopularityScore } from '../utils/search';
  * Update popularity scores for all active products
  * Runs every 6 hours
  */
-export const updatePopularityScores = onSchedule({ schedule: 'every 6 hours', memory: '512MiB' }, async () => {
+export const updatePopularityScores = onSchedule({ schedule: 'every 6 hours', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
   try {
     console.log('Starting popularity scores update...');
 

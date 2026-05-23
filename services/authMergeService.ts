@@ -37,7 +37,7 @@ export async function mergeGuestDataIntoUser(userId: string): Promise<void> {
       });
     }
   } catch (error) {
-    console.log('[authMerge] onboarding preferences merge failed (silent):', error);
+    if (__DEV__) console.log('[authMerge] onboarding preferences merge failed (silent):', error);
   }
 
   // ── 2. Behavioural data → style profile ──
@@ -53,10 +53,10 @@ export async function mergeGuestDataIntoUser(userId: string): Promise<void> {
     if (totalInteractions >= STYLE_PROFILE_MIN_INTERACTIONS) {
       // Non-blocking: don't await
       generateStyleProfile(guestData).catch((error) => {
-        console.log('[authMerge] style profile generation failed (silent):', error);
+        if (__DEV__) console.log('[authMerge] style profile generation failed (silent):', error);
       });
     }
   } catch (error) {
-    console.log('[authMerge] guest data export failed (silent):', error);
+    if (__DEV__) console.log('[authMerge] guest data export failed (silent):', error);
   }
 }

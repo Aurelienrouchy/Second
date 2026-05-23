@@ -10,7 +10,7 @@ import { sendPushNotification } from '../utils/notifications';
  * Update swap party statuses automatically
  * Runs every 5 minutes to transition parties: upcoming -> active -> ended
  */
-export const updateSwapPartyStatuses = onSchedule({ schedule: 'every 5 minutes', memory: '512MiB' }, async () => {
+export const updateSwapPartyStatuses = onSchedule({ schedule: 'every 5 minutes', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
   console.log('Checking swap party statuses...');
   const now = new Date();
 
@@ -60,6 +60,7 @@ export const updateSwapPartyStatuses = onSchedule({ schedule: 'every 5 minutes',
 export const sendSwapZoneReminders = onSchedule(
   {
     schedule: '0 10 * * *',
+    region: 'northamerica-northeast1',
     timeZone: 'America/Montreal',
     memory: '512MiB',
   },

@@ -67,7 +67,7 @@ class GuestPreferencesService {
       }
       return JSON.parse(sessionData) as GuestSession;
     } catch (error) {
-      console.error('Error getting guest session:', error);
+      if (__DEV__) console.error('Error getting guest session:', error);
       return null;
     }
   }
@@ -99,7 +99,7 @@ class GuestPreferencesService {
       await AsyncStorage.setItem(GUEST_KEYS.SESSION, JSON.stringify(updatedSession));
       return updatedSession;
     } catch (error) {
-      console.error('Error updating guest session:', error);
+      if (__DEV__) console.error('Error updating guest session:', error);
       return null;
     }
   }
@@ -128,7 +128,7 @@ class GuestPreferencesService {
         await this.updateGuestSession({ viewedArticles: updatedViewed });
       }
     } catch (error) {
-      console.error('Error tracking view:', error);
+      if (__DEV__) console.error('Error tracking view:', error);
     }
   }
 
@@ -155,7 +155,7 @@ class GuestPreferencesService {
       const updatedSearches = [...session.searches, trimmedQuery].slice(-50); // Keep last 50 searches
       await this.updateGuestSession({ searches: updatedSearches });
     } catch (error) {
-      console.error('Error tracking search:', error);
+      if (__DEV__) console.error('Error tracking search:', error);
     }
   }
 
@@ -183,7 +183,7 @@ class GuestPreferencesService {
         await this.updateGuestSession({ likedArticles: updatedLiked });
       }
     } catch (error) {
-      console.error('Error tracking like:', error);
+      if (__DEV__) console.error('Error tracking like:', error);
     }
   }
 
@@ -203,7 +203,7 @@ class GuestPreferencesService {
 
       await this.updateGuestSession({ likedArticles: updatedLiked });
     } catch (error) {
-      console.error('Error removing like:', error);
+      if (__DEV__) console.error('Error removing like:', error);
     }
   }
 
@@ -277,7 +277,7 @@ class GuestPreferencesService {
         topCategories,
       };
     } catch (error) {
-      console.error('Error calculating local preferences:', error);
+      if (__DEV__) console.error('Error calculating local preferences:', error);
       return null;
     }
   }
@@ -304,7 +304,7 @@ class GuestPreferencesService {
     try {
       await AsyncStorage.removeItem(GUEST_KEYS.SESSION);
     } catch (error) {
-      console.error('Error clearing guest session:', error);
+      if (__DEV__) console.error('Error clearing guest session:', error);
     }
   }
 

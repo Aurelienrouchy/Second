@@ -10,7 +10,7 @@ import { sendPushNotification } from '../utils/notifications';
  * When someone adds an article to favorites, notify the seller
  */
 export const onArticleFavorited = onDocumentUpdated(
-  { document: 'favorites/{userId}', memory: '512MiB' },
+  { document: 'favorites/{userId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     try {
       const beforeData = event.data?.before?.data();
@@ -87,7 +87,7 @@ export const onArticleFavorited = onDocumentUpdated(
  * When an article's price drops, notify users who have it in favorites
  */
 export const onArticlePriceDropped = onDocumentUpdated(
-  { document: 'articles/{articleId}', memory: '512MiB' },
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     try {
       const beforeData = event.data?.before?.data();

@@ -289,7 +289,7 @@ export default function ShippingCheckoutScreen() {
         },
       });
     },
-    [pendingTransactionId, pendingChatId, article, selectedEstimate, serviceFee, totalAmount, router]
+    [pendingTransactionId, pendingChatId, article, selectedEstimate, serviceFee, router]
   );
 
   // =============================================================================

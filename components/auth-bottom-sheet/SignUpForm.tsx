@@ -3,7 +3,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
@@ -37,6 +37,21 @@ function SignUpFormComponent({
   onSwitchToSignIn,
   onSocialAuth,
 }: SignUpFormProps) {
+  const [touched, setTouched] = useState({
+    username: false,
+    email: false,
+    password: false,
+  });
+
+  const handleBlur = useCallback((field: 'username' | 'email' | 'password') => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  }, []);
+
+  const usernameInvalid = touched.username && username.trim().length < 3;
+  const emailInvalid =
+    touched.email && (!email.includes('@') || !email.includes('.'));
+  const passwordInvalid = touched.password && password.length < 6;
+
   const submitDisabled =
     !email.trim() || !password.trim() || !username.trim() || isLoading;
 
@@ -44,13 +59,15 @@ function SignUpFormComponent({
     <>
       <Text style={styles.title}>Bienvenue sur</Text>
       <Text style={styles.subtitle}>Seconde</Text>
-      <Text style={styles.message}>{message}</Text>
+      {message ? <Text style={styles.message}>{message}</Text> : null}
 
       {/* Social auth */}
       <Pressable
         style={styles.appleButton}
         onPress={() => onSocialAuth('Apple')}
         disabled={isLoading}
+        accessibilityLabel="S'inscrire avec Apple"
+        accessibilityRole="button"
       >
         <Ionicons name="logo-apple" size={20} color={colors.white} />
         <Text style={styles.appleButtonText}>Continuer avec Apple</Text>
@@ -60,6 +77,8 @@ function SignUpFormComponent({
         style={styles.socialButton}
         onPress={() => onSocialAuth('Google')}
         disabled={isLoading}
+        accessibilityLabel="S'inscrire avec Google"
+        accessibilityRole="button"
       >
         <Ionicons name="logo-google" size={18} color={colors.foreground} />
         <Text style={styles.socialButtonText}>Continuer avec Google</Text>
@@ -91,30 +110,49 @@ function SignUpFormComponent({
         placeholderTextColor={colors.muted}
         value={username}
         onChangeText={onChangeUsername}
+        onBlur={() => handleBlur('username')}
         autoCapitalize="none"
+        accessibilityLabel="Nom d'utilisateur"
       />
+      {usernameInvalid ? (
+        <Text style={styles.fieldError}>3 caractères minimum</Text>
+      ) : null}
+
       <TextInput
         style={styles.input}
         placeholder="Email"
         placeholderTextColor={colors.muted}
         value={email}
         onChangeText={onChangeEmail}
+        onBlur={() => handleBlur('email')}
         keyboardType="email-address"
         autoCapitalize="none"
+        accessibilityLabel="Adresse email"
       />
+      {emailInvalid ? (
+        <Text style={styles.fieldError}>Adresse email invalide</Text>
+      ) : null}
+
       <TextInput
         style={styles.input}
         placeholder="Mot de passe"
         placeholderTextColor={colors.muted}
         value={password}
         onChangeText={onChangePassword}
+        onBlur={() => handleBlur('password')}
         secureTextEntry
+        accessibilityLabel="Mot de passe"
       />
+      {passwordInvalid ? (
+        <Text style={styles.fieldError}>6 caractères minimum</Text>
+      ) : null}
 
       <Pressable
         style={[styles.primaryButton, submitDisabled && styles.disabledButton]}
         onPress={onSubmit}
         disabled={submitDisabled}
+        accessibilityLabel="S'inscrire"
+        accessibilityRole="button"
       >
         {isLoading ? (
           <ActivityIndicator color={colors.white} />

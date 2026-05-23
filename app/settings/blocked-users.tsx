@@ -199,9 +199,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: sizing.avatarMedium,
-    height: sizing.avatarMedium,
-    borderRadius: sizing.avatarMedium / 2,
+    width: sizing.avatarMD,
+    height: sizing.avatarMD,
+    borderRadius: sizing.avatarMD / 2,
     backgroundColor: colors.borderLight,
     justifyContent: 'center',
     alignItems: 'center',

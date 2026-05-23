@@ -6,18 +6,18 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
-import { colors } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 export default function PasswordSettingsScreen() {
   const router = useRouter();
@@ -67,7 +67,7 @@ export default function PasswordSettingsScreen() {
         ]
       );
     } catch (error: any) {
-      console.error('Error updating password:', error);
+      if (__DEV__) console.error('Error updating password:', error);
       Alert.alert('Erreur', error.message || 'Une erreur est survenue lors de la mise à jour du mot de passe');
     } finally {
       setIsSaving(false);
@@ -79,13 +79,13 @@ export default function PasswordSettingsScreen() {
       <Stack.Screen options={{
         headerBackTitle: ' ',
         headerRight: () => (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          <Pressable onPress={handleSave} disabled={isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               <Text style={styles.headerButton}>Valider</Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         ),
       }} />
 
@@ -112,9 +112,9 @@ export default function PasswordSettingsScreen() {
                   placeholder="Mot de passe actuel"
                   secureTextEntry={!showCurrentPassword}
                 />
-                <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeButton}>
-                  <Ionicons name={showCurrentPassword ? "eye-off-outline" : "eye-outline"} size={24} color="#999" />
-                </TouchableOpacity>
+                <Pressable onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeButton}>
+                  <Ionicons name={showCurrentPassword ? "eye-off-outline" : "eye-outline"} size={24} color={colors.muted} />
+                </Pressable>
               </View>
             </View>
 
@@ -128,9 +128,9 @@ export default function PasswordSettingsScreen() {
                   placeholder="Nouveau mot de passe"
                   secureTextEntry={!showNewPassword}
                 />
-                <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeButton}>
-                  <Ionicons name={showNewPassword ? "eye-off-outline" : "eye-outline"} size={24} color="#999" />
-                </TouchableOpacity>
+                <Pressable onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeButton}>
+                  <Ionicons name={showNewPassword ? "eye-off-outline" : "eye-outline"} size={24} color={colors.muted} />
+                </Pressable>
               </View>
             </View>
 
@@ -144,9 +144,9 @@ export default function PasswordSettingsScreen() {
                   placeholder="Confirmer le mot de passe"
                   secureTextEntry={!showConfirmPassword}
                 />
-                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
-                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={24} color="#999" />
-                </TouchableOpacity>
+                <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={24} color={colors.muted} />
+                </Pressable>
               </View>
             </View>
           </View>
@@ -159,12 +159,12 @@ export default function PasswordSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   headerButton: {
     color: colors.primary,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
   },
   keyboardView: {
     flex: 1,
@@ -173,49 +173,51 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: spacing.lg,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#F0F9FF',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 24,
+    gap: spacing.md,
+    backgroundColor: colors.surfaceWarm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
   },
   infoText: {
     flex: 1,
     fontSize: 14,
+    fontFamily: fonts.sans,
     color: colors.foreground,
   },
   formSection: {
-    gap: 24,
+    gap: spacing.lg,
   },
   inputContainer: {
-    gap: 8,
+    gap: spacing.sm,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    fontFamily: fonts.sansMedium,
+    color: colors.muted,
     textTransform: 'uppercase',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
   passwordInput: {
     flex: 1,
-    padding: 12,
+    padding: spacing.md,
     fontSize: 16,
-    color: '#333',
+    fontFamily: fonts.sans,
+    color: colors.foreground,
   },
   eyeButton: {
-    padding: 12,
+    padding: spacing.md,
   },
 });

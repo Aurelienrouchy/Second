@@ -23,6 +23,7 @@ interface ImageData {
  */
 export const analyzeProductImage = onCall(
   {
+    region: 'northamerica-northeast1',
     memory: '1GiB',
     timeoutSeconds: 120,
     minInstances: 1, // Keep one instance warm to avoid cold starts

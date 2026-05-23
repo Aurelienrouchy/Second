@@ -187,7 +187,7 @@ export default function SwapZoneFilters({
                 <Chip
                   key={cat.id}
                   label={cat.label}
-                  selected={filters.categories?.includes(cat.id)}
+                  selected={!!filters.categories?.includes(cat.id)}
                   onPress={() => handleToggle('categories', cat.id)}
                 />
               ))}
@@ -201,7 +201,7 @@ export default function SwapZoneFilters({
                 <Chip
                   key={gender.id}
                   label={gender.label}
-                  selected={filters.genders?.includes(gender.id)}
+                  selected={!!filters.genders?.includes(gender.id)}
                   onPress={() => handleToggle('genders', gender.id)}
                 />
               ))}
@@ -215,7 +215,7 @@ export default function SwapZoneFilters({
                 <Chip
                   key={size}
                   label={size}
-                  selected={filters.sizes?.includes(size)}
+                  selected={!!filters.sizes?.includes(size)}
                   onPress={() => handleToggle('sizes', size)}
                   compact
                 />
@@ -230,7 +230,7 @@ export default function SwapZoneFilters({
                 <Chip
                   key={brand}
                   label={brand}
-                  selected={filters.brands?.includes(brand)}
+                  selected={!!filters.brands?.includes(brand)}
                   onPress={() => handleToggle('brands', brand)}
                 />
               ))}
@@ -245,7 +245,7 @@ export default function SwapZoneFilters({
                   key={color.id}
                   color={color.hex}
                   label={color.label}
-                  selected={filters.colors?.includes(color.id)}
+                  selected={!!filters.colors?.includes(color.id)}
                   onPress={() => handleToggle('colors', color.id)}
                 />
               ))}
@@ -259,7 +259,7 @@ export default function SwapZoneFilters({
                 <Chip
                   key={condition.id}
                   label={condition.label}
-                  selected={filters.conditions?.includes(condition.id)}
+                  selected={!!filters.conditions?.includes(condition.id)}
                   onPress={() => handleToggle('conditions', condition.id)}
                   fullWidth
                 />

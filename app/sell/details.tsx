@@ -132,6 +132,7 @@ export default function DetailsScreen() {
           condition: fields.condition,
           colors: fields.colors,
           materials: fields.materials,
+          brands: fields.brand ? [fields.brand] : [],
           size: fields.size,
           brand: fields.brand,
         };

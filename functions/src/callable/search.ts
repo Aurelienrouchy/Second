@@ -73,6 +73,7 @@ async function generateQueryEmbedding(imageBase64: string): Promise<number[] | n
  */
 export const visualSearch = onCall(
   {
+    region: 'northamerica-northeast1',
     invoker: 'public',
     timeoutSeconds: 60,
     memory: '512MiB',
@@ -206,7 +207,7 @@ export const visualSearch = onCall(
  * Falls back gracefully if no embedding exists.
  */
 export const getSimilarProducts = onCall(
-  { invoker: 'public', timeoutSeconds: 30, memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', timeoutSeconds: 30, memory: '512MiB' },
   async (request) => {
     const { articleId, limit = 10, includeScore = false } = request.data;
 

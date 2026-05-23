@@ -390,7 +390,7 @@ export async function analyzeProductImage(
       console.error('[aiService] User not authenticated - cannot upload to Storage');
       return {
         success: false,
-        error: createDetailedError('AUTH_REQUIRED', 'Veuillez vous connecter pour analyser des images'),
+        error: createDetailedError('UNAUTHENTICATED', 'Veuillez vous connecter pour analyser des images'),
       };
     }
 

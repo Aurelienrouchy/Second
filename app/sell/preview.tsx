@@ -46,6 +46,8 @@ interface EditedFields {
   condition: string;
   color: string | null;
   material: string | null;
+  colors?: string[];
+  materials?: string[];
   size: string | null;
   brand: string;
 }
@@ -136,11 +138,14 @@ export default function PreviewScreen() {
 
       if (fields.size) articleData.size = fields.size;
       if (fields.brand) articleData.brand = fields.brand;
-      if (fields.colors?.length) articleData.colors = fields.colors;
-      if (fields.materials?.length) articleData.materials = fields.materials;
-      // Legacy single-value for backward compat
-      if (fields.colors?.[0]) articleData.color = fields.colors[0];
-      if (fields.materials?.[0]) articleData.material = fields.materials[0];
+      if (fields.color) {
+        articleData.color = fields.color;
+        articleData.colors = [fields.color];
+      }
+      if (fields.material) {
+        articleData.material = fields.material;
+        articleData.materials = [fields.material];
+      }
       if (currentUser.photoURL) articleData.sellerImage = currentUser.photoURL;
       if (pricing.neighborhood) articleData.neighborhood = pricing.neighborhood;
       if (pricing.packageSize) articleData.packageSize = pricing.packageSize;
@@ -171,15 +176,15 @@ export default function PreviewScreen() {
   const tags: string[] = [];
   if (fields.condition) tags.push(conditionLabels[fields.condition] || fields.condition);
   if (fields.size) tags.push(fields.size);
-  if (fields.colors?.length) tags.push(...fields.colors);
-  if (fields.materials?.length) tags.push(...fields.materials);
+  if (fields.color) tags.push(fields.color);
+  if (fields.material) tags.push(fields.material);
 
   // Specs grid
   const specs = [
     { label: 'Condition', value: conditionLabels[fields.condition] || fields.condition },
     { label: 'Taille', value: fields.size },
-    { label: 'Couleur', value: fields.colors?.join(', ') },
-    { label: 'Matiere', value: fields.materials?.join(', ') },
+    { label: 'Couleur', value: fields.color },
+    { label: 'Matiere', value: fields.material },
   ].filter((s) => s.value);
 
   return (

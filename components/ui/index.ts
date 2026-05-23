@@ -59,4 +59,4 @@ export type { ThemedBottomSheetRef } from './ThemedBottomSheet';
 // =============================================================================
 
 export { IconSymbol } from './IconSymbol';
-export { TabBarBackground } from './TabBarBackground';
+export { default as TabBarBackground } from './TabBarBackground';

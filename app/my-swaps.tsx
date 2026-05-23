@@ -238,8 +238,8 @@ function StackedImages({ items, maxDisplay = 3 }: { items: SwapItemInfo[]; maxDi
             {
               transform: [
                 { translateX: index * 20 },
-                { zIndex: displayCount - index },
               ],
+              zIndex: displayCount - index,
               marginRight: index === displayCount - 1 ? 0 : -20,
             },
           ]}

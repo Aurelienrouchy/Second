@@ -50,6 +50,7 @@ CONFIDENCE: entre 0 et 1, basé sur la quantité et cohérence des données`;
  */
 export const generateStyleProfile = onCall(
   {
+    region: 'northamerica-northeast1',
     timeoutSeconds: 30,
     memory: '512MiB',
   },

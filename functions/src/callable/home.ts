@@ -229,7 +229,7 @@ async function _getNewArrivals(
 
 /** Trending brands section */
 export const getTrendingBrands = onCall(
-  { invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
   async () => {
     try {
       return await _getTrendingBrands();
@@ -242,7 +242,7 @@ export const getTrendingBrands = onCall(
 
 /** Price drops section */
 export const getPriceDrops = onCall(
-  { invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
   async () => {
     try {
       return await _getPriceDrops();
@@ -255,7 +255,7 @@ export const getPriceDrops = onCall(
 
 /** Featured sellers section */
 export const getFeaturedSellers = onCall(
-  { invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
   async () => {
     try {
       return await _getFeaturedSellers();
@@ -268,7 +268,7 @@ export const getFeaturedSellers = onCall(
 
 /** New arrivals — first page for Nouveautés + cursor pagination for Discover */
 export const getNewArrivals = onCall(
-  { invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
   async (request) => {
     try {
       const { lastDocId = null, limit = 20 } = request.data ?? {};
@@ -286,7 +286,7 @@ export const getNewArrivals = onCall(
 
 /** @deprecated Use the individual section callables instead. */
 export const getHomeFeed = onCall(
-  { invoker: 'public', memory: '512MiB', timeoutSeconds: 30 },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 30 },
   async () => {
     try {
       const [trendingBrands, priceDrops, featuredSellers, newArrivals] =
@@ -309,7 +309,7 @@ export const getHomeFeed = onCall(
 // =============================================================================
 
 export const toggleSellerLike = onCall(
-  { memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
@@ -378,7 +378,7 @@ export const toggleSellerLike = onCall(
 );
 
 export const getLikedSellers = onCall(
-  { memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
@@ -424,7 +424,7 @@ export const getLikedSellers = onCall(
 );
 
 export const recordPriceDrop = onCall(
-  { memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');

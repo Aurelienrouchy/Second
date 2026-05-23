@@ -62,7 +62,7 @@ interface SwapZoneSectionProps {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Gradient for active party (sage green)
-const ACTIVE_GRADIENT = ['#1E2A18', '#2A3820'];
+const ACTIVE_GRADIENT = ['#1E2A18', '#2A3820'] as const;
 
 // =============================================================================
 // UTILITY FUNCTIONS
@@ -154,7 +154,6 @@ const ActivePartyCard: React.FC<ActivePartyCardProps> = ({ party, onPress }) => 
           colors={ACTIVE_GRADIENT}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          angle={135}
           style={styles.activeCardGradient}
         >
           {/* Decorative circles */}

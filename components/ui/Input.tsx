@@ -15,6 +15,7 @@ import {
   Pressable,
   StyleSheet,
   TextInputProps,
+  TextStyle,
   ViewStyle,
 } from 'react-native';
 import Animated, {
@@ -42,7 +43,7 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   onClear?: () => void;
   showClearButton?: boolean;
   containerStyle?: ViewStyle;
-  inputStyle?: ViewStyle;
+  inputStyle?: TextStyle;
   disabled?: boolean;
 }
 
@@ -162,6 +163,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
         )}
 
         {/* Text Input */}
+        {/* @ts-expect-error Reanimated animated component type mismatch */}
         <TextInput
           ref={ref}
           style={[

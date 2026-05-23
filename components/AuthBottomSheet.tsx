@@ -13,9 +13,10 @@
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 
@@ -34,7 +35,7 @@ const AuthBottomSheet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, mergeGuestToUser, user } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuthActions();
   const insets = useSafeAreaInsets();
 
   const snapPoints = useMemo(() => ['82%'], []);
@@ -63,22 +64,21 @@ const AuthBottomSheet: React.FC = () => {
     useAuthSheetStore.getState().hide();
   }, []);
 
-  const handleSuccess = useCallback(async () => {
-    if (user) {
-      await mergeGuestToUser(user.id);
-    }
-    if (onSuccessCallback) {
-      onSuccessCallback();
-    }
+  const handleSuccess = useCallback(() => {
+    onSuccessCallback?.();
     handleClose();
-  }, [onSuccessCallback, handleClose, user, mergeGuestToUser]);
+  }, [onSuccessCallback, handleClose]);
 
   const renderBackdrop = useCallback(
-    (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
-    [],
+    (props: React.ComponentProps<typeof BottomSheetBackdrop>) =>
+      isVisible ? (
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+      ) : null,
+    [isVisible],
   );
 
   const handleSocialAuth = async (provider: 'Google' | 'Apple') => {
+    if (isLoading) return;
     setIsLoading(true);
     try {
       if (provider === 'Google') {
@@ -199,7 +199,9 @@ const AuthBottomSheet: React.FC = () => {
       backgroundStyle={styles.sheetBackground}
     >
       <BottomSheetView style={styles.content}>
-        {renderBody()}
+        <Animated.View key={authType} entering={FadeIn.duration(200)}>
+          {renderBody()}
+        </Animated.View>
       </BottomSheetView>
     </BottomSheet>
   );

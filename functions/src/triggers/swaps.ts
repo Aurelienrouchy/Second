@@ -22,7 +22,7 @@ function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
  * Send notification when a swap is proposed
  */
 export const onSwapCreated = onDocumentCreated(
-  { document: 'swaps/{swapId}', memory: '512MiB' },
+  { document: 'swaps/{swapId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     try {
       const snapshot = event.data;
@@ -155,7 +155,7 @@ function getSwapDescription(swap: any): string {
  * Send notification when swap status changes
  */
 export const onSwapStatusUpdated = onDocumentUpdated(
-  { document: 'swaps/{swapId}', memory: '512MiB' },
+  { document: 'swaps/{swapId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     try {
       const before = event.data?.before?.data();

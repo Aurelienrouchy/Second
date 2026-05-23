@@ -11,7 +11,7 @@ import { db } from '../config/firebase';
  * Supports swapping multiple items on each side with validation
  */
 export const proposeMultiSwap = onCall(
-  { invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     const {
       initiatorId,
@@ -174,7 +174,7 @@ export const proposeMultiSwap = onCall(
  * Get active swap party info for homepage
  */
 export const getActiveSwapPartyInfo = onCall(
-  { invoker: 'public', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async () => {
   try {
     // Get currently active party
@@ -248,7 +248,7 @@ export const getActiveSwapPartyInfo = onCall(
  * Get swap party leaderboard (top swappers)
  */
 export const getSwapPartyLeaderboard = onCall(
-  { invoker: 'public', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
   const { partyId, limit: limitParam = 10 } = request.data;
 

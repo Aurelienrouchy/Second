@@ -19,13 +19,13 @@ export function useAuthListener(): void {
     const store = useAuthStore.getState();
 
     AuthService.initialize().catch((error) => {
-      console.error('[useAuthListener] AuthService.initialize failed:', error);
+      if (__DEV__) console.error('[useAuthListener] AuthService.initialize failed:', error);
     });
 
     void store.bootstrap();
 
     const unsubscribe = AuthService.onAuthStateChanged(async (firebaseUser) => {
-      await useAuthStore.getState().hydrateFromFirebase(firebaseUser as any);
+      await useAuthStore.getState().hydrateFromFirebase(firebaseUser);
     });
 
     return () => {

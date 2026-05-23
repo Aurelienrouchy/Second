@@ -47,7 +47,7 @@ function ForgotPasswordFormComponent({
               Vérifiez votre boîte de réception et suivez les instructions.
             </Text>
           </View>
-          <Pressable style={styles.primaryButton} onPress={onBackToSignIn}>
+          <Pressable style={styles.primaryButton} onPress={onBackToSignIn} accessibilityLabel="Retour à la connexion" accessibilityRole="button">
             <Text style={styles.primaryButtonText}>RETOUR À LA CONNEXION</Text>
           </Pressable>
         </>
@@ -64,11 +64,14 @@ function ForgotPasswordFormComponent({
             onChangeText={onChangeEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            accessibilityLabel="Adresse email"
           />
           <Pressable
             style={[styles.primaryButton, !email.trim() && styles.disabledButton]}
             onPress={onSubmit}
             disabled={!email.trim() || isLoading}
+            accessibilityLabel="Envoyer le lien de réinitialisation"
+            accessibilityRole="button"
           >
             {isLoading ? (
               <ActivityIndicator color={colors.white} />
@@ -76,7 +79,7 @@ function ForgotPasswordFormComponent({
               <Text style={styles.primaryButtonText}>ENVOYER LE LIEN</Text>
             )}
           </Pressable>
-          <Pressable style={styles.linkButton} onPress={onBackToSignIn}>
+          <Pressable style={styles.linkButton} onPress={onBackToSignIn} accessibilityLabel="Retour à la connexion" accessibilityRole="link">
             <Text style={styles.linkButtonText}>Retour à la connexion</Text>
           </Pressable>
         </>

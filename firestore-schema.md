@@ -1,491 +1,705 @@
-# Firestore Data Model - Freepe
+# Firestore Data Model - Second
 
 ## Collections Overview
 
-### 1. `products` Collection
-Main product listings with full details and search optimization.
-
-### 2. `users` Collection  
-User profiles with authentication and preference data.
-
-### 3. `favorites` Collection
-User favorite products for personalized experience.
-
-### 4. `messages` Collection
-Chat messages between users for product inquiries.
-
-### 5. `stats` Collection
-Aggregated statistics and analytics data.
-
-### 6. `search_index` Collection (Denormalized)
-Optimized search documents for fast queries.
+| # | Collection | Type | Description |
+|---|-----------|------|-------------|
+| 1 | `articles` | Root | Main product listings (source of truth for articles) |
+| 2 | `products` | Root | Legacy product docs (search index source, kept in sync) |
+| 3 | `users` | Root | User profiles and preferences |
+| 4 | `users/{uid}/savedSearches` | Sub-collection | User's saved search alerts |
+| 5 | `users/{uid}/searchHistory` | Sub-collection | User's recent search queries |
+| 6 | `favorites` | Root | Per-user favorite article IDs |
+| 7 | `chats` | Root | Chat threads between two users |
+| 8 | `messages` | Root | Individual chat messages |
+| 9 | `transactions` | Root | Purchase transactions (Helcim payments) |
+| 10 | `seller_balances` | Root | Seller payout balances |
+| 11 | `withdrawal_requests` | Root | Seller withdrawal requests |
+| 12 | `avis` | Root | User reviews / ratings |
+| 13 | `swaps` | Root | Swap proposals between users |
+| 14 | `swapParties` | Root | Swap party (zone) events |
+| 15 | `swapPartyParticipants` | Root | Users enrolled in a swap party |
+| 16 | `swapPartyItems` | Root | Articles submitted to a swap party |
+| 17 | `notifications` | Root | Push notification records |
+| 18 | `drafts` | Root | Unsaved article drafts |
+| 19 | `guest_preferences` | Root | Onboarding preferences for unauthenticated users |
+| 20 | `moments` | Root | Seasonal/event moments for curated feeds |
+| 21 | `embeddings` | Root | Vertex AI multimodal embeddings per article |
+| 22 | `search_index` | Root | Denormalized search documents |
+| 23 | `stats` | Root | Aggregated platform statistics |
 
 ---
 
 ## Document Structures
 
-### Products Collection: `/products/{productId}`
+### `articles/{articleId}`
+
+Main product listing collection. Source of truth for article data.
 
 ```typescript
-interface ProductDocument {
-  // Basic Information
-  id: string;                    // Auto-generated document ID
-  title: string;                 // Product title (required, 3-100 chars)
-  description: string;           // Detailed description (required, 10-2000 chars)
-  price: number;                 // Price in euros (required, 0.01-10000)
-  originalPrice?: number;        // Original price for discounts
-  
+interface ArticleDocument {
+  id: string;                    // Document ID
+  title: string;                 // Article title
+  description: string;           // Detailed description
+  price: number;                 // Current price in CAD
+  originalPrice?: number;        // Original price before price drop
+
   // Media
   images: {
     url: string;                 // Firebase Storage URL
-    blurhash?: string;           // Blur placeholder
-    width?: number;              // Image dimensions
+    blurhash?: string;           // Blur placeholder hash
+    width?: number;
     height?: number;
     order: number;               // Display order (0-based)
   }[];
-  
+
   // Categorization
-  category: string;              // Main category (required)
-  subcategory?: string;          // Subcategory
-  brand?: string;                // Brand name
-  size?: string;                 // Size (XS, S, M, L, XL, etc.)
-  color?: string;                // Primary color
-  material?: string;             // Material type
-  pattern?: string;              // Pattern type
-  condition: 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
-  
-  // Seller Information
-  sellerId: string;              // User ID of seller (required)
-  sellerName: string;            // Cached seller name
-  sellerImage?: string;          // Cached seller avatar
-  sellerRating?: number;         // Cached seller rating (0-5)
-  
-  // Location & Delivery
-  location: {
-    address?: string;            // Human-readable address
-    city: string;                // City name (required)
-    postalCode: string;          // Postal code (required)
-    country: string;             // Country code (FR, etc.)
-    coordinates: {
-      lat: number;               // Latitude (-90 to 90)
-      lon: number;               // Longitude (-180 to 180)
-    };
-    geohash: string;             // Computed geohash for proximity queries
+  category?: string;             // Main category
+  categoryId?: string;           // Category ID
+  categoryIds?: string[];        // Full category path IDs
+  subcategory?: string;
+  brand?: string;                // Primary brand
+  brands?: string[];             // All brands (multi-brand support)
+  size?: string;
+  color?: string;
+  colors?: string[];
+  material?: string;
+  materials?: string[];
+  pattern?: string;
+  condition: 'neuf' | 'tres bon etat' | 'bon etat' | 'satisfaisant';
+
+  // Seller
+  sellerId: string;
+  sellerName: string;
+  sellerImage?: string;
+
+  // Location
+  location?: {
+    city?: string;
+    postalCode?: string;
+    province?: string;
+    coordinates?: { lat: number; lon: number };
+    geohash?: string;
   };
-  
-  deliveryOptions: {
-    pickup: boolean;             // Hand delivery available
-    shipping: boolean;           // Postal shipping available
-    shippingCost?: number;       // Shipping cost in euros
+
+  // Delivery
+  deliveryOptions?: {
+    pickup: boolean;
+    shipping: boolean;
+    shippingCost?: number;
   };
-  
-  // Status & Metadata
-  isActive: boolean;             // Product is visible (default: true)
-  isSold: boolean;               // Product is sold (default: false)
-  isPromoted: boolean;           // Sponsored/promoted listing (default: false)
-  
-  // Engagement Metrics
-  views: number;                 // View count (default: 0)
-  likes: number;                 // Like count (default: 0)
-  likedBy: string[];             // Array of user IDs who liked
-  
+
+  // Status
+  isActive: boolean;             // Visible in listings
+  isSold: boolean;               // Has been sold
+  isPromoted?: boolean;          // Sponsored listing
+
+  // Engagement
+  views?: number;
+  likes?: number;
+  likedBy?: string[];
+  favoritesCount?: number;       // Denormalized from favorites
+
+  // Price drop tracking
+  lastPriceDropAt?: Timestamp;
+  priceDropPercent?: number;
+  promotionActive?: boolean;
+
   // Timestamps
-  createdAt: Timestamp;          // Creation time (server timestamp)
-  updatedAt: Timestamp;          // Last update time (server timestamp)
-  soldAt?: Timestamp;            // Sale completion time
-  
-  // Search Optimization
-  searchKeywords: string[];      // Generated keywords for search
-  titleLowercase: string;        // Lowercase title for case-insensitive search
-  
-  // Moderation
-  isReported: boolean;           // Has been reported (default: false)
-  moderationStatus: 'pending' | 'approved' | 'rejected';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  soldAt?: Timestamp;
+  deletedAt?: Timestamp;         // Set during GDPR cleanup
+
+  // Search
+  searchKeywords?: string[];
 }
 ```
 
-### Users Collection: `/users/{userId}`
+### `products/{productId}`
+
+Legacy product documents used for search index updates. Kept in sync with `articles`.
+
+Same structure as `articles` plus:
+- `moderationStatus: 'pending' | 'approved' | 'rejected'`
+- `isReported: boolean`
+- `titleLowercase: string`
+
+### `users/{userId}`
 
 ```typescript
 interface UserDocument {
-  id: string;                    // Auth UID
-  email: string;                 // User email (required)
-  displayName: string;           // Display name (required)
-  profileImage?: string;         // Profile picture URL
-  
-  // Profile Information
-  bio?: string;                  // User bio (max 500 chars)
-  phoneNumber?: string;          // Verified phone number
-  
-  // Address Information
-  addresses: {
-    id: string;                  // Address ID
-    label: string;               // "Home", "Work", etc.
+  id: string;                    // Firebase Auth UID
+  email: string;
+  displayName: string;
+  profileImage?: string;
+
+  // Profile
+  bio?: string;
+  phoneNumber?: string;
+  accountType?: 'user' | 'seller' | 'admin';
+
+  // Addresses
+  addresses?: {
+    id: string;
+    label: string;
     street: string;
     city: string;
     postalCode: string;
+    province?: string;
     country: string;
-    coordinates?: {
-      lat: number;
-      lon: number;
-    };
+    coordinates?: { lat: number; lon: number };
     isDefault: boolean;
   }[];
-  
+
   // Preferences
-  preferences: {
-    notifications: {
-      email: boolean;
-      push: boolean;
-      messages: boolean;
-      likes: boolean;
-      sales: boolean;
+  preferences?: {
+    notifications?: {
+      email?: boolean;
+      push?: boolean;
+      messages?: boolean;
+      likes?: boolean;
+      sales?: boolean;
+      articleFavorited?: boolean;
+      priceDrops?: boolean;
+      swapZoneReminder?: boolean;
     };
-    privacy: {
-      showEmail: boolean;
-      showPhone: boolean;
-      showLastSeen: boolean;
+    privacy?: {
+      showEmail?: boolean;
+      showPhone?: boolean;
+      showLastSeen?: boolean;
     };
-    language: 'fr' | 'en';
-    currency: 'EUR' | 'USD';
+    sizes?: string[];
+    shoesSizes?: string[];
+    sex?: string;
   };
-  
-  // Statistics
-  stats: {
-    productsListed: number;      // Total products listed
-    productsSold: number;        // Total products sold
-    totalEarnings: number;       // Total earnings in euros
-    rating: number;              // Average rating (0-5)
-    reviewCount: number;         // Number of reviews received
+
+  // Onboarding
+  onboardingPreferences?: {
+    sex: 'femme' | 'homme' | 'les-deux' | 'enfant';
+    sizesTop: string[];
+    sizesBottom: string[];
+    sizesShoes: string[];
+    updatedAt: Timestamp;
   };
-  
+  onboardingCompleted?: boolean;
+
+  // Style profile (AI-generated)
+  styleProfile?: {
+    styleTags: string[];
+    styleDescription: string;
+    recommendedBrands: string[];
+    suggestedSizes: { top: string; bottom: string };
+    confidence: number;
+    generatedAt: Timestamp;
+  };
+
+  // Social
+  likedSellers?: string[];      // User IDs of liked sellers
+  sellerLikesCount?: number;    // How many users liked this seller
+  fcmTokens?: string[];         // FCM push notification tokens
+
+  // Stats
+  rating?: number;              // Average review rating (0-5)
+  reviewCount?: number;
+  articlesCount?: number;
+
   // Status
-  isVerified: boolean;           // Email/phone verified
-  isActive: boolean;             // Account is active
-  lastSeen: Timestamp;           // Last activity timestamp
-  
+  isVerified?: boolean;
+  isActive: boolean;
+  isAdmin?: boolean;             // Admin flag (protected, cannot be self-set)
+  lastSeen?: Timestamp;
+
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 ```
 
-### Favorites Collection: `/favorites/{userId}`
+#### Sub-collection: `users/{uid}/savedSearches/{searchId}`
+
+```typescript
+interface SavedSearchDocument {
+  name?: string;                 // User-defined search name
+  query?: string;               // Text query
+  filters?: {
+    categoryIds?: string[];
+    brands?: string[];
+    sizes?: string[];
+    colors?: string[];
+    materials?: string[];
+    patterns?: string[];
+    condition?: string;
+    minPrice?: number;
+    maxPrice?: number;
+  };
+  notifyNewItems: boolean;       // Push notifications enabled
+  lastNotifiedAt?: Timestamp;
+  newItemsCount?: number;        // Count of unviewed new matches
+  createdAt: Timestamp;
+}
+```
+
+#### Sub-collection: `users/{uid}/searchHistory/{entryId}`
+
+```typescript
+interface SearchHistoryEntry {
+  query: string;
+  timestamp: Timestamp;
+}
+```
+
+### `favorites/{userId}`
+
+Single document per user containing all favorite article IDs.
 
 ```typescript
 interface FavoritesDocument {
-  userId: string;                // User ID (document ID)
-  products: {
-    productId: string;           // Product ID
-    addedAt: Timestamp;          // When favorited
-    productTitle: string;        // Cached product title
-    productPrice: number;        // Cached product price
-    productImage?: string;       // Cached first image URL
-    sellerId: string;            // Cached seller ID
-  }[];
-  
-  // Metadata
-  totalCount: number;            // Total favorites count
+  userId: string;
+  articleIds: string[];          // Array of favorited article IDs
   updatedAt: Timestamp;
 }
 ```
 
-### Messages Collection: `/messages/{messageId}`
+### `chats/{chatId}`
+
+Chat thread between two users. Document ID is deterministic: `${minUid}__${maxUid}`.
+
+```typescript
+interface ChatDocument {
+  participants: string[];        // Exactly 2 user IDs
+  participantsInfo: {
+    [userId: string]: {
+      userName: string;
+      profileImage?: string | null;
+    };
+  };
+  articleId?: string;            // Article being discussed
+  articleTitle?: string;
+  articleImage?: string;
+  articlePrice?: number;
+  lastMessage?: string;
+  lastMessageTimestamp?: Timestamp;
+  unreadCount?: { [userId: string]: number };
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### `messages/{messageId}`
+
+Individual message within a chat.
 
 ```typescript
 interface MessageDocument {
-  id: string;                    // Auto-generated ID
-  
-  // Participants
-  senderId: string;              // Sender user ID
-  receiverId: string;            // Receiver user ID
-  
+  chatId: string;                // Reference to parent chat
+  senderId: string;              // Sender UID or 'system'
+  receiverId: string;            // Receiver UID or 'system'
+  participants: string[];        // Copy of chat participants (for rules)
+
   // Content
-  content: string;               // Message text (required, max 1000 chars)
+  content: string;
   type: 'text' | 'image' | 'offer' | 'system';
-  
-  // Product Context
-  productId?: string;            // Related product ID
-  productTitle?: string;         // Cached product title
-  productImage?: string;         // Cached product image
-  
-  // Offer Information (for type: 'offer')
+  status: 'sent' | 'delivered' | 'read';
+  isRead: boolean;
+
+  // Offer data (type === 'offer')
   offer?: {
-    amount: number;              // Offered price
+    amount: number;
     status: 'pending' | 'accepted' | 'declined' | 'expired';
-    expiresAt: Timestamp;        // Offer expiration
+    expiresAt?: Timestamp;
   };
-  
-  // Status
-  isRead: boolean;               // Read by receiver (default: false)
-  isDeleted: boolean;            // Soft delete (default: false)
-  
+
+  // Shipping label (system messages)
+  shippingLabel?: {
+    labelUrl: string;
+    trackingNumber: string;
+    trackingUrl: string;
+  };
+
   // Timestamps
-  createdAt: Timestamp;
+  timestamp: Timestamp;
   readAt?: Timestamp;
 }
 ```
 
-### Stats Collection: `/stats/{statType}`
+### `transactions/{transactionId}`
+
+Purchase transaction tracking from checkout to delivery.
+
+```typescript
+interface TransactionDocument {
+  // Parties
+  buyerId: string;
+  buyerName?: string;
+  buyerEmail?: string;
+  sellerId: string;
+  sellerName?: string;
+
+  // Article
+  articleId: string;
+  articleTitle?: string;
+  articleImage?: string;
+
+  // Amounts
+  amount: number;                // Article price
+  shippingCost?: number;
+  serviceFee?: number;
+  serviceFeePercent?: number;
+  totalAmount?: number;          // What the buyer pays (amount + shipping + fee)
+  sellerPayout?: number;         // What the seller receives
+
+  // Status flow: pending -> paid -> shipped -> delivered | cancelled
+  status: 'pending' | 'pending_payment' | 'meetup_pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+
+  // Helcim payment
+  helcimSecretToken?: string;    // Per-transaction HMAC secret
+  helcimCheckoutCreatedAt?: Timestamp;
+  helcimTransactionId?: string;
+  helcimApprovalCode?: string;
+  helcimCardLast4?: string;
+  helcimCardType?: string;
+
+  // Shipping (ShipEngine)
+  shipEngineRateId?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  trackingStatus?: string;       // e.g. 'TRANSIT', 'DELIVERED'
+  shippingLabelUrl?: string;
+  shipEngineLabelId?: string;
+  carrierCode?: string;
+
+  // Chat
+  chatId?: string;
+
+  // Timestamps
+  createdAt: Timestamp;
+  paidAt?: Timestamp;
+  deliveredAt?: Timestamp;
+  cancelledAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+```
+
+### `seller_balances/{userId}`
+
+Tracks a seller's financial balance. Mutations are always server-side via `runTransaction`.
+
+```typescript
+interface SellerBalanceDocument {
+  userId: string;
+  availableBalance: number;      // Funds ready for withdrawal
+  pendingBalance: number;        // Funds held until delivery confirmed
+  totalEarnings: number;         // Lifetime earnings
+
+  // Embedded transaction log
+  transactions: {
+    id: string;                  // Transaction or withdrawal ID
+    type: 'sale' | 'withdrawal';
+    amount: number;              // Positive for sales, negative for withdrawals
+    description: string;
+    createdAt: Timestamp | Date;
+    status: 'pending' | 'completed';
+  }[];
+
+  updatedAt: Timestamp;
+}
+```
+
+### `withdrawal_requests/{withdrawalId}`
+
+Standalone withdrawal record for admin processing.
+
+```typescript
+interface WithdrawalRequestDocument {
+  withdrawalId: string;
+  userId: string;
+  amount: number;
+  ibanLast4: string;
+  status: 'pending' | 'processing' | 'completed' | 'rejected';
+  createdAt: Timestamp;
+}
+```
+
+### `avis/{reviewId}`
+
+User reviews tied to completed transactions.
+
+```typescript
+interface AvisDocument {
+  id: string;
+  reviewerId: string;
+  reviewerName: string;
+  reviewerImage?: string | null;
+  vendeurId: string;             // Target user receiving the review
+  transactionId: string;
+  transactionType: 'achat' | 'vente' | 'swap';
+  articleId?: string | null;
+  articleTitle?: string | null;
+  note: number;                  // 1-5 rating
+  text: string;
+  createdAt: Timestamp;
+}
+```
+
+### `swaps/{swapId}`
+
+Multi-article swap proposal between two users.
+
+```typescript
+interface SwapDocument {
+  initiatorId: string;
+  initiatorName: string;
+  initiatorImage?: string;
+  initiatorItems: {
+    articleId: string;
+    title: string;
+    price?: number;
+    image?: string;
+  }[];
+  initiatorTotalValue: number;
+
+  receiverId: string;
+  receiverName: string;
+  receiverImage?: string;
+  receiverItems: {
+    articleId: string;
+    title: string;
+    price?: number;
+    image?: string;
+  }[];
+  receiverTotalValue: number;
+
+  status: 'proposed' | 'accepted' | 'declined' | 'cancelled'
+        | 'photos_pending' | 'shipping' | 'completed';
+  message?: string;
+  cashTopUp?: {
+    amount: number;
+    payerId: string;
+  };
+  partyId?: string;              // Linked swap party
+
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### `swapParties/{partyId}`
+
+Swap party / zone events with time windows.
+
+```typescript
+interface SwapPartyDocument {
+  name: string;
+  emoji?: string;
+  description?: string;
+  theme?: string;
+  isGeneralist?: boolean;
+  status: 'upcoming' | 'active' | 'ended';
+  startDate: Timestamp;
+  endDate: Timestamp;
+  participantsCount?: number;
+  itemsCount?: number;
+  swapsCount?: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### `swapPartyParticipants/{docId}`
+
+```typescript
+interface SwapPartyParticipantDocument {
+  partyId: string;
+  userId: string;
+  joinedAt: Timestamp;
+}
+```
+
+### `swapPartyItems/{docId}`
+
+```typescript
+interface SwapPartyItemDocument {
+  partyId: string;
+  articleId: string;
+  sellerId: string;
+  isPending?: boolean;           // Item is in an active swap proposal
+  addedAt: Timestamp;
+}
+```
+
+### `notifications/{notificationId}`
+
+```typescript
+interface NotificationDocument {
+  userId: string;                // Recipient user ID
+  type: string;                  // e.g. 'message', 'offer', 'swap_proposed', etc.
+  title: string;
+  body: string;
+  data?: Record<string, string>; // Custom payload
+  isRead?: boolean;
+  createdAt: Timestamp;
+}
+```
+
+### `drafts/{draftId}`
+
+Unsaved article drafts for the sell flow.
+
+```typescript
+interface DraftDocument {
+  userId: string;
+  title?: string;
+  description?: string;
+  price?: number;
+  images?: { url: string; order: number }[];
+  category?: string;
+  brand?: string;
+  size?: string;
+  condition?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### `guest_preferences/{docId}`
+
+Onboarding preferences saved before account creation.
+
+```typescript
+interface GuestPreferencesDocument {
+  sex: 'femme' | 'homme' | 'les-deux' | 'enfant';
+  sizesTop: string[];
+  sizesBottom: string[];
+  sizesShoes: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### `moments/{momentId}`
+
+Seasonal or event-based moments for curated product feeds.
+
+```typescript
+interface MomentDocument {
+  id: string;
+  name: string;
+  emoji: string;
+  priority: number;
+  isActive: boolean;
+  dateRange: {
+    start: string;               // MM-DD format
+    end: string;                 // MM-DD format
+  };
+  embedding?: number[];          // Vertex AI embedding for similarity matching
+  createdAt: Timestamp;
+}
+```
+
+### `embeddings/{articleId}`
+
+Vertex AI multimodal embeddings for visual search and similar products.
+
+```typescript
+interface EmbeddingDocument {
+  articleId: string;
+  embedding: VectorValue;        // 1408-dimension vector (Firestore VectorValue)
+  imageUrl: string;
+  categoryIds: string[];
+  brand?: string | null;
+  priceRange: 'low' | 'medium' | 'high';
+  isActive: boolean;
+  isSold?: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### `search_index/{productId}`
+
+Denormalized search documents for fast filtering and ranking.
+
+```typescript
+interface SearchIndexDocument {
+  productId: string;
+  title: string;
+  titleLowercase: string;
+  description: string;
+  keywords: string[];
+
+  // Filterable
+  category: string;
+  subcategory?: string;
+  brand?: string;
+  brands?: string[];
+  color?: string;
+  colors?: string[];
+  material?: string;
+  materials?: string[];
+  size?: string;
+  condition: string;
+  price: number;
+
+  // Location
+  location: {
+    city: string;
+    geohash: string;
+    coordinates?: { lat: number; lon: number };
+  };
+
+  // Cached display
+  sellerId: string;
+  sellerName: string;
+  sellerRating?: number;
+  firstImage?: string;
+
+  // Status
+  isActive: boolean;
+  isSold: boolean;
+  isPromoted: boolean;
+
+  // Ranking
+  views: number;
+  likes: number;
+  popularityScore: number;
+  createdAt: Timestamp;
+  lastIndexed: Timestamp;
+}
+```
+
+### `stats/{statType}`
+
+Aggregated platform statistics.
 
 ```typescript
 // Document: /stats/global
 interface GlobalStatsDocument {
-  totalProducts: number;         // Total active products
-  totalUsers: number;            // Total registered users
-  totalSales: number;            // Total completed sales
-  totalRevenue: number;          // Total platform revenue
-  
-  // Category Statistics
+  totalProducts: number;
+  totalUsers: number;
+  totalSales: number;
+  totalRevenue: number;
   categoryStats: {
-    [categoryId: string]: {
+    [category: string]: {
       productCount: number;
-      averagePrice: number;
       totalSales: number;
+      totalRevenue: number;
+      averagePrice?: number;
     };
   };
-  
-  // Daily/Weekly/Monthly aggregates
-  dailyStats: {
-    date: string;                // YYYY-MM-DD
-    newProducts: number;
-    newUsers: number;
-    sales: number;
-    revenue: number;
-  }[];
-  
   updatedAt: Timestamp;
 }
 
-// Document: /stats/user/{userId}
+// Document: /stats/user_{userId}
 interface UserStatsDocument {
   userId: string;
-  
-  // Product Statistics
   productsListed: number;
   productsActive: number;
   productsSold: number;
   productsViews: number;
   productsLikes: number;
-  
-  // Financial Statistics
   totalEarnings: number;
   averageSalePrice: number;
-  
-  // Engagement Statistics
-  profileViews: number;
-  messagesReceived: number;
-  messagesSent: number;
-  
-  // Performance Metrics
-  averageResponseTime: number;   // In minutes
-  salesConversionRate: number;   // Percentage
-  
   updatedAt: Timestamp;
 }
 ```
-
-### Search Index Collection: `/search_index/{productId}`
-
-```typescript
-interface SearchIndexDocument {
-  productId: string;             // Original product ID
-  
-  // Searchable Fields
-  title: string;
-  titleLowercase: string;
-  description: string;
-  keywords: string[];            // Generated search keywords
-  
-  // Filterable Fields
-  category: string;
-  subcategory?: string;
-  brand?: string;
-  size?: string;
-  color?: string;
-  condition: string;
-  price: number;
-  
-  // Location for Geo Queries
-  location: {
-    city: string;
-    geohash: string;             // For proximity search
-    coordinates: {
-      lat: number;
-      lon: number;
-    };
-  };
-  
-  // Cached Display Data
-  sellerId: string;
-  sellerName: string;
-  sellerRating?: number;
-  firstImage?: string;
-  
-  // Status
-  isActive: boolean;
-  isSold: boolean;
-  isPromoted: boolean;
-  
-  // Metrics for Ranking
-  views: number;
-  likes: number;
-  createdAt: Timestamp;
-  
-  // Search Optimization
-  popularityScore: number;       // Computed ranking score
-  lastIndexed: Timestamp;        // When last updated
-}
-```
-
----
-
-## Example Documents
-
-### Example Product Document
-
-```json
-{
-  "id": "prod_123456789",
-  "title": "Robe d'été Zara fleurie taille M",
-  "description": "Magnifique robe d'été de la marque Zara, portée seulement 2 fois. Parfaite pour les beaux jours avec son motif fleuri coloré.",
-  "price": 25.00,
-  "originalPrice": 45.00,
-  "images": [
-    {
-      "url": "https://storage.googleapis.com/vinted-clone/products/prod_123456789/image_0.jpg",
-      "blurhash": "LKO2?V%2Tw=w]~RBVZRi};RPxuwH",
-      "width": 800,
-      "height": 1200,
-      "order": 0
-    }
-  ],
-  "category": "femmes",
-  "subcategory": "robes",
-  "brand": "Zara",
-  "size": "M",
-  "color": "multicolore",
-  "material": "coton",
-  "pattern": "fleuri",
-  "condition": "très bon état",
-  "sellerId": "user_987654321",
-  "sellerName": "Marie L.",
-  "sellerImage": "https://storage.googleapis.com/vinted-clone/avatars/user_987654321.jpg",
-  "sellerRating": 4.8,
-  "location": {
-    "address": "15 rue de la Paix",
-    "city": "Paris",
-    "postalCode": "75001",
-    "country": "FR",
-    "coordinates": {
-      "lat": 48.8566,
-      "lon": 2.3522
-    },
-    "geohash": "u09tvw0"
-  },
-  "deliveryOptions": {
-    "pickup": true,
-    "shipping": true,
-    "shippingCost": 4.50
-  },
-  "isActive": true,
-  "isSold": false,
-  "isPromoted": false,
-  "views": 127,
-  "likes": 23,
-  "likedBy": ["user_111", "user_222", "user_333"],
-  "createdAt": "2024-01-15T10:30:00Z",
-  "updatedAt": "2024-01-15T10:30:00Z",
-  "searchKeywords": ["robe", "été", "zara", "fleuri", "m", "coton", "multicolore"],
-  "titleLowercase": "robe d'été zara fleurie taille m",
-  "isReported": false,
-  "moderationStatus": "approved"
-}
-```
-
-### Example User Document
-
-```json
-{
-  "id": "user_987654321",
-  "email": "marie.l@example.com",
-  "displayName": "Marie L.",
-  "profileImage": "https://storage.googleapis.com/vinted-clone/avatars/user_987654321.jpg",
-  "bio": "Passionnée de mode durable 🌱 Vente uniquement d'articles en excellent état !",
-  "phoneNumber": "+33123456789",
-  "addresses": [
-    {
-      "id": "addr_1",
-      "label": "Domicile",
-      "street": "15 rue de la Paix",
-      "city": "Paris",
-      "postalCode": "75001",
-      "country": "FR",
-      "coordinates": {
-        "lat": 48.8566,
-        "lon": 2.3522
-      },
-      "isDefault": true
-    }
-  ],
-  "preferences": {
-    "notifications": {
-      "email": true,
-      "push": true,
-      "messages": true,
-      "likes": true,
-      "sales": true
-    },
-    "privacy": {
-      "showEmail": false,
-      "showPhone": true,
-      "showLastSeen": true
-    },
-    "language": "fr",
-    "currency": "EUR"
-  },
-  "stats": {
-    "productsListed": 45,
-    "productsSold": 38,
-    "totalEarnings": 892.50,
-    "rating": 4.8,
-    "reviewCount": 42
-  },
-  "isVerified": true,
-  "isActive": true,
-  "lastSeen": "2024-01-20T15:45:00Z",
-  "createdAt": "2023-06-10T09:15:00Z",
-  "updatedAt": "2024-01-20T15:45:00Z"
-}
-```
-
-### Example Favorites Document
-
-```json
-{
-  "userId": "user_123456789",
-  "products": [
-    {
-      "productId": "prod_987654321",
-      "addedAt": "2024-01-18T14:20:00Z",
-      "productTitle": "Sac à main Hermès vintage",
-      "productPrice": 450.00,
-      "productImage": "https://storage.googleapis.com/vinted-clone/products/prod_987654321/image_0.jpg",
-      "sellerId": "user_555666777"
-    },
-    {
-      "productId": "prod_111222333",
-      "addedAt": "2024-01-19T09:15:00Z",
-      "productTitle": "Baskets Nike Air Max 90",
-      "productPrice": 85.00,
-      "productImage": "https://storage.googleapis.com/vinted-clone/products/prod_111222333/image_0.jpg",
-      "sellerId": "user_888999000"
-    }
-  ],
-  "totalCount": 2,
-  "updatedAt": "2024-01-19T09:15:00Z"
-}
-```
-
-
-

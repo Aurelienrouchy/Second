@@ -94,6 +94,9 @@ export { onSwapCreated, onSwapStatusUpdated } from './triggers/swaps';
 // Favorite Triggers
 export { onArticleFavorited, onArticlePriceDropped } from './triggers/favorites';
 
+// Auth Triggers (v1 — onCreate / onDelete)
+export { onUserCreated, onUserDeleted } from './triggers/auth';
+
 // ============================================================
 // SCHEDULED FUNCTIONS (pubsub)
 // ============================================================
