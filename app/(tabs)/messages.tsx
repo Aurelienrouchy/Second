@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +19,7 @@ import { Chat } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDisplayName } from '@/utils/formatName';
 
 type ConversationType = 'achats' | 'ventes' | 'swaps';
@@ -186,10 +186,7 @@ export default function MessagesScreen() {
 
       {/* Content */}
       {isLoading ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement des conversations...</Text>
-        </View>
+        <MessagesLoadingSkeleton />
       ) : error ? (
         <View style={styles.emptyState}>
           <Ionicons
@@ -224,6 +221,52 @@ export default function MessagesScreen() {
     </View>
   );
 }
+
+// =============================================================================
+// LOADING SKELETON
+// =============================================================================
+
+const SkeletonConversationItem: React.FC = () => (
+  <View style={styles.conversationItem}>
+    <View style={styles.avatarContainer}>
+      <Skeleton width={48} height={48} borderRadius={radius.full} />
+    </View>
+    <View style={styles.contentContainer}>
+      <View style={styles.headerRow}>
+        <Skeleton width={100} height={14} borderRadius={radius.xs} />
+        <Skeleton width={60} height={11} borderRadius={radius.xs} />
+      </View>
+      <Skeleton
+        width="90%"
+        height={13}
+        borderRadius={radius.xs}
+        style={{ marginTop: spacing.xs }}
+      />
+    </View>
+    <View style={styles.rightSection}>
+      <Skeleton width={32} height={11} borderRadius={radius.xs} />
+    </View>
+  </View>
+);
+
+const SkeletonTab: React.FC<{ width: number }> = ({ width }) => (
+  <View style={styles.skeletonTab}>
+    <Skeleton width={width} height={11} borderRadius={radius.xs} />
+  </View>
+);
+
+const MessagesLoadingSkeleton: React.FC = () => (
+  <View>
+    <View style={styles.skeletonTabsRow}>
+      <SkeletonTab width={48} />
+      <SkeletonTab width={48} />
+      <SkeletonTab width={42} />
+    </View>
+    {Array.from({ length: 5 }).map((_, i) => (
+      <SkeletonConversationItem key={`msg-skeleton-${i}`} />
+    ))}
+  </View>
+);
 
 // Extracted sub-component with React.memo
 interface ConversationItemProps {
@@ -562,16 +605,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  loadingState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  skeletonTabsRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.white,
   },
-  loadingText: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-    marginTop: spacing.md,
+  skeletonTab: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

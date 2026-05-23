@@ -20,11 +20,11 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ActivityIndicator } from 'react-native';
 
-import { colors, spacing, typography, radius, shadows } from '@/constants/theme';
+import { colors, spacing, typography, radius } from '@/constants/theme';
 import { searchByImage, VisualSearchResult } from '@/services/visualSearchService';
 import ProductCard from '@/components/ProductCard';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 // ============================================================
 // Constants
@@ -112,20 +112,28 @@ export default function VisualSearchResultsScreen() {
   // ─── Loading State ──────────────────────────────────────────
   const renderLoading = () => (
     <View style={styles.loadingContainer}>
-      {imageUri && (
-        <View style={styles.loadingImageContainer}>
-          <Image
-            source={{ uri: imageUri }}
-            style={styles.loadingImage}
-            contentFit="cover"
-            blurRadius={3}
-          />
-          <View style={styles.loadingOverlay} />
-        </View>
-      )}
-      <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
-      <Text style={styles.loadingTitle}>Analyse de l'image...</Text>
-      <Text style={styles.loadingSubtitle}>Recherche de produits similaires</Text>
+      {/* Source image preview + text */}
+      <View style={styles.loadingHeader}>
+        {imageUri && (
+          <View style={styles.loadingImageContainer}>
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.loadingImage}
+              contentFit="cover"
+              blurRadius={3}
+            />
+            <View style={styles.loadingOverlay} />
+          </View>
+        )}
+        <Text style={styles.loadingTitle}>Analyse de l'image...</Text>
+        <Text style={styles.loadingSubtitle}>Recherche de produits similaires</Text>
+      </View>
+      {/* Skeleton product grid */}
+      <View style={styles.skeletonGrid}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <ProductCardSkeleton key={i} />
+        ))}
+      </View>
     </View>
   );
 
@@ -229,6 +237,25 @@ export default function VisualSearchResultsScreen() {
 }
 
 // ============================================================
+// Skeleton
+// ============================================================
+
+const CARD_WIDTH = (screenWidth - spacing.md * 3) / 2;
+
+const ProductCardSkeleton = React.memo(function ProductCardSkeleton() {
+  return (
+    <View style={styles.skeletonCard}>
+      <Skeleton width={CARD_WIDTH} height={CARD_WIDTH * 1.25} borderRadius={radius.sm} />
+      <View style={styles.skeletonCardBody}>
+        <Skeleton width={CARD_WIDTH * 0.6} height={14} borderRadius={radius.xs} />
+        <Skeleton width={CARD_WIDTH * 0.4} height={12} borderRadius={radius.xs} style={{ marginTop: 6 }} />
+        <Skeleton width={60} height={16} borderRadius={radius.xs} style={{ marginTop: 6 }} />
+      </View>
+    </View>
+  );
+});
+
+// ============================================================
 // Styles
 // ============================================================
 
@@ -327,16 +354,18 @@ const styles = StyleSheet.create({
   // ─── Loading ────────────────────────────────────────────────
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  loadingHeader: {
     alignItems: 'center',
-    padding: spacing.xl,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
   loadingImageContainer: {
-    width: 160,
-    height: 160,
+    width: 120,
+    height: 120,
     borderRadius: radius.md,
     overflow: 'hidden',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     position: 'relative',
   },
   loadingImage: {
@@ -346,9 +375,6 @@ const styles = StyleSheet.create({
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  spinner: {
-    marginBottom: spacing.md,
   },
   loadingTitle: {
     fontFamily: typography.label.fontFamily,
@@ -361,6 +387,19 @@ const styles = StyleSheet.create({
     fontFamily: typography.body.fontFamily,
     fontSize: 15,
     color: colors.muted,
+  },
+  skeletonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+  },
+  skeletonCard: {
+    width: CARD_WIDTH,
+  },
+  skeletonCardBody: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
 
   // ─── Empty / Error ──────────────────────────────────────────

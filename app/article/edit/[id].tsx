@@ -28,6 +28,7 @@ import CategoryDisplay from '@/components/CategoryDisplay';
 import ConditionSelector from '@/components/ConditionSelector';
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 // Data
 import { getColorItems } from '@/data/colors';
@@ -225,9 +226,56 @@ export default function EditArticleScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Chargement...</Text>
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top }]}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="close" size={24} color={colors.foreground} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Modifier l'article</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          {/* Photo skeleton */}
+          <View style={styles.photoSection}>
+            <Skeleton width="100%" height={280} borderRadius={0} />
+            <View style={styles.skeletonThumbnailStrip}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} width={60} height={60} borderRadius={8} />
+              ))}
+            </View>
+          </View>
+          {/* Form fields skeleton */}
+          <View style={styles.formSection}>
+            {/* Title field */}
+            <View style={styles.skeletonField}>
+              <Skeleton width={50} height={14} borderRadius={4} />
+              <Skeleton width="100%" height={44} borderRadius={8} style={{ marginTop: 8 }} />
+            </View>
+            {/* Description field */}
+            <View style={styles.skeletonField}>
+              <Skeleton width={90} height={14} borderRadius={4} />
+              <Skeleton width="100%" height={80} borderRadius={8} style={{ marginTop: 8 }} />
+            </View>
+            {/* Price field */}
+            <View style={styles.skeletonField}>
+              <Skeleton width={40} height={14} borderRadius={4} />
+              <Skeleton width={120} height={44} borderRadius={8} style={{ marginTop: 8 }} />
+            </View>
+            {/* Category */}
+            <View style={styles.skeletonField}>
+              <Skeleton width="100%" height={52} borderRadius={8} />
+            </View>
+            {/* Condition */}
+            <View style={styles.skeletonField}>
+              <Skeleton width={80} height={14} borderRadius={4} />
+              <View style={styles.skeletonConditionRow}>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} width={75} height={36} borderRadius={8} />
+                ))}
+              </View>
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -457,14 +505,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  skeletonThumbnailStrip: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 8,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.muted,
+  skeletonField: {
+    marginBottom: 20,
+  },
+  skeletonConditionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
   },
   header: {
     flexDirection: 'row',

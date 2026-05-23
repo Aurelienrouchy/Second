@@ -1,0 +1,131 @@
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+import { colors, fonts, radius, spacing } from '@/constants/theme';
+import type { ChatInputBarProps } from '../types';
+
+export const ChatInputBar = React.memo(function ChatInputBar({
+  messageText,
+  onChangeText,
+  onSend,
+  onPickImage,
+  onMakeOffer,
+  isSendingImage,
+  hasArticle,
+}: ChatInputBarProps) {
+  const canSend = messageText.trim().length > 0;
+
+  return (
+    <View style={styles.inputContainer}>
+      <Pressable
+        style={styles.attachButton}
+        onPress={onPickImage}
+        disabled={isSendingImage}
+      >
+        {isSendingImage ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="attach" size={18} color={colors.muted} />
+        )}
+      </Pressable>
+
+      <TextInput
+        style={styles.messageInput}
+        placeholder="Message..."
+        value={messageText}
+        onChangeText={onChangeText}
+        multiline
+        maxLength={1000}
+        placeholderTextColor={colors.muted}
+      />
+
+      {hasArticle && (
+        <Pressable style={styles.offerButton} onPress={onMakeOffer}>
+          <Text style={styles.offerIcon}>$</Text>
+        </Pressable>
+      )}
+
+      <Pressable
+        style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+        onPress={onSend}
+        disabled={!canSend}
+      >
+        <Ionicons
+          name="arrow-forward"
+          size={18}
+          color={canSend ? colors.cream : colors.muted}
+        />
+      </Pressable>
+    </View>
+  );
+});
+
+const styles = StyleSheet.create({
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surfaceWarm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  attachButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  messageInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.foreground,
+  },
+  offerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+  },
+  offerIcon: {
+    fontSize: 18,
+    color: colors.primary,
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.charcoal,
+  },
+  sendButtonDisabled: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+});

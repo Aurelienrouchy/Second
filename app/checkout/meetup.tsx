@@ -9,12 +9,12 @@
 
 import React, { useState, useEffect } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -27,6 +27,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { ScreenHeader } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { firestore, auth } from '@/config/firebaseConfig';
 import { Article, MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
 import { TransactionService } from '@/services/transactionService';
@@ -161,8 +162,63 @@ export default function MeetupCheckoutScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.charcoal} />
+      <View style={styles.container}>
+        <ScreenHeader title="Lieu de rencontre" onBack={handleBack} />
+        <View style={styles.skeletonContent}>
+          {/* Article summary skeleton */}
+          <View style={styles.articleSummary}>
+            <Skeleton width={64} height={80} borderRadius={radius.none} />
+            <View style={styles.articleInfo}>
+              <Skeleton width={60} height={9} borderRadius={radius.xs} />
+              <Skeleton
+                width="70%"
+                height={16}
+                borderRadius={radius.xs}
+                style={{ marginTop: spacing.xs }}
+              />
+              <Skeleton
+                width={80}
+                height={20}
+                borderRadius={radius.xs}
+                style={{ marginTop: spacing.xs }}
+              />
+              <Skeleton
+                width={56}
+                height={18}
+                borderRadius={radius.xs}
+                style={{ marginTop: spacing.xs }}
+              />
+            </View>
+          </View>
+
+          {/* Section title skeleton */}
+          <Skeleton
+            width={200}
+            height={9}
+            borderRadius={radius.xs}
+            style={{ marginBottom: spacing.md }}
+          />
+
+          {/* Meetup spot cards skeleton */}
+          {Array.from({ length: 2 }).map((_, i) => (
+            <View key={`meetup-skeleton-${i}`} style={styles.skeletonSpotCard}>
+              <Skeleton width={36} height={36} borderRadius={18} />
+              <View style={{ flex: 1, gap: spacing.xs }}>
+                <Skeleton width="60%" height={13} borderRadius={radius.xs} />
+                <Skeleton width="80%" height={11} borderRadius={radius.xs} />
+              </View>
+              <Skeleton width={20} height={20} borderRadius={10} />
+            </View>
+          ))}
+
+          {/* CTA button skeleton */}
+          <Skeleton
+            width="100%"
+            height={48}
+            borderRadius={radius.md}
+            style={{ marginTop: spacing.lg }}
+          />
+        </View>
       </View>
     );
   }
@@ -311,6 +367,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 14,
     color: colors.muted,
+  },
+  skeletonContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  skeletonSpotCard: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: 14,
+    marginBottom: 8,
+    alignItems: 'center',
   },
 
 

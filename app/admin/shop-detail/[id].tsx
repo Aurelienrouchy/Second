@@ -4,6 +4,7 @@
  */
 
 import RejectionModal, { RejectionModalRef } from '@/components/admin/RejectionModal';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { useUser } from '@/contexts/AuthContext';
 import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
@@ -12,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -23,7 +23,7 @@ import {
 import { Image } from 'expo-image';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/theme';
+import { colors, radius } from '@/constants/theme';
 
 export default function AdminShopDetailScreen() {
   const router = useRouter();
@@ -134,10 +134,41 @@ export default function AdminShopDetailScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="chevron-back" size={24} color={colors.foreground} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Validation boutique</Text>
+          <View style={styles.placeholder} />
         </View>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Status badge skeleton */}
+          <View style={styles.statusContainer}>
+            <Skeleton width={160} height={34} borderRadius={20} />
+          </View>
+          {/* Main image skeleton */}
+          <Skeleton width="100%" height={300} borderRadius={0} />
+          {/* Thumbnail strip skeleton */}
+          <View style={styles.skeletonThumbnails}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} width={80} height={80} borderRadius={radius.md} />
+            ))}
+          </View>
+          {/* Info skeleton */}
+          <View style={styles.skeletonInfo}>
+            <Skeleton width={200} height={24} borderRadius={radius.sm} />
+            <Skeleton width={120} height={16} borderRadius={radius.sm} style={{ marginTop: 8 }} />
+            <SkeletonText lines={3} style={{ marginTop: 16 }} />
+            {/* Contact section skeleton */}
+            <Skeleton width={100} height={18} borderRadius={radius.sm} style={{ marginTop: 24 }} />
+            <Skeleton width="80%" height={14} borderRadius={radius.sm} style={{ marginTop: 12 }} />
+            <Skeleton width="70%" height={14} borderRadius={radius.sm} style={{ marginTop: 8 }} />
+            {/* Address section skeleton */}
+            <Skeleton width={100} height={18} borderRadius={radius.sm} style={{ marginTop: 24 }} />
+            <SkeletonText lines={3} style={{ marginTop: 12 }} />
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -375,15 +406,16 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
+  skeletonThumbnails: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
-  loadingText: {
-    fontSize: 16,
-    color: colors.muted,
+  skeletonInfo: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   errorContainer: {
     flex: 1,

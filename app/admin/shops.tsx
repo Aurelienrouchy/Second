@@ -5,6 +5,7 @@
 
 import RejectionModal, { RejectionModalRef } from '@/components/admin/RejectionModal';
 import ShopValidationCard from '@/components/admin/ShopValidationCard';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { useUser } from '@/contexts/AuthContext';
 import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
@@ -15,7 +16,6 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/theme';
+import { colors, radius } from '@/constants/theme';
 
 type TabType = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -176,9 +176,10 @@ export default function AdminShopsScreen() {
   if (!isAdmin) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Vérification des accès...</Text>
+        <View style={styles.skeletonContainer}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <ShopCardSkeleton key={i} />
+          ))}
         </View>
       </SafeAreaView>
     );
@@ -248,9 +249,10 @@ export default function AdminShopsScreen() {
 
       {/* Liste des boutiques */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement...</Text>
+        <View style={styles.skeletonContainer}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <ShopCardSkeleton key={i} />
+          ))}
         </View>
       ) : (
         <FlashList
@@ -272,6 +274,31 @@ export default function AdminShopsScreen() {
     </SafeAreaView>
   );
 }
+
+// =============================================================================
+// SKELETON
+// =============================================================================
+
+const ShopCardSkeleton = React.memo(function ShopCardSkeleton() {
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonCardHeader}>
+        <Skeleton width={80} height={80} borderRadius={radius.lg} />
+        <View style={styles.skeletonCardInfo}>
+          <Skeleton width={140} height={18} borderRadius={radius.sm} />
+          <Skeleton width={90} height={14} borderRadius={radius.sm} style={{ marginTop: 6 }} />
+          <Skeleton width={110} height={14} borderRadius={radius.sm} style={{ marginTop: 6 }} />
+        </View>
+        <Skeleton width={72} height={28} borderRadius={radius.lg} />
+      </View>
+      <SkeletonText lines={2} style={{ marginTop: 12 }} />
+    </View>
+  );
+});
+
+// =============================================================================
+// STYLES
+// =============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -352,15 +379,25 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
   },
-  loadingContainer: {
+  skeletonContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
+    padding: 16,
   },
-  loadingText: {
-    fontSize: 16,
-    color: colors.muted,
+  skeletonCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.surfaceWarm,
+  },
+  skeletonCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  skeletonCardInfo: {
+    flex: 1,
   },
   emptyContainer: {
     flex: 1,

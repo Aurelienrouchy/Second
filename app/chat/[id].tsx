@@ -1,53 +1,52 @@
-import { Ionicons } from '@expo/vector-icons';
-import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
+import { type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActionSheetIOS,
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
-    Pressable,
     StyleSheet,
-    Text,
-    TextInput,
-    View,
 } from 'react-native';
-import { Skeleton } from '@/components/ui/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import components
 import ChatBubble from '@/components/ChatBubble';
-import MakeOfferModal, { MakeOfferModalRef } from '@/components/MakeOfferModal';
+import MakeOfferModal, { type MakeOfferModalRef } from '@/components/MakeOfferModal';
 import OfferBubble from '@/components/OfferBubble';
-import ReportBottomSheet, { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
+import ReportBottomSheet, { type ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 import ShipmentTracking from '@/components/ShipmentTracking';
 
-// Import services for moderation
-import { ModerationService } from '@/services/moderationService';
+// Feature components & hooks
+import {
+  ChatArticleBar,
+  ChatEmptyState,
+  ChatErrorState,
+  ChatHeader,
+  ChatInputBar,
+  ChatLoadingSkeleton,
+  useChatModeration,
+} from '@/features/chat';
 
 // Import hooks and contexts
 import { useUser } from '@/contexts/AuthContext';
 import { useChat } from '@/hooks/useChat';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 // Import services
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
 import { TransactionService } from '@/services/transactionService';
-import { useUserProfile } from '@/hooks/useUserProfile';
 
 // Import query keys
 import { queryKeys } from '@/lib/queryKeys';
 
 // Import types
 import { Message, MeetupSpot } from '@/types';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { formatDisplayName } from '@/utils/formatName';
+import { colors, spacing } from '@/constants/theme';
 
 // Module-level so the FlashList prop identity stays stable across renders.
 const messageKeyExtractor = (item: Message): string => item.id;
@@ -61,7 +60,6 @@ export default function ChatScreen() {
   const reportBottomSheetRef = useRef<ReportBottomSheetRef>(null);
 
   const { id: chatId } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const user = useUser();
 
   const {
@@ -71,7 +69,6 @@ export default function ChatScreen() {
     error,
     sendMessage,
     sendImage,
-    sendOffer,
     acceptOffer,
     rejectOffer,
   } = useChat(chatId || null, user?.id || null);
@@ -85,11 +82,7 @@ export default function ChatScreen() {
   });
 
   // ─── Transaction linked to this chat ───
-  const {
-    data: transaction = null,
-    isLoading: isLoadingTransaction,
-    refetch: refetchTransaction,
-  } = useQuery({
+  const { data: transaction = null, refetch: refetchTransaction } = useQuery({
     queryKey: queryKeys.chat.transaction(chatId ?? ''),
     queryFn: () => TransactionService.getTransactionByChat(chatId!, user!.id),
     enabled: !!chatId && !!user,
@@ -105,76 +98,70 @@ export default function ChatScreen() {
     }
   }, [messages.length]);
 
-  // Handle send text message
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !user) return;
+  // ─── Other participant info ───
+  const otherParticipant = chat && user
+    ? chat.participantsInfo.find(p => p.userId !== user.id) ?? null
+    : null;
 
+  const { data: otherProfile } = useUserProfile(otherParticipant?.userId);
+  const otherAvatar = otherProfile?.profileImage || otherParticipant?.userImage;
+
+  // ─── Handlers ───
+
+  const handleSendMessage = useCallback(async () => {
+    if (!messageText.trim() || !user) return;
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await sendMessage(messageText.trim());
       setMessageText('');
-    } catch (error) {
-      if (__DEV__) console.error('Error sending message:', error);
-      Alert.alert('Erreur', 'Impossible d\'envoyer le message');
+    } catch (err) {
+      if (__DEV__) console.error('Error sending message:', err);
+      Alert.alert('Erreur', "Impossible d'envoyer le message");
     }
-  };
+  }, [messageText, user, sendMessage]);
 
-  // Handle pick and send image
-  const handlePickImage = async () => {
+  const handlePickImage = useCallback(async () => {
     try {
-      // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission requise',
-          'Nous avons besoin de votre permission pour accéder à la galerie'
-        );
+        Alert.alert('Permission requise', 'Nous avons besoin de votre permission pour accéder à la galerie');
         return;
       }
-
-      // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'] as const,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
-
       if (!result.canceled && result.assets[0]) {
         setIsSendingImage(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        
         await sendImage(result.assets[0].uri);
-        
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } catch (error) {
-      if (__DEV__) console.error('Error picking image:', error);
-      Alert.alert('Erreur', 'Impossible d\'envoyer l\'image');
+    } catch (err) {
+      if (__DEV__) console.error('Error picking image:', err);
+      Alert.alert('Erreur', "Impossible d'envoyer l'image");
     } finally {
       setIsSendingImage(false);
     }
-  };
+  }, [sendImage]);
 
-  // Handle make offer
-  const handleMakeOffer = () => {
+  const handleMakeOffer = useCallback(() => {
     if (!chat?.articlePrice) {
-      Alert.alert('Erreur', 'Aucun article associé à cette conversation');
+      Alert.alert('Erreur', 'Aucun article associe a cette conversation');
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
-  };
+  }, [chat?.articlePrice]);
 
-  // Handle meetup offer submit
-  const handleMeetupOfferSubmit = async (
+  const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
     message: string,
     meetupSpot: MeetupSpot,
   ) => {
     if (!chatId || !user || !chat) return;
-
     try {
       await ChatService.sendMeetupOffer(
         chatId,
@@ -182,142 +169,40 @@ export default function ChatScreen() {
         chat.participantsInfo.find(p => p.userId !== user.id)?.userId || '',
         amount,
         meetupSpot,
-        message
+        message,
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      if (__DEV__) console.error('Error sending meetup offer:', error);
-      throw error;
+    } catch (err) {
+      if (__DEV__) console.error('Error sending meetup offer:', err);
+      throw err;
     }
-  };
+  }, [chatId, user, chat]);
 
-  // Handle accept offer
-  const handleAcceptOffer = async (messageId: string, offerId: string) => {
+  const handleAcceptOffer = useCallback(async (messageId: string, offerId: string) => {
     try {
       await acceptOffer(messageId, offerId);
-    } catch (error) {
-      if (__DEV__) console.error('Error accepting offer:', error);
-      throw error;
+    } catch (err) {
+      if (__DEV__) console.error('Error accepting offer:', err);
+      throw err;
     }
-  };
+  }, [acceptOffer]);
 
-  // Handle reject offer
-  const handleRejectOffer = async (messageId: string, offerId: string) => {
+  const handleRejectOffer = useCallback(async (messageId: string, offerId: string) => {
     try {
       await rejectOffer(messageId, offerId);
-    } catch (error) {
-      if (__DEV__) console.error('Error rejecting offer:', error);
-      throw error;
+    } catch (err) {
+      if (__DEV__) console.error('Error rejecting offer:', err);
+      throw err;
     }
-  };
+  }, [rejectOffer]);
 
-  // Get other participant info
-  const getOtherParticipant = () => {
-    if (!chat || !user) return null;
-    return chat.participantsInfo.find(p => p.userId !== user.id);
-  };
+  const { handleMoreOptions } = useChatModeration({
+    otherParticipant,
+    currentUserId: user?.id,
+    reportSheetRef: reportBottomSheetRef,
+  });
 
-  const otherParticipant = getOtherParticipant();
-  // Live profile so the avatar reflects the user's CURRENT photo, not
-  // whatever was snapshotted into participantsInfo when the chat was
-  // created.
-  const { data: otherProfile } = useUserProfile(otherParticipant?.userId);
-  const otherAvatar =
-    otherProfile?.profileImage || otherParticipant?.userImage;
-
-  // Handle more options (report/block user)
-  const handleMoreOptions = useCallback(() => {
-    if (!otherParticipant || !user) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    const options = ['Signaler cet utilisateur', 'Bloquer cet utilisateur', 'Annuler'];
-    const destructiveButtonIndex = 1;
-    const cancelButtonIndex = 2;
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          destructiveButtonIndex,
-          cancelButtonIndex,
-        },
-        async (buttonIndex) => {
-          if (buttonIndex === 0) {
-            reportBottomSheetRef.current?.open('user', otherParticipant.userId);
-          } else if (buttonIndex === 1) {
-            Alert.alert(
-              'Bloquer cet utilisateur',
-              `Voulez-vous bloquer ${formatDisplayName(otherParticipant.userName)} ? Cette personne ne pourra plus vous contacter.`,
-              [
-                { text: 'Annuler', style: 'cancel' },
-                {
-                  text: 'Bloquer',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await ModerationService.blockUser(
-                        user.id,
-                        otherParticipant.userId,
-                        otherParticipant.userName
-                      );
-                      Alert.alert('Utilisateur bloqué', `${formatDisplayName(otherParticipant.userName)} a été bloqué.`);
-                      router.back();
-                    } catch (error: any) {
-                      Alert.alert('Erreur', error.message || 'Une erreur est survenue');
-                    }
-                  },
-                },
-              ]
-            );
-          }
-        }
-      );
-    } else {
-      Alert.alert(
-        'Options',
-        undefined,
-        [
-          {
-            text: 'Signaler cet utilisateur',
-            onPress: () => reportBottomSheetRef.current?.open('user', otherParticipant.userId),
-          },
-          {
-            text: 'Bloquer cet utilisateur',
-            style: 'destructive',
-            onPress: () => {
-              Alert.alert(
-                'Bloquer cet utilisateur',
-                `Voulez-vous bloquer ${formatDisplayName(otherParticipant.userName)} ?`,
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  {
-                    text: 'Bloquer',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        await ModerationService.blockUser(
-                          user.id,
-                          otherParticipant.userId,
-                          otherParticipant.userName
-                        );
-                        Alert.alert('Utilisateur bloqué', `${formatDisplayName(otherParticipant.userName)} a été bloqué.`);
-                        router.back();
-                      } catch (error: any) {
-                        Alert.alert('Erreur', error.message || 'Une erreur est survenue');
-                      }
-                    },
-                  },
-                ]
-              );
-            },
-          },
-          { text: 'Annuler', style: 'cancel' },
-        ]
-      );
-    }
-  }, [otherParticipant, user, router]);
-
-  // Render message item
+  // ─── Render message item ───
   const renderMessage = useCallback(
     ({ item: message }: ListRenderItemInfo<Message>) => {
       const isOwnMessage = message.senderId === user?.id;
@@ -343,170 +228,51 @@ export default function ChatScreen() {
         />
       );
     },
-    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar]
+    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar],
   );
 
-  // Loading state
+  // ─── Loading state ───
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        {/* Header skeleton */}
-        <View style={styles.header}>
-          <Skeleton width={36} height={36} borderRadius={radius.full} />
-          <View style={styles.headerCenter}>
-            <Skeleton width={36} height={36} borderRadius={radius.full} />
-            <View style={styles.headerInfo}>
-              <Skeleton width="60%" height={14} />
-              <Skeleton width="30%" height={11} style={{ marginTop: 4 }} />
-            </View>
-          </View>
-          <Skeleton width={36} height={36} borderRadius={radius.full} />
-        </View>
-        {/* Article bar skeleton */}
-        <View style={[styles.header, { backgroundColor: colors.white, paddingVertical: spacing.sm }]}>
-          <Skeleton width={48} height={60} borderRadius={radius.xs} />
-          <View style={{ flex: 1, marginLeft: spacing.md, gap: 4 }}>
-            <Skeleton width="55%" height={14} />
-            <Skeleton width="25%" height={18} />
-          </View>
-        </View>
-        {/* Message bubbles skeleton */}
-        <View style={{ flex: 1, padding: spacing.md, gap: spacing.md }}>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Skeleton width={28} height={28} borderRadius={radius.full} />
-            <Skeleton width="55%" height={48} borderRadius={radius.md} />
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Skeleton width="45%" height={36} borderRadius={radius.md} />
-          </View>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Skeleton width={28} height={28} borderRadius={radius.full} />
-            <Skeleton width="65%" height={60} borderRadius={radius.md} />
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Skeleton width="40%" height={36} borderRadius={radius.md} />
-          </View>
-        </View>
-        {/* Input bar skeleton */}
-        <View style={styles.inputContainer}>
-          <Skeleton width={36} height={36} borderRadius={radius.full} />
-          <Skeleton width="100%" height={40} borderRadius={radius.md} style={{ flex: 1 }} />
-          <Skeleton width={36} height={36} borderRadius={radius.full} />
-        </View>
+        <ChatLoadingSkeleton />
       </SafeAreaView>
     );
   }
 
-  // Error state
+  // ─── Error state ───
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
-          <Text style={styles.errorTitle}>Erreur</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Retour</Text>
-          </Pressable>
-        </View>
+        <ChatErrorState errorMessage={error} />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header: User info (cream bg, border-bottom) */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="arrow-back" size={20} color={colors.charcoal} />
-        </Pressable>
+      <ChatHeader
+        otherParticipant={otherParticipant}
+        otherAvatar={otherAvatar}
+        articlePrice={chat?.articlePrice}
+        onMoreOptions={handleMoreOptions}
+      />
 
-        <Pressable
-          style={styles.headerCenter}
-          onPress={() => {
-            if (otherParticipant?.userId) {
-              router.push(`/user/${otherParticipant.userId}`);
-            }
-          }}
-        >
-          {otherParticipant && (
-            <>
-              {otherAvatar ? (
-                <Image
-                  source={{ uri: otherAvatar }}
-                  style={styles.headerAvatar}
-                  contentFit="cover"
-                />
-              ) : (
-                <View style={[styles.headerAvatar, styles.headerAvatarPlaceholder]}>
-                  <Ionicons name="person" size={18} color={colors.muted} />
-                </View>
-              )}
-              <View style={styles.headerInfo}>
-                <Text style={styles.headerTitle} numberOfLines={1}>
-                  {formatDisplayName(otherParticipant.userName)}
-                </Text>
-                {chat?.articlePrice && (
-                  <Text style={styles.headerSubtitle} numberOfLines={1}>
-                    ${chat.articlePrice.toFixed(2)}
-                  </Text>
-                )}
-              </View>
-            </>
-          )}
-        </Pressable>
-
-        <Pressable style={styles.headerButton} onPress={handleMoreOptions}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.charcoal} />
-        </Pressable>
-      </View>
-
-      {/* Article context bar (white bg, border-bottom) */}
       {article && (
-        <View style={[styles.header, { backgroundColor: colors.white, paddingVertical: spacing.sm }]}>
-          <Image
-            source={article.images?.[0]?.url ? { uri: article.images[0].url } : undefined}
-            style={{ width: 48, height: 60, borderRadius: radius.xs, marginRight: spacing.md }}
-            contentFit="cover"
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { marginBottom: 2 }]} numberOfLines={1}>
-              {chat?.articleTitle}
-            </Text>
-            <Text style={{ fontFamily: fonts.displaySemiBold, fontSize: 18, color: colors.primary }}>
-              ${chat?.articlePrice?.toFixed(2)}
-            </Text>
-          </View>
-          <Pressable
-            style={{
-              paddingHorizontal: spacing.sm,
-              paddingVertical: 4,
-              borderWidth: 1,
-              borderColor: colors.borderStrong,
-              borderRadius: radius.sm
-            }}
-          >
-            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 11, color: colors.charcoal, letterSpacing: 1.2 }}>
-              VOIR
-            </Text>
-          </Pressable>
-        </View>
+        <ChatArticleBar
+          article={article}
+          articleTitle={chat?.articleTitle}
+          articlePrice={chat?.articlePrice}
+        />
       )}
 
-      <KeyboardAvoidingView 
-        style={styles.content} 
+      <KeyboardAvoidingView
+        style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {/* Messages List */}
         {messages.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={64} color={colors.muted} />
-            <Text style={styles.emptyStateTitle}>Aucun message</Text>
-            <Text style={styles.emptyStateText}>
-              Commencez la conversation avec {formatDisplayName(otherParticipant?.userName) || 'ce vendeur'}
-            </Text>
-          </View>
+          <ChatEmptyState otherParticipantName={otherParticipant?.userName} />
         ) : (
           <FlashList
             ref={flatListRef}
@@ -529,61 +295,17 @@ export default function ChatScreen() {
           />
         )}
 
-        {/* Input Container */}
-        <View style={styles.inputContainer}>
-          {/* Attachment button: 36px circle, white bg, 1px borderStrong, muted icon */}
-          <Pressable
-            style={styles.attachButton}
-            onPress={handlePickImage}
-            disabled={isSendingImage}
-          >
-            {isSendingImage ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons name="attach" size={18} color={colors.muted} />
-            )}
-          </Pressable>
-
-          {/* Message Input: white bg, 1px borderStrong, radius.md */}
-          <TextInput
-            style={styles.messageInput}
-            placeholder="Message..."
-            value={messageText}
-            onChangeText={setMessageText}
-            multiline
-            maxLength={1000}
-            placeholderTextColor={colors.muted}
-          />
-
-          {/* Offer button (only if article exists) */}
-          {chat?.articleId && (
-            <Pressable
-              style={styles.offerButton}
-              onPress={handleMakeOffer}
-            >
-              <Text style={{ fontSize: 18, color: colors.primary }}>$</Text>
-            </Pressable>
-          )}
-
-          {/* Send button */}
-          <Pressable
-            style={[
-              styles.sendButton,
-              !messageText.trim() && styles.sendButtonDisabled
-            ]}
-            onPress={handleSendMessage}
-            disabled={!messageText.trim()}
-          >
-            <Ionicons
-              name="arrow-forward"
-              size={18}
-              color={messageText.trim() ? colors.cream : colors.muted}
-            />
-          </Pressable>
-        </View>
+        <ChatInputBar
+          messageText={messageText}
+          onChangeText={setMessageText}
+          onSend={handleSendMessage}
+          onPickImage={handlePickImage}
+          onMakeOffer={handleMakeOffer}
+          isSendingImage={isSendingImage}
+          hasArticle={!!chat?.articleId}
+        />
       </KeyboardAvoidingView>
 
-      {/* Make Offer Modal */}
       {chat?.articlePrice && (
         <MakeOfferModal
           ref={makeOfferModalRef}
@@ -596,7 +318,6 @@ export default function ChatScreen() {
         />
       )}
 
-      {/* Report Bottom Sheet */}
       <ReportBottomSheet ref={reportBottomSheetRef} />
     </SafeAreaView>
   );
@@ -607,171 +328,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.md,
-  },
-  errorTitle: {
-    fontFamily: fonts.displayMedium,
-    fontSize: 20,
-    color: colors.foreground,
-  },
-  errorText: {
-    fontFamily: fonts.sans,
-    fontSize: 16,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  backButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    marginTop: spacing.md,
-  },
-  backButtonText: {
-    fontFamily: fonts.sansMedium,
-    color: colors.white,
-    fontSize: 16,
-  },
-  // Header styling (cream bg, border-bottom)
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surfaceWarm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-  },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: spacing.md,
-  },
-  headerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.background,
-    marginRight: spacing.md,
-  },
-  headerAvatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceWarm,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 14,
-    color: colors.foreground,
-  },
-  headerSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 2,
-  },
   content: {
     flex: 1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  emptyStateTitle: {
-    fontFamily: fonts.displayMedium,
-    fontSize: 20,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    color: colors.foreground,
-  },
-  emptyStateText: {
-    fontFamily: fonts.sans,
-    fontSize: 16,
-    color: colors.muted,
-    textAlign: 'center',
   },
   messagesList: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-  },
-  // Input bar styling (cream bg, border-top)
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surfaceWarm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
-  },
-  // Attach button: 36px circle, white bg, 1px borderStrong, muted icon
-  attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-  },
-  // Text input: white bg, 1px borderStrong, radius.md
-  messageInput: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    color: colors.foreground,
-  },
-  // Offer button: 36px circle, primaryLight bg, $ icon in rust
-  offerButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-  },
-  // Send button: 36px circle, charcoal bg (disabled=border bg), cream arrow icon
-  sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.charcoal,
-  },
-  sendButtonDisabled: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
 });

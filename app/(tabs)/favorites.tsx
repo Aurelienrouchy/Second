@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-  ActivityIndicator,
+  Dimensions,
   StyleSheet,
   View,
 } from 'react-native';
@@ -25,8 +25,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 // Design System
-import { colors, spacing } from '@/constants/theme';
+import { colors, spacing, radius } from '@/constants/theme';
 import { Button, H1, H2, Body, Caption, ScreenHeader } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 // Components
 import ProductGrid from '@/components/ProductGrid';
@@ -65,13 +66,44 @@ const EmptyState: React.FC<{ onBrowse: () => void }> = ({ onBrowse }) => (
 );
 
 // =============================================================================
-// LOADING STATE COMPONENT
+// LOADING SKELETON COMPONENT
 // =============================================================================
 
-const LoadingState: React.FC = () => (
-  <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color={colors.primary} />
-    <Caption style={styles.loadingText}>Chargement des favoris...</Caption>
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const GRID_GAP = 1;
+const SKELETON_CARD_WIDTH = (SCREEN_WIDTH - GRID_GAP) / 2;
+const SKELETON_IMAGE_HEIGHT = SKELETON_CARD_WIDTH * (4 / 3);
+
+const SkeletonCard: React.FC = () => (
+  <View style={styles.skeletonCard}>
+    <Skeleton
+      width={SKELETON_CARD_WIDTH}
+      height={SKELETON_IMAGE_HEIGHT}
+      borderRadius={radius.none}
+    />
+    <View style={styles.skeletonCardContent}>
+      <Skeleton width="60%" height={10} borderRadius={radius.xs} />
+      <Skeleton
+        width="80%"
+        height={12}
+        borderRadius={radius.xs}
+        style={{ marginTop: spacing.xs }}
+      />
+      <Skeleton
+        width="40%"
+        height={14}
+        borderRadius={radius.xs}
+        style={{ marginTop: spacing.sm }}
+      />
+    </View>
+  </View>
+);
+
+const LoadingSkeleton: React.FC = () => (
+  <View style={styles.skeletonGrid}>
+    {Array.from({ length: 6 }).map((_, i) => (
+      <SkeletonCard key={`fav-skeleton-${i}`} />
+    ))}
   </View>
 );
 
@@ -174,7 +206,7 @@ export default function FavoritesScreen() {
 
       {/* Content */}
       {isLoading ? (
-        <LoadingState />
+        <LoadingSkeleton />
       ) : isEmpty ? (
         <EmptyState onBrowse={handleBrowse} />
       ) : (
@@ -234,19 +266,17 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
 
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  // Skeleton Grid
+  skeletonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
   },
-  loadingText: {
-    marginTop: spacing.md,
+  skeletonCard: {
+    width: SKELETON_CARD_WIDTH,
   },
-
-  // Footer loader for pagination
-  footerLoader: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
+  skeletonCardContent: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
 });

@@ -10,17 +10,13 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
-  TextInput,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
 import { useUser } from '@/contexts/AuthContext';
@@ -28,15 +24,16 @@ import { ArticlesService } from '@/services/articlesService';
 import { proposeSwap } from '@/services/swapService';
 import { queryKeys } from '@/lib/queryKeys';
 import { SwapItemInfo } from '@/types';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text } from '@/components/ui';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { colors } from '@/constants/theme';
+import { SwapItemSelector, SwapSeparator } from '@/components/swap';
 import {
-  SwapItemCard,
-  SwapItemSelector,
-  SwapSeparator,
-  ValueDifferenceBox,
-} from '@/components/swap';
+  ProposeSwapSkeleton,
+  ProposeSwapTopBar,
+  ArticleSelectionSection,
+  ValueComparisonBox,
+  SwapMessageInput,
+  SubmitFooter,
+} from '@/features/propose-swap';
 
 export default function ProposeSwapScreen() {
   const {
@@ -145,50 +142,23 @@ export default function ProposeSwapScreen() {
     [initiatorItems]
   );
 
-  const valueDifference = useMemo(
-    () => {
-      const diff = receiverTotal - initiatorTotal;
-      return diff > 0 ? diff : -diff;
-    },
-    [receiverTotal, initiatorTotal]
-  );
-
-  const receiverHasMore = receiverTotal > initiatorTotal;
-
-  // Handle item selection from modal
-  const handleSelectInitiatorItems = useCallback((articleIds: string[]) => {
-    const selected = allAvailableItems.filter(item =>
-      articleIds.includes(item.articleId)
-    );
-    setInitiatorItems(selected);
-    setShowItemSelector(false);
-  }, [allAvailableItems]);
-
-  const handleSelectReceiverItems = useCallback((articleIds: string[]) => {
-    const selected = allAvailableItems.filter(item =>
-      articleIds.includes(item.articleId)
-    );
-    setReceiverItems(selected);
-    setShowReceiverSelector(false);
-  }, [allAvailableItems]);
-
-  // Remove item from selections
+  // Handle item removal
   const handleRemoveInitiatorItem = useCallback((articleId: string) => {
-    setInitiatorItems(prev =>
-      prev.filter(item => item.articleId !== articleId)
-    );
+    setInitiatorItems((prev) => prev.filter((item) => item.articleId !== articleId));
   }, []);
 
   const handleRemoveReceiverItem = useCallback((articleId: string) => {
-    setReceiverItems(prev =>
-      prev.filter(item => item.articleId !== articleId)
-    );
+    setReceiverItems((prev) => prev.filter((item) => item.articleId !== articleId));
   }, []);
 
+  // Open selectors
+  const handleOpenInitiatorSelector = useCallback(() => setShowItemSelector(true), []);
+  const handleOpenReceiverSelector = useCallback(() => setShowReceiverSelector(true), []);
+
   // Submit swap proposal
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!user || initiatorItems.length === 0 || receiverItems.length === 0) {
-      Alert.alert('Erreur', 'Veuillez sélectionner des articles de part et d\'autre');
+      Alert.alert('Erreur', "Veuillez sélectionner des articles de part et d'autre");
       return;
     }
 
@@ -204,19 +174,21 @@ export default function ProposeSwapScreen() {
         receiverImage: receiverImage || '',
         receiverItems,
         message: message || undefined,
-        cashTopUp: Number(complementAmount) > 0 ? { amount: Number(complementAmount), payerId: complementPayer === 'initiator' ? user.id : (receiverId || '') } : undefined,
+        cashTopUp:
+          Number(complementAmount) > 0
+            ? {
+                amount: Number(complementAmount),
+                payerId:
+                  complementPayer === 'initiator' ? user.id : receiverId || '',
+              }
+            : undefined,
         partyId,
       });
 
       Alert.alert(
         'Proposition envoyée !',
-        'Ta proposition d\'échange a été envoyée avec succès.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.push('/my-swaps'),
-          },
-        ]
+        "Ta proposition d'échange a été envoyée avec succès.",
+        [{ text: 'OK', onPress: () => router.push('/my-swaps') }]
       );
     } catch (error) {
       if (__DEV__) console.error('Error proposing swap:', error);
@@ -224,283 +196,86 @@ export default function ProposeSwapScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    user,
+    initiatorItems,
+    receiverItems,
+    receiverId,
+    receiverName,
+    receiverImage,
+    message,
+    complementAmount,
+    complementPayer,
+    partyId,
+  ]);
 
+  // --- Loading state ---
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
-        {/* Top bar skeleton */}
-        <View style={styles.topBar}>
-          <View style={styles.backButton}>
-            <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
-          </View>
-          <Skeleton width={160} height={20} />
-        </View>
-        <View style={styles.skeletonContent}>
-          {/* Target article section skeleton */}
-          <Skeleton width={80} height={10} style={{ marginBottom: spacing.sm }} />
-          <View style={styles.skeletonItemCard}>
-            <Skeleton width={56} height={56} borderRadius={radius.sm} />
-            <View style={{ flex: 1 }}>
-              <Skeleton width="60%" height={14} />
-              <Skeleton width="30%" height={16} style={{ marginTop: spacing.sm }} />
-            </View>
-          </View>
-          {/* Separator skeleton */}
-          <View style={styles.skeletonSeparator}>
-            <Skeleton width="40%" height={1} />
-            <Skeleton width={32} height={32} borderRadius={16} />
-            <Skeleton width="40%" height={1} />
-          </View>
-          {/* My articles grid skeleton */}
-          <Skeleton width={120} height={10} style={{ marginBottom: spacing.sm }} />
-          <View style={styles.skeletonGrid}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <View key={i} style={styles.skeletonItemCard}>
-                <Skeleton width={56} height={56} borderRadius={radius.sm} />
-                <View style={{ flex: 1 }}>
-                  <Skeleton width="50%" height={14} />
-                  <Skeleton width="25%" height={16} style={{ marginTop: spacing.sm }} />
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        <ProposeSwapSkeleton />
       </SafeAreaView>
     );
   }
 
-  const selectedInitiatorIds = initiatorItems.map(item => item.articleId);
-  const selectedReceiverIds = receiverItems.map(item => item.articleId);
+  const bothSidesSelected = initiatorItems.length > 0 && receiverItems.length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Sticky Top Bar — padding: 16px 24px, 36x36 back button, title, gap: 16px */}
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-            hitSlop={8}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={20}
-              color={colors.charcoal}
-            />
-          </Pressable>
-          <Text style={styles.topBarTitle}>Proposer un swap</Text>
-        </View>
+        <ProposeSwapTopBar />
 
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* "Leur article" section — padding: 20px 24px */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Leur article</Text>
+          <ArticleSelectionSection
+            label="Leur article"
+            items={receiverItems}
+            variant="their"
+            addButtonLabel="+ Ajouter"
+            onRemoveItem={handleRemoveReceiverItem}
+            onAdd={handleOpenReceiverSelector}
+          />
 
-            {receiverItems.map((item) => (
-              <SwapItemCard
-                key={item.articleId}
-                item={item}
-                variant="their"
-                onRemove={() => handleRemoveReceiverItem(item.articleId)}
-              />
-            ))}
-
-            <Pressable
-              style={({ pressed }) => [styles.addMoreButton, pressed && { opacity: 0.7 }]}
-              onPress={() => setShowReceiverSelector(true)}
-            >
-              <Text style={styles.addMoreButtonText}>+ Ajouter</Text>
-            </Pressable>
-          </View>
-
-          {/* Swap Separator — line + circle + line, marginBottom: 20px */}
           <SwapSeparator />
 
-          {/* "Mon article proposé" section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Mon article proposé</Text>
+          <ArticleSelectionSection
+            label="Mon article proposé"
+            items={initiatorItems}
+            variant="mine"
+            addButtonLabel="+ Ajouter un article"
+            onRemoveItem={handleRemoveInitiatorItem}
+            onAdd={handleOpenInitiatorSelector}
+          />
 
-            {initiatorItems.map((item) => (
-              <SwapItemCard
-                key={item.articleId}
-                item={item}
-                variant="mine"
-                onRemove={() => handleRemoveInitiatorItem(item.articleId)}
-              />
-            ))}
-
-            <Pressable
-              style={({ pressed }) => [styles.addMoreButton, pressed && { opacity: 0.7 }]}
-              onPress={() => setShowItemSelector(true)}
-            >
-              <Text style={styles.addMoreButtonText}>+ Ajouter un article</Text>
-            </Pressable>
-          </View>
-
-          {/* Value Difference Box (shows when both sides have items) */}
-          {initiatorItems.length > 0 && receiverItems.length > 0 && (
-            <View style={styles.valueDiffSection}>
-              <View style={styles.valueDiffBox}>
-                {/* Price summary row */}
-                <View style={styles.priceSummaryRow}>
-                  <View style={styles.priceSummaryItem}>
-                    <Text style={styles.priceSummaryLabel}>Vos articles</Text>
-                    <Text style={styles.priceSummaryValue}>${initiatorTotal}</Text>
-                  </View>
-                  <View style={styles.priceSummaryDivider} />
-                  <View style={styles.priceSummaryItem}>
-                    <Text style={styles.priceSummaryLabel}>Leurs articles</Text>
-                    <Text style={styles.priceSummaryValue}>${receiverTotal}</Text>
-                  </View>
-                </View>
-
-                {/* Difference indicator */}
-                {valueDifference > 0 ? (
-                  <View style={styles.diffIndicator}>
-                    <Ionicons name="information-circle-outline" size={14} color={colors.rust} />
-                    <Text style={styles.diffIndicatorText}>
-                      {receiverHasMore
-                        ? `Différence de $${valueDifference} en leur faveur`
-                        : `Différence de $${valueDifference} en votre faveur`}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.diffIndicator, styles.diffIndicatorEven]}>
-                    <Ionicons name="checkmark-circle-outline" size={14} color={colors.sage} />
-                    <Text style={[styles.diffIndicatorText, styles.diffIndicatorTextEven]}>
-                      Valeurs équivalentes
-                    </Text>
-                  </View>
-                )}
-
-                {/* Cash top-up section */}
-                <View style={styles.cashTopUpSection}>
-                  <Text style={styles.cashTopUpTitle}>Ajouter un complément en argent</Text>
-
-                  {/* Payer toggle */}
-                  <View style={styles.payerToggleRow}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.payerToggleButton,
-                        complementPayer === 'initiator' && styles.payerToggleButtonActive,
-                        pressed && { opacity: 0.7 },
-                      ]}
-                      onPress={() => setComplementPayer('initiator')}
-                    >
-                      <Text
-                        style={[
-                          styles.payerToggleText,
-                          complementPayer === 'initiator' && styles.payerToggleTextActive,
-                        ]}
-                      >
-                        Je paie
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.payerToggleButton,
-                        complementPayer === 'receiver' && styles.payerToggleButtonActive,
-                        pressed && { opacity: 0.7 },
-                      ]}
-                      onPress={() => setComplementPayer('receiver')}
-                    >
-                      <Text
-                        style={[
-                          styles.payerToggleText,
-                          complementPayer === 'receiver' && styles.payerToggleTextActive,
-                        ]}
-                      >
-                        {receiverName ? `${receiverName} paie` : 'L\'autre paie'}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {/* Amount input */}
-                  <View style={styles.cashAmountRow}>
-                    <Text style={styles.cashAmountDollar}>$</Text>
-                    <TextInput
-                      style={styles.cashAmountInput}
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                      value={complementAmount}
-                      onChangeText={(text) => setComplementAmount(text.replace(/[^0-9]/g, ''))}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                    />
-                    {valueDifference > 0 && (
-                      <Pressable
-                        style={({ pressed }) => [styles.suggestAmountButton, pressed && { opacity: 0.7 }]}
-                        onPress={() => setComplementAmount(String(valueDifference))}
-                      >
-                        <Text style={styles.suggestAmountText}>
-                          Suggéré: ${valueDifference}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
-                </View>
-              </View>
-            </View>
+          {bothSidesSelected && (
+            <ValueComparisonBox
+              initiatorTotal={initiatorTotal}
+              receiverTotal={receiverTotal}
+              complementAmount={complementAmount}
+              complementPayer={complementPayer}
+              receiverName={receiverName}
+              onComplementAmountChange={setComplementAmount}
+              onComplementPayerChange={setComplementPayer}
+            />
           )}
 
-          {/* Message section (optionnel) */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Message (optionnel)</Text>
-            <TextInput
-              style={styles.messageInput}
-              placeholder="Salut ! Je pense que nos pièces s'échangeraient bien…"
-              placeholderTextColor={colors.muted}
-              value={message}
-              onChangeText={setMessage}
-              multiline
-              maxLength={500}
-              textAlignVertical="top"
-            />
-          </View>
+          <SwapMessageInput value={message} onChangeText={setMessage} />
         </ScrollView>
 
-        {/* Sticky Bottom CTA — padding: 16px 24px 32px, charcoal bg button, cream text */}
-        <View style={styles.footer}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.submitButton,
-              (initiatorItems.length === 0 || receiverItems.length === 0 || isSubmitting) &&
-                styles.submitButtonDisabled,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={handleSubmit}
-            disabled={initiatorItems.length === 0 || receiverItems.length === 0 || isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color={colors.cream} />
-            ) : (
-              <>
-                <Ionicons
-                  name="swap-horizontal"
-                  size={16}
-                  color={colors.cream}
-                  style={styles.submitButtonIcon}
-                />
-                <Text style={styles.submitButtonText}>Envoyer la proposition</Text>
-              </>
-            )}
-          </Pressable>
-        </View>
+        <SubmitFooter
+          isSubmitting={isSubmitting}
+          isDisabled={!bothSidesSelected}
+          onSubmit={handleSubmit}
+        />
       </KeyboardAvoidingView>
 
       {/* Item Selector Modals */}
@@ -533,327 +308,12 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  skeletonContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-  },
-  skeletonItemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    backgroundColor: colors.white,
-    marginBottom: spacing.sm,
-  },
-  skeletonSeparator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginVertical: spacing.lg,
-  },
-  skeletonGrid: {
-    gap: spacing.sm,
-  },
-
-  // ===== TOP BAR =====
-  // padding: 16px 24px, background: rgba(245,240,232,0.95) with blur
-  // border-bottom: 1px solid var(--border)
-  // display: flex, align-items: center, gap: 16px
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(245, 240, 232, 0.95)',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topBarTitle: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    fontWeight: '400',
-    lineHeight: 24,
-    color: colors.charcoal,
-    flex: 1,
-  },
-
-  // ===== SCROLL CONTENT =====
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 20,
-    paddingBottom: 120, // Space for sticky footer
-  },
-
-  // ===== SECTION LABEL =====
-  // "Leur article" / "Mon article proposé" / "Message (optionnel)"
-  // 10px, 0.15em, uppercase, muted, marginBottom 10px
-  sectionLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 10,
-    lineHeight: 12,
-    letterSpacing: 1.5, // 0.15em
-    textTransform: 'uppercase',
-    color: colors.muted,
-    marginBottom: 10,
-  },
-
-  // ===== SECTION CONTAINER =====
-  section: {
-    marginBottom: 20,
-  },
-
-  // ===== ITEM CARDS =====
-  // Card: flex row, align-items center, gap 12px, padding 14px
-  // border 1px solid border, borderRadius 4px, background white
-  // (See SwapItemCard component for implementation)
-
-  // ===== ADD MORE BUTTON =====
-  // "+ Ajouter" button styling
-  addMoreButton: {
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-  },
-  addMoreButtonText: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.charcoal,
-  },
-
-  // ===== VALUE DIFFERENCE BOX =====
-  // background: rgba(196,96,58,0.07)
-  // border: 1px solid rgba(196,96,58,0.2)
-  // borderRadius: 4px
-  // padding: 16px
-  // marginBottom: 20px
-  valueDiffSection: {
-    marginBottom: 20,
-  },
-  valueDiffBox: {
-    backgroundColor: 'rgba(196, 96, 58, 0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(196, 96, 58, 0.2)',
-    borderRadius: 4,
-    padding: 16,
-  },
-
-  // Price summary row
-  priceSummaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  priceSummaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  priceSummaryLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    fontWeight: '400',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: colors.muted,
-    marginBottom: 4,
-  },
-  priceSummaryValue: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    fontWeight: '300',
-    lineHeight: 24,
-    color: colors.charcoal,
-  },
-  priceSummaryDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(196, 96, 58, 0.25)',
-  },
-
-  // Difference indicator
-  diffIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(196, 96, 58, 0.08)',
-    borderRadius: 6,
-    marginBottom: 14,
-  },
-  diffIndicatorEven: {
-    backgroundColor: 'rgba(94, 118, 89, 0.08)',
-  },
-  diffIndicatorText: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    fontWeight: '400',
-    color: colors.rust,
-  },
-  diffIndicatorTextEven: {
-    color: colors.sage,
-  },
-
-  // Cash top-up section
-  cashTopUpSection: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(196, 96, 58, 0.15)',
-    paddingTop: 14,
-  },
-  cashTopUpTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    fontWeight: '500',
-    letterSpacing: 0.88,
-    textTransform: 'uppercase',
-    color: colors.charcoal,
-    marginBottom: 10,
-  },
-
-  // Payer toggle
-  payerToggleRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  payerToggleButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  payerToggleButtonActive: {
-    backgroundColor: colors.charcoal,
-    borderColor: colors.charcoal,
-  },
-  payerToggleText: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    fontWeight: '400',
-    color: colors.muted,
-  },
-  payerToggleTextActive: {
-    color: colors.cream,
-    fontFamily: fonts.sansMedium,
-    fontWeight: '500',
-  },
-
-  // Amount input row
-  cashAmountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cashAmountDollar: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    fontWeight: '300',
-    color: colors.charcoal,
-  },
-  cashAmountInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontFamily: fonts.sans,
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.charcoal,
-    backgroundColor: colors.surface,
-  },
-  suggestAmountButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(196, 96, 58, 0.12)',
-    borderRadius: 6,
-  },
-  suggestAmountText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.rust,
-  },
-
-  // ===== MESSAGE INPUT =====
-  // border 1px borderStrong, borderRadius 4px, padding 12px 14px, background white
-  messageInput: {
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    fontWeight: '400',
-    lineHeight: 16,
-    color: colors.charcoal,
-    minHeight: 100,
-    backgroundColor: colors.surface,
-    textAlignVertical: 'top',
-  },
-
-  // ===== STICKY FOOTER =====
-  // padding: 16px 24px 32px
-  // background: cream
-  // border-top: 1px solid border
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 32,
-    backgroundColor: colors.cream,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    backgroundColor: colors.charcoal,
-  },
-  submitButtonIcon: {
-    marginRight: 4,
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.muted,
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 14,
-    letterSpacing: 2.16, // 0.18em
-    textTransform: 'uppercase',
-    color: colors.cream,
+    paddingBottom: 120,
   },
 });

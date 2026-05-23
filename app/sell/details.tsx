@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  Pressable,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
 import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
@@ -20,13 +15,20 @@ import ConditionSelector from '@/components/ConditionSelector';
 import StepProgressBar from '@/components/sell/StepProgressBar';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
 import FormFieldGroup from '@/components/sell/FormFieldGroup';
-import { AIAnalysisResult, getConfidenceLevel, CONDITION_DISPLAY, ConditionId } from '@/types/ai';
+import { ScreenHeader } from '@/components/ui';
+import {
+  PhotoStripPreview,
+  TextareaField,
+  FieldRow,
+  ChipSelector,
+  SellFooter,
+} from '@/features/sell';
+import { AIAnalysisResult, CONDITION_DISPLAY, ConditionId } from '@/types/ai';
 import { colors as dataColors, getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';
 import { getSizesForCategory } from '@/data/sizes';
 import draftService, { ArticleDraft, DraftFields } from '@/services/draftService';
-import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
-import { ScreenHeader } from '@/components/ui';
+import { colors, spacing } from '@/constants/theme';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
@@ -83,7 +85,6 @@ export default function DetailsScreen() {
 
   const [isInitialized, setIsInitialized] = useState(!isResuming);
   const [draft, setDraft] = useState<ArticleDraft | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Load draft on mount
   useEffect(() => {
@@ -122,7 +123,6 @@ export default function DetailsScreen() {
   useEffect(() => {
     if (!draft || !isInitialized) return;
     const saveToDraft = async () => {
-      setSaveStatus('saving');
       try {
         const draftFields: DraftFields = {
           title: fields.title,
@@ -138,11 +138,8 @@ export default function DetailsScreen() {
         };
         const updated = await draftService.updateDraftFields(draft, draftFields);
         setDraft(updated);
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (error) {
         if (__DEV__) console.error('Failed to save draft fields:', error);
-        setSaveStatus('error');
       }
     };
     const timeoutId = setTimeout(saveToDraft, 500);
@@ -160,19 +157,17 @@ export default function DetailsScreen() {
     setFields((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleCategorySelect = (categoryIds: string[]) => {
-    updateField('categoryIds', categoryIds);
-    const lastId = categoryIds[categoryIds.length - 1];
-    updateField('categoryDisplay', {
-      icon: '',
-      name: lastId.split('_').pop() || 'Article',
-      context: categoryIds.slice(0, -1).join(' · '),
-    });
-  };
-
-  const handleBack = () => {
-    router.back();
-  };
+  const handleCategorySelect = useCallback((categoryIds: string[]) => {
+    setFields((prev) => ({
+      ...prev,
+      categoryIds,
+      categoryDisplay: {
+        icon: '',
+        name: categoryIds[categoryIds.length - 1]?.split('_').pop() || 'Article',
+        context: categoryIds.slice(0, -1).join(' · '),
+      },
+    }));
+  }, []);
 
   const handleContinue = () => {
     if (!fields.title.trim()) return;
@@ -187,9 +182,27 @@ export default function DetailsScreen() {
     });
   };
 
+  const handleColorToggle = useCallback((colorId: string) => {
+    setFields((prev) => {
+      const newColors = prev.colors.includes(colorId)
+        ? prev.colors.filter((c) => c !== colorId)
+        : [...prev.colors, colorId];
+      return { ...prev, colors: newColors };
+    });
+  }, []);
+
+  const handleMaterialToggle = useCallback((matId: string) => {
+    setFields((prev) => {
+      const newMaterials = prev.materials.includes(matId)
+        ? prev.materials.filter((m) => m !== matId)
+        : [...prev.materials, matId];
+      return { ...prev, materials: newMaterials };
+    });
+  }, []);
+
   const isFormValid = fields.title.trim() !== '' && fields.categoryIds.length > 0;
 
-  // Chip helpers
+  // Chip data
   const allColorItems = getColorItems();
   const allMaterialItems = getMaterialItems();
   const allSizeItems = getSizesForCategory(fields.categoryIds).map((s) => ({
@@ -200,6 +213,18 @@ export default function DetailsScreen() {
   const aiColorIds = aiResult?.colors?.colorIds || [];
   const aiMaterialIds = aiResult?.materials?.materialIds || [];
 
+  const resolveColorLabel = useCallback(
+    (colorId: string): string => {
+      const colorData = dataColors.find(
+        (c) => c.id === colorId || c.name.toLowerCase() === colorId.toLowerCase(),
+      );
+      if (colorData) return colorData.name;
+      const colorItem = allColorItems.find((c) => c.value === colorId);
+      return colorItem?.label || colorId;
+    },
+    [allColorItems],
+  );
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -207,7 +232,7 @@ export default function DetailsScreen() {
     >
       <ScreenHeader
         title="Détails"
-        onBack={handleBack}
+        onBack={() => router.back()}
         topContent={<StepProgressBar currentStep={3} />}
       />
 
@@ -217,109 +242,37 @@ export default function DetailsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo strip — scrolls with content */}
-        {photos.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.photoStrip}
-            style={styles.photoStripContainer}
-          >
-            {photos.map((uri, index) => (
-              <Image
-                key={`photo-${index}`}
-                source={{ uri }}
-                style={styles.photoThumb}
-                contentFit="cover"
-              />
-            ))}
-          </ScrollView>
-        )}
+        <PhotoStripPreview photos={photos} />
 
-        {/* Section: Essentiel */}
         <FormSectionTitle title="Essentiel" />
 
-        {/* Title field — label inside bordered card (matches design .textarea-field) */}
-        <View style={styles.textareaField}>
-          <View style={styles.textareaLabel}>
-            <Text style={styles.textFieldLabel}>Titre</Text>
-            <View style={styles.textareaLabelRight}>
-              {aiResult?.titleConfidence ? (
-                <View style={styles.aiBadge}>
-                  <Text style={styles.aiBadgeText}>IA</Text>
-                </View>
-              ) : null}
-              <Text style={styles.charCount}>{fields.title.length} / 80</Text>
-            </View>
-          </View>
-          <TextInput
-            style={styles.textareaContent}
-            value={fields.title}
-            onChangeText={(text) => updateField('title', text)}
-            placeholder="Ex: Robe d'été fleurie Zara"
-            placeholderTextColor={colors.muted}
-            maxLength={80}
-            cursorColor={colors.rust}
-            selectionColor={colors.rust}
-          />
-        </View>
+        <TextareaField
+          label="Titre"
+          value={fields.title}
+          onChangeText={(text) => updateField('title', text)}
+          placeholder="Ex: Robe d'été fleurie Zara"
+          maxLength={80}
+          hasAiConfidence={!!aiResult?.titleConfidence}
+        />
 
-        {/* Description field — label inside bordered card */}
-        <View style={styles.textareaField}>
-          <View style={styles.textareaLabel}>
-            <Text style={styles.textFieldLabel}>Description</Text>
-            <View style={styles.textareaLabelRight}>
-              {aiResult?.descriptionConfidence ? (
-                <View style={styles.aiBadge}>
-                  <Text style={styles.aiBadgeText}>IA</Text>
-                </View>
-              ) : null}
-              <Text style={styles.charCount}>{fields.description.length} / 500</Text>
-            </View>
-          </View>
-          <TextInput
-            style={[styles.textareaContent, styles.textareaMultiline]}
-            value={fields.description}
-            onChangeText={(text) => updateField('description', text)}
-            placeholder="Décrivez votre article en détail..."
-            placeholderTextColor={colors.muted}
-            maxLength={500}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            cursorColor={colors.rust}
-            selectionColor={colors.rust}
-          />
-        </View>
+        <TextareaField
+          label="Description"
+          value={fields.description}
+          onChangeText={(text) => updateField('description', text)}
+          placeholder="Décrivez votre article en détail..."
+          maxLength={500}
+          hasAiConfidence={!!aiResult?.descriptionConfidence}
+          multiline
+          numberOfLines={4}
+        />
 
-        {/* Category + Condition grouped */}
         <FormFieldGroup>
-          {/* Category row */}
-          <Pressable
-            style={({ pressed }) => [styles.fieldRow, pressed && { opacity: 0.7 }]}
+          <FieldRow
+            label="CATÉGORIE"
+            value={fields.categoryDisplay.name || null}
+            hasAiConfidence={!!aiResult?.category?.confidence?.level}
             onPress={() => categorySheetRef.current?.show()}
-          >
-            <Text style={styles.fieldRowLabel}>CATÉGORIE</Text>
-            <View style={styles.fieldRowValueContainer}>
-              <Text
-                style={[
-                  styles.fieldRowValue,
-                  !fields.categoryDisplay.name && styles.fieldRowPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {fields.categoryDisplay.name || 'Sélectionner'}
-              </Text>
-              {aiResult?.category?.confidence?.level && (
-                <View style={styles.aiBadge}>
-                  <Text style={styles.aiBadgeText}>IA</Text>
-                </View>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
-
-          {/* Condition row */}
+          />
           <ConditionSelector
             value={fields.condition}
             onChange={(value) => updateField('condition', value)}
@@ -327,241 +280,53 @@ export default function DetailsScreen() {
           />
         </FormFieldGroup>
 
-        {/* Section: Caracteristiques */}
         <View style={{ marginTop: spacing.lg }}>
           <FormSectionTitle title="Caractéristiques" />
         </View>
 
-        {/* Brand + Size grouped */}
         <FormFieldGroup>
-          {/* Brand row */}
-          <Pressable
-            style={({ pressed }) => [styles.fieldRow, pressed && { opacity: 0.7 }]}
+          <FieldRow
+            label="MARQUE"
+            value={fields.brand || null}
+            hasAiConfidence={!!aiResult?.brand?.confidence?.level}
             onPress={() => brandSheetRef.current?.show(aiResult?.brand?.detected || undefined)}
-          >
-            <Text style={styles.fieldRowLabel}>MARQUE</Text>
-            <View style={styles.fieldRowValueContainer}>
-              <Text
-                style={[
-                  styles.fieldRowValue,
-                  !fields.brand && styles.fieldRowPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {fields.brand || 'Sélectionner'}
-              </Text>
-              {aiResult?.brand?.confidence?.level && (
-                <View style={styles.aiBadge}>
-                  <Text style={styles.aiBadgeText}>IA</Text>
-                </View>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
-
-          {/* Size row */}
-          <Pressable
-            style={({ pressed }) => [styles.fieldRow, pressed && { opacity: 0.7 }]}
+          />
+          <FieldRow
+            label="TAILLE"
+            value={fields.size}
+            hasAiConfidence={!!aiResult?.size?.confidence?.level}
             onPress={() => sizeSheetRef.current?.show()}
-          >
-            <Text style={styles.fieldRowLabel}>TAILLE</Text>
-            <View style={styles.fieldRowValueContainer}>
-              <Text
-                style={[
-                  styles.fieldRowValue,
-                  !fields.size && styles.fieldRowPlaceholder,
-                ]}
-              >
-                {fields.size || 'Sélectionner'}
-              </Text>
-              {aiResult?.size?.confidence?.level && (
-                <View style={styles.aiBadge}>
-                  <Text style={styles.aiBadgeText}>IA</Text>
-                </View>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
+          />
         </FormFieldGroup>
 
-        {/* Color chips */}
-        <View style={styles.chipSection}>
-          <View style={styles.chipHeader}>
-            <Text style={styles.chipLabel}>Couleur</Text>
-            {aiResult?.colors?.confidence?.level && (
-              <View style={styles.aiBadge}>
-                <Text style={styles.aiBadgeText}>IA</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.chipRow}>
-            {/* AI-suggested colors first */}
-            {aiColorIds.map((colorId) => {
-              const colorData = dataColors.find(
-                (c) => c.id === colorId || c.name.toLowerCase() === colorId.toLowerCase()
-              );
-              const isSelected = fields.colors.includes(colorId);
-              return (
-                <Pressable
-                  key={colorId}
-                  style={({ pressed }) => [
-                    styles.chip,
-                    !isSelected && styles.chipAISuggested,
-                    isSelected && styles.chipAISuggestedActive,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => {
-                    const newColors = isSelected
-                      ? fields.colors.filter((c) => c !== colorId)
-                      : [...fields.colors, colorId];
-                    updateField('colors', newColors);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      isSelected && styles.chipTextSelected,
-                    ]}
-                  >
-                    {colorData?.name || colorId}
-                  </Text>
-                </Pressable>
-              );
-            })}
-            {/* User-selected colors NOT in AI suggestions */}
-            {fields.colors
-              .filter((colorId) => !aiColorIds.includes(colorId))
-              .map((colorId) => {
-                const colorData = dataColors.find(
-                  (c) => c.id === colorId || c.name.toLowerCase() === colorId.toLowerCase()
-                );
-                const colorItem = allColorItems.find((c) => c.value === colorId);
-                return (
-                  <Pressable
-                    key={colorId}
-                    style={({ pressed }) => [styles.chip, styles.chipSelected, pressed && { opacity: 0.7 }]}
-                    onPress={() => {
-                      const newColors = fields.colors.filter((c) => c !== colorId);
-                      updateField('colors', newColors);
-                    }}
-                  >
-                    <Text style={[styles.chipText, styles.chipTextSelected]}>
-                      {colorData?.name || colorItem?.label || colorId}
-                    </Text>
-                    <Ionicons name="close" size={10} color={colors.white} />
-                  </Pressable>
-                );
-              })}
-            {/* View all button */}
-            <Pressable
-              style={({ pressed }) => [styles.chipViewAll, pressed && { opacity: 0.7 }]}
-              onPress={() => colorSheetRef.current?.show()}
-            >
-              <Text style={styles.chipViewAllText}>Toutes</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.muted} />
-            </Pressable>
-          </View>
-        </View>
+        <ChipSelector
+          label="Couleur"
+          selectedValues={fields.colors}
+          aiSuggestedIds={aiColorIds}
+          allItems={allColorItems}
+          hasAiConfidence={!!aiResult?.colors?.confidence?.level}
+          onToggle={handleColorToggle}
+          onViewAll={() => colorSheetRef.current?.show()}
+          resolveLabel={resolveColorLabel}
+        />
 
-        {/* Material chips */}
-        <View style={styles.chipSection}>
-          <View style={styles.chipHeader}>
-            <Text style={styles.chipLabel}>Matière</Text>
-            {aiResult?.materials?.confidence?.level && (
-              <View style={styles.aiBadge}>
-                <Text style={styles.aiBadgeText}>IA</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.chipRow}>
-            {aiMaterialIds.map((matId) => {
-              const matData = allMaterialItems.find((m) => m.value === matId);
-              const isSelected = fields.materials.includes(matId);
-              return (
-                <Pressable
-                  key={matId}
-                  style={({ pressed }) => [
-                    styles.chip,
-                    !isSelected && styles.chipAISuggested,
-                    isSelected && styles.chipAISuggestedActive,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => {
-                    const newMaterials = isSelected
-                      ? fields.materials.filter((m) => m !== matId)
-                      : [...fields.materials, matId];
-                    updateField('materials', newMaterials);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      isSelected && styles.chipTextSelected,
-                    ]}
-                  >
-                    {matData?.label || matId}
-                  </Text>
-                </Pressable>
-              );
-            })}
-            {/* User-selected materials NOT in AI suggestions */}
-            {fields.materials
-              .filter((matId) => !aiMaterialIds.includes(matId))
-              .map((matId) => {
-                const matData = allMaterialItems.find((m) => m.value === matId);
-                return (
-                  <Pressable
-                    key={matId}
-                    style={({ pressed }) => [styles.chip, styles.chipSelected, pressed && { opacity: 0.7 }]}
-                    onPress={() => {
-                      const newMaterials = fields.materials.filter((m) => m !== matId);
-                      updateField('materials', newMaterials);
-                    }}
-                  >
-                    <Text style={[styles.chipText, styles.chipTextSelected]}>
-                      {matData?.label || matId}
-                    </Text>
-                    <Ionicons name="close" size={10} color={colors.white} />
-                  </Pressable>
-                );
-              })}
-            <Pressable
-              style={({ pressed }) => [styles.chipViewAll, pressed && { opacity: 0.7 }]}
-              onPress={() => materialSheetRef.current?.show()}
-            >
-              <Text style={styles.chipViewAllText}>Toutes</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.muted} />
-            </Pressable>
-          </View>
-        </View>
+        <ChipSelector
+          label="Matière"
+          selectedValues={fields.materials}
+          aiSuggestedIds={aiMaterialIds}
+          allItems={allMaterialItems}
+          hasAiConfidence={!!aiResult?.materials?.confidence?.level}
+          onToggle={handleMaterialToggle}
+          onViewAll={() => materialSheetRef.current?.show()}
+        />
       </ScrollView>
 
-      {/* Sticky footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.continueButton,
-            !isFormValid && styles.continueButtonDisabled,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={handleContinue}
-          disabled={!isFormValid}
-        >
-          <Text
-            style={[
-              styles.continueButtonText,
-              !isFormValid && styles.continueButtonTextDisabled,
-            ]}
-          >
-            CONTINUER
-          </Text>
-          <Ionicons
-            name="arrow-forward"
-            size={18}
-            color={isFormValid ? colors.cream : colors.muted}
-          />
-        </Pressable>
-      </View>
+      <SellFooter
+        label="CONTINUER"
+        onPress={handleContinue}
+        isValid={isFormValid}
+        bottomInset={insets.bottom}
+      />
 
       {/* Bottom Sheets */}
       <CategoryBottomSheet
@@ -574,12 +339,7 @@ export default function DetailsScreen() {
         title="Couleur"
         items={allColorItems}
         selectedValues={fields.colors}
-        onSelect={(value) => {
-          const newColors = fields.colors.includes(value)
-            ? fields.colors.filter((c) => c !== value)
-            : [...fields.colors, value];
-          updateField('colors', newColors);
-        }}
+        onSelect={(value) => handleColorToggle(value)}
         onSelectMultiple={(values) => updateField('colors', values)}
         type="color"
         multiSelect
@@ -589,12 +349,7 @@ export default function DetailsScreen() {
         title="Matière"
         items={allMaterialItems}
         selectedValues={fields.materials}
-        onSelect={(value) => {
-          const newMats = fields.materials.includes(value)
-            ? fields.materials.filter((m) => m !== value)
-            : [...fields.materials, value];
-          updateField('materials', newMats);
-        }}
+        onSelect={(value) => handleMaterialToggle(value)}
         onSelectMultiple={(values) => updateField('materials', values)}
         multiSelect
       />
@@ -622,215 +377,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surfaceWarm,
   },
-  // Photo strip — now inside ScrollView, larger photos
-  photoStripContainer: {
-    marginBottom: 20,
-    marginHorizontal: -20,
-  },
-  photoStrip: {
-    paddingHorizontal: 20,
-    paddingTop: 0,
-    paddingBottom: 0,
-    gap: 8,
-  },
-  photoThumb: {
-    width: 90,
-    height: 120,
-    borderRadius: 4,
-  },
-  // Scroll
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
-  },
-  // Textarea fields — matches design .textarea-field (label INSIDE bordered card)
-  textareaField: {
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: 4,
-    backgroundColor: colors.white,
-    marginBottom: 14,
-    overflow: 'hidden',
-  },
-  textareaLabel: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  textareaLabelRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  textFieldLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    letterSpacing: 0.88,
-    color: colors.muted,
-    textTransform: 'uppercase',
-  },
-  charCount: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    color: colors.muted,
-  },
-  textareaContent: {
-    paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 14,
-    fontFamily: fonts.sans,
-    fontSize: 15,
-    color: colors.charcoal,
-    lineHeight: 22,
-  },
-  textareaMultiline: {
-    minHeight: 80,
-    fontSize: 13,
-    lineHeight: 21,
-  },
-  // AI badge — matches design .ai-fill-badge (pill shape)
-  aiBadge: {
-    backgroundColor: colors.sageLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 100,
-    marginLeft: 8,
-  },
-  aiBadgeText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    color: colors.sage,
-    letterSpacing: 0.72,
-  },
-  // Field rows — matches design .field-row (13px 16px padding)
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  fieldRowLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    letterSpacing: 0.88,
-    color: colors.muted,
-    width: 80,
-    textTransform: 'uppercase',
-  },
-  fieldRowValueContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  fieldRowValue: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    color: colors.charcoal,
-  },
-  fieldRowPlaceholder: {
-    color: colors.muted,
-  },
-  // Chip sections — matches design inline styles
-  chipSection: {
-    marginBottom: 14,
-  },
-  chipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  chipLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    letterSpacing: 0.88,
-    color: colors.muted,
-    textTransform: 'uppercase',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 2,
-    backgroundColor: colors.white,
-  },
-  chipSelected: {
-    backgroundColor: colors.charcoal,
-    borderColor: colors.charcoal,
-  },
-  chipAISuggested: {
-    borderColor: 'rgba(122,140,110,0.4)',
-    backgroundColor: 'rgba(122,140,110,0.06)',
-  },
-  chipAISuggestedActive: {
-    backgroundColor: colors.sage,
-    borderColor: colors.sage,
-  },
-  chipText: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.charcoal,
-    letterSpacing: 0.44,
-  },
-  chipTextSelected: {
-    color: colors.white,
-  },
-  chipViewAll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  chipViewAllText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    color: colors.muted,
-    letterSpacing: 0.2,
-  },
-  // Footer — matches design .sticky-footer (cream bg, 24px horizontal)
-  footer: {
-    backgroundColor: colors.cream,
-    paddingTop: 16,
-    paddingHorizontal: 24,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.charcoal,
-    paddingVertical: 16,
-    borderRadius: radius.md,
-    gap: 10,
-  },
-  continueButtonDisabled: {
-    backgroundColor: colors.border,
-  },
-  continueButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 2.16,
-    color: colors.cream,
-  },
-  continueButtonTextDisabled: {
-    color: colors.muted,
   },
 });
