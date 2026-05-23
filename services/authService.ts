@@ -367,9 +367,16 @@ export class AuthService {
     }
   }
 
-  /**
-   * Re-authentifier l'utilisateur avec mot de passe
-   */
+  static getAuthProvider(): 'password' | 'google.com' | 'apple.com' | 'unknown' {
+    const user = auth.currentUser;
+    if (!user) return 'unknown';
+    const providers = user.providerData.map(p => p.providerId);
+    if (providers.includes('apple.com')) return 'apple.com';
+    if (providers.includes('google.com')) return 'google.com';
+    if (providers.includes('password')) return 'password';
+    return 'unknown';
+  }
+
   static async reauthenticate(password: string): Promise<void> {
     const user = auth.currentUser;
     if (!user || !user.email) throw new Error('Utilisateur non connecté');
@@ -380,6 +387,52 @@ export class AuthService {
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
+  }
+
+  static async reauthenticateWithGoogle(): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non connecté');
+
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const userInfo = await GoogleSignin.signIn();
+    const idToken = (userInfo as any)?.idToken ?? (userInfo as any)?.data?.idToken;
+    if (!idToken) throw new Error('Erreur de réauthentification Google');
+
+    const credential = GoogleAuthProvider.credential(idToken);
+    await reauthenticateWithCredential(user, credential);
+  }
+
+  static async reauthenticateWithApple(): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non connecté');
+
+    const nonceBytes = await Crypto.getRandomBytesAsync(32);
+    const nonce = Array.from(new Uint8Array(nonceBytes))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    const hashedNonce = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      nonce
+    );
+
+    const appleCredential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+
+    if (!appleCredential.identityToken) {
+      throw new Error('Réauthentification Apple échouée');
+    }
+
+    const provider = new OAuthProvider('apple.com');
+    const credential = provider.credential({
+      idToken: appleCredential.identityToken,
+      rawNonce: nonce,
+    });
+    await reauthenticateWithCredential(user, credential);
   }
 
   /**

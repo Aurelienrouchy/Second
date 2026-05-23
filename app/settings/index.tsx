@@ -4,6 +4,7 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
+import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
 import { Button } from '@/components/ui';
@@ -66,6 +67,8 @@ const SettingSection = ({ title, children }: { title: string; children: React.Re
 export default function SettingsScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
+  const authProvider = AuthService.getAuthProvider();
+  const isPasswordUser = authProvider === 'password';
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -104,22 +107,26 @@ export default function SettingsScreen() {
             subtitle="Photo, nom, bio"
             onPress={() => router.push('/settings/profile-details')}
           />
-          <SettingItem
-            icon="mail-outline"
-            title="Email"
-            subtitle="Modifier votre adresse email"
-            onPress={() => router.push('/settings/email')}
-          />
+          {isPasswordUser && (
+            <SettingItem
+              icon="mail-outline"
+              title="Email"
+              subtitle="Modifier votre adresse email"
+              onPress={() => router.push('/settings/email')}
+            />
+          )}
           <SettingItem
             icon="call-outline"
             title="Numéro de téléphone"
             onPress={() => router.push('/settings/phone')}
           />
-          <SettingItem
-            icon="lock-closed-outline"
-            title="Mot de passe"
-            onPress={() => router.push('/settings/password')}
-          />
+          {isPasswordUser && (
+            <SettingItem
+              icon="lock-closed-outline"
+              title="Mot de passe"
+              onPress={() => router.push('/settings/password')}
+            />
+          )}
         </SettingSection>
 
         {/* Envoi & Livraison */}

@@ -28,12 +28,33 @@ export default function DeleteAccountScreen() {
   const [password, setPassword] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [reauthDone, setReauthDone] = useState(false);
   const [step, setStep] = useState<'info' | 'confirm'>('info');
+
+  const provider = AuthService.getAuthProvider();
+  const isPasswordUser = provider === 'password';
+
+  const handleReauthSocial = async () => {
+    setLoading(true);
+    try {
+      if (provider === 'google.com') {
+        await AuthService.reauthenticateWithGoogle();
+      } else {
+        await AuthService.reauthenticateWithApple();
+      }
+      setReauthDone(true);
+    } catch (error: any) {
+      if (error.code !== 'ERR_REQUEST_CANCELED' && error.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Erreur', 'La vérification a échoué. Veuillez réessayer.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDeleteAccount = async () => {
     if (!user) return;
 
-    // Vérifier que l'utilisateur a tapé SUPPRIMER
     if (confirmText !== 'SUPPRIMER') {
       Alert.alert('Erreur', 'Veuillez taper SUPPRIMER pour confirmer');
       return;
@@ -41,16 +62,13 @@ export default function DeleteAccountScreen() {
 
     setLoading(true);
     try {
-      // 1. Ré-authentifier l'utilisateur
-      await AuthService.reauthenticate(password);
+      if (isPasswordUser) {
+        await AuthService.reauthenticate(password);
+      }
 
-      // 2. Supprimer toutes les données Firestore
       await UserService.deleteAllUserData(user.id);
-
-      // 3. Supprimer le compte Firebase Auth
       await AuthService.deleteAccount();
 
-      // 4. Déconnecter et rediriger
       Alert.alert(
         'Compte supprimé',
         'Votre compte et toutes vos données ont été supprimés définitivement.',
@@ -136,6 +154,10 @@ export default function DeleteAccountScreen() {
     </View>
   );
 
+  const canDelete = isPasswordUser
+    ? !!password && confirmText === 'SUPPRIMER'
+    : reauthDone && confirmText === 'SUPPRIMER';
+
   const renderConfirmStep = () => (
     <View style={styles.stepContent}>
       {/* Confirm Header */}
@@ -147,19 +169,49 @@ export default function DeleteAccountScreen() {
         <Caption style={styles.confirmSubtitle}>Cette action ne peut pas être annulée</Caption>
       </View>
 
-      {/* Password Input */}
-      <View style={styles.inputSection}>
-        <Label style={styles.inputLabel}>Mot de passe actuel</Label>
-        <TextInput
-          style={styles.input}
-          placeholder="Entrez votre mot de passe"
-          placeholderTextColor={colors.muted}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          autoCapitalize="none"
-        />
-      </View>
+      {/* Re-authentication */}
+      {isPasswordUser ? (
+        <View style={styles.inputSection}>
+          <Label style={styles.inputLabel}>Mot de passe actuel</Label>
+          <TextInput
+            style={styles.input}
+            placeholder="Entrez votre mot de passe"
+            placeholderTextColor={colors.muted}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+          />
+        </View>
+      ) : (
+        <View style={styles.inputSection}>
+          <Label style={styles.inputLabel}>Vérification d'identité</Label>
+          {reauthDone ? (
+            <View style={styles.reauthSuccess}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+              <Caption style={{ color: colors.success, flex: 1 }}>Identité vérifiée</Caption>
+            </View>
+          ) : (
+            <Button
+              variant="secondary"
+              fullWidth
+              loading={loading}
+              onPress={handleReauthSocial}
+              leftIcon={
+                <Ionicons
+                  name={provider === 'google.com' ? 'logo-google' : 'logo-apple'}
+                  size={18}
+                  color={colors.foreground}
+                />
+              }
+            >
+              {provider === 'google.com'
+                ? 'Se reconnecter avec Google'
+                : 'Se reconnecter avec Apple'}
+            </Button>
+          )}
+        </View>
+      )}
 
       {/* Confirm Text Input */}
       <View style={styles.inputSection}>
@@ -182,7 +234,7 @@ export default function DeleteAccountScreen() {
           variant="danger"
           fullWidth
           loading={loading}
-          disabled={!password || confirmText !== 'SUPPRIMER'}
+          disabled={!canDelete}
           onPress={handleDeleteAccount}
           leftIcon={<Ionicons name="trash" size={18} color={colors.white} />}
         >
@@ -323,5 +375,13 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     borderWidth: 1.5,
     borderColor: colors.border,
+  },
+  reauthSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.sm,
+    padding: spacing.md,
   },
 });
