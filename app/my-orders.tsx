@@ -19,13 +19,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface OrderItem {
@@ -157,8 +157,25 @@ export default function MyOrdersScreen() {
       <ScreenHeader title="Mes commandes" onBack={() => router.back()} />
 
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={{ paddingVertical: spacing.sm }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <View key={i} style={styles.card}>
+              <Skeleton
+                width={72}
+                height={72}
+                borderRadius={radius.sm}
+              />
+              <View style={[styles.cardInfo, { gap: 6 }]}>
+                <Skeleton width="70%" height={14} />
+                <Skeleton width="35%" height={16} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Skeleton width={8} height={8} borderRadius={4} />
+                  <Skeleton width="50%" height={11} />
+                </View>
+                <Skeleton width="30%" height={11} />
+              </View>
+            </View>
+          ))}
         </View>
       ) : orders.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -195,11 +212,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   listContent: {
     paddingVertical: spacing.sm,

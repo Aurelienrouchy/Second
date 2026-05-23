@@ -382,19 +382,6 @@ export const articleStyles = StyleSheet.create({
     color: colors.muted,
   },
 
-  // ── Loading State ──
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  loadingText: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    color: colors.muted,
-  },
-
   // ── Error State ──
   errorContainer: {
     flex: 1,

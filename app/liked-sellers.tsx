@@ -10,12 +10,12 @@ import { router } from 'expo-router';
 import React, { useCallback } from 'react';
 import { FlashList } from '@shopify/flash-list';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Skeleton } from '@/components/ui/Skeleton';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -221,8 +221,24 @@ export default function LikedSellersScreen() {
 
       {/* List */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+        <View style={styles.listContent}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <View key={i}>
+              <View style={styles.sellerCard}>
+                <Skeleton width={48} height={48} borderRadius={24} />
+                <View style={[styles.sellerInfo, { gap: 6 }]}>
+                  <Skeleton width="55%" height={15} />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Skeleton width={40} height={12} />
+                    <Skeleton width={60} height={12} />
+                    <Skeleton width={30} height={12} />
+                  </View>
+                </View>
+                <Skeleton width={36} height={36} borderRadius={radius.full} />
+              </View>
+              {i < 4 && <View style={styles.separator} />}
+            </View>
+          ))}
         </View>
       ) : (
         <FlashList
@@ -395,10 +411,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 });

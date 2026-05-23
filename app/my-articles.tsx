@@ -14,7 +14,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useRef } from 'react';
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   Animated,
   Platform,
@@ -26,6 +25,7 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function MyArticlesScreen() {
   const user = useUser();
@@ -257,9 +257,22 @@ export default function MyArticlesScreen() {
     return (
       <View style={styles.container}>
         <ScreenHeader title="Mes articles" onBack={() => router.back()} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement de vos articles...</Text>
+        <View style={styles.skeletonList}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <View key={i} style={styles.skeletonArticleItem}>
+              <Skeleton width={80} height={80} borderRadius={radius.md} />
+              <View style={styles.skeletonArticleInfo}>
+                <Skeleton width="70%" height={14} />
+                <Skeleton width="30%" height={18} style={{ marginTop: spacing.xs }} />
+                <Skeleton width="40%" height={13} style={{ marginTop: spacing.xs }} />
+                <View style={styles.skeletonArticleStats}>
+                  <Skeleton width={40} height={14} />
+                  <Skeleton width={40} height={14} />
+                  <Skeleton width={52} height={22} borderRadius={radius.full} />
+                </View>
+              </View>
+            </View>
+          ))}
         </View>
       </View>
     );
@@ -312,15 +325,24 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  loadingContainer: {
+  skeletonList: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  loadingText: {
+  skeletonArticleItem: {
+    flexDirection: 'row',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    gap: spacing.sm,
+  },
+  skeletonArticleInfo: {
+    flex: 1,
+  },
+  skeletonArticleStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.sm,
-    ...typography.body,
-    color: colors.foregroundSecondary,
   },
   articleItemContainer: {
     position: 'relative',

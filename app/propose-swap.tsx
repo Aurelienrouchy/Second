@@ -17,6 +17,7 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import {
   SwapItemCard,
   SwapItemSelector,
@@ -226,9 +228,44 @@ export default function ProposeSwapScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.charcoal} />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {/* Top bar skeleton */}
+        <View style={styles.topBar}>
+          <View style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
+          </View>
+          <Skeleton width={160} height={20} />
+        </View>
+        <View style={styles.skeletonContent}>
+          {/* Target article section skeleton */}
+          <Skeleton width={80} height={10} style={{ marginBottom: spacing.sm }} />
+          <View style={styles.skeletonItemCard}>
+            <Skeleton width={56} height={56} borderRadius={radius.sm} />
+            <View style={{ flex: 1 }}>
+              <Skeleton width="60%" height={14} />
+              <Skeleton width="30%" height={16} style={{ marginTop: spacing.sm }} />
+            </View>
+          </View>
+          {/* Separator skeleton */}
+          <View style={styles.skeletonSeparator}>
+            <Skeleton width="40%" height={1} />
+            <Skeleton width={32} height={32} borderRadius={16} />
+            <Skeleton width="40%" height={1} />
+          </View>
+          {/* My articles grid skeleton */}
+          <Skeleton width={120} height={10} style={{ marginBottom: spacing.sm }} />
+          <View style={styles.skeletonGrid}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View key={i} style={styles.skeletonItemCard}>
+                <Skeleton width={56} height={56} borderRadius={radius.sm} />
+                <View style={{ flex: 1 }}>
+                  <Skeleton width="50%" height={14} />
+                  <Skeleton width="25%" height={16} style={{ marginTop: spacing.sm }} />
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -496,10 +533,30 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  skeletonContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  skeletonItemCard: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.white,
+    marginBottom: spacing.sm,
+  },
+  skeletonSeparator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginVertical: spacing.lg,
+  },
+  skeletonGrid: {
+    gap: spacing.sm,
   },
 
   // ===== TOP BAR =====

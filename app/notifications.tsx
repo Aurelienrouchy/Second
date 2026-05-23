@@ -10,13 +10,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -189,9 +189,29 @@ export default function NotificationsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <ScreenHeader title="Notifications" onBack={() => router.back()} />
+          <View style={{ paddingVertical: spacing.sm }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <View key={i} style={styles.notificationItem}>
+                <Skeleton
+                  width={48}
+                  height={48}
+                  borderRadius={radius.full}
+                  style={{ marginRight: spacing.md }}
+                />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Skeleton width="60%" height={14} />
+                  <Skeleton width="85%" height={13} />
+                  <Skeleton width="25%" height={12} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </>
     );
   }
 
@@ -253,10 +273,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerButton: {
     padding: spacing.sm,

@@ -1,3 +1,7 @@
+// DEPRECATED: this screen is unused, search.tsx has inline filters via SearchFiltersBottomSheet.
+// FiltersModal.tsx references this route but is itself never imported.
+// Safe to remove in a future cleanup pass.
+
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';

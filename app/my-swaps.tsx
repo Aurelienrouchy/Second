@@ -9,7 +9,6 @@ import {
   View,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -25,6 +24,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { Swap, SwapStatus, SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Button } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDisplayName } from '@/utils/formatName';
 
 const STATUS_LABELS: Record<SwapStatus, string> = {
@@ -94,8 +94,37 @@ export default function MySwapsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ title: 'Mes échanges' }} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        {/* Filter tabs skeleton */}
+        <View style={styles.filterContainer}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} width="22%" height={28} borderRadius={radius.full} />
+          ))}
+        </View>
+        {/* Swap cards skeleton */}
+        <View style={styles.skeletonList}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <View key={i} style={styles.skeletonSwapCard}>
+              {/* Header: avatar + name + status */}
+              <View style={styles.skeletonSwapHeader}>
+                <View style={styles.skeletonSwapUser}>
+                  <Skeleton width={32} height={32} borderRadius={16} />
+                  <Skeleton width={90} height={14} />
+                </View>
+                <Skeleton width={64} height={22} borderRadius={radius.full} />
+              </View>
+              {/* Two images + swap icon */}
+              <View style={styles.skeletonSwapImages}>
+                <Skeleton width={80} height={80} borderRadius={0} />
+                <Skeleton width={36} height={36} borderRadius={18} />
+                <Skeleton width={80} height={80} borderRadius={0} />
+              </View>
+              {/* Footer: prices + date */}
+              <View style={styles.skeletonSwapFooter}>
+                <Skeleton width="50%" height={13} />
+                <Skeleton width={50} height={11} />
+              </View>
+            </View>
+          ))}
         </View>
       </SafeAreaView>
     );
@@ -368,9 +397,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
+  skeletonList: {
+    padding: spacing.md,
+  },
+  skeletonSwapCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  skeletonSwapHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  skeletonSwapUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  skeletonSwapImages: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  skeletonSwapFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   filterContainer: {

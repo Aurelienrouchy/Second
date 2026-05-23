@@ -18,6 +18,7 @@ import {
     TextInput,
     View,
 } from 'react-native';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import components
@@ -349,9 +350,48 @@ export default function ChatScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement...</Text>
+        {/* Header skeleton */}
+        <View style={styles.header}>
+          <Skeleton width={36} height={36} borderRadius={radius.full} />
+          <View style={styles.headerCenter}>
+            <Skeleton width={36} height={36} borderRadius={radius.full} />
+            <View style={styles.headerInfo}>
+              <Skeleton width="60%" height={14} />
+              <Skeleton width="30%" height={11} style={{ marginTop: 4 }} />
+            </View>
+          </View>
+          <Skeleton width={36} height={36} borderRadius={radius.full} />
+        </View>
+        {/* Article bar skeleton */}
+        <View style={[styles.header, { backgroundColor: colors.white, paddingVertical: spacing.sm }]}>
+          <Skeleton width={48} height={60} borderRadius={radius.xs} />
+          <View style={{ flex: 1, marginLeft: spacing.md, gap: 4 }}>
+            <Skeleton width="55%" height={14} />
+            <Skeleton width="25%" height={18} />
+          </View>
+        </View>
+        {/* Message bubbles skeleton */}
+        <View style={{ flex: 1, padding: spacing.md, gap: spacing.md }}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Skeleton width={28} height={28} borderRadius={radius.full} />
+            <Skeleton width="55%" height={48} borderRadius={radius.md} />
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Skeleton width="45%" height={36} borderRadius={radius.md} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Skeleton width={28} height={28} borderRadius={radius.full} />
+            <Skeleton width="65%" height={60} borderRadius={radius.md} />
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Skeleton width="40%" height={36} borderRadius={radius.md} />
+          </View>
+        </View>
+        {/* Input bar skeleton */}
+        <View style={styles.inputContainer}>
+          <Skeleton width={36} height={36} borderRadius={radius.full} />
+          <Skeleton width="100%" height={40} borderRadius={radius.md} style={{ flex: 1 }} />
+          <Skeleton width={36} height={36} borderRadius={radius.full} />
         </View>
       </SafeAreaView>
     );
@@ -566,17 +606,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  loadingText: {
-    fontFamily: fonts.sans,
-    fontSize: 16,
-    color: colors.muted,
   },
   errorContainer: {
     flex: 1,

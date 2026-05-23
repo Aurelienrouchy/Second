@@ -17,6 +17,7 @@ import {
 import { FlashList } from '@shopify/flash-list';
 
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useUser } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
@@ -162,9 +163,28 @@ export default function SellerBalanceScreen() {
     return (
       <View style={styles.container}>
         <ScreenHeader title="Mon solde" onBack={() => router.back()} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement...</Text>
+        <View style={styles.content}>
+          {/* Balance cards skeleton */}
+          <View style={styles.skeletonBalanceCards}>
+            <Skeleton width="48%" height={110} borderRadius={radius.xl} />
+            <Skeleton width="48%" height={110} borderRadius={radius.xl} />
+          </View>
+          {/* Total card skeleton */}
+          <Skeleton width="100%" height={52} borderRadius={radius.lg} style={{ marginTop: spacing.md }} />
+          {/* Transaction list skeleton */}
+          <View style={{ marginTop: spacing.xl }}>
+            <Skeleton width={100} height={18} style={{ marginBottom: spacing.md }} />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View key={i} style={styles.skeletonTransaction}>
+                <Skeleton width={40} height={40} borderRadius={9999} />
+                <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                  <Skeleton width="60%" height={14} />
+                  <Skeleton width="30%" height={12} style={{ marginTop: spacing.xs }} />
+                </View>
+                <Skeleton width={60} height={18} />
+              </View>
+            ))}
+          </View>
         </View>
       </View>
     );
@@ -317,15 +337,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  skeletonBalanceCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
   },
-  loadingText: {
-    marginTop: spacing.md,
-    ...typography.body,
-    color: colors.muted,
+  skeletonTransaction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   content: {
     flex: 1,

@@ -11,7 +11,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Linking,
   Pressable,
   ScrollView,
@@ -19,6 +18,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Image } from 'expo-image';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -105,9 +105,42 @@ export default function ShopDetailScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement...</Text>
+        {/* Header skeleton */}
+        <View style={styles.header}>
+          <Skeleton width={24} height={24} borderRadius={4} />
+          <Skeleton width="45%" height={18} style={{ marginHorizontal: 16 }} />
+          <View style={styles.placeholder} />
+        </View>
+        {/* Main image */}
+        <Skeleton width="100%" height={300} borderRadius={0} />
+        {/* Thumbnails */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 12, gap: 8 }}>
+          <Skeleton width={80} height={80} borderRadius={4} />
+          <Skeleton width={80} height={80} borderRadius={4} />
+          <Skeleton width={80} height={80} borderRadius={4} />
+        </View>
+        {/* Shop info */}
+        <View style={styles.infoContainer}>
+          {/* Logo + name */}
+          <View style={styles.nameContainer}>
+            <Skeleton width={60} height={60} borderRadius={30} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Skeleton width="65%" height={24} />
+              <Skeleton width="40%" height={14} />
+            </View>
+          </View>
+          {/* Type badge */}
+          <Skeleton width={120} height={28} borderRadius={20} style={{ marginBottom: 16 }} />
+          {/* Description lines */}
+          <Skeleton width="100%" height={16} style={{ marginBottom: 6 }} />
+          <Skeleton width="100%" height={16} style={{ marginBottom: 6 }} />
+          <Skeleton width="60%" height={16} style={{ marginBottom: 24 }} />
+          {/* Action buttons */}
+          <View style={styles.actionsContainer}>
+            <Skeleton width="100%" height={44} borderRadius={0} style={{ flex: 1 }} />
+            <Skeleton width="100%" height={44} borderRadius={0} style={{ flex: 1 }} />
+            <Skeleton width="100%" height={44} borderRadius={0} style={{ flex: 1 }} />
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -330,16 +363,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: colors.muted,
   },
   errorContainer: {
     flex: 1,

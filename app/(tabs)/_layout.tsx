@@ -94,6 +94,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Accueil',
+          tabBarAccessibilityLabel: 'Accueil',
           tabBarIcon: ({ color }) => <HomeIcon color={color} />,
         }}
       />
@@ -101,6 +102,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Messages',
+          tabBarAccessibilityLabel: 'Messages',
           tabBarIcon: ({ color }) => (
             <IconWithBadge count={unreadMessageCount}>
               <MessageIcon color={color} />
@@ -112,6 +114,7 @@ export default function TabLayout() {
         name="sell"
         options={{
           title: 'Vendre',
+          tabBarAccessibilityLabel: 'Vendre',
           tabBarIcon: () => <SellTabIcon />,
         }}
         listeners={({ navigation }) => ({
@@ -130,6 +133,7 @@ export default function TabLayout() {
         name="favorites"
         options={{
           title: 'Favoris',
+          tabBarAccessibilityLabel: 'Favoris',
           tabBarIcon: ({ color }) => <HeartIcon color={color} />,
         }}
       />
@@ -137,6 +141,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profil',
+          tabBarAccessibilityLabel: 'Profil',
           // Notifications badge is shown on the bell icon in the header,
           // not on the profile tab (avoids confusion with profile-specific alerts).
           tabBarIcon: ({ color }) => <UserIcon color={color} />,

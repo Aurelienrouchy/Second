@@ -160,6 +160,8 @@ const SaveButton: React.FC<{
         onPress={handlePress}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         testID={testID}
+        accessibilityLabel={isLiked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        accessibilityRole="button"
       >
         <Ionicons
           name={isLiked ? 'heart' : 'heart-outline'}

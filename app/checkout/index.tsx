@@ -15,7 +15,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { ArticlesService } from '@/services/articlesService';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatPrice } from '@/utils/formatPrice';
@@ -95,8 +95,25 @@ export default function CheckoutScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.charcoal} />
+      <View style={styles.container}>
+        <ScreenHeader title="Commander" onBack={handleBack} />
+        <View style={styles.skeletonContent}>
+          {/* Article summary skeleton */}
+          <Skeleton width="30%" height={10} style={{ marginBottom: spacing.sm }} />
+          <View style={styles.skeletonArticle}>
+            <Skeleton width={64} height={80} borderRadius={0} />
+            <View style={styles.skeletonArticleInfo}>
+              <Skeleton width="40%" height={10} />
+              <Skeleton width="70%" height={16} style={{ marginTop: spacing.sm }} />
+              <Skeleton width="30%" height={20} style={{ marginTop: spacing.sm }} />
+              <Skeleton width="50%" height={10} style={{ marginTop: spacing.sm }} />
+            </View>
+          </View>
+          {/* Delivery options skeleton */}
+          <Skeleton width="40%" height={10} style={{ marginBottom: spacing.sm }} />
+          <Skeleton width="100%" height={90} borderRadius={radius.sm} style={{ marginBottom: spacing.sm }} />
+          <Skeleton width="100%" height={90} borderRadius={radius.sm} />
+        </View>
       </View>
     );
   }
@@ -459,5 +476,24 @@ const styles = StyleSheet.create({
   },
   ctaButtonTextDisabled: {
     color: colors.muted,
+  },
+
+  // Skeleton
+  skeletonContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  skeletonArticle: {
+    flexDirection: 'row',
+    gap: 14,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: 14,
+    marginBottom: spacing.lg,
+  },
+  skeletonArticleInfo: {
+    flex: 1,
   },
 });

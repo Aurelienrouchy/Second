@@ -23,6 +23,7 @@ import { httpsCallable } from 'firebase/functions';
 import { useQuery } from '@tanstack/react-query';
 
 import { ScreenHeader } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { HelcimPayment, HelcimPaymentResult } from '@/components/HelcimPayment';
 import { functions } from '@/config/firebaseConfig';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
@@ -143,9 +144,42 @@ export default function PaymentScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.charcoal} />
-        <Text style={styles.loadingText}>Chargement...</Text>
+      <View style={styles.container}>
+        <ScreenHeader title="Paiement" onBack={() => router.back()} />
+        <View style={styles.skeletonContent}>
+          {/* Section title skeleton */}
+          <Skeleton width={100} height={10} style={{ marginBottom: 12 }} />
+          {/* Summary card skeleton */}
+          <View style={styles.skeletonSummary}>
+            <View style={styles.skeletonRow}>
+              <Skeleton width="40%" height={13} />
+              <Skeleton width={60} height={13} />
+            </View>
+            <View style={styles.skeletonRow}>
+              <Skeleton width="30%" height={13} />
+              <Skeleton width={60} height={13} />
+            </View>
+            <View style={styles.skeletonRow}>
+              <Skeleton width="55%" height={13} />
+              <Skeleton width={60} height={13} />
+            </View>
+            <Skeleton width="100%" height={1} style={{ marginVertical: spacing.sm }} />
+            <View style={styles.skeletonRow}>
+              <Skeleton width="35%" height={14} />
+              <Skeleton width={80} height={22} />
+            </View>
+          </View>
+          {/* Address skeleton */}
+          <Skeleton width={140} height={10} style={{ marginTop: spacing.lg, marginBottom: 12 }} />
+          <View style={styles.skeletonAddress}>
+            <Skeleton width={18} height={18} borderRadius={9} />
+            <View style={{ flex: 1 }}>
+              <Skeleton width="50%" height={14} />
+              <Skeleton width="70%" height={13} style={{ marginTop: spacing.xs }} />
+              <Skeleton width="40%" height={13} style={{ marginTop: spacing.xs }} />
+            </View>
+          </View>
+        </View>
       </View>
     );
   }
@@ -265,15 +299,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
+  skeletonContent: {
+    padding: 20,
   },
-  loadingText: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    color: colors.muted,
+  skeletonSummary: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  skeletonAddress: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.md,
   },
   scrollView: {
     flex: 1,
