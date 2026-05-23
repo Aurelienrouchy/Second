@@ -39,7 +39,7 @@ export default function VerifyEmailScreen() {
       const verified = AuthService.isEmailVerified();
       setIsVerified(verified);
     } catch (error) {
-      console.error('Error checking verification status:', error);
+      if (__DEV__) console.error('Error checking verification status:', error);
     } finally {
       setChecking(false);
     }

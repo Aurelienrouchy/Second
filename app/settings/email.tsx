@@ -70,7 +70,7 @@ export default function EmailSettingsScreen() {
         ]
       );
     } catch (error: any) {
-      console.error('Error updating email:', error);
+      if (__DEV__) console.error('Error updating email:', error);
       Alert.alert('Erreur', error.message || 'Une erreur est survenue lors de la mise à jour de l\'email');
     } finally {
       setIsSaving(false);

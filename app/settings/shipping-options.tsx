@@ -51,7 +51,7 @@ export default function ShippingOptionsScreen() {
         setEnabledCarriers(CARRIERS.map(c => c.id));
       }
     } catch (error) {
-      console.error('Error loading preferences:', error);
+      if (__DEV__) console.error('Error loading preferences:', error);
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +77,7 @@ export default function ShippingOptionsScreen() {
           shippingCarriers: newCarriers
         });
       } catch (error) {
-        console.error('Error saving shipping preferences:', error);
+        if (__DEV__) console.error('Error saving shipping preferences:', error);
         // Revert on error avec l'état précédent capturé
         setEnabledCarriers(previousCarriers);
         Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');

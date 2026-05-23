@@ -89,7 +89,7 @@ export default function PreferencesScreen() {
         }
       }
     } catch (error) {
-      console.error('Error loading preferences:', error);
+      if (__DEV__) console.error('Error loading preferences:', error);
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +111,7 @@ export default function PreferencesScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      if (__DEV__) console.error('Error saving preferences:', error);
       Alert.alert('Erreur', "Une erreur est survenue lors de l'enregistrement");
     } finally {
       setIsSaving(false);
@@ -156,7 +156,7 @@ export default function PreferencesScreen() {
         city: reverseGeocode?.city || reverseGeocode?.subregion || 'Ma position',
       });
     } catch (error) {
-      console.error('Error getting location:', error);
+      if (__DEV__) console.error('Error getting location:', error);
       Alert.alert('Erreur', 'Impossible de récupérer votre position');
     } finally {
       setIsLoadingLocation(false);

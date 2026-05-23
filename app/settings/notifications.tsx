@@ -139,7 +139,7 @@ export default function NotificationsSettingsScreen() {
         setSettings(preferences.notifications);
       }
     } catch (error) {
-      console.error('Error loading notification preferences:', error);
+      if (__DEV__) console.error('Error loading notification preferences:', error);
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +153,7 @@ export default function NotificationsSettingsScreen() {
       try {
         await UserService.updateNotificationPreferences(user.id, newSettings);
       } catch (error) {
-        console.error('Error saving notification preferences:', error);
+        if (__DEV__) console.error('Error saving notification preferences:', error);
         setSettings(settings); // Revert on error
         Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
       }

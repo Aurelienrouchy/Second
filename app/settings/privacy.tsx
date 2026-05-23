@@ -74,7 +74,7 @@ export default function PrivacySettingsScreen() {
         setAllowSearchEngines(preferences.privacy.allowSearchEngines ?? false);
       }
     } catch (error) {
-      console.error('Error loading privacy preferences:', error);
+      if (__DEV__) console.error('Error loading privacy preferences:', error);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +91,7 @@ export default function PrivacySettingsScreen() {
     try {
       await UserService.updateUserPreferences(user.id, { privacy: newPrivacy });
     } catch (error) {
-      console.error('Error saving privacy preferences:', error);
+      if (__DEV__) console.error('Error saving privacy preferences:', error);
       Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
     }
   };

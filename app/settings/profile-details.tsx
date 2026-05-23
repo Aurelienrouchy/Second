@@ -64,7 +64,7 @@ export default function ProfileDetailsScreen() {
         setProfileImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      if (__DEV__) console.error('Error picking image:', error);
       Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
     }
   };
@@ -90,7 +90,7 @@ export default function ProfileDetailsScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
-      console.error('Error updating profile:', error);
+      if (__DEV__) console.error('Error updating profile:', error);
       Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour du profil');
     } finally {
       setIsSaving(false);

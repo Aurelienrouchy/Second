@@ -75,7 +75,7 @@ export default function PhoneSettingsScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
-      console.error('Error updating phone:', error);
+      if (__DEV__) console.error('Error updating phone:', error);
       Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour du numéro');
     } finally {
       setIsSaving(false);

@@ -66,7 +66,7 @@ export default function AddressSettingsScreen() {
                 { text: 'OK', onPress: () => router.back() }
               ]);
             } catch (error) {
-              console.error('Error updating address:', error);
+              if (__DEV__) console.error('Error updating address:', error);
               Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour de l\'adresse');
             } finally {
               setIsSaving(false);

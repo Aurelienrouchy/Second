@@ -80,7 +80,7 @@ export default function ExportDataScreen() {
 
       setExported(true);
     } catch (error: any) {
-      console.error('Error exporting data:', error);
+      if (__DEV__) console.error('Error exporting data:', error);
       Alert.alert(
         'Erreur',
         error.message || 'Une erreur est survenue lors de l\'export'

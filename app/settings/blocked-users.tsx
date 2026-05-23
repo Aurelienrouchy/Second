@@ -35,7 +35,7 @@ export default function BlockedUsersScreen() {
       const users = await ModerationService.getBlockedUsers(user.id);
       setBlockedUsers(users);
     } catch (error) {
-      console.error('Error loading blocked users:', error);
+      if (__DEV__) console.error('Error loading blocked users:', error);
     } finally {
       setLoading(false);
     }
