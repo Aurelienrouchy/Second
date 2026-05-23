@@ -33,6 +33,12 @@ function generateDefaultUsername(uid: string): string {
   return `user${uid.slice(-6)}`;
 }
 
+function isGenericDisplayName(name: string | null | undefined): boolean {
+  if (!name || name.trim().length === 0) return true;
+  const lower = name.toLowerCase().trim();
+  return lower.includes('utilisateur') || lower === 'user';
+}
+
 export class AuthService {
   /**
    * Initialise les services d'authentification
@@ -142,12 +148,16 @@ export class AuthService {
       const userCredential = await signInWithCredential(auth, googleCredential);
       const firebaseUser = userCredential.user;
       
+      const googleName = isGenericDisplayName(firebaseUser.displayName)
+        ? generateDefaultUsername(firebaseUser.uid)
+        : firebaseUser.displayName!;
+
       let userData = await this.getUserData(firebaseUser.uid);
       if (!userData) {
         userData = {
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || generateDefaultUsername(firebaseUser.uid),
+          displayName: googleName,
           profileImage: firebaseUser.photoURL || undefined,
           createdAt: new Date(),
           isActive: true,
@@ -166,6 +176,9 @@ export class AuthService {
         }
 
         await setDoc(doc(firestore, 'users', firebaseUser.uid), firestoreData);
+      } else if (isGenericDisplayName(userData.displayName)) {
+        await updateDoc(doc(firestore, 'users', firebaseUser.uid), { displayName: googleName });
+        userData.displayName = googleName;
       }
 
       return userData;
@@ -222,17 +235,19 @@ export class AuthService {
       const userCredential = await signInWithCredential(auth, appleCredential);
       const firebaseUser = userCredential.user;
 
+      const appleFullName = credential.fullName
+        ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
+        : '';
+      const resolvedName = appleFullName
+        || (isGenericDisplayName(firebaseUser.displayName) ? null : firebaseUser.displayName)
+        || generateDefaultUsername(firebaseUser.uid);
+
       let userData = await this.getUserData(firebaseUser.uid);
       if (!userData) {
-        const appleFullName = credential.fullName
-          ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
-          : '';
-        const displayName = appleFullName || firebaseUser.displayName || generateDefaultUsername(firebaseUser.uid);
-
         userData = {
           id: firebaseUser.uid,
           email: firebaseUser.email || credential.email || '',
-          displayName,
+          displayName: resolvedName,
           profileImage: firebaseUser.photoURL || undefined,
           createdAt: new Date(),
           isActive: true,
@@ -251,6 +266,9 @@ export class AuthService {
         }
 
         await setDoc(doc(firestore, 'users', firebaseUser.uid), firestoreData);
+      } else if (isGenericDisplayName(userData.displayName)) {
+        await updateDoc(doc(firestore, 'users', firebaseUser.uid), { displayName: resolvedName });
+        userData.displayName = resolvedName;
       }
 
       return userData;
