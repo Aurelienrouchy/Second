@@ -4,12 +4,12 @@
  * sage filter tabs, and detailed zone cards with pulsing indicators
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   RefreshControl,
   Text as RNText,
@@ -25,15 +25,17 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { useQuery } from '@tanstack/react-query';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import {
   getSwapParties,
   getActiveSwapParty,
   isParticipant,
 } from '@/services/swapService';
+import { queryKeys } from '@/lib/queryKeys';
 import { SwapParty } from '@/types';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 
 type FilterTab = 'all' | 'active' | 'upcoming' | 'my';
 
@@ -46,49 +48,39 @@ const FILTER_TABS: { label: string; value: FilterTab }[] = [
 
 
 export default function SwapPartiesScreen() {
-  const { user } = useAuth();
-  const [allParties, setAllParties] = useState<SwapParty[]>([]);
-  const [activeParty, setActiveParty] = useState<SwapParty | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [participatingIds, setParticipatingIds] = useState<Set<string>>(
-    new Set()
-  );
+  const user = useUser();
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
-  const loadParties = async () => {
-    try {
-      const [active, all] = await Promise.all([
+  const {
+    data,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: [...queryKeys.swapParties.list(), user?.id ?? 'guest'],
+    queryFn: async () => {
+      const [activeParty, allParties] = await Promise.all([
         getActiveSwapParty(),
         getSwapParties(),
       ]);
-      setActiveParty(active);
-      setAllParties(all);
 
+      let participatingIds = new Set<string>();
       if (user) {
-        const participating = new Set<string>();
-        for (const party of all) {
-          const isJoined = await isParticipant(party.id, user.id);
-          if (isJoined) participating.add(party.id);
-        }
-        setParticipatingIds(participating);
+        const results = await Promise.all(
+          allParties.map((party) => isParticipant(party.id, user.id))
+        );
+        allParties.forEach((party, i) => {
+          if (results[i]) participatingIds.add(party.id);
+        });
       }
-    } catch (error) {
-      if (__DEV__) console.error('Error loading parties:', error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
 
-  useEffect(() => {
-    loadParties();
-  }, [user]);
+      return { allParties, activeParty, participatingIds };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadParties();
-  };
+  const allParties = data?.allParties ?? [];
+  const participatingIds = data?.participatingIds ?? new Set<string>();
 
   const handlePartyPress = (partyId: string) => {
     router.push(`/swap-party/${partyId}`);
@@ -98,7 +90,7 @@ export default function SwapPartiesScreen() {
     router.back();
   };
 
-  const getFilteredParties = (): SwapParty[] => {
+  const filteredParties = useMemo((): SwapParty[] => {
     switch (activeFilter) {
       case 'active':
         return allParties.filter((p) => p.status === 'active');
@@ -110,9 +102,7 @@ export default function SwapPartiesScreen() {
       default:
         return allParties;
     }
-  };
-
-  const filteredParties = getFilteredParties();
+  }, [activeFilter, allParties, participatingIds]);
 
   if (isLoading) {
     return (
@@ -128,13 +118,13 @@ export default function SwapPartiesScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
+        <Pressable
           style={styles.backButton}
           onPress={handleBackPress}
-          activeOpacity={0.7}
+
         >
           <Ionicons name="chevron-back" size={24} color={colors.cream} />
-        </TouchableOpacity>
+        </Pressable>
         <RNText style={styles.headerTitle}>Swap Zones</RNText>
       </View>
 
@@ -146,14 +136,14 @@ export default function SwapPartiesScreen() {
         contentContainerStyle={styles.filterContentContainer}
       >
         {FILTER_TABS.map((tab) => (
-          <TouchableOpacity
+          <Pressable
             key={tab.value}
             style={[
               styles.filterTab,
               activeFilter === tab.value && styles.filterTabActive,
             ]}
             onPress={() => setActiveFilter(tab.value)}
-            activeOpacity={0.8}
+
           >
             <RNText
               style={[
@@ -163,7 +153,7 @@ export default function SwapPartiesScreen() {
             >
               {tab.label}
             </RNText>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </ScrollView>
 
@@ -174,8 +164,8 @@ export default function SwapPartiesScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={isRefetching}
+            onRefresh={refetch}
             tintColor={colors.cream}
           />
         }
@@ -311,15 +301,15 @@ function ZoneCard({ zone, isEnrolled, onPress, opacity = 1 }: ZoneCardProps) {
           </View>
 
           {/* CTA Button */}
-          <TouchableOpacity
+          <Pressable
             style={styles.activeCardButton}
             onPress={onPress}
-            activeOpacity={0.7}
+  
           >
             <RNText style={styles.activeCardButtonText}>
               Entrer dans la zone →
             </RNText>
-          </TouchableOpacity>
+          </Pressable>
         </LinearGradient>
       ) : isUpcoming ? (
         // Upcoming Zone Card
@@ -342,20 +332,20 @@ function ZoneCard({ zone, isEnrolled, onPress, opacity = 1 }: ZoneCardProps) {
 
           {/* Two Buttons Side by Side */}
           <View style={styles.upcomingButtonsRow}>
-            <TouchableOpacity
+            <Pressable
               style={styles.upcomingSignupButton}
               onPress={onPress}
-              activeOpacity={0.7}
+    
             >
               <RNText style={styles.upcomingSignupText}>S'inscrire</RNText>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Pressable>
+            <Pressable
               style={styles.upcomingPreviewButton}
               onPress={onPress}
-              activeOpacity={0.7}
+    
             >
               <RNText style={styles.upcomingPreviewText}>Aperçu</RNText>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       ) : (

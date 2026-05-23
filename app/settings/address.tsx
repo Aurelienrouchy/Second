@@ -12,7 +12,7 @@ import {
 import { GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors } from '@/constants/theme';
 
@@ -20,7 +20,8 @@ const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '
 
 export default function AddressSettingsScreen() {
   const router = useRouter();
-  const { user, refreshUser } = useAuth();
+  const user = useUser();
+  const { refreshUser } = useAuthActions();
   const addressRef = useRef<GooglePlacesAutocompleteRef>(null);
   
   const [isSaving, setIsSaving] = useState(false);

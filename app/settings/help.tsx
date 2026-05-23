@@ -8,9 +8,9 @@ import { Stack, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import React, { useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
   Alert,
 } from 'react-native';
@@ -57,10 +57,9 @@ const FAQItem = ({ icon, question, answer }: FAQItemProps) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <TouchableOpacity
-      style={styles.faqItem}
+    <Pressable
+      style={({ pressed }) => [styles.faqItem, pressed && { opacity: 0.7 }]}
       onPress={() => setExpanded(!expanded)}
-      activeOpacity={0.7}
     >
       <View style={styles.faqHeader}>
         <View style={styles.faqIconContainer}>
@@ -78,7 +77,7 @@ const FAQItem = ({ icon, question, answer }: FAQItemProps) => {
           <Caption style={styles.answer}>{answer}</Caption>
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 

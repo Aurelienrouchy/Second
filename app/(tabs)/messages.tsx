@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useChats } from '@/hooks/useChat';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -29,7 +29,7 @@ type ConversationType = 'achats' | 'ventes' | 'swaps';
 const chatKeyExtractor = (item: Chat): string => item.id;
 
 export default function MessagesScreen() {
-  const { user } = useAuth();
+  const user = useUser();
   const { showAuthSheet } = useAuthRequired();
   const router = useRouter();
   const { chats, isLoading, error } = useChats(user?.id || null);
@@ -239,7 +239,7 @@ const ConversationItem = React.memo(function ConversationItem({
   isUnread,
   unreadCount,
 }: ConversationItemProps) {
-  const { user } = useAuth();
+  const user = useUser();
   const otherParticipant = user
     ? chat.participantsInfo.find((p) => p.userId !== user.id)
     : null;

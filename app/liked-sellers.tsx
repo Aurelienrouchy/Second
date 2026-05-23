@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import { FlashList } from '@shopify/flash-list';
 import {
   ActivityIndicator,
@@ -25,13 +25,15 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDisplayName } from '@/utils/formatName';
 import { httpsCallable } from 'firebase/functions';
+import { useQuery } from '@tanstack/react-query';
 
 // Design System
 import { colors, fonts, spacing, radius, animations, typography } from '@/constants/theme';
 
-// Hooks
-import { useAuth } from '@/contexts/AuthContext';
+// Hooks & Services
+import { useUser } from '@/contexts/AuthContext';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
+import { queryKeys } from '@/lib/queryKeys';
 import { functions } from '@/config/firebaseConfig';
 
 // =============================================================================
@@ -153,34 +155,20 @@ const SellerCard: React.FC<SellerCardProps> = ({
 // =============================================================================
 
 export default function LikedSellersScreen() {
-  const { user } = useAuth();
+  const user = useUser();
   const { likedSellerIds, toggleLike } = useSellerLikes(user?.id);
-  const [sellers, setSellers] = useState<LikedSeller[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch liked sellers details
-  useEffect(() => {
-    const fetchSellers = async () => {
-      if (!user?.id) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const getLikedSellers = httpsCallable(functions, 'getLikedSellers');
-        const result = await getLikedSellers({});
-        const data = result.data as { sellers: LikedSeller[] };
-        setSellers(data.sellers || []);
-      } catch (err) {
-        console.error('Error fetching liked sellers:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSellers();
-  }, [user?.id, likedSellerIds.length]);
+  const { data: sellers = [], isLoading } = useQuery<LikedSeller[]>({
+    queryKey: queryKeys.sellers.liked(user?.id ?? ''),
+    queryFn: async () => {
+      const getLikedSellers = httpsCallable(functions, 'getLikedSellers');
+      const result = await getLikedSellers({});
+      const data = result.data as { sellers: LikedSeller[] };
+      return data.sellers || [];
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const handleSellerPress = useCallback((sellerId: string) => {
     router.push(`/user/${sellerId}` as any);

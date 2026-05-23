@@ -9,7 +9,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   RefreshControl,
   Alert,
@@ -19,10 +19,12 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   getSwapParty,
   getPartyItemsExtended,
@@ -41,27 +43,62 @@ import { useSwapFilters } from '@/hooks/useSwapFilters';
 
 export default function SwapPartyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const user = useUser();
   const { requireAuth } = useAuthRequired();
+  const queryClient = useQueryClient();
 
-  // Party & items state
-  const [party, setParty] = useState<SwapParty | null>(null);
-  const [items, setItems] = useState<SwapPartyItemExtended[]>([]);
-  const [userItems, setUserItems] = useState<SwapPartyItemExtended[]>([]);
-  const [myArticles, setMyArticles] = useState<Article[]>([]);
+  // React Query: party data + items
+  const {
+    data: partyData,
+    isLoading: isPartyLoading,
+    refetch: refetchParty,
+  } = useQuery({
+    queryKey: queryKeys.swapParties.detail(id || ''),
+    queryFn: async () => {
+      if (!id) return null;
+      const [party, items] = await Promise.all([
+        getSwapParty(id),
+        getPartyItemsExtended(id),
+      ]);
+      let joined = false;
+      if (user) {
+        joined = await isParticipant(id, user.id);
+      }
+      return { party, items, joined };
+    },
+    enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const party = partyData?.party ?? null;
+  const items = partyData?.items ?? [];
+  const userItems = items.filter((item) => item.sellerId === user?.id);
+  const isLoading = isPartyLoading;
+
+  // Track join state locally for optimistic UI (overridden by query)
+  const [isJoinedLocal, setIsJoinedLocal] = useState<boolean | null>(null);
+  const isJoined = isJoinedLocal ?? partyData?.joined ?? false;
 
   // UI state
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isJoined, setIsJoined] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
   const [showMyArticles, setShowMyArticles] = useState(false);
+
+  // React Query: user's available articles
+  const { data: myArticles = [] } = useQuery({
+    queryKey: queryKeys.articles.userList(user?.id || ''),
+    queryFn: async () => {
+      if (!user) return [];
+      const articles = await ArticlesService.getUserArticles(user.id);
+      return articles.filter((a) => a.isActive !== false && !a.isSold);
+    },
+    enabled: !!user && (isJoined || showMyArticles),
+    staleTime: 10 * 60 * 1000,
+  });
   const [showFilters, setShowFilters] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
   // Multi-select state
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [longPressItem, setLongPressItem] = useState<string | null>(null);
 
   // Filters hook
   const {
@@ -98,60 +135,23 @@ export default function SwapPartyDetailScreen() {
     });
   }, []);
 
-  const loadPartyData = useCallback(async () => {
-    if (!id) return;
-
-    try {
-      const [partyData, itemsData] = await Promise.all([
-        getSwapParty(id),
-        getPartyItemsExtended(id),
-      ]);
-
-      setParty(partyData);
-      setItems(itemsData);
-
-      if (user) {
-        const joined = await isParticipant(id, user.id);
-        setIsJoined(joined);
-        setUserItems(itemsData.filter((item) => item.sellerId === user.id));
-      }
-    } catch (error) {
-      if (__DEV__) console.error('Error loading party data:', error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
+  // Invalidate party data to refresh
+  const invalidatePartyData = useCallback(() => {
+    if (id) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.swapParties.detail(id) });
     }
-  }, [id, user]);
-
-  const loadMyArticles = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const articles = await ArticlesService.getUserArticles(user.id);
-      // getUserArticles already filters out isActive === false
-      // Only filter out sold articles here; treat missing isActive as active
-      const availableArticles = articles.filter((a) => a.isActive !== false && !a.isSold);
-      setMyArticles(availableArticles);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading my articles:', error);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    loadPartyData();
-  }, [loadPartyData]);
-
-  // Preload user articles when joined (so modal opens instantly)
-  useEffect(() => {
-    if (isJoined || showMyArticles) {
-      loadMyArticles();
-    }
-  }, [isJoined, showMyArticles, loadMyArticles]);
+  }, [id, queryClient]);
 
   const handleRefresh = () => {
-    setRefreshing(true);
-    loadPartyData();
+    refetchParty();
   };
+
+  // Keep local join state in sync when query data changes
+  useEffect(() => {
+    if (partyData?.joined !== undefined) {
+      setIsJoinedLocal(null); // Reset to let query data drive
+    }
+  }, [partyData?.joined]);
 
   const handleJoin = async () => {
     if (!party) return;
@@ -164,8 +164,8 @@ export default function SwapPartyDetailScreen() {
     setIsJoining(true);
     try {
       await joinSwapParty(party.id, user.id, user.displayName || 'Utilisateur', user.profileImage);
-      setIsJoined(true);
-      loadPartyData();
+      setIsJoinedLocal(true);
+      invalidatePartyData();
     } catch (error) {
       if (__DEV__) console.error('Error joining party:', error);
       Alert.alert('Erreur', 'Impossible de rejoindre la party');
@@ -188,9 +188,8 @@ export default function SwapPartyDetailScreen() {
           onPress: async () => {
             try {
               await leaveSwapParty(party.id, user.id);
-              setIsJoined(false);
-              setUserItems([]);
-              loadPartyData();
+              setIsJoinedLocal(false);
+              invalidatePartyData();
             } catch (error) {
               if (__DEV__) console.error('Error leaving party:', error);
               Alert.alert('Erreur', 'Impossible de quitter la party');
@@ -207,9 +206,9 @@ export default function SwapPartyDetailScreen() {
     try {
       await addItemToParty(party.id, article, user.id, user.displayName || 'Utilisateur', user.profileImage);
       // Reload data without closing the modal so user can add more articles
-      loadPartyData();
+      invalidatePartyData();
       // Re-fetch articles to update the "already added" filter
-      loadMyArticles();
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.userList(user.id) });
     } catch (error) {
       if (__DEV__) console.error('Error adding item:', error);
       Alert.alert('Erreur', "Impossible d'ajouter l'article");
@@ -230,7 +229,7 @@ export default function SwapPartyDetailScreen() {
           onPress: async () => {
             try {
               await removeItemFromParty(party.id, articleId, user.id);
-              loadPartyData();
+              invalidatePartyData();
             } catch (error) {
               if (__DEV__) console.error('Error removing item:', error);
               Alert.alert('Erreur', "Impossible de retirer l'article");
@@ -321,8 +320,8 @@ export default function SwapPartyDetailScreen() {
 
       {/* Sticky Header — Cream bg with border, 14px padding vertical */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
+        <Pressable
+          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
           onPress={() => {
             setIsMultiSelectMode(false);
             setSelectedItemIds(new Set());
@@ -330,7 +329,7 @@ export default function SwapPartyDetailScreen() {
           }}
         >
           <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
-        </TouchableOpacity>
+        </Pressable>
 
         <View style={styles.headerTitleSection}>
           {/* Label: "Swap Zone · En cours" */}
@@ -354,7 +353,7 @@ export default function SwapPartyDetailScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={isPartyLoading}
             onRefresh={handleRefresh}
             tintColor={colors.sage}
           />
@@ -369,13 +368,13 @@ export default function SwapPartyDetailScreen() {
                 Mes articles à l'échange · {userItems.length}
               </Text>
               {party.status !== 'ended' && (
-                <TouchableOpacity
-                  style={styles.addArticleButton}
+                <Pressable
+                  style={({ pressed }) => [styles.addArticleButton, pressed && { opacity: 0.7 }]}
                   onPress={() => setShowMyArticles(true)}
                 >
                   <Ionicons name="add" size={16} color={colors.sage} />
                   <Text style={styles.addArticleButtonText}>Ajouter</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
 
@@ -405,26 +404,26 @@ export default function SwapPartyDetailScreen() {
                       </Text>
                     </View>
                     {party.status !== 'ended' && (
-                      <TouchableOpacity
-                        style={styles.removeItemButton}
+                      <Pressable
+                        style={({ pressed }) => [styles.removeItemButton, pressed && { opacity: 0.7 }]}
                         onPress={() => handleRemoveItem(item.articleId)}
                       >
                         <Ionicons name="close-circle" size={20} color={colors.muted} />
-                      </TouchableOpacity>
+                      </Pressable>
                     )}
                   </View>
                 ))}
               </View>
             ) : (
-              <TouchableOpacity
-                style={styles.myArticleEmpty}
+              <Pressable
+                style={({ pressed }) => [styles.myArticleEmpty, pressed && { opacity: 0.7 }]}
                 onPress={() => setShowMyArticles(true)}
               >
                 <Ionicons name="add-circle-outline" size={24} color={colors.sage} />
                 <Text style={styles.myArticleEmptyText}>
                   Ajouter des articles à échanger
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         )}
@@ -432,8 +431,8 @@ export default function SwapPartyDetailScreen() {
         {/* Join/Leave Actions */}
         {!isJoined && party.status !== 'ended' && (
           <View style={styles.actionSection}>
-            <TouchableOpacity
-              style={styles.joinButton}
+            <Pressable
+              style={({ pressed }) => [styles.joinButton, pressed && { opacity: 0.7 }]}
               onPress={handleJoin}
               disabled={isJoining}
             >
@@ -442,17 +441,17 @@ export default function SwapPartyDetailScreen() {
               ) : (
                 <Text style={styles.joinButtonText}>Rejoindre la Swap Zone</Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
 
         {isJoined && (
-          <TouchableOpacity
-            style={styles.leaveButton}
+          <Pressable
+            style={({ pressed }) => [styles.leaveButton, pressed && { opacity: 0.7 }]}
             onPress={handleLeave}
           >
             <Text style={styles.leaveButtonText}>Quitter la party</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
 
         {/* "Articles disponibles" label with count */}
@@ -481,9 +480,12 @@ export default function SwapPartyDetailScreen() {
                 : 'Revenez plus tard'}
             </Caption>
             {hasActiveFilters && (
-              <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
+              <Pressable
+                onPress={clearFilters}
+                style={({ pressed }) => [styles.clearFiltersButton, pressed && { opacity: 0.7 }]}
+              >
                 <Text style={styles.clearFiltersText}>Réinitialiser</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         ) : (
@@ -508,27 +510,27 @@ export default function SwapPartyDetailScreen() {
             {/* Multi-select action bar */}
             {isMultiSelectMode && selectedItemIds.size > 0 && (
               <View style={styles.multiSelectBar}>
-                <TouchableOpacity
-                  style={styles.cancelSelectButton}
+                <Pressable
+                  style={({ pressed }) => [styles.cancelSelectButton, pressed && { opacity: 0.7 }]}
                   onPress={() => {
                     setIsMultiSelectMode(false);
                     setSelectedItemIds(new Set());
                   }}
                 >
                   <Text style={styles.cancelButtonText}>Annuler</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 <Text style={styles.selectedCountText}>
                   {selectedItemIds.size} sélectionné{selectedItemIds.size > 1 ? 's' : ''}
                 </Text>
 
                 {isJoined && userItems.length > 0 && (
-                  <TouchableOpacity
-                    style={styles.proposeButton}
+                  <Pressable
+                    style={({ pressed }) => [styles.proposeButton, pressed && { opacity: 0.7 }]}
                     onPress={handleProposeMultipleSwaps}
                   >
                     <Text style={styles.proposeButtonText}>Proposer</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </View>
             )}
@@ -542,12 +544,12 @@ export default function SwapPartyDetailScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text variant="body" style={styles.modalTitle}>Ajouter des articles</Text>
-              <TouchableOpacity
-                style={styles.modalDoneButton}
+              <Pressable
+                style={({ pressed }) => [styles.modalDoneButton, pressed && { opacity: 0.7 }]}
                 onPress={() => setShowMyArticles(false)}
               >
                 <Text style={styles.modalDoneText}>Terminé</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             {userItems.length > 0 && (
@@ -565,8 +567,8 @@ export default function SwapPartyDetailScreen() {
               )}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.articleListItem}
+                <Pressable
+                  style={({ pressed }) => [styles.articleListItem, pressed && { opacity: 0.7 }]}
                   onPress={() => handleAddItem(item)}
                 >
                   <Image
@@ -587,7 +589,7 @@ export default function SwapPartyDetailScreen() {
                   <View style={styles.addItemIcon}>
                     <Ionicons name="add-circle" size={24} color={colors.sage} />
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyModal}>
@@ -635,11 +637,10 @@ function ProductCard({
   const hasValueDifference = item.price != null && item.price > 0;
 
   return (
-    <TouchableOpacity
-      style={styles.productCard}
+    <Pressable
+      style={({ pressed }) => [styles.productCard, pressed && { opacity: 0.7 }]}
       onPress={onPress}
       onLongPress={onLongPress}
-      activeOpacity={0.7}
     >
       {/* Image wrapper with 3:4 aspect ratio */}
       <View style={styles.productImageWrapper}>
@@ -664,9 +665,9 @@ function ProductCard({
         )}
 
         {/* Save button: position absolute top 8px right 8px, 28x28px */}
-        <TouchableOpacity style={styles.saveButton}>
+        <Pressable style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.7 }]}>
           <Ionicons name="heart-outline" size={16} color={colors.charcoal} />
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Swap badge: bottom 8px left 8px */}
         <View
@@ -710,7 +711,7 @@ function ProductCard({
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

@@ -10,7 +10,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import AuthBottomSheet from '@/components/AuthBottomSheet';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useAuthListener } from '@/hooks/useAuthListener';
 import { useChatListener } from '@/hooks/useChatListener';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
@@ -117,7 +117,7 @@ function AppContent() {
   // ── Chat list : single global listener (replaces ChatContext + useChats) ──
   useChatListener();
 
-  const { user } = useAuth();
+  const user = useUser();
 
   // ── Push notifications : listeners, channels, badge, token ──
   useNotificationSetup(user?.id ?? null);

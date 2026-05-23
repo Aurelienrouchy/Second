@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,51 +15,40 @@ import {
   View,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { useUser } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
 import { SellerBalance } from '@/types';
-import { colors } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing, typography } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 export default function SellerBalanceScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  
-  const [balance, setBalance] = useState<SellerBalance | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const user = useUser();
+  const queryClient = useQueryClient();
+
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [iban, setIban] = useState('');
   const [isProcessingWithdrawal, setIsProcessingWithdrawal] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadBalance();
-    }
-  }, [user]);
+  const {
+    data: balance,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: queryKeys.sellers.balance(user?.id ?? ''),
+    queryFn: () => SellerBalanceService.getBalance(user!.id),
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+  });
 
-  const loadBalance = async () => {
-    if (!user) return;
-
-    try {
-      setIsLoading(true);
-      const balanceData = await SellerBalanceService.getBalance(user.id);
-      setBalance(balanceData);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading balance:', error);
-      Alert.alert('Erreur', 'Impossible de charger votre balance');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadBalance();
-    setIsRefreshing(false);
-  };
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   const handleWithdrawal = async () => {
     const amount = parseFloat(withdrawalAmount);
@@ -79,13 +69,13 @@ export default function SellerBalanceScreen() {
     }
 
     if (amount < 10) {
-      Alert.alert('Erreur', 'Le montant minimum de retrait est de 10€');
+      Alert.alert('Erreur', `Le montant minimum de retrait est de ${formatPrice(10)}`);
       return;
     }
 
     Alert.alert(
       'Confirmer le retrait',
-      `Êtes-vous sûr de vouloir retirer ${amount.toFixed(2)}€ vers le compte ${iban.slice(-4)} ?`,
+      `Voulez-vous retirer ${formatPrice(amount)} vers le compte ${iban.slice(-4)} ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -102,10 +92,14 @@ export default function SellerBalanceScreen() {
               setShowWithdrawalModal(false);
               setWithdrawalAmount('');
               setIban('');
-              await loadBalance();
-            } catch (error: any) {
+              await queryClient.invalidateQueries({
+                queryKey: queryKeys.sellers.balance(user!.id),
+              });
+            } catch (error: unknown) {
               if (__DEV__) console.error('Error requesting withdrawal:', error);
-              Alert.alert('Erreur', error.message || 'Impossible de traiter la demande');
+              const message =
+                error instanceof Error ? error.message : 'Impossible de traiter la demande';
+              Alert.alert('Erreur', message);
             } finally {
               setIsProcessingWithdrawal(false);
             }
@@ -115,55 +109,64 @@ export default function SellerBalanceScreen() {
     );
   };
 
-  const renderTransaction = ({ item }: { item: SellerBalance['transactions'][0] }) => {
-    const isWithdrawal = item.type === 'withdrawal';
-    const isPending = item.status === 'pending';
+  const renderTransaction = useCallback(
+    ({ item }: { item: SellerBalance['transactions'][0] }) => {
+      const isWithdrawal = item.type === 'withdrawal';
+      const isPending = item.status === 'pending';
 
-    return (
-      <View style={styles.transactionItem}>
-        <View style={[
-          styles.transactionIcon,
-          isWithdrawal ? styles.transactionIconWithdrawal : styles.transactionIconSale,
-        ]}>
-          <Ionicons
-            name={isWithdrawal ? 'arrow-down' : 'arrow-up'}
-            size={20}
-            color={isWithdrawal ? '#FF3B30' : '#34C759'}
-          />
-        </View>
+      return (
+        <View style={styles.transactionItem}>
+          <View
+            style={[
+              styles.transactionIcon,
+              isWithdrawal ? styles.transactionIconWithdrawal : styles.transactionIconSale,
+            ]}
+          >
+            <Ionicons
+              name={isWithdrawal ? 'arrow-down' : 'arrow-up'}
+              size={20}
+              color={isWithdrawal ? colors.danger : colors.success}
+            />
+          </View>
 
-        <View style={styles.transactionContent}>
-          <Text style={styles.transactionDescription}>{item.description}</Text>
-          <Text style={styles.transactionDate}>
-            {item.createdAt.toLocaleDateString('fr-FR', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
+          <View style={styles.transactionContent}>
+            <Text style={styles.transactionDescription}>{item.description}</Text>
+            <Text style={styles.transactionDate}>
+              {item.createdAt.toLocaleDateString('fr-FR', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </Text>
+            {isPending && <Text style={styles.transactionStatusPending}>En attente</Text>}
+          </View>
+
+          <Text
+            style={[styles.transactionAmount, isWithdrawal && styles.transactionAmountNegative]}
+          >
+            {item.amount > 0 ? '+' : ''}
+            {formatPrice(Math.abs(item.amount))}
           </Text>
-          {isPending && (
-            <Text style={styles.transactionStatusPending}>En attente</Text>
-          )}
         </View>
+      );
+    },
+    []
+  );
 
-        <Text style={[
-          styles.transactionAmount,
-          isWithdrawal && styles.transactionAmountNegative,
-        ]}>
-          {item.amount > 0 ? '+' : ''}{item.amount.toFixed(2)}€
-        </Text>
-      </View>
-    );
-  };
+  const keyExtractor = useCallback(
+    (item: SellerBalance['transactions'][0]) => item.id,
+    []
+  );
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <ScreenHeader title="Mon solde" onBack={() => router.back()} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -172,20 +175,13 @@ export default function SellerBalanceScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Ma balance vendeur</Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title="Mon solde" onBack={() => router.back()} />
 
       <ScrollView
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />
         }
       >
         {/* Balance Cards */}
@@ -193,15 +189,15 @@ export default function SellerBalanceScreen() {
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Disponible</Text>
             <Text style={styles.balanceAmount}>
-              {balance.availableBalance.toFixed(2)}€
+              {formatPrice(balance.availableBalance)}
             </Text>
             <Text style={styles.balanceHint}>Prêt pour retrait</Text>
           </View>
 
           <View style={[styles.balanceCard, styles.balanceCardPending]}>
             <Text style={styles.balanceLabel}>En attente</Text>
-            <Text style={[styles.balanceAmount, styles.balanceAmountPending]}>
-              {balance.pendingBalance.toFixed(2)}€
+            <Text style={styles.balanceAmount}>
+              {formatPrice(balance.pendingBalance)}
             </Text>
             <Text style={styles.balanceHint}>Livraisons en cours</Text>
           </View>
@@ -211,7 +207,7 @@ export default function SellerBalanceScreen() {
         <View style={styles.totalCard}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total des gains</Text>
-            <Text style={styles.totalAmount}>{balance.totalEarnings.toFixed(2)}€</Text>
+            <Text style={styles.totalAmount}>{formatPrice(balance.totalEarnings)}</Text>
           </View>
         </View>
 
@@ -224,7 +220,7 @@ export default function SellerBalanceScreen() {
               setShowWithdrawalModal(true);
             }}
           >
-            <Ionicons name="cash-outline" size={20} color="#FFFFFF" />
+            <Ionicons name="cash-outline" size={20} color={colors.white} />
             <Text style={styles.withdrawalButtonText}>Demander un retrait</Text>
           </Pressable>
         )}
@@ -240,22 +236,24 @@ export default function SellerBalanceScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="0.00"
+                  placeholderTextColor={colors.muted}
                   keyboardType="decimal-pad"
                   value={withdrawalAmount}
                   onChangeText={setWithdrawalAmount}
                 />
-                <Text style={styles.inputCurrency}>€</Text>
+                <Text style={styles.inputCurrency}>$</Text>
               </View>
               <Text style={styles.inputHint}>
-                Disponible: {balance.availableBalance.toFixed(2)}€ (min. 10€)
+                Disponible: {formatPrice(balance.availableBalance)} (min. {formatPrice(10)})
               </Text>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>IBAN</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.inputStandalone]}
                 placeholder="FR76 1234 5678 9012 3456 7890 123"
+                placeholderTextColor={colors.muted}
                 value={iban}
                 onChangeText={(text) => setIban(text.toUpperCase())}
                 autoCapitalize="characters"
@@ -283,7 +281,7 @@ export default function SellerBalanceScreen() {
                 disabled={isProcessingWithdrawal}
               >
                 {isProcessingWithdrawal ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Text style={styles.withdrawalConfirmButtonText}>Confirmer</Text>
                 )}
@@ -304,20 +302,20 @@ export default function SellerBalanceScreen() {
             <FlashList
               data={balance.transactions.slice().reverse()}
               renderItem={renderTransaction}
-              keyExtractor={(item) => item.id}
+              keyExtractor={keyExtractor}
               scrollEnabled={false}
             />
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -325,70 +323,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceWarm,
-  },
-  backButton: {
-    width: 24,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.foreground,
+    marginTop: spacing.md,
+    ...typography.body,
+    color: colors.muted,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.lg,
   },
   balanceCards: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
   },
   balanceCard: {
     flex: 1,
-    backgroundColor: '#34C759',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.success,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
   },
   balanceCardPending: {
     backgroundColor: colors.primary,
   },
   balanceLabel: {
-    fontSize: 14,
+    ...typography.label,
     color: colors.white,
     opacity: 0.9,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   balanceAmount: {
-    fontSize: 28,
-    fontWeight: '700',
+    ...typography.priceLarge,
     color: colors.white,
-    marginBottom: 4,
-  },
-  balanceAmountPending: {
-    fontSize: 28,
+    marginBottom: spacing.xs,
   },
   balanceHint: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.white,
     opacity: 0.8,
   },
   totalCard: {
     backgroundColor: colors.surfaceWarm,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.md,
   },
   totalRow: {
     flexDirection: 'row',
@@ -396,175 +373,170 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.foreground,
   },
   totalAmount: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...typography.price,
     color: colors.primary,
   },
   withdrawalButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginTop: 20,
-    gap: 8,
+    backgroundColor: colors.success,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
   },
   withdrawalButtonText: {
+    ...typography.button,
     color: colors.white,
-    fontSize: 16,
-    fontWeight: '700',
   },
   withdrawalForm: {
     backgroundColor: colors.surfaceWarm,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 20,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
   },
   withdrawalFormTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...typography.h3,
     color: colors.foreground,
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.foreground,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    ...typography.body,
     color: colors.foreground,
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
+  },
+  inputStandalone: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   inputCurrency: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.muted,
   },
   inputHint: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.muted,
-    marginTop: 6,
+    marginTop: spacing.xs,
   },
   withdrawalActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   withdrawalCancelButton: {
     flex: 1,
     backgroundColor: colors.border,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   withdrawalCancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    ...typography.button,
+    color: colors.foregroundSecondary,
   },
   withdrawalConfirmButton: {
     flex: 1,
-    backgroundColor: '#34C759',
-    borderRadius: 10,
-    paddingVertical: 14,
+    backgroundColor: colors.success,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   withdrawalConfirmButtonDisabled: {
     opacity: 0.5,
   },
   withdrawalConfirmButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.button,
     color: colors.white,
   },
   historySection: {
-    marginTop: 32,
-    marginBottom: 32,
+    marginTop: spacing.xl,
+    marginBottom: spacing.xl,
   },
   historyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...typography.h3,
     color: colors.foreground,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surfaceWarm,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   transactionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: sizing.avatarMD,
+    height: sizing.avatarMD,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
   transactionIconSale: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.successLight,
   },
   transactionIconWithdrawal: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: colors.dangerLight,
   },
   transactionContent: {
     flex: 1,
   },
   transactionDescription: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.foreground,
-    marginBottom: 2,
+    marginBottom: spacing.xs,
   },
   transactionDate: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.muted,
   },
   transactionStatusPending: {
-    fontSize: 11,
+    ...typography.caption,
     color: colors.primary,
-    fontWeight: '600',
-    marginTop: 2,
+    fontFamily: fonts.sansMedium,
+    marginTop: spacing.xs,
   },
   transactionAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#34C759',
+    ...typography.price,
+    color: colors.success,
   },
   transactionAmountNegative: {
-    color: '#FF3B30',
+    color: colors.danger,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: spacing['2xl'],
   },
   emptyStateText: {
-    fontSize: 16,
+    ...typography.body,
     color: colors.muted,
-    marginTop: 16,
+    marginTop: spacing.md,
   },
 });
-

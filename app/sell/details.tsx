@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -295,10 +295,9 @@ export default function DetailsScreen() {
         {/* Category + Condition grouped */}
         <FormFieldGroup>
           {/* Category row */}
-          <TouchableOpacity
-            style={styles.fieldRow}
+          <Pressable
+            style={({ pressed }) => [styles.fieldRow, pressed && { opacity: 0.7 }]}
             onPress={() => categorySheetRef.current?.show()}
-            activeOpacity={0.7}
           >
             <Text style={styles.fieldRowLabel}>CATÉGORIE</Text>
             <View style={styles.fieldRowValueContainer}>
@@ -318,7 +317,7 @@ export default function DetailsScreen() {
               )}
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Condition row */}
           <ConditionSelector
@@ -336,10 +335,9 @@ export default function DetailsScreen() {
         {/* Brand + Size grouped */}
         <FormFieldGroup>
           {/* Brand row */}
-          <TouchableOpacity
-            style={styles.fieldRow}
+          <Pressable
+            style={({ pressed }) => [styles.fieldRow, pressed && { opacity: 0.7 }]}
             onPress={() => brandSheetRef.current?.show(aiResult?.brand?.detected || undefined)}
-            activeOpacity={0.7}
           >
             <Text style={styles.fieldRowLabel}>MARQUE</Text>
             <View style={styles.fieldRowValueContainer}>
@@ -359,13 +357,12 @@ export default function DetailsScreen() {
               )}
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Size row */}
-          <TouchableOpacity
-            style={styles.fieldRow}
+          <Pressable
+            style={({ pressed }) => [styles.fieldRow, pressed && { opacity: 0.7 }]}
             onPress={() => sizeSheetRef.current?.show()}
-            activeOpacity={0.7}
           >
             <Text style={styles.fieldRowLabel}>TAILLE</Text>
             <View style={styles.fieldRowValueContainer}>
@@ -384,7 +381,7 @@ export default function DetailsScreen() {
               )}
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </TouchableOpacity>
+          </Pressable>
         </FormFieldGroup>
 
         {/* Color chips */}
@@ -405,12 +402,13 @@ export default function DetailsScreen() {
               );
               const isSelected = fields.colors.includes(colorId);
               return (
-                <TouchableOpacity
+                <Pressable
                   key={colorId}
-                  style={[
+                  style={({ pressed }) => [
                     styles.chip,
                     !isSelected && styles.chipAISuggested,
                     isSelected && styles.chipAISuggestedActive,
+                    pressed && { opacity: 0.7 },
                   ]}
                   onPress={() => {
                     const newColors = isSelected
@@ -418,7 +416,6 @@ export default function DetailsScreen() {
                       : [...fields.colors, colorId];
                     updateField('colors', newColors);
                   }}
-                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
@@ -428,7 +425,7 @@ export default function DetailsScreen() {
                   >
                     {colorData?.name || colorId}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
             {/* User-selected colors NOT in AI suggestions */}
@@ -440,30 +437,29 @@ export default function DetailsScreen() {
                 );
                 const colorItem = allColorItems.find((c) => c.value === colorId);
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={colorId}
-                    style={[styles.chip, styles.chipSelected]}
+                    style={({ pressed }) => [styles.chip, styles.chipSelected, pressed && { opacity: 0.7 }]}
                     onPress={() => {
                       const newColors = fields.colors.filter((c) => c !== colorId);
                       updateField('colors', newColors);
                     }}
-                    activeOpacity={0.7}
                   >
                     <Text style={[styles.chipText, styles.chipTextSelected]}>
                       {colorData?.name || colorItem?.label || colorId}
                     </Text>
                     <Ionicons name="close" size={10} color={colors.white} />
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             {/* View all button */}
-            <TouchableOpacity
-              style={styles.chipViewAll}
+            <Pressable
+              style={({ pressed }) => [styles.chipViewAll, pressed && { opacity: 0.7 }]}
               onPress={() => colorSheetRef.current?.show()}
             >
               <Text style={styles.chipViewAllText}>Toutes</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.muted} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
@@ -482,12 +478,13 @@ export default function DetailsScreen() {
               const matData = allMaterialItems.find((m) => m.value === matId);
               const isSelected = fields.materials.includes(matId);
               return (
-                <TouchableOpacity
+                <Pressable
                   key={matId}
-                  style={[
+                  style={({ pressed }) => [
                     styles.chip,
                     !isSelected && styles.chipAISuggested,
                     isSelected && styles.chipAISuggestedActive,
+                    pressed && { opacity: 0.7 },
                   ]}
                   onPress={() => {
                     const newMaterials = isSelected
@@ -495,7 +492,6 @@ export default function DetailsScreen() {
                       : [...fields.materials, matId];
                     updateField('materials', newMaterials);
                   }}
-                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
@@ -505,7 +501,7 @@ export default function DetailsScreen() {
                   >
                     {matData?.label || matId}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
             {/* User-selected materials NOT in AI suggestions */}
@@ -514,43 +510,42 @@ export default function DetailsScreen() {
               .map((matId) => {
                 const matData = allMaterialItems.find((m) => m.value === matId);
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={matId}
-                    style={[styles.chip, styles.chipSelected]}
+                    style={({ pressed }) => [styles.chip, styles.chipSelected, pressed && { opacity: 0.7 }]}
                     onPress={() => {
                       const newMaterials = fields.materials.filter((m) => m !== matId);
                       updateField('materials', newMaterials);
                     }}
-                    activeOpacity={0.7}
                   >
                     <Text style={[styles.chipText, styles.chipTextSelected]}>
                       {matData?.label || matId}
                     </Text>
                     <Ionicons name="close" size={10} color={colors.white} />
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
-            <TouchableOpacity
-              style={styles.chipViewAll}
+            <Pressable
+              style={({ pressed }) => [styles.chipViewAll, pressed && { opacity: 0.7 }]}
               onPress={() => materialSheetRef.current?.show()}
             >
               <Text style={styles.chipViewAllText}>Toutes</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.muted} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
 
       {/* Sticky footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.continueButton,
             !isFormValid && styles.continueButtonDisabled,
+            pressed && { opacity: 0.7 },
           ]}
           onPress={handleContinue}
           disabled={!isFormValid}
-          activeOpacity={0.85}
         >
           <Text
             style={[
@@ -565,7 +560,7 @@ export default function DetailsScreen() {
             size={18}
             color={isFormValid ? colors.cream : colors.muted}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Bottom Sheets */}

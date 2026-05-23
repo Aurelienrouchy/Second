@@ -4,10 +4,12 @@
  */
 
 import { ShopService } from '@/services/shopService';
+import { queryKeys } from '@/lib/queryKeys';
 import { Shop, ShopTypeLabels } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -25,27 +27,14 @@ import { colors } from '@/constants/theme';
 export default function ShopDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  useEffect(() => {
-    if (id) {
-      loadShopDetails();
-    }
-  }, [id]);
-
-  const loadShopDetails = async () => {
-    try {
-      setIsLoading(true);
-      const shopData = await ShopService.getShopById(id!);
-      setShop(shopData);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading shop details:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: shop = null, isLoading } = useQuery<Shop | null>({
+    queryKey: queryKeys.shops.detail(id ?? ''),
+    queryFn: () => ShopService.getShopById(id!),
+    enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const handleCall = () => {
     if (shop?.phoneNumber) {

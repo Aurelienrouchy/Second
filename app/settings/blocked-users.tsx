@@ -3,7 +3,7 @@
  * Design System: Luxe Français + Street Energy
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { BlockedUser, ModerationService } from '@/services/moderationService';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { Text, Caption } from '@/components/ui';
@@ -22,7 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDisplayName } from '@/utils/formatName';
 
 export default function BlockedUsersScreen() {
-  const { user } = useAuth();
+  const user = useUser();
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [unblocking, setUnblocking] = useState<string | null>(null);

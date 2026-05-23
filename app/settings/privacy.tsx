@@ -3,7 +3,7 @@
  * Design System: Luxe Français + Street Energy
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Label } from '@/components/ui';
@@ -13,10 +13,10 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,10 +31,9 @@ interface RgpdItemProps {
 }
 
 const RgpdItem = ({ icon, iconColor, title, description, onPress, isLast }: RgpdItemProps) => (
-  <TouchableOpacity
-    style={[styles.rgpdItem, isLast && styles.rgpdItemLast]}
+  <Pressable
+    style={({ pressed }) => [styles.rgpdItem, isLast && styles.rgpdItemLast, pressed && { opacity: 0.7 }]}
     onPress={onPress}
-    activeOpacity={0.7}
   >
     <View style={styles.rgpdItemLeft}>
       <View style={[styles.rgpdIcon, { backgroundColor: `${iconColor}15` }]}>
@@ -46,12 +45,12 @@ const RgpdItem = ({ icon, iconColor, title, description, onPress, isLast }: Rgpd
       </View>
     </View>
     <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-  </TouchableOpacity>
+  </Pressable>
 );
 
 export default function PrivacySettingsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
 
   const [showProfilePhoto, setShowProfilePhoto] = useState(true);
   const [allowSearchEngines, setAllowSearchEngines] = useState(false);

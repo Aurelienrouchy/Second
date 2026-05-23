@@ -3,7 +3,7 @@
  * Design System: Luxe Français + Street Energy
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption } from '@/components/ui';
@@ -107,7 +107,7 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
 
 export default function NotificationsSettingsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
 
   const [settings, setSettings] = useState<Record<NotificationType, boolean>>({
     email: true,

@@ -3,7 +3,7 @@
  * Design System: Luxe Français + Street Energy
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type SettingItemProps = {
@@ -26,7 +26,7 @@ const SettingItem = ({ icon, title, subtitle, onPress, variant = 'default' }: Se
   const isDanger = variant === 'danger';
 
   return (
-    <TouchableOpacity style={styles.settingItem} onPress={onPress} activeOpacity={0.7}>
+    <Pressable style={({ pressed }) => [styles.settingItem, pressed && { opacity: 0.7 }]} onPress={onPress}>
       <View style={styles.settingLeft}>
         <View style={[
           styles.iconContainer,
@@ -51,7 +51,7 @@ const SettingItem = ({ icon, title, subtitle, onPress, variant = 'default' }: Se
         </View>
       </View>
       <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -66,7 +66,7 @@ const SettingSection = ({ title, children }: { title: string; children: React.Re
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut } = useAuthActions();
   const authProvider = AuthService.getAuthProvider();
   const isPasswordUser = authProvider === 'password';
 

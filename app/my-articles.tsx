@@ -1,64 +1,49 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useUser } from '@/contexts/AuthContext';
+import { useAuthSheetStore } from '@/store/authSheetStore';
 import { ArticlesService } from '@/services/articlesService';
 import { Article } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
+import { queryKeys } from '@/lib/queryKeys';
+import { formatPrice } from '@/utils/formatPrice';
+import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useRef } from 'react';
 import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Animated,
   Platform,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 
 export default function MyArticlesScreen() {
-  const { user } = useAuth();
-  const { showAuthSheet } = useAuthRequired();
+  const user = useUser();
   const router = useRouter();
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
-  const loadArticles = async (showRefreshing = false) => {
-    if (!user) return;
-
-    try {
-      if (showRefreshing) setRefreshing(true);
-      else setLoading(true);
-
-      const userArticles = await ArticlesService.getUserArticles(user.id);
-      setArticles(userArticles);
-    } catch (error) {
-      if (__DEV__) console.error('Erreur chargement articles:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      loadArticles();
-    }, [user])
-  );
-
-  const handleRefresh = () => {
-    loadArticles(true);
-  };
+  const {
+    data: articles = [],
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.articles.userList(user?.id ?? ''),
+    queryFn: () => ArticlesService.getUserArticles(user!.id),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const closeAllSwipeables = () => {
     swipeableRefs.current.forEach((ref) => ref?.close());
@@ -67,7 +52,7 @@ export default function MyArticlesScreen() {
   const handleDeleteArticle = (article: Article) => {
     Alert.alert(
       'Supprimer l\'article',
-      `Êtes-vous sûr de vouloir supprimer "${article.title}" ?`,
+      `Etes-vous sur de vouloir supprimer "${article.title}" ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -76,7 +61,10 @@ export default function MyArticlesScreen() {
           onPress: async () => {
             try {
               await ArticlesService.deleteArticle(article.id);
-              setArticles((prev) => prev.filter((a) => a.id !== article.id));
+              queryClient.setQueryData<Article[]>(
+                queryKeys.articles.userList(user!.id),
+                (old) => old?.filter((a) => a.id !== article.id) ?? []
+              );
               closeAllSwipeables();
             } catch (error) {
               if (__DEV__) console.error('Erreur suppression:', error);
@@ -91,12 +79,14 @@ export default function MyArticlesScreen() {
   const handleMarkAsSold = async (article: Article) => {
     try {
       await ArticlesService.updateArticle(article.id, { isSold: !article.isSold });
-      setArticles((prev) =>
-        prev.map((a) => (a.id === article.id ? { ...a, isSold: !a.isSold } : a))
+      queryClient.setQueryData<Article[]>(
+        queryKeys.articles.userList(user!.id),
+        (old) =>
+          old?.map((a) => (a.id === article.id ? { ...a, isSold: !a.isSold } : a)) ?? []
       );
     } catch (error) {
-      if (__DEV__) console.error('Erreur mise à jour:', error);
-      Alert.alert('Erreur', 'Impossible de mettre à jour l\'article');
+      if (__DEV__) console.error('Erreur mise a jour:', error);
+      Alert.alert('Erreur', 'Impossible de mettre a jour l\'article');
     }
   };
 
@@ -126,7 +116,6 @@ export default function MyArticlesScreen() {
         }
       );
     } else {
-      // Android: utiliser Alert avec des boutons
       Alert.alert(
         article.title,
         'Que souhaitez-vous faire ?',
@@ -140,193 +129,188 @@ export default function MyArticlesScreen() {
     }
   };
 
-  const renderRightActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    _dragX: Animated.AnimatedInterpolation<number>,
-    article: Article
-  ) => {
-    const translateX = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [80, 0],
-    });
+  const renderRightActions = useCallback(
+    (
+      progress: Animated.AnimatedInterpolation<number>,
+      _dragX: Animated.AnimatedInterpolation<number>,
+      article: Article
+    ) => {
+      const translateX = progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [80, 0],
+      });
 
-    return (
-      <Animated.View style={[styles.deleteAction, { transform: [{ translateX }] }]}>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteArticle(article)}
+      return (
+        <Animated.View style={[styles.deleteAction, { transform: [{ translateX }] }]}>
+          <Pressable
+            style={styles.deleteButton}
+            onPress={() => handleDeleteArticle(article)}
+          >
+            <Ionicons name="trash-outline" size={24} color={colors.white} />
+            <Text style={styles.deleteText}>Supprimer</Text>
+          </Pressable>
+        </Animated.View>
+      );
+    },
+    []
+  );
+
+  const renderArticleItem = useCallback(
+    ({ item }: { item: Article }) => {
+      const firstImage = item.images[0];
+
+      return (
+        <Swipeable
+          ref={(ref) => {
+            if (ref) swipeableRefs.current.set(item.id, ref);
+          }}
+          renderRightActions={(progress, dragX) =>
+            renderRightActions(progress, dragX, item)
+          }
+          rightThreshold={40}
         >
-          <Ionicons name="trash-outline" size={24} color="#fff" />
-          <Text style={styles.deleteText}>Supprimer</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
-  const renderArticleItem = ({ item }: { item: Article }) => {
-    const firstImage = item.images[0];
-
-    return (
-      <Swipeable
-        ref={(ref) => {
-          if (ref) swipeableRefs.current.set(item.id, ref);
-        }}
-        renderRightActions={(progress, dragX) =>
-          renderRightActions(progress, dragX, item)
-        }
-        rightThreshold={40}
-      >
-        <View style={styles.articleItemContainer}>
-          <TouchableOpacity
-            style={styles.articleItem}
-            onPress={() => router.push(`/article/${item.id}`)}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={firstImage?.url ? { uri: firstImage.url } : undefined}
-              style={styles.articleImage}
-              contentFit="cover"
-              transition={500}
-              placeholder={firstImage?.blurhash ? { blurhash: firstImage.blurhash } : undefined}
-            />
-            <View style={styles.articleInfo}>
-              <Text style={styles.articleTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Text style={styles.articlePrice}>{item.price}€</Text>
-              <Text style={styles.articleSize}>{item.size || 'Taille non spécifiée'}</Text>
-              <View style={styles.articleStats}>
-                <View style={styles.articleStatRow}>
-                  <Ionicons name="eye-outline" size={14} color="#666" />
-                  <Text style={styles.articleStat}> {item.views}</Text>
-                </View>
-                <View style={styles.articleStatRow}>
-                  <Ionicons name="heart-outline" size={14} color="#666" />
-                  <Text style={styles.articleStat}> {item.likes}</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.articleStatus,
-                    item.isSold ? styles.soldStatus : styles.activeStatus,
-                  ]}
-                >
-                  {item.isSold ? 'Vendu' : 'En vente'}
+          <View style={styles.articleItemContainer}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.articleItem,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => router.push(`/article/${item.id}`)}
+            >
+              <Image
+                source={firstImage?.url ? { uri: firstImage.url } : undefined}
+                style={styles.articleImage}
+                contentFit="cover"
+                transition={500}
+                placeholder={firstImage?.blurhash ? { blurhash: firstImage.blurhash } : undefined}
+              />
+              <View style={styles.articleInfo}>
+                <Text style={styles.articleTitle} numberOfLines={2}>
+                  {item.title}
                 </Text>
+                <Text style={styles.articlePrice}>{formatPrice(item.price)}</Text>
+                <Text style={styles.articleSize}>{item.size || 'Taille non specifiee'}</Text>
+                <View style={styles.articleStats}>
+                  <View style={styles.articleStatRow}>
+                    <Ionicons name="eye-outline" size={14} color={colors.muted} />
+                    <Text style={styles.articleStat}> {item.views}</Text>
+                  </View>
+                  <View style={styles.articleStatRow}>
+                    <Ionicons name="heart-outline" size={14} color={colors.muted} />
+                    <Text style={styles.articleStat}> {item.likes}</Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.articleStatus,
+                      item.isSold ? styles.soldStatus : styles.activeStatus,
+                    ]}
+                  >
+                    {item.isSold ? 'Vendu' : 'En vente'}
+                  </Text>
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
+            </Pressable>
 
-          {/* Menu 3 points */}
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => showActionSheet(item)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="ellipsis-vertical" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
-      </Swipeable>
-    );
-  };
+            <Pressable
+              style={({ pressed }) => [
+                styles.menuButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => showActionSheet(item)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color={colors.muted} />
+            </Pressable>
+          </View>
+        </Swipeable>
+      );
+    },
+    [renderRightActions]
+  );
+
+  const keyExtractor = useCallback((item: Article) => item.id, []);
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <ScreenHeader title="Mes articles" onBack={() => router.back()} />
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>Connexion requise</Text>
           <Text style={styles.emptyText}>
             Connectez-vous pour voir vos articles
           </Text>
-          <TouchableOpacity
-            style={styles.connectButton}
-            onPress={() => showAuthSheet(AUTH_MESSAGES.sell)}
+          <Pressable
+            style={({ pressed }) => [
+              styles.ctaButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => useAuthSheetStore.getState().show(AUTH_MESSAGES.sell)}
           >
-            <Text style={styles.connectButtonText}>Se connecter</Text>
-          </TouchableOpacity>
+            <Text style={styles.ctaButtonText}>Se connecter</Text>
+          </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Mes articles</Text>
-          <View style={styles.placeholder} />
-        </View>
+      <View style={styles.container}>
+        <ScreenHeader title="Mes articles" onBack={() => router.back()} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement de vos articles...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Mes articles ({articles.length})</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title={`Mes articles (${articles.length})`}
+        onBack={() => router.back()}
+      />
 
       {articles.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="cube-outline" size={48} color="#999" style={styles.emptyIcon} />
+          <Ionicons name="cube-outline" size={48} color={colors.muted} style={styles.emptyIcon} />
           <Text style={styles.emptyTitle}>Aucun article</Text>
           <Text style={styles.emptyText}>
-            Vous n'avez pas encore publié d'articles.{'\n'}
-            Commencez à vendre maintenant !
+            {'Vous n\'avez pas encore publie d\'articles.\nCommencez a vendre maintenant !'}
           </Text>
-          <TouchableOpacity
-            style={styles.sellButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.ctaButton,
+              pressed && styles.pressed,
+            ]}
             onPress={() => router.push('/sell')}
           >
-            <Text style={styles.sellButtonText}>Vendre un article</Text>
-          </TouchableOpacity>
+            <Text style={styles.ctaButtonText}>Vendre un article</Text>
+          </Pressable>
         </View>
       ) : (
         <FlashList
           data={articles}
-          renderItem={renderArticleItem as any}
-          keyExtractor={(item) => item.id}
+          renderItem={renderArticleItem}
+          keyExtractor={keyExtractor}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
           }
           showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  placeholder: {
-    width: 24,
+  pressed: {
+    opacity: 0.7,
   },
   loadingContainer: {
     flex: 1,
@@ -334,83 +318,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.sm,
+    ...typography.body,
+    color: colors.foregroundSecondary,
   },
   articleItemContainer: {
     position: 'relative',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   articleItem: {
     flexDirection: 'row',
-    padding: 16,
-    paddingRight: 48,
+    padding: spacing.md,
+    paddingRight: spacing['2xl'],
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f8f8',
-    backgroundColor: '#fff',
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.surface,
   },
   articleImage: {
     width: 80,
     height: 80,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    marginRight: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceWarm,
+    marginRight: spacing.sm,
   },
   articleInfo: {
     flex: 1,
     justifyContent: 'space-between',
   },
   articleTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4,
+    ...typography.label,
+    color: colors.foreground,
+    marginBottom: spacing.xs,
   },
   articlePrice: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...typography.price,
     color: colors.primary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   articleSize: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    ...typography.bodySmall,
+    color: colors.foregroundSecondary,
+    marginBottom: spacing.sm,
   },
   articleStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.sm,
   },
   articleStat: {
-    fontSize: 12,
-    color: '#666',
+    ...typography.caption,
+    color: colors.muted,
   },
   articleStatus: {
-    fontSize: 12,
-    fontWeight: '500',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    ...typography.caption,
+    fontFamily: fonts.sansMedium,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    overflow: 'hidden',
   },
   activeStatus: {
-    backgroundColor: '#e8f5e8',
-    color: '#2d5a2d',
+    backgroundColor: colors.successLight,
+    color: colors.success,
   },
   soldStatus: {
-    backgroundColor: '#fee',
-    color: '#d63384',
+    backgroundColor: colors.primaryLight,
+    color: colors.primary,
   },
   menuButton: {
     position: 'absolute',
-    top: 16,
-    right: 12,
-    padding: 8,
+    top: spacing.md,
+    right: spacing.sm,
+    padding: spacing.sm,
     zIndex: 1,
   },
   deleteAction: {
-    backgroundColor: '#E53935',
+    backgroundColor: colors.danger,
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
@@ -422,56 +405,43 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   deleteText: {
-    color: '#fff',
-    fontSize: 12,
-    marginTop: 4,
+    ...typography.caption,
+    color: colors.white,
+    marginTop: spacing.xs,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
   },
   emptyIcon: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    ...typography.h1,
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.foregroundSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  ctaButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+  },
+  ctaButtonText: {
+    ...typography.button,
+    color: colors.white,
+    textTransform: 'uppercase',
   },
   articleStatRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  sellButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  sellButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  connectButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  connectButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

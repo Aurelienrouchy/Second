@@ -4,7 +4,7 @@
  */
 
 import RejectionModal, { RejectionModalRef } from '@/components/admin/RejectionModal';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
 import { Shop, ShopTypeLabels } from '@/types';
@@ -27,7 +27,7 @@ import { colors } from '@/constants/theme';
 
 export default function AdminShopDetailScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [shop, setShop] = useState<Shop | null>(null);
   const [isLoading, setIsLoading] = useState(true);

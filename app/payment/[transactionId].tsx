@@ -6,7 +6,7 @@
  * Creates a Helcim checkout session and opens the payment WebView.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,14 +20,16 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
+import { useQuery } from '@tanstack/react-query';
 
 import { ScreenHeader } from '@/components/ui';
 import { HelcimPayment, HelcimPaymentResult } from '@/components/HelcimPayment';
 import { functions } from '@/config/firebaseConfig';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { TransactionService } from '@/services/transactionService';
-import { Transaction } from '@/types';
+import { queryKeys } from '@/lib/queryKeys';
+import { formatPrice } from '@/utils/formatPrice';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -36,10 +38,8 @@ import { Transaction } from '@/types';
 export default function PaymentScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
 
-  const [transaction, setTransaction] = useState<Transaction | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
 
   // Helcim
@@ -50,44 +50,34 @@ export default function PaymentScreen() {
   // LOAD TRANSACTION
   // =============================================================================
 
-  useEffect(() => {
-    loadTransaction();
-  }, [transactionId]);
-
-  const loadTransaction = async () => {
-    if (!transactionId) return;
-
-    try {
-      setIsLoading(true);
-      const trans = await TransactionService.getTransaction(transactionId);
+  const { data: transaction = null, isLoading } = useQuery({
+    queryKey: queryKeys.payments.transaction(transactionId ?? ''),
+    queryFn: async () => {
+      const trans = await TransactionService.getTransaction(transactionId!);
 
       if (!trans) {
         Alert.alert('Erreur', 'Transaction introuvable');
         router.back();
-        return;
+        return null;
       }
 
       if (trans.buyerId !== user?.id) {
-        Alert.alert('Erreur', 'Vous n\'êtes pas autorisé pour cette transaction');
+        Alert.alert('Erreur', 'Vous n\'etes pas autorise pour cette transaction');
         router.back();
-        return;
+        return null;
       }
 
       if (trans.status !== 'pending_payment') {
-        Alert.alert('Information', 'Cette transaction a déjà été traitée');
+        Alert.alert('Information', 'Cette transaction a deja ete traitee');
         router.back();
-        return;
+        return null;
       }
 
-      setTransaction(trans);
-    } catch (error) {
-      console.error('Error loading transaction:', error);
-      Alert.alert('Erreur', 'Impossible de charger la transaction');
-      router.back();
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return trans;
+    },
+    enabled: !!transactionId && !!user,
+    staleTime: 2 * 60 * 1000, // 2 min
+  });
 
   // =============================================================================
   // HELCIM PAYMENT
@@ -111,7 +101,7 @@ export default function PaymentScreen() {
       setCheckoutToken(data.checkoutToken);
       setShowHelcimPayment(true);
     } catch (error: any) {
-      console.error('Error creating checkout:', error);
+      if (__DEV__) console.error('Error creating checkout:', error);
       Alert.alert('Erreur', error.message || 'Impossible d\'initier le paiement.');
     } finally {
       setIsCreatingCheckout(false);
@@ -176,24 +166,24 @@ export default function PaymentScreen() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Article</Text>
-            <Text style={styles.summaryValue}>{transaction.amount.toFixed(2)}$</Text>
+            <Text style={styles.summaryValue}>{formatPrice(transaction.amount)}</Text>
           </View>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Livraison</Text>
-            <Text style={styles.summaryValue}>{transaction.shippingCost.toFixed(2)}$</Text>
+            <Text style={styles.summaryValue}>{formatPrice(transaction.shippingCost)}</Text>
           </View>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Frais de protection Seconde</Text>
-            <Text style={styles.summaryValue}>{serviceFee.toFixed(2)}$</Text>
+            <Text style={styles.summaryValue}>{formatPrice(serviceFee)}</Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.totalLabel}>Total à payer</Text>
-            <Text style={styles.totalValue}>{totalAmount.toFixed(2)}$</Text>
+            <Text style={styles.totalValue}>{formatPrice(totalAmount)}</Text>
           </View>
         </View>
 
@@ -239,7 +229,7 @@ export default function PaymentScreen() {
             <>
               <Ionicons name="lock-closed-outline" size={16} color={colors.cream} />
               <Text style={styles.payButtonText}>
-                PAYER {totalAmount.toFixed(2)}$
+                PAYER {formatPrice(totalAmount)}
               </Text>
             </>
           )}

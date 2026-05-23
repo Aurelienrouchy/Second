@@ -3,7 +3,7 @@
  * Design System: Luxe Français + Street Energy
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption } from '@/components/ui';
@@ -14,15 +14,15 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -152,11 +152,10 @@ export default function VerifyEmailScreen() {
                   J'ai vérifié mon email
                 </Button>
 
-                <TouchableOpacity
-                  style={styles.resendButton}
+                <Pressable
+                  style={({ pressed }) => [styles.resendButton, pressed && { opacity: 0.7 }]}
                   onPress={handleSendVerification}
                   disabled={loading}
-                  activeOpacity={0.7}
                 >
                   {loading ? (
                     <ActivityIndicator color={colors.primary} />
@@ -165,7 +164,7 @@ export default function VerifyEmailScreen() {
                       Renvoyer l'email
                     </Text>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               </View>
             ) : (
               <Button

@@ -4,10 +4,10 @@ import React from 'react';
 import {
   Alert,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,10 +37,10 @@ export default function PaymentsSettingsScreen() {
           <Text style={styles.emptyText}>Aucune carte enregistrée</Text>
         </View>
 
-        <TouchableOpacity style={styles.addButton} onPress={handleAddCard}>
+        <Pressable style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.7 }]} onPress={handleAddCard}>
           <Ionicons name="add" size={24} color={colors.primary} />
           <Text style={styles.addButtonText}>Ajouter une carte</Text>
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

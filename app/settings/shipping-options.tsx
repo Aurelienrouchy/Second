@@ -8,12 +8,11 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors } from '@/constants/theme';
 
@@ -26,7 +25,7 @@ const CARRIERS = [
 
 export default function ShippingOptionsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
   
   const [enabledCarriers, setEnabledCarriers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);

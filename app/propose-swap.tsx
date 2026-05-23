@@ -5,12 +5,11 @@
  * Match: Exact HTML UI Kit design specifications
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   TextInput,
   Alert,
@@ -21,10 +20,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { ArticlesService } from '@/services/articlesService';
 import { proposeSwap } from '@/services/swapService';
+import { queryKeys } from '@/lib/queryKeys';
 import { SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text } from '@/components/ui';
@@ -51,83 +52,85 @@ export default function ProposeSwapScreen() {
     receiverName?: string;
     receiverImage?: string;
   }>();
-  const { user } = useAuth();
+  const user = useUser();
 
-  // Parse receiver items from route params
+  // --- React Query: fetch target article when navigating via targetArticleId ---
+  const { data: targetArticle, isLoading: isLoadingTarget } = useQuery({
+    queryKey: queryKeys.articles.detail(targetArticleId ?? ''),
+    queryFn: () => ArticlesService.getArticleById(targetArticleId!),
+    enabled: !!targetArticleId && !receiverItemsJson,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // --- React Query: fetch current user's articles ---
+  const { data: userArticlesRaw } = useQuery({
+    queryKey: queryKeys.articles.userList(user?.id ?? ''),
+    queryFn: () => ArticlesService.getUserArticles(user!.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Derive available items from user articles query
+  const allAvailableItems = useMemo<SwapItemInfo[]>(() => {
+    if (!userArticlesRaw) return [];
+    return userArticlesRaw
+      .filter((a) => a.isActive !== false && !a.isSold)
+      .map((a) => ({
+        articleId: a.id,
+        title: a.title,
+        price: a.price,
+        imageUrl: a.images?.[0]?.url,
+        brand: a.brand,
+        size: a.size,
+      }));
+  }, [userArticlesRaw]);
+
+  // Derive initial receiver items from params or target article query
+  const initialReceiverItems = useMemo<SwapItemInfo[]>(() => {
+    if (receiverItemsJson) {
+      try {
+        const parsed = JSON.parse(receiverItemsJson);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch (error) {
+        if (__DEV__) console.error('Error parsing receiver items:', error);
+        return [];
+      }
+    }
+    if (targetArticle) {
+      return [
+        {
+          articleId: targetArticle.id,
+          title: targetArticle.title,
+          price: targetArticle.price,
+          imageUrl: targetArticle.images?.[0]?.url,
+          brand: targetArticle.brand,
+          size: targetArticle.size,
+        },
+      ];
+    }
+    return [];
+  }, [receiverItemsJson, targetArticle]);
+
+  // Local state for mutable selections (seeded from query-derived data)
   const [receiverItems, setReceiverItems] = useState<SwapItemInfo[]>([]);
   const [initiatorItems, setInitiatorItems] = useState<SwapItemInfo[]>([]);
-  const [allAvailableItems, setAllAvailableItems] = useState<SwapItemInfo[]>([]);
   const [message, setMessage] = useState('');
   const [showItemSelector, setShowItemSelector] = useState(false);
   const [showReceiverSelector, setShowReceiverSelector] = useState(false);
   const [complementAmount, setComplementAmount] = useState('');
   const [complementPayer, setComplementPayer] = useState<'initiator' | 'receiver'>('initiator');
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [receiverSeeded, setReceiverSeeded] = useState(false);
 
-  // Parse receiver items from params or fetch target article
-  useEffect(() => {
-    if (receiverItemsJson) {
-      try {
-        const parsed = JSON.parse(receiverItemsJson);
-        setReceiverItems(Array.isArray(parsed) ? parsed : [parsed]);
-      } catch (error) {
-        if (__DEV__) console.error('Error parsing receiver items:', error);
-      }
-      setIsLoading(false);
-    } else if (targetArticleId) {
-      // Fetch the target article to pre-populate receiver items
-      ArticlesService.getArticleById(targetArticleId)
-        .then((article) => {
-          if (article) {
-            setReceiverItems([
-              {
-                articleId: article.id,
-                title: article.title,
-                price: article.price,
-                imageUrl: article.images?.[0]?.url,
-                brand: article.brand,
-                size: article.size,
-              },
-            ]);
-          }
-        })
-        .catch((error) => {
-          if (__DEV__) console.error('Error fetching target article:', error);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
+  // Seed receiver items once when initial data becomes available
+  React.useEffect(() => {
+    if (!receiverSeeded && initialReceiverItems.length > 0) {
+      setReceiverItems(initialReceiverItems);
+      setReceiverSeeded(true);
     }
-  }, [receiverItemsJson, targetArticleId]);
+  }, [initialReceiverItems, receiverSeeded]);
 
-  // Load user's available items
-  useEffect(() => {
-    loadUserItems();
-  }, [user]);
-
-  const loadUserItems = async () => {
-    if (!user) {
-      return;
-    }
-
-    try {
-      const articles = await ArticlesService.getUserArticles(user.id);
-      const available = articles
-        .filter((a) => a.isActive !== false && !a.isSold)
-        .map((a) => ({
-          articleId: a.id,
-          title: a.title,
-          price: a.price,
-          imageUrl: a.images?.[0]?.url,
-          brand: a.brand,
-          size: a.size,
-        }));
-      setAllAvailableItems(available);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading user items:', error);
-    }
-  };
+  const isLoading = isLoadingTarget && !receiverItemsJson;
 
   // Calculate total values
   const receiverTotal = useMemo(
@@ -280,12 +283,12 @@ export default function ProposeSwapScreen() {
               />
             ))}
 
-            <TouchableOpacity
-              style={styles.addMoreButton}
+            <Pressable
+              style={({ pressed }) => [styles.addMoreButton, pressed && { opacity: 0.7 }]}
               onPress={() => setShowReceiverSelector(true)}
             >
               <Text style={styles.addMoreButtonText}>+ Ajouter</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Swap Separator — line + circle + line, marginBottom: 20px */}
@@ -304,12 +307,12 @@ export default function ProposeSwapScreen() {
               />
             ))}
 
-            <TouchableOpacity
-              style={styles.addMoreButton}
+            <Pressable
+              style={({ pressed }) => [styles.addMoreButton, pressed && { opacity: 0.7 }]}
               onPress={() => setShowItemSelector(true)}
             >
               <Text style={styles.addMoreButtonText}>+ Ajouter un article</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Value Difference Box (shows when both sides have items) */}
@@ -354,10 +357,11 @@ export default function ProposeSwapScreen() {
 
                   {/* Payer toggle */}
                   <View style={styles.payerToggleRow}>
-                    <TouchableOpacity
-                      style={[
+                    <Pressable
+                      style={({ pressed }) => [
                         styles.payerToggleButton,
                         complementPayer === 'initiator' && styles.payerToggleButtonActive,
+                        pressed && { opacity: 0.7 },
                       ]}
                       onPress={() => setComplementPayer('initiator')}
                     >
@@ -369,11 +373,12 @@ export default function ProposeSwapScreen() {
                       >
                         Je paie
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
                         styles.payerToggleButton,
                         complementPayer === 'receiver' && styles.payerToggleButtonActive,
+                        pressed && { opacity: 0.7 },
                       ]}
                       onPress={() => setComplementPayer('receiver')}
                     >
@@ -385,7 +390,7 @@ export default function ProposeSwapScreen() {
                       >
                         {receiverName ? `${receiverName} paie` : 'L\'autre paie'}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
 
                   {/* Amount input */}
@@ -401,14 +406,14 @@ export default function ProposeSwapScreen() {
                       maxLength={6}
                     />
                     {valueDifference > 0 && (
-                      <TouchableOpacity
-                        style={styles.suggestAmountButton}
+                      <Pressable
+                        style={({ pressed }) => [styles.suggestAmountButton, pressed && { opacity: 0.7 }]}
                         onPress={() => setComplementAmount(String(valueDifference))}
                       >
                         <Text style={styles.suggestAmountText}>
                           Suggéré: ${valueDifference}
                         </Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     )}
                   </View>
                 </View>
@@ -434,15 +439,15 @@ export default function ProposeSwapScreen() {
 
         {/* Sticky Bottom CTA — padding: 16px 24px 32px, charcoal bg button, cream text */}
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.submitButton,
               (initiatorItems.length === 0 || receiverItems.length === 0 || isSubmitting) &&
                 styles.submitButtonDisabled,
+              pressed && { opacity: 0.7 },
             ]}
             onPress={handleSubmit}
             disabled={initiatorItems.length === 0 || receiverItems.length === 0 || isSubmitting}
-            activeOpacity={0.8}
           >
             {isSubmitting ? (
               <ActivityIndicator size="small" color={colors.cream} />
@@ -457,7 +462,7 @@ export default function ProposeSwapScreen() {
                 <Text style={styles.submitButtonText}>Envoyer la proposition</Text>
               </>
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
 

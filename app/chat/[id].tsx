@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
+import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,7 +31,7 @@ import ShipmentTracking from '@/components/ShipmentTracking';
 import { ModerationService } from '@/services/moderationService';
 
 // Import hooks and contexts
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useChat } from '@/hooks/useChat';
 
 // Import services
@@ -39,9 +40,12 @@ import { ChatService } from '@/services/chatService';
 import { TransactionService } from '@/services/transactionService';
 import { useUserProfile } from '@/hooks/useUserProfile';
 
+// Import query keys
+import { queryKeys } from '@/lib/queryKeys';
+
 // Import types
-import { Article, Message, MeetupSpot, Transaction } from '@/types';
-import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
+import { Message, MeetupSpot } from '@/types';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
 
 // Module-level so the FlashList prop identity stays stable across renders.
@@ -50,18 +54,15 @@ const messageKeyExtractor = (item: Message): string => item.id;
 export default function ChatScreen() {
   const [messageText, setMessageText] = useState('');
   const [isSendingImage, setIsSendingImage] = useState(false);
-  const [transaction, setTransaction] = useState<Transaction | null>(null);
-  const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
-  const [article, setArticle] = useState<Article | null>(null);
 
   const flatListRef = useRef<FlashListRef<Message>>(null);
   const makeOfferModalRef = useRef<MakeOfferModalRef>(null);
   const reportBottomSheetRef = useRef<ReportBottomSheetRef>(null);
-  
+
   const { id: chatId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useAuth();
-  
+  const user = useUser();
+
   const {
     messages,
     chat,
@@ -74,19 +75,25 @@ export default function ChatScreen() {
     rejectOffer,
   } = useChat(chatId || null, user?.id || null);
 
-  // Load transaction if exists
-  useEffect(() => {
-    if (chatId && user) {
-      loadTransaction();
-    }
-  }, [chatId, user]);
+  // ─── Article linked to this chat ───
+  const { data: article = null } = useQuery({
+    queryKey: queryKeys.chat.article(chat?.articleId ?? ''),
+    queryFn: () => ArticlesService.getArticleById(chat!.articleId!),
+    enabled: !!chat?.articleId,
+    staleTime: 2 * 60 * 1000,
+  });
 
-  // Load article if chat has articleId
-  useEffect(() => {
-    if (chat?.articleId) {
-      loadArticle();
-    }
-  }, [chat?.articleId]);
+  // ─── Transaction linked to this chat ───
+  const {
+    data: transaction = null,
+    isLoading: isLoadingTransaction,
+    refetch: refetchTransaction,
+  } = useQuery({
+    queryKey: queryKeys.chat.transaction(chatId ?? ''),
+    queryFn: () => TransactionService.getTransactionByChat(chatId!, user!.id),
+    enabled: !!chatId && !!user,
+    staleTime: 2 * 60 * 1000,
+  });
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -96,31 +103,6 @@ export default function ChatScreen() {
       }, 100);
     }
   }, [messages.length]);
-
-  const loadArticle = async () => {
-    if (!chat?.articleId) return;
-
-    try {
-      const loadedArticle = await ArticlesService.getArticleById(chat.articleId);
-      setArticle(loadedArticle);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading article:', error);
-    }
-  };
-
-  const loadTransaction = async () => {
-    if (!chatId || !user) return;
-
-    try {
-      setIsLoadingTransaction(true);
-      const trans = await TransactionService.getTransactionByChat(chatId, user.id);
-      setTransaction(trans);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading transaction:', error);
-    } finally {
-      setIsLoadingTransaction(false);
-    }
-  };
 
   // Handle send text message
   const handleSendMessage = async () => {
@@ -500,7 +482,7 @@ export default function ChatScreen() {
               transaction && transaction.status !== 'pending_payment' ? (
                 <ShipmentTracking
                   transaction={transaction}
-                  onStatusUpdate={loadTransaction}
+                  onStatusUpdate={() => { refetchTransaction(); }}
                 />
               ) : null
             }

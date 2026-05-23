@@ -4,11 +4,11 @@
  * Supports multi-article swaps with stacked image previews
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -17,9 +17,11 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { getUserSwaps, getSwapItems } from '@/services/swapService';
+import { queryKeys } from '@/lib/queryKeys';
 import { Swap, SwapStatus, SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Button } from '@/components/ui';
@@ -55,34 +57,20 @@ const getTotalValue = (items: SwapItemInfo[]): number => {
 type FilterType = 'all' | 'pending' | 'active' | 'completed';
 
 export default function MySwapsScreen() {
-  const { user } = useAuth();
-  const [swaps, setSwaps] = useState<Swap[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const user = useUser();
   const [filter, setFilter] = useState<FilterType>('all');
 
-  const loadSwaps = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const allSwaps = await getUserSwaps(user.id);
-      setSwaps(allSwaps);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading swaps:', error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    loadSwaps();
-  }, [loadSwaps]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadSwaps();
-  };
+  const {
+    data: swaps = [],
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: queryKeys.swaps.userList(user?.id || ''),
+    queryFn: () => getUserSwaps(user!.id),
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const filteredSwaps = swaps.filter((swap) => {
     switch (filter) {
@@ -157,8 +145,8 @@ export default function MySwapsScreen() {
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={isRefetching}
+            onRefresh={refetch}
             tintColor={colors.primary}
           />
         }
@@ -202,8 +190,8 @@ function FilterTab({
   badge?: number;
 }) {
   return (
-    <TouchableOpacity
-      style={[styles.filterTab, isActive && styles.filterTabActive]}
+    <Pressable
+      style={({ pressed }) => [styles.filterTab, isActive && styles.filterTabActive, pressed && { opacity: 0.7 }]}
       onPress={onPress}
     >
       <Text
@@ -217,7 +205,7 @@ function FilterTab({
           <Text variant="caption" style={styles.badgeText}>{badge}</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -310,7 +298,7 @@ function SwapCard({
   };
 
   return (
-    <TouchableOpacity style={styles.swapCard} onPress={handlePress}>
+    <Pressable style={({ pressed }) => [styles.swapCard, pressed && { opacity: 0.7 }]} onPress={handlePress}>
       <View style={styles.swapHeader}>
         <View style={styles.userInfo}>
           {otherUser.image ? (
@@ -371,7 +359,7 @@ function SwapCard({
         </Text>
         <Caption style={styles.swapDate}>{formatDate(swap.createdAt)}</Caption>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

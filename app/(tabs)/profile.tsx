@@ -35,7 +35,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui';
 import { colors, fonts, radius, spacing, animations } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthActions } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { formatDisplayName } from '@/utils/formatName';
@@ -168,8 +168,8 @@ const GuestState = React.memo(function GuestState({
 // =============================================================================
 
 export default function ProfileScreen() {
-  const { user, signOut, checkAuthRequired } = useAuth();
-  const { requireAuth, showAuthSheet } = useAuthRequired();
+  const { signOut } = useAuthActions();
+  const { user, requireAuth, showAuthSheet } = useAuthRequired();
   const router = useRouter();
 
   // Handlers
@@ -197,13 +197,9 @@ export default function ProfileScreen() {
 
   const handleAction = useCallback(
     (action: () => void, message?: string) => {
-      if (checkAuthRequired()) {
-        requireAuth(action, message);
-      } else {
-        action();
-      }
+      requireAuth(action, message);
     },
-    [checkAuthRequired, requireAuth],
+    [requireAuth],
   );
 
   const handleConnect = useCallback(() => {

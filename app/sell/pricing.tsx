@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   InputAccessoryView,
   KeyboardAvoidingView,
@@ -227,10 +227,9 @@ export default function PricingScreen() {
         {/* Price section */}
         <FormSectionTitle title="Ton prix" />
 
-        <TouchableOpacity
+        <Pressable
           style={styles.priceCard}
           onPress={() => priceInputRef.current?.focus()}
-          activeOpacity={1}
         >
           <Text style={styles.priceLabel}>Prix de vente</Text>
           <View style={styles.priceRow}>
@@ -248,7 +247,7 @@ export default function PricingScreen() {
               inputAccessoryViewID="pricing-empty"
             />
           </View>
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Delivery section */}
         <View style={{ marginTop: spacing.lg }}>
@@ -256,13 +255,13 @@ export default function PricingScreen() {
         </View>
 
         {/* Hand delivery card */}
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.deliveryCard,
             isHandDelivery && styles.deliveryCardActive,
+            pressed && { opacity: 0.7 },
           ]}
           onPress={() => setIsHandDelivery((prev) => !prev)}
-          activeOpacity={0.8}
         >
           <View style={styles.deliveryCardHeader}>
             <View
@@ -291,11 +290,12 @@ export default function PricingScreen() {
                 {NEIGHBORHOOD_TAGS.map((tag) => {
                   const isActive = selectedNeighborhoods.some((n) => n.name === tag);
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={tag}
-                      style={[
+                      style={({ pressed }) => [
                         styles.deliveryTag,
                         isActive && styles.deliveryTagActive,
+                        pressed && { opacity: 0.7 },
                       ]}
                       onPress={() =>
                         handleNeighborhoodToggle({
@@ -313,16 +313,16 @@ export default function PricingScreen() {
                       >
                         {tag}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
-                <TouchableOpacity
-                  style={styles.deliveryTagMore}
+                <Pressable
+                  style={({ pressed }) => [styles.deliveryTagMore, pressed && { opacity: 0.7 }]}
                   onPress={() => neighborhoodSheetRef.current?.show()}
                 >
                   <Text style={styles.deliveryTagMoreText}>Voir plus</Text>
                   <Ionicons name="chevron-forward" size={12} color={colors.muted} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
               {/* Show extra selected neighborhoods not in quick tags */}
               {selectedNeighborhoods.filter((n) => !NEIGHBORHOOD_TAGS.includes(n.name)).length > 0 && (
@@ -330,31 +330,31 @@ export default function PricingScreen() {
                   {selectedNeighborhoods
                     .filter((n) => !NEIGHBORHOOD_TAGS.includes(n.name))
                     .map((n) => (
-                      <TouchableOpacity
+                      <Pressable
                         key={n.id}
-                        style={[styles.deliveryTag, styles.deliveryTagActive]}
+                        style={({ pressed }) => [styles.deliveryTag, styles.deliveryTagActive, pressed && { opacity: 0.7 }]}
                         onPress={() => handleNeighborhoodToggle(n)}
                       >
                         <Text style={[styles.deliveryTagText, styles.deliveryTagTextActive]}>
                           {n.name}
                         </Text>
                         <Ionicons name="close" size={10} color={colors.cream} style={{ marginLeft: 4 }} />
-                      </TouchableOpacity>
+                      </Pressable>
                     ))}
                 </View>
               )}
             </View>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Shipping card */}
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.deliveryCard,
             isShipping && styles.deliveryCardActive,
+            pressed && { opacity: 0.7 },
           ]}
           onPress={() => setIsShipping((prev) => !prev)}
-          activeOpacity={0.8}
         >
           <View style={styles.deliveryCardHeader}>
             <View
@@ -381,14 +381,14 @@ export default function PricingScreen() {
                 {PACKAGE_SIZES.map((size) => {
                   const isSelected = packageSize === size.value;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={size.value}
-                      style={[
+                      style={({ pressed }) => [
                         styles.packageCard,
                         isSelected && styles.packageCardSelected,
+                        pressed && { opacity: 0.7 },
                       ]}
                       onPress={() => setPackageSize(size.value)}
-                      activeOpacity={0.7}
                     >
                       <Text
                         style={[
@@ -401,7 +401,7 @@ export default function PricingScreen() {
                       <Text style={styles.packageWeight}>
                         {size.weight}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -415,7 +415,7 @@ export default function PricingScreen() {
               )}
             </View>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Errors */}
         {errors.length > 0 && (
@@ -432,13 +432,14 @@ export default function PricingScreen() {
 
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.continueButton,
             !isFormValid && styles.continueButtonDisabled,
+            pressed && { opacity: 0.7 },
           ]}
           onPress={handleContinue}
-          activeOpacity={0.85}
+          disabled={!isFormValid}
         >
           <Text
             style={[
@@ -453,7 +454,7 @@ export default function PricingScreen() {
             size={18}
             color={isFormValid ? colors.cream : colors.muted}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <NeighborhoodBottomSheet

@@ -7,9 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,10 +24,9 @@ interface LinkItemProps {
 }
 
 const LinkItem = ({ icon, title, onPress, isLast }: LinkItemProps) => (
-  <TouchableOpacity
-    style={[styles.linkItem, isLast && styles.linkItemLast]}
+  <Pressable
+    style={({ pressed }) => [styles.linkItem, isLast && styles.linkItemLast, pressed && { opacity: 0.7 }]}
     onPress={onPress}
-    activeOpacity={0.7}
   >
     <View style={styles.linkLeft}>
       <View style={styles.linkIconContainer}>
@@ -36,7 +35,7 @@ const LinkItem = ({ icon, title, onPress, isLast }: LinkItemProps) => (
       <Text variant="body">{title}</Text>
     </View>
     <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-  </TouchableOpacity>
+  </Pressable>
 );
 
 export default function AboutSettingsScreen() {

@@ -5,7 +5,7 @@
 
 import RejectionModal, { RejectionModalRef } from '@/components/admin/RejectionModal';
 import ShopValidationCard from '@/components/admin/ShopValidationCard';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
 import { UserService } from '@/services/userService';
@@ -29,7 +29,7 @@ type TabType = 'pending' | 'approved' | 'rejected' | 'all';
 
 export default function AdminShopsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
   const [selectedTab, setSelectedTab] = useState<TabType>('pending');
   const [shops, setShops] = useState<Shop[]>([]);
   const [isLoading, setIsLoading] = useState(true);

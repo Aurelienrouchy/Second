@@ -9,7 +9,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import {
   acceptSwap,
   declineSwap,
@@ -53,7 +53,7 @@ const STATUS_LABELS: Record<SwapStatus, string> = {
 
 export default function SwapDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const user = useUser();
 
   const [swap, setSwap] = useState<Swap | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -289,13 +289,13 @@ export default function SwapDetailScreen() {
 
       {/* Sticky Top Bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity
+        <Pressable
           onPress={() => router.back()}
           hitSlop={8}
-          style={styles.backButton}
+          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
         >
           <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.topBarTitle}>Swap reçu</Text>
         {swap.status === 'proposed' && !isInitiator && (
           <View style={styles.badgeNew}>
@@ -476,8 +476,8 @@ export default function SwapDetailScreen() {
           {/* Proposed - Receiver can accept/decline */}
           {swap.status === 'proposed' && isReceiver && (
             <>
-              <TouchableOpacity
-                style={styles.acceptBtn}
+              <Pressable
+                style={({ pressed }) => [styles.acceptBtn, pressed && { opacity: 0.7 }]}
                 onPress={handleAccept}
                 disabled={isProcessing}
               >
@@ -491,10 +491,10 @@ export default function SwapDetailScreen() {
                     </Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
-                style={styles.declineBtn}
+              <Pressable
+                style={({ pressed }) => [styles.declineBtn, pressed && { opacity: 0.7 }]}
                 onPress={handleDecline}
                 disabled={isProcessing}
               >
@@ -502,21 +502,21 @@ export default function SwapDetailScreen() {
                 <Text variant="body" style={styles.declineButtonText}>
                   Refuser
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </>
           )}
 
           {/* Proposed - Initiator can cancel */}
           {swap.status === 'proposed' && isInitiator && (
-            <TouchableOpacity
-              style={styles.declineBtn}
+            <Pressable
+              style={({ pressed }) => [styles.declineBtn, pressed && { opacity: 0.7 }]}
               onPress={handleCancel}
               disabled={isProcessing}
             >
               <Text variant="body" style={styles.declineButtonText}>
                 Annuler la proposition
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {/* Accepted - Choose exchange mode */}
@@ -526,8 +526,8 @@ export default function SwapDetailScreen() {
                 Comment voulez-vous échanger ?
               </Text>
 
-              <TouchableOpacity
-                style={styles.modeButton}
+              <Pressable
+                style={({ pressed }) => [styles.modeButton, pressed && { opacity: 0.7 }]}
                 onPress={() => handleSetExchangeMode('hand_delivery')}
                 disabled={isProcessing}
               >
@@ -539,10 +539,10 @@ export default function SwapDetailScreen() {
                   <Caption>Rencontrez-vous pour échanger</Caption>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
-                style={styles.modeButton}
+              <Pressable
+                style={({ pressed }) => [styles.modeButton, pressed && { opacity: 0.7 }]}
                 onPress={() => handleSetExchangeMode('shipping')}
                 disabled={isProcessing}
               >
@@ -554,7 +554,7 @@ export default function SwapDetailScreen() {
                   <Caption>Envoyez-vous mutuellement les articles</Caption>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
 
@@ -568,8 +568,8 @@ export default function SwapDetailScreen() {
                 Prends 2-4 photos de l'article avant de l'envoyer
               </Caption>
 
-              <TouchableOpacity
-                style={styles.uploadButton}
+              <Pressable
+                style={({ pressed }) => [styles.uploadButton, pressed && { opacity: 0.7 }]}
                 onPress={handleUploadPhotos}
                 disabled={isProcessing}
               >
@@ -583,7 +583,7 @@ export default function SwapDetailScreen() {
                     </Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
 
@@ -599,8 +599,8 @@ export default function SwapDetailScreen() {
 
           {/* Shipping - Confirm shipping */}
           {swap.status === 'shipping' && !hasConfirmedShipping && (
-            <TouchableOpacity
-              style={styles.actionButton}
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
               onPress={handleConfirmShipping}
               disabled={isProcessing}
             >
@@ -614,13 +614,13 @@ export default function SwapDetailScreen() {
                   </Text>
                 </>
               )}
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {/* Shipping - Confirm reception */}
           {swap.status === 'shipping' && hasConfirmedShipping && !hasConfirmedReception && (
-            <TouchableOpacity
-              style={styles.actionButton}
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
               onPress={handleConfirmReception}
               disabled={isProcessing}
             >
@@ -634,7 +634,7 @@ export default function SwapDetailScreen() {
                   </Text>
                 </>
               )}
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {/* Completed - Rate */}
@@ -645,15 +645,15 @@ export default function SwapDetailScreen() {
               </Text>
               <View style={styles.ratingButtons}>
                 {[1, 2, 3, 4, 5].map((score) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={score}
-                    style={styles.ratingButton}
+                    style={({ pressed }) => [styles.ratingButton, pressed && { opacity: 0.7 }]}
                     onPress={() => handleRate(score)}
                     disabled={isProcessing}
                   >
                     <Ionicons name="star" size={32} color="#FFD700" />
                     <Caption style={styles.ratingScore}>{score}</Caption>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             </View>
@@ -662,8 +662,8 @@ export default function SwapDetailScreen() {
 
         {/* Contact Button */}
         {swap.status !== 'declined' && swap.status !== 'cancelled' && (
-          <TouchableOpacity
-            style={styles.contactButton}
+          <Pressable
+            style={({ pressed }) => [styles.contactButton, pressed && { opacity: 0.7 }]}
             onPress={() => {
               const otherUserId = isInitiator ? swap.receiverId : swap.initiatorId;
               router.push(`/chat/${otherUserId}`);
@@ -673,15 +673,15 @@ export default function SwapDetailScreen() {
             <Text variant="body" style={styles.contactButtonText}>
               Contacter {senderName}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </ScrollView>
 
       {/* Sticky Bottom Buttons — Proposed Status Only */}
       {swap.status === 'proposed' && !isInitiator && (
         <View style={styles.stickyBottom}>
-          <TouchableOpacity
-            style={styles.declineBtn}
+          <Pressable
+            style={({ pressed }) => [styles.declineBtn, pressed && { opacity: 0.7 }]}
             onPress={handleDecline}
             disabled={isProcessing}
           >
@@ -690,10 +690,10 @@ export default function SwapDetailScreen() {
             ) : (
               <Text style={styles.declineBtnText}>Refuser</Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.acceptBtn}
+          <Pressable
+            style={({ pressed }) => [styles.acceptBtn, pressed && { opacity: 0.7 }]}
             onPress={handleAccept}
             disabled={isProcessing}
           >
@@ -705,7 +705,7 @@ export default function SwapDetailScreen() {
                 <Text style={styles.acceptBtnText}>Accepter le swap</Text>
               </>
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
       )}
     </SafeAreaView>

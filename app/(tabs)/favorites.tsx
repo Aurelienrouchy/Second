@@ -33,7 +33,7 @@ import ProductGrid from '@/components/ProductGrid';
 
 // Hooks & Services
 import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { FavoritesService } from '@/services/favoritesService';
 import { Article, ArticleWithLocation } from '@/types';
@@ -83,7 +83,7 @@ const PAGE_SIZE = 20;
 
 export default function FavoritesScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
   const { requireAuth } = useAuthRequired();
   const { toggleFavorite, favoriteIds: articleIds } = useFavorites();
 

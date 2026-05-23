@@ -11,22 +11,23 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
 
 export default function EmailSettingsScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const user = useUser();
+  const { signOut } = useAuthActions();
 
   const [newEmail, setNewEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,13 +83,13 @@ export default function EmailSettingsScreen() {
       <Stack.Screen options={{
         headerBackTitle: ' ',
         headerRight: () => (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          <Pressable onPress={handleSave} disabled={isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               <Text variant="body" style={styles.headerButton}>Valider</Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         ),
       }} />
 
@@ -153,17 +154,16 @@ export default function EmailSettingsScreen() {
                   placeholderTextColor={colors.muted}
                   secureTextEntry={!showPassword}
                 />
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeButton}
-                  activeOpacity={0.7}
+                  style={({ pressed }) => [styles.eyeButton, pressed && { opacity: 0.7 }]}
                 >
                   <Ionicons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={24}
                     color={colors.muted}
                   />
-                </TouchableOpacity>
+                </Pressable>
               </View>
               <Caption style={styles.helperText}>
                 Pour votre sécurité, confirmez votre mot de passe pour valider le changement.

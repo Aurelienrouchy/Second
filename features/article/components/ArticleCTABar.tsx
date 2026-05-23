@@ -7,6 +7,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 import { articleStyles as styles } from '../styles';
 
@@ -48,7 +49,7 @@ function ArticleCTABarComponent({
           </Pressable>
           <Pressable style={styles.buyButton} onPress={onBuy}>
             <Ionicons name="bag-handle-outline" size={16} color={colors.cream} />
-            <Text style={styles.buyButtonText}>ACHETER · ${price}</Text>
+            <Text style={styles.buyButtonText}>ACHETER · {formatPrice(price)}</Text>
           </Pressable>
         </View>
       )}

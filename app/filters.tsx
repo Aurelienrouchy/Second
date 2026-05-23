@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -173,7 +174,7 @@ export default function FiltersScreen() {
       <Text style={styles.sectionTitle}>Prix</Text>
       <View style={styles.priceContainer}>
         <Text style={styles.priceLabel}>
-          {filters.priceMin?.toFixed(0)}€ - {filters.priceMax?.toFixed(0)}€
+          {formatPrice(filters.priceMin ?? 0)} - {formatPrice(filters.priceMax ?? 0)}
         </Text>
         <View style={styles.sliderContainer}>
           <Slider

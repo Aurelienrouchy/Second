@@ -3,7 +3,7 @@
  * Design System: Luxe Français + Street Energy
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
@@ -24,7 +24,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const user = useUser();
+  const { signOut } = useAuthActions();
   const [password, setPassword] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);

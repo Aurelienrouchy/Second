@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Dimensions,
   ActivityIndicator,
@@ -21,6 +21,7 @@ import draftService, { ArticleDraft } from '@/services/draftService';
 import { ArticlesService } from '@/services/articlesService';
 import { auth } from '@/config/firebaseConfig';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const HERO_HEIGHT = 340;
@@ -157,7 +158,7 @@ export default function PreviewScreen() {
       setIsPublishing(false);
       setShowSuccessModal(true);
     } catch (error: any) {
-      console.error('[Preview] Error publishing article:', error);
+      if (__DEV__) console.error('[Preview] Error publishing article:', error);
       setIsPublishing(false);
       Alert.alert(
         'Erreur',
@@ -165,11 +166,6 @@ export default function PreviewScreen() {
         [{ text: 'OK' }]
       );
     }
-  };
-
-  const formatPrice = (price: number | undefined) => {
-    if (price === undefined || price === null) return '$0';
-    return '$' + price.toFixed(0);
   };
 
   // Build tags array
@@ -199,13 +195,13 @@ export default function PreviewScreen() {
           <PhotoCarousel photos={photos} height={HERO_HEIGHT} />
 
           {/* Back button overlay */}
-          <TouchableOpacity
-            style={[styles.heroBackButton, { top: insets.top + 8 }]}
+          <Pressable
+            style={({ pressed }) => [styles.heroBackButton, { top: insets.top + 8 }, pressed && { opacity: 0.7 }]}
             onPress={handleBack}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="chevron-back" size={22} color={colors.cream} />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Preview badge */}
           <View style={[styles.previewBadge, { top: insets.top + 12 }]}>
@@ -224,7 +220,7 @@ export default function PreviewScreen() {
           <Text style={styles.articleTitle}>{fields.title}</Text>
 
           {/* Price */}
-          <Text style={styles.articlePrice}>{formatPrice(pricing.price)}</Text>
+          <Text style={styles.articlePrice}>{formatPrice(pricing.price ?? 0)}</Text>
 
           {/* Tags row */}
           {tags.length > 0 && (
@@ -283,11 +279,10 @@ export default function PreviewScreen() {
 
       {/* Sticky footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          style={[styles.publishButton, isPublishing && styles.publishButtonDisabled]}
+        <Pressable
+          style={({ pressed }) => [styles.publishButton, isPublishing && styles.publishButtonDisabled, pressed && { opacity: 0.7 }]}
           onPress={handlePublish}
           disabled={isPublishing}
-          activeOpacity={0.85}
         >
           {isPublishing ? (
             <ActivityIndicator size="small" color={colors.cream} />
@@ -297,11 +292,11 @@ export default function PreviewScreen() {
               <Text style={styles.publishButtonText}>PUBLIER L'ANNONCE</Text>
             </>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity style={styles.modifyButton} onPress={handleBack}>
+        <Pressable style={({ pressed }) => [styles.modifyButton, pressed && { opacity: 0.7 }]} onPress={handleBack}>
           <Text style={styles.modifyButtonText}>Modifier</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Success modal */}

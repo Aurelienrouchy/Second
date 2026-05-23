@@ -9,7 +9,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -37,7 +37,7 @@ import { getCategoryInfoFromIds } from '@/data/categories-v2';
 
 // Services & Types
 import { ArticlesService } from '@/services/articlesService';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { Article } from '@/types';
 import { colors } from '@/constants/theme';
 
@@ -60,7 +60,7 @@ export default function EditArticleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const user = useUser();
 
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -243,9 +243,9 @@ export default function EditArticleScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <Pressable onPress={handleBack} style={styles.backButton}>
           <Ionicons name="close" size={24} color={colors.foreground} />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.headerTitle}>Modifier l'article</Text>
         <View style={styles.headerPlaceholder} />
       </View>
@@ -396,7 +396,7 @@ export default function EditArticleScreen() {
 
       {/* Save button */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
+        <Pressable
           style={[
             styles.saveButton,
             (!isFormValid || isSaving) && styles.saveButtonDisabled,
@@ -416,7 +416,7 @@ export default function EditArticleScreen() {
               Enregistrer les modifications
             </Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Bottom Sheets */}

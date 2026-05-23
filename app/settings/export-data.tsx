@@ -3,7 +3,7 @@
  * Design System: Luxe Français + Street Energy
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
@@ -40,7 +40,7 @@ const DataItem = ({ icon, title, description }: DataItemProps) => (
 );
 
 export default function ExportDataScreen() {
-  const { user } = useAuth();
+  const user = useUser();
   const [loading, setLoading] = useState(false);
   const [exported, setExported] = useState(false);
 

@@ -12,23 +12,24 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
 
 export default function ProfileDetailsScreen() {
   const router = useRouter();
-  const { user, refreshUser } = useAuth();
+  const user = useUser();
+  const { refreshUser } = useAuthActions();
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -101,13 +102,13 @@ export default function ProfileDetailsScreen() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <Stack.Screen options={{
         headerRight: () => (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          <Pressable onPress={handleSave} disabled={isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               <Text variant="body" style={styles.headerButton}>Enregistrer</Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         ),
       }} />
 
@@ -122,7 +123,7 @@ export default function ProfileDetailsScreen() {
         >
           {/* Profile Image */}
           <View style={styles.imageSection}>
-            <TouchableOpacity onPress={pickImage} style={styles.imageContainer} activeOpacity={0.8}>
+            <Pressable onPress={pickImage} style={({ pressed }) => [styles.imageContainer, pressed && { opacity: 0.8 }]}>
               <Image
                 source={profileImage ? { uri: profileImage } : undefined}
                 style={styles.profileImage}
@@ -130,10 +131,10 @@ export default function ProfileDetailsScreen() {
               <View style={styles.cameraButton}>
                 <Ionicons name="camera" size={20} color={colors.white} />
               </View>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={pickImage} activeOpacity={0.7}>
+            </Pressable>
+            <Pressable onPress={pickImage} style={({ pressed }) => pressed && { opacity: 0.7 }}>
               <Text variant="body" style={styles.changePhotoText}>Changer la photo de profil</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Form */}

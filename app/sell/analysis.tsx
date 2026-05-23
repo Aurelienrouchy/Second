@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
 } from 'react-native';
 import Animated, {
@@ -434,42 +434,40 @@ export default function AnalysisScreen() {
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         {screenState === 'complete' && (
-          <TouchableOpacity
-            style={styles.primaryButton}
+          <Pressable
+            style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.7 }]}
             onPress={handleContinue}
-            activeOpacity={0.85}
           >
             <Text style={styles.primaryButtonText}>MODIFIER LES DÉTAILS</Text>
             <Ionicons name="arrow-forward" size={18} color={colors.cream} />
-          </TouchableOpacity>
+          </Pressable>
         )}
 
         {screenState === 'error' && (
           <>
-            <TouchableOpacity
-              style={styles.primaryButton}
+            <Pressable
+              style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.7 }]}
               onPress={runAnalysis}
-              activeOpacity={0.85}
             >
               <Ionicons name="refresh-outline" size={18} color={colors.cream} />
               <Text style={styles.primaryButtonText}>RÉESSAYER</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.manualLink}
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.manualLink, pressed && { opacity: 0.7 }]}
               onPress={handleManualEntry}
             >
               <Text style={styles.manualLinkText}>ou remplir manuellement</Text>
-            </TouchableOpacity>
+            </Pressable>
           </>
         )}
 
         {screenState === 'loading' && (
-          <TouchableOpacity
-            style={styles.manualLink}
+          <Pressable
+            style={({ pressed }) => [styles.manualLink, pressed && { opacity: 0.7 }]}
             onPress={handleManualEntry}
           >
             <Text style={styles.manualLinkText}>Passer et remplir manuellement</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
     </View>

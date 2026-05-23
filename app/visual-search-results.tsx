@@ -20,7 +20,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ActivityIndicator, TouchableOpacity } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 
 import { colors, spacing, typography, radius, shadows } from '@/constants/theme';
 import { searchByImage, VisualSearchResult } from '@/services/visualSearchService';
@@ -135,10 +135,10 @@ export default function VisualSearchResultsScreen() {
       <Ionicons name="alert-circle-outline" size={56} color={colors.muted} />
       <Text style={styles.emptyTitle}>Impossible d'analyser l'image</Text>
       <Text style={styles.emptySubtitle}>{error}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+      <Pressable style={styles.retryButton} onPress={handleRetry}>
         <Ionicons name="refresh-outline" size={20} color={colors.white} />
         <Text style={styles.retryButtonText}>Réessayer</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 
@@ -151,14 +151,14 @@ export default function VisualSearchResultsScreen() {
         Essayez avec une photo plus nette ou un angle différent
       </Text>
       <View style={styles.emptyActions}>
-        <TouchableOpacity style={styles.newSearchButton} onPress={handleNewSearch}>
+        <Pressable style={styles.newSearchButton} onPress={handleNewSearch}>
           <Ionicons name="camera-outline" size={20} color={colors.foreground} />
           <Text style={styles.newSearchButtonText}>Nouvelle recherche</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.textSearchButton} onPress={handleTextSearch}>
+        </Pressable>
+        <Pressable style={styles.textSearchButton} onPress={handleTextSearch}>
           <Ionicons name="search-outline" size={20} color={colors.white} />
           <Text style={styles.textSearchButtonText}>Recherche texte</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );

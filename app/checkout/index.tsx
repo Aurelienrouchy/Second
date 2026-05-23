@@ -8,7 +8,7 @@
  * Navigates to /checkout/meetup or /checkout/shipping
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -21,12 +21,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { doc, getDoc } from 'firebase/firestore';
+import { useQuery } from '@tanstack/react-query';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
-import { firestore } from '@/config/firebaseConfig';
-import { Article, TransactionDeliveryType } from '@/types';
+import { ArticlesService } from '@/services/articlesService';
+import { queryKeys } from '@/lib/queryKeys';
+import { formatPrice } from '@/utils/formatPrice';
+import { TransactionDeliveryType } from '@/types';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -38,41 +40,25 @@ export default function CheckoutScreen() {
   const params = useLocalSearchParams();
   const articleId = params.articleId as string;
 
-  const [article, setArticle] = useState<Article | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: article = null, isLoading: loading } = useQuery({
+    queryKey: queryKeys.articles.detail(articleId),
+    queryFn: () => ArticlesService.getArticleById(articleId),
+    enabled: !!articleId,
+    staleTime: 10 * 60 * 1000, // 10 min
+  });
+
+  // Auto-select delivery when only one option exists
+  const autoDelivery: TransactionDeliveryType | null = (() => {
+    if (!article) return null;
+    const meetup = article.isHandDelivery !== false;
+    const shipping = article.isShipping === true;
+    if (meetup && !shipping) return 'meetup';
+    if (!meetup && shipping) return 'shipping';
+    return null;
+  })();
+
   const [selectedDelivery, setSelectedDelivery] = useState<TransactionDeliveryType | null>(null);
-
-  // =============================================================================
-  // LOAD ARTICLE
-  // =============================================================================
-
-  useEffect(() => {
-    async function loadArticle() {
-      try {
-        const articleRef = doc(firestore, 'articles', articleId);
-        const articleDoc = await getDoc(articleRef);
-        if (articleDoc.exists()) {
-          const data = articleDoc.data();
-          setArticle({ id: articleDoc.id, ...data } as Article);
-
-          // Auto-select if only one delivery option
-          const hasMeetup = data.isHandDelivery !== false;
-          const hasShipping = data.isShipping === true;
-
-          if (hasMeetup && !hasShipping) {
-            setSelectedDelivery('meetup');
-          } else if (!hasMeetup && hasShipping) {
-            setSelectedDelivery('shipping');
-          }
-        }
-      } catch (error) {
-        console.error('Error loading article:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadArticle();
-  }, [articleId]);
+  const effectiveDelivery = selectedDelivery ?? autoDelivery;
 
   // =============================================================================
   // HANDLERS
@@ -81,9 +67,9 @@ export default function CheckoutScreen() {
   const handleBack = () => router.back();
 
   const handleContinue = () => {
-    if (!selectedDelivery || !article) return;
+    if (!effectiveDelivery || !article) return;
 
-    if (selectedDelivery === 'meetup') {
+    if (effectiveDelivery === 'meetup') {
       router.push({
         pathname: '/checkout/meetup' as any,
         params: { articleId: article.id },
@@ -147,7 +133,7 @@ export default function CheckoutScreen() {
               <Text style={styles.articleBrand}>{article.brand.toUpperCase()}</Text>
             )}
             <Text style={styles.articleName}>{article.title}</Text>
-            <Text style={styles.articlePrice}>{article.price}$</Text>
+            <Text style={styles.articlePrice}>{formatPrice(article.price)}</Text>
             {article.condition && (
               <Text style={styles.articleCondition}>{article.condition}</Text>
             )}
@@ -161,17 +147,17 @@ export default function CheckoutScreen() {
           <Pressable
             style={[
               styles.deliveryOption,
-              selectedDelivery === 'meetup' && styles.deliveryOptionSelected,
+              effectiveDelivery === 'meetup' && styles.deliveryOptionSelected,
             ]}
             onPress={() => setSelectedDelivery('meetup')}
           >
             <View
               style={[
                 styles.radio,
-                selectedDelivery === 'meetup' && styles.radioSelected,
+                effectiveDelivery === 'meetup' && styles.radioSelected,
               ]}
             >
-              {selectedDelivery === 'meetup' && <View style={styles.radioInner} />}
+              {effectiveDelivery === 'meetup' && <View style={styles.radioInner} />}
             </View>
             <View style={styles.optionContent}>
               <Text style={styles.optionTitle}>Remise en main propre</Text>
@@ -190,24 +176,24 @@ export default function CheckoutScreen() {
           <Pressable
             style={[
               styles.deliveryOption,
-              selectedDelivery === 'shipping' && styles.deliveryOptionSelected,
+              effectiveDelivery === 'shipping' && styles.deliveryOptionSelected,
             ]}
             onPress={() => setSelectedDelivery('shipping')}
           >
             <View
               style={[
                 styles.radio,
-                selectedDelivery === 'shipping' && styles.radioSelected,
+                effectiveDelivery === 'shipping' && styles.radioSelected,
               ]}
             >
-              {selectedDelivery === 'shipping' && <View style={styles.radioInner} />}
+              {effectiveDelivery === 'shipping' && <View style={styles.radioInner} />}
             </View>
             <View style={styles.optionContent}>
               <Text style={styles.optionTitle}>Expédition postale</Text>
               <Text style={styles.optionDesc}>
                 Livraison à votre adresse en 3-5 jours ouvrables
               </Text>
-              <Text style={styles.optionPrice}>À partir de 8.50$</Text>
+              <Text style={styles.optionPrice}>À partir de {formatPrice(8.50)}</Text>
             </View>
             <View style={[styles.optionIcon, styles.optionIconShipping]}>
               <Ionicons name="cube-outline" size={20} color={colors.rust} />
@@ -216,7 +202,7 @@ export default function CheckoutScreen() {
         )}
 
         {/* Info box */}
-        {selectedDelivery === 'meetup' && (
+        {effectiveDelivery === 'meetup' && (
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={16} color={colors.sage} />
             <Text style={styles.infoText}>
@@ -226,7 +212,7 @@ export default function CheckoutScreen() {
           </View>
         )}
 
-        {selectedDelivery === 'shipping' && (
+        {effectiveDelivery === 'shipping' && (
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={16} color={colors.sage} />
             <Text style={styles.infoText}>
@@ -242,20 +228,20 @@ export default function CheckoutScreen() {
         <Pressable
           style={[
             styles.ctaButton,
-            !selectedDelivery && styles.ctaButtonDisabled,
+            !effectiveDelivery && styles.ctaButtonDisabled,
           ]}
           onPress={handleContinue}
-          disabled={!selectedDelivery}
+          disabled={!effectiveDelivery}
         >
           <Ionicons
             name="arrow-forward"
             size={16}
-            color={selectedDelivery ? colors.cream : colors.muted}
+            color={effectiveDelivery ? colors.cream : colors.muted}
           />
           <Text
             style={[
               styles.ctaButtonText,
-              !selectedDelivery && styles.ctaButtonTextDisabled,
+              !effectiveDelivery && styles.ctaButtonTextDisabled,
             ]}
           >
             CONTINUER

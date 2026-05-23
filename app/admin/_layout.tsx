@@ -6,7 +6,7 @@
  * depth). Firestore rules also independently enforce the admin custom
  * claim (request.auth.token.admin) for sensitive collections.
  */
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser, useIsLoading } from '@/contexts/AuthContext';
 import { colors } from '@/constants/theme';
 import { UserService } from '@/services/userService';
 import { Redirect, Slot } from 'expo-router';
@@ -16,7 +16,8 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 type GuardState = 'checking' | 'allowed' | 'denied';
 
 export default function AdminLayout() {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const user = useUser();
+  const isAuthLoading = useIsLoading();
   const [state, setState] = useState<GuardState>('checking');
 
   useEffect(() => {

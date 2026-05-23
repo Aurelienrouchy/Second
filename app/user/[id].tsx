@@ -17,10 +17,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -44,8 +45,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, ScreenHeader } from '@/components/ui';
 import { colors, fonts, radius, spacing, animations } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
+import { queryKeys } from '@/lib/queryKeys';
 import { ChatService } from '@/services/chatService';
 import { UserService } from '@/services/userService';
 import { UserStatsService, UserStats } from '@/services/userStatsService';
@@ -255,15 +257,11 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user: currentUser } = useAuth();
+  const currentUser = useUser();
 
   // State
-  const [profileUser, setProfileUser] = useState<User | null>(null);
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews] = useState<Review[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>('articles');
-  const [isLoading, setIsLoading] = useState(true);
   const [isContactLoading, setIsContactLoading] = useState(false);
 
   // Follow hook
@@ -273,40 +271,32 @@ export default function UserProfileScreen() {
   // Check if viewing own profile
   const isOwnProfile = currentUser?.id === id;
 
-  // Fetch user data — each call is independent so one failure doesn't block the rest
-  useEffect(() => {
-    if (!id) return;
+  // ─── Data loading via React Query ───
+  const {
+    data: profileUser = null,
+    isLoading: isProfileLoading,
+  } = useQuery<User | null>({
+    queryKey: queryKeys.users.profile(id ?? ''),
+    queryFn: () => UserService.getUserById(id!),
+    enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+  });
 
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // User profile is the only mandatory fetch
-        const userData = await UserService.getUserById(id);
-        setProfileUser(userData);
+  const { data: stats = null } = useQuery<UserStats | null>({
+    queryKey: ['users', 'stats', id] as const,
+    queryFn: () => UserStatsService.getUserStats(id!).catch(() => null),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
 
-        // Stats and articles are best-effort: permission errors shouldn't block the page
-        const [userStats, userArticles] = await Promise.all([
-          UserStatsService.getUserStats(id).catch((err) => {
-            console.warn('Could not fetch user stats:', err.message);
-            return null;
-          }),
-          UserStatsService.getArticlesEnVente(id).catch((err) => {
-            console.warn('Could not fetch user articles:', err.message);
-            return [] as Article[];
-          }),
-        ]);
+  const { data: articles = [] } = useQuery<Article[]>({
+    queryKey: queryKeys.users.articles(id ?? ''),
+    queryFn: () => UserStatsService.getArticlesEnVente(id!).catch(() => [] as Article[]),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
 
-        setStats(userStats);
-        setArticles(userArticles);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id]);
+  const isLoading = isProfileLoading;
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -322,7 +312,7 @@ export default function UserProfileScreen() {
       const chat = await ChatService.createOrGetChat(currentUser.id, id);
       router.push(`/chat/${chat.id}`);
     } catch (error) {
-      console.error('Error creating chat:', error);
+      if (__DEV__) console.error('Error creating chat:', error);
       Alert.alert('Erreur', 'Impossible de demarrer la conversation.');
     } finally {
       setIsContactLoading(false);
@@ -371,9 +361,9 @@ export default function UserProfileScreen() {
       'Signaler cet utilisateur',
       'Pour quelle raison souhaitez-vous signaler ce profil ?',
       [
-        { text: 'Contenu inapproprie', onPress: () => console.log('Report: inappropriate') },
-        { text: 'Comportement suspect', onPress: () => console.log('Report: suspicious') },
-        { text: 'Spam', onPress: () => console.log('Report: spam') },
+        { text: 'Contenu inapproprie', onPress: () => { if (__DEV__) console.log('Report: inappropriate'); } },
+        { text: 'Comportement suspect', onPress: () => { if (__DEV__) console.log('Report: suspicious'); } },
+        { text: 'Spam', onPress: () => { if (__DEV__) console.log('Report: spam'); } },
         { text: 'Annuler', style: 'cancel' },
       ],
     );

@@ -25,6 +25,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import * as Haptics from 'expo-haptics';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import { ScreenHeader } from '@/components/ui';
 import { firestore, auth } from '@/config/firebaseConfig';
 import { Article, MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
@@ -128,7 +129,7 @@ export default function MeetupCheckoutScreen() {
         chat.id,
         currentUser.uid,
         article.sellerId,
-        `Demande de meetup pour "${article.title}" ${spotLabel} (${article.price}$)`,
+        `Demande de meetup pour "${article.title}" ${spotLabel} (${formatPrice(article.price)})`,
       );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -199,7 +200,7 @@ export default function MeetupCheckoutScreen() {
               <Text style={styles.articleBrand}>{article.brand.toUpperCase()}</Text>
             )}
             <Text style={styles.articleName}>{article.title}</Text>
-            <Text style={styles.articlePrice}>{article.price}$</Text>
+            <Text style={styles.articlePrice}>{formatPrice(article.price)}</Text>
             <View style={styles.meetupBadge}>
               <Text style={styles.meetupBadgeText}>MEETUP</Text>
             </View>

@@ -1,12 +1,14 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { refreshNotificationBadge } from '@/hooks/useNotificationSetup';
 import { NotificationService } from '@/services/notificationService';
+import { queryKeys } from '@/lib/queryKeys';
 import { Notification, NotificationType } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -114,43 +116,32 @@ function NotificationItem({ notification, onPress, onDelete }: NotificationItemP
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const user = useUser();
+  const queryClient = useQueryClient();
+
   const refreshBadgeCount = useCallback(() => {
     if (user?.id) refreshNotificationBadge(user.id);
   }, [user?.id]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadNotifications = useCallback(async () => {
-    if (!user?.id) return;
-
-    try {
-      const data = await NotificationService.getUserNotifications(user.id);
-      setNotifications(data);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading notifications:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadNotifications();
-  };
+  const {
+    data: notifications = [],
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery<Notification[]>({
+    queryKey: queryKeys.notifications.list(user?.id ?? ''),
+    queryFn: () => NotificationService.getUserNotifications(user!.id),
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+  });
 
   const handleNotificationPress = async (notification: Notification) => {
     // Mark as read
     if (!notification.isRead) {
       await NotificationService.markAsRead(notification.id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n))
+      queryClient.setQueryData<Notification[]>(
+        queryKeys.notifications.list(user!.id),
+        (old) => old?.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n)) ?? [],
       );
       refreshBadgeCount();
     }
@@ -169,7 +160,10 @@ export default function NotificationsScreen() {
   const handleDeleteNotification = async (notificationId: string) => {
     try {
       await NotificationService.deleteNotification(notificationId);
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      queryClient.setQueryData<Notification[]>(
+        queryKeys.notifications.list(user!.id),
+        (old) => old?.filter((n) => n.id !== notificationId) ?? [],
+      );
       refreshBadgeCount();
     } catch (error) {
       if (__DEV__) console.error('Error deleting notification:', error);
@@ -181,7 +175,10 @@ export default function NotificationsScreen() {
 
     try {
       await NotificationService.markAllAsRead(user.id);
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      queryClient.setQueryData<Notification[]>(
+        queryKeys.notifications.list(user.id),
+        (old) => old?.map((n) => ({ ...n, isRead: true })) ?? [],
+      );
       refreshBadgeCount();
     } catch (error) {
       if (__DEV__) console.error('Error marking all as read:', error);
@@ -239,8 +236,8 @@ export default function NotificationsScreen() {
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             refreshControl={
               <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
+                refreshing={isRefetching}
+                onRefresh={() => refetch()}
                 tintColor={colors.primary}
               />
             }

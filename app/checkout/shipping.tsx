@@ -29,6 +29,7 @@ import { httpsCallable } from 'firebase/functions';
 import * as Haptics from 'expo-haptics';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import { ScreenHeader } from '@/components/ui';
 import { firestore, functions, auth } from '@/config/firebaseConfig';
 import { Article, ShippingAddress } from '@/types';
@@ -418,7 +419,7 @@ export default function ShippingCheckoutScreen() {
                 <Text style={styles.estimateName}>{est.carrier} {est.serviceName}</Text>
                 <Text style={styles.estimateDelay}>{est.deliveryDays}</Text>
               </View>
-              <Text style={styles.estimatePrice}>{est.amount.toFixed(2)}$</Text>
+              <Text style={styles.estimatePrice}>{formatPrice(est.amount)}</Text>
             </Pressable>
           );
         })}
@@ -434,24 +435,24 @@ export default function ShippingCheckoutScreen() {
         <View style={styles.priceBreakdown}>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Article</Text>
-            <Text style={styles.priceValue}>{article.price.toFixed(2)}$</Text>
+            <Text style={styles.priceValue}>{formatPrice(article.price)}</Text>
           </View>
           {selectedEstimate && (
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>
                 Livraison ({selectedEstimate.carrier} {selectedEstimate.serviceName})
               </Text>
-              <Text style={styles.priceValue}>{selectedEstimate.amount.toFixed(2)}$</Text>
+              <Text style={styles.priceValue}>{formatPrice(selectedEstimate.amount)}</Text>
             </View>
           )}
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Frais de protection Seconde</Text>
-            <Text style={styles.priceValue}>{serviceFee.toFixed(2)}$</Text>
+            <Text style={styles.priceValue}>{formatPrice(serviceFee)}</Text>
           </View>
           <View style={styles.priceDivider} />
           <View style={styles.priceRowTotal}>
             <Text style={styles.priceTotalLabel}>Total</Text>
-            <Text style={styles.priceTotalValue}>{totalAmount.toFixed(2)}$</Text>
+            <Text style={styles.priceTotalValue}>{formatPrice(totalAmount)}</Text>
           </View>
         </View>
 
@@ -480,7 +481,7 @@ export default function ShippingCheckoutScreen() {
             <>
               <Ionicons name="lock-closed-outline" size={16} color={colors.cream} />
               <Text style={styles.ctaButtonText}>
-                PAYER {totalAmount.toFixed(2)}$
+                PAYER {formatPrice(totalAmount)}
               </Text>
             </>
           )}

@@ -6,7 +6,7 @@
 import BrandSelectionSheet, {
   BrandSelectionSheetRef,
 } from '@/components/search/BrandSelectionSheet';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
@@ -34,7 +34,7 @@ const SHOE_SIZES = ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', 
 
 export default function PreferencesScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
   const brandSelectionRef = useRef<BrandSelectionSheetRef>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);

@@ -3,7 +3,7 @@
  * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
  */
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { ArticlesService } from '@/services/articlesService';
 import { TransactionService } from '@/services/transactionService';
@@ -11,11 +11,13 @@ import { Article, Transaction, TransactionStatus } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
+import { queryKeys } from '@/lib/queryKeys';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -85,45 +87,32 @@ function OrderCard({
 }
 
 export default function MyOrdersScreen() {
-  const { user } = useAuth();
+  const user = useUser();
   const { showAuthSheet } = useAuthRequired();
   const router = useRouter();
-  const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const loadOrders = useCallback(
-    async (showRefresh = false) => {
-      if (!user) return;
-      try {
-        if (showRefresh) setRefreshing(true);
-        else setLoading(true);
+  const {
+    data: orders = [],
+    isLoading: loading,
+    isRefetching: refreshing,
+    refetch,
+  } = useQuery<OrderItem[]>({
+    queryKey: queryKeys.orders.list(user?.id ?? ''),
+    queryFn: async () => {
+      const allTx = await TransactionService.getUserTransactions(user!.id);
+      const purchases = allTx.filter((t) => t.buyerId === user!.id);
 
-        const allTx = await TransactionService.getUserTransactions(user.id);
-        const purchases = allTx.filter((t) => t.buyerId === user.id);
+      const articles = await Promise.all(
+        purchases.map((t) =>
+          ArticlesService.getArticleById(t.articleId).catch(() => null),
+        ),
+      );
 
-        const articles = await Promise.all(
-          purchases.map((t) =>
-            ArticlesService.getArticleById(t.articleId).catch(() => null),
-          ),
-        );
-
-        setOrders(purchases.map((tx, i) => ({ transaction: tx, article: articles[i] })));
-      } catch (error) {
-        if (__DEV__) console.error('Erreur chargement commandes:', error);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
+      return purchases.map((tx, i) => ({ transaction: tx, article: articles[i] }));
     },
-    [user],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      loadOrders();
-    }, [loadOrders]),
-  );
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const handleOrderPress = useCallback(
     (orderItem: OrderItem) => {
@@ -192,7 +181,7 @@ export default function MyOrdersScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => loadOrders(true)}
+              onRefresh={() => refetch()}
               tintColor={colors.primary}
             />
           }

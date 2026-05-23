@@ -6,22 +6,22 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors } from '@/constants/theme';
 
 export default function PhoneSettingsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useUser();
   
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -86,13 +86,13 @@ export default function PhoneSettingsScreen() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <Stack.Screen options={{
         headerRight: () => (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          <Pressable onPress={handleSave} disabled={isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               <Text style={styles.headerButton}>Enregistrer</Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         ),
       }} />
 

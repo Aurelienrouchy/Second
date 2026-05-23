@@ -30,7 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
 import { colors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { ONBOARDING_COMPLETED_KEY } from '@/constants/storageKeys';
 
 import { httpsCallable } from 'firebase/functions';
@@ -66,7 +66,7 @@ export type { OnboardingPreferences };
 // ─────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
-  const { user } = useAuth();
+  const user = useUser();
   const [showWelcome, setShowWelcome] = useState(true);
   const [sex, setSex] = useState<OnboardingPreferences['sex'] | null>(null);
   const [sizeSystem, setSizeSystem] = useState<SizeSystem>('US');

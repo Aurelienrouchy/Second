@@ -14,6 +14,7 @@ import SimilarProducts from '@/components/SimilarProducts';
 import { Avatar } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
+import { formatPrice } from '@/utils/formatPrice';
 
 import type { Article } from '@/types';
 
@@ -53,9 +54,9 @@ function ArticleDetailsComponent({
 
       {/* Price row: current + original strikethrough */}
       <Animated.View entering={FadeInDown.duration(350).delay(160)} style={styles.priceRow}>
-        <Text style={styles.price}>${article.price}</Text>
+        <Text style={styles.price}>{formatPrice(article.price)}</Text>
         {(article as any).originalPrice && (
-          <Text style={styles.originalPrice}>${(article as any).originalPrice}</Text>
+          <Text style={styles.originalPrice}>{formatPrice((article as any).originalPrice)}</Text>
         )}
       </Animated.View>
 
