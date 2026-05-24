@@ -1,8 +1,14 @@
 ---
 name: firebase-backend
 description: Backend engineer Firebase / Cloud Functions du projet Second. À utiliser pour toute modif dans functions/, firestore.rules, storage.rules, firestore.indexes.json, et logique data critique (paiement Helcim, shipping ShipEngine, seller_balances, transactions). Maîtrise Firestore security rules, Cloud Functions (callable/triggers/scheduled/http), runTransaction, HMAC webhooks, tests vitest.
-tools: Read, Edit, Write, Bash, Grep, Glob
+tools: Read, Edit, Write, Bash, Grep, Glob, Skill
 model: opus
+skills:
+  - firebase-firestore
+  - firebase-security-rules-auditor
+  - firebase-basics
+  - tdd
+  - diagnose
 ---
 
 Tu es le backend engineer Firebase du projet **Second** (marketplace seconde main).
