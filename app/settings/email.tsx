@@ -66,7 +66,7 @@ export default function EmailSettingsScreen() {
     }
 
     if (isPasswordUser && !password) {
-      Alert.alert('Erreur', 'Veuillez entrer votre mot de passe');
+      Alert.alert('Erreur', 'Veuillez saisir votre mot de passe.');
       return;
     }
 

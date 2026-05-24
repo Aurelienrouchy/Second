@@ -31,19 +31,16 @@ export default function LegalNoticeScreen() {
         <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
 
         <Text variant="h3" style={styles.sectionTitle}>1. Éditeur de l'application</Text>
-        <InfoCard title="Seconde SAS">
-          <Caption>Société par Actions Simplifiée</Caption>
-          <Caption>Capital social : 1 000 €</Caption>
-          <Caption>RCS Paris B 123 456 789</Caption>
-          <Caption>SIRET : 123 456 789 00001</Caption>
-          <Caption>N° TVA : FR12 123456789</Caption>
+        <InfoCard title="Seconde Inc.">
+          <Caption>Société par actions constituée au Québec</Caption>
+          <Caption>NEQ : 1234567890</Caption>
         </InfoCard>
 
         <Label style={styles.subTitle}>Siège social</Label>
         <InfoCard>
-          <Caption>10 rue de la Mode</Caption>
-          <Caption>75003 Paris</Caption>
-          <Caption>France</Caption>
+          <Caption>5000 rue Saint-Denis, bureau 200</Caption>
+          <Caption>Montréal, QC H2J 2L8</Caption>
+          <Caption>Canada</Caption>
         </InfoCard>
 
         <Label style={styles.subTitle}>Contact</Label>
@@ -61,50 +58,57 @@ export default function LegalNoticeScreen() {
 
         <Text variant="h3" style={styles.sectionTitle}>3. Hébergement</Text>
         <InfoCard title="Google Cloud Platform (Firebase)">
-          <Caption>Google Ireland Limited</Caption>
-          <Caption>Gordon House, Barrow Street</Caption>
-          <Caption>Dublin 4, Ireland</Caption>
+          <Caption>Google Cloud Canada</Caption>
+          <Caption>111 Richmond Street West, Suite 200</Caption>
+          <Caption>Toronto, ON M5H 2G4, Canada</Caption>
           <Caption>https://firebase.google.com</Caption>
         </InfoCard>
 
         <Text variant="h3" style={styles.sectionTitle}>4. Propriété intellectuelle</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'ensemble du contenu de l'Application Seconde (textes, images, graphismes, logo,
-          icônes, sons, logiciels, etc.) est protégé par le droit français et international
-          relatif à la propriété intellectuelle.
+          icônes, sons, logiciels, etc.) est protégé par les lois canadiennes et internationales
+          relatives à la propriété intellectuelle, notamment la Loi sur le droit d'auteur (L.R.C. (1985), ch. C-42).
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          La marque "Seconde", le logo et l'ensemble des éléments graphiques sont la propriété
-          exclusive de Seconde SAS. Toute reproduction, représentation, modification,
-          publication, adaptation totale ou partielle de ces éléments est strictement interdite
+          La marque « Seconde », le logo et l'ensemble des éléments graphiques sont la propriété
+          exclusive de Seconde Inc. Toute reproduction, représentation, modification,
+          publication ou adaptation totale ou partielle de ces éléments est strictement interdite
           sans autorisation écrite préalable.
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Les contenus publiés par les utilisateurs (photos, descriptions) restent leur
-          propriété. En les publiant sur l'Application, ils accordent à Seconde SAS une licence
+          propriété. En les publiant sur l'Application, ils accordent à Seconde Inc. une licence
           d'utilisation non exclusive pour les besoins du service.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>5. Données personnelles</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Le traitement des données personnelles est régi par notre Politique de Confidentialité,
-          accessible depuis les paramètres de l'Application.
+          accessible depuis les paramètres de l'Application. Seconde Inc. se conforme à la Loi 25
+          sur la protection des renseignements personnels dans le secteur privé (Québec) ainsi
+          qu'à la Loi sur la protection des renseignements personnels et les documents
+          électroniques (LPRPDE / PIPEDA) au niveau fédéral.
         </Text>
 
-        <Label style={styles.subTitle}>Délégué à la Protection des Données (DPO)</Label>
+        <Label style={styles.subTitle}>Responsable de la protection des renseignements personnels</Label>
         <InfoCard>
-          <Caption>Email : dpo@seconde.app</Caption>
+          <Caption>Email : privacy@seconde.app</Caption>
         </InfoCard>
 
         <Label style={styles.subTitle}>Autorité de contrôle</Label>
-        <InfoCard title="CNIL">
-          <Caption>Commission Nationale de l'Informatique et des Libertés</Caption>
-          <Caption>3 Place de Fontenoy, TSA 80715</Caption>
-          <Caption>75334 PARIS CEDEX 07</Caption>
-          <Caption>www.cnil.fr</Caption>
+        <InfoCard title="Commission d'accès à l'information du Québec (CAI)">
+          <Caption>525, boul. René-Lévesque Est, bureau 2.36</Caption>
+          <Caption>Québec, QC G1R 5S9</Caption>
+          <Caption>www.cai.gouv.qc.ca</Caption>
+        </InfoCard>
+        <InfoCard title="Commissariat à la protection de la vie privée du Canada (CPVP)">
+          <Caption>30, rue Victoria</Caption>
+          <Caption>Gatineau, QC K1A 1H3</Caption>
+          <Caption>www.priv.gc.ca</Caption>
         </InfoCard>
 
-        <Text variant="h3" style={styles.sectionTitle}>6. Cookies</Text>
+        <Text variant="h3" style={styles.sectionTitle}>6. Stockage local</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'Application utilise des technologies de stockage local pour son fonctionnement.
           Pour plus d'informations, consultez notre Politique de Confidentialité.
@@ -112,55 +116,52 @@ export default function LegalNoticeScreen() {
 
         <Text variant="h3" style={styles.sectionTitle}>7. Limitation de responsabilité</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Seconde SAS agit en tant qu'intermédiaire technique entre les utilisateurs. Elle ne
+          Seconde Inc. agit en tant qu'intermédiaire technique entre les utilisateurs. Elle ne
           peut être tenue responsable :
         </Text>
         <View style={styles.warningBox}>
-          <Text variant="bodySmall" style={styles.warningItem}>• Du contenu publié par les utilisateurs</Text>
-          <Text variant="bodySmall" style={styles.warningItem}>• Des transactions effectuées entre utilisateurs</Text>
-          <Text variant="bodySmall" style={styles.warningItem}>• Des dommages directs ou indirects liés à l'utilisation de l'Application</Text>
-          <Text variant="bodySmall" style={styles.warningItem}>• Des interruptions temporaires du service</Text>
+          <Text variant="bodySmall" style={styles.warningItem}>
+            {'•'} Du contenu publié par les utilisateurs
+          </Text>
+          <Text variant="bodySmall" style={styles.warningItem}>
+            {'•'} Des transactions effectuées entre utilisateurs
+          </Text>
+          <Text variant="bodySmall" style={styles.warningItem}>
+            {'•'} Des dommages directs ou indirects liés à l'utilisation de l'Application
+          </Text>
+          <Text variant="bodySmall" style={styles.warningItem}>
+            {'•'} Des interruptions temporaires du service
+          </Text>
         </View>
 
         <Text variant="h3" style={styles.sectionTitle}>8. Droit applicable</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Les présentes mentions légales sont soumises au droit français. En cas de litige,
-          et après échec de toute tentative de recherche d'une solution amiable, les tribunaux
-          français seront seuls compétents.
+          Les présentes mentions légales sont régies par les lois en vigueur dans la province de
+          Québec et les lois fédérales du Canada qui s'y appliquent. En cas de litige, et après
+          échec de toute tentative de recherche d'une solution amiable, les tribunaux du district
+          judiciaire de Montréal seront seuls compétents.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>9. Médiation</Text>
+        <Text variant="h3" style={styles.sectionTitle}>9. Résolution des différends</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Conformément à l'article L. 612-1 du Code de la consommation, en cas de litige, vous
-          pouvez recourir gratuitement au service de médiation suivant :
+          En cas de litige, vous pouvez contacter notre service à la clientèle. Si aucune entente
+          n'est trouvée, vous pouvez déposer une plainte auprès de l'Office de la protection du
+          consommateur du Québec (OPC).
         </Text>
-        <InfoCard title="Médiateur de la consommation">
-          <Caption>CM2C - Centre de Médiation de la Consommation de Conciliateurs de Justice</Caption>
-          <Caption>14 rue Saint Jean, 75017 Paris</Caption>
-          <Caption>https://www.cm2c.net</Caption>
+        <InfoCard title="Office de la protection du consommateur">
+          <Caption>400, boul. Jean-Lesage, bureau 450</Caption>
+          <Caption>Québec, QC G1K 8W4</Caption>
+          <Caption>www.opc.gouv.qc.ca</Caption>
         </InfoCard>
 
-        <Text variant="h3" style={styles.sectionTitle}>10. Plateforme de règlement en ligne des litiges</Text>
+        <Text variant="h3" style={styles.sectionTitle}>10. Signalement de contenus illicites</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Conformément à l'article 14 du Règlement (UE) n°524/2013, la Commission Européenne
-          met à disposition une plateforme de règlement en ligne des litiges :
-        </Text>
-        <View style={styles.linkBox}>
-          <Ionicons name="link" size={18} color={colors.primary} />
-          <Text variant="bodySmall" style={styles.linkText}>
-            https://ec.europa.eu/consumers/odr
-          </Text>
-        </View>
-
-        <Text variant="h3" style={styles.sectionTitle}>11. Signalement de contenus illicites</Text>
-        <Text variant="bodySmall" style={styles.paragraph}>
-          Conformément à la loi pour la confiance dans l'économie numérique (LCEN), vous pouvez
-          nous signaler tout contenu illicite via :
+          Vous pouvez nous signaler tout contenu illicite ou contrevenant aux lois canadiennes via :
         </Text>
         <View style={styles.signalBox}>
           <View style={styles.signalItem}>
             <Ionicons name="flag" size={18} color={colors.warning} />
-            <Caption style={styles.signalText}>La fonction "Signaler" dans l'Application</Caption>
+            <Caption style={styles.signalText}>La fonction « Signaler » dans l'Application</Caption>
           </View>
           <View style={styles.signalItem}>
             <Ionicons name="mail" size={18} color={colors.warning} />
@@ -168,9 +169,9 @@ export default function LegalNoticeScreen() {
           </View>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>12. Crédits</Text>
+        <Text variant="h3" style={styles.sectionTitle}>11. Crédits</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Conception et développement : Seconde SAS
+          Conception et développement : Seconde Inc.
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Icônes : Ionicons (MIT License)
@@ -178,7 +179,7 @@ export default function LegalNoticeScreen() {
 
         <View style={styles.footer}>
           <Caption style={styles.footerText}>
-            © 2026 Seconde SAS - Tous droits réservés
+            © 2026 Seconde Inc. - Tous droits réservés
           </Caption>
         </View>
       </ScrollView>
@@ -244,19 +245,6 @@ const styles = StyleSheet.create({
   warningItem: {
     color: colors.foreground,
     lineHeight: 22,
-  },
-  linkBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  linkText: {
-    color: colors.primary,
-    flex: 1,
   },
   signalBox: {
     backgroundColor: colors.surface,

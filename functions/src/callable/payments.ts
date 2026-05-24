@@ -7,6 +7,7 @@
  * Commission via service fee calculation
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getShipEngine, ShipEngineClient } from '../config/shipEngine';
 import { getHelcim } from '../config/helcim';
@@ -534,14 +535,18 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 // =============================================================================
 
 /**
- * Caller (the seller) requests a withdrawal of `amount` to `iban`.
+ * Caller (the seller) requests a withdrawal of `amount` to `bankAccount`.
  *
  * Why this is a CF, not a client mutation:
  * - The previous client implementation read the balance, then issued an
  *   updateDoc with `increment(-amount)`. Two concurrent requests could both
  *   pass the read-side check and double-spend.
- * - Validation (min amount, IBAN format, balance check) must run on a
- *   server we trust.
+ * - Validation (min amount, bank account format, balance check) must run on
+ *   a server we trust.
+ *
+ * Canadian bank account format:
+ * - With dashes: TTTTT-III-AAAAAAA (transit 5, institution 3, account 7-12)
+ * - Raw digits: 15-20 digits total
  *
  * Authorization: caller must be the balance owner (request.auth.uid).
  */
@@ -550,7 +555,7 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
 
-  const { amount, iban } = request.data ?? {};
+  const { amount, bankAccount } = request.data ?? {};
   const userId = request.auth.uid;
 
   if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
@@ -559,11 +564,23 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
   if (amount < 10) {
     throw new HttpsError('invalid-argument', 'Minimum withdrawal is 10');
   }
-  if (typeof iban !== 'string' || iban.replace(/\s/g, '').length < 15) {
-    throw new HttpsError('invalid-argument', 'Invalid IBAN');
+  if (typeof bankAccount !== 'string') {
+    throw new HttpsError('invalid-argument', 'Numéro de compte bancaire requis');
   }
 
-  const sanitizedIban = iban.replace(/\s/g, '');
+  // Validate Canadian bank account format
+  // Accept either TTTTT-III-AAAAAAA (dashed) or raw digits (15-20 chars)
+  const sanitizedBankAccount = bankAccount.replace(/[\s-]/g, '');
+  const dashedFormat = /^\d{5}-\d{3}-\d{7,12}$/.test(bankAccount.trim());
+  const rawFormat = /^\d{15,20}$/.test(sanitizedBankAccount);
+
+  if (!dashedFormat && !rawFormat) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Format de compte bancaire invalide. Attendu : TTTTT-III-AAAAAAA ou 15-20 chiffres'
+    );
+  }
+
   const balanceRef = db.collection('seller_balances').doc(userId);
 
   try {
@@ -585,7 +602,7 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
         id: withdrawalId,
         type: 'withdrawal',
         amount: -amount,
-        description: `Withdrawal to ****${sanitizedIban.slice(-4)}`,
+        description: `Retrait vers ****${sanitizedBankAccount.slice(-4)}`,
         // serverTimestamp() can't be used inside an array element; use Date instead.
         createdAt: new Date(),
         status: 'pending',
@@ -604,7 +621,7 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
       withdrawalId,
       userId,
       amount,
-      ibanLast4: sanitizedIban.slice(-4),
+      bankAccountLast4: sanitizedBankAccount.slice(-4),
       status: 'pending',
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -613,7 +630,7 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
   } catch (error: unknown) {
     if (error instanceof HttpsError) throw error;
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error requesting withdrawal:', error);
+    logger.error('[requestWithdrawal] Error', { userId, error: message });
     throw new HttpsError('internal', `Failed to request withdrawal: ${message}`);
   }
 });

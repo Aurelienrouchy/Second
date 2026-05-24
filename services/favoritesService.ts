@@ -37,6 +37,8 @@ export interface PaginatedFavorites {
   articles: Article[];
   /** Cursor for the next page (index into the articleIds array) */
   nextCursor: number | null;
+  /** Number of orphaned IDs cleaned up in this page (articles that no longer exist) */
+  orphanedCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,7 +110,7 @@ export class FavoritesService {
     const allIds = await this.getUserFavorites(userId);
 
     if (allIds.length === 0 || cursor >= allIds.length) {
-      return { articles: [], nextCursor: null };
+      return { articles: [], nextCursor: null, orphanedCount: 0 };
     }
 
     // 2. Slice the page from the IDs array (most recent first)
@@ -136,14 +138,47 @@ export class FavoritesService {
       });
     }
 
-    // 4. Preserve the order from pageIds (Firestore `in` doesn't guarantee order)
+    // 4. Detect orphaned IDs (articles that were deleted but still in favorites)
+    const returnedIds = new Set(articles.map((a) => a.id));
+    const orphanedIds = pageIds.filter((id) => !returnedIds.has(id));
+
+    // 5. Silently clean up orphaned IDs in the background
+    if (orphanedIds.length > 0) {
+      this.removeOrphanedFavorites(userId, orphanedIds).catch((err) => {
+        if (__DEV__) console.log('[FavoritesService] Failed to clean orphaned favorites:', err);
+      });
+    }
+
+    // 6. Preserve the order from pageIds (Firestore `in` doesn't guarantee order)
     const orderMap = new Map(pageIds.map((id, idx) => [id, idx]));
     articles.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
 
-    // 5. Determine next cursor
+    // 7. Determine next cursor
     const nextCursor = cursor + pageSize < reversedIds.length ? cursor + pageSize : null;
 
-    return { articles, nextCursor };
+    return { articles, nextCursor, orphanedCount: orphanedIds.length };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Orphan cleanup
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Remove orphaned article IDs from a user's favorites document.
+   * Called silently when deleted articles are detected during pagination.
+   */
+  private static async removeOrphanedFavorites(
+    userId: string,
+    orphanedIds: string[]
+  ): Promise<void> {
+    const ref = doc(firestore, 'favorites', userId);
+    // arrayRemove supports up to ~500 values per call, well within limits here
+    await updateDoc(ref, {
+      articleIds: arrayRemove(...orphanedIds),
+      updatedAt: new Date(),
+    });
+
+    if (__DEV__) console.log(`[FavoritesService] Cleaned ${orphanedIds.length} orphaned favorite(s) for user ${userId}`);
   }
 
   /**

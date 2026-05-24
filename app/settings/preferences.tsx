@@ -77,8 +77,8 @@ export default function PreferencesScreen() {
       await UserService.updateUserPreferences(user.id, {
         sizes: selectedSizes,
         favoriteBrands: selectedBrands,
-        location: location || undefined,
-      });
+        location: location ?? null,
+      } as Partial<import('@/types').UserPreferences>);
 
       Alert.alert('Succès', 'Vos préférences ont été enregistrées', [
         { text: 'OK', onPress: () => router.back() },

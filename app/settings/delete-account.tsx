@@ -5,7 +5,6 @@
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
-import { UserService } from '@/services/userService';
 import { formatPrice } from '@/utils/formatPrice';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
@@ -14,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -35,8 +33,10 @@ export default function DeleteAccountScreen() {
 
   const provider = AuthService.getAuthProvider();
   const isPasswordUser = provider === 'password';
+  const isUnknownProvider = provider === 'unknown';
 
   const handleReauthSocial = async () => {
+    if (isUnknownProvider) return;
     setLoading(true);
     try {
       if (provider === 'google.com') {
@@ -58,7 +58,7 @@ export default function DeleteAccountScreen() {
     if (!user) return;
 
     if (confirmText !== 'SUPPRIMER') {
-      Alert.alert('Erreur', 'Veuillez taper SUPPRIMER pour confirmer');
+      Alert.alert('Erreur', 'Veuillez saisir SUPPRIMER pour confirmer');
       return;
     }
 
@@ -94,7 +94,7 @@ export default function DeleteAccountScreen() {
         if (__DEV__) console.error('Error checking seller balance:', balanceError);
       }
 
-      await UserService.deleteAllUserData(user.id);
+      // Server-side onUserDeleted trigger handles all data cleanup.
       await AuthService.deleteAccount();
 
       Alert.alert(
@@ -162,11 +162,11 @@ export default function DeleteAccountScreen() {
         </View>
       </View>
 
-      {/* RGPD Note */}
+      {/* Privacy law note */}
       <View style={styles.rgpdBox}>
         <Ionicons name="shield-checkmark" size={20} color={colors.success} />
         <Text variant="bodySmall" style={styles.rgpdText}>
-          Conformément au RGPD (Art. 17), vous avez le droit à l'effacement de vos données personnelles.
+          Conformément à la Loi 25 du Québec et à la LPRPDE (PIPEDA), vous avez le droit à l'effacement de vos données personnelles.
         </Text>
       </View>
 
@@ -182,9 +182,11 @@ export default function DeleteAccountScreen() {
     </View>
   );
 
-  const canDelete = isPasswordUser
-    ? !!password && confirmText === 'SUPPRIMER'
-    : reauthDone && confirmText === 'SUPPRIMER';
+  const canDelete = isUnknownProvider
+    ? false
+    : isPasswordUser
+      ? !!password && confirmText === 'SUPPRIMER'
+      : reauthDone && confirmText === 'SUPPRIMER';
 
   const renderConfirmStep = () => (
     <View style={styles.stepContent}>
@@ -198,12 +200,22 @@ export default function DeleteAccountScreen() {
       </View>
 
       {/* Re-authentication */}
-      {isPasswordUser ? (
+      {isUnknownProvider ? (
+        <View style={styles.inputSection}>
+          <Label style={styles.inputLabel}>Vérification d'identité</Label>
+          <View style={styles.unknownProviderBox}>
+            <Ionicons name="alert-circle" size={20} color={colors.warning} />
+            <Caption style={styles.unknownProviderText}>
+              Impossible de déterminer votre méthode de connexion. Veuillez vous déconnecter et vous reconnecter avant de supprimer votre compte.
+            </Caption>
+          </View>
+        </View>
+      ) : isPasswordUser ? (
         <View style={styles.inputSection}>
           <Label style={styles.inputLabel}>Mot de passe actuel</Label>
           <TextInput
             style={styles.input}
-            placeholder="Entrez votre mot de passe"
+            placeholder="Saisissez votre mot de passe"
             placeholderTextColor={colors.muted}
             secureTextEntry
             value={password}
@@ -217,7 +229,7 @@ export default function DeleteAccountScreen() {
           {reauthDone ? (
             <View style={styles.reauthSuccess}>
               <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-              <Caption style={{ color: colors.success, flex: 1 }}>Identité vérifiée</Caption>
+              <Caption style={styles.reauthSuccessText}>Identité vérifiée</Caption>
             </View>
           ) : (
             <Button
@@ -244,7 +256,7 @@ export default function DeleteAccountScreen() {
       {/* Confirm Text Input */}
       <View style={styles.inputSection}>
         <Label style={styles.inputLabel}>
-          Tapez <Text variant="body" style={styles.bold}>SUPPRIMER</Text> pour confirmer
+          Veuillez saisir <Text variant="body" style={styles.bold}>SUPPRIMER</Text> pour confirmer
         </Label>
         <TextInput
           style={styles.input}
@@ -411,5 +423,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successLight,
     borderRadius: radius.sm,
     padding: spacing.md,
+  },
+  reauthSuccessText: {
+    color: colors.success,
+    flex: 1,
+  },
+  unknownProviderBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.warningLight,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  unknownProviderText: {
+    flex: 1,
+    color: colors.foreground,
   },
 });

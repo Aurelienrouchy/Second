@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { Text, Label, Caption } from '@/components/ui';
 
 export default function PasswordSettingsScreen() {
   const router = useRouter();
@@ -35,17 +35,17 @@ export default function PasswordSettingsScreen() {
 
   const handleSave = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères');
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Erreur', 'Les nouveaux mots de passe ne correspondent pas');
+      Alert.alert('Erreur', 'Les nouveaux mots de passe ne correspondent pas.');
       return;
     }
 
@@ -83,7 +83,7 @@ export default function PasswordSettingsScreen() {
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text style={styles.headerButton}>Valider</Text>
+              <Text variant="body" style={styles.headerButton}>Valider</Text>
             )}
           </Pressable>
         ),
@@ -96,20 +96,21 @@ export default function PasswordSettingsScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
           <View style={styles.infoBox}>
             <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
-            <Text style={styles.infoText}>
-              Utilisez un mot de passe fort avec au moins 6 caractères.
+            <Text variant="bodySmall" style={styles.infoText}>
+              Choisissez un mot de passe fort avec au moins 6 caractères.
             </Text>
           </View>
 
           <View style={styles.formSection}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mot de passe actuel</Text>
+              <Label style={styles.label}>Mot de passe actuel</Label>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
-                  placeholder="Mot de passe actuel"
+                  placeholder="Votre mot de passe actuel"
+                  placeholderTextColor={colors.muted}
                   secureTextEntry={!showCurrentPassword}
                 />
                 <Pressable onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeButton}>
@@ -119,13 +120,14 @@ export default function PasswordSettingsScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nouveau mot de passe</Text>
+              <Label style={styles.label}>Nouveau mot de passe</Label>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   placeholder="Nouveau mot de passe"
+                  placeholderTextColor={colors.muted}
                   secureTextEntry={!showNewPassword}
                 />
                 <Pressable onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeButton}>
@@ -135,13 +137,14 @@ export default function PasswordSettingsScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirmer le nouveau mot de passe</Text>
+              <Label style={styles.label}>Confirmez le nouveau mot de passe</Label>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Confirmer le mot de passe"
+                  placeholder="Confirmez votre mot de passe"
+                  placeholderTextColor={colors.muted}
                   secureTextEntry={!showConfirmPassword}
                 />
                 <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>

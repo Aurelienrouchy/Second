@@ -81,6 +81,9 @@ export default function PrivacySettingsScreen() {
   const savePreferences = async (updates: { showProfilePhoto?: boolean; allowSearchEngines?: boolean }) => {
     if (!user) return;
 
+    const previousShowProfilePhoto = showProfilePhoto;
+    const previousAllowSearchEngines = allowSearchEngines;
+
     const newPrivacy = {
       showProfilePhoto: updates.showProfilePhoto ?? showProfilePhoto,
       allowSearchEngines: updates.allowSearchEngines ?? allowSearchEngines,
@@ -90,6 +93,8 @@ export default function PrivacySettingsScreen() {
       await UserService.updateUserPreferences(user.id, { privacy: newPrivacy });
     } catch (error) {
       if (__DEV__) console.error('Error saving privacy preferences:', error);
+      setShowProfilePhoto(previousShowProfilePhoto);
+      setAllowSearchEngines(previousAllowSearchEngines);
       Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
     }
   };
@@ -164,21 +169,21 @@ export default function PrivacySettingsScreen() {
           </View>
         </View>
 
-        {/* RGPD Section */}
-        <Label style={styles.sectionHeader}>Vos droits RGPD</Label>
+        {/* Privacy Rights Section */}
+        <Label style={styles.sectionHeader}>Vos droits</Label>
         <View style={styles.rgpdSection}>
           <RgpdItem
             icon="download-outline"
             iconColor={colors.primary}
             title="Exporter mes données"
-            description="Télécharger une copie de vos données (Art. 20)"
+            description="Télécharger une copie de vos données personnelles"
             onPress={() => router.push('/settings/export-data')}
           />
           <RgpdItem
             icon="trash-outline"
             iconColor={colors.danger}
             title="Supprimer mon compte"
-            description="Droit à l'effacement de vos données (Art. 17)"
+            description="Droit à l'effacement de vos données personnelles"
             onPress={() => router.push('/settings/delete-account')}
           />
           <RgpdItem

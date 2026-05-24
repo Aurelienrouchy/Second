@@ -5,6 +5,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
+import { updateProfile } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
@@ -21,7 +22,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { storage } from '@/config/firebaseConfig';
+import { auth, storage } from '@/config/firebaseConfig';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
@@ -94,20 +95,33 @@ export default function ProfileDetailsScreen() {
         imageUrl = await getDownloadURL(storageRef);
       }
 
-      await UserService.updateUserProfile(user.id, {
+      const profileData: Record<string, unknown> = {
         displayName: displayName.trim(),
         bio: bio.trim(),
-        profileImage: imageUrl || undefined,
-      });
+      };
+      if (imageUrl != null) {
+        profileData.profileImage = imageUrl;
+      }
+
+      await UserService.updateUserProfile(user.id, profileData as Partial<import('@/types').User>);
+
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+      }
 
       await refreshUser();
 
       Alert.alert('Succès', 'Votre profil a été mis à jour', [
         { text: 'OK', onPress: () => router.back() }
       ]);
-    } catch (error) {
+    } catch (error: any) {
       if (__DEV__) console.error('Error updating profile:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour du profil');
+      const message = error?.code === 'permission-denied'
+        ? 'Permission refusée. Veuillez vous reconnecter et réessayer.'
+        : error?.code === 'not-found'
+          ? 'Profil introuvable. Veuillez vous reconnecter.'
+          : 'Une erreur est survenue lors de la mise à jour du profil';
+      Alert.alert('Erreur', message);
     } finally {
       setIsSaving(false);
     }

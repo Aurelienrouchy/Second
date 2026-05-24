@@ -130,22 +130,6 @@ export class UserService {
   }
 
   /**
-   * Marquer l'onboarding comme complété
-   */
-  static async markOnboardingCompleted(userId: string): Promise<void> {
-    try {
-      await updateDoc(doc(firestore, this.COLLECTION, userId), {
-        onboardingCompleted: true,
-        isActive: true, // S'assurer que l'utilisateur est actif pour valider les règles
-        updatedAt: serverTimestamp(),
-      });
-    } catch (error) {
-      if (__DEV__) console.error('Error marking onboarding completed:', error);
-      throw new Error('Erreur lors de la finalisation de l\'onboarding');
-    }
-  }
-
-  /**
    * Mettre à jour le profil utilisateur
    */
   static async updateUserProfile(

@@ -4,11 +4,13 @@
 
 import Constants from 'expo-constants';
 import { AuthService } from '@/services/authService';
-import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
+import { UserService } from '@/services/userService';
+import { useUser } from '@/contexts/AuthContext';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -64,8 +66,20 @@ const SettingSection = ({ title, children }: { title: string; children: React.Re
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const user = useUser();
   const authProvider = AuthService.getAuthProvider();
-  const isPasswordUser = authProvider === 'password';
+  const hasPassword = AuthService.hasPasswordProvider();
+  const isEmailVerified = AuthService.isEmailVerified();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    UserService.isUserAdmin(user.id).then((result) => {
+      if (!cancelled) setIsAdmin(result);
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -82,12 +96,18 @@ export default function SettingsScreen() {
             subtitle="Photo, nom, bio"
             onPress={() => router.push('/settings/profile-details')}
           />
-          {isPasswordUser && (
+          <SettingItem
+            icon="mail-outline"
+            title="Email"
+            subtitle="Modifier votre adresse email"
+            onPress={() => router.push('/settings/email')}
+          />
+          {hasPassword && !isEmailVerified && (
             <SettingItem
-              icon="mail-outline"
-              title="Email"
-              subtitle="Modifier votre adresse email"
-              onPress={() => router.push('/settings/email')}
+              icon="shield-checkmark-outline"
+              title="Vérifier mon email"
+              subtitle="Votre email n'est pas encore vérifié"
+              onPress={() => router.push('/settings/verify-email')}
             />
           )}
           <SettingItem
@@ -95,11 +115,19 @@ export default function SettingsScreen() {
             title="Numéro de téléphone"
             onPress={() => router.push('/settings/phone')}
           />
-          {isPasswordUser && (
+          {hasPassword && (
             <SettingItem
               icon="lock-closed-outline"
               title="Mot de passe"
               onPress={() => router.push('/settings/password')}
+            />
+          )}
+          {!hasPassword && (
+            <SettingItem
+              icon="key-outline"
+              title="Ajouter un mot de passe"
+              subtitle="Associer un email et mot de passe"
+              onPress={() => router.push('/settings/add-password')}
             />
           )}
         </SettingSection>
@@ -170,6 +198,18 @@ export default function SettingsScreen() {
             onPress={() => router.push('/settings/about')}
           />
         </SettingSection>
+
+        {/* Administration (admin only) */}
+        {isAdmin && (
+          <SettingSection title="Administration">
+            <SettingItem
+              icon="shield-checkmark-outline"
+              title="Administration"
+              subtitle="Gestion des boutiques et utilisateurs"
+              onPress={() => router.push('/admin/shops')}
+            />
+          </SettingSection>
+        )}
 
         {/* Zone de danger */}
         <SettingSection title="Zone de danger">

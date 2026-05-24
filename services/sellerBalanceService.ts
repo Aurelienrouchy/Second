@@ -88,14 +88,14 @@ export class SellerBalanceService {
   static async requestWithdrawal(
     _userId: string,
     amount: number,
-    iban: string
+    bankAccount: string
   ): Promise<string> {
     try {
       const callable = httpsCallable<
-        { amount: number; iban: string },
+        { amount: number; bankAccount: string },
         { success: boolean; withdrawalId: string }
       >(functions, 'requestWithdrawal');
-      const { data } = await callable({ amount, iban });
+      const { data } = await callable({ amount, bankAccount });
       return data.withdrawalId;
     } catch (error: any) {
       throw new Error(

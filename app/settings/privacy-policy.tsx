@@ -1,5 +1,5 @@
 /**
- * Privacy Policy (RGPD)
+ * Privacy Policy (Loi 25 / LPRPDE)
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -37,8 +37,8 @@ export default function PrivacyPolicyScreen() {
           <Text variant="bodySmall" style={styles.introText}>
             Chez Seconde, nous accordons une importance primordiale à la protection de vos données
             personnelles. Cette Politique de Confidentialité explique comment nous collectons,
-            utilisons et protégeons vos informations conformément au Règlement Général sur la
-            Protection des Données (RGPD).
+            utilisons et protégeons vos informations conformément à la Loi 25 sur la protection
+            des renseignements personnels du Québec et à la LPRPDE (PIPEDA).
           </Text>
         </View>
 
@@ -47,10 +47,10 @@ export default function PrivacyPolicyScreen() {
           Le responsable du traitement de vos données personnelles est :
         </Text>
         <View style={styles.infoCard}>
-          <Text variant="body" style={styles.companyName}>Seconde SAS</Text>
-          <Caption>10 rue de la Mode, 75003 Paris</Caption>
+          <Text variant="body" style={styles.companyName}>Seconde Inc.</Text>
+          <Caption>Montréal, Québec, Canada</Caption>
           <Caption>Email : privacy@seconde.app</Caption>
-          <Caption>DPO : dpo@seconde.app</Caption>
+          <Caption>Responsable de la protection des renseignements personnels : dpo@seconde.app</Caption>
         </View>
 
         <Text variant="h3" style={styles.sectionTitle}>2. Données collectées</Text>
@@ -115,11 +115,11 @@ export default function PrivacyPolicyScreen() {
           </Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>6. Transferts hors UE</Text>
+        <Text variant="h3" style={styles.sectionTitle}>6. Transferts hors Canada</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Certains de nos prestataires (Firebase/Google) peuvent traiter des données hors de
-          l'Union Européenne. Ces transferts sont encadrés par des garanties appropriées
-          (clauses contractuelles types de la Commission Européenne).
+          Certains de nos prestataires (Firebase/Google) peuvent traiter des données hors du
+          Canada. Ces transferts sont encadrés par des garanties contractuelles appropriées
+          conformément aux exigences de la Loi 25 et de la LPRPDE.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>7. Durée de conservation</Text>
@@ -133,30 +133,26 @@ export default function PrivacyPolicyScreen() {
           <Text variant="bodySmall" style={styles.listItem}>• Logs de connexion : 1 an</Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>8. Vos droits (RGPD)</Text>
+        <Text variant="h3" style={styles.sectionTitle}>8. Vos droits</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Conformément au RGPD, vous disposez des droits suivants :
+          Conformément à la Loi 25 du Québec et à la LPRPDE (PIPEDA), vous disposez des droits suivants :
         </Text>
 
         <RightBox
-          title="Droit d'accès (Art. 15)"
-          description="Obtenir une copie de vos données personnelles."
+          title="Droit d'accès"
+          description="Obtenir une copie de vos renseignements personnels."
         />
         <RightBox
-          title="Droit de rectification (Art. 16)"
-          description="Corriger vos données inexactes ou incomplètes."
+          title="Droit de rectification"
+          description="Corriger vos renseignements inexacts ou incomplets."
         />
         <RightBox
-          title="Droit à l'effacement (Art. 17)"
-          description={"Demander la suppression de vos données (\"droit à l'oubli\")."}
+          title="Droit à l'effacement"
+          description="Demander la suppression de vos renseignements personnels."
         />
         <RightBox
-          title="Droit à la portabilité (Art. 20)"
-          description="Récupérer vos données dans un format structuré et lisible."
-        />
-        <RightBox
-          title="Droit d'opposition (Art. 21)"
-          description="Vous opposer au traitement de vos données pour des motifs légitimes."
+          title="Droit à la portabilité"
+          description="Récupérer vos renseignements dans un format structuré et lisible."
         />
         <RightBox
           title="Droit de retrait du consentement"
@@ -211,15 +207,15 @@ export default function PrivacyPolicyScreen() {
 
         <Text variant="h3" style={styles.sectionTitle}>12. Réclamation</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire une
-          réclamation auprès de la CNIL :
+          Si vous estimez que vos droits ne sont pas respectés, vous pouvez déposer une
+          plainte auprès de la Commission d'accès à l'information du Québec :
         </Text>
         <View style={styles.infoCard}>
-          <Text variant="body" style={styles.companyName}>CNIL</Text>
-          <Caption>Commission Nationale de l'Informatique et des Libertés</Caption>
-          <Caption>3 Place de Fontenoy, TSA 80715</Caption>
-          <Caption>75334 PARIS CEDEX 07</Caption>
-          <Caption>www.cnil.fr</Caption>
+          <Text variant="body" style={styles.companyName}>CAI</Text>
+          <Caption>Commission d'accès à l'information du Québec</Caption>
+          <Caption>525, boul. René-Lévesque Est, bureau 2.36</Caption>
+          <Caption>Québec (Québec) G1R 5S9</Caption>
+          <Caption>www.cai.gouv.qc.ca</Caption>
         </View>
 
         <Text variant="h3" style={styles.sectionTitle}>13. Modifications</Text>
@@ -239,7 +235,7 @@ export default function PrivacyPolicyScreen() {
 
         <View style={styles.footer}>
           <Caption style={styles.footerText}>
-            © 2026 Seconde SAS - Tous droits réservés
+            © 2026 Seconde Inc. - Tous droits réservés
           </Caption>
         </View>
       </ScrollView>

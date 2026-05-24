@@ -32,8 +32,9 @@ export default function AddressSettingsScreen() {
     const streetNumber = details.address_components.find((c: any) => c.types.includes('street_number'))?.long_name || '';
     const route = details.address_components.find((c: any) => c.types.includes('route'))?.long_name || '';
     const city = details.address_components.find((c: any) => c.types.includes('locality'))?.long_name || '';
+    const province = details.address_components.find((c: any) => c.types.includes('administrative_area_level_1'))?.short_name || '';
     const postalCode = details.address_components.find((c: any) => c.types.includes('postal_code'))?.long_name || '';
-    const country = details.address_components.find((c: any) => c.types.includes('country'))?.short_name || '';
+    const country = details.address_components.find((c: any) => c.types.includes('country'))?.long_name || '';
 
     const streetAddress = `${streetNumber} ${route}`.trim();
     const fullAddress = details.formatted_address;
@@ -55,6 +56,7 @@ export default function AddressSettingsScreen() {
                 address: {
                   street: streetAddress,
                   city,
+                  province,
                   postalCode,
                   country,
                 },
@@ -123,6 +125,7 @@ export default function AddressSettingsScreen() {
                   key: GOOGLE_PLACES_API_KEY,
                   language: 'fr',
                   types: 'address',
+                  components: 'country:ca',
                 }}
                 fetchDetails={true}
                 styles={{

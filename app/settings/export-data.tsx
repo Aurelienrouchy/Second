@@ -1,5 +1,5 @@
 /**
- * Export Data Settings (RGPD)
+ * Export Data Settings (Loi 25 / LPRPDE)
  */
 
 import { useUser } from '@/contexts/AuthContext';
@@ -51,9 +51,12 @@ export default function ExportDataScreen() {
       // Récupérer toutes les données de l'utilisateur
       const data = await UserService.exportUserData(user.id);
 
-      // Créer le fichier JSON
       const fileName = `seconde_data_${user.id}_${Date.now()}.json`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
+      const baseDir = FileSystem.documentDirectory;
+      if (!baseDir) {
+        throw new Error('Impossible d\'accéder au stockage local');
+      }
+      const filePath = `${baseDir}${fileName}`;
 
       await FileSystem.writeAsStringAsync(
         filePath,
@@ -94,15 +97,16 @@ export default function ExportDataScreen() {
       <Stack.Screen options={{ title: 'Exporter mes données' }} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {/* RGPD Info Box */}
+        {/* Privacy Info Box */}
         <View style={styles.rgpdBox}>
           <View style={styles.rgpdIconContainer}>
             <Ionicons name="shield-checkmark" size={48} color={colors.success} />
           </View>
           <Text variant="h3" style={styles.rgpdTitle}>Droit à la portabilité</Text>
           <Caption style={styles.rgpdText}>
-            Conformément à l'article 20 du RGPD, vous avez le droit de recevoir vos données
-            personnelles dans un format structuré, couramment utilisé et lisible par machine.
+            Conformément à la Loi 25 du Québec et à la LPRPDE (PIPEDA), vous avez le droit
+            de recevoir vos données personnelles dans un format structuré, couramment utilisé
+            et lisible par machine.
           </Caption>
         </View>
 

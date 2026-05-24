@@ -98,6 +98,12 @@ export { onArticleFavorited, onArticlePriceDropped } from './triggers/favorites'
 // Auth Triggers (v1 — onCreate / onDelete)
 export { onUserCreated, onUserDeleted } from './triggers/auth';
 
+// User Profile Triggers
+export { onUserProfileUpdated } from './triggers/users';
+
+// Article Triggers
+export { onArticleSoftDeleted } from './triggers/articles';
+
 // ============================================================
 // SCHEDULED FUNCTIONS (pubsub)
 // ============================================================

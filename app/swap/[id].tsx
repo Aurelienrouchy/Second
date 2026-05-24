@@ -192,7 +192,7 @@ export default function SwapDetailScreen() {
       setIsProcessing(true);
       const photoUrls = result.assets.map((asset) => asset.uri);
       await uploadSwapPhotos(id, user.id, photoUrls);
-      Alert.alert('Photos envoyées', "Tes photos ont été ajoutées à l'échange.");
+      Alert.alert('Photos envoyées', "Vos photos ont été ajoutées à l'échange.");
     } catch (error) {
       if (__DEV__) console.error('Error uploading photos:', error);
       Alert.alert('Erreur', "Impossible d'envoyer les photos");
@@ -203,7 +203,7 @@ export default function SwapDetailScreen() {
 
   const handleConfirmShipping = useCallback(async () => {
     if (!id || !user) return;
-    Alert.alert("Confirmer l'envoi", 'As-tu bien envoyé ton article ?', [
+    Alert.alert("Confirmer l'envoi", 'Avez-vous bien envoyé votre article ?', [
       { text: 'Non', style: 'cancel' },
       {
         text: 'Oui, envoyé !',
@@ -224,7 +224,7 @@ export default function SwapDetailScreen() {
 
   const handleConfirmReception = useCallback(async () => {
     if (!id || !user) return;
-    Alert.alert('Confirmer la réception', "As-tu bien reçu l'article ?", [
+    Alert.alert('Confirmer la réception', "Avez-vous bien reçu l'article ?", [
       { text: 'Non', style: 'cancel' },
       {
         text: 'Oui, reçu !',

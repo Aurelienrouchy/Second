@@ -11,6 +11,7 @@ import {
   updateProfile,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  linkWithCredential,
   updateEmail as firebaseUpdateEmail,
   updatePassword as firebaseUpdatePassword,
   deleteUser,
@@ -333,43 +334,17 @@ export class AuthService {
   private static async getUserData(userId: string): Promise<User | null> {
     try {
       const userDoc = await getDoc(doc(firestore, 'users', userId));
-      
+
       if (!userDoc.exists()) {
         return null;
       }
 
       const data = userDoc.data()!;
-      const userData: User = {
-        id: data.id,
-        email: data.email,
-        displayName: data.displayName,
+      return {
+        ...data,
+        id: userDoc.id,
         createdAt: data.createdAt?.toDate?.() || new Date(),
-      };
-
-      // Ajouter les champs optionnels seulement s'ils existent
-      if (data.profileImage) {
-        userData.profileImage = data.profileImage;
-      }
-      if (data.phoneNumber) {
-        userData.phoneNumber = data.phoneNumber;
-      }
-      if (data.rating) {
-        userData.rating = data.rating;
-      }
-      if (data.address) {
-        userData.address = data.address;
-      }
-      if (data.bio) {
-        userData.bio = data.bio;
-      }
-      if (data.isActive !== undefined) {
-        userData.isActive = data.isActive;
-      }
-      if (data.authProvider) {
-        userData.authProvider = data.authProvider;
-      }
-
-      return userData;
+      } as User;
     } catch (error) {
       return null;
     }
@@ -383,6 +358,12 @@ export class AuthService {
     if (providers.includes('google.com')) return 'google.com';
     if (providers.includes('password')) return 'password';
     return 'unknown';
+  }
+
+  static hasPasswordProvider(): boolean {
+    const user = auth.currentUser;
+    if (!user) return false;
+    return user.providerData.some(p => p.providerId === 'password');
   }
 
   static async reauthenticate(password: string): Promise<void> {
@@ -500,8 +481,8 @@ export class AuthService {
   }
 
   /**
-   * Supprimer le compte utilisateur (RGPD Art. 17)
-   * Supprime les données Firebase Auth et Firestore
+   * Supprimer le compte utilisateur (Loi 25 / PIPEDA)
+   * Supprime le compte Firebase Auth ; le trigger serveur gère le cleanup Firestore.
    */
   static async deleteAccount(): Promise<void> {
     const user = auth.currentUser;
@@ -545,6 +526,30 @@ export class AuthService {
     if (!user) throw new Error('Utilisateur non connecté');
 
     await reload(user);
+  }
+
+  /**
+   * Link an email/password credential to the current social-auth user.
+   * After linking, the user can sign in with either their social account
+   * or the new email + password combination.
+   */
+  static async linkPasswordCredential(email: string, password: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non connecté');
+
+    try {
+      const credential = EmailAuthProvider.credential(email, password);
+      await linkWithCredential(user, credential);
+
+      // Update Firestore to reflect the linked auth provider
+      await updateDoc(doc(firestore, 'users', user.uid), {
+        authProvider: 'email',
+        email,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error: any) {
+      throw new Error(this.getAuthErrorMessage(error.code));
+    }
   }
 
   /**
