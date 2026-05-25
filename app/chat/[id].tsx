@@ -62,10 +62,7 @@ export default function ChatScreen() {
   const { id: chatId } = useLocalSearchParams<{ id: string }>();
   const user = useUser();
 
-  // Auth gate: redirect guests to profile tab (which shows the auth sheet)
-  if (!user) {
-    return <Redirect href="/(tabs)/profile" />;
-  }
+  // ─── ALL hooks MUST be called before any conditional return ───
 
   const {
     messages,
@@ -76,7 +73,7 @@ export default function ChatScreen() {
     sendImage,
     acceptOffer,
     rejectOffer,
-  } = useChat(chatId || null, user?.id || null);
+  } = useChat(chatId || null, user?.id ?? null);
 
   // ─── Article linked to this chat ───
   const { data: article = null } = useQuery({
@@ -119,9 +116,9 @@ export default function ChatScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await sendMessage(messageText.trim());
       setMessageText('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.error('Error sending message:', err);
-      const msg = err?.message || '';
+      const msg = err instanceof Error ? err.message : '';
       Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer le message");
     }
   }, [messageText, user, sendMessage]);
@@ -145,9 +142,9 @@ export default function ChatScreen() {
         await sendImage(result.assets[0].uri);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.error('Error picking image:', err);
-      const msg = err?.message || '';
+      const msg = err instanceof Error ? err.message : '';
       Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer l'image");
     } finally {
       setIsSendingImage(false);
@@ -180,9 +177,9 @@ export default function ChatScreen() {
         message,
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.error('Error sending meetup offer:', err);
-      const msg = err?.message || '';
+      const msg = err instanceof Error ? err.message : '';
       if (msg.includes('Impossible')) {
         Alert.alert('Erreur', msg);
       }
@@ -243,6 +240,11 @@ export default function ChatScreen() {
     },
     [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar, article?.price, chat?.articlePrice],
   );
+
+  // ─── Auth gate: redirect guests AFTER all hooks have been called ───
+  if (!user) {
+    return <Redirect href="/(tabs)/profile" />;
+  }
 
   // ─── Loading state ───
   if (isLoading) {

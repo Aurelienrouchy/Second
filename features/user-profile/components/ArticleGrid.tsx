@@ -31,7 +31,7 @@ export const ArticleGrid = React.memo(function ArticleGrid({
     ({ item }: { item: Article }) => (
       <ArticleGridItem
         article={item}
-        onPress={() => onArticlePress(item.id)}
+        onPress={onArticlePress}
       />
     ),
     [onArticlePress],

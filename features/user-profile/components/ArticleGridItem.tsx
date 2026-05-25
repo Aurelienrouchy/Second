@@ -24,13 +24,16 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ArticleGridItemProps {
   article: Article;
-  onPress: () => void;
+  onPress: (articleId: string) => void;
 }
 
 export const ArticleGridItem = React.memo(function ArticleGridItem({
   article,
   onPress,
 }: ArticleGridItemProps) {
+  const handlePress = useCallback(() => {
+    onPress(article.id);
+  }, [onPress, article.id]);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -48,7 +51,7 @@ export const ArticleGridItem = React.memo(function ArticleGridItem({
   return (
     <AnimatedPressable
       style={[styles.gridItem, animatedStyle]}
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >

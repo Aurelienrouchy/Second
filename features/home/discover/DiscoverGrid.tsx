@@ -33,7 +33,7 @@ interface DiscoverItemProps {
   id: string;
   title: string;
   price: number;
-  images: any;
+  images: { url: string; blurhash?: string }[];
   brand?: string;
   size?: string;
   condition?: string;

@@ -12,7 +12,7 @@
  * orchestrator.
  */
 
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useNavigation } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
@@ -77,7 +77,7 @@ export default function HomeScreen() {
     handleCategoryPress,
   } = useHomeHeader();
 
-  const listRef = useRef<any>(null);
+  const listRef = useRef<FlashListRef<SectionId>>(null);
   const navigation = useNavigation();
 
   // Scroll-to-top on tab re-press while already on Home.

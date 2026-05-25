@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -56,32 +56,36 @@ export default function MessagesScreen() {
     [handleChatPress, user]
   );
 
-  const getConversationType = (chat: Chat): ConversationType => {
-    if (!user) return 'achats';
-    // If the current user is the seller of the article, it's a "vente" (sale)
-    // If the current user is the buyer, it's an "achat" (purchase)
-    if (chat.sellerId === user.id) return 'ventes';
-    return 'achats';
-  };
-
-  const filteredChats = chats.filter(
-    (chat) => getConversationType(chat) === activeTab,
+  const getConversationType = useCallback(
+    (chat: Chat): ConversationType => {
+      if (!user) return 'achats';
+      // If the current user is the seller of the article, it's a "vente" (sale)
+      // If the current user is the buyer, it's an "achat" (purchase)
+      if (chat.sellerId === user.id) return 'ventes';
+      return 'achats';
+    },
+    [user],
   );
 
-  const unreadByType = {
-    achats: chats.filter((c) => getConversationType(c) === 'achats').reduce(
-      (sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0),
-      0,
-    ),
-    ventes: chats.filter((c) => getConversationType(c) === 'ventes').reduce(
-      (sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0),
-      0,
-    ),
-    swaps: chats.filter((c) => getConversationType(c) === 'swaps').reduce(
-      (sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0),
-      0,
-    ),
-  };
+  const filteredChats = useMemo(
+    () => chats.filter((chat) => getConversationType(chat) === activeTab),
+    [chats, activeTab, getConversationType],
+  );
+
+  const unreadByType = useMemo(
+    () => ({
+      achats: chats
+        .filter((c) => getConversationType(c) === 'achats')
+        .reduce((sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0), 0),
+      ventes: chats
+        .filter((c) => getConversationType(c) === 'ventes')
+        .reduce((sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0), 0),
+      swaps: chats
+        .filter((c) => getConversationType(c) === 'swaps')
+        .reduce((sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0), 0),
+    }),
+    [chats, user, getConversationType],
+  );
 
   if (!user) {
     return (
@@ -201,7 +205,7 @@ const SkeletonConversationItem: React.FC = () => (
         width="90%"
         height={13}
         borderRadius={radius.xs}
-        style={{ marginTop: spacing.xs }}
+        style={styles.skeletonMessagePreview}
       />
     </View>
     <View style={styles.rightSection}>
@@ -579,5 +583,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  skeletonMessagePreview: {
+    marginTop: spacing.xs,
   },
 });

@@ -20,22 +20,34 @@ service firebase.storage {
                    && (request.resource == null || isValidImageUpload());
     }
 
-    // Allow authenticated users to upload product images
-    match /products/{productId}/{allPaths=**} {
+    // Product images — uid-scoped path: products/{userId}/{productId}/...
+    // This path is currently unused in the codebase but prepared for future use.
+    match /products/{userId}/{productId}/{allPaths=**} {
       allow read: if true; // Public read for product images
       allow write: if request.auth != null
+                   && request.auth.uid == userId
                    && (request.resource == null || isValidImageUpload());
     }
 
-    // Allow authenticated users to upload article images
+    // Article images
+    // LIMITATION: Storage rules cannot verify Firestore document ownership.
+    // The path is articles/{articleId}/... without a uid segment.
+    // TODO: Migrate to articles/{userId}/{articleId}/... for owner-scoped writes.
+    // Until then, any authenticated user can write to any articleId path.
+    // Mitigated by: MIME image/* validation + 10MB size limit.
     match /articles/{articleId}/{allPaths=**} {
       allow read: if true; // Public read for article images
       allow write: if request.auth != null
                    && (request.resource == null || isValidImageUpload());
     }
 
-    // Allow authenticated users to upload draft images (for AI analysis)
-    // Images are organized by draft ID and cleaned up when draft is deleted
+    // Draft images (for AI analysis)
+    // LIMITATION: Storage rules cannot verify draft ownership.
+    // The path is drafts/{draftId}/... without a uid segment.
+    // TODO: Migrate to drafts/{userId}/{draftId}/... for owner-scoped writes.
+    // Until then, any authenticated user can write to any draftId path.
+    // Mitigated by: MIME image/* validation + 10MB size limit + drafts are
+    // ephemeral and cleaned up after publishing.
     match /drafts/{draftId}/{allPaths=**} {
       allow read: if true; // Public read for preview during creation
       allow write: if request.auth != null
@@ -50,7 +62,10 @@ service firebase.storage {
                    && (request.resource == null || isValidImageUpload());
     }
 
-    // Allow authenticated users to upload chat images
+    // Chat images
+    // NOTE: Chat participation cannot be verified in Storage rules.
+    // Server-side validation via Cloud Functions would be needed for full security.
+    // Mitigated by: auth required + MIME image/* validation + 10MB size limit.
     match /chat_images/{chatId}/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null

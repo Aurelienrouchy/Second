@@ -385,20 +385,18 @@ service cloud.firestore {
       // Anyone can read swap parties
       allow read: if true;
 
-      // No create/delete - managed by Cloud Functions/scripts
-      allow create, delete: if false;
+      // Create only via Cloud Functions (Admin SDK)
+      allow create: if false;
 
-      // Allow authenticated users to update counters only
-      allow update: if isAuthenticated() &&
-                       isValidPartyCounterUpdate(resource.data, request.resource.data);
+      // SECURITY: counters (participantsCount, itemsCount, swapsCount) and
+      // creatorId are admin-only fields managed by Cloud Functions. Clients
+      // can only update non-sensitive metadata fields.
+      allow update: if isAuthenticated()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['participantsCount', 'itemsCount', 'swapsCount', 'creatorId']);
 
-      function isValidPartyCounterUpdate(oldData, newData) {
-        // Only allow updating counter fields, nothing else
-        return newData.diff(oldData).affectedKeys().hasOnly(['participantsCount', 'itemsCount', 'swapsCount', 'updatedAt']) &&
-               newData.participantsCount is number &&
-               newData.itemsCount is number &&
-               newData.swapsCount is number;
-      }
+      // No delete - managed by Cloud Functions/scripts
+      allow delete: if false;
     }
 
     // Swap Party Participants Collection Rules

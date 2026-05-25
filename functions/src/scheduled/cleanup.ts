@@ -3,7 +3,11 @@
  * Firebase Functions v7 - using onSchedule
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
+
+/** Firestore batch limit is 500; use 450 for safety margin */
+const BATCH_SIZE = 450;
 
 /**
  * Clean up old search index entries
@@ -11,10 +15,10 @@ import { db } from '../config/firebase';
  */
 export const cleanupSearchIndex = onSchedule({ schedule: 'every 24 hours', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
   try {
-    console.log('Starting search index cleanup...');
+    logger.info('Starting search index cleanup...');
 
-    const batch = db.batch();
-    let deleteCount = 0;
+    // Collect all refs to delete
+    const refsToDelete: FirebaseFirestore.DocumentReference[] = [];
 
     // Find search index entries for inactive products
     const searchIndexSnapshot = await db
@@ -23,8 +27,7 @@ export const cleanupSearchIndex = onSchedule({ schedule: 'every 24 hours', regio
       .get();
 
     searchIndexSnapshot.forEach((doc) => {
-      batch.delete(doc.ref);
-      deleteCount++;
+      refsToDelete.push(doc.ref);
     });
 
     // Find search index entries for sold products
@@ -34,17 +37,32 @@ export const cleanupSearchIndex = onSchedule({ schedule: 'every 24 hours', regio
       .get();
 
     soldSearchIndexSnapshot.forEach((doc) => {
-      batch.delete(doc.ref);
-      deleteCount++;
+      refsToDelete.push(doc.ref);
     });
 
-    if (deleteCount > 0) {
-      await batch.commit();
-      console.log(`Cleaned up ${deleteCount} search index entries`);
+    if (refsToDelete.length > 0) {
+      // Chunk into batches of BATCH_SIZE to respect Firestore 500-op limit
+      let batch = db.batch();
+      let count = 0;
+
+      for (const ref of refsToDelete) {
+        batch.delete(ref);
+        count++;
+        if (count >= BATCH_SIZE) {
+          await batch.commit();
+          batch = db.batch();
+          count = 0;
+        }
+      }
+      if (count > 0) {
+        await batch.commit();
+      }
+
+      logger.info(`Cleaned up ${refsToDelete.length} search index entries`);
     } else {
-      console.log('No search index entries to clean up');
+      logger.info('No search index entries to clean up');
     }
   } catch (error) {
-    console.error('Error cleaning up search index:', error);
+    logger.error('Error cleaning up search index:', error);
   }
 });

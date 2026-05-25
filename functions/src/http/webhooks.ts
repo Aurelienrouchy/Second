@@ -4,8 +4,18 @@
  *
  * Helcim webhook: payment confirmation + ShipEngine label creation
  * Replaces the previous Stripe webhook flow.
+ *
+ * CRITICAL: All Firestore mutations (transaction status, article sold,
+ * seller_balance credit) are wrapped in a single runTransaction for
+ * atomicity. The idempotence check is INSIDE the transaction to prevent
+ * race conditions from concurrent webhook replays.
+ *
+ * ShipEngine label creation (external network call) runs AFTER the
+ * transaction — it is not atomic but can be safely retried/recreated
+ * manually without financial inconsistency.
  */
 import { onRequest } from 'firebase-functions/v2/https';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getShipEngine } from '../config/shipEngine';
 import { HelcimClient } from '../config/helcim';
@@ -18,12 +28,10 @@ import { HelcimClient } from '../config/helcim';
  * Helcim calls this endpoint after a successful HelcimPay.js payment.
  *
  * Flow:
- * 1. Verify webhook signature
- * 2. Find transaction by invoiceNumber
- * 3. Mark as paid
- * 4. Create shipping label via ShipEngine
- * 5. Update seller balance
- * 6. Send system message with tracking info
+ * 1. Verify webhook signature (HMAC-SHA256)
+ * 2. Atomic transaction: idempotence check + mark paid + mark sold + credit seller
+ * 3. Create shipping label via ShipEngine (non-atomic, retry-safe)
+ * 4. Send system message with tracking info
  */
 export const helcimWebhook = onRequest(
   {
@@ -51,18 +59,18 @@ export const helcimWebhook = onRequest(
 
       // Only process successful payments
       if (status !== 'APPROVED') {
-        console.log(`Helcim webhook: payment not approved (status: ${status})`);
+        logger.info('Helcim webhook: payment not approved', { status });
         res.json({ received: true, processed: false });
         return;
       }
 
       if (!invoiceNumber) {
-        console.error('Helcim webhook: missing invoiceNumber');
+        logger.error('Helcim webhook: missing invoiceNumber');
         res.status(400).send('Missing invoiceNumber');
         return;
       }
 
-      // Sanity bounds: Firestore doc IDs are 1–1500 chars and cannot
+      // Sanity bounds: Firestore doc IDs are 1-1500 chars and cannot
       // contain '/'. Reject anything outside that envelope before we
       // round-trip Firestore — keeps log noise down for malformed
       // payloads (and bots).
@@ -72,17 +80,17 @@ export const helcimWebhook = onRequest(
         invoiceNumber.length > 200 ||
         invoiceNumber.includes('/')
       ) {
-        console.error('Helcim webhook: invalid invoiceNumber shape');
+        logger.error('Helcim webhook: invalid invoiceNumber shape', { invoiceNumber });
         res.status(400).send('Invalid invoiceNumber');
         return;
       }
 
       const transactionId = invoiceNumber;
 
-      // Get transaction
+      // Get transaction (outside runTransaction for signature verification)
       const transactionDoc = await db.collection('transactions').doc(transactionId).get();
       if (!transactionDoc.exists) {
-        console.error(`Helcim webhook: transaction ${transactionId} not found`);
+        logger.error('Helcim webhook: transaction not found', { transactionId });
         res.status(404).send('Transaction not found');
         return;
       }
@@ -96,16 +104,14 @@ export const helcimWebhook = onRequest(
       const secretToken =
         transaction.helcimSecretToken || process.env.HELCIM_WEBHOOK_SECRET;
       if (!secretToken) {
-        console.error(
-          `Helcim webhook: no secret token for transaction ${transactionId}`
-        );
+        logger.error('Helcim webhook: no secret token', { transactionId });
         res.status(401).send('Unauthorized: missing secret');
         return;
       }
 
       const signature = req.headers['x-helcim-signature'] as string | undefined;
       if (!signature) {
-        console.error('Helcim webhook: missing x-helcim-signature header');
+        logger.error('Helcim webhook: missing x-helcim-signature header');
         res.status(401).send('Unauthorized: missing signature');
         return;
       }
@@ -116,35 +122,104 @@ export const helcimWebhook = onRequest(
         secretToken
       );
       if (!isValid) {
-        console.error('Helcim webhook: invalid signature');
+        logger.error('Helcim webhook: invalid signature', { transactionId });
         res.status(401).send('Unauthorized: invalid signature');
         return;
       }
 
-      // Skip if already processed
-      if (transaction.status === 'paid' || transaction.status === 'shipped') {
-        console.log(`Transaction ${transactionId} already processed`);
+      // =====================================================================
+      // ATOMIC TRANSACTION: idempotence + mark paid + mark sold + credit seller
+      // All financial mutations happen atomically. If the webhook replays
+      // concurrently, only the first execution will mutate — subsequent
+      // ones see status === 'paid' inside the transaction and short-circuit.
+      // =====================================================================
+
+      const transactionRef = db.collection('transactions').doc(transactionId);
+
+      const wasAlreadyProcessed = await db.runTransaction(async (tx) => {
+        // Re-read inside transaction for consistency (optimistic locking)
+        const txSnap = await tx.get(transactionRef);
+        const txData = txSnap.data();
+
+        if (!txData) {
+          throw new Error(`Transaction ${transactionId} disappeared mid-processing`);
+        }
+
+        // IDEMPOTENCE: If already paid/shipped, do nothing (replay protection)
+        if (txData.status === 'paid' || txData.status === 'shipped') {
+          return true; // already processed
+        }
+
+        // --- Mark transaction as paid ---
+        tx.update(transactionRef, {
+          status: 'paid',
+          paidAt: FieldValue.serverTimestamp(),
+          helcimTransactionId,
+          helcimApprovalCode: approvalCode,
+          helcimCardLast4: cardNumber, // Masked by Helcim: ****1234
+          helcimCardType: cardType,
+        });
+
+        // --- Mark article as sold ---
+        if (txData.articleId) {
+          const articleRef = db.collection('articles').doc(txData.articleId);
+          tx.update(articleRef, {
+            isSold: true,
+            soldAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        // --- Credit seller's pending balance ---
+        const sellerId = txData.sellerId;
+        const sellerPayout = txData.sellerPayout || txData.amount;
+        const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
+        const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+
+        const saleTransaction = {
+          id: transactionId,
+          type: 'sale',
+          amount: sellerPayout,
+          description: `Vente de l'article`,
+          createdAt: FieldValue.serverTimestamp(),
+          status: 'pending',
+        };
+
+        if (!sellerBalanceSnap.exists) {
+          tx.set(sellerBalanceRef, {
+            userId: sellerId,
+            availableBalance: 0,
+            pendingBalance: sellerPayout,
+            totalEarnings: 0,
+            transactions: [saleTransaction],
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          tx.update(sellerBalanceRef, {
+            pendingBalance: FieldValue.increment(sellerPayout),
+            transactions: FieldValue.arrayUnion(saleTransaction),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        return false; // not previously processed
+      });
+
+      // If the transaction was already processed, respond 200 (idempotent)
+      if (wasAlreadyProcessed) {
+        logger.info('Helcim webhook: transaction already processed (idempotent)', { transactionId });
         res.json({ received: true, processed: false });
         return;
       }
 
-      console.log(`💳 Helcim payment confirmed for transaction ${transactionId} — $${amount}`);
-
-      // =====================================================================
-      // STEP 1: Mark transaction as paid
-      // =====================================================================
-
-      await db.collection('transactions').doc(transactionId).update({
-        status: 'paid',
-        paidAt: FieldValue.serverTimestamp(),
-        helcimTransactionId,
-        helcimApprovalCode: approvalCode,
-        helcimCardLast4: cardNumber, // Masked by Helcim: ****1234
-        helcimCardType: cardType,
+      logger.info('Helcim webhook: payment confirmed, atomic mutations committed', {
+        transactionId,
+        amount,
       });
 
       // =====================================================================
-      // STEP 2: Create shipping label via ShipEngine
+      // SHIPPING LABEL (non-atomic, external call — safe to retry separately)
+      // Runs AFTER the transaction. If this fails, the payment is still valid
+      // and the label can be created manually later.
       // =====================================================================
 
       let trackingNumber = '';
@@ -170,62 +245,22 @@ export const helcimWebhook = onRequest(
             shipEngineLabelId: label.labelId,
           });
 
-          console.log(`📦 ShipEngine label created: ${trackingNumber} via ${carrierCode}`);
+          logger.info('ShipEngine label created', {
+            transactionId,
+            trackingNumber,
+            carrierCode,
+          });
         } catch (labelError) {
-          console.error('Error creating ShipEngine label:', labelError);
+          logger.error('Error creating ShipEngine label (will retry manually)', {
+            transactionId,
+            error: labelError instanceof Error ? labelError.message : labelError,
+          });
           // Payment is still valid — label can be created manually later
         }
       }
 
       // =====================================================================
-      // STEP 3: Mark article as sold
-      // =====================================================================
-
-      if (transaction.articleId) {
-        await db.collection('articles').doc(transaction.articleId).update({
-          isSold: true,
-          soldAt: FieldValue.serverTimestamp(),
-        });
-      }
-
-      // =====================================================================
-      // STEP 4: Add to seller's pending balance (seller payout, not full amount)
-      // =====================================================================
-
-      const sellerId = transaction.sellerId;
-      const sellerPayout = transaction.sellerPayout || transaction.amount;
-
-      const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
-      const sellerBalanceDoc = await sellerBalanceRef.get();
-
-      const saleTransaction = {
-        id: transactionId,
-        type: 'sale',
-        amount: sellerPayout,
-        description: `Vente de l'article`,
-        createdAt: FieldValue.serverTimestamp(),
-        status: 'pending',
-      };
-
-      if (!sellerBalanceDoc.exists) {
-        await sellerBalanceRef.set({
-          userId: sellerId,
-          availableBalance: 0,
-          pendingBalance: sellerPayout,
-          totalEarnings: 0,
-          transactions: [saleTransaction],
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      } else {
-        await sellerBalanceRef.update({
-          pendingBalance: FieldValue.increment(sellerPayout),
-          transactions: FieldValue.arrayUnion(saleTransaction),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      }
-
-      // =====================================================================
-      // STEP 5: Send system message with shipping info
+      // SYSTEM MESSAGE: Send shipping/tracking info to chat
       // =====================================================================
 
       const chatId = transaction.chatId;
@@ -243,7 +278,10 @@ export const helcimWebhook = onRequest(
             participants = (chatSnap.data()?.participants as string[]) || [];
           }
         } catch (lookupErr) {
-          console.warn('[webhooks] Could not load chat participants:', lookupErr);
+          logger.warn('Could not load chat participants', {
+            chatId,
+            error: lookupErr instanceof Error ? lookupErr.message : lookupErr,
+          });
         }
 
         await db.collection('messages').add({
@@ -266,11 +304,11 @@ export const helcimWebhook = onRequest(
         });
       }
 
-      console.log(`✅ Transaction ${transactionId} fully processed`);
+      logger.info('Helcim webhook: fully processed', { transactionId });
       res.json({ received: true, processed: true });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error processing Helcim webhook:', message);
+      logger.error('Error processing Helcim webhook', { error: message });
       res.status(500).send(`Webhook processing error: ${message}`);
     }
   }
