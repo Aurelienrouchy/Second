@@ -75,6 +75,13 @@ export const createReview = onCall(
       );
     }
 
+    if (text.trim().length > 2000) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Review text too long',
+      );
+    }
+
     if (reviewerId === targetUserId) {
       throw new HttpsError(
         'invalid-argument',
@@ -83,6 +90,38 @@ export const createReview = onCall(
     }
 
     try {
+      // ---------------------------------------------------------------
+      // SECURITY: Verify the transaction exists, is completed, and the
+      // caller is actually a party to it. Without this, any authed user
+      // could submit a review for any other user with an arbitrary
+      // transactionId.
+      // ---------------------------------------------------------------
+      const txDoc = await db.collection('transactions').doc(transactionId).get();
+      if (!txDoc.exists) {
+        throw new HttpsError('not-found', 'Transaction not found');
+      }
+      const txData = txDoc.data()!;
+
+      const terminalStatuses = new Set(['delivered', 'meetup_completed', 'completed']);
+      if (!terminalStatuses.has(txData.status)) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Transaction must be completed before reviewing',
+        );
+      }
+
+      if (txData.buyerId !== reviewerId && txData.sellerId !== reviewerId) {
+        throw new HttpsError('permission-denied', 'You are not a party to this transaction');
+      }
+
+      if (targetUserId !== txData.buyerId && targetUserId !== txData.sellerId) {
+        throw new HttpsError('invalid-argument', 'Target must be the other party in the transaction');
+      }
+
+      if (targetUserId === reviewerId) {
+        throw new HttpsError('invalid-argument', 'Cannot review yourself');
+      }
+
       // Get reviewer info and article title in parallel (read-only, outside transaction)
       const [reviewerDoc, articleDoc] = await Promise.all([
         db.collection('users').doc(reviewerId).get(),

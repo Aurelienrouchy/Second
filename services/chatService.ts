@@ -952,6 +952,16 @@ export class ChatService {
         throw new Error('Offre originale non trouvée');
       }
 
+      if (originalOffer.expiresAt) {
+        const expiresAt = originalOffer.expiresAt.toDate
+          ? originalOffer.expiresAt.toDate()
+          : new Date(originalOffer.expiresAt);
+        if (expiresAt < new Date()) {
+          await updateDoc(messageRef, { 'offer.status': 'expired' });
+          throw new Error('Cette offre a expiré');
+        }
+      }
+
       // Update original offer status
       await updateDoc(messageRef, {
         'offer.status': 'counter_time',
@@ -1028,7 +1038,9 @@ export class ChatService {
   }
 
   /**
-   * Confirmer un meetup (après acceptation de l'offre)
+   * Confirmer un meetup (après acceptation de l'offre).
+   * Also transitions the linked transaction from meetup_pending → meetup_confirmed.
+   * Firestore rules enforce that only the seller can make this transition.
    */
   static async confirmMeetup(
     chatId: string,
@@ -1053,6 +1065,23 @@ export class ChatService {
       await updateDoc(messageRef, {
         'offer.meetup.confirmedAt': new Date(),
       });
+
+      // Transition the linked transaction to meetup_confirmed.
+      // Firestore rules only allow the seller (request.auth.uid == oldData.sellerId)
+      // to perform meetup_pending → meetup_confirmed.
+      const txSnap = await getDocs(
+        query(
+          collection(firestore, 'transactions'),
+          where('chatId', '==', chatId),
+          where('status', '==', 'meetup_pending')
+        )
+      );
+      if (!txSnap.empty) {
+        const txRef = doc(firestore, 'transactions', txSnap.docs[0].id);
+        await updateDoc(txRef, { status: 'meetup_confirmed' });
+      } else {
+        if (__DEV__) console.warn('[ChatService] confirmMeetup: no meetup_pending transaction found for chatId', chatId);
+      }
 
       const dateTimeInfo = offer.meetup.dateTime
         ? `le ${new Date(offer.meetup.dateTime).toLocaleDateString('fr-CA')} a ${new Date(offer.meetup.dateTime).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`
@@ -1098,7 +1127,7 @@ export class ChatService {
   }
 
   /**
-   * Marquer un meetup comme complété
+   * Marquer un meetup comme complété et déclencher le crédit vendeur via CF.
    */
   static async completeMeetup(
     chatId: string,
@@ -1109,8 +1138,25 @@ export class ChatService {
       const messageRef = doc(firestore, 'messages', messageId);
       await updateDoc(messageRef, {
         'offer.meetup.completedAt': new Date(),
-        'offer.status': 'accepted',
+        'offer.status': 'completed',
       });
+
+      // Find the transaction linked to this chat and call the CF
+      // to credit the seller's balance.
+      const txSnap = await getDocs(
+        query(
+          collection(firestore, 'transactions'),
+          where('chatId', '==', chatId),
+          where('status', 'in', ['meetup_confirmed', 'meetup_pending'])
+        )
+      );
+      if (!txSnap.empty) {
+        const transactionId = txSnap.docs[0].id;
+        const completeMeetupFn = httpsCallable(functions, 'completeMeetupTransaction');
+        await completeMeetupFn({ transactionId });
+      } else {
+        if (__DEV__) console.warn('[ChatService] completeMeetup: no transaction found for chatId', chatId);
+      }
 
       await this.sendSystemMessage(
         chatId,

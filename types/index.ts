@@ -49,6 +49,7 @@ export interface User {
   address?: {
     street: string;
     city: string;
+    province?: string;
     postalCode: string;
     country: string;
   };
@@ -135,6 +136,7 @@ export type OfferStatus =
   | 'pending'           // En attente de réponse
   | 'accepted'          // Acceptée → paiement
   | 'rejected'          // Refusée définitivement
+  | 'completed'         // Transaction terminée (meetup complété)
   | 'counter_price'     // Contre-offre sur le prix
   | 'counter_location'  // Contre-proposition de lieu
   | 'counter_time'      // Contre-proposition d'horaire
@@ -144,6 +146,7 @@ export interface ShippingAddress {
   name: string;
   street: string;
   city: string;
+  province: string;
   postalCode: string;
   country: string;
   phoneNumber?: string;
@@ -223,7 +226,7 @@ export interface Category {
 export type TransactionDeliveryType = 'meetup' | 'shipping';
 
 export type TransactionStatus =
-  | 'pending_payment'    // Awaiting Stripe payment (shipping only)
+  | 'pending_payment'    // Awaiting Helcim payment (shipping only)
   | 'meetup_pending'     // Meetup requested, awaiting seller confirmation
   | 'meetup_confirmed'   // Seller confirmed meetup
   | 'meetup_completed'   // Both parties confirmed exchange
@@ -252,7 +255,7 @@ export interface Transaction {
   helcimCardLast4?: string;
   helcimCardType?: string;
   helcimSecretToken?: string;
-  // Legacy Stripe (kept for migration)
+  // Legacy - unused (kept for migration)
   paymentIntentId?: string;
   // ShipEngine shipping
   shipEngineRateId?: string;
@@ -349,11 +352,12 @@ export interface ShopVerificationDetails {
 }
 
 export interface ShopLegalInfo {
-  siret?: string;
-  companyType?: string;
-  vatNumber?: string;
-  iban?: string;
-  kbisDocument?: string;
+  businessNumber?: string;    // NEQ (Numero d'entreprise du Quebec) ou BN/NE federal
+  gstNumber?: string;         // Numero de TPS
+  qstNumber?: string;         // Numero de TVQ (Quebec)
+  bankTransit?: string;       // Numero de transit (5 chiffres)
+  bankInstitution?: string;   // Numero d'institution (3 chiffres)
+  bankAccount?: string;       // Numero de compte (7-12 chiffres)
 }
 
 export interface ShopAddress {

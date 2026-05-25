@@ -564,11 +564,13 @@ service cloud.firestore {
           newData.sellerId == oldData.sellerId &&
           newData.amount == oldData.amount;
 
-        // Meetup status transitions: must follow the correct order
-        // Only seller can confirm, only buyer can mark completed
+        // Meetup status transitions: only seller can confirm a meetup.
+        // The meetup_confirmed -> meetup_completed transition is handled
+        // exclusively by the completeMeetupTransaction Cloud Function,
+        // which atomically credits the seller's balance. Allowing this
+        // transition client-side would skip the payment crediting step.
         let validMeetupTransition =
-          (oldData.status == 'meetup_pending' && newData.status == 'meetup_confirmed' && request.auth.uid == oldData.sellerId) ||
-          (oldData.status == 'meetup_confirmed' && newData.status == 'meetup_completed' && request.auth.uid == oldData.buyerId);
+          (oldData.status == 'meetup_pending' && newData.status == 'meetup_confirmed' && request.auth.uid == oldData.sellerId);
 
         return coreFieldsUnchanged &&
           (newData.status == oldData.status || validMeetupTransition);
@@ -610,9 +612,13 @@ service cloud.firestore {
                        request.auth.uid in request.resource.data.participants &&
                        isValidChatData(request.resource.data);
       
-      // Allow update only for unread count and last message
-      allow update: if isAuthenticated() && 
-                       request.auth.uid in resource.data.participants;
+      // Allow update only for unread count and last message fields.
+      // SECURITY: without field restriction, a participant could overwrite
+      // participants, participantsInfo, articleId, etc.
+      allow update: if isAuthenticated() &&
+                       request.auth.uid in resource.data.participants &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['unreadCount', 'lastMessage', 'lastMessageTimestamp', 'updatedAt']);
       
       // No delete allowed
       allow delete: if false;

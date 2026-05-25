@@ -58,6 +58,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   onCounterPrice,
   onConfirmMeetup,
   onReportNoShow,
+  onCompleteMeetup,
 }) => {
   const router = useRouter();
   const [isAccepting, setIsAccepting] = useState(false);
@@ -212,10 +213,37 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
     );
   };
 
+  const handleCompleteMeetup = async () => {
+    if (!onCompleteMeetup) return;
+
+    Alert.alert(
+      'Terminer la transaction',
+      'Confirmez-vous que la remise en main propre a bien eu lieu ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Terminer',
+          onPress: async () => {
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              await onCompleteMeetup(message.id);
+            } catch (error) {
+              if (__DEV__) console.error('Error completing meetup:', error);
+              Alert.alert('Erreur', 'Impossible de terminer la transaction');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const statusColor = getStatusColor(status);
   const canRespondToOffer = !isOwnMessage && status === 'pending';
   const canPay = isOwnMessage && status === 'accepted' && transactionId && !isMeetupOffer;
-  const canConfirmMeetup = status === 'accepted' && isMeetupOffer && meetup && !meetup.completedAt;
+  // Seller confirms meetup (before confirmedAt is set)
+  const canConfirmMeetup = status === 'accepted' && isMeetupOffer && meetup && !meetup.confirmedAt && !meetup.completedAt;
+  // Buyer completes meetup (after confirmedAt, before completedAt)
+  const canCompleteMeetup = status === 'accepted' && isMeetupOffer && meetup && !!meetup.confirmedAt && !meetup.completedAt;
   const expiryText = getTimeUntilExpiry(expiresAt, status);
 
   const handlePayment = () => {
@@ -353,10 +381,18 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           </Pressable>
         )}
 
-        {/* Meetup Confirmation Actions */}
+        {/* Meetup Confirmation Actions (seller confirms meetup) */}
         {canConfirmMeetup && (onConfirmMeetup || onReportNoShow) && (
           <MeetupActions
             onConfirm={handleConfirmMeetup}
+            onReportNoShow={handleReportNoShow}
+          />
+        )}
+
+        {/* Meetup Completion Action (buyer completes after seller confirmed) */}
+        {canCompleteMeetup && onCompleteMeetup && (
+          <MeetupActions
+            onConfirm={handleCompleteMeetup}
             onReportNoShow={handleReportNoShow}
           />
         )}

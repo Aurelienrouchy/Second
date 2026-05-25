@@ -145,6 +145,15 @@ export const helcimWebhook = onRequest(
           throw new Error(`Transaction ${transactionId} disappeared mid-processing`);
         }
 
+        // SECURITY: Verify the paid amount matches what we expect.
+        // A tampered or replayed webhook with a different amount must not
+        // credit the seller for more (or less) than the actual charge.
+        const expectedAmount = txData.totalAmount;
+        if (expectedAmount != null && Math.abs(amount - expectedAmount) > 0.01) {
+          logger.error(`[helcimWebhook] Amount mismatch: received ${amount}, expected ${expectedAmount} for transaction ${transactionId}`);
+          throw new Error('Payment amount does not match transaction total');
+        }
+
         // IDEMPOTENCE: If already paid/shipped/delivered, do nothing (replay protection).
         // Also reject cancelled transactions — a late webhook must NOT resurrect a
         // cancelled order by re-marking the article as sold and crediting the seller.

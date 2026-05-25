@@ -38,6 +38,7 @@ export const getTimeUntilExpiry = (
 export const getStatusColor = (s: OfferStatus) => {
   switch (s) {
     case 'accepted':
+    case 'completed':
       return colors.success;
     case 'rejected':
     case 'expired':
@@ -55,6 +56,8 @@ export const getStatusIcon = (s: OfferStatus): keyof typeof Ionicons.glyphMap =>
   switch (s) {
     case 'accepted':
       return 'checkmark-circle';
+    case 'completed':
+      return 'checkmark-done-circle';
     case 'rejected':
       return 'close-circle';
     case 'expired':
@@ -74,6 +77,8 @@ export const getStatusText = (s: OfferStatus) => {
   switch (s) {
     case 'accepted':
       return 'Acceptée';
+    case 'completed':
+      return 'Terminée';
     case 'rejected':
       return 'Refusée';
     case 'expired':
@@ -94,6 +99,7 @@ export const getStatusIconBackground = (status: OfferStatus): string => {
     case 'pending':
       return colors.primaryLight;
     case 'accepted':
+    case 'completed':
       return colors.successLight;
     case 'rejected':
     case 'expired':
@@ -112,6 +118,7 @@ export const getStatusBgColor = (status: OfferStatus): string => {
     case 'pending':
       return colors.primaryLight;
     case 'accepted':
+    case 'completed':
       return colors.successLight;
     case 'rejected':
     case 'expired':
