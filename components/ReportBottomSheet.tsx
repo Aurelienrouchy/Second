@@ -1,10 +1,10 @@
-import { useAuth } from '@/contexts/AuthContext';
 import {
   ModerationService,
   ReportReason,
   ReportReasonLabels,
   ReportType,
 } from '@/services/moderationService';
+import { useAuthStore } from '@/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -33,7 +33,8 @@ interface Props {
 const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
   ({ onReportSubmitted }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
-    const { user } = useAuth();
+    const user = useAuthStore((s) => s.user);
+    const [isOpen, setIsOpen] = useState(false);
 
     const [targetType, setTargetType] = useState<ReportType>('user');
     const [targetId, setTargetId] = useState<string>('');
@@ -53,7 +54,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
         setSelectedReason(null);
         setDescription('');
         setStep('reason');
-        bottomSheetRef.current?.snapToIndex(0);
+        setIsOpen(true);
       },
       close: () => {
         bottomSheetRef.current?.close();
@@ -145,97 +146,100 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
       ];
     };
 
+    if (!isOpen) return null;
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        index={-1}
+        index={0}
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         backgroundStyle={styles.bottomSheetBackground}
         handleIndicatorStyle={styles.handleIndicator}
         enableDynamicSizing={false}
+        onChange={(index) => { if (index === -1) setIsOpen(false); }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <Ionicons name="flag" size={24} color="#ff4757" />
-            <Text style={styles.title}>{getTitle()}</Text>
-          </View>
+            <View style={styles.header}>
+              <Ionicons name="flag" size={24} color="#ff4757" />
+              <Text style={styles.title}>{getTitle()}</Text>
+            </View>
 
-          {step === 'reason' ? (
-            <>
-              <Text style={styles.subtitle}>
-                Pourquoi souhaitez-vous signaler ce contenu ?
-              </Text>
-
-              <View style={styles.reasonsList}>
-                {getReasons().map((reason) => (
-                  <TouchableOpacity
-                    key={reason}
-                    style={styles.reasonItem}
-                    onPress={() => handleSelectReason(reason)}
-                  >
-                    <Text style={styles.reasonText}>
-                      {ReportReasonLabels[reason]}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.selectedReasonBox}>
-                <Text style={styles.selectedReasonLabel}>Raison sélectionnée :</Text>
-                <Text style={styles.selectedReasonText}>
-                  {selectedReason && ReportReasonLabels[selectedReason]}
+            {step === 'reason' ? (
+              <>
+                <Text style={styles.subtitle}>
+                  Pourquoi souhaitez-vous signaler ce contenu ?
                 </Text>
+
+                <View style={styles.reasonsList}>
+                  {getReasons().map((reason) => (
+                    <TouchableOpacity
+                      key={reason}
+                      style={styles.reasonItem}
+                      onPress={() => handleSelectReason(reason)}
+                    >
+                      <Text style={styles.reasonText}>
+                        {ReportReasonLabels[reason]}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.selectedReasonBox}>
+                  <Text style={styles.selectedReasonLabel}>Raison sélectionnée :</Text>
+                  <Text style={styles.selectedReasonText}>
+                    {selectedReason && ReportReasonLabels[selectedReason]}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.changeButton}
+                    onPress={() => setStep('reason')}
+                  >
+                    <Text style={styles.changeButtonText}>Modifier</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.descriptionLabel}>
+                  Détails supplémentaires (optionnel)
+                </Text>
+                <TextInput
+                  style={styles.descriptionInput}
+                  placeholder="Décrivez le problème en détail..."
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={4}
+                  value={description}
+                  onChangeText={setDescription}
+                  textAlignVertical="top"
+                />
+
                 <TouchableOpacity
-                  style={styles.changeButton}
-                  onPress={() => setStep('reason')}
+                  style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+                  onPress={handleSubmit}
+                  disabled={loading}
                 >
-                  <Text style={styles.changeButtonText}>Modifier</Text>
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={18} color="#fff" />
+                      <Text style={styles.submitButtonText}>Envoyer le signalement</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
-              </View>
+              </>
+            )}
 
-              <Text style={styles.descriptionLabel}>
-                Détails supplémentaires (optionnel)
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle" size={20} color="#666" />
+              <Text style={styles.infoText}>
+                Les signalements abusifs peuvent entraîner la suspension de votre compte.
               </Text>
-              <TextInput
-                style={styles.descriptionInput}
-                placeholder="Décrivez le problème en détail..."
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={4}
-                value={description}
-                onChangeText={setDescription}
-                textAlignVertical="top"
-              />
-
-              <TouchableOpacity
-                style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="send" size={18} color="#fff" />
-                    <Text style={styles.submitButtonText}>Envoyer le signalement</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
-
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle" size={20} color="#666" />
-            <Text style={styles.infoText}>
-              Les signalements abusifs peuvent entraîner la suspension de votre compte.
-            </Text>
-          </View>
-        </BottomSheetScrollView>
+            </View>
+          </BottomSheetScrollView>
       </BottomSheet>
     );
   }

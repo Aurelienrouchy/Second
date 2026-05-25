@@ -27,6 +27,7 @@
 | 21 | `embeddings` | Root | Vertex AI multimodal embeddings per article |
 | 22 | `search_index` | Root | Denormalized search documents |
 | 23 | `stats` | Root | Aggregated platform statistics |
+| 24 | `rate_limits` | Root | Rate limiting counters for Cloud Functions |
 
 ---
 
@@ -93,6 +94,7 @@ interface ArticleDocument {
   isActive: boolean;             // Visible in listings
   isSold: boolean;               // Has been sold
   isPromoted?: boolean;          // Sponsored listing
+  moderationStatus?: 'approved'; // Auto-approved on creation (no moderation flow yet)
 
   // Engagement
   views?: number;
@@ -133,6 +135,7 @@ interface UserDocument {
   email: string;
   displayName: string;
   profileImage?: string;
+  authProvider: 'password' | 'google' | 'apple'; // Set by onUserCreated trigger
 
   // Profile
   bio?: string;
@@ -415,7 +418,7 @@ interface WithdrawalRequestDocument {
   withdrawalId: string;
   userId: string;
   amount: number;
-  ibanLast4: string;
+  bankAccountLast4: string;       // Last 4 digits of Canadian bank account
   status: 'pending' | 'processing' | 'completed' | 'rejected';
   createdAt: Timestamp;
 }
@@ -667,6 +670,23 @@ interface SearchIndexDocument {
   lastIndexed: Timestamp;
 }
 ```
+
+### `rate_limits/{userId_function}`
+
+Rate limiting documents for Cloud Functions. Document ID format: `{userId}_{functionName}`.
+
+```typescript
+interface RateLimitDocument {
+  userId: string;
+  count: number;                   // Number of calls in current window
+  windowStartedAt: Timestamp;      // Start of the current sliding window
+}
+```
+
+Currently used by:
+- `analyzeProductImage` -- key: `{userId}_analyzeProduct`, limit: 10 calls/hour
+
+---
 
 ### `stats/{statType}`
 

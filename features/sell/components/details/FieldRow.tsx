@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AiBadge } from '@/features/sell/components/shared/AiBadge';
+import { AiBadge } from '../shared/AiBadge';
 import { colors, fonts } from '@/constants/theme';
 
 interface FieldRowProps {

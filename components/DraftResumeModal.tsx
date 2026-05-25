@@ -4,8 +4,7 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
-  Animated,
+  Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -129,22 +128,20 @@ export default function DraftResumeModal({
 
           {/* Actions */}
           <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.resumeButton}
+            <Pressable
+              style={({ pressed }) => [styles.resumeButton, pressed && { opacity: 0.8 }]}
               onPress={onResume}
-              activeOpacity={0.8}
             >
               <Ionicons name="play" size={18} color="#FFFFFF" />
               <Text style={styles.resumeButtonText}>Reprendre</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              style={styles.discardButton}
+            <Pressable
+              style={({ pressed }) => [styles.discardButton, pressed && { opacity: 0.7 }]}
               onPress={onDiscard}
-              activeOpacity={0.7}
             >
               <Text style={styles.discardButtonText}>Recommencer</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </View>

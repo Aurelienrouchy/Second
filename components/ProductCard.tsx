@@ -27,12 +27,11 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
-import { animations, colors, fonts, radius, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
@@ -148,8 +147,8 @@ const SaveButton: React.FC<{
   }));
 
   const handlePress = useCallback(() => {
-    scale.value = withSpring(1.3, animations.spring.bouncy, () => {
-      scale.value = withSpring(1, animations.spring.gentle);
+    scale.value = withTiming(1.3, { duration: 200, easing: Easing.out(Easing.ease) }, () => {
+      scale.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) });
     });
     onPress();
   }, [onPress, scale]);
@@ -199,11 +198,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, animations.spring.snappy);
+    scale.value = withTiming(0.97, { duration: 120, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.gentle);
+    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePress = useCallback(() => {

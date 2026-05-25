@@ -1,53 +1,44 @@
 /**
- * Camera Capture Screen
- * Design System: Editorial Luxe -- Cream, Charcoal, Rust, Sage
+ * SellOverlayCapture — Camera capture UI rendered inside the ImmersiveOverlay.
  *
- * Full-screen camera with:
- * - Top row: close | counter pill | flip (single row over blur)
- * - Viewfinder: corner brackets + contextual guide text
- * - Bottom: thumbnail strip + gallery / capture / continue controls
+ * Reproduces the full camera capture experience from app/sell/capture.tsx
+ * but without Expo Router dependencies (no useRouter, no useLocalSearchParams).
+ * Photos are persisted to draftService so they survive app kills.
+ * Designed to live above the Skia gradient overlay.
+ *
+ * Props:
+ *   onClose     — dismiss the overlay (with confirmation if photos exist)
+ *   onContinue  — hand captured photos to the parent for navigation
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, Easing } from 'react-native-reanimated';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
-import { colors, fonts, radius } from '@/constants/theme';
-import { Skeleton } from '@/components/ui/Skeleton';
-import BlurOverlay from '@/components/sell/BlurOverlay';
+import { colors, fonts } from '@/constants/theme';
+import draftService, { createEmptyDraft, ArticleDraft } from '@/services/draftService';
 import CameraGuides from '@/components/sell/CameraGuides';
-import draftService, { ArticleDraft, createEmptyDraft } from '@/services/draftService';
-import {
-  PermissionDenied,
-  TopControls,
-  ThumbnailStrip,
-  CameraControlsRow,
-} from '@/features/sell';
+import { PermissionDenied } from './PermissionDenied';
+import { TopControls } from './TopControls';
+import { ThumbnailStrip } from './ThumbnailStrip';
+import { CameraControlsRow } from './CameraControlsRow';
 
 const MAX_PHOTOS = 5;
 const THUMB_CONTAINER_HEIGHT = 92;
 
-export default function CaptureScreen() {
-  const router = useRouter();
+interface SellOverlayCaptureProps {
+  onClose: () => void;
+  onContinue: (photos: string[]) => void;
+}
+
+function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProps) {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams();
   const cameraRef = useRef<CameraView>(null);
 
-  const isResuming = params.resumeDraft === 'true';
-  const resumedPhotos: string[] = params.photos
-    ? JSON.parse(params.photos as string)
-    : [];
-
-  const [photos, setPhotos] = useState<string[]>(isResuming ? resumedPhotos : []);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [isCapturing, setIsCapturing] = useState(false);
@@ -71,6 +62,45 @@ export default function CaptureScreen() {
     opacity: interpolate(thumbContainerHeight.value, [0, THUMB_CONTAINER_HEIGHT * 0.5], [0, 1]),
   }));
 
+  // ── Initialize draft & restore photos ──
+  useEffect(() => {
+    const initDraft = async () => {
+      try {
+        const existingDraft = await draftService.loadDraft();
+        if (existingDraft) {
+          draftRef.current = existingDraft;
+          if (existingDraft.photos.length > 0) {
+            setPhotos(existingDraft.photos);
+          }
+        } else {
+          const newDraft = createEmptyDraft();
+          await draftService.saveDraft(newDraft);
+          draftRef.current = newDraft;
+        }
+      } catch (e) {
+        if (__DEV__) console.error('[SellOverlayCapture] Failed to init draft:', e);
+      }
+    };
+    initDraft();
+  }, []);
+
+  // ── Persist photos to draft when they change ──
+  useEffect(() => {
+    if (!draftRef.current) return;
+    const persistPhotos = async () => {
+      try {
+        if (photos.length > 0 || draftRef.current!.photos.length > 0) {
+          const updated = await draftService.updateDraftPhotos(draftRef.current!, photos);
+          draftRef.current = updated;
+        }
+      } catch (e) {
+        if (__DEV__) console.error('[SellOverlayCapture] Failed to save draft photos:', e);
+      }
+    };
+    const timeoutId = setTimeout(persistPhotos, 300);
+    return () => clearTimeout(timeoutId);
+  }, [photos]);
+
   // Request permission on mount
   useEffect(() => {
     if (!permission?.granted && permission?.canAskAgain) {
@@ -78,43 +108,9 @@ export default function CaptureScreen() {
     }
   }, [permission]);
 
-  // Initialize or load draft on mount
-  useEffect(() => {
-    const initDraft = async () => {
-      if (isResuming) {
-        const existingDraft = await draftService.loadDraft();
-        if (existingDraft) draftRef.current = existingDraft;
-      } else {
-        const newDraft = createEmptyDraft();
-        await draftService.saveDraft(newDraft);
-        draftRef.current = newDraft;
-      }
-    };
-    initDraft();
-  }, [isResuming]);
+  // ── Handlers ──
 
-  // Save photos to draft when they change
-  useEffect(() => {
-    if (!draftRef.current) return;
-    const currentDraft = draftRef.current;
-    const savePhotos = async () => {
-      try {
-        const updatedDraft = await draftService.updateDraftPhotos(currentDraft, photos);
-        draftRef.current = updatedDraft;
-      } catch (error) {
-        if (__DEV__) console.error('Failed to save photos:', error);
-      }
-    };
-    const timeoutId = setTimeout(() => {
-      if (photos.length > 0 || currentDraft.photos.length > 0) {
-        savePhotos();
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [photos]);
-
-  // Handlers
-  const handleCapture = async () => {
+  const handleCapture = useCallback(async () => {
     if (!cameraRef.current || isCapturing || !canTakeMore) return;
     setIsCapturing(true);
     try {
@@ -133,9 +129,9 @@ export default function CaptureScreen() {
     } finally {
       setIsCapturing(false);
     }
-  };
+  }, [isCapturing, canTakeMore]);
 
-  const handleGalleryPress = async () => {
+  const handleGalleryPress = useCallback(async () => {
     const remainingSlots = MAX_PHOTOS - photos.length;
     if (remainingSlots <= 0) return;
     try {
@@ -155,62 +151,51 @@ export default function CaptureScreen() {
     } catch (error) {
       if (__DEV__) console.error('Error picking images:', error);
     }
-  };
+  }, [photos.length]);
 
   const handleRemovePhoto = useCallback((index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (photos.length > 0) {
       Alert.alert(
         'Quitter ?',
-        'Votre brouillon sera sauvegardé. Vous pourrez le reprendre plus tard.',
+        'Vos photos sont sauvegardees en brouillon.',
         [
           { text: 'Annuler', style: 'cancel' },
-          { text: 'Quitter', onPress: () => router.replace('/(tabs)') },
+          { text: 'Quitter', onPress: onClose },
         ],
       );
     } else {
-      draftService.deleteDraft();
-      router.replace('/(tabs)');
+      onClose();
     }
-  };
+  }, [photos.length, onClose]);
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     if (photos.length === 0) {
       Alert.alert('Aucune photo', 'Ajoutez au moins une photo pour continuer.');
       return;
     }
-    router.push({
-      pathname: '/sell/photos-review',
-      params: { photos: JSON.stringify(photos) },
-    });
-  };
+    onContinue(photos);
+  }, [photos, onContinue]);
 
-  const toggleCameraFacing = () => {
+  const toggleCameraFacing = useCallback(() => {
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
-  };
+  }, []);
 
-  // Overlay heights
+  // ── Overlay heights ──
+
   const topOverlayHeight = insets.top + 56;
   const bottomOverlayHeight = 140 + insets.bottom;
 
-  // Permission states
+  // ── Permission loading ──
+
   if (!permission) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
-          <Skeleton
-            width={200}
-            height={200}
-            borderRadius={radius.lg}
-            style={styles.skeletonCamera}
-          />
-        </View>
-      </View>
-    );
+    return <View style={styles.container} />;
   }
+
+  // ── Permission denied ──
 
   if (!permission.granted) {
     return (
@@ -220,7 +205,8 @@ export default function CaptureScreen() {
     );
   }
 
-  // Camera guide messages
+  // ── Camera guide messages ──
+
   const guideMessage =
     photos.length === 0
       ? 'Cadrez votre article'
@@ -241,20 +227,18 @@ export default function CaptureScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        facing={facing}
-      />
-
-      <BlurOverlay position="top" height={topOverlayHeight} intensity={0.6} />
-
+      {/* Camera confined to the viewfinder area — overlay gradient shows through elsewhere */}
       <View
         style={[
-          styles.guidesArea,
+          styles.viewfinder,
           { top: topOverlayHeight, bottom: bottomOverlayHeight },
         ]}
       >
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing={facing}
+        />
         <CameraGuides message={guideMessage} subMessage={guideSubMessage} />
 
         <Animated.View style={[styles.thumbOverlay, thumbContainerStyle]}>
@@ -263,8 +247,6 @@ export default function CaptureScreen() {
           )}
         </Animated.View>
       </View>
-
-      <BlurOverlay position="bottom" height={bottomOverlayHeight} intensity={0.65} />
 
       <TopControls
         topInset={insets.top}
@@ -294,20 +276,20 @@ export default function CaptureScreen() {
   );
 }
 
+export const SellOverlayCapture = React.memo(SellOverlayCaptureInner);
+
+// ── Styles ─────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0E0C',
+    backgroundColor: 'transparent',
   },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  guidesArea: {
+  viewfinder: {
     position: 'absolute',
     left: 0,
     right: 0,
+    overflow: 'hidden',
     zIndex: 3,
   },
   thumbOverlay: {
@@ -333,9 +315,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.cream,
     letterSpacing: 0.3,
-  },
-  skeletonCamera: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   bottomSection: {
     position: 'absolute',

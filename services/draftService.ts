@@ -103,7 +103,7 @@ async function cacheImage(uri: string, draftId: string, index: number): Promise<
     });
     return localUri;
   } catch (error) {
-    console.warn('Failed to cache image:', error);
+    if (__DEV__) console.warn('Failed to cache image:', error);
     return uri; // Return original URI as fallback
   }
 }
@@ -136,7 +136,7 @@ async function deleteCachedImages(draftId: string): Promise<void> {
     );
     if (__DEV__) console.log('[DraftService] deleteCachedImages() COMPLETE');
   } catch (error) {
-    console.warn('[DraftService] Failed to delete cached images:', error);
+    if (__DEV__) console.warn('[DraftService] Failed to delete cached images:', error);
   }
 }
 
@@ -180,7 +180,7 @@ class DraftService {
       };
       await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draftToSave));
     } catch (error) {
-      console.error('Failed to save draft:', error);
+      if (__DEV__) console.error('Failed to save draft:', error);
       throw error;
     }
   }
@@ -229,7 +229,7 @@ class DraftService {
       if (__DEV__) console.log('[DraftService] Returning valid draft');
       return draft;
     } catch (error) {
-      console.error('[DraftService] Failed to load draft:', error);
+      if (__DEV__) console.error('[DraftService] Failed to load draft:', error);
       return null;
     }
   }
@@ -270,7 +270,7 @@ class DraftService {
       await AsyncStorage.removeItem(DRAFT_KEY);
       if (__DEV__) console.log('[DraftService] deleteDraft() COMPLETE');
     } catch (error) {
-      console.error('[DraftService] Failed to delete draft:', error);
+      if (__DEV__) console.error('[DraftService] Failed to delete draft:', error);
     }
   }
 
@@ -292,7 +292,7 @@ class DraftService {
 
       return true;
     } catch (error) {
-      console.error('Failed to check draft:', error);
+      if (__DEV__) console.error('Failed to check draft:', error);
       return false;
     }
   }
@@ -466,7 +466,7 @@ class DraftService {
         );
       }
     } catch (error) {
-      console.warn('Failed to cleanup drafts:', error);
+      if (__DEV__) console.warn('Failed to cleanup drafts:', error);
     }
   }
 

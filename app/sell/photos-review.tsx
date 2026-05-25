@@ -1,25 +1,24 @@
 /**
- * Photos Review Screen
- * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
- *
- * Shows captured photos in a grid layout with:
- * - Cream header: back button (36px circle) + "Tes photos" title + count
- * - Photo grid: main (62%) + side column (38%), no border-radius
- * - PRINCIPALE badge on main photo (top-right, dark semi-transparent)
- * - Add photos: centered layout with dashed border + circle icon
- * - Tips: sage dots + 9px uppercase section title
- * - Footer: charcoal "ANALYSER AVEC L'IA" CTA + manual entry link
+ * Photos Review + Analysis Screen (merged)
+ * Analysis starts automatically on mount, then auto-navigates to details on complete.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
+import {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,16 +27,36 @@ import { Image } from 'expo-image';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
-import { createMockAIResult } from '@/services/aiService';
+import {
+  AnalysisCard,
+  ProgressStepsList,
+  AnalysisFooter,
+} from '@/features/sell';
+import { analyzeProductImage, createMockAIResult } from '@/services/aiService';
+import { AIAnalysisResult, AnalysisPhase, CONDITION_DISPLAY } from '@/types/ai';
+import draftService from '@/services/draftService';
 
 // =============================================================================
-// CONSTANTS
+// CONSTANTS & TYPES
 // =============================================================================
 
 const MAX_PHOTOS = 5;
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_GAP = 3;
 const GRID_HEIGHT = 260;
+
+type AnalysisState = 'idle' | 'loading' | 'complete' | 'error';
+
+interface ProgressStep {
+  label: string;
+  state: 'done' | 'active' | 'pending';
+}
+
+const INITIAL_PROGRESS_STEPS: ProgressStep[] = [
+  { label: 'Catégorie détectée', state: 'pending' },
+  { label: 'Couleur et matière identifiées', state: 'pending' },
+  { label: "Lecture de l'étiquette...", state: 'pending' },
+  { label: 'Génération du titre et description', state: 'pending' },
+];
 
 // =============================================================================
 // MAIN COMPONENT
@@ -47,6 +66,7 @@ export default function PhotosReviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  const { width: screenWidth } = useWindowDimensions();
 
   const initialPhotos: string[] = params.photos
     ? JSON.parse(params.photos as string)
@@ -54,11 +74,168 @@ export default function PhotosReviewScreen() {
 
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
 
+  // Analysis state
+  const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
+  const [storageUrls, setStorageUrls] = useState<string[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [detectedPills, setDetectedPills] = useState<string[]>([]);
+  const [progressSteps, setProgressSteps] = useState<ProgressStep[]>(
+    INITIAL_PROGRESS_STEPS.map((s) => ({ ...s })),
+  );
+
+  // Animated values for spinners
+  const spinnerRotation = useSharedValue(0);
+  const progressWidth = useSharedValue(0);
+  const stepSpinnerRotation = useSharedValue(0);
+
+  // Track if analysis has already been triggered
+  const analysisTriggered = useRef(false);
+
+  // Guard against double navigation (timer + manual click)
+  const hasNavigated = useRef(false);
+
   const canAddMore = photos.length < MAX_PHOTOS;
   const remainingSlots = MAX_PHOTOS - photos.length;
+  const isAnalyzing = analysisState === 'loading';
 
   // =============================================================================
-  // HANDLERS
+  // ANIMATIONS
+  // =============================================================================
+
+  useEffect(() => {
+    spinnerRotation.value = withRepeat(
+      withTiming(360, { duration: 1200, easing: Easing.linear }),
+      -1,
+      false,
+    );
+    stepSpinnerRotation.value = withRepeat(
+      withTiming(360, { duration: 1000, easing: Easing.linear }),
+      -1,
+      false,
+    );
+  }, [spinnerRotation, stepSpinnerRotation]);
+
+  const spinnerStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinnerRotation.value}deg` }],
+  }));
+
+  // =============================================================================
+  // AUTO-START ANALYSIS
+  // =============================================================================
+
+  useEffect(() => {
+    if (photos.length > 0 && !analysisTriggered.current) {
+      analysisTriggered.current = true;
+      runAnalysis();
+    }
+  }, [photos.length]);
+
+  // =============================================================================
+  // ANALYSIS LOGIC (from analysis.tsx)
+  // =============================================================================
+
+  const updateProgressSteps = (phase: AnalysisPhase) => {
+    const phaseIndex: Record<string, number> = {
+      upload: -1,
+      category: 0,
+      analysis: 1,
+      brand: 2,
+      validation: 3,
+    };
+    const activeIndex = phaseIndex[phase] ?? -1;
+
+    setProgressSteps([
+      { label: 'Catégorie détectée', state: activeIndex > 0 ? 'done' : activeIndex === 0 ? 'active' : 'pending' },
+      { label: 'Couleur et matière identifiées', state: activeIndex > 1 ? 'done' : activeIndex === 1 ? 'active' : 'pending' },
+      { label: "Lecture de l'étiquette...", state: activeIndex > 2 ? 'done' : activeIndex === 2 ? 'active' : 'pending' },
+      { label: 'Génération du titre et description', state: activeIndex > 3 ? 'done' : activeIndex === 3 ? 'active' : 'pending' },
+    ]);
+  };
+
+  const buildFinalPills = (result: AIAnalysisResult) => {
+    const pills: string[] = [];
+    if (result.category?.displayName) pills.push(result.category.displayName);
+    if (result.brand?.detected) pills.push(result.brand.detected);
+    if (result.materials?.primaryMaterialId) pills.push(result.materials.primaryMaterialId);
+    if (result.colors?.primaryColorId) pills.push(result.colors.primaryColorId);
+    if (result.size?.normalized) pills.push('Taille ' + result.size.normalized);
+    if (result.condition?.conditionId) {
+      const display = CONDITION_DISPLAY[result.condition.conditionId];
+      if (display) pills.push(display);
+    }
+    setDetectedPills(pills);
+  };
+
+  const runAnalysis = async () => {
+    setAnalysisState('loading');
+    setErrorMessage('');
+    setDetectedPills([]);
+    progressWidth.value = 0;
+    setProgressSteps(INITIAL_PROGRESS_STEPS.map((s) => ({ ...s })));
+
+    try {
+      const draft = await draftService.loadDraft();
+      if (!draft) {
+        setErrorMessage('Brouillon introuvable');
+        setAnalysisState('error');
+        return;
+      }
+
+      const response = await analyzeProductImage(photos, {
+        draftId: draft.id,
+        onProgress: (p) => {
+          progressWidth.value = withTiming(p, { duration: 300 });
+        },
+        onPhaseChange: (phase: AnalysisPhase, _message: string) => {
+          updateProgressSteps(phase);
+          if (phase === 'category') {
+            setDetectedPills((prev) => [...new Set([...prev, 'Catégorie'])]);
+          }
+          if (phase === 'analysis') {
+            setDetectedPills((prev) => [...new Set([...prev, 'Catégorie', 'Couleur', 'Matière'])]);
+          }
+          if (phase === 'brand') {
+            setDetectedPills((prev) => [...new Set([...prev, 'Catégorie', 'Couleur', 'Matière', 'Marque'])]);
+          }
+        },
+      });
+
+      if (response.success && response.result) {
+        const urls = response.storageUrls || [];
+        setStorageUrls(urls);
+        setAiResult(response.result);
+        await draftService.updateDraftAIResult(draft, response.result, urls);
+        buildFinalPills(response.result);
+        setProgressSteps((prev) => prev.map((s) => ({ ...s, state: 'done' as const })));
+        setAnalysisState('complete');
+      } else {
+        setErrorMessage(response.error?.message || "Une erreur est survenue lors de l'analyse");
+        setAnalysisState('error');
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue';
+      setErrorMessage(message);
+      setAnalysisState('error');
+    }
+  };
+
+  // Count pre-filled fields
+  const prefilledCount = aiResult
+    ? [
+        aiResult.title,
+        aiResult.description,
+        aiResult.brand?.detected,
+        aiResult.category?.categoryId,
+        aiResult.condition?.conditionId,
+        aiResult.size?.normalized,
+        aiResult.colors?.colorIds?.length > 0,
+        aiResult.materials?.materialIds?.length > 0,
+      ].filter(Boolean).length
+    : 0;
+
+  // =============================================================================
+  // PHOTO HANDLERS
   // =============================================================================
 
   const handleBack = () => {
@@ -66,7 +243,7 @@ export default function PhotosReviewScreen() {
   };
 
   const handleAddPhotos = async () => {
-    if (!canAddMore) return;
+    if (!canAddMore || isAnalyzing) return;
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -89,27 +266,46 @@ export default function PhotosReviewScreen() {
   };
 
   const handleMakePrimary = useCallback((index: number) => {
-    if (index === 0) return;
+    if (index === 0 || isAnalyzing) return;
     setPhotos((prev) => {
       const newPhotos = [...prev];
       const [photo] = newPhotos.splice(index, 1);
       newPhotos.unshift(photo);
       return newPhotos;
     });
-  }, []);
+  }, [isAnalyzing]);
 
   const handleRemovePhoto = useCallback((index: number) => {
+    if (isAnalyzing) return;
     setPhotos((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+  }, [isAnalyzing]);
 
-  const handleAnalyze = () => {
+  // =============================================================================
+  // NAVIGATION HANDLERS
+  // =============================================================================
+
+  const handleContinue = useCallback(() => {
+    if (!aiResult || hasNavigated.current) return;
+    hasNavigated.current = true;
     router.push({
-      pathname: '/sell/analysis',
+      pathname: '/sell/details',
       params: {
         photos: JSON.stringify(photos),
+        aiResult: JSON.stringify(aiResult),
+        storageUrls: JSON.stringify(storageUrls),
       },
     });
-  };
+  }, [aiResult, photos, storageUrls, router]);
+
+  // =============================================================================
+  // AUTO-REDIRECT ON ANALYSIS COMPLETE
+  // =============================================================================
+
+  useEffect(() => {
+    if (analysisState === 'complete' && aiResult) {
+      handleContinue();
+    }
+  }, [analysisState, aiResult, handleContinue]);
 
   const handleManualEntry = () => {
     const mockResult = createMockAIResult();
@@ -123,10 +319,24 @@ export default function PhotosReviewScreen() {
     });
   };
 
-  // Grid layout: main image (62% width) + side column (38%)
-  const mainWidth = (SCREEN_WIDTH - spacing.md * 2 - GRID_GAP) * 0.62;
-  const sideWidth = SCREEN_WIDTH - spacing.md * 2 - GRID_GAP - mainWidth;
+  const handleRetry = () => {
+    analysisTriggered.current = true;
+    runAnalysis();
+  };
+
+  // =============================================================================
+  // GRID LAYOUT
+  // =============================================================================
+
+  const mainWidth = (screenWidth - spacing.md * 2 - GRID_GAP) * 0.62;
+  const sideWidth = screenWidth - spacing.md * 2 - GRID_GAP - mainWidth;
   const sideHeight = (GRID_HEIGHT - GRID_GAP) / 2;
+
+  // Photo management disabled during analysis
+  const photoActionsOpacity = isAnalyzing ? 0.4 : 1;
+
+  // Map AnalysisState to ScreenState for sub-components that expect 'loading' | 'complete' | 'error'
+  const screenStateForComponents = analysisState === 'idle' ? 'loading' : analysisState;
 
   // =============================================================================
   // RENDER
@@ -151,18 +361,19 @@ export default function PhotosReviewScreen() {
       >
         {/* Photo grid */}
         {photos.length > 0 && (
-          <View style={styles.gridContainer}>
+          <View style={[styles.gridContainer, { opacity: photoActionsOpacity }]}>
             {/* Main photo */}
             <Pressable
               style={[styles.gridMain, { width: mainWidth, height: GRID_HEIGHT }]}
               onPress={() => handleMakePrimary(0)}
+              disabled={isAnalyzing}
             >
               <Image
                 source={{ uri: photos[0] }}
                 style={StyleSheet.absoluteFill}
                 contentFit="cover"
               />
-              {/* Badge — top-right, matching mockup */}
+              {/* Badge -- top-right, matching mockup */}
               <View style={styles.primaryBadge}>
                 <Text style={styles.primaryBadgeText}>PRINCIPALE</Text>
               </View>
@@ -171,6 +382,7 @@ export default function PhotosReviewScreen() {
                 style={styles.gridRemove}
                 onPress={() => handleRemovePhoto(0)}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                disabled={isAnalyzing}
               >
                 <Ionicons name="close" size={12} color={colors.white} />
               </Pressable>
@@ -183,6 +395,7 @@ export default function PhotosReviewScreen() {
                   key={`side-${index}`}
                   style={[styles.gridSideItem, { height: sideHeight }]}
                   onPress={() => handleMakePrimary(index + 1)}
+                  disabled={isAnalyzing}
                 >
                   <Image
                     source={{ uri }}
@@ -193,6 +406,7 @@ export default function PhotosReviewScreen() {
                     style={styles.gridRemove}
                     onPress={() => handleRemovePhoto(index + 1)}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    disabled={isAnalyzing}
                   >
                     <Ionicons name="close" size={12} color={colors.white} />
                   </Pressable>
@@ -203,6 +417,7 @@ export default function PhotosReviewScreen() {
                 <Pressable
                   style={[styles.gridSideEmpty, { height: sideHeight }]}
                   onPress={handleAddPhotos}
+                  disabled={isAnalyzing}
                 >
                   <Ionicons name="add" size={24} color={colors.muted} />
                 </Pressable>
@@ -213,12 +428,13 @@ export default function PhotosReviewScreen() {
 
         {/* Extra photos row (4th and 5th) */}
         {photos.length > 3 && (
-          <View style={styles.extraRow}>
+          <View style={[styles.extraRow, { opacity: photoActionsOpacity }]}>
             {photos.slice(3).map((uri, index) => (
               <Pressable
                 key={`extra-${index}`}
                 style={styles.extraItem}
                 onPress={() => handleMakePrimary(index + 3)}
+                disabled={isAnalyzing}
               >
                 <Image
                   source={{ uri }}
@@ -229,6 +445,7 @@ export default function PhotosReviewScreen() {
                   style={styles.gridRemove}
                   onPress={() => handleRemovePhoto(index + 3)}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  disabled={isAnalyzing}
                 >
                   <Ionicons name="close" size={12} color={colors.white} />
                 </Pressable>
@@ -237,9 +454,13 @@ export default function PhotosReviewScreen() {
           </View>
         )}
 
-        {/* Add photos button — centered layout matching mockup */}
+        {/* Add photos button -- centered layout matching mockup */}
         {canAddMore && (
-          <Pressable style={styles.addButton} onPress={handleAddPhotos}>
+          <Pressable
+            style={[styles.addButton, { opacity: photoActionsOpacity }]}
+            onPress={handleAddPhotos}
+            disabled={isAnalyzing}
+          >
             <View style={styles.addButtonIconCircle}>
               <Ionicons name="add" size={20} color={colors.muted} />
             </View>
@@ -251,16 +472,39 @@ export default function PhotosReviewScreen() {
           </Pressable>
         )}
 
+        {/* Analysis section -- inline below photos */}
+        {analysisState !== 'idle' && (
+          <View style={styles.analysisSection}>
+            <AnalysisCard
+              screenState={screenStateForComponents}
+              errorMessage={errorMessage}
+              prefilledCount={prefilledCount}
+              detectedPills={detectedPills}
+              spinnerStyle={spinnerStyle}
+              progressWidth={progressWidth}
+            />
+
+            {analysisState === 'loading' && (
+              <ProgressStepsList
+                steps={progressSteps}
+                stepSpinnerRotation={stepSpinnerRotation}
+              />
+            )}
+
+            {/* Results not shown — auto-navigates to details on complete */}
+          </View>
+        )}
+
         {/* Tips section */}
         <View style={styles.tipsSection}>
           <Text style={styles.tipsTitle}>CONSEILS POUR DE MEILLEURES PHOTOS</Text>
           <View style={styles.tipRow}>
             <View style={styles.tipDot} />
-            <Text style={styles.tipText}>Bonne luminosite, fond neutre</Text>
+            <Text style={styles.tipText}>Bonne luminosité, fond neutre</Text>
           </View>
           <View style={styles.tipRow}>
             <View style={styles.tipDot} />
-            <Text style={styles.tipText}>Montrer tous les details et defauts</Text>
+            <Text style={styles.tipText}>Montrer tous les détails et défauts</Text>
           </View>
           <View style={styles.tipRow}>
             <View style={styles.tipDot} />
@@ -269,35 +513,47 @@ export default function PhotosReviewScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable
-          style={[
-            styles.analyzeButton,
-            photos.length === 0 && styles.analyzeButtonDisabled,
-          ]}
-          onPress={handleAnalyze}
-          disabled={photos.length === 0}
-        >
-          <Ionicons
-            name="sparkles-outline"
-            size={18}
-            color={photos.length > 0 ? colors.cream : colors.muted}
-          />
-          <Text
+      {/* Sticky footer -- contextual based on analysis state */}
+      {analysisState === 'idle' && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <Pressable
             style={[
-              styles.analyzeButtonText,
-              photos.length === 0 && styles.analyzeButtonTextDisabled,
+              styles.analyzeButton,
+              photos.length === 0 && styles.analyzeButtonDisabled,
             ]}
+            onPress={handleRetry}
+            disabled={photos.length === 0}
           >
-            ANALYSER AVEC L'IA
-          </Text>
-        </Pressable>
+            <Ionicons
+              name="sparkles-outline"
+              size={18}
+              color={photos.length > 0 ? colors.cream : colors.muted}
+            />
+            <Text
+              style={[
+                styles.analyzeButtonText,
+                photos.length === 0 && styles.analyzeButtonTextDisabled,
+              ]}
+            >
+              ANALYSER AVEC L'IA
+            </Text>
+          </Pressable>
 
-        <Pressable style={styles.manualLink} onPress={handleManualEntry}>
-          <Text style={styles.manualLinkText}>ou remplir manuellement</Text>
-        </Pressable>
-      </View>
+          <Pressable style={styles.manualLink} onPress={handleManualEntry}>
+            <Text style={styles.manualLinkText}>ou remplir manuellement</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {(analysisState === 'loading' || analysisState === 'error') && (
+        <AnalysisFooter
+          screenState={screenStateForComponents}
+          bottomInset={insets.bottom}
+          onContinue={handleContinue}
+          onRetry={handleRetry}
+          onManualEntry={handleManualEntry}
+        />
+      )}
     </View>
   );
 }
@@ -329,7 +585,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  // Photo grid — no border-radius per mockup
+  // Photo grid -- no border-radius per mockup
   gridContainer: {
     flexDirection: 'row',
     gap: GRID_GAP,
@@ -339,7 +595,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.border,
   },
-  // Badge — top-right position matching HTML mockup
+  // Badge -- top-right position matching HTML mockup
   primaryBadge: {
     position: 'absolute',
     top: 8,
@@ -395,7 +651,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
 
-  // Add photos button — centered layout matching mockup
+  // Add photos button -- centered layout matching mockup
   addButton: {
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
@@ -427,6 +683,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 11,
     color: colors.muted,
+  },
+
+  // Analysis section
+  analysisSection: {
+    marginBottom: spacing.lg,
   },
 
   // Tips
@@ -462,7 +723,7 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
 
-  // Footer
+  // Footer (idle state)
   footer: {
     backgroundColor: colors.cream,
     paddingTop: 16,

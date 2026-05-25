@@ -1,62 +1,56 @@
 /**
- * Firebase Auth triggers
+ * User account management callables
+ * Firebase Functions v2 — region northamerica-northeast1
  *
- * Auth lifecycle triggers (onCreate / onDelete) remain on the v1 API
- * because Firebase Functions v2 only exposes blocking auth triggers
- * (beforeUserCreated / beforeUserSignedIn) — not post-event triggers.
- * This is the official Firebase recommendation.
- *
- * - onUserCreated: Creates a minimal user document in Firestore
- * - onUserDeleted: GDPR Art. 17 — exhaustive data cleanup
+ * - deleteUserAccount: GDPR Art. 17 / Loi 25 (PIPEDA) exhaustive data cleanup
+ *   Replaces the v1 auth.user().onDelete() trigger with a v2 callable
+ *   that runs all cleanup server-side and deletes the Auth user via Admin SDK.
  */
-import * as functions from 'firebase-functions/v1';
-import { db, FieldValue, storage } from '../config/firebase';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as logger from 'firebase-functions/logger';
+import { db, auth, storage, FieldValue } from '../config/firebase';
 
 // =============================================================================
-// ON USER CREATED — Ensure Firestore user doc exists
+// DELETE USER ACCOUNT — GDPR Art. 17 / Loi 25 exhaustive cleanup
 // =============================================================================
 
-export const onUserCreated = functions.auth
-  .user()
-  .onCreate(async (user: functions.auth.UserRecord) => {
-    const userRef = db.collection('users').doc(user.uid);
-    const doc = await userRef.get();
-
-    if (!doc.exists) {
-      // Detect auth provider from providerData
-      const providerData = user.providerData;
-      let authProvider = 'password';
-      if (providerData?.some(p => p.providerId === 'google.com')) authProvider = 'google';
-      else if (providerData?.some(p => p.providerId === 'apple.com')) authProvider = 'apple';
-
-      await userRef.set({
-        id: user.uid,
-        email: user.email || '',
-        displayName: user.displayName || `user${user.uid.slice(-6)}`,
-        authProvider,
-        createdAt: FieldValue.serverTimestamp(),
-        isActive: true,
-      });
-      functions.logger.info('[onUserCreated] Created user doc', { uid: user.uid, authProvider });
+export const deleteUserAccount = onCall(
+  {
+    region: 'northamerica-northeast1',
+    memory: '512MiB',
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    // 1. Auth check — only the authenticated user can delete their own account
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
     }
-  });
 
-// =============================================================================
-// ON USER DELETED — GDPR Art. 17 exhaustive cleanup
-// =============================================================================
+    const uid = request.auth.uid;
+    const DELETED_NAME = 'Utilisateur supprime';
 
-export const onUserDeleted = functions.auth
-  .user()
-  .onDelete(async (user: functions.auth.UserRecord) => {
-    const uid = user.uid;
-    const DELETED_NAME = 'Utilisateur supprimé';
-    functions.logger.info('[onUserDeleted] Starting cleanup', { uid });
+    logger.info('[deleteUserAccount] Starting cleanup', { uid });
 
     const bulkWriter = db.bulkWriter();
     const articleIds: string[] = [];
 
     // 0. Decrement sellerLikesCount for all sellers this user liked
     const userDoc = await db.collection('users').doc(uid).get();
+
+    if (!userDoc.exists) {
+      // User doc already deleted — still delete Auth user if it exists
+      try {
+        await auth.deleteUser(uid);
+        logger.info('[deleteUserAccount] Auth user deleted (no Firestore doc)', { uid });
+      } catch (e: any) {
+        if (e.code !== 'auth/user-not-found') {
+          logger.error('[deleteUserAccount] Failed to delete Auth user', { uid, error: e });
+          throw new HttpsError('internal', 'Erreur lors de la suppression du compte');
+        }
+      }
+      return { success: true };
+    }
+
     const userData = userDoc.data();
     if (userData?.likedSellers && Array.isArray(userData.likedSellers) && userData.likedSellers.length > 0) {
       const likeBatch = db.batch();
@@ -65,7 +59,7 @@ export const onUserDeleted = functions.auth
         likeBatch.update(sellerRef, { sellerLikesCount: FieldValue.increment(-1) });
       }
       await likeBatch.commit();
-      functions.logger.info('[onUserDeleted] Decremented sellerLikesCount', {
+      logger.info('[deleteUserAccount] Decremented sellerLikesCount', {
         uid,
         sellersCount: userData.likedSellers.length,
       });
@@ -147,7 +141,7 @@ export const onUserDeleted = functions.auth
       msgSnap = await msgQuery.get();
     }
 
-    // 8. Anonymise reviews — reviews written BY the user
+    // 8. Anonymise reviews -- reviews written BY the user
     const reviewsByUser = await db.collection('avis').where('reviewerId', '==', uid).get();
     for (const d of reviewsByUser.docs) {
       bulkWriter.update(d.ref, {
@@ -155,9 +149,6 @@ export const onUserDeleted = functions.auth
         reviewerImage: null,
       });
     }
-    // Reviews received BY the user (vendeurId) — keep the review but anonymise the target
-    // Note: we do NOT delete reviews. The vendeurId now points to a deleted user,
-    // but the review content is preserved for platform integrity.
 
     // 9. Delete swaps
     const [swapsInit, swapsRecv] = await Promise.all([
@@ -206,9 +197,9 @@ export const onUserDeleted = functions.auth
     const draftsSnap = await db.collection('drafts').where('userId', '==', uid).get();
     for (const d of draftsSnap.docs) bulkWriter.delete(d.ref);
 
-    // Flush
+    // Flush all Firestore writes
     await bulkWriter.close();
-    functions.logger.info('[onUserDeleted] Firestore cleanup complete', {
+    logger.info('[deleteUserAccount] Firestore cleanup complete', {
       uid,
       articlesDeactivated: articleIds.length,
       searchIndexDeleted: articleIds.length,
@@ -223,11 +214,24 @@ export const onUserDeleted = functions.auth
       await bucket.deleteFiles({ prefix: `avatars/${uid}` });
       await bucket.deleteFiles({ prefix: `users/${uid}/` });
       for (const articleId of articleIds) {
-        try { await bucket.deleteFiles({ prefix: `articles/${articleId}/` }); } catch {}
+        try { await bucket.deleteFiles({ prefix: `articles/${articleId}/` }); } catch { /* ignore individual article cleanup errors */ }
       }
     } catch (e) {
-      functions.logger.error('[onUserDeleted] Storage cleanup error', { uid, error: e });
+      logger.error('[deleteUserAccount] Storage cleanup error', { uid, error: e });
     }
 
-    functions.logger.info('[onUserDeleted] Full cleanup done', { uid });
-  });
+    // 17. Delete Firebase Auth user (last step — after all data is cleaned up)
+    try {
+      await auth.deleteUser(uid);
+      logger.info('[deleteUserAccount] Auth user deleted', { uid });
+    } catch (e: any) {
+      if (e.code !== 'auth/user-not-found') {
+        logger.error('[deleteUserAccount] Failed to delete Auth user', { uid, error: e });
+        // Don't throw — Firestore cleanup is done, this is best-effort
+      }
+    }
+
+    logger.info('[deleteUserAccount] Full cleanup done', { uid });
+    return { success: true };
+  }
+);

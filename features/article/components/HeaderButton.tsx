@@ -8,12 +8,13 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback } from 'react';
 import { Pressable } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
-import { animations, colors } from '@/constants/theme';
+import { colors } from '@/constants/theme';
 
 import { articleStyles } from '../styles';
 
@@ -25,6 +26,7 @@ export interface HeaderButtonProps {
   isActive?: boolean;
   activeColor?: string;
   size?: number;
+  disabled?: boolean;
 }
 
 function HeaderButtonComponent({
@@ -33,6 +35,7 @@ function HeaderButtonComponent({
   isActive = false,
   activeColor = colors.primary,
   size = 20,
+  disabled = false,
 }: HeaderButtonProps) {
   const scale = useSharedValue(1);
 
@@ -41,11 +44,11 @@ function HeaderButtonComponent({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.9, animations.spring.snappy);
+    scale.value = withTiming(0.9, { duration: 120, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePress = useCallback(() => {
@@ -58,13 +61,14 @@ function HeaderButtonComponent({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={handlePress}
-      style={animatedStyle}
+      disabled={disabled}
+      style={[animatedStyle, disabled && { opacity: 0.4 }]}
     >
       <BlurView intensity={60} tint="dark" style={articleStyles.headerButton}>
         <Ionicons
           name={icon}
           size={size}
-          color={isActive ? activeColor : '#FFFFFF'}
+          color={isActive ? activeColor : colors.white}
         />
       </BlurView>
     </AnimatedPressable>

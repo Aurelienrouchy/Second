@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import FormFieldGroup from '@/components/sell/FormFieldGroup';
 import ConfidenceDots from '@/components/sell/ConfidenceDots';
-import { AiBadge } from '@/features/sell/components/shared/AiBadge';
+import { AiBadge } from '../shared/AiBadge';
 import { AIAnalysisResult, CONDITION_DISPLAY } from '@/types/ai';
 import { colors, fonts } from '@/constants/theme';
 

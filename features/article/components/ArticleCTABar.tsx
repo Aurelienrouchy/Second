@@ -53,7 +53,7 @@ function ArticleCTABarComponent({
       ) : isSwapContext ? (
         <Pressable style={styles.swapButton} onPress={onProposeSwap}>
           <Ionicons name="swap-horizontal" size={18} color={colors.white} />
-          <Text style={styles.swapButtonText}>PROPOSER UN SWAP</Text>
+          <Text style={styles.swapButtonText}>PROPOSER UN ÉCHANGE</Text>
         </Pressable>
       ) : (
         <View style={styles.ctaRow}>

@@ -10,7 +10,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
@@ -18,8 +18,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import MakeOfferModal, { MakeOfferModalRef } from '@/components/MakeOfferModal';
-import ReportBottomSheet, { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
+import MakeOfferModal from '@/components/MakeOfferModal';
+import type { MakeOfferModalRef } from '@/components/MakeOfferModal';
+import ReportBottomSheet from '@/components/ReportBottomSheet';
+import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
 import { queryKeys } from '@/lib/queryKeys';
@@ -42,8 +44,6 @@ import {
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 export default function ArticleDetailScreen() {
-  const [, setCurrentImageIndex] = useState(0);
-
   const { id, partyId, swapItemId } = useLocalSearchParams<{ id: string; partyId?: string; swapItemId?: string }>();
   const isSwapContext = !!partyId;
   const makeOfferModalRef = useRef<MakeOfferModalRef>(null);
@@ -113,6 +113,26 @@ export default function ArticleDetailScreen() {
     reportBottomSheetRef,
   });
 
+  // ─── Track article view (fire-and-forget, once per mount) ───
+  const viewTracked = useRef(false);
+  useEffect(() => {
+    if (!article || viewTracked.current) return;
+    if (user?.id === article.sellerId) return;
+    viewTracked.current = true;
+
+    const trackView = async () => {
+      try {
+        const { httpsCallable } = await import('firebase/functions');
+        const { functions } = await import('@/config/firebaseConfig');
+        const fn = httpsCallable(functions, 'incrementProductView');
+        await fn({ productId: article.id });
+      } catch (e) {
+        if (__DEV__) console.error('View tracking failed:', e);
+      }
+    };
+    trackView();
+  }, [article, user]);
+
   // ─── Render states ───
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onBack={handleBack} isNetworkError />;
@@ -124,10 +144,9 @@ export default function ArticleDetailScreen() {
     : article.category;
 
   const tags = buildTags(article);
-  const discount = getDiscountPercent(article.price, (article as any).originalPrice);
-  const sellerRating = (article as any).sellerRating;
-  const deliveryOptions = (article as any).deliveryOptions;
-  const shippingCost = deliveryOptions?.shippingCost;
+  const discount = getDiscountPercent(article.price, article.originalPrice);
+  const sellerRating = undefined; // TODO: fetch from seller profile when available
+  const shippingCost = undefined; // TODO: compute from ShipEngine or article.packageSize
 
   return (
     <View style={styles.container}>
@@ -140,7 +159,6 @@ export default function ArticleDetailScreen() {
         <ArticleHero
           images={article.images}
           discount={discount}
-          onImageIndexChange={setCurrentImageIndex}
         />
 
         <ArticleDetails
@@ -153,11 +171,12 @@ export default function ArticleDetailScreen() {
         />
 
         {/* Bottom spacer for CTA bar */}
-        <View style={{ height: 110 }} />
+        <View style={styles.bottomSpacer} />
       </AnimatedScrollView>
 
       <ArticleFloatingHeader
         isFavorite={isFavorite(article.id)}
+        isSold={article.isSold}
         scrollY={scrollY}
         insetsTop={insets.top}
         onBack={handleBack}

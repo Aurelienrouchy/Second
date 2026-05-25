@@ -52,9 +52,9 @@ describe('transactions rules', () => {
     await assertFails(getDoc(doc(db, 'transactions', TX_ID)));
   });
 
-  it('allows buyer to update status to meetup_confirmed', async () => {
+  it('allows seller to update status to meetup_confirmed', async () => {
     const env = await getTestEnv();
-    const db = env.authenticatedContext(ALICE).firestore();
+    const db = env.authenticatedContext(BOB).firestore();
     await assertSucceeds(
       updateDoc(doc(db, 'transactions', TX_ID), { status: 'meetup_confirmed' }),
     );

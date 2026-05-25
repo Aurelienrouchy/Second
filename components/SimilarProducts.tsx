@@ -1,5 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
     ActivityIndicator,
     ScrollView,
@@ -8,7 +9,7 @@ import {
     View,
 } from 'react-native';
 
-import { colors, spacing, typography } from '@/constants/theme';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { ArticlesService } from '@/services/articlesService';
 import { RecommendationService, SimilarProduct } from '@/services/recommendationService';
 import { Article } from '@/types';
@@ -33,6 +34,73 @@ interface DisplayProduct {
   condition: string;
 }
 
+/** Whether the result came from AI recs or category fallback */
+interface SimilarProductsResult {
+  products: DisplayProduct[];
+  isAI: boolean;
+}
+
+/**
+ * Pure fetch function: tries AI recommendations first, falls back to
+ * category-based search if AI returns nothing or errors.
+ */
+async function fetchSimilarProducts(
+  currentArticleId: string,
+  category: string,
+  maxResults: number,
+): Promise<SimilarProductsResult> {
+  // Try AI-powered recommendations first
+  try {
+    const aiResults = await RecommendationService.getSimilarProducts(
+      currentArticleId,
+      maxResults,
+      false,
+    );
+
+    if (aiResults.length > 0) {
+      const products: DisplayProduct[] = aiResults.map((p: SimilarProduct) => ({
+        id: p.articleId,
+        title: p.title,
+        price: p.price,
+        imageUrl: ArticlesService.fixStorageUrl(p.imageUrl),
+        brand: p.brand,
+        size: p.size,
+        condition: p.condition,
+      }));
+      return { products, isAI: true };
+    }
+  } catch (error) {
+    if (__DEV__) console.error('Error loading AI similar products:', error);
+  }
+
+  // Fallback to category-based search
+  try {
+    const results = await ArticlesService.searchArticles(
+      '',
+      { category, sortBy: 'recent' },
+      maxResults + 5,
+    );
+
+    const filtered = results.articles
+      .filter((article: Article) => article.id !== currentArticleId)
+      .slice(0, maxResults);
+
+    const products: DisplayProduct[] = filtered.map((article: Article) => ({
+      id: article.id,
+      title: article.title,
+      price: article.price,
+      imageUrl: article.images[0]?.url || '',
+      brand: article.brand || null,
+      size: article.size,
+      condition: article.condition,
+    }));
+    return { products, isAI: false };
+  } catch (error) {
+    if (__DEV__) console.error('Error loading fallback products:', error);
+    return { products: [], isAI: false };
+  }
+}
+
 const CARD_WIDTH = COMPACT_CARD_WIDTH;
 
 const SimilarProducts: React.FC<SimilarProductsProps> = ({
@@ -40,84 +108,15 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
   category,
   maxResults = 10,
 }) => {
-  const [products, setProducts] = useState<DisplayProduct[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [useAI, setUseAI] = useState(true);
+  const { data, isLoading } = useQuery({
+    queryKey: ['similarProducts', currentArticleId, category],
+    queryFn: () => fetchSimilarProducts(currentArticleId, category, maxResults),
+    staleTime: 5 * 60 * 1000,  // 5 min
+    enabled: !!currentArticleId,
+  });
 
-  useEffect(() => {
-    loadSimilarProducts();
-  }, [currentArticleId, category]);
-
-  const loadSimilarProducts = async () => {
-    setIsLoading(true);
-    try {
-      // Try AI-powered recommendations first
-      if (useAI) {
-        const aiResults = await RecommendationService.getSimilarProducts(
-          currentArticleId,
-          maxResults,
-          false
-        );
-
-        if (aiResults.length > 0) {
-          // Transform AI results to display format
-          const displayProducts: DisplayProduct[] = aiResults.map((p: SimilarProduct) => ({
-            id: p.articleId,
-            title: p.title,
-            price: p.price,
-            imageUrl: ArticlesService.fixStorageUrl(p.imageUrl),
-            brand: p.brand,
-            size: p.size,
-            condition: p.condition,
-          }));
-          setProducts(displayProducts);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Fallback to category-based search
-      await loadFallbackProducts();
-    } catch (error) {
-      console.error('Error loading AI similar products:', error);
-      // Fallback on error
-      await loadFallbackProducts();
-    }
-  };
-
-  const loadFallbackProducts = async () => {
-    try {
-      const results = await ArticlesService.searchArticles(
-        '',
-        {
-          category: category,
-          sortBy: 'recent',
-        },
-        maxResults + 5
-      );
-
-      const filtered = results.articles
-        .filter((article: Article) => article.id !== currentArticleId)
-        .slice(0, maxResults);
-
-      const displayProducts: DisplayProduct[] = filtered.map((article: Article) => ({
-        id: article.id,
-        title: article.title,
-        price: article.price,
-        imageUrl: article.images[0]?.url || '',
-        brand: article.brand || null,
-        size: article.size,
-        condition: article.condition,
-      }));
-
-      setProducts(displayProducts);
-      setUseAI(false);
-    } catch (error) {
-      console.error('Error loading fallback products:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const products = data?.products ?? [];
+  const isAI = data?.isAI ?? true;
 
   const handleProductPress = useCallback((productId: string) => {
     router.push(`/article/${productId}`);
@@ -144,7 +143,7 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({
         <View>
           <Text style={styles.sectionTitle}>Dans le même style</Text>
           <Text style={styles.sectionSubtitle}>
-            {useAI ? 'Basé sur cette annonce' : 'De la même catégorie'}
+            {isAI ? 'Basé sur cette annonce' : 'De la même catégorie'}
           </Text>
         </View>
       </View>
@@ -187,9 +186,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontFamily: typography.h3.fontFamily,
+    fontFamily: fonts.displayBold,
     fontSize: 18,
-    fontWeight: '700',
     color: colors.foreground,
   },
   sectionSubtitle: {

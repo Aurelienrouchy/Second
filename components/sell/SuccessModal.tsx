@@ -4,18 +4,17 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
-  Platform,
+  Pressable,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   withDelay,
+  Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, radius, animations } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 interface SuccessModalProps {
   visible: boolean;
@@ -37,10 +36,10 @@ export default function SuccessModal({
   useEffect(() => {
     if (visible) {
       opacity.value = withTiming(1, { duration: 200 });
-      scale.value = withSpring(1, animations.spring.gentle);
+      scale.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
       checkScale.value = withDelay(
         200,
-        withSpring(1, animations.spring.bouncy)
+        withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) }),
       );
     } else {
       opacity.value = 0;
@@ -81,24 +80,22 @@ export default function SuccessModal({
           </Text>
 
           {/* Primary CTA */}
-          <TouchableOpacity
-            style={styles.primaryButton}
+          <Pressable
+            style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.85 }]}
             onPress={onViewArticle}
-            activeOpacity={0.85}
           >
             <Text style={styles.primaryButtonText}>VOIR MON ANNONCE</Text>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Secondary CTA */}
-          <TouchableOpacity
-            style={styles.secondaryButton}
+          <Pressable
+            style={({ pressed }) => [styles.secondaryButton, pressed && { opacity: 0.7 }]}
             onPress={onReturnHome}
-            activeOpacity={0.7}
           >
             <Text style={styles.secondaryButtonText}>
               Retour a l'accueil
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
       </Animated.View>
     </Modal>

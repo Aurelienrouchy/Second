@@ -45,10 +45,8 @@ interface EditedFields {
   categoryIds: string[];
   categoryDisplay: { icon: string; name: string; context: string };
   condition: string;
-  color: string | null;
-  material: string | null;
-  colors?: string[];
-  materials?: string[];
+  colors: string[];
+  materials: string[];
   size: string | null;
   brand: string;
 }
@@ -58,6 +56,7 @@ interface PricingData {
   isHandDelivery: boolean;
   isShipping: boolean;
   neighborhood: MeetupNeighborhood | null;
+  neighborhoods: MeetupNeighborhood[];
   packageSize: string | null;
 }
 
@@ -71,7 +70,7 @@ export default function PreviewScreen() {
   const fieldsFromParams: EditedFields = params.fields ? JSON.parse(params.fields as string) : {};
   const pricingFromParams: PricingData = params.pricing
     ? JSON.parse(params.pricing as string)
-    : { price: 0, isHandDelivery: false, isShipping: false, neighborhood: null, packageSize: null };
+    : { price: 0, isHandDelivery: false, isShipping: false, neighborhood: null, neighborhoods: [], packageSize: null };
   const aiResult: AIAnalysisResult | null = params.aiResult
     ? JSON.parse(params.aiResult as string)
     : null;
@@ -114,6 +113,29 @@ export default function PreviewScreen() {
   };
 
   const handlePublish = async () => {
+    // ── Pre-publication validation (C5) ──
+    const validationErrors: string[] = [];
+    if (!fields.title || fields.title.trim().length < 3) {
+      validationErrors.push('Le titre doit contenir au moins 3 caractères');
+    }
+    if (!pricing.price || pricing.price <= 0) {
+      validationErrors.push('Entrez un prix valide');
+    }
+    if (pricing.price > 10000) {
+      validationErrors.push('Le prix maximum est de 10 000 $');
+    }
+    const imageUrls = storageUrls.length > 0 ? storageUrls : photos;
+    if (!imageUrls || imageUrls.length === 0) {
+      validationErrors.push('Ajoutez au moins une photo');
+    }
+    if (!fields.categoryIds || fields.categoryIds.length === 0) {
+      validationErrors.push('Sélectionnez une catégorie');
+    }
+    if (validationErrors.length > 0) {
+      Alert.alert('Informations manquantes', validationErrors.join('\n'));
+      return;
+    }
+
     setIsPublishing(true);
     try {
       const currentUser = auth.currentUser;
@@ -121,8 +143,7 @@ export default function PreviewScreen() {
         throw new Error('Utilisateur non connecté');
       }
 
-      const imageUrls = storageUrls.length > 0 ? storageUrls : photos;
-
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- articleData built dynamically with optional fields
       const articleData: any = {
         title: fields.title,
         description: fields.description,
@@ -139,16 +160,30 @@ export default function PreviewScreen() {
 
       if (fields.size) articleData.size = fields.size;
       if (fields.brand) articleData.brand = fields.brand;
-      if (fields.color) {
-        articleData.color = fields.color;
-        articleData.colors = [fields.color];
+
+      // Colors — multi-select with backward compat (C2)
+      if (fields.colors && fields.colors.length > 0) {
+        articleData.colors = fields.colors;
+        articleData.color = fields.colors[0];
       }
-      if (fields.material) {
-        articleData.material = fields.material;
-        articleData.materials = [fields.material];
+
+      // Materials — multi-select with backward compat (C2)
+      if (fields.materials && fields.materials.length > 0) {
+        articleData.materials = fields.materials;
+        articleData.material = fields.materials[0];
       }
+
       if (currentUser.photoURL) articleData.sellerImage = currentUser.photoURL;
-      if (pricing.neighborhood) articleData.neighborhood = pricing.neighborhood;
+
+      // Neighborhoods — multi-select with backward compat (C8)
+      if (pricing.neighborhoods && pricing.neighborhoods.length > 0) {
+        articleData.neighborhoods = pricing.neighborhoods;
+        articleData.neighborhood = pricing.neighborhoods[0];
+      } else if (pricing.neighborhood) {
+        articleData.neighborhood = pricing.neighborhood;
+        articleData.neighborhoods = [pricing.neighborhood];
+      }
+
       if (pricing.packageSize) articleData.packageSize = pricing.packageSize;
 
       const articleId = await ArticlesService.createArticle(articleData);
@@ -157,12 +192,13 @@ export default function PreviewScreen() {
       setPublishedArticleId(articleId);
       setIsPublishing(false);
       setShowSuccessModal(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('[Preview] Error publishing article:', error);
       setIsPublishing(false);
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la publication';
       Alert.alert(
         'Erreur',
-        error.message || 'Une erreur est survenue lors de la publication',
+        message,
         [{ text: 'OK' }]
       );
     }
@@ -172,15 +208,21 @@ export default function PreviewScreen() {
   const tags: string[] = [];
   if (fields.condition) tags.push(conditionLabels[fields.condition] || fields.condition);
   if (fields.size) tags.push(fields.size);
-  if (fields.color) tags.push(fields.color);
-  if (fields.material) tags.push(fields.material);
+  if (fields.colors?.length > 0) {
+    fields.colors.forEach((c) => tags.push(c));
+  }
+  if (fields.materials?.length > 0) {
+    fields.materials.forEach((m) => tags.push(m));
+  }
 
   // Specs grid
+  const colorsDisplay = fields.colors?.length > 0 ? fields.colors.join(', ') : null;
+  const materialsDisplay = fields.materials?.length > 0 ? fields.materials.join(', ') : null;
   const specs = [
     { label: 'Condition', value: conditionLabels[fields.condition] || fields.condition },
     { label: 'Taille', value: fields.size },
-    { label: 'Couleur', value: fields.color },
-    { label: 'Matière', value: fields.material },
+    { label: 'Couleur', value: colorsDisplay },
+    { label: 'Matiere', value: materialsDisplay },
   ].filter((s) => s.value);
 
   return (
@@ -259,18 +301,23 @@ export default function PreviewScreen() {
 
           {/* Delivery badges */}
           <View style={styles.deliveryRow}>
-            {pricing.isHandDelivery && pricing.neighborhood && (
-              <View style={styles.deliveryBadge}>
-                <Ionicons name="person-outline" size={14} color={colors.charcoal} />
-                <Text style={styles.deliveryBadgeText}>
-                  {pricing.neighborhood.name}
-                </Text>
-              </View>
-            )}
+            {pricing.isHandDelivery && pricing.neighborhoods?.length > 0
+              ? pricing.neighborhoods.map((n) => (
+                  <View key={n.id} style={styles.deliveryBadge}>
+                    <Ionicons name="person-outline" size={14} color={colors.charcoal} />
+                    <Text style={styles.deliveryBadgeText}>{n.name}</Text>
+                  </View>
+                ))
+              : pricing.isHandDelivery && pricing.neighborhood ? (
+                  <View style={styles.deliveryBadge}>
+                    <Ionicons name="person-outline" size={14} color={colors.charcoal} />
+                    <Text style={styles.deliveryBadgeText}>{pricing.neighborhood.name}</Text>
+                  </View>
+                ) : null}
             {pricing.isShipping && (
               <View style={styles.deliveryBadge}>
                 <Ionicons name="cube-outline" size={14} color={colors.charcoal} />
-                <Text style={styles.deliveryBadgeText}>Expédition</Text>
+                <Text style={styles.deliveryBadgeText}>Expedition</Text>
               </View>
             )}
           </View>

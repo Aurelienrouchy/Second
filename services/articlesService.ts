@@ -1,13 +1,9 @@
 import {
-    addDoc,
-    arrayRemove,
-    arrayUnion,
     collection,
     doc,
     limit as firestoreLimit,
     getDoc,
     getDocs,
-    increment,
     orderBy,
     query,
     QueryDocumentSnapshot,
@@ -15,9 +11,10 @@ import {
     updateDoc,
     where
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import * as FileSystem from 'expo-file-system/legacy';
-import { firestore, auth, storage } from '../config/firebaseConfig';
+import { firestore, auth, storage, functions } from '../config/firebaseConfig';
 import { Article, ArticleImage } from '../types';
 import {
   fixStorageUrl as fixStorageUrlUtil,
@@ -49,205 +46,179 @@ export class ArticlesService {
     }));
   }
 
+  /**
+   * Create an article via the createArticle Cloud Function.
+   *
+   * Flow:
+   * 1. If images are already Storage URLs (fast path from AI analysis) --
+   *    pass them directly to the callable.
+   * 2. If images are local URIs (legacy path) -- upload to Storage first
+   *    using a temp ID, then pass the resulting download URLs.
+   * 3. The Cloud Function validates, sanitises, and creates the article
+   *    atomically in Firestore.
+   */
   static async createArticle(articleData: Omit<Article, 'id' | 'createdAt' | 'views' | 'likes' | 'isActive' | 'isSold'>): Promise<string> {
     try {
-      // Ensure sellerId is present (handle stale closure case)
-      let finalSellerId = articleData.sellerId;
-      let finalSellerName = articleData.sellerName;
-
-      if (!finalSellerId) {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          finalSellerId = currentUser.uid;
-          if (!finalSellerName) {
-            finalSellerName = currentUser.displayName || 'Utilisateur';
-          }
-        } else {
-          throw new Error("Utilisateur non connecté");
-        }
-      }
-
-      const newArticle = {
-        ...articleData,
-        sellerId: finalSellerId,
-        sellerName: finalSellerName,
-        images: [],
-        createdAt: new Date(),
-        views: 0,
-        likes: 0,
-        isActive: true,
-        isSold: false,
-      };
-
-      // Remove undefined values - Firestore doesn't accept undefined
-      const cleanedArticle = Object.fromEntries(
-        Object.entries(newArticle).filter(([_, value]) => value !== undefined)
-      );
-
-      const docRef = await addDoc(collection(firestore, 'articles'), cleanedArticle);
-      const articleId = docRef.id;
-
-      if (__DEV__) console.log('📸 [ArticlesService] Article created:', {
-        articleId,
-        hasImages: !!(articleData.images && articleData.images.length > 0),
-        imagesCount: articleData.images?.length || 0,
-      });
+      let finalImages: ArticleImage[] = [];
 
       if (articleData.images && articleData.images.length > 0) {
-        try {
-          const imageUris = articleData.images.map(img => img.url);
+        const imageUris = articleData.images.map(img => img.url);
 
-          if (__DEV__) console.log('📸 [ArticlesService] Processing images:', {
-            count: imageUris.length,
-            urls: imageUris,
+        // Check if images are already Storage URLs (pre-uploaded during AI analysis)
+        const allStorageUrls = imageUris.every(uri => this.isStorageUrl(uri));
+
+        if (__DEV__) console.log('[ArticlesService] createArticle:', {
+          imagesCount: imageUris.length,
+          allStorageUrls,
+        });
+
+        if (allStorageUrls) {
+          // Fast path: images already in Storage -- use them directly
+          finalImages = articleData.images.map(img => {
+            const entry: ArticleImage = { url: img.url };
+            if (img.blurhash) entry.blurhash = img.blurhash;
+            return entry;
           });
+        } else {
+          // Legacy path: local URIs -- upload to Storage first.
+          // We use a temp ID for the storage path; the Cloud Function will
+          // create the article with a different Firestore doc ID, but the
+          // images remain accessible in Storage at this path.
+          const tempId = `draft_${Date.now()}`;
 
-          // Check if images are already Storage URLs (pre-uploaded during AI analysis)
-          const allStorageUrls = imageUris.every(uri => this.isStorageUrl(uri));
-          if (__DEV__) console.log('📸 [ArticlesService] isStorageUrl check:', {
-            allStorageUrls,
-            urlChecks: imageUris.map(uri => ({ uri: uri.substring(0, 80), isStorage: this.isStorageUrl(uri) })),
-          });
+          if (__DEV__) console.log('[ArticlesService] Uploading local images (legacy path)...');
+          finalImages = await this.uploadImagesReactNative(imageUris, tempId);
 
-          if (allStorageUrls) {
-            // Images already in Storage - just use them directly (fast path!)
-            if (__DEV__) console.log('📸 Images already in Storage, skipping re-upload');
-            const existingImages: ArticleImage[] = articleData.images.map(img => ({
-              url: img.url,
-              ...(img.blurhash ? { blurhash: img.blurhash } : {}),
-            }));
-
-            if (__DEV__) console.log('📸 [ArticlesService] Updating article with images:', {
-              articleId,
-              imagesCount: existingImages.length,
-              images: existingImages,
-            });
-
-            try {
-              await updateDoc(docRef, {
-                images: existingImages
-              });
-              if (__DEV__) console.log('📸 [ArticlesService] ✅ Article images updated successfully');
-            } catch (updateError: any) {
-              console.error('📸 [ArticlesService] ❌ Failed to update article with images:', updateError);
-              throw updateError;
-            }
-          } else {
-            // Local files - need to upload (legacy path)
-            if (__DEV__) console.log('📸 [ArticlesService] Uploading local images to Storage (legacy path)...');
-            if (__DEV__) console.log('📸 [ArticlesService] Local image URIs:', imageUris);
-            const uploadedImages = await this.uploadImagesReactNative(imageUris, articleId);
-
-            if (__DEV__) console.log('📸 [ArticlesService] Upload result:', {
-              uploadedCount: uploadedImages.length,
-              uploadedImages,
-            });
-
-            if (uploadedImages.length > 0) {
-              try {
-                await updateDoc(docRef, {
-                  images: uploadedImages
-                });
-                if (__DEV__) console.log('📸 [ArticlesService] ✅ Article updated with uploaded images');
-              } catch (updateError: any) {
-                console.error('📸 [ArticlesService] ❌ Failed to update article with uploaded images:', updateError);
-                throw updateError;
-              }
-            } else {
-              if (__DEV__) console.log('📸 [ArticlesService] ⚠️ No images were uploaded, marking as failed');
-              try {
-                await updateDoc(docRef, {
-                  images: articleData.images,
-                  uploadStatus: 'failed'
-                });
-              } catch (updateError: any) {
-                console.error('📸 [ArticlesService] ❌ Failed to update article with failed status:', updateError);
-              }
-            }
+          if (finalImages.length === 0) {
+            throw new Error('Aucune image uploadee');
           }
-        } catch (uploadError) {
-          throw new Error(`Article créé mais erreur upload images: ${uploadError}`);
         }
       }
+
+      // Build the payload -- remove undefined values and let the callable
+      // handle defaults / sanitisation.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload: Record<string, any> = {
+        title: articleData.title,
+        description: articleData.description,
+        price: articleData.price,
+        images: finalImages,
+        category: articleData.category,
+        categoryIds: articleData.categoryIds,
+        condition: articleData.condition,
+        sellerName: articleData.sellerName,
+        isHandDelivery: articleData.isHandDelivery,
+        isShipping: articleData.isShipping,
+      };
+
+      // Optional fields
+      if (articleData.size) payload.size = articleData.size;
+      if (articleData.brand) payload.brand = articleData.brand;
+      if (articleData.pattern) payload.pattern = articleData.pattern;
+      if (articleData.sellerImage) payload.sellerImage = articleData.sellerImage;
+
+      if (articleData.colors && articleData.colors.length > 0) {
+        payload.colors = articleData.colors;
+      } else if (articleData.color) {
+        payload.color = articleData.color;
+      }
+
+      if (articleData.materials && articleData.materials.length > 0) {
+        payload.materials = articleData.materials;
+      } else if (articleData.material) {
+        payload.material = articleData.material;
+      }
+
+      if (articleData.neighborhoods && articleData.neighborhoods.length > 0) {
+        payload.neighborhoods = articleData.neighborhoods;
+      } else if (articleData.neighborhood) {
+        payload.neighborhood = articleData.neighborhood;
+      }
+
+      if (articleData.packageSize) payload.packageSize = articleData.packageSize;
+
+      // Remove undefined values -- Firestore / callable rejects them
+      const cleanedPayload = Object.fromEntries(
+        Object.entries(payload).filter(([, v]) => v !== undefined),
+      );
+
+      const createArticleFn = httpsCallable<
+        Record<string, unknown>,
+        { articleId: string }
+      >(functions, 'createArticle');
+
+      const result = await createArticleFn(cleanedPayload);
+      const articleId = result.data.articleId;
+
+      if (__DEV__) console.log('[ArticlesService] Article created via callable:', articleId);
 
       return articleId;
     } catch (error: any) {
-      throw new Error(`Erreur lors de la création de l'article: ${error.message}`);
+      // httpsCallable wraps errors in FirebaseError with .code and .message
+      const message = error.message || 'Erreur lors de la creation';
+      throw new Error(`Erreur lors de la creation de l'article: ${message}`);
     }
   }
 
   static async uploadImagesReactNative(imageUris: string[], articleId: string): Promise<ArticleImage[]> {
     try {
-      // Vérifier que l'utilisateur est authentifié
+      // Verifier que l'utilisateur est authentifie
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        throw new Error('Utilisateur non authentifié - impossible d\'uploader');
+        throw new Error('Utilisateur non authentifie - impossible d\'uploader');
       }
-      if (__DEV__) console.log('🚀 Début upload images avec compression et blurhash:', { imageUris, articleId, userId: currentUser.uid });
+      if (__DEV__) console.log('[ArticlesService] Upload images:', { imageUris, articleId, userId: currentUser.uid });
 
       const uploadPromises = imageUris.map(async (uri, index) => {
         try {
-          if (__DEV__) console.log(`📸 Traitement image ${index}:`, uri);
+          if (__DEV__) console.log(`[ArticlesService] Processing image ${index}:`, uri);
 
-          // Compresser l'image et générer le blurhash
+          // Compress image and generate blurhash
           const { compressedUri, blurhash } = await processImageWithBlurhash(uri, {
             maxWidth: 1200,
             maxHeight: 1200,
             quality: 0.8,
           });
 
-          if (__DEV__) console.log(`🗜️ Image ${index} compressée:`, compressedUri);
-          if (__DEV__) console.log(`🎨 Blurhash généré pour image ${index}:`, blurhash);
-
-          // Créer une référence Firebase Storage
+          // Create Firebase Storage reference
           const storagePath = `articles/${articleId}/image_${index}_${Date.now()}.jpg`;
-          if (__DEV__) console.log(`☁️ Upload vers Firebase Storage:`, storagePath);
 
-          // Vérifier que le fichier local existe
+          // Verify local file exists
           const fileInfo = await FileSystem.getInfoAsync(compressedUri);
           if (!fileInfo.exists) {
             throw new Error(`Local file does not exist: ${compressedUri}`);
           }
-          if (__DEV__) console.log(`📤 Upload fichier local (${(fileInfo.size || 0) / 1024}KB):`, compressedUri);
 
           // Read file as blob and upload using web SDK
           const storageRef = ref(storage, storagePath);
 
-          try {
-            const response = await fetch(compressedUri);
-            const blob = await response.blob();
-            await uploadBytes(storageRef, blob);
-            if (__DEV__) console.log(`✅ Upload terminé pour image ${index}`);
-          } catch (uploadError: any) {
-            console.error(`❌ uploadBytes error:`, uploadError.code, uploadError.message);
-            throw uploadError;
-          }
+          const response = await fetch(compressedUri);
+          const blob = await response.blob();
+          await uploadBytes(storageRef, blob);
 
           const downloadURL = await getDownloadURL(storageRef);
-          if (__DEV__) console.log(`🔗 URL générée pour image ${index}:`, downloadURL);
 
           const articleImage: ArticleImage = {
             url: downloadURL,
           };
 
-          // Seulement ajouter blurhash s'il est défini
           if (blurhash) {
             articleImage.blurhash = blurhash;
           }
 
           return articleImage;
         } catch (imageError: any) {
-          console.error(`❌ Erreur upload image ${index}:`, imageError);
+          if (__DEV__) console.error(`[ArticlesService] Error uploading image ${index}:`, imageError);
           throw imageError;
         }
       });
 
       const uploadedImages = await Promise.all(uploadPromises);
-      if (__DEV__) console.log('✅ Tous les uploads terminés avec blurhash:', uploadedImages);
+      if (__DEV__) console.log('[ArticlesService] All uploads done:', uploadedImages);
 
       return uploadedImages;
     } catch (error: any) {
-      console.error('❌ Erreur globale upload images:', error);
+      console.error('[ArticlesService] Global upload error:', error);
       throw new Error(`Erreur lors de l'upload des images: ${error.message}`);
     }
   }
@@ -284,7 +255,7 @@ export class ArticlesService {
       const q = query(articlesRef, ...constraints);
       const querySnapshot = await getDocs(q);
       const articles: Article[] = [];
-      
+
       querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
         const article = {
@@ -293,8 +264,7 @@ export class ArticlesService {
           createdAt: data.createdAt.toDate(),
           images: this.fixArticleImageUrls(data.images),
         } as Article;
-        
-        // Exclure les articles de l'utilisateur connecté
+
         if (!excludeUserId || article.sellerId !== excludeUserId) {
           articles.push(article);
         }
@@ -304,7 +274,7 @@ export class ArticlesService {
 
       return { articles, lastVisible: lastVisibleDoc };
     } catch (error: any) {
-      throw new Error(`Erreur lors de la récupération des articles: ${error.message}`);
+      throw new Error(`Erreur lors de la recuperation des articles: ${error.message}`);
     }
   }
 
@@ -314,21 +284,10 @@ export class ArticlesService {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        // Incrémenter les vues
-        // Note: Désactivé temporairement pour éviter les erreurs de permission si l'utilisateur n'est pas authentifié
-        // L'idéal serait de faire cela via une Cloud Function ou d'autoriser l'écriture sur ce champ spécifique
-        /*
-        try {
-          await updateDoc(docRef, {
-            views: increment(1)
-          });
-        } catch (e) {
-          console.warn('Impossible d\'incrémenter les vues:', e);
-        }
-        */
-
         const data = docSnap.data();
         if (!data) return null;
+        // Inactive (soft-deleted) articles should not be visible
+        if (!data.isActive) return null;
         return {
           id: docSnap.id,
           ...data,
@@ -339,7 +298,7 @@ export class ArticlesService {
 
       return null;
     } catch (error: any) {
-      throw new Error(`Erreur lors de la récupération de l'article: ${error.message}`);
+      throw new Error(`Erreur lors de la recuperation de l'article: ${error.message}`);
     }
   }
 
@@ -347,7 +306,7 @@ export class ArticlesService {
     searchTerm?: string,
     filters?: {
       category?: string;
-      categoryIds?: string[]; // Ajout du nouveau filtre
+      categoryIds?: string[];
       colors?: string[];
       sizes?: string[];
       materials?: string[];
@@ -364,7 +323,7 @@ export class ArticlesService {
   ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
     try {
       if (__DEV__) {
-        if (__DEV__) console.log('🔍 searchArticles appelé avec:', { searchTerm, filters, limitCount });
+        console.log('searchArticles called with:', { searchTerm, filters, limitCount });
       }
       const articlesRef = collection(firestore, 'articles');
       let constraints: any[] = [
@@ -372,17 +331,10 @@ export class ArticlesService {
         where('isSold', '==', false)
       ];
 
-      // Filtres Firebase (côté serveur)
-      
-      // Nouvelle méthode de filtrage par catégorie (plus flexible)
       if (filters?.categoryIds && filters.categoryIds.length > 0) {
-        // On filtre sur le dernier ID (le plus spécifique)
-        // Ex: si on cherche "Maison > Décoration", on cherche tous les articles ayant l'ID "home_decoration"
         const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
         constraints.push(where('categoryIds', 'array-contains', targetCategoryId));
-      } 
-      // Fallback sur l'ancienne méthode si pas de categoryIds
-      else if (filters?.category) {
+      } else if (filters?.category) {
         constraints.push(where('category', '==', filters.category));
       }
 
@@ -390,7 +342,6 @@ export class ArticlesService {
         constraints.push(where('condition', '==', filters.condition));
       }
 
-      // Filtres de prix
       if (filters?.minPrice !== undefined) {
         constraints.push(where('price', '>=', filters.minPrice));
       }
@@ -398,10 +349,6 @@ export class ArticlesService {
         constraints.push(where('price', '<=', filters.maxPrice));
       }
 
-      // Ordre et limite. Quand des filtres ne peuvent pas être poussés à
-      // Firestore (text, color, size, material, brand, pattern), on doit
-      // sur-fetcher pour compenser les rejets côté client. Sinon on
-      // demande exactement la limite.
       const hasClientSideFilter = !!(
         (searchTerm && searchTerm.trim()) ||
         (filters?.colors && filters.colors.length > 0) ||
@@ -414,7 +361,6 @@ export class ArticlesService {
       constraints.push(orderBy('createdAt', 'desc'));
       constraints.push(firestoreLimit(fetchLimit));
 
-      // Pagination
       if (lastVisible) {
         constraints.push(startAfter(lastVisible));
       }
@@ -422,7 +368,7 @@ export class ArticlesService {
       const q = query(articlesRef, ...constraints);
       const querySnapshot = await getDocs(q);
       if (__DEV__) {
-        if (__DEV__) console.log('📊 Nombre de documents récupérés:', querySnapshot.docs.length);
+        console.log('Documents fetched:', querySnapshot.docs.length);
       }
       const articles: Article[] = [];
 
@@ -435,48 +381,40 @@ export class ArticlesService {
           images: this.fixArticleImageUrls(data.images),
         } as Article;
 
-        // Exclure les articles de l'utilisateur connecté
         if (filters?.excludeUserId && article.sellerId === filters.excludeUserId) {
           return;
         }
 
-        // Filtrage côté client pour les champs qui ne peuvent pas être indexés facilement
         let matches = true;
 
-        // Recherche textuelle: titre uniquement
         if (searchTerm && searchTerm.trim()) {
           const searchLower = searchTerm.toLowerCase();
           const titleMatch = (article.title || '').toLowerCase().includes(searchLower);
           matches = matches && titleMatch;
         }
 
-        // Filtres par couleur
         if (filters?.colors && filters.colors.length > 0 && article.color) {
-          matches = matches && filters.colors.some(color => 
+          matches = matches && filters.colors.some(color =>
             article.color?.toLowerCase().includes(color.toLowerCase())
           );
         }
 
-        // Filtres par taille
         if (filters?.sizes && filters.sizes.length > 0 && article.size) {
           matches = matches && filters.sizes.includes(article.size);
         }
 
-        // Filtres par matière
         if (filters?.materials && filters.materials.length > 0 && article.material) {
           matches = matches && filters.materials.some(material =>
             article.material?.toLowerCase().includes(material.toLowerCase())
           );
         }
 
-        // Filtres par marque
         if (filters?.brands && filters.brands.length > 0 && article.brand) {
           matches = matches && filters.brands.some(brand =>
             article.brand?.toLowerCase().includes(brand.toLowerCase())
           );
         }
 
-        // Filtres par motif
         if (filters?.patterns && filters.patterns.length > 0 && article.pattern) {
           matches = matches && filters.patterns.some(pattern =>
             article.pattern?.toLowerCase().includes(pattern.toLowerCase())
@@ -488,7 +426,6 @@ export class ArticlesService {
         }
       });
 
-      // Tri côté client selon sortBy
       if (filters?.sortBy) {
         switch (filters.sortBy) {
           case 'price_asc':
@@ -507,22 +444,20 @@ export class ArticlesService {
         }
       }
 
-      // Limiter les résultats après filtrage et tri
       const limitedArticles = articles.slice(0, limitCount);
       const idx = Math.min(querySnapshot.docs.length - 1, limitedArticles.length - 1);
       const lastVisibleDoc = (querySnapshot.docs[idx] as QueryDocumentSnapshot) || null;
 
       if (__DEV__) {
-        if (__DEV__) console.log('✅ Résultats finaux:', limitedArticles.length, 'articles');
+        console.log('Final results:', limitedArticles.length, 'articles');
       }
       return { articles: limitedArticles, lastVisible: lastVisibleDoc };
     } catch (error: any) {
-      if (__DEV__) console.error('❌ Erreur searchArticles:', error);
+      if (__DEV__) console.error('searchArticles error:', error);
       throw new Error(`Erreur lors de la recherche: ${error.message}`);
     }
   }
 
-  // Méthode pour recherche simple (rétrocompatibilité)
   static async searchArticlesSimple(searchTerm: string, limitCount: number = 20): Promise<Article[]> {
     const result = await this.searchArticles(searchTerm, undefined, limitCount);
     return result.articles;
@@ -542,7 +477,6 @@ export class ArticlesService {
 
       querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
-        // Filtrer les articles supprimés (isActive === false)
         if (data.isActive === false) return;
 
         articles.push({
@@ -555,7 +489,7 @@ export class ArticlesService {
 
       return articles;
     } catch (error: any) {
-      throw new Error(`Erreur lors de la récupération des articles utilisateur: ${error.message}`);
+      throw new Error(`Erreur lors de la recuperation des articles utilisateur: ${error.message}`);
     }
   }
 
@@ -564,13 +498,12 @@ export class ArticlesService {
       const docRef = doc(firestore, 'articles', articleId);
       await updateDoc(docRef, updates);
     } catch (error: any) {
-      throw new Error(`Erreur lors de la mise à jour de l'article: ${error.message}`);
+      throw new Error(`Erreur lors de la mise a jour de l'article: ${error.message}`);
     }
   }
 
   static async deleteArticle(articleId: string): Promise<void> {
     try {
-      // Marquer comme inactif plutôt que supprimer
       await this.updateArticle(articleId, { isActive: false });
     } catch (error: any) {
       throw new Error(`Erreur lors de la suppression de l'article: ${error.message}`);
@@ -586,7 +519,6 @@ export class ArticlesService {
   }
 
   static async uploadImages(files: File[], articleId: string): Promise<string[]> {
-    // Note: This method is for web File objects. For React Native, use uploadImagesReactNative
     try {
       const uploadPromises = files.map(async (file, index) => {
         const storagePath = `articles/${articleId}/image_${index}_${Date.now()}`;
@@ -607,30 +539,6 @@ export class ArticlesService {
       await deleteObject(imageRef);
     } catch (error: any) {
       throw new Error(`Erreur lors de la suppression de l'image: ${error.message}`);
-    }
-  }
-
-  static async likeArticle(articleId: string, userId: string): Promise<void> {
-    try {
-      const docRef = doc(firestore, 'articles', articleId);
-      await updateDoc(docRef, {
-        likes: increment(1),
-        likedBy: arrayUnion(userId)
-      });
-    } catch (error: any) {
-      throw new Error(`Erreur lors du like: ${error.message}`);
-    }
-  }
-
-  static async unlikeArticle(articleId: string, userId: string): Promise<void> {
-    try {
-      const docRef = doc(firestore, 'articles', articleId);
-      await updateDoc(docRef, {
-        likes: increment(-1),
-        likedBy: arrayRemove(userId)
-      });
-    } catch (error: any) {
-      throw new Error(`Erreur lors du unlike: ${error.message}`);
     }
   }
 }

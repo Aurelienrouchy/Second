@@ -11,7 +11,6 @@ export default function SellLayout() {
     >
       <Stack.Screen name="capture" options={{ headerShown: false }} />
       <Stack.Screen name="photos-review" options={{ headerShown: false }} />
-      <Stack.Screen name="analysis" options={{ headerShown: false }} />
       <Stack.Screen name="details" options={{ headerShown: false }} />
       <Stack.Screen name="pricing" options={{ headerShown: false }} />
       <Stack.Screen name="preview" options={{ headerShown: false }} />

@@ -7,7 +7,7 @@ interface StepProgressBarProps {
   totalSteps?: number;
 }
 
-const STEP_LABELS = ['Photos', 'Analyse', 'Details', 'Publier'];
+const STEP_LABELS = ['Photos', 'Détails', 'Prix', 'Publier'];
 
 export default function StepProgressBar({
   currentStep,

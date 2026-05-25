@@ -4,7 +4,7 @@
 
 import { Dimensions, StyleSheet } from 'react-native';
 
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { colors, fonts, radius, sizing, spacing } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const HERO_HEIGHT = SCREEN_WIDTH * 1.2;
@@ -32,9 +32,9 @@ export const articleStyles = StyleSheet.create({
     zIndex: 100,
   },
   headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: sizing.minTouchTarget,
+    height: sizing.minTouchTarget,
+    borderRadius: sizing.minTouchTarget / 2,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -58,7 +58,7 @@ export const articleStyles = StyleSheet.create({
   discountText: {
     fontFamily: fonts.sansMedium,
     fontSize: 11,
-    color: '#FFFFFF',
+    color: colors.white,
     letterSpacing: 0.5,
   },
 
@@ -96,7 +96,7 @@ export const articleStyles = StyleSheet.create({
     marginBottom: 6,
   },
   price: {
-    fontFamily: fonts.sansMedium,
+    fontFamily: fonts.displaySemiBold,
     fontSize: 34,
     color: colors.primary,
     letterSpacing: -0.5,
@@ -243,8 +243,8 @@ export const articleStyles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.sm,
   },
-  spotEmoji: {
-    fontSize: 10,
+  spotIcon: {
+    marginRight: 2,
   },
   spotName: {
     fontFamily: fonts.sans,
@@ -421,5 +421,10 @@ export const articleStyles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 14,
     color: colors.white,
+  },
+
+  // Bottom spacer to clear the CTA bar
+  bottomSpacer: {
+    height: 110,
   },
 });

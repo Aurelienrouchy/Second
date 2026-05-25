@@ -7,11 +7,11 @@ import {
   InputAccessoryView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
-import StepProgressBar from '@/components/sell/StepProgressBar';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
 import { ScreenHeader } from '@/components/ui';
 import {
@@ -114,6 +114,17 @@ export default function PricingScreen() {
     return () => clearTimeout(timeoutId);
   }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize, draft?.id, isInitialized]);
 
+  const handleBack = () => {
+    Alert.alert(
+      'Quitter ?',
+      'Tes modifications seront sauvegardees dans le brouillon.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Quitter', onPress: () => router.back() },
+      ],
+    );
+  };
+
   const handlePriceChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
@@ -135,6 +146,8 @@ export default function PricingScreen() {
     const priceNum = parseFloat(price);
     if (!price || isNaN(priceNum) || priceNum <= 0) {
       newErrors.push('Entrez un prix valide');
+    } else if (priceNum > 10000) {
+      newErrors.push('Le prix maximum est de 10 000 $');
     }
     if (!isHandDelivery && !isShipping) {
       newErrors.push('Sélectionnez au moins une option de livraison');
@@ -177,6 +190,7 @@ export default function PricingScreen() {
   const isFormValid =
     !isNaN(priceNum) &&
     priceNum > 0 &&
+    priceNum <= 10000 &&
     hasAtLeastOneDelivery &&
     handDeliveryValid &&
     shippingValid;
@@ -188,8 +202,7 @@ export default function PricingScreen() {
     >
       <ScreenHeader
         title="Prix & livraison"
-        onBack={() => router.back()}
-        topContent={<StepProgressBar currentStep={4} />}
+        onBack={handleBack}
       />
 
       <ScrollView

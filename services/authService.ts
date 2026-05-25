@@ -1,4 +1,4 @@
-import { auth, firestore } from '@/config/firebaseConfig';
+import { auth, firestore, functions } from '@/config/firebaseConfig';
 import { User } from '@/types';
 import {
   createUserWithEmailAndPassword,
@@ -14,7 +14,6 @@ import {
   linkWithCredential,
   verifyBeforeUpdateEmail,
   updatePassword as firebaseUpdatePassword,
-  deleteUser,
   sendEmailVerification as firebaseSendEmailVerification,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   reload,
@@ -27,6 +26,7 @@ import {
   setDoc,
   updateDoc
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -488,15 +488,16 @@ export class AuthService {
 
   /**
    * Supprimer le compte utilisateur (Loi 25 / PIPEDA)
-   * Supprime le compte Firebase Auth ; le trigger serveur gère le cleanup Firestore.
+   * Appelle la callable deleteUserAccount qui gere le cleanup Firestore,
+   * Storage et la suppression du compte Firebase Auth cote serveur.
    */
   static async deleteAccount(): Promise<void> {
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
 
     try {
-      // Supprimer le compte Firebase Auth
-      await deleteUser(user);
+      const deleteUserAccountFn = httpsCallable(functions, 'deleteUserAccount');
+      await deleteUserAccountFn();
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }

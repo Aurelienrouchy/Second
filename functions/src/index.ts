@@ -7,9 +7,10 @@
  * - firebase-admin: ^13.6.0
  * - firebase-functions: ^7.0.3
  * - @google/genai: ^1.37.0
+ * - stripe: ^22.1.1
  *
  * File structure:
- * - /config       - Firebase, Helcim, ShipEngine, Gemini initialization
+ * - /config       - Firebase, Stripe, ShipEngine, Gemini initialization
  * - /services     - AI services, brand matching
  * - /utils        - Geohash, search, notifications, debounce
  * - /callable     - onCall functions (client-callable)
@@ -32,7 +33,7 @@ export { consolidateChatDuplicates } from './callable/chats';
 export { visualSearch, getSimilarProducts } from './callable/search';
 
 // Product Functions
-export { incrementProductView, toggleProductLike, markSavedSearchViewed } from './callable/products';
+export { createArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed } from './callable/products';
 
 // Swap Functions
 export { proposeMultiSwap, acceptSwap, getActiveSwapPartyInfo, getSwapPartyLeaderboard } from './callable/swaps';
@@ -42,7 +43,10 @@ export {
   getShippingEstimate,
   getServiceFee,
   createTransaction,
-  createHelcimCheckout,
+  createStripeCheckout,
+  createStripeConnectAccount,
+  getStripeAccountLink,
+  getStripeAccountStatus,
   findPickupPoints,
   checkTrackingStatus,
   requestWithdrawal,
@@ -77,6 +81,9 @@ export {
 // Review Functions
 export { createReview, getUserReviews, getUserPublicProfile } from './callable/reviews';
 
+// User Account Functions
+export { deleteUserAccount } from './callable/users';
+
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
@@ -95,9 +102,6 @@ export { onSwapCreated, onSwapStatusUpdated } from './triggers/swaps';
 
 // Favorite Triggers
 export { onArticleFavorited, onArticlePriceDropped } from './triggers/favorites';
-
-// Auth Triggers (v1 — onCreate / onDelete)
-export { onUserCreated, onUserDeleted } from './triggers/auth';
 
 // User Profile Triggers
 export { onUserProfileUpdated } from './triggers/users';
@@ -124,9 +128,12 @@ export { updateSwapPartyStatuses, sendSwapZoneReminders } from './scheduled/swap
 // Saved Searches
 export { checkSavedSearchNotifications } from './scheduled/savedSearches';
 
+// Draft image cleanup
+export { cleanupExpiredDrafts } from './scheduled/cleanupDrafts';
+
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
 
-// Helcim Webhook (payment confirmation + shipping label)
-export { helcimWebhook } from './http/webhooks';
+// Stripe Webhook (payment confirmation + Connect account updates)
+export { stripeWebhook } from './http/webhooks';

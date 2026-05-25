@@ -5,21 +5,25 @@
  * Pure orchestration: services + router + haptics + user. Does not own UI state.
  */
 
+import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
 
-import MakeOfferModal, { MakeOfferModalRef } from '@/components/MakeOfferModal';
-import ReportBottomSheet, { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
+import type { MakeOfferModalRef } from '@/components/MakeOfferModal';
+import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
-import { useFavorites } from '@/hooks/useFavorites';
+import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
+import { queryKeys } from '@/lib/queryKeys';
 
+import { httpsCallable } from 'firebase/functions';
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
+import { functions } from '@/config/firebaseConfig';
+import { useAuthStore } from '@/store/authStore';
 import { formatPrice } from '@/utils/formatPrice';
 
 import type { Article, MeetupSpot } from '@/types';
@@ -42,22 +46,23 @@ export function useArticleActions({
   reportBottomSheetRef,
 }: UseArticleActionsParams) {
   const router = useRouter();
-  const { user } = useAuth();
+  const user = useAuthStore((s) => s.user);
   const { toggleFavorite, isFavorite } = useFavorites();
   const { requireAuth } = useAuthRequired();
+  const queryClient = useQueryClient();
 
   const handleToggleFavorite = useCallback(() => {
-    if (article) {
-      Haptics.notificationAsync(
-        isFavorite(article.id)
-          ? Haptics.NotificationFeedbackType.Warning
-          : Haptics.NotificationFeedbackType.Success
-      );
-      requireAuth(
-        () => toggleFavorite(article.id),
-        AUTH_MESSAGES.like
-      );
-    }
+    if (!article) return;
+    if (article.isSold) return;
+    Haptics.notificationAsync(
+      isFavorite(article.id)
+        ? Haptics.NotificationFeedbackType.Warning
+        : Haptics.NotificationFeedbackType.Success
+    );
+    requireAuth(
+      () => toggleFavorite(article.id),
+      AUTH_MESSAGES.like
+    );
   }, [article, isFavorite, requireAuth, toggleFavorite]);
 
   const handleShare = useCallback(async () => {
@@ -81,6 +86,11 @@ export function useArticleActions({
   const handleBuy = useCallback(() => {
     if (!article) return;
 
+    if (article.isSold) {
+      Alert.alert('Article vendu', 'Cet article a déjà été vendu.');
+      return;
+    }
+
     if (user && user.id === article.sellerId) {
       Alert.alert('Erreur', 'Vous ne pouvez pas acheter votre propre article.');
       return;
@@ -100,6 +110,11 @@ export function useArticleActions({
 
   const handleMakeOffer = useCallback(() => {
     if (!article) return;
+
+    if (article.isSold) {
+      Alert.alert('Article vendu', 'Cet article a déjà été vendu.');
+      return;
+    }
 
     if (user && user.id === article.sellerId) {
       Alert.alert('Erreur', 'Vous ne pouvez pas faire une offre sur votre propre article.');
@@ -191,6 +206,8 @@ export function useArticleActions({
             try {
               await ArticlesService.deleteArticle(article.id);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+              queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
               router.back();
             } catch (error) {
               if (__DEV__) console.error('Erreur suppression:', error);
@@ -200,7 +217,7 @@ export function useArticleActions({
         },
       ]
     );
-  }, [article, router]);
+  }, [article, router, queryClient]);
 
   const handleEditArticle = useCallback(() => {
     if (!article) return;
@@ -212,14 +229,19 @@ export function useArticleActions({
     if (!article) return;
 
     try {
-      await ArticlesService.updateArticle(article.id, { isSold: !article.isSold });
+      const toggleSold = httpsCallable(functions, 'toggleArticleSold');
+      await toggleSold({ articleId: article.id });
+      // Optimistic update
       setArticle((prev) => prev ? { ...prev, isSold: !prev.isSold } : null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+      queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
+    } catch (error: unknown) {
       if (__DEV__) console.error('Erreur mise à jour:', error);
-      Alert.alert('Erreur', 'Impossible de mettre à jour l\'article');
+      const message = error instanceof Error ? error.message : 'Impossible de mettre à jour l\'article';
+      Alert.alert('Erreur', message);
     }
-  }, [article, setArticle]);
+  }, [article, setArticle, queryClient]);
 
   const handleMoreOptions = useCallback(() => {
     if (!article) return;

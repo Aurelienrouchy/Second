@@ -99,14 +99,28 @@ service cloud.firestore {
                data.sellerId == request.auth.uid &&
                data.isActive is bool &&
                data.isSold is bool &&
-               (!('description' in data) || isValidString(data.description, 0, 5000));
+               (!('description' in data) || isValidString(data.description, 0, 5000)) &&
+               // moderationStatus must be 'approved' if provided (auto-approved for now)
+               (!('moderationStatus' in data) || data.moderationStatus == 'approved') &&
+               // Server-managed counters must start at zero
+               (!('views' in data) || data.views == 0) &&
+               (!('likes' in data) || data.likes == 0) &&
+               (!('likedBy' in data) || data.likedBy.size() == 0) &&
+               (!('favoritesCount' in data) || data.favoritesCount == 0);
       }
 
       function isValidArticleUpdate(oldData, newData) {
         return newData.sellerId == oldData.sellerId &&
                isValidString(newData.title, 3, 200) &&
                isValidPrice(newData.price) &&
-               (!('description' in newData) || isValidString(newData.description, 0, 5000));
+               (!('description' in newData) || isValidString(newData.description, 0, 5000)) &&
+               // Protect server-managed fields from client mutation
+               (!('views' in newData) || newData.views == oldData.views) &&
+               (!('likes' in newData) || newData.likes == oldData.likes) &&
+               (!('likedBy' in newData) || newData.likedBy == oldData.likedBy) &&
+               (!('favoritesCount' in newData) || newData.favoritesCount == oldData.favoritesCount) &&
+               (!('moderationStatus' in newData) || newData.moderationStatus == oldData.moderationStatus) &&
+               (!('isSold' in newData) || newData.isSold == oldData.isSold);
       }
     }
 

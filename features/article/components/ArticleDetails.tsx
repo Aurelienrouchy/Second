@@ -19,7 +19,13 @@ import { formatPrice } from '@/utils/formatPrice';
 import type { Article } from '@/types';
 
 import { articleStyles as styles } from '../styles';
-import { formatArticleDate, spotEmoji } from '../utils';
+import { formatArticleDate, spotIcon } from '../utils';
+
+const PACKAGE_SIZE_LABELS: Record<string, string> = {
+  small: 'Petit colis',
+  medium: 'Colis moyen',
+  large: 'Grand colis',
+};
 
 export interface ArticleDetailsProps {
   article: Article;
@@ -55,8 +61,8 @@ function ArticleDetailsComponent({
       {/* Price row: current + original strikethrough */}
       <Animated.View entering={FadeInDown.duration(350).delay(160)} style={styles.priceRow}>
         <Text style={styles.price}>{formatPrice(article.price)}</Text>
-        {(article as any).originalPrice && (
-          <Text style={styles.originalPrice}>{formatPrice((article as any).originalPrice)}</Text>
+        {article.originalPrice != null && (
+          <Text style={styles.originalPrice}>{formatPrice(article.originalPrice)}</Text>
         )}
       </Animated.View>
 
@@ -85,7 +91,7 @@ function ArticleDetailsComponent({
         {/* packageSize badge (sage) */}
         {article.packageSize && (
           <View style={styles.packageTag}>
-            <Text style={styles.packageTagText}>Colis {article.packageSize}</Text>
+            <Text style={styles.packageTagText}>{PACKAGE_SIZE_LABELS[article.packageSize || ''] || article.packageSize}</Text>
           </View>
         )}
       </Animated.View>
@@ -106,7 +112,7 @@ function ArticleDetailsComponent({
               <View style={styles.deliveryCardContent}>
                 <Text style={styles.deliveryCardTitle}>Livraison</Text>
                 <Text style={styles.deliveryCardSub}>
-                  {shippingCost ? `$${shippingCost.toFixed(2)}` : 'Gratuit'}
+                  {shippingCost ? formatPrice(shippingCost) : 'Gratuit'}
                 </Text>
               </View>
             </View>
@@ -116,9 +122,14 @@ function ArticleDetailsComponent({
               <Ionicons name="location-outline" size={16} color={colors.primary} />
               <View style={styles.deliveryCardContent}>
                 <Text style={styles.deliveryCardTitle}>En personne</Text>
-                <Text style={styles.deliveryCardSub}>
-                  {article.neighborhood?.name || 'À convenir'}
-                </Text>
+                {article.neighborhoods && article.neighborhoods.length > 0
+                  ? article.neighborhoods.map((n, i) => (
+                      <Text key={i} style={styles.deliveryCardSub}>{n.name}</Text>
+                    ))
+                  : <Text style={styles.deliveryCardSub}>
+                      {article.neighborhood?.name || 'À convenir'}
+                    </Text>
+                }
               </View>
             </View>
           )}
@@ -132,7 +143,7 @@ function ArticleDetailsComponent({
           <View style={styles.spotsRow}>
             {article.preferredMeetupSpots.map((spot, i) => (
               <View key={i} style={styles.spotChip}>
-                <Text style={styles.spotEmoji}>{spotEmoji(spot.category)}</Text>
+                <Ionicons name={spotIcon(spot.category) as React.ComponentProps<typeof Ionicons>['name']} size={12} color={colors.muted} />
                 <Text style={styles.spotName}>{spot.name}</Text>
               </View>
             ))}
@@ -151,8 +162,12 @@ function ArticleDetailsComponent({
           <View style={styles.sellerInfo}>
             <Text style={styles.sellerName}>{formatDisplayName(article.sellerName)}</Text>
             <Text style={styles.sellerMeta}>
-              {article.neighborhood?.name}
-              {article.neighborhood?.borough ? ` · ${article.neighborhood.borough}` : ''}
+              {article.neighborhoods && article.neighborhoods.length > 0
+                ? article.neighborhoods.map((n) => n.name).join(', ')
+                : article.neighborhood?.name}
+              {article.neighborhood?.borough && !(article.neighborhoods && article.neighborhoods.length > 0)
+                ? ` · ${article.neighborhood.borough}`
+                : ''}
             </Text>
           </View>
           {sellerRating && (

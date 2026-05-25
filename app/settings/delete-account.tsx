@@ -131,7 +131,8 @@ export default function DeleteAccountScreen() {
         return;
       }
 
-      // Server-side onUserDeleted trigger handles all data cleanup.
+      // Server-side deleteUserAccount callable handles all data cleanup
+      // (Firestore, Storage, Auth deletion) in a single server-side operation.
       await AuthService.deleteAccount();
 
       // Reset stores and navigate immediately — onAuthStateChanged(null) would

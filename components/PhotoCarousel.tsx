@@ -1,12 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
-  FlatList,
-  ViewToken,
 } from 'react-native';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { colors } from '@/constants/theme';
 
@@ -22,32 +21,36 @@ export default function PhotoCarousel({
   height = 400,
 }: PhotoCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
+  const flashListRef = useRef<FlashListRef<string>>(null);
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null; isViewable: boolean }> }) => {
       if (viewableItems.length > 0 && viewableItems[0].index !== null) {
         setActiveIndex(viewableItems[0].index);
       }
-    }
-  ).current;
+    },
+    [],
+  );
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
   }).current;
 
-  const renderPhoto = ({ item }: { item: string }) => (
-    <Image
-      source={{ uri: item }}
-      style={[styles.photo, { height }]}
-      contentFit="cover"
-    />
+  const renderPhoto = useCallback(
+    ({ item }: { item: string }) => (
+      <Image
+        source={{ uri: item }}
+        style={[styles.photo, { height }]}
+        contentFit="cover"
+      />
+    ),
+    [height],
   );
 
   return (
     <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
+      <FlashList
+        ref={flashListRef}
         data={photos}
         renderItem={renderPhoto}
         keyExtractor={(_, index) => index.toString()}

@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import ImageGallery from '@/components/ImageGallery';
+import { colors } from '@/constants/theme';
 
 import type { ArticleImage } from '@/types';
 
@@ -24,7 +25,7 @@ import { HeaderButton } from './HeaderButton';
 export interface ArticleHeroProps {
   images: ArticleImage[];
   discount: number | null;
-  onImageIndexChange: (index: number) => void;
+  onImageIndexChange?: (index: number) => void;
 }
 
 function ArticleHeroComponent({
@@ -56,6 +57,7 @@ export const ArticleHero = React.memo(ArticleHeroComponent);
 
 export interface ArticleFloatingHeaderProps {
   isFavorite: boolean;
+  isSold?: boolean;
   scrollY: SharedValue<number>;
   insetsTop: number;
   onBack: () => void;
@@ -66,6 +68,7 @@ export interface ArticleFloatingHeaderProps {
 
 function ArticleFloatingHeaderComponent({
   isFavorite,
+  isSold = false,
   scrollY,
   insetsTop,
   onBack,
@@ -87,7 +90,8 @@ function ArticleFloatingHeaderComponent({
           icon={isFavorite ? 'heart' : 'heart-outline'}
           onPress={onToggleFavorite}
           isActive={isFavorite}
-          activeColor="#FFFFFF"
+          activeColor={colors.white}
+          disabled={isSold}
         />
         <HeaderButton icon="share-outline" onPress={onShare} />
         <HeaderButton icon="ellipsis-horizontal" onPress={onMoreOptions} size={18} />

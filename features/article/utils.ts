@@ -9,8 +9,16 @@ export const buildTags = (article: Article) => {
   const tags: string[] = [];
   if (article.size) tags.push(`Taille ${article.size}`);
   if (article.condition) tags.push(article.condition);
-  if (article.color) tags.push(article.color);
-  if (article.material) tags.push(article.material);
+  if (article.colors && article.colors.length > 0) {
+    article.colors.forEach((c) => tags.push(c));
+  } else if (article.color) {
+    tags.push(article.color);
+  }
+  if (article.materials && article.materials.length > 0) {
+    article.materials.forEach((m) => tags.push(m));
+  } else if (article.material) {
+    tags.push(article.material);
+  }
   if (article.pattern) tags.push(article.pattern);
   return tags;
 };
@@ -21,14 +29,16 @@ export const getDiscountPercent = (price: number, originalPrice?: number) => {
   return Math.round((1 - price / originalPrice) * 100);
 };
 
-/** Emoji for meetup spot category */
-export const spotEmoji = (category: string) => {
+/** Ionicons icon name for meetup spot category (emojis banned by DS). */
+export const spotIcon = (category?: string): string => {
   switch (category) {
-    case 'cafe': return '☕';
-    case 'metro': return '🚇';
-    case 'park': return '🌳';
-    case 'library': return '📚';
-    default: return '📍';
+    case 'cafe': return 'cafe-outline';
+    case 'metro': return 'train-outline';
+    case 'park': return 'leaf-outline';
+    case 'library': return 'book-outline';
+    case 'mall': return 'storefront-outline';
+    case 'community_center': return 'people-outline';
+    default: return 'location-outline';
   }
 };
 

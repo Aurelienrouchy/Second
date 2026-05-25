@@ -5,6 +5,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +13,6 @@ import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/Catego
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
 import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
 import ConditionSelector from '@/components/ConditionSelector';
-import StepProgressBar from '@/components/sell/StepProgressBar';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
 import FormFieldGroup from '@/components/sell/FormFieldGroup';
 import { ScreenHeader } from '@/components/ui';
@@ -169,6 +169,17 @@ export default function DetailsScreen() {
     }));
   }, []);
 
+  const handleBack = () => {
+    Alert.alert(
+      'Quitter ?',
+      'Tes modifications seront sauvegardees dans le brouillon.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Quitter', onPress: () => router.back() },
+      ],
+    );
+  };
+
   const handleContinue = () => {
     if (!fields.title.trim()) return;
     router.push({
@@ -232,8 +243,7 @@ export default function DetailsScreen() {
     >
       <ScreenHeader
         title="Détails"
-        onBack={() => router.back()}
-        topContent={<StepProgressBar currentStep={3} />}
+        onBack={handleBack}
       />
 
       <ScrollView

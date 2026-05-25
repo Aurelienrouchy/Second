@@ -131,7 +131,7 @@ async function processImage(uri: string): Promise<ProcessedImage> {
 
   // Convert HEIC/HEIF to JPEG
   if (needsConversion(originalMimeType)) {
-    console.log(`Converting ${originalMimeType} to JPEG...`);
+    if (__DEV__) console.log(`Converting ${originalMimeType} to JPEG...`);
     processedUri = await convertToJpeg(processedUri);
     wasConverted = true;
     finalMimeType = 'image/jpeg';
@@ -140,7 +140,7 @@ async function processImage(uri: string): Promise<ProcessedImage> {
   // Check size and compress if needed
   const currentInfo = await getFileInfo(processedUri);
   if (currentInfo.size > AI_CONFIG.image.targetSizeBytes) {
-    console.log(`Compressing image from ${Math.round(currentInfo.size / 1024)}KB...`);
+    if (__DEV__) console.log(`Compressing image from ${Math.round(currentInfo.size / 1024)}KB...`);
     processedUri = await compressImage(processedUri);
     wasCompressed = true;
     finalMimeType = 'image/jpeg';
@@ -232,11 +232,11 @@ export async function deleteDraftImagesFromStorage(draftId: string): Promise<voi
       listResult.items.map(item => deleteObject(item))
     );
 
-    console.log(`[aiService] Deleted ${listResult.items.length} images for draft ${draftId}`);
+    if (__DEV__) console.log(`[aiService] Deleted ${listResult.items.length} images for draft ${draftId}`);
   } catch (error: any) {
     // Ignore "object not found" errors (folder doesn't exist)
     if (error.code !== 'storage/object-not-found') {
-      console.warn('[aiService] Failed to delete draft images:', error);
+      if (__DEV__) console.warn('[aiService] Failed to delete draft images:', error);
     }
   }
 }
@@ -253,7 +253,7 @@ export async function moveDraftImagesToArticles(
   // For now, we'll keep images in draft folder and just reference them
   // A more complete solution would copy to articles folder and delete from drafts
   // But this adds complexity - for MVP, we just use the existing URLs
-  console.log(`[aiService] Using draft images for article ${articleId}`);
+  if (__DEV__) console.log(`[aiService] Using draft images for article ${articleId}`);
   return storageUrls;
 }
 
@@ -387,7 +387,7 @@ export async function analyzeProductImage(
 
     // Verify user is authenticated before uploading
     if (!auth.currentUser) {
-      console.error('[aiService] User not authenticated - cannot upload to Storage');
+      if (__DEV__) console.error('[aiService] User not authenticated - cannot upload to Storage');
       return {
         success: false,
         error: createDetailedError('UNAUTHENTICATED', 'Veuillez vous connecter pour analyser des images'),
@@ -395,7 +395,7 @@ export async function analyzeProductImage(
     }
 
     // Upload images to Firebase Storage
-    console.log(`[aiService] Uploading ${imageUris.length} image(s) to Storage... (user: ${auth.currentUser.uid})`);
+    if (__DEV__) console.log(`[aiService] Uploading ${imageUris.length} image(s) to Storage... (user: ${auth.currentUser.uid})`);
     try {
       uploadedStorageUrls = await uploadImagesToStorage(
         imageUris, // Use original URIs (fetched as blobs for upload)
@@ -406,12 +406,12 @@ export async function analyzeProductImage(
           onProgress?.(Math.round(uploadProgress));
         }
       );
-      console.log(`[aiService] Uploaded to Storage:`, {
+      if (__DEV__) console.log(`[aiService] Uploaded to Storage:`, {
         count: uploadedStorageUrls.length,
         urls: uploadedStorageUrls,
       });
     } catch (error: any) {
-      console.error('[aiService] Storage upload failed:', error);
+      if (__DEV__) console.error('[aiService] Storage upload failed:', error);
       return {
         success: false,
         error: createDetailedError('NETWORK_ERROR', 'Échec de l\'upload des images'),
@@ -424,7 +424,7 @@ export async function analyzeProductImage(
       mimeType: img.mimeType,
     }));
 
-    console.log(`[aiService] Sending ${images.length} image(s) for AI analysis`);
+    if (__DEV__) console.log(`[aiService] Sending ${images.length} image(s) for AI analysis`);
 
     // Phase 2: Category detection
     updatePhase('category');
@@ -489,12 +489,12 @@ export async function analyzeProductImage(
       storageUrls: uploadedStorageUrls, // Return Storage URLs for draft/article
     };
   } catch (error: any) {
-    console.error('AI analysis error:', error);
+    if (__DEV__) console.error('AI analysis error:', error);
 
     // Cleanup uploaded images on error (unless cancelled by user)
     if (uploadedStorageUrls.length > 0 && error.message !== 'Cancelled') {
-      console.log('[aiService] Cleaning up uploaded images after error...');
-      deleteDraftImagesFromStorage(effectiveDraftId).catch(console.warn);
+      if (__DEV__) console.log('[aiService] Cleaning up uploaded images after error...');
+      deleteDraftImagesFromStorage(effectiveDraftId).catch((e) => { if (__DEV__) console.warn(e); });
     }
 
     // Handle cancellation

@@ -11,6 +11,8 @@ interface AnalysisFooterProps {
   onContinue: () => void;
   onRetry: () => void;
   onManualEntry: () => void;
+  /** When true, shows "Redirection automatique..." hint below the continue button */
+  autoRedirect?: boolean;
 }
 
 export const AnalysisFooter = React.memo(function AnalysisFooter({
@@ -19,20 +21,28 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
   onContinue,
   onRetry,
   onManualEntry,
+  autoRedirect = false,
 }: AnalysisFooterProps) {
   return (
     <View style={[styles.footer, { paddingBottom: bottomInset + 16 }]}>
       {screenState === 'complete' && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.primaryButton,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={onContinue}
-        >
-          <Text style={styles.primaryButtonText}>MODIFIER LES DÉTAILS</Text>
-          <Ionicons name="arrow-forward" size={18} color={colors.cream} />
-        </Pressable>
+        <>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={onContinue}
+          >
+            <Text style={styles.primaryButtonText}>MODIFIER LES DÉTAILS</Text>
+            <Ionicons name="arrow-forward" size={18} color={colors.cream} />
+          </Pressable>
+          {autoRedirect && (
+            <Text style={styles.autoRedirectHint}>
+              Redirection automatique...
+            </Text>
+          )}
+        </>
       )}
 
       {screenState === 'error' && (
@@ -99,6 +109,14 @@ const styles = StyleSheet.create({
     letterSpacing: 2.16,
     color: colors.cream,
     textTransform: 'uppercase',
+  },
+  autoRedirectHint: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 8,
+    letterSpacing: 0.4,
   },
   manualLink: {
     paddingVertical: 14,

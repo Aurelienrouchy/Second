@@ -11,10 +11,61 @@ import {
   estimateTokens,
 } from '../services/ai';
 import { loadBrands } from '../services/brands';
+import { db, FieldValue } from '../config/firebase';
 
 interface ImageData {
   base64: string;
   mimeType: string;
+}
+
+// Rate limiting constants
+const RATE_LIMIT_MAX_CALLS = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Check and update rate limit for a user.
+ * Uses Firestore doc `rate_limits/{userId}_analyzeProduct` with a sliding window.
+ * Throws HttpsError('resource-exhausted') if the limit is exceeded.
+ */
+async function checkRateLimit(userId: string): Promise<void> {
+  const rateLimitRef = db.collection('rate_limits').doc(`${userId}_analyzeProduct`);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(rateLimitRef);
+    const now = Date.now();
+    const windowStart = now - RATE_LIMIT_WINDOW_MS;
+
+    if (snap.exists) {
+      const data = snap.data()!;
+      const windowStartedAt = data.windowStartedAt?.toMillis?.() ?? data.windowStartedAt ?? 0;
+      const count = data.count ?? 0;
+
+      if (windowStartedAt > windowStart) {
+        // Still within the current window
+        if (count >= RATE_LIMIT_MAX_CALLS) {
+          throw new HttpsError(
+            'resource-exhausted',
+            `Limite atteinte : maximum ${RATE_LIMIT_MAX_CALLS} analyses par heure. Réessayez plus tard.`
+          );
+        }
+        tx.update(rateLimitRef, { count: FieldValue.increment(1) });
+      } else {
+        // Window expired, reset
+        tx.set(rateLimitRef, {
+          userId,
+          count: 1,
+          windowStartedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    } else {
+      // First call ever
+      tx.set(rateLimitRef, {
+        userId,
+        count: 1,
+        windowStartedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  });
 }
 
 /**
@@ -26,7 +77,8 @@ export const analyzeProductImage = onCall(
     region: 'northamerica-northeast1',
     memory: '1GiB',
     timeoutSeconds: 120,
-    minInstances: 1, // Keep one instance warm to avoid cold starts
+    minInstances: 1,
+    secrets: ['GEMINI_API_KEY'],
   },
   async (request) => {
     const totalStartTime = Date.now();
@@ -37,6 +89,9 @@ export const analyzeProductImage = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
+
+    // Rate limiting: max 10 calls per hour per user
+    await checkRateLimit(request.auth.uid);
 
     // Support both single image (legacy) and multiple images
     const { imageBase64, mimeType, images } = request.data;

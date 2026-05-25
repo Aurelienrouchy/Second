@@ -90,7 +90,9 @@ export interface Article {
   size?: string;
   brand?: string;
   color?: string;
+  colors?: string[];
   material?: string;
+  materials?: string[];
   pattern?: string;
   condition: 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
   sellerId: string;
@@ -103,6 +105,7 @@ export interface Article {
   views: number;
   location?: string; // Ville ou code postal (legacy)
   neighborhood?: MeetupNeighborhood; // Quartier pour meetup
+  neighborhoods?: MeetupNeighborhood[]; // Quartiers multiples pour meetup
   preferredMeetupSpots?: MeetupSpot[]; // Lieux de rencontre préférés du vendeur
   weight?: number; // Poids en kg
   dimensions?: ArticleDimensions; // Dimensions calculées automatiquement selon catégorie
