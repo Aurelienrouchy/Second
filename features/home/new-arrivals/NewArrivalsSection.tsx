@@ -4,21 +4,40 @@
  * Each card manages its own favorite state → no section-level re-render.
  */
 
-import { router } from 'expo-router';
-import React from 'react';
+import { useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { SectionHeader } from '@/components/home/SectionHeader';
 import ProductCard, { SkeletonCard } from '@/components/ProductCard';
 import { COMPACT_CARD_WIDTH } from '@/components/ProductCard.constants';
 import { spacing } from '@/constants/theme';
-import { useNewArrivals } from './useNewArrivals';
+import { HomeArticle, useNewArrivals } from './useNewArrivals';
+
+// =============================================================================
+// NEW ARRIVAL ITEM — memoised to avoid re-renders on scroll
+// =============================================================================
+
+const NewArrivalItem = React.memo<{ article: HomeArticle }>(({ article }) => {
+  const router = useRouter();
+  const handlePress = useCallback(
+    () => router.push(`/article/${article.id}`),
+    [router, article.id]
+  );
+
+  return (
+    <View style={styles.horizontalCardWrapper}>
+      <ProductCard product={article} onPress={handlePress} compact />
+    </View>
+  );
+});
 
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
 
 const NewArrivalsSectionComponent: React.FC = () => {
+  const router = useRouter();
   const { data: articles, isLoading } = useNewArrivals();
 
   if (!isLoading && (!articles || articles.length === 0)) {
@@ -46,24 +65,10 @@ const NewArrivalsSectionComponent: React.FC = () => {
                 </View>
               ))
           : articles?.map((item) => (
-              <View key={item.id} style={styles.horizontalCardWrapper}>
-                <ProductCard
-                  product={{
-                    id: item.id,
-                    title: item.title,
-                    price: item.price,
-                    images: item.images,
-                    brand: item.brand,
-                    size: item.size,
-                    condition: item.condition,
-                  }}
-                  onPress={() => router.push(`/article/${item.id}`)}
-                  compact
-                />
-              </View>
+              <NewArrivalItem key={item.id} article={item} />
             ))}
       </ScrollView>
-    </View> 
+    </View>
   );
 };
 

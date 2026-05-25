@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
+import { doc, updateDoc } from 'firebase/firestore';
+
+import { firestore } from '@/config/firebaseConfig';
 import { queryClient } from '@/lib/queryClient';
 import { AuthService } from '@/services/authService';
 import {
@@ -96,6 +99,14 @@ export const useAuthStore = create<AuthStore>()(
       if (firebaseUser) {
         const fresh = await AuthService.getCurrentUser();
         if (fresh) {
+          // Sync email if Firebase Auth has a different (verified) email than Firestore
+          const fbUser = firebaseUser as { email?: string | null; uid?: string };
+          if (fbUser.email && fresh.email !== fbUser.email) {
+            await updateDoc(doc(firestore, 'users', fresh.id), {
+              email: fbUser.email,
+            });
+            fresh.email = fbUser.email;
+          }
           set({ user: fresh, isLoading: false });
           await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
           return;

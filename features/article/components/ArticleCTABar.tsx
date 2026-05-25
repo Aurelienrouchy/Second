@@ -13,6 +13,7 @@ import { articleStyles as styles } from '../styles';
 
 export interface ArticleCTABarProps {
   isOwnArticle: boolean;
+  isSold: boolean;
   isSwapContext: boolean;
   price: number;
   bottomInset: number;
@@ -23,6 +24,7 @@ export interface ArticleCTABarProps {
 
 function ArticleCTABarComponent({
   isOwnArticle,
+  isSold,
   isSwapContext,
   price,
   bottomInset,
@@ -30,6 +32,17 @@ function ArticleCTABarComponent({
   onMakeOffer,
   onProposeSwap,
 }: ArticleCTABarProps) {
+  if (isSold) {
+    return (
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(bottomInset, 16) }]}>
+        <View style={styles.ownArticleBar}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.muted} />
+          <Text style={styles.ownArticleText}>Article vendu</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.bottomBar, { paddingBottom: Math.max(bottomInset, 16) }]}>
       {isOwnArticle ? (

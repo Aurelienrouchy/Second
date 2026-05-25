@@ -28,10 +28,12 @@ export class SectionErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error) {
-    console.warn(
-      `[SectionErrorBoundary${this.props.name ? `:${this.props.name}` : ''}]`,
-      error.message
-    );
+    if (__DEV__) {
+      console.warn(
+        `[SectionErrorBoundary${this.props.name ? `:${this.props.name}` : ''}]`,
+        error.message
+      );
+    }
   }
 
   render() {

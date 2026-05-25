@@ -102,7 +102,7 @@ export default function RecentSearches({
         {/* ── Empty hint ── */}
         <Animated.View entering={FadeInDown.duration(300).delay(150)} style={styles.emptyHint}>
           <Ionicons name="search-outline" size={28} color={colors.borderStrong} />
-          <Text style={styles.emptyText}>Vos recherches apparaitront ici</Text>
+          <Text style={styles.emptyText}>Vos recherches apparaîtront ici</Text>
         </Animated.View>
       </ScrollView>
     );
@@ -133,7 +133,7 @@ export default function RecentSearches({
 
       {/* ── Recent searches ── */}
       <Animated.View entering={FadeInDown.duration(300).delay(100)}>
-        <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>RECHERCHES RECENTES</Text>
+        <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>RECHERCHES RÉCENTES</Text>
 
         {searches.map((item) => (
           <Pressable

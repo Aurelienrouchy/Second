@@ -2,6 +2,7 @@ import { ChatService } from '@/services/chatService';
 import { useChatStore } from '@/store/chatStore';
 import { Chat, Message, ShippingAddress, ShippingEstimate } from '@/types';
 import { useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 export const useChat = (chatId: string | null, userId: string | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -17,8 +18,9 @@ export const useChat = (chatId: string | null, userId: string | null) => {
       return;
     }
 
-    let unsubscribeMessages: (() => void) | undefined;
-    let unsubscribeChat: (() => void) | undefined;
+    let cancelled = false;
+    let unsubMessages: (() => void) | undefined;
+    let unsubChat: (() => void) | undefined;
 
     const setupListeners = async () => {
       try {
@@ -30,35 +32,42 @@ export const useChat = (chatId: string | null, userId: string | null) => {
 
         // Load chat info
         const chatData = await ChatService.getChatById(chatId);
+        if (cancelled) return;
         setChat(chatData);
 
         // Listen to messages in real-time
-        unsubscribeMessages = ChatService.listenToMessages(
+        unsubMessages = ChatService.listenToMessages(
           chatId,
           userId,
           (updatedMessages) => {
+            if (cancelled) return;
             setMessages(updatedMessages);
             setIsLoading(false);
           },
           (err) => {
-            console.error('Error listening to messages:', err);
+            if (cancelled) return;
+            if (__DEV__) console.error('Error listening to messages:', err);
             setError('Erreur lors du chargement des messages');
             setIsLoading(false);
           }
         );
 
         // Listen to chat updates (for last message, etc.)
-        unsubscribeChat = ChatService.listenToChat(
+        unsubChat = ChatService.listenToChat(
           chatId,
           (updatedChat) => {
+            if (cancelled) return;
             setChat(updatedChat);
           }
         );
 
         // Mark messages as read
-        await ChatService.markMessagesAsRead(chatId, userId);
+        if (!cancelled) {
+          await ChatService.markMessagesAsRead(chatId, userId);
+        }
       } catch (err) {
-        console.error('Error setting up chat:', err);
+        if (cancelled) return;
+        if (__DEV__) console.error('Error setting up chat:', err);
         setError('Erreur lors du chargement du chat');
         setIsLoading(false);
       }
@@ -68,8 +77,9 @@ export const useChat = (chatId: string | null, userId: string | null) => {
 
     // Cleanup listeners on unmount
     return () => {
-      if (unsubscribeMessages) unsubscribeMessages();
-      if (unsubscribeChat) unsubscribeChat();
+      cancelled = true;
+      unsubMessages?.();
+      unsubChat?.();
     };
   }, [chatId, userId]);
 
@@ -82,7 +92,7 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     try {
       await ChatService.sendMessage(chatId, userId, receiverId, content);
     } catch (err) {
-      console.error('Error sending message:', err);
+      if (__DEV__) console.error('Error sending message:', err);
       throw err;
     }
   };
@@ -96,7 +106,7 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     try {
       await ChatService.sendImage(chatId, userId, receiverId, imageUri);
     } catch (err) {
-      console.error('Error sending image:', err);
+      if (__DEV__) console.error('Error sending image:', err);
       throw err;
     }
   };
@@ -115,7 +125,7 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     try {
       await ChatService.sendOffer(chatId, userId, receiverId, amount, message, shippingAddress, shippingEstimate);
     } catch (err) {
-      console.error('Error sending offer:', err);
+      if (__DEV__) console.error('Error sending offer:', err);
       throw err;
     }
   };
@@ -126,7 +136,7 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     try {
       await ChatService.acceptOffer(chatId, messageId, offerId, userId);
     } catch (err) {
-      console.error('Error accepting offer:', err);
+      if (__DEV__) console.error('Error accepting offer:', err);
       throw err;
     }
   };
@@ -137,7 +147,7 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     try {
       await ChatService.rejectOffer(chatId, messageId, offerId, userId);
     } catch (err) {
-      console.error('Error rejecting offer:', err);
+      if (__DEV__) console.error('Error rejecting offer:', err);
       throw err;
     }
   };
@@ -166,9 +176,9 @@ export const useChat = (chatId: string | null, userId: string | null) => {
  * via the shared listener.
  */
 export const useChats = (_userId?: string | null) => {
-  const chats = useChatStore((s) => s.chats);
-  const isLoading = useChatStore((s) => s.isLoading);
-  const error = useChatStore((s) => s.error);
+  const { chats, isLoading, error } = useChatStore(
+    useShallow((s) => ({ chats: s.chats, isLoading: s.isLoading, error: s.error }))
+  );
 
   return { chats, isLoading, error };
 };

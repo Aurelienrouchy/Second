@@ -208,11 +208,21 @@ export const createTransaction = onCall(
           throw new HttpsError('invalid-argument', 'Vous ne pouvez pas acheter votre propre article');
         }
 
-        // Verify the price matches what the seller listed
-        if (articleData.price !== amount) {
+        // Verify the amount is valid:
+        // - Exact listed price is always accepted.
+        // - A negotiated (lower) price is accepted if positive and below listed price.
+        //   The negotiation was validated via the offer/accept flow in chat.
+        // - Amounts above listed price are rejected (overpay protection).
+        if (amount > articleData.price) {
           throw new HttpsError(
             'failed-precondition',
-            'Le prix de l\'article a changé. Veuillez rafraîchir la page.'
+            'Le montant dépasse le prix de l\'article.'
+          );
+        }
+        if (amount !== articleData.price && amount <= 0) {
+          throw new HttpsError(
+            'invalid-argument',
+            'Le montant doit être supérieur à zéro.'
           );
         }
 

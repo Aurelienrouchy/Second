@@ -32,6 +32,8 @@ interface OfferBubbleProps {
   isOwnMessage: boolean;
   chatId: string;
   currentUserId: string;
+  /** Original listed price of the article (used for context display) */
+  articlePrice?: number;
   // Legacy actions
   onAcceptOffer: (messageId: string, offerId: string) => Promise<void>;
   onRejectOffer: (messageId: string, offerId: string) => Promise<void>;
@@ -49,6 +51,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   isOwnMessage,
   chatId,
   currentUserId,
+  articlePrice: listedPrice,
   onAcceptOffer,
   onRejectOffer,
   onCounterPrice,
@@ -142,10 +145,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       return;
     }
 
-    if (!onCounterPrice) {
-      Alert.alert('Erreur', 'Action non disponible');
-      return;
-    }
+    if (!onCounterPrice) return;
 
     try {
       setIsCountering(true);
@@ -247,7 +247,11 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             <Text style={styles.amountPrefix}>$</Text>
             <Text style={styles.amount}>{amount}</Text>
           </View>
-          <Text style={styles.amountSubtext}>sur un prix affiche de $XX</Text>
+          {listedPrice != null && (
+            <Text style={styles.amountSubtext}>
+              sur un prix affiche de {listedPrice.toFixed(2)}$
+            </Text>
+          )}
 
           {/* Shipping info for legacy offers */}
           {shippingEstimate && !isMeetupOffer && (
@@ -349,7 +353,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
         )}
 
         {/* Meetup Confirmation Actions */}
-        {canConfirmMeetup && (
+        {canConfirmMeetup && (onConfirmMeetup || onReportNoShow) && (
           <MeetupActions
             onConfirm={handleConfirmMeetup}
             onReportNoShow={handleReportNoShow}

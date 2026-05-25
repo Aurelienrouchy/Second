@@ -264,17 +264,19 @@ const UpcomingPartyCard: React.FC<UpcomingPartyCardProps> = ({
             <View style={styles.upcomingBadge}>
               <Text style={styles.upcomingBadgeText}>Bientôt</Text>
             </View>
-            <Pressable
-              style={styles.notifyButton}
-              onPress={handleNotifyPress}
-              hitSlop={spacing.sm}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={sizing.iconMD}
-                color={colors.muted}
-              />
-            </Pressable>
+            {onNotifyPress != null && (
+              <Pressable
+                style={styles.notifyButton}
+                onPress={handleNotifyPress}
+                hitSlop={spacing.sm}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={sizing.iconMD}
+                  color={colors.muted}
+                />
+              </Pressable>
+            )}
           </View>
 
           {/* Countdown */}

@@ -9,7 +9,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import Animated, {
@@ -52,6 +52,12 @@ export default function ArticleDetailScreen() {
   const scrollY = useSharedValue(0);
   const queryClient = useQueryClient();
 
+  const router = useRouter();
+
+  const handleGoHome = useCallback(() => {
+    router.replace('/(tabs)');
+  }, [router]);
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
@@ -62,6 +68,7 @@ export default function ArticleDetailScreen() {
   const {
     data: article = null,
     isLoading,
+    isError,
   } = useQuery<Article | null>({
     queryKey: queryKeys.articles.detail(id ?? ''),
     queryFn: () => ArticlesService.getArticleById(id!),
@@ -108,7 +115,8 @@ export default function ArticleDetailScreen() {
 
   // ─── Render states ───
   if (isLoading) return <LoadingState />;
-  if (!article) return <ErrorState onBack={handleBack} />;
+  if (isError) return <ErrorState onBack={handleBack} isNetworkError />;
+  if (!article) return <ErrorState onBack={handleGoHome} />;
 
   const isOwnArticle = !!(user && user.id === article.sellerId);
   const categoryLabel = article.categoryIds?.length
@@ -160,6 +168,7 @@ export default function ArticleDetailScreen() {
 
       <ArticleCTABar
         isOwnArticle={isOwnArticle}
+        isSold={article.isSold}
         isSwapContext={isSwapContext}
         price={article.price}
         bottomInset={insets.bottom}

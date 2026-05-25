@@ -62,6 +62,15 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
     },
     {
       "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "isSold", "order": "ASCENDING" },
+        { "fieldPath": "lastPriceDropAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "articles",
       "queryScope": "COLLECTION", 
       "fields": [
         { "fieldPath": "isActive", "order": "ASCENDING" },

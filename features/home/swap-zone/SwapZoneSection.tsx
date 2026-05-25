@@ -54,7 +54,7 @@ const SwapZoneWrapperComponent: React.FC = () => {
         isLoading={isLoading}
         onActivePress={handleActivePress}
         onUpcomingPress={handleUpcomingPress}
-        onNotifyPress={() => {}}
+        onNotifyPress={undefined}
       />
       <Pressable
         style={styles.swapZoneLink}

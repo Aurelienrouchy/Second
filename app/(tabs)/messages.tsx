@@ -9,7 +9,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
@@ -48,7 +47,7 @@ export default function MessagesScreen() {
       return (
         <ConversationItem
           chat={chat}
-          onPress={() => handleChatPress(chat.id)}
+          onPress={handleChatPress}
           isUnread={unread > 0}
           unreadCount={unread}
         />
@@ -56,50 +55,6 @@ export default function MessagesScreen() {
     },
     [handleChatPress, user]
   );
-
-  const formatTimestamp = (timestamp?: Date) => {
-    if (!timestamp) return '';
-
-    const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return timestamp.toLocaleTimeString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } else if (days === 1) {
-      return 'Hier';
-    } else if (days < 7) {
-      return timestamp.toLocaleDateString('fr-FR', { weekday: 'short' });
-    } else {
-      return timestamp.toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-      });
-    }
-  };
-
-  const getOtherParticipant = (chat: Chat) => {
-    if (!user) return null;
-    return chat.participantsInfo.find((p) => p.userId !== user.id);
-  };
-
-  const getLastMessagePreview = (chat: Chat): string => {
-    if (!chat.lastMessage) return 'Aucun message';
-
-    switch (chat.lastMessageType) {
-      case 'image':
-        return '[Photo]';
-      case 'offer':
-        return '[Offre envoyée]';
-      case 'system':
-        return chat.lastMessage;
-      default:
-        return chat.lastMessage;
-    }
-  };
 
   const getConversationType = (chat: Chat): ConversationType => {
     if (!user) return 'achats';
@@ -115,11 +70,17 @@ export default function MessagesScreen() {
 
   const unreadByType = {
     achats: chats.filter((c) => getConversationType(c) === 'achats').reduce(
-      (sum, c) => sum + (user ? c.unreadCount[user.id] || 0 : 0),
+      (sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0),
       0,
     ),
-    ventes: 0,
-    swaps: 0,
+    ventes: chats.filter((c) => getConversationType(c) === 'ventes').reduce(
+      (sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0),
+      0,
+    ),
+    swaps: chats.filter((c) => getConversationType(c) === 'swaps').reduce(
+      (sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0),
+      0,
+    ),
   };
 
   if (!user) {
@@ -271,7 +232,7 @@ const MessagesLoadingSkeleton: React.FC = () => (
 // Extracted sub-component with React.memo
 interface ConversationItemProps {
   chat: Chat;
-  onPress: () => void;
+  onPress: (chatId: string) => void;
   isUnread: boolean;
   unreadCount: number;
 }
@@ -299,8 +260,10 @@ const ConversationItem = React.memo(function ConversationItem({
   const lastMessagePreview = getLastMessagePreviewStatic(chat);
   const timestamp = formatTimestampStatic(chat.lastMessageTimestamp);
 
+  const handlePress = useCallback(() => onPress(chat.id), [onPress, chat.id]);
+
   return (
-    <Pressable style={styles.conversationItem} onPress={onPress}>
+    <Pressable style={styles.conversationItem} onPress={handlePress}>
       {/* Avatar */}
       <View style={styles.avatarContainer}>
         {avatarUri ? (

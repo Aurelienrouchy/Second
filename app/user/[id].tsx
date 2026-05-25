@@ -101,7 +101,7 @@ export default function UserProfileScreen() {
         id: r.id,
         reviewerName: r.reviewerName,
         reviewerImage: r.reviewerImage,
-        reviewerId: undefined,
+        reviewerId: r.reviewerId,
         date: r.createdAt,
         text: r.text,
         note: r.note,

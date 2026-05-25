@@ -15,6 +15,7 @@ import { functions } from '@/config/firebaseConfig';
 
 export interface Review {
   id: string;
+  reviewerId: string;
   reviewerName: string;
   reviewerImage?: string;
   note: number;

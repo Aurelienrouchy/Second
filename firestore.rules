@@ -19,6 +19,10 @@ service cloud.firestore {
       return price is number && price >= 0.01 && price <= 10000;
     }
     
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
     function isValidString(str, minLen, maxLen) {
       return str is string && str.size() >= minLen && str.size() <= maxLen;
     }
@@ -196,8 +200,13 @@ service cloud.firestore {
     
     // Users Collection Rules
     match /users/{userId} {
-      // Allow read for any authenticated user (for seller profiles)
-      allow read: if isAuthenticated();
+      // SECURITY: restrict reads to the document owner or admins.
+      // Public profile data (displayName, profileImage, rating, etc.) is served
+      // via the getUserPublicProfile callable (Admin SDK). Client-side code
+      // reading other users' docs (e.g. chatService.ts) must migrate to that
+      // callable. BREAKING CHANGE: any direct getDoc(users/X) where X != caller
+      // will now fail.
+      allow read: if isOwner(userId) || isAdmin();
 
       // Allow create only with valid initial data. The isAdmin/role/claims
       // fields cannot be set by clients on creation either.
@@ -313,13 +322,21 @@ service cloud.firestore {
                data.chatId is string &&
                data.participants is list &&
                data.participants.size() == 2 &&
-               request.auth.uid in data.participants;
+               request.auth.uid in data.participants &&
+               // Verify the referenced chat exists and the caller is a participant
+               exists(/databases/$(database)/documents/chats/$(data.chatId)) &&
+               request.auth.uid in get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants &&
+               // Offer messages must have a valid amount
+               (data.type != 'offer' || (data.offer.amount is number && data.offer.amount > 0 && data.offer.amount <= 50000));
       }
 
       function isValidSystemMessage(data) {
         return data.senderId == 'system' &&
                data.type == 'system' &&
-               data.chatId is string;
+               data.chatId is string &&
+               // Verify the referenced chat exists and the caller is a participant
+               exists(/databases/$(database)/documents/chats/$(data.chatId)) &&
+               request.auth.uid in get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants;
       }
     }
     

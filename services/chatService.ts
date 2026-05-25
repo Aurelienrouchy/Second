@@ -10,15 +10,16 @@ import {
     query,
     runTransaction,
     serverTimestamp,
-    setDoc,
     updateDoc,
-    where
+    where,
 } from 'firebase/firestore';
+import type { DocumentData, FieldValue } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, firestore, storage } from '../config/firebaseConfig';
 import {
   Chat,
+  ChatParticipant,
   Message,
   MessageStatus,
   MessageType,
@@ -26,8 +27,39 @@ import {
   MeetupSpot,
   OfferHistoryEntry,
   OfferStatus,
+  ShippingAddress,
+  ShippingEstimate,
 } from '../types';
 import { ModerationService } from './moderationService';
+
+/** Shape of a new chat document before it is written to Firestore. */
+interface NewChatData {
+  participants: string[];
+  participantsInfo: ChatParticipant[];
+  sellerId?: string;
+  unreadCount: Record<string, number>;
+  createdAt: FieldValue;
+  updatedAt: FieldValue;
+  articleId?: string;
+  articleTitle?: string;
+  articleImage?: string;
+  articlePrice?: number;
+}
+
+/** Shape of the offer metadata attached to an offer message. */
+interface OfferData {
+  amount: number;
+  status: OfferStatus;
+  totalAmount?: number;
+  message?: string;
+  shippingAddress?: ShippingAddress;
+  shippingEstimate?: ShippingEstimate;
+  meetup?: MeetupDetails;
+  history?: OfferHistoryEntry[];
+  expiresAt?: Date;
+  offerId?: string;
+  originalOfferId?: string;
+}
 
 /**
  * Recursively remove undefined values from an object.
@@ -38,8 +70,8 @@ function stripUndefined<T>(obj: T): T {
   if (obj instanceof Date) return obj;
   if (Array.isArray(obj)) return obj.map(stripUndefined) as unknown as T;
   if (typeof obj === 'object') {
-    const result: Record<string, any> = {};
-    for (const [key, value] of Object.entries(obj as Record<string, any>)) {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       if (value !== undefined) {
         result[key] = stripUndefined(value);
       }
@@ -67,7 +99,7 @@ export class ChatService {
     try {
       // Prevent creating a chat with yourself
       if (user1Id === user2Id) {
-        console.error('[ChatService] Cannot create chat with same user:', user1Id);
+        if (__DEV__) console.error('[ChatService] Cannot create chat with same user:', user1Id);
         throw new Error('Impossible de créer une conversation avec vous-même.');
       }
 
@@ -126,6 +158,7 @@ export class ChatService {
       let articleTitle: string | undefined;
       let articleImage: string | undefined;
       let articlePrice: number | undefined;
+      let articleSellerId: string | undefined;
       if (articleId) {
         const articleDoc = await getDoc(doc(firestore, 'articles', articleId));
         if (articleDoc.exists()) {
@@ -134,6 +167,7 @@ export class ChatService {
             articleTitle = articleData.title;
             articleImage = articleData.images?.[0]?.url;
             articlePrice = articleData.price;
+            articleSellerId = articleData.sellerId;
           }
         }
       }
@@ -145,26 +179,24 @@ export class ChatService {
       const user1Data = user1Doc.exists() ? user1Doc.data() : null;
       const user2Data = user2Doc.exists() ? user2Doc.data() : null;
 
-      const pickAvatar = (d: any): string | undefined =>
+      const pickAvatar = (d: DocumentData | null): string | undefined =>
         d?.profileImage || d?.photoURL || d?.avatarUrl || undefined;
 
-      const participant1Info: any = {
+      const participant1Info: ChatParticipant = {
         userId: user1Id,
         userName:
           (user1Data?.displayName || user1Data?.email || 'Utilisateur') as string,
+        ...(pickAvatar(user1Data) ? { userImage: pickAvatar(user1Data) } : {}),
       };
-      const av1 = pickAvatar(user1Data);
-      if (av1) participant1Info.userImage = av1;
 
-      const participant2Info: any = {
+      const participant2Info: ChatParticipant = {
         userId: user2Id,
         userName:
           (user2Data?.displayName || user2Data?.email || 'Utilisateur') as string,
+        ...(pickAvatar(user2Data) ? { userImage: pickAvatar(user2Data) } : {}),
       };
-      const av2 = pickAvatar(user2Data);
-      if (av2) participant2Info.userImage = av2;
 
-      const newChatData: any = {
+      const newChatData: NewChatData = {
         participants: participantIds,
         participantsInfo: [participant1Info, participant2Info],
         unreadCount: {
@@ -174,6 +206,9 @@ export class ChatService {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
+
+      // sellerId: the article owner. Critical for the "Ventes" tab filter.
+      if (articleSellerId) newChatData.sellerId = articleSellerId;
       if (articleId) newChatData.articleId = articleId;
       if (articleTitle) newChatData.articleTitle = articleTitle;
       if (articleImage) newChatData.articleImage = articleImage;
@@ -188,16 +223,17 @@ export class ChatService {
       });
 
       const created = await getDoc(chatRef);
-      const createdData = created.data() ?? newChatData;
+      const createdData = created.data() as DocumentData | undefined;
       return {
         id: chatId,
-        ...createdData,
-        createdAt: createdData.createdAt?.toDate?.() || new Date(),
-        updatedAt: createdData.updatedAt?.toDate?.() || new Date(),
-        lastMessageTimestamp: createdData.lastMessageTimestamp?.toDate?.(),
+        ...(createdData ?? newChatData),
+        createdAt: createdData?.createdAt?.toDate?.() || new Date(),
+        updatedAt: createdData?.updatedAt?.toDate?.() || new Date(),
+        lastMessageTimestamp: createdData?.lastMessageTimestamp?.toDate?.(),
       } as Chat;
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la création du chat: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de la création du chat: ${message}`);
     }
   }
 
@@ -216,17 +252,17 @@ export class ChatService {
     receiverId: string,
     type: MessageType,
     content: string,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<string> {
     try {
       // Validate that the current Firebase user matches senderId
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        console.error('[ChatService] No authenticated Firebase user');
+        if (__DEV__) console.error('[ChatService] No authenticated Firebase user');
         throw new Error('Non authentifié');
       }
       if (currentUser.uid !== senderId) {
-        console.error('[ChatService] sendMessageWithType auth mismatch - Firebase UID:', currentUser.uid, 'senderId:', senderId);
+        if (__DEV__) console.error('[ChatService] sendMessageWithType auth mismatch - Firebase UID:', currentUser.uid, 'senderId:', senderId);
         throw new Error('Session invalide');
       }
 
@@ -269,9 +305,10 @@ export class ChatService {
       try {
         docRef = await addDoc(messagesRef, messageData);
         if (__DEV__) console.log('[ChatService] Message created successfully with ID:', docRef.id);
-      } catch (messageError: any) {
-        console.error('[ChatService] Failed to create message:', messageError.code, messageError.message);
-        throw new Error(`Erreur création message: ${messageError.code} - ${messageError.message}`);
+      } catch (messageError) {
+        const errObj = messageError as { code?: string; message?: string };
+        if (__DEV__) console.error('[ChatService] Failed to create message:', errObj.code, errObj.message);
+        throw new Error(`Erreur création message: ${errObj.code} - ${errObj.message}`);
       }
 
       // Update chat with last message
@@ -280,7 +317,7 @@ export class ChatService {
 
       // SECURITY: atomic increment avoids race condition when multiple messages
       // arrive nearly simultaneously (read+1 pattern would lose updates).
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         lastMessage: content || '',
         lastMessageType: type,
         lastMessageTimestamp: serverTimestamp(),
@@ -293,15 +330,17 @@ export class ChatService {
       try {
         await updateDoc(chatRef, updateData);
         if (__DEV__) console.log('[ChatService] Chat updated successfully');
-      } catch (chatError: any) {
-        console.error('[ChatService] Failed to update chat:', chatError.code, chatError.message);
-        throw new Error(`Erreur mise à jour chat: ${chatError.code} - ${chatError.message}`);
+      } catch (chatError) {
+        const errObj = chatError as { code?: string; message?: string };
+        if (__DEV__) console.error('[ChatService] Failed to update chat:', errObj.code, errObj.message);
+        throw new Error(`Erreur mise à jour chat: ${errObj.code} - ${errObj.message}`);
       }
 
       return docRef.id;
-    } catch (error: any) {
-      console.error('[ChatService] sendMessageWithType error:', error);
-      throw new Error(`Erreur lors de l'envoi du message: ${error.message}`);
+    } catch (error) {
+      if (__DEV__) console.error('[ChatService] sendMessageWithType error:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de l'envoi du message: ${message}`);
     }
   }
 
@@ -370,8 +409,9 @@ export class ChatService {
           },
         }
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de l'envoi de l'image: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de l'envoi de l'image: ${message}`);
     }
   }
 
@@ -381,14 +421,14 @@ export class ChatService {
     receiverId: string,
     amount: number,
     message?: string,
-    shippingAddress?: any,
-    shippingEstimate?: any
+    shippingAddress?: ShippingAddress,
+    shippingEstimate?: ShippingEstimate
   ): Promise<string> {
     try {
-      const totalAmount = shippingEstimate 
-        ? amount + shippingEstimate.amount 
+      const totalAmount = shippingEstimate
+        ? amount + shippingEstimate.amount
         : amount;
-      
+
       let content = `Offre de ${amount} $`;
       if (shippingEstimate) {
         content += ` + ${shippingEstimate.amount} $ de livraison (${shippingEstimate.carrier})`;
@@ -396,13 +436,13 @@ export class ChatService {
       if (message) {
         content += '\n' + message;
       }
-      
-      const offerData: any = {
+
+      const offerData: OfferData = {
         amount,
         status: 'pending',
         totalAmount,
       };
-      
+
       // Only add optional fields if they exist
       if (message) {
         offerData.message = message;
@@ -413,7 +453,7 @@ export class ChatService {
       if (shippingEstimate) {
         offerData.shippingEstimate = shippingEstimate;
       }
-      
+
       return await this.sendMessageWithType(
         chatId,
         senderId,
@@ -424,8 +464,9 @@ export class ChatService {
           offer: offerData,
         }
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de l'envoi de l'offre: ${error.message}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de l'envoi de l'offre: ${msg}`);
     }
   }
 
@@ -450,7 +491,7 @@ export class ChatService {
           participants = (chatDoc.data().participants as string[]) || [];
         }
       } catch (lookupError) {
-        console.warn('[ChatService] Could not load chat participants for shipping label:', lookupError);
+        if (__DEV__) console.warn('[ChatService] Could not load chat participants for shipping label:', lookupError);
       }
 
       const messageData = {
@@ -474,8 +515,9 @@ export class ChatService {
       const docRef = await addDoc(messagesRef, messageData);
 
       return docRef.id;
-    } catch (error: any) {
-      throw new Error(`Erreur lors de l'envoi de l'étiquette: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de l'envoi de l'étiquette: ${message}`);
     }
   }
 
@@ -494,16 +536,17 @@ export class ChatService {
       // Send system message
       const messageDoc = await getDoc(messageRef);
       if (messageDoc.exists()) {
-        const messageData = messageDoc.data();
-        if (messageData?.offer) {
+        const msgData = messageDoc.data();
+        if (msgData?.offer) {
           await this.sendSystemMessage(
             chatId,
-            `Offre de ${messageData.offer.amount} $ acceptée 🎉`
+            `Offre de ${msgData.offer.amount} $ acceptée`
           );
         }
       }
-    } catch (error: any) {
-      throw new Error(`Erreur lors de l'acceptation de l'offre: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de l'acceptation de l'offre: ${message}`);
     }
   }
 
@@ -522,16 +565,17 @@ export class ChatService {
       // Send system message
       const messageDoc = await getDoc(messageRef);
       if (messageDoc.exists()) {
-        const messageData = messageDoc.data();
-        if (messageData?.offer) {
+        const msgData = messageDoc.data();
+        if (msgData?.offer) {
           await this.sendSystemMessage(
             chatId,
-            `Offre de ${messageData.offer.amount}$ refusée ❌`
+            `Offre de ${msgData.offer.amount} $ refusée`
           );
         }
       }
-    } catch (error: any) {
-      throw new Error(`Erreur lors du refus de l'offre: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors du refus de l'offre: ${message}`);
     }
   }
 
@@ -557,11 +601,11 @@ export class ChatService {
         throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.');
       }
       if (currentUser.uid !== senderId) {
-        console.error('[ChatService] Auth mismatch - Firebase UID:', currentUser.uid, 'senderId:', senderId);
+        if (__DEV__) console.error('[ChatService] Auth mismatch - Firebase UID:', currentUser.uid, 'senderId:', senderId);
         throw new Error('Session expirée. Veuillez vous reconnecter.');
       }
       if (!receiverId || receiverId === senderId) {
-        console.error('[ChatService] Invalid receiverId:', receiverId, 'senderId:', senderId);
+        if (__DEV__) console.error('[ChatService] Invalid receiverId:', receiverId, 'senderId:', senderId);
         throw new Error('Destinataire invalide.');
       }
 
@@ -584,14 +628,14 @@ export class ChatService {
       };
 
       // Format readable content for chat display
-      let content = `Offre de ${amount}$\n`;
+      let content = `Offre de ${amount} $\n`;
       content += meetupLocation.name;
       if (message) {
         content += `\n${message}`;
       }
 
       // Build offerData without undefined fields (Firestore rejects undefined)
-      const offerData: Record<string, any> = {
+      const offerData: OfferData = {
         amount,
         status: 'pending' as OfferStatus,
         meetup: stripUndefined(meetupDetails),
@@ -611,8 +655,9 @@ export class ChatService {
         content,
         { offer: offerData }
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de l'envoi de l'offre meetup: ${error.message}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de l'envoi de l'offre meetup: ${msg}`);
     }
   }
 
@@ -674,14 +719,14 @@ export class ChatService {
         minute: '2-digit',
       });
 
-      let content = `🔄 Contre-offre: ${newAmount}$\n`;
-      content += `📍 ${meetupDetails.location.name}\n`;
-      content += `📅 ${formattedDate} à ${formattedTime}`;
+      let content = `Contre-offre: ${newAmount} $\n`;
+      content += `${meetupDetails.location.name}\n`;
+      content += `${formattedDate} a ${formattedTime}`;
       if (message) {
-        content += `\n💬 ${message}`;
+        content += `\n${message}`;
       }
 
-      const counterOfferData: Record<string, any> = {
+      const counterOfferData: OfferData = {
         amount: newAmount,
         status: 'pending' as OfferStatus,
         meetup: stripUndefined(meetupDetails),
@@ -697,7 +742,7 @@ export class ChatService {
       // Send system message about counter-offer
       await this.sendSystemMessage(
         chatId,
-        `Contre-offre: ${originalOffer.amount}$ → ${newAmount}$`
+        `Contre-offre: ${originalOffer.amount} $ → ${newAmount} $`
       );
 
       return await this.sendMessageWithType(
@@ -708,8 +753,9 @@ export class ChatService {
         content,
         { offer: counterOfferData }
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la contre-offre prix: ${error.message}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de la contre-offre prix: ${msg}`);
     }
   }
 
@@ -775,15 +821,15 @@ export class ChatService {
         minute: '2-digit',
       });
 
-      let content = `📍 Nouveau lieu proposé\n`;
-      content += `💰 ${originalOffer.amount}$\n`;
-      content += `📍 ${newLocation.name}\n`;
-      content += `📅 ${formattedDate} à ${formattedTime}`;
+      let content = `Nouveau lieu propose\n`;
+      content += `${originalOffer.amount} $\n`;
+      content += `${newLocation.name}\n`;
+      content += `${formattedDate} a ${formattedTime}`;
       if (message) {
-        content += `\n💬 ${message}`;
+        content += `\n${message}`;
       }
 
-      const counterOfferData: Record<string, any> = {
+      const counterOfferData: OfferData = {
         amount: originalOffer.amount,
         status: 'pending' as OfferStatus,
         meetup: stripUndefined(newMeetupDetails),
@@ -798,7 +844,7 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `Nouveau lieu proposé: ${newLocation.name}`
+        `Nouveau lieu propose: ${newLocation.name}`
       );
 
       return await this.sendMessageWithType(
@@ -809,8 +855,9 @@ export class ChatService {
         content,
         { offer: counterOfferData }
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la contre-offre lieu: ${error.message}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de la contre-offre lieu: ${msg}`);
     }
   }
 
@@ -875,15 +922,15 @@ export class ChatService {
         minute: '2-digit',
       });
 
-      let content = `📅 Nouvel horaire proposé\n`;
-      content += `💰 ${originalOffer.amount}$\n`;
-      content += `📍 ${originalOffer.meetup.location.name}\n`;
-      content += `📅 ${formattedDate} à ${formattedTime}`;
+      let content = `Nouvel horaire propose\n`;
+      content += `${originalOffer.amount} $\n`;
+      content += `${originalOffer.meetup.location.name}\n`;
+      content += `${formattedDate} a ${formattedTime}`;
       if (message) {
-        content += `\n💬 ${message}`;
+        content += `\n${message}`;
       }
 
-      const counterOfferData: Record<string, any> = {
+      const counterOfferData: OfferData = {
         amount: originalOffer.amount,
         status: 'pending' as OfferStatus,
         meetup: stripUndefined(newMeetupDetails),
@@ -898,7 +945,7 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `Nouvel horaire proposé: ${formattedDate} à ${formattedTime}`
+        `Nouvel horaire propose: ${formattedDate} a ${formattedTime}`
       );
 
       return await this.sendMessageWithType(
@@ -909,8 +956,9 @@ export class ChatService {
         content,
         { offer: counterOfferData }
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la contre-offre horaire: ${error.message}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de la contre-offre horaire: ${msg}`);
     }
   }
 
@@ -954,10 +1002,11 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `✅ Meetup confirmé!\n📍 ${offer.meetup.location.name}\n📅 ${formattedDate} à ${formattedTime}`
+        `Meetup confirme!\n${offer.meetup.location.name}\n${formattedDate} a ${formattedTime}`
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la confirmation du meetup: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de la confirmation du meetup: ${message}`);
     }
   }
 
@@ -982,10 +1031,11 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `⚠️ No-show signalé. Notre équipe va examiner la situation.`
+        `No-show signale. Notre equipe va examiner la situation.`
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors du signalement no-show: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors du signalement no-show: ${message}`);
     }
   }
 
@@ -1006,10 +1056,11 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `🎉 Transaction complétée avec succès! Merci d'utiliser Freepe.`
+        `Transaction completee avec succes! Merci d'utiliser Second.`
       );
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la complétion du meetup: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de la completion du meetup: ${message}`);
     }
   }
 
@@ -1024,7 +1075,7 @@ export class ChatService {
           participants = (chatDoc.data().participants as string[]) || [];
         }
       } catch (lookupError) {
-        console.warn('[ChatService] Could not load chat participants for system message:', lookupError);
+        if (__DEV__) console.warn('[ChatService] Could not load chat participants for system message:', lookupError);
       }
 
       const messageData = {
@@ -1043,8 +1094,9 @@ export class ChatService {
       const docRef = await addDoc(messagesRef, messageData);
 
       return docRef.id;
-    } catch (error: any) {
-      throw new Error(`Erreur lors de l'envoi du message système: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de l'envoi du message systeme: ${message}`);
     }
   }
 
@@ -1069,8 +1121,9 @@ export class ChatService {
         updatedAt: chatData.updatedAt?.toDate() || new Date(),
         lastMessageTimestamp: chatData.lastMessageTimestamp?.toDate(),
       } as Chat;
-    } catch (error: any) {
-      throw new Error(`Erreur lors de la récupération du chat: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors de la recuperation du chat: ${message}`);
     }
   }
 
@@ -1093,15 +1146,15 @@ export class ChatService {
     return onSnapshot(
       q,
       (querySnapshot) => {
-      const messages: Message[] = [];
-        querySnapshot.forEach((docSnap: any) => {
+        const messages: Message[] = [];
+        querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
-        messages.push({
-          id: docSnap.id,
+          messages.push({
+            id: docSnap.id,
             ...data,
             timestamp: data.timestamp?.toDate() || new Date(),
-        } as Message);
-      });
+          } as Message);
+        });
         onUpdate(messages);
       },
       (error) => {
@@ -1159,17 +1212,17 @@ export class ChatService {
     return onSnapshot(
       q,
       (querySnapshot) => {
-      const chats: Chat[] = [];
-        querySnapshot.forEach((docSnap: any) => {
-        const chatData = docSnap.data();
+        const chats: Chat[] = [];
+        querySnapshot.forEach((docSnap) => {
+          const chatData = docSnap.data();
           if (chatData) {
-        chats.push({
-          id: docSnap.id,
-          ...chatData,
+            chats.push({
+              id: docSnap.id,
+              ...chatData,
               createdAt: chatData.createdAt?.toDate() || new Date(),
               updatedAt: chatData.updatedAt?.toDate() || new Date(),
-          lastMessageTimestamp: chatData.lastMessageTimestamp?.toDate(),
-        } as Chat);
+              lastMessageTimestamp: chatData.lastMessageTimestamp?.toDate(),
+            } as Chat);
           }
         });
         onUpdate(chats);
@@ -1196,7 +1249,7 @@ export class ChatService {
       const querySnapshot = await getDocs(q);
       const updatePromises: Promise<void>[] = [];
 
-      querySnapshot.forEach((docSnap: any) => {
+      querySnapshot.forEach((docSnap) => {
         updatePromises.push(
           updateDoc(doc(firestore, 'messages', docSnap.id), {
             isRead: true,
@@ -1212,8 +1265,9 @@ export class ChatService {
       await updateDoc(chatRef, {
         [`unreadCount.${userId}`]: 0,
       });
-    } catch (error: any) {
-      throw new Error(`Erreur lors du marquage comme lu: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Erreur lors du marquage comme lu: ${message}`);
     }
   }
 
@@ -1226,8 +1280,8 @@ export class ChatService {
         return chatData?.unreadCount?.[userId] || 0;
       }
       return 0;
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération du count non lu:', error);
+    } catch (error) {
+      if (__DEV__) console.error('Erreur lors de la recuperation du count non lu:', error);
       return 0;
     }
   }

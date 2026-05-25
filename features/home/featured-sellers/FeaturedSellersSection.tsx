@@ -90,7 +90,7 @@ const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
   };
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(`/seller/${seller.id}` as any);
+    router.push(`/user/${seller.id}`);
   };
   const handleLikePress = () => {
     heartScale.value = withSpring(1.3, animations.spring.bouncy);

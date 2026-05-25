@@ -3,7 +3,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Alert,
@@ -61,6 +61,11 @@ export default function ChatScreen() {
 
   const { id: chatId } = useLocalSearchParams<{ id: string }>();
   const user = useUser();
+
+  // Auth gate: redirect guests to profile tab (which shows the auth sheet)
+  if (!user) {
+    return <Redirect href="/(tabs)/profile" />;
+  }
 
   const {
     messages,
@@ -150,13 +155,14 @@ export default function ChatScreen() {
   }, [sendImage]);
 
   const handleMakeOffer = useCallback(() => {
-    if (!chat?.articlePrice) {
+    const currentPrice = article?.price ?? chat?.articlePrice;
+    if (!currentPrice) {
       Alert.alert('Erreur', 'Aucun article associe a cette conversation');
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
-  }, [chat?.articlePrice]);
+  }, [article?.price, chat?.articlePrice]);
 
   const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
@@ -220,6 +226,7 @@ export default function ChatScreen() {
             isOwnMessage={isOwnMessage}
             chatId={chatId || ''}
             currentUserId={user?.id || ''}
+            articlePrice={article?.price ?? chat?.articlePrice}
             onAcceptOffer={handleAcceptOffer}
             onRejectOffer={handleRejectOffer}
           />
@@ -234,7 +241,7 @@ export default function ChatScreen() {
         />
       );
     },
-    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar],
+    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar, article?.price, chat?.articlePrice],
   );
 
   // ─── Loading state ───
@@ -260,7 +267,7 @@ export default function ChatScreen() {
       <ChatHeader
         otherParticipant={otherParticipant}
         otherAvatar={otherAvatar}
-        articlePrice={chat?.articlePrice}
+        articlePrice={article?.price ?? chat?.articlePrice}
         onMoreOptions={handleMoreOptions}
       />
 
@@ -268,7 +275,8 @@ export default function ChatScreen() {
         <ChatArticleBar
           article={article}
           articleTitle={chat?.articleTitle}
-          articlePrice={chat?.articlePrice}
+          articlePrice={article.price}
+          snapshotPrice={chat?.articlePrice}
         />
       )}
 
@@ -312,12 +320,12 @@ export default function ChatScreen() {
         />
       </KeyboardAvoidingView>
 
-      {chat?.articlePrice && (
+      {(article?.price ?? chat?.articlePrice) && (
         <MakeOfferModal
           ref={makeOfferModalRef}
-          articleId={chat.articleId || ''}
-          articleTitle={chat.articleTitle || ''}
-          currentPrice={chat.articlePrice}
+          articleId={chat?.articleId || ''}
+          articleTitle={chat?.articleTitle || ''}
+          currentPrice={article?.price ?? chat?.articlePrice ?? 0}
           sellerNeighborhood={article?.neighborhood}
           sellerPreferredSpots={article?.preferredMeetupSpots}
           onMeetupOfferSubmit={handleMeetupOfferSubmit}

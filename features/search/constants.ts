@@ -4,13 +4,13 @@
 
 export const CONDITION_ITEMS = [
   { value: 'neuf', label: 'Neuf' },
-  { value: 'très bon état', label: 'Tres bon etat' },
-  { value: 'bon état', label: 'Bon etat' },
+  { value: 'très bon état', label: 'Très bon état' },
+  { value: 'bon état', label: 'Bon état' },
   { value: 'satisfaisant', label: 'Satisfaisant' },
 ];
 
 export const SORT_ITEMS = [
-  { value: 'recent', label: 'Plus recents' },
+  { value: 'recent', label: 'Plus récents' },
   { value: 'price_asc', label: 'Prix croissant' },
-  { value: 'price_desc', label: 'Prix decroissant' },
+  { value: 'price_desc', label: 'Prix décroissant' },
 ];

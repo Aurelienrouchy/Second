@@ -88,6 +88,7 @@ async function _getTrendingBrands(): Promise<TrendingBrand[]> {
     .collection('articles')
     .where('isActive', '==', true)
     .where('isSold', '==', false)
+    .limit(500)
     .get();
 
   const brandCounts = new Map<string, number>();
@@ -103,29 +104,25 @@ async function _getTrendingBrands(): Promise<TrendingBrand[]> {
 }
 
 async function _getPriceDrops(): Promise<PriceDropArticle[]> {
+  // Use a targeted query with composite index instead of full-scan + client filter.
+  // Requires index: {isActive ASC, isSold ASC, lastPriceDropAt DESC}
   const snapshot = await db
     .collection('articles')
     .where('isActive', '==', true)
     .where('isSold', '==', false)
-    .limit(100)
+    .where('lastPriceDropAt', '!=', null)
+    .orderBy('lastPriceDropAt', 'desc')
+    .limit(20)
     .get();
 
-  const filtered = snapshot.docs.filter((doc) => {
-    const data = doc.data();
-    return (
-      (data.lastPriceDropAt !== undefined && data.lastPriceDropAt !== null) ||
-      data.promotionActive === true
-    );
-  });
-
-  if (filtered.length === 0) return [];
+  if (snapshot.docs.length === 0) return [];
 
   // Single batch read for all sellers — no N+1
   const sellerMap = await batchFetchSellerNames(
-    filtered.map((d) => d.data().sellerId)
+    snapshot.docs.map((d) => d.data().sellerId)
   );
 
-  const items: PriceDropArticle[] = filtered.map((doc) => {
+  const items: PriceDropArticle[] = snapshot.docs.map((doc) => {
     const data = doc.data();
     const originalPrice = data.originalPrice || data.price;
     const reductionPercent = Math.round(
@@ -144,13 +141,11 @@ async function _getPriceDrops(): Promise<PriceDropArticle[]> {
     };
   });
 
-  return items
-    .sort((a, b) => {
-      const aP = parseInt(a.reduction.replace(/[^0-9]/g, ''), 10) || 0;
-      const bP = parseInt(b.reduction.replace(/[^0-9]/g, ''), 10) || 0;
-      return bP - aP;
-    })
-    .slice(0, 20);
+  return items.sort((a, b) => {
+    const aP = parseInt(a.reduction.replace(/[^0-9]/g, ''), 10) || 0;
+    const bP = parseInt(b.reduction.replace(/[^0-9]/g, ''), 10) || 0;
+    return bP - aP;
+  });
 }
 
 async function _getFeaturedSellers(): Promise<FeaturedSeller[]> {

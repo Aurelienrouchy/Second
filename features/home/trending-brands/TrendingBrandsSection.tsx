@@ -89,7 +89,7 @@ const BrandCircle = React.memo<BrandCircleProps>(({ brand, index }) => {
   };
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({ pathname: '/search', params: { brand: brand.name } });
+    router.push({ pathname: '/search', params: { brands: brand.name } });
   }, [brand.name]);
 
   return (
@@ -97,29 +97,32 @@ const BrandCircle = React.memo<BrandCircleProps>(({ brand, index }) => {
       entering={FadeInDown.duration(400).delay(100 + index * 50)}
       style={styles.brandWrapper}
     >
-      <Pressable
-        style={[styles.brandContainer, animatedStyle]}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        onPress={handlePress}
-      >
-        <LinearGradient
-          colors={gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.brandCircle}
+      <Animated.View style={[styles.brandContainer, animatedStyle]}>
+        <Pressable
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onPress={handlePress}
         >
-          <Text style={styles.brandInitial}>{initial}</Text>
-        </LinearGradient>
+          <View style={styles.brandContainerInner}>
+            <LinearGradient
+              colors={gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.brandCircle}
+            >
+              <Text style={styles.brandInitial}>{initial}</Text>
+            </LinearGradient>
 
-        <Text style={styles.brandName} numberOfLines={1} ellipsizeMode="tail">
-          {brand.name}
-        </Text>
+            <Text style={styles.brandName} numberOfLines={1} ellipsizeMode="tail">
+              {brand.name}
+            </Text>
 
-        <Text style={styles.brandArticleCount}>
-          {brand.articleCount} {brand.articleCount === 1 ? 'article' : 'articles'}
-        </Text>
-      </Pressable>
+            <Text style={styles.brandArticleCount}>
+              {brand.articleCount} {brand.articleCount === 1 ? 'article' : 'articles'}
+            </Text>
+          </View>
+        </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 });
@@ -206,6 +209,8 @@ const styles = StyleSheet.create({
   },
   brandContainer: {
     width: CIRCLE_SIZE,
+  },
+  brandContainerInner: {
     alignItems: 'center',
   },
   brandCircle: {

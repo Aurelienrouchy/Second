@@ -179,6 +179,24 @@
       ]
     },
     {
+      "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isSold",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastPriceDropAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "search_index",
       "queryScope": "COLLECTION",
       "fields": [

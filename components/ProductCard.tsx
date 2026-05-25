@@ -36,6 +36,7 @@ import { animations, colors, fonts, radius, spacing } from '@/constants/theme';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
+import { formatPrice } from '@/utils/formatPrice';
 
 import { CARD_WIDTH, COMPACT_CARD_WIDTH } from './ProductCard.constants';
 
@@ -247,7 +248,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         onPressOut={handlePressOut}
         onPress={handlePress}
         testID={testID || `product-card-${product.id}`}
-        accessibilityLabel={`${product.title}, ${product.price}$`}
+        accessibilityLabel={`${product.title}, ${formatPrice(product.price)}`}
         accessibilityRole="button"
         disabled={isLoading}
       >
@@ -303,7 +304,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Footer: Price | Size + Condition */}
           <View style={styles.footer}>
-            <Text style={styles.price}>${product.price.toFixed(0)}</Text>
+            <Text style={styles.price}>{formatPrice(product.price)}</Text>
             <View style={styles.footerRight}>
               {product.size && (
                 <View style={styles.sizePill}>
