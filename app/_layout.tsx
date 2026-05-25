@@ -3,22 +3,24 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import AuthBottomSheet from '@/components/AuthBottomSheet';
-import { useUser } from '@/contexts/AuthContext';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { useAuthListener } from '@/hooks/useAuthListener';
 import { useChatListener } from '@/hooks/useChatListener';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
+import { useAuthStore } from '@/store/authStore';
 import { colors } from '@/constants/theme';
 import { queryClient } from '@/lib/queryClient';
+import { STRIPE_PUBLISHABLE_KEY } from '@/config/stripeConfig';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-// Helcim payment is handled via WebView (HelcimPay.js) — no native provider needed
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -95,7 +97,9 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
             <ThemeProvider value={CustomNavigationTheme}>
-              <AppContent />
+              <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+                <AppContent />
+              </StripeProvider>
             </ThemeProvider>
           </GestureHandlerRootView>
         </SafeAreaProvider>
@@ -105,28 +109,45 @@ export default function RootLayout() {
 }
 
 /**
- * AppContent — lives inside AuthProvider so hooks can access useAuth.
+ * GlobalListeners — side-effect hooks that subscribe to external state
+ * (auth, chat, notifications, deep links).
  *
- * Notifications : Zustand store + useNotificationSetup (plus de Context)
- * Deep linking  : useDeepLinking + Expo Router (file-based routing automatique)
+ * Isolated in its own component so that store-driven re-renders do NOT
+ * propagate to the NavigationContainer (Stack).  The warning
+ * "Can't perform a React state update on a component that hasn't mounted
+ * yet" was caused by useUser() living in the same component as <Stack>,
+ * which made auth-hydration re-render the navigator while its internal
+ * useLinking getInitialState Promise was still in flight.
  */
-function AppContent() {
+const GlobalListeners = React.memo(function GlobalListeners() {
   // ── Auth : Firebase listener + AsyncStorage bootstrap (single source) ──
   useAuthListener();
 
   // ── Chat list : single global listener (replaces ChatContext + useChats) ──
   useChatListener();
 
-  const user = useUser();
-
   // ── Push notifications : listeners, channels, badge, token ──
-  useNotificationSetup(user?.id ?? null);
+  // Read userId reactively so the notification setup re-runs on sign-in/out.
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  useNotificationSetup(userId);
 
   // ── Deep linking : custom URL patterns (Expo Router gère le reste) ──
   useDeepLinking();
 
+  return null;
+});
+
+/**
+ * AppContent — navigator tree + global overlays.
+ *
+ * This component owns ONLY the navigator and the overlays rendered
+ * alongside it.  All side-effect hooks live in <GlobalListeners> above
+ * so that their state changes never re-render the Stack/NavigationContainer.
+ */
+function AppContent() {
   return (
     <BottomSheetModalProvider>
+            <GlobalListeners />
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -162,7 +183,7 @@ function AppContent() {
               <Stack.Screen name="settings" />
               <Stack.Screen
                 name="sell"
-                options={{ animation: 'slide_from_bottom' }}
+                options={{ animation: 'fade_from_bottom' }}
               />
               {/* admin/* routes live under app/admin/_layout.tsx (centralised guard) */}
               <Stack.Screen name="admin" />
@@ -174,6 +195,8 @@ function AppContent() {
             <StatusBar style="dark" />
             {/* Global auth bottom sheet — driven by authSheetStore. */}
             <AuthBottomSheet />
+            {/* Global offline indicator — slides down when connectivity is lost. */}
+            <OfflineBanner />
     </BottomSheetModalProvider>
   );
 }
