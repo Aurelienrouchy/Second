@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MeetupNeighborhood, MeetupSpot } from '@/types';
@@ -65,7 +65,10 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 
     const handleSheetChanges = useCallback(
       (index: number) => {
-        if (index === -1) setIsOpen(false);
+        if (index === -1) {
+          Keyboard.dismiss();
+          setIsOpen(false);
+        }
       },
       []
     );
@@ -167,7 +170,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
         containerStyle={styles.bottomSheetContainer}
         topInset={insets.top}
         enableDynamicSizing={false}
-        keyboardBehavior="interactive"
+        keyboardBehavior="fillParent"
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
       >
