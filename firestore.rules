@@ -458,14 +458,25 @@ service cloud.firestore {
                      (resource.data.initiatorId == request.auth.uid ||
                       resource.data.receiverId == request.auth.uid);
 
-      // Initiator can create a swap
-      allow create: if isAuthenticated() &&
-                       request.resource.data.initiatorId == request.auth.uid;
+      // Only Cloud Functions can create swaps (proposeMultiSwap callable
+      // validates article availability and blocking status via Admin SDK)
+      allow create: if false;
 
-      // Participants can update their swap (accept, decline, add photos, etc.)
+      // Participants can update their swap with strict field and status transition rules
       allow update: if isAuthenticated() &&
                        (resource.data.initiatorId == request.auth.uid ||
-                        resource.data.receiverId == request.auth.uid);
+                        resource.data.receiverId == request.auth.uid) &&
+                       // Immutable fields
+                       request.resource.data.initiatorId == resource.data.initiatorId &&
+                       request.resource.data.receiverId == resource.data.receiverId &&
+                       // Only allow specific field changes
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'updatedAt', 'declinedBy', 'declinedAt', 'completedAt']) &&
+                       // Status transitions: only receiver can accept, either party can decline
+                       (request.resource.data.status == resource.data.status ||
+                        (resource.data.status == 'proposed' && request.resource.data.status == 'accepted' && request.auth.uid == resource.data.receiverId) ||
+                        (resource.data.status == 'proposed' && request.resource.data.status == 'declined') ||
+                        (resource.data.status == 'accepted' && request.resource.data.status == 'completed'));
 
       // Only initiator can delete (cancel) a pending swap
       allow delete: if isAuthenticated() &&
@@ -527,9 +538,9 @@ service cloud.firestore {
       // Any authenticated user can read reviews
       allow read: if isAuthenticated();
 
-      // Only the reviewer can create their own review
-      allow create: if isAuthenticated() &&
-                       request.auth.uid == request.resource.data.reviewerId;
+      // Only Cloud Functions can create reviews (createReview callable validates
+      // transaction completion and party membership via Admin SDK)
+      allow create: if false;
 
       // No client modification or deletion (managed by Cloud Functions)
       allow update, delete: if false;

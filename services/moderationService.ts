@@ -1,4 +1,4 @@
-import { firestore } from '@/config/firebaseConfig';
+import { auth, firestore } from '@/config/firebaseConfig';
 import {
   addDoc,
   arrayRemove,
@@ -255,20 +255,26 @@ export class ModerationService {
   }
 
   /**
-   * Vérifier si l'un des deux utilisateurs a bloqué l'autre
+   * Vérifier si l'un des deux utilisateurs a bloqué l'autre.
+   * Security rules restrict user doc reads to isOwner, so we can only check
+   * whether the CURRENT user has blocked the other user. The reverse direction
+   * (has the other user blocked us?) is enforced server-side by Cloud Functions.
    */
   static async areUsersBlocked(
     userId1: string,
     userId2: string
   ): Promise<boolean> {
     try {
-      const [blocked1, blocked2] = await Promise.all([
-        this.isUserBlocked(userId1, userId2),
-        this.isUserBlocked(userId2, userId1),
-      ]);
-      return blocked1 || blocked2;
+      const currentUserId = auth.currentUser?.uid;
+      if (!currentUserId) return false;
+
+      // Determine which ID is the "other" user
+      const otherUserId = currentUserId === userId1 ? userId2 : userId1;
+
+      // Only read our own doc (allowed by security rules)
+      return this.isUserBlocked(currentUserId, otherUserId);
     } catch (error) {
-      console.error('Error checking mutual block status:', error);
+      if (__DEV__) console.error('Error checking mutual block status:', error);
       return false;
     }
   }

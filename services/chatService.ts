@@ -1069,10 +1069,13 @@ export class ChatService {
       // Transition the linked transaction to meetup_confirmed.
       // Firestore rules only allow the seller (request.auth.uid == oldData.sellerId)
       // to perform meetup_pending → meetup_confirmed.
+      // We scope the query with sellerId == userId so Firestore security rules
+      // can verify access (rules require auth.uid == resource.data.sellerId).
       const txSnap = await getDocs(
         query(
           collection(firestore, 'transactions'),
           where('chatId', '==', chatId),
+          where('sellerId', '==', userId),
           where('status', '==', 'meetup_pending')
         )
       );
@@ -1143,10 +1146,13 @@ export class ChatService {
 
       // Find the transaction linked to this chat and call the CF
       // to credit the seller's balance.
+      // We scope the query with buyerId == userId so Firestore security rules
+      // can verify access (rules require auth.uid == resource.data.buyerId).
       const txSnap = await getDocs(
         query(
           collection(firestore, 'transactions'),
           where('chatId', '==', chatId),
+          where('buyerId', '==', userId),
           where('status', 'in', ['meetup_confirmed', 'meetup_pending'])
         )
       );
