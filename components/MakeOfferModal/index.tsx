@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
-import React, { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -56,6 +56,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
       mode: 'meetup',
     });
 
+    const [isOpen, setIsOpen] = useState(false);
     const snapPoints = useMemo(() => ['85%', '95%'], []);
 
     const resetState = useCallback(() => {
@@ -63,10 +64,8 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     }, []);
 
     const handleSheetChanges = useCallback(
-      (_index: number) => {
-        // Do NOT reset state on sheet close — preserve context so the user
-        // can reopen the modal and continue where they left off.
-        // State is reset only when presenting a brand-new offer via present().
+      (index: number) => {
+        if (index === -1) setIsOpen(false);
       },
       []
     );
@@ -89,13 +88,18 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 
     React.useImperativeHandle(ref, () => ({
       present: () => {
-        // Reset state for each new offer presentation
         resetState();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        bottomSheetRef.current?.expand();
+        setIsOpen(true);
       },
       dismiss: handleClose,
     }));
+
+    useEffect(() => {
+      if (isOpen) {
+        bottomSheetRef.current?.expand();
+      }
+    }, [isOpen]);
 
     const handleBack = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -149,10 +153,12 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     const currentIndex = meetupSteps.indexOf(state.step);
     const progress = { current: currentIndex + 1, total: meetupSteps.length };
 
+    if (!isOpen) return null;
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        index={-1}
+        index={0}
         snapPoints={snapPoints}
         onChange={handleSheetChanges}
         backdropComponent={renderBackdrop}
