@@ -47,6 +47,7 @@ export {
   checkTrackingStatus,
   requestWithdrawal,
   cancelPendingTransaction,
+  completeMeetupTransaction,
 } from './callable/payments';
 
 // Moments Functions
