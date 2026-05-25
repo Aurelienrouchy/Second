@@ -31,10 +31,10 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       return;
     }
 
-    if (amount >= currentPrice) {
+    if (amount > currentPrice) {
       Alert.alert(
         'Montant trop élevé',
-        'Votre offre doit être inférieure au prix actuel. Utilisez le bouton "Acheter" pour acheter au prix affiché.'
+        'Votre offre ne peut pas dépasser le prix affiché.'
       );
       return;
     }
