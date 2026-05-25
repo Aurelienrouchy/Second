@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 import { MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
@@ -77,7 +78,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       <View style={styles.inputSection}>
         <Text style={styles.label}>VOTRE OFFRE</Text>
         <View style={styles.amountInputContainer}>
-          <TextInput
+          <BottomSheetTextInput
             style={styles.amountInput}
             placeholder="0"
             keyboardType="decimal-pad"
@@ -98,7 +99,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
           <Text style={styles.label}>MESSAGE AU VENDEUR</Text>
           <Text style={styles.optionalLabel}>(optionnel)</Text>
         </View>
-        <TextInput
+        <BottomSheetTextInput
           style={styles.messageInput}
           placeholder="Expliquez pourquoi vous faites cette offre..."
           multiline

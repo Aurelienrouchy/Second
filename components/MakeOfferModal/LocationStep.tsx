@@ -5,9 +5,9 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 
 import {
@@ -182,7 +182,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
 
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={18} color={colors.muted} />
-          <TextInput
+          <BottomSheetTextInput
             style={styles.searchInput}
             placeholder="Rechercher un quartier..."
             value={searchQuery}
@@ -246,7 +246,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
 
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>NOM DU LIEU</Text>
-          <TextInput
+          <BottomSheetTextInput
             style={styles.textInput}
             placeholder="Ex: Café Olimpico, Station Laurier..."
             value={state.customSpotName}

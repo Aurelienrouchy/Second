@@ -167,6 +167,9 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
         containerStyle={styles.bottomSheetContainer}
         topInset={insets.top}
         enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
       >
         <BottomSheetScrollView style={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
