@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useUser, useAuthActions } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
@@ -27,7 +27,6 @@ import { Button } from '@/components/ui';
 export default function EmailSettingsScreen() {
   const router = useRouter();
   const user = useUser();
-  const { signOut } = useAuthActions();
 
   const [newEmail, setNewEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,6 +39,9 @@ export default function EmailSettingsScreen() {
 
   const provider = AuthService.getAuthProvider();
   const isPasswordUser = provider === 'password';
+  const isUnknownProvider = provider === 'unknown';
+  const isAppleOnAndroid = provider === 'apple.com' && Platform.OS !== 'ios';
+  const hasPasswordProvider = AuthService.hasPasswordProvider();
 
   const handleReauthSocial = async () => {
     setReauthLoading(true);
@@ -70,6 +72,16 @@ export default function EmailSettingsScreen() {
       return;
     }
 
+    if (isUnknownProvider) {
+      Alert.alert('Erreur', 'Impossible de déterminer votre méthode de connexion. Veuillez vous déconnecter et vous reconnecter.');
+      return;
+    }
+
+    if (isAppleOnAndroid && !hasPasswordProvider) {
+      Alert.alert('Erreur', 'Veuillez d\'abord ajouter un mot de passe à votre compte.');
+      return;
+    }
+
     if (!isPasswordUser && !reauthDone) {
       Alert.alert('Erreur', 'Veuillez d\'abord vérifier votre identité');
       return;
@@ -89,18 +101,17 @@ export default function EmailSettingsScreen() {
         await AuthService.reauthenticate(password);
       }
 
-      // 2. Mettre à jour l'email
+      // 2. Envoyer un email de vérification pour le changement
       await AuthService.updateEmail(newEmail.trim());
 
       Alert.alert(
-        'Succès',
-        'Votre adresse email a été mise à jour. Veuillez vous reconnecter avec votre nouvel email.',
+        'Vérification envoyée',
+        `Un email de vérification a été envoyé à ${newEmail.trim()}. Cliquez sur le lien dans cet email pour confirmer le changement.`,
         [
           {
             text: 'OK',
-            onPress: async () => {
-              await signOut();
-              router.replace('/(tabs)');
+            onPress: () => {
+              router.back();
             }
           }
         ]
@@ -179,7 +190,17 @@ export default function EmailSettingsScreen() {
             </View>
 
             {/* Re-authentication section */}
-            {isPasswordUser ? (
+            {isUnknownProvider ? (
+              <View style={styles.inputContainer}>
+                <Label style={styles.label}>Vérification d'identité</Label>
+                <View style={styles.unknownProviderBox}>
+                  <Ionicons name="alert-circle" size={20} color={colors.warning} />
+                  <Caption style={styles.unknownProviderText}>
+                    Impossible de déterminer votre méthode de connexion. Veuillez vous déconnecter et vous reconnecter, puis réessayez.
+                  </Caption>
+                </View>
+              </View>
+            ) : isPasswordUser ? (
               <View style={styles.inputContainer}>
                 <Label style={styles.label}>Mot de passe actuel</Label>
                 <View style={styles.passwordContainer}>
@@ -205,6 +226,28 @@ export default function EmailSettingsScreen() {
                 <Caption style={styles.helperText}>
                   Pour votre sécurité, confirmez votre mot de passe pour valider le changement.
                 </Caption>
+              </View>
+            ) : isAppleOnAndroid ? (
+              <View style={styles.inputContainer}>
+                <Label style={styles.label}>Vérification d'identité</Label>
+                <View style={styles.unknownProviderBox}>
+                  <Ionicons name="alert-circle" size={20} color={colors.warning} />
+                  <Caption style={styles.unknownProviderText}>
+                    La ré-authentification Apple n'est pas disponible sur Android. Veuillez ajouter un mot de passe à votre compte depuis un appareil iOS, puis revenez modifier votre email.
+                  </Caption>
+                </View>
+                {!hasPasswordProvider && (
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    onPress={() => router.push('/settings/add-password')}
+                    leftIcon={
+                      <Ionicons name="key-outline" size={18} color={colors.foreground} />
+                    }
+                  >
+                    Ajouter un mot de passe
+                  </Button>
+                )}
               </View>
             ) : (
               <View style={styles.inputContainer}>
@@ -244,7 +287,7 @@ export default function EmailSettingsScreen() {
           <View style={styles.securityBox}>
             <Ionicons name="shield-checkmark-outline" size={20} color={colors.success} />
             <Text variant="bodySmall" style={styles.securityText}>
-              Un email de confirmation sera envoyé à votre nouvelle adresse. Vous devrez vous reconnecter après le changement.
+              Un lien de vérification sera envoyé à votre nouvelle adresse. Le changement ne sera effectif qu'après avoir cliqué sur ce lien.
             </Text>
           </View>
         </ScrollView>
@@ -345,6 +388,18 @@ const styles = StyleSheet.create({
   reauthSuccessText: {
     color: colors.success,
     flex: 1,
+  },
+  unknownProviderBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.warningLight,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  unknownProviderText: {
+    flex: 1,
+    color: colors.foreground,
   },
   securityBox: {
     flexDirection: 'row',

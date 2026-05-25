@@ -1,4 +1,4 @@
-import { auth, firestore } from '@/config/firebaseConfig';
+import { auth, firestore, storage } from '@/config/firebaseConfig';
 import { User, UserPreferences } from '@/types';
 import {
   arrayRemove,
@@ -12,6 +12,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface ExportedUserData {
   exportedAt: string;
@@ -164,6 +165,26 @@ export class UserService {
     } catch (error) {
       if (__DEV__) console.error('Error updating user profile:', error);
       throw new Error('Erreur lors de la mise à jour du profil');
+    }
+  }
+
+  // ============================================
+  // PROFILE IMAGE UPLOAD
+  // ============================================
+
+  /**
+   * Upload une image de profil vers Firebase Storage et retourne l'URL de téléchargement.
+   */
+  static async uploadProfileImage(userId: string, localUri: string): Promise<string> {
+    try {
+      const response = await fetch(localUri);
+      const blob = await response.blob();
+      const imageRef = ref(storage, `users/${userId}/profile.jpg`);
+      await uploadBytes(imageRef, blob);
+      return await getDownloadURL(imageRef);
+    } catch (error) {
+      if (__DEV__) console.error('Error uploading profile image:', error);
+      throw new Error('Erreur lors de l\'upload de la photo de profil');
     }
   }
 

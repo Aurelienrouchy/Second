@@ -3,10 +3,10 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { updateProfile } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,7 +22,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { auth, storage } from '@/config/firebaseConfig';
+import { auth } from '@/config/firebaseConfig';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
@@ -33,11 +33,11 @@ export default function ProfileDetailsScreen() {
   const user = useUser();
   const { refreshUser } = useAuthActions();
 
+  const queryClient = useQueryClient();
+
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
-
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -88,11 +88,7 @@ export default function ProfileDetailsScreen() {
         profileImage.startsWith('file://') &&
         profileImage !== user.profileImage
       ) {
-        const response = await fetch(profileImage);
-        const blob = await response.blob();
-        const storageRef = ref(storage, `users/${user.id}/profile.jpg`);
-        await uploadBytes(storageRef, blob);
-        imageUrl = await getDownloadURL(storageRef);
+        imageUrl = await UserService.uploadProfileImage(user.id, profileImage);
       }
 
       const profileData: Record<string, unknown> = {
@@ -110,6 +106,9 @@ export default function ProfileDetailsScreen() {
       }
 
       await refreshUser();
+
+      queryClient.invalidateQueries({ queryKey: ['users', 'stats', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] });
 
       Alert.alert('Succès', 'Votre profil a été mis à jour', [
         { text: 'OK', onPress: () => router.back() }

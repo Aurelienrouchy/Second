@@ -156,11 +156,12 @@ export default function SettingsScreen() {
 
         {/* Paiements */}
         <SettingSection title="Paiements">
-          <SettingItem
+          {/* TODO: Réactiver quand l'intégration Helcim card vault sera prête */}
+          {/* <SettingItem
             icon="card-outline"
             title="Moyens de paiement"
             onPress={() => router.push('/settings/payments')}
-          />
+          /> */}
           <SettingItem
             icon="wallet-outline"
             title="Mon porte-monnaie"

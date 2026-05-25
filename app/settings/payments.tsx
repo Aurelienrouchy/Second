@@ -1,3 +1,6 @@
+// TODO: Implémenter avec Helcim tokenized card vault
+// Cet écran n'est pas accessible depuis le menu tant que l'intégration n'est pas prête
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';

@@ -18,6 +18,52 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '';
 
+interface AddressComponent {
+  long_name: string;
+  short_name: string;
+  types: string[];
+}
+
+interface PlaceDetails {
+  address_components: AddressComponent[];
+  formatted_address?: string;
+  geometry?: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+}
+
+const PLACES_STYLES = {
+  container: { flex: 0 },
+  textInputContainer: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.xs,
+  },
+  textInput: {
+    height: 44,
+    color: colors.foreground,
+    fontSize: 16,
+    fontFamily: fonts.sans,
+  },
+  listView: {
+    position: 'absolute' as const,
+    top: 50,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    elevation: 5,
+  },
+};
+
 export default function AddressSettingsScreen() {
   const router = useRouter();
   const user = useUser();
@@ -26,15 +72,15 @@ export default function AddressSettingsScreen() {
   
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleUpdateAddress = async (details: any) => {
+  const handleUpdateAddress = async (details: PlaceDetails | null) => {
     if (!user || !details) return;
 
-    const streetNumber = details.address_components.find((c: any) => c.types.includes('street_number'))?.long_name || '';
-    const route = details.address_components.find((c: any) => c.types.includes('route'))?.long_name || '';
-    const city = details.address_components.find((c: any) => c.types.includes('locality'))?.long_name || '';
-    const province = details.address_components.find((c: any) => c.types.includes('administrative_area_level_1'))?.short_name || '';
-    const postalCode = details.address_components.find((c: any) => c.types.includes('postal_code'))?.long_name || '';
-    const country = details.address_components.find((c: any) => c.types.includes('country'))?.long_name || '';
+    const streetNumber = details.address_components.find((c: AddressComponent) => c.types.includes('street_number'))?.long_name || '';
+    const route = details.address_components.find((c: AddressComponent) => c.types.includes('route'))?.long_name || '';
+    const city = details.address_components.find((c: AddressComponent) => c.types.includes('locality'))?.long_name || '';
+    const province = details.address_components.find((c: AddressComponent) => c.types.includes('administrative_area_level_1'))?.short_name || '';
+    const postalCode = details.address_components.find((c: AddressComponent) => c.types.includes('postal_code'))?.long_name || '';
+    const country = details.address_components.find((c: AddressComponent) => c.types.includes('country'))?.long_name || '';
 
     const streetAddress = `${streetNumber} ${route}`.trim();
     const fullAddress = details.formatted_address;
@@ -97,7 +143,7 @@ export default function AddressSettingsScreen() {
                 <View style={styles.addressDetails}>
                   <Text style={styles.addressText}>
                     {user.address.street ? `${user.address.street}, ` : ''}
-                    {user.address.postalCode} {user.address.city}
+                    {user.address.city}{user.address.province ? `, ${user.address.province}` : ''} {user.address.postalCode}
                   </Text>
                   <Text style={styles.countryText}>{user.address.country}</Text>
                 </View>
@@ -119,7 +165,7 @@ export default function AddressSettingsScreen() {
                 ref={addressRef}
                 placeholder="Rechercher une adresse..."
                 onPress={(data, details = null) => {
-                  handleUpdateAddress(details);
+                  handleUpdateAddress(details as PlaceDetails | null);
                 }}
                 query={{
                   key: GOOGLE_PLACES_API_KEY,
@@ -128,34 +174,7 @@ export default function AddressSettingsScreen() {
                   components: 'country:ca',
                 }}
                 fetchDetails={true}
-                styles={{
-                  container: { flex: 0 },
-                  textInputContainer: {
-                    backgroundColor: 'transparent',
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: radius.md,
-                    paddingHorizontal: spacing.xs,
-                  },
-                  textInput: {
-                    height: 44,
-                    color: colors.foreground,
-                    fontSize: 16,
-                    fontFamily: fonts.sans,
-                  },
-                  listView: {
-                    position: 'absolute',
-                    top: 50,
-                    left: 0,
-                    right: 0,
-                    zIndex: 1000,
-                    backgroundColor: colors.white,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: radius.sm,
-                    elevation: 5,
-                  },
-                }}
+                styles={PLACES_STYLES}
                 enablePoweredByContainer={false}
               />
             </View>
