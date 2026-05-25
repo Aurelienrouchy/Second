@@ -79,8 +79,8 @@ export const sendMessageNotification = onDocumentCreated(
           const amount = message.offer?.amount || 0;
           title = `Nouvelle offre de ${senderName}`;
           body = articleTitle
-            ? `${amount}€ pour "${articleTitle}"`
-            : `Offre de ${amount}€`;
+            ? `${amount} $ pour "${articleTitle}"`
+            : `Offre de ${amount} $`;
           notificationType = 'offer';
           break;
 
@@ -223,8 +223,8 @@ export const sendOfferStatusNotification = onDocumentUpdated(
         offerStatus === 'accepted' ? 'Offre acceptée !' : 'Offre refusée';
       const body =
         offerStatus === 'accepted'
-          ? `${sellerName} a accepté votre offre de ${amount}€`
-          : `${sellerName} a refusé votre offre de ${amount}€`;
+          ? `${sellerName} a accepté votre offre de ${amount} $`
+          : `${sellerName} a refusé votre offre de ${amount} $`;
 
       // Send notification to all buyer's devices
       const messages = fcmTokens.map((token: string) => ({

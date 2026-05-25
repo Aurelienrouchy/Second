@@ -7,7 +7,7 @@ import {
   orderBy,
   query,
   QueryDocumentSnapshot,
-  where
+  where,
 } from 'firebase/firestore';
 import { firestore } from '@/config/firebaseConfig';
 import { Article } from '@/types';
@@ -57,17 +57,7 @@ export class UserStatsService {
       const totalLikes = articles.reduce((sum, article) => sum + (article.likes || 0), 0);
 
       // Calculer les gains (pour les articles vendus)
-      let gainsTotal = 0;
-      for (const article of articles.filter(a => a.isSold)) {
-        // Recuperer les details de vente si disponibles
-        const venteRef = doc(firestore, 'ventes', article.id);
-        const venteDoc = await getDoc(venteRef);
-        if (venteDoc.exists()) {
-          gainsTotal += venteDoc.data().prixVente || article.price;
-        } else {
-          gainsTotal += article.price;
-        }
-      }
+      const gainsTotal = articles.filter(a => a.isSold).reduce((sum, a) => sum + (a.price || 0), 0);
 
       // Recuperer les avis du vendeur
       const avisRef = collection(firestore, 'avis');
@@ -81,7 +71,7 @@ export class UserStatsService {
 
       const nombreAvis = avis.length;
       const moyenneNote = nombreAvis > 0
-        ? avis.reduce((sum, avis) => sum + avis.note, 0) / nombreAvis
+        ? avis.reduce((sum, item) => sum + item.note, 0) / nombreAvis
         : 0;
 
       return {

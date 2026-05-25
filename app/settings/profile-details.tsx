@@ -108,16 +108,20 @@ export default function ProfileDetailsScreen() {
       await refreshUser();
 
       queryClient.invalidateQueries({ queryKey: ['users', 'stats', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['users', user.id] });
       queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] });
 
       Alert.alert('Succès', 'Votre profil a été mis à jour', [
         { text: 'OK', onPress: () => router.back() }
       ]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error updating profile:', error);
-      const message = error?.code === 'permission-denied'
+      const code = error != null && typeof error === 'object' && 'code' in error
+        ? (error as { code: string }).code
+        : undefined;
+      const message = code === 'permission-denied'
         ? 'Permission refusée. Veuillez vous reconnecter et réessayer.'
-        : error?.code === 'not-found'
+        : code === 'not-found'
           ? 'Profil introuvable. Veuillez vous reconnecter.'
           : 'Une erreur est survenue lors de la mise à jour du profil';
       Alert.alert('Erreur', message);

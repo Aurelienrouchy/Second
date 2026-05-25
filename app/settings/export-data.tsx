@@ -81,12 +81,10 @@ export default function ExportDataScreen() {
       }
 
       setExported(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error exporting data:', error);
-      Alert.alert(
-        'Erreur',
-        error.message || 'Une erreur est survenue lors de l\'export'
-      );
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'export';
+      Alert.alert('Erreur', message);
     } finally {
       setLoading(false);
     }

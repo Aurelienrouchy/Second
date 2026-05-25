@@ -63,12 +63,12 @@ const ProfileStats = React.memo(function ProfileStats({
       <StatItem value={salesCount} label="Ventes" delay={200} />
       <View style={styles.statDivider} />
       <StatItem
-        value={rating ? rating.toFixed(1) : '-'}
+        value={rating ? rating.toFixed(1) : '—'}
         label="Note"
         delay={250}
       />
       <View style={styles.statDivider} />
-      <StatItem value={followersCount} label="Abonnes" delay={300} />
+      <StatItem value={followersCount} label="Abonnés" delay={300} />
     </View>
   );
 });

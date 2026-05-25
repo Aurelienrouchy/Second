@@ -53,8 +53,9 @@ export default function VerifyEmailScreen() {
         'Email envoyé',
         'Un email de vérification a été envoyé à votre adresse email. Cliquez sur le lien dans l\'email pour vérifier votre compte.'
       );
-    } catch (error: any) {
-      Alert.alert('Erreur', error.message || 'Une erreur est survenue');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue';
+      Alert.alert('Erreur', message);
     } finally {
       setLoading(false);
     }
@@ -79,8 +80,9 @@ export default function VerifyEmailScreen() {
           'Votre email n\'a pas encore été vérifié. Vérifiez votre boîte de réception et cliquez sur le lien de vérification.'
         );
       }
-    } catch (error: any) {
-      Alert.alert('Erreur', error.message || 'Une erreur est survenue');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue';
+      Alert.alert('Erreur', message);
     } finally {
       setChecking(false);
     }

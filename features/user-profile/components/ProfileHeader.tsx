@@ -117,7 +117,7 @@ export const ProfileHeader = React.memo(function ProfileHeader({
         <View style={styles.statDivider} />
         <StatItem
           value={user.sellerLikesCount ?? 0}
-          label="Abonnes"
+          label="Abonnés"
           delay={250}
         />
       </View>

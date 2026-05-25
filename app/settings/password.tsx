@@ -66,9 +66,10 @@ export default function PasswordSettingsScreen() {
           { text: 'OK', onPress: () => router.back() }
         ]
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error updating password:', error);
-      Alert.alert('Erreur', error.message || 'Une erreur est survenue lors de la mise à jour du mot de passe');
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la mise à jour du mot de passe';
+      Alert.alert('Erreur', message);
     } finally {
       setIsSaving(false);
     }

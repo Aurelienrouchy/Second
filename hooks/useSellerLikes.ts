@@ -1,13 +1,15 @@
 /**
  * useSellerLikes Hook
- * Manages seller likes - fetches liked sellers for current user and provides toggle functionality
+ * Manages seller likes - fetches liked sellers for current user and provides toggle functionality.
+ * Uses React Query for data fetching + optimistic mutations.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { functions, auth, firestore } from '@/config/firebaseConfig';
-import * as Haptics from 'expo-haptics';
+import { queryKeys } from '@/lib/queryKeys';
 
 // =============================================================================
 // TYPES
@@ -15,9 +17,30 @@ import * as Haptics from 'expo-haptics';
 
 export interface UseSellerLikesReturn {
   likedSellerIds: string[];
-  toggleLike: (sellerId: string) => Promise<void>;
+  toggleLike: (sellerId: string) => void;
   isLoading: boolean;
+  isToggling: boolean;
   error: Error | null;
+}
+
+interface ToggleContext {
+  previous: string[] | undefined;
+}
+
+// =============================================================================
+// DATA LAYER
+// =============================================================================
+
+async function fetchLikedSellerIds(userId: string): Promise<string[]> {
+  const userDocRef = doc(firestore, 'users', userId);
+  const userDocSnap = await getDoc(userDocRef);
+
+  if (userDocSnap.exists()) {
+    const userData = userDocSnap.data();
+    return Array.isArray(userData?.likedSellers) ? userData.likedSellers : [];
+  }
+
+  return [];
 }
 
 // =============================================================================
@@ -25,90 +48,85 @@ export interface UseSellerLikesReturn {
 // =============================================================================
 
 export function useSellerLikes(userId?: string): UseSellerLikesReturn {
-  const [likedSellerIds, setLikedSellerIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
   const currentUserId = userId || auth.currentUser?.uid;
+  const queryClient = useQueryClient();
 
-  // Fetch liked sellers on mount
-  useEffect(() => {
-    const fetchLikedSellers = async () => {
-      if (!currentUserId) {
-        setIsLoading(false);
-        return;
+  const queryKey = currentUserId
+    ? queryKeys.sellers.likedIds(currentUserId)
+    : queryKeys.sellers.likedIds('');
+
+  // ── Load liked seller IDs ─────────────────────────────────────────────────
+  const {
+    data: likedSellerIds = [],
+    isLoading,
+    error: queryError,
+  } = useQuery<string[], Error>({
+    queryKey,
+    queryFn: () => fetchLikedSellerIds(currentUserId!),
+    enabled: !!currentUserId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Toggle mutation with optimistic update ────────────────────────────────
+  const mutation = useMutation<void, Error, string, ToggleContext>({
+    mutationFn: async (sellerId: string) => {
+      const isCurrentlyLiked = likedSellerIds.includes(sellerId);
+      const toggleSellerLike = httpsCallable(functions, 'toggleSellerLike');
+      await toggleSellerLike({
+        sellerId,
+        isLiked: !isCurrentlyLiked,
+      });
+    },
+    onMutate: async (sellerId: string): Promise<ToggleContext> => {
+      // Cancel in-flight fetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      const previous = queryClient.getQueryData<string[]>(queryKey);
+
+      // Optimistic update
+      queryClient.setQueryData<string[]>(queryKey, (old = []) =>
+        old.includes(sellerId)
+          ? old.filter((id) => id !== sellerId)
+          : [...old, sellerId]
+      );
+
+      return { previous };
+    },
+    onError: (_err, _sellerId, context) => {
+      // Rollback to previous state on error
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(queryKey, context.previous);
       }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const userDocRef = doc(firestore, 'users', currentUserId);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          const liked = userData?.likedSellers || [];
-          setLikedSellerIds(liked);
-        } else {
-          setLikedSellerIds([]);
-        }
-      } catch (err) {
-        if (__DEV__) console.error('Error fetching liked sellers:', err);
-        setError(err instanceof Error ? err : new Error('Failed to fetch liked sellers'));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLikedSellers();
-  }, [currentUserId]);
-
-  const toggleLike = useCallback(
-    async (sellerId: string) => {
-      if (!currentUserId) {
-        if (__DEV__) console.warn('User not authenticated');
-        return;
-      }
-
-      try {
-        const isCurrentlyLiked = likedSellerIds.includes(sellerId);
-
-        // Optimistic update
-        setLikedSellerIds((prev) =>
-          isCurrentlyLiked
-            ? prev.filter((id) => id !== sellerId)
-            : [...prev, sellerId]
-        );
-
-        // Haptic feedback
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        // Call cloud function to toggle like
-        const toggleSellerLike = httpsCallable(functions, 'toggleSellerLike');
-        await toggleSellerLike({
-          sellerId,
-          isLiked: !isCurrentlyLiked,
+      if (__DEV__) console.error('[useSellerLikes] Toggle failed:', _err);
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency with server
+      queryClient.invalidateQueries({ queryKey });
+      // Also invalidate the full liked sellers list (used by liked-sellers screen)
+      if (currentUserId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sellers.liked(currentUserId),
         });
-      } catch (err) {
-        if (__DEV__) console.error('Error toggling seller like:', err);
-        // Revert optimistic update on error
-        setLikedSellerIds((prev) =>
-          likedSellerIds.includes(sellerId)
-            ? prev.filter((id) => id !== sellerId)
-            : [...prev, sellerId]
-        );
-        setError(err instanceof Error ? err : new Error('Failed to toggle like'));
       }
     },
-    [currentUserId, likedSellerIds]
+  });
+
+  const toggleLike = useCallback(
+    (sellerId: string) => {
+      if (!currentUserId) {
+        if (__DEV__) console.warn('[useSellerLikes] User not authenticated');
+        return;
+      }
+      mutation.mutate(sellerId);
+    },
+    [currentUserId, mutation]
   );
 
   return {
     likedSellerIds,
     toggleLike,
     isLoading,
-    error,
+    isToggling: mutation.isPending,
+    error: queryError ?? mutation.error ?? null,
   };
 }
-

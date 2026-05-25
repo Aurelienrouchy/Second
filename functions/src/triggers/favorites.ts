@@ -108,7 +108,7 @@ export const onArticlePriceDropped = onDocumentUpdated(
       const discount = Math.round(((oldPrice - newPrice) / oldPrice) * 100);
 
       console.log(
-        `Price dropped on ${articleId}: ${oldPrice}€ → ${newPrice}€ (-${discount}%)`
+        `Price dropped on ${articleId}: ${oldPrice} $ → ${newPrice} $ (-${discount}%)`
       );
 
       // Find all users who have this article in favorites
@@ -151,7 +151,7 @@ export const onArticlePriceDropped = onDocumentUpdated(
             await sendPushNotification(
               userId,
               'Baisse de prix !',
-              `"${articleTitle}" est passé de ${oldPrice}€ à ${newPrice}€ (-${discount}%)`,
+              `"${articleTitle}" est passé de ${oldPrice} $ à ${newPrice} $ (-${discount}%)`,
               {
                 articleId,
                 articleTitle,

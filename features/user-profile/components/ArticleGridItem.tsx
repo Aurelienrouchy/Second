@@ -13,6 +13,7 @@ import { Image } from 'expo-image';
 
 import { colors, fonts, radius, spacing, animations } from '@/constants/theme';
 import { Article } from '@/types';
+import { formatPrice } from '@/utils/formatPrice';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_GAP = 2;
@@ -64,7 +65,7 @@ export const ArticleGridItem = React.memo(function ArticleGridItem({
         </View>
       ) : (
         <View style={styles.gridPriceBadge}>
-          <Text style={styles.gridPriceText}>{article.price} $</Text>
+          <Text style={styles.gridPriceText}>{formatPrice(article.price)}</Text>
         </View>
       )}
     </AnimatedPressable>

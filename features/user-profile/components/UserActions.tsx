@@ -62,7 +62,7 @@ export const UserActions = React.memo(function UserActions({
             isFollowing && styles.followButtonTextActive,
           ]}
         >
-          {isFollowing ? 'ABONNE' : "S'ABONNER"}
+          {isFollowing ? 'ABONNÉ' : "S'ABONNER"}
         </Text>
       </Pressable>
     </Animated.View>

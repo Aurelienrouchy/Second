@@ -183,25 +183,25 @@ export default function UserProfileScreen() {
 
   const handleReport = useCallback(() => {
     if (!id) return;
+    if (!currentUser) {
+      showAuthSheet('Connectez-vous pour signaler cet utilisateur');
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     reportSheetRef.current?.open('user', id);
-  }, [id]);
+  }, [id, currentUser, showAuthSheet]);
 
   const handleMore = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
-      undefined as unknown as string,
-      undefined as unknown as string,
-      [
-        { text: 'Partager le profil', onPress: handleShare },
-        {
-          text: 'Signaler',
-          onPress: handleReport,
-          style: 'destructive',
-        },
-        { text: 'Annuler', style: 'cancel' },
-      ],
-    );
+    Alert.alert('', '', [
+      { text: 'Partager le profil', onPress: handleShare },
+      {
+        text: 'Signaler',
+        onPress: handleReport,
+        style: 'destructive',
+      },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
   }, [handleShare, handleReport]);
 
   const handleEditProfile = useCallback(() => {

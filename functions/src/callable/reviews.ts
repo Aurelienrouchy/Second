@@ -7,6 +7,7 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 
 // =============================================================================
@@ -24,6 +25,7 @@ interface ReviewData {
 
 interface ReviewResponse {
   id: string;
+  reviewerId: string;
   reviewerName: string;
   reviewerImage?: string;
   note: number;
@@ -137,7 +139,7 @@ export const createReview = onCall(
       };
     } catch (error) {
       if (error instanceof HttpsError) throw error;
-      console.error('[createReview]', error);
+      logger.error('[createReview]', error);
       throw new HttpsError('internal', 'Failed to create review');
     }
   },
@@ -153,18 +155,20 @@ export const createReview = onCall(
 export const getUserReviews = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
-    const { userId, limit: limitCount = 20, startAfter } = request.data;
+    const { userId, limit: limitCount, startAfter } = request.data;
 
     if (!userId) {
       throw new HttpsError('invalid-argument', 'userId is required');
     }
+
+    const cappedLimit = Math.min(Math.max(1, limitCount || 20), 100);
 
     try {
       let query = db
         .collection('avis')
         .where('vendeurId', '==', userId)
         .orderBy('createdAt', 'desc')
-        .limit(limitCount);
+        .limit(cappedLimit);
 
       if (startAfter) {
         const startDoc = await db.collection('avis').doc(startAfter).get();
@@ -179,6 +183,7 @@ export const getUserReviews = onCall(
         const data = doc.data();
         return {
           id: doc.id,
+          reviewerId: data.reviewerId,
           reviewerName: data.reviewerName || 'Utilisateur',
           reviewerImage: data.reviewerImage || undefined,
           note: data.note,
@@ -206,14 +211,14 @@ export const getUserReviews = onCall(
         reviews,
         totalReviews,
         averageRating: Math.round(averageRating * 10) / 10,
-        hasMore: snapshot.docs.length === limitCount,
+        hasMore: snapshot.docs.length === cappedLimit,
         lastDocId:
           snapshot.docs.length > 0
             ? snapshot.docs[snapshot.docs.length - 1].id
             : null,
       };
     } catch (error) {
-      console.error('[getUserReviews]', error);
+      logger.error('[getUserReviews]', error);
       throw new HttpsError('internal', 'Failed to fetch reviews');
     }
   },
@@ -349,7 +354,7 @@ export const getUserPublicProfile = onCall(
       };
     } catch (error) {
       if (error instanceof HttpsError) throw error;
-      console.error('[getUserPublicProfile]', error);
+      logger.error('[getUserPublicProfile]', error);
       throw new HttpsError('internal', 'Failed to fetch user profile');
     }
   },
@@ -385,6 +390,6 @@ async function updateUserRating(userId: string): Promise<void> {
         updatedAt: FieldValue.serverTimestamp(),
       });
   } catch (error) {
-    console.error('[updateUserRating]', error);
+    logger.error('[updateUserRating]', error);
   }
 }

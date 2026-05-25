@@ -16,6 +16,7 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -35,9 +36,11 @@ export default function DeleteAccountScreen() {
   const provider = AuthService.getAuthProvider();
   const isPasswordUser = provider === 'password';
   const isUnknownProvider = provider === 'unknown';
+  const isAppleOnAndroid = provider === 'apple.com' && Platform.OS !== 'ios';
+  const hasPasswordProvider = AuthService.hasPasswordProvider();
 
   const handleReauthSocial = async () => {
-    if (isUnknownProvider) return;
+    if (isUnknownProvider || isAppleOnAndroid) return;
     setLoading(true);
     try {
       if (provider === 'google.com') {
@@ -46,10 +49,25 @@ export default function DeleteAccountScreen() {
         await AuthService.reauthenticateWithApple();
       }
       setReauthDone(true);
-    } catch (error: any) {
-      if (error.code !== 'ERR_REQUEST_CANCELED' && error.code !== 'SIGN_IN_CANCELLED') {
+    } catch (error: unknown) {
+      const code = (error as { code?: string }).code;
+      if (code !== 'ERR_REQUEST_CANCELED' && code !== 'SIGN_IN_CANCELLED') {
         Alert.alert('Erreur', 'La vérification a échoué. Veuillez réessayer.');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReauthApplePassword = async () => {
+    if (!password) return;
+    setLoading(true);
+    try {
+      await AuthService.reauthenticate(password);
+      setReauthDone(true);
+    } catch (error: unknown) {
+      const message = (error as { message?: string }).message;
+      Alert.alert('Erreur', message || 'Mot de passe incorrect. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -68,6 +86,7 @@ export default function DeleteAccountScreen() {
       if (isPasswordUser) {
         await AuthService.reauthenticate(password);
       }
+      // Apple on Android with password: already re-authed via handleReauthApplePassword
 
       // Vérifier les transactions actives (acheteur ou vendeur)
       const activeTransactions = await TransactionService.getActiveTransactionsForUser(user.id);
@@ -103,32 +122,26 @@ export default function DeleteAccountScreen() {
           return;
         }
       } catch (balanceError) {
-        // Si on ne peut pas vérifier le solde, ne pas bloquer silencieusement
         if (__DEV__) console.error('Error checking seller balance:', balanceError);
+        Alert.alert(
+          'Erreur',
+          'Impossible de vérifier votre solde vendeur. Vérifiez votre connexion et réessayez.'
+        );
+        setLoading(false);
+        return;
       }
 
       // Server-side onUserDeleted trigger handles all data cleanup.
       await AuthService.deleteAccount();
 
-      Alert.alert(
-        'Compte supprimé',
-        'Votre compte et toutes vos données ont été supprimés définitivement.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              resetAllStores();
-              router.replace('/');
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
+      // Reset stores and navigate immediately — onAuthStateChanged(null) would
+      // redirect via layout anyway; doing it proactively avoids race conditions.
+      resetAllStores();
+      router.replace('/');
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error deleting account:', error);
-      Alert.alert(
-        'Erreur',
-        error.message || 'Une erreur est survenue lors de la suppression du compte'
-      );
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la suppression du compte';
+      Alert.alert('Erreur', message);
     } finally {
       setLoading(false);
     }
@@ -197,9 +210,11 @@ export default function DeleteAccountScreen() {
 
   const canDelete = isUnknownProvider
     ? false
-    : isPasswordUser
-      ? !!password && confirmText === 'SUPPRIMER'
-      : reauthDone && confirmText === 'SUPPRIMER';
+    : (isAppleOnAndroid && !hasPasswordProvider)
+      ? false
+      : isPasswordUser
+        ? !!password && confirmText === 'SUPPRIMER'
+        : reauthDone && confirmText === 'SUPPRIMER';
 
   const renderConfirmStep = () => (
     <View style={styles.stepContent}>
@@ -235,6 +250,64 @@ export default function DeleteAccountScreen() {
             onChangeText={setPassword}
             autoCapitalize="none"
           />
+        </View>
+      ) : isAppleOnAndroid ? (
+        <View style={styles.inputSection}>
+          <Label style={styles.inputLabel}>Vérification d'identité</Label>
+          {hasPasswordProvider ? (
+            reauthDone ? (
+              <View style={styles.reauthSuccess}>
+                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                <Caption style={styles.reauthSuccessText}>Identité vérifiée</Caption>
+              </View>
+            ) : (
+              <View style={styles.applePasswordSection}>
+                <Caption style={styles.applePasswordHint}>
+                  La ré-authentification Apple n'est pas disponible sur Android. Utilisez votre mot de passe pour vérifier votre identité.
+                </Caption>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Saisissez votre mot de passe"
+                  placeholderTextColor={colors.muted}
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  autoCapitalize="none"
+                />
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  loading={loading}
+                  disabled={!password}
+                  onPress={handleReauthApplePassword}
+                  leftIcon={
+                    <Ionicons name="key-outline" size={18} color={colors.foreground} />
+                  }
+                >
+                  Vérifier mon identité
+                </Button>
+              </View>
+            )
+          ) : (
+            <View style={styles.appleNoPasswordSection}>
+              <View style={styles.unknownProviderBox}>
+                <Ionicons name="alert-circle" size={20} color={colors.warning} />
+                <Caption style={styles.unknownProviderText}>
+                  La ré-authentification Apple n'est pas disponible sur Android. Ajoutez d'abord un mot de passe à votre compte.
+                </Caption>
+              </View>
+              <Button
+                variant="secondary"
+                fullWidth
+                onPress={() => router.push('/settings/add-password')}
+                leftIcon={
+                  <Ionicons name="key-outline" size={18} color={colors.foreground} />
+                }
+              >
+                Ajouter un mot de passe
+              </Button>
+            </View>
+          )}
         </View>
       ) : (
         <View style={styles.inputSection}>
@@ -452,5 +525,14 @@ const styles = StyleSheet.create({
   unknownProviderText: {
     flex: 1,
     color: colors.foreground,
+  },
+  applePasswordSection: {
+    gap: spacing.sm,
+  },
+  applePasswordHint: {
+    color: colors.foregroundSecondary,
+  },
+  appleNoPasswordSection: {
+    gap: spacing.sm,
   },
 });

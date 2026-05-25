@@ -90,7 +90,7 @@ export async function createReview(params: {
     const result = await createReviewFn(params);
     return result.data as { success: boolean; reviewId: string };
   } catch (error) {
-    console.error('Error creating review:', error);
+    if (__DEV__) console.error('Error creating review:', error);
     throw error;
   }
 }
@@ -107,7 +107,7 @@ export async function getUserReviews(params: {
     const result = await getUserReviewsFn(params);
     return result.data as ReviewsResponse;
   } catch (error) {
-    console.error('Error fetching reviews:', error);
+    if (__DEV__) console.error('Error fetching reviews:', error);
     throw error;
   }
 }
@@ -123,7 +123,7 @@ export async function getUserPublicProfile(
     const result = await getUserPublicProfileFn({ userId });
     return result.data as UserPublicProfile;
   } catch (error) {
-    console.error('Error fetching user public profile:', error);
+    if (__DEV__) console.error('Error fetching user public profile:', error);
     throw error;
   }
 }

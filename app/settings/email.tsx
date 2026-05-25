@@ -52,8 +52,11 @@ export default function EmailSettingsScreen() {
         await AuthService.reauthenticateWithApple();
       }
       setReauthDone(true);
-    } catch (error: any) {
-      if (error.code !== 'ERR_REQUEST_CANCELED' && error.code !== 'SIGN_IN_CANCELLED') {
+    } catch (error: unknown) {
+      const code = error != null && typeof error === 'object' && 'code' in error
+        ? (error as { code: string }).code
+        : undefined;
+      if (code !== 'ERR_REQUEST_CANCELED' && code !== 'SIGN_IN_CANCELLED') {
         Alert.alert('Erreur', 'La vérification a échoué. Veuillez réessayer.');
       }
     } finally {
@@ -82,7 +85,12 @@ export default function EmailSettingsScreen() {
       return;
     }
 
-    if (!isPasswordUser && !reauthDone) {
+    if (isAppleOnAndroid && hasPasswordProvider && !password) {
+      Alert.alert('Erreur', 'Veuillez saisir votre mot de passe.');
+      return;
+    }
+
+    if (!isPasswordUser && !isAppleOnAndroid && !reauthDone) {
       Alert.alert('Erreur', 'Veuillez d\'abord vérifier votre identité');
       return;
     }
@@ -97,7 +105,7 @@ export default function EmailSettingsScreen() {
     setIsSaving(true);
     try {
       // 1. Re-authentifier (social providers already re-authed via button)
-      if (isPasswordUser) {
+      if (isPasswordUser || (isAppleOnAndroid && hasPasswordProvider)) {
         await AuthService.reauthenticate(password);
       }
 
@@ -116,9 +124,10 @@ export default function EmailSettingsScreen() {
           }
         ]
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error updating email:', error);
-      Alert.alert('Erreur', error.message || 'Une erreur est survenue lors de la mise à jour de l\'email');
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la mise à jour de l\'email';
+      Alert.alert('Erreur', message);
     } finally {
       setIsSaving(false);
     }
@@ -227,27 +236,52 @@ export default function EmailSettingsScreen() {
                   Pour votre sécurité, confirmez votre mot de passe pour valider le changement.
                 </Caption>
               </View>
+            ) : isAppleOnAndroid && hasPasswordProvider ? (
+              <View style={styles.inputContainer}>
+                <Label style={styles.label}>Mot de passe actuel</Label>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Votre mot de passe"
+                    placeholderTextColor={colors.muted}
+                    secureTextEntry={!showPassword}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={({ pressed }) => [styles.eyeButton, pressed && { opacity: 0.7 }]}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={24}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+                <Caption style={styles.helperText}>
+                  Pour votre sécurité, confirmez votre mot de passe pour valider le changement.
+                </Caption>
+              </View>
             ) : isAppleOnAndroid ? (
               <View style={styles.inputContainer}>
                 <Label style={styles.label}>Vérification d'identité</Label>
                 <View style={styles.unknownProviderBox}>
                   <Ionicons name="alert-circle" size={20} color={colors.warning} />
                   <Caption style={styles.unknownProviderText}>
-                    La ré-authentification Apple n'est pas disponible sur Android. Veuillez ajouter un mot de passe à votre compte depuis un appareil iOS, puis revenez modifier votre email.
+                    La ré-authentification Apple n'est pas disponible sur Android. Ajoutez d'abord un mot de passe à votre compte, puis revenez modifier votre email.
                   </Caption>
                 </View>
-                {!hasPasswordProvider && (
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    onPress={() => router.push('/settings/add-password')}
-                    leftIcon={
-                      <Ionicons name="key-outline" size={18} color={colors.foreground} />
-                    }
-                  >
-                    Ajouter un mot de passe
-                  </Button>
-                )}
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onPress={() => router.push('/settings/add-password')}
+                  leftIcon={
+                    <Ionicons name="key-outline" size={18} color={colors.foreground} />
+                  }
+                >
+                  Ajouter un mot de passe
+                </Button>
               </View>
             ) : (
               <View style={styles.inputContainer}>

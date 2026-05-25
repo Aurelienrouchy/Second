@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -70,8 +70,6 @@ export default function AddressSettingsScreen() {
   const { refreshUser } = useAuthActions();
   const addressRef = useRef<GooglePlacesAutocompleteRef>(null);
   
-  const [isSaving, setIsSaving] = useState(false);
-
   const handleUpdateAddress = async (details: PlaceDetails | null) => {
     if (!user || !details) return;
 
@@ -96,7 +94,6 @@ export default function AddressSettingsScreen() {
         {
           text: 'Confirmer',
           onPress: async () => {
-            setIsSaving(true);
             try {
               await UserService.updateUserProfile(user.id, {
                 address: {
@@ -117,8 +114,6 @@ export default function AddressSettingsScreen() {
             } catch (error) {
               if (__DEV__) console.error('Error updating address:', error);
               Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour de l\'adresse');
-            } finally {
-              setIsSaving(false);
             }
           }
         }
@@ -160,7 +155,7 @@ export default function AddressSettingsScreen() {
 
           <View style={styles.formSection}>
             <Text style={styles.label}>Changer d'adresse</Text>
-            <View style={[styles.inputContainer, { zIndex: 1 }]}>
+            <View style={[styles.inputContainer, styles.inputContainerElevated]}>
               <GooglePlacesAutocomplete
                 ref={addressRef}
                 placeholder="Rechercher une adresse..."
@@ -253,6 +248,9 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: spacing.md,
+  },
+  inputContainerElevated: {
+    zIndex: 1,
   },
   label: {
     fontSize: 16,

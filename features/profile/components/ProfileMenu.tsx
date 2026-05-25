@@ -30,7 +30,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface MenuItemComponentProps {
   item: MenuItem;
-  onPress: () => void;
+  onPress: (item: MenuItem) => void;
   index: number;
 }
 
@@ -55,8 +55,8 @@ const MenuItemComponent = React.memo(function MenuItemComponent({
 
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
-  }, [onPress]);
+    onPress(item);
+  }, [onPress, item]);
 
   return (
     <AnimatedPressable
@@ -106,7 +106,7 @@ const ProfileMenu = React.memo(function ProfileMenu({
           key={item.id}
           item={item}
           index={index}
-          onPress={() => onItemPress(item)}
+          onPress={onItemPress}
         />
       ))}
     </View>
