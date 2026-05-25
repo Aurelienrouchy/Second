@@ -483,9 +483,22 @@ service cloud.firestore {
       }
     }
     
+    // Avis (Reviews) Collection Rules
+    match /avis/{reviewId} {
+      // Any authenticated user can read reviews
+      allow read: if isAuthenticated();
+
+      // Only the reviewer can create their own review
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == request.resource.data.reviewerId;
+
+      // No client modification or deletion (managed by Cloud Functions)
+      allow update, delete: if false;
+    }
+
     // Analytics Collection Rules (Read-only for admins)
     match /analytics/{document=**} {
-      allow read: if isAuthenticated() && 
+      allow read: if isAuthenticated() &&
                      request.auth.token.admin == true;
       allow write: if false; // Managed by Cloud Functions
     }

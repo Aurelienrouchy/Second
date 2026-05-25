@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useQuery } from '@tanstack/react-query';
 
 import { ScreenHeader, Text } from '@/components/ui';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
@@ -35,6 +36,7 @@ import {
 } from '@/features/profile';
 import type { MenuItem } from '@/features/profile';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { UserStatsService } from '@/services/userStatsService';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -44,6 +46,13 @@ export default function ProfileScreen() {
   const { signOut } = useAuthActions();
   const { user, requireAuth, showAuthSheet } = useAuthRequired();
   const router = useRouter();
+
+  const { data: stats } = useQuery({
+    queryKey: ['users', 'stats', user?.id] as const,
+    queryFn: () => UserStatsService.getUserStats(user!.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const handleSignOut = useCallback(() => {
     Alert.alert(
@@ -158,9 +167,9 @@ export default function ProfileScreen() {
               displayName={user.displayName}
               bio={user.bio}
               createdAt={user.createdAt}
-              articlesCount={user.articlesCount ?? 0}
-              salesCount={user.salesCount ?? 0}
-              rating={user.rating}
+              articlesCount={stats?.articlesEnVente ?? 0}
+              salesCount={stats?.articlesVendus ?? 0}
+              rating={stats?.moyenneNote ?? null}
               followersCount={user.sellerLikesCount ?? 0}
             />
           ) : (

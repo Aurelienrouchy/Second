@@ -82,11 +82,11 @@ export default function ActiveFilters({ filters, onFilterRemove, onClearAll, sel
   if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
     let priceLabel = '';
     if (filters.minPrice !== undefined && filters.maxPrice !== undefined) {
-      priceLabel = `${filters.minPrice}€ - ${filters.maxPrice}€`;
+      priceLabel = `${filters.minPrice} $ - ${filters.maxPrice} $`;
     } else if (filters.minPrice !== undefined) {
-      priceLabel = `Min ${filters.minPrice}€`;
+      priceLabel = `Min ${filters.minPrice} $`;
     } else if (filters.maxPrice !== undefined) {
-      priceLabel = `Max ${filters.maxPrice}€`;
+      priceLabel = `Max ${filters.maxPrice} $`;
     }
     
     activeFilters.push({

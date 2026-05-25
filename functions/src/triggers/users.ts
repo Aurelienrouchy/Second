@@ -124,10 +124,41 @@ export const onUserProfileUpdated = onDocumentUpdated(
       if (batchCount > 0) await batch.commit();
     }
 
+    // 3. Update reviewerName / reviewerImage on all reviews written by this user
+    let avisUpdated = 0;
+    const avisSnap = await db
+      .collection('avis')
+      .where('reviewerId', '==', uid)
+      .get();
+
+    if (!avisSnap.empty) {
+      const avisUpdateData: Record<string, any> = {};
+      if (nameChanged) avisUpdateData.reviewerName = newName;
+      if (imageChanged) avisUpdateData.reviewerImage = newImage;
+
+      let batch = db.batch();
+      let batchCount = 0;
+
+      for (const doc of avisSnap.docs) {
+        batch.update(doc.ref, avisUpdateData);
+        batchCount++;
+        avisUpdated++;
+
+        if (batchCount >= 499) {
+          await batch.commit();
+          batch = db.batch();
+          batchCount = 0;
+        }
+      }
+
+      if (batchCount > 0) await batch.commit();
+    }
+
     logger.info('[onUserProfileUpdated] Propagation complete', {
       uid,
       articlesUpdated,
       chatsUpdated,
+      avisUpdated,
     });
   }
 );

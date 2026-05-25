@@ -2,9 +2,11 @@
  * Delete Account Settings
  */
 
-import { useUser, useAuthActions } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
+import { TransactionService } from '@/services/transactionService';
+import { resetAllStores } from '@/store/resetAllStores';
 import { formatPrice } from '@/utils/formatPrice';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
@@ -24,7 +26,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function DeleteAccountScreen() {
   const router = useRouter();
   const user = useUser();
-  const { signOut } = useAuthActions();
   const [password, setPassword] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,6 +69,18 @@ export default function DeleteAccountScreen() {
         await AuthService.reauthenticate(password);
       }
 
+      // Vérifier les transactions actives (acheteur ou vendeur)
+      const activeTransactions = await TransactionService.getActiveTransactionsForUser(user.id);
+      if (activeTransactions.length > 0) {
+        Alert.alert(
+          'Transactions en cours',
+          'Vous avez des transactions en cours (commandes non finalisées). Veuillez les terminer avant de supprimer votre compte.',
+          [{ text: 'Compris' }]
+        );
+        setLoading(false);
+        return;
+      }
+
       // Vérifier le solde vendeur avant suppression
       try {
         const balance = await SellerBalanceService.getBalance(user.id);
@@ -104,7 +117,7 @@ export default function DeleteAccountScreen() {
           {
             text: 'OK',
             onPress: () => {
-              signOut();
+              resetAllStores();
               router.replace('/');
             },
           },

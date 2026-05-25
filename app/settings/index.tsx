@@ -10,9 +10,10 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -70,16 +71,12 @@ export default function SettingsScreen() {
   const authProvider = AuthService.getAuthProvider();
   const hasPassword = AuthService.hasPasswordProvider();
   const isEmailVerified = AuthService.isEmailVerified();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    UserService.isUserAdmin(user.id).then((result) => {
-      if (!cancelled) setIsAdmin(result);
-    });
-    return () => { cancelled = true; };
-  }, [user?.id]);
+  const { data: isAdmin = false } = useQuery({
+    queryKey: ['user', 'isAdmin', user?.id],
+    queryFn: () => UserService.isUserAdmin(user!.id),
+    enabled: !!user?.id,
+    staleTime: 30 * 60 * 1000,
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

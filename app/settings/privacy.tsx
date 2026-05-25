@@ -8,7 +8,7 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Label } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Alert,
   Pressable,
@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface RgpdItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -47,57 +48,66 @@ const RgpdItem = ({ icon, iconColor, title, description, onPress, isLast }: Rgpd
   </Pressable>
 );
 
+interface PrivacySettings {
+  showProfilePhoto: boolean;
+  allowSearchEngines: boolean;
+}
+
+const DEFAULT_PRIVACY: PrivacySettings = {
+  showProfilePhoto: true,
+  allowSearchEngines: false,
+};
+
 export default function PrivacySettingsScreen() {
   const router = useRouter();
   const user = useUser();
+  const queryClient = useQueryClient();
 
-  const [showProfilePhoto, setShowProfilePhoto] = useState(true);
-  const [allowSearchEngines, setAllowSearchEngines] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: privacySettings = DEFAULT_PRIVACY, isLoading } = useQuery({
+    queryKey: ['userPrivacyPreferences', user?.id],
+    queryFn: async () => {
+      const preferences = await UserService.getUserPreferences(user!.id);
+      return {
+        showProfilePhoto: preferences?.privacy?.showProfilePhoto ?? true,
+        allowSearchEngines: preferences?.privacy?.allowSearchEngines ?? false,
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    if (user) {
-      loadPreferences();
-    }
-  }, [user]);
-
-  const loadPreferences = async () => {
-    try {
-      setIsLoading(true);
-      if (!user) return;
-
-      const preferences = await UserService.getUserPreferences(user.id);
-      if (preferences?.privacy) {
-        setShowProfilePhoto(preferences.privacy.showProfilePhoto ?? true);
-        setAllowSearchEngines(preferences.privacy.allowSearchEngines ?? false);
+  const { mutate: savePreferences } = useMutation({
+    mutationFn: (updates: Partial<PrivacySettings>) => {
+      const newPrivacy = {
+        showProfilePhoto: updates.showProfilePhoto ?? privacySettings.showProfilePhoto,
+        allowSearchEngines: updates.allowSearchEngines ?? privacySettings.allowSearchEngines,
+      };
+      return UserService.updateUserPreferences(user!.id, { privacy: newPrivacy });
+    },
+    onMutate: async (updates: Partial<PrivacySettings>) => {
+      await queryClient.cancelQueries({ queryKey: ['userPrivacyPreferences', user?.id] });
+      const previousSettings = queryClient.getQueryData<PrivacySettings>(
+        ['userPrivacyPreferences', user?.id]
+      );
+      queryClient.setQueryData(
+        ['userPrivacyPreferences', user?.id],
+        (old: PrivacySettings | undefined) => ({
+          ...(old ?? DEFAULT_PRIVACY),
+          ...updates,
+        })
+      );
+      return { previousSettings };
+    },
+    onError: (_error, _updates, context) => {
+      if (context?.previousSettings) {
+        queryClient.setQueryData(
+          ['userPrivacyPreferences', user?.id],
+          context.previousSettings
+        );
       }
-    } catch (error) {
-      if (__DEV__) console.error('Error loading privacy preferences:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const savePreferences = async (updates: { showProfilePhoto?: boolean; allowSearchEngines?: boolean }) => {
-    if (!user) return;
-
-    const previousShowProfilePhoto = showProfilePhoto;
-    const previousAllowSearchEngines = allowSearchEngines;
-
-    const newPrivacy = {
-      showProfilePhoto: updates.showProfilePhoto ?? showProfilePhoto,
-      allowSearchEngines: updates.allowSearchEngines ?? allowSearchEngines,
-    };
-
-    try {
-      await UserService.updateUserPreferences(user.id, { privacy: newPrivacy });
-    } catch (error) {
-      if (__DEV__) console.error('Error saving privacy preferences:', error);
-      setShowProfilePhoto(previousShowProfilePhoto);
-      setAllowSearchEngines(previousAllowSearchEngines);
       Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
-    }
-  };
+    },
+  });
 
   if (isLoading) {
     return (
@@ -140,9 +150,8 @@ export default function PrivacySettingsScreen() {
               <Caption>Rendre ma photo visible aux autres utilisateurs</Caption>
             </View>
             <Switch
-              value={showProfilePhoto}
+              value={privacySettings.showProfilePhoto}
               onValueChange={(value) => {
-                setShowProfilePhoto(value);
                 savePreferences({ showProfilePhoto: value });
               }}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -157,9 +166,8 @@ export default function PrivacySettingsScreen() {
               <Caption>Permettre aux moteurs de recherche de trouver mon profil</Caption>
             </View>
             <Switch
-              value={allowSearchEngines}
+              value={privacySettings.allowSearchEngines}
               onValueChange={(value) => {
-                setAllowSearchEngines(value);
                 savePreferences({ allowSearchEngines: value });
               }}
               trackColor={{ false: colors.border, true: colors.primary }}

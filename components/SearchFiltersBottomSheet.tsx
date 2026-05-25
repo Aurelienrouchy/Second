@@ -191,7 +191,7 @@ const SearchFiltersBottomSheet = forwardRef<BottomSheet, SearchFiltersBottomShee
 
             {/* Prix */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Prix (€)</Text>
+              <Text style={styles.sectionTitle}>Prix ($)</Text>
               <View style={styles.priceContainer}>
                 <TextInput
                   style={styles.priceInput}

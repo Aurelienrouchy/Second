@@ -389,9 +389,9 @@ export class ChatService {
         ? amount + shippingEstimate.amount 
         : amount;
       
-      let content = `Offre de ${amount}€`;
+      let content = `Offre de ${amount} $`;
       if (shippingEstimate) {
-        content += ` + ${shippingEstimate.amount}€ de livraison (${shippingEstimate.carrier})`;
+        content += ` + ${shippingEstimate.amount} $ de livraison (${shippingEstimate.carrier})`;
       }
       if (message) {
         content += '\n' + message;
@@ -498,7 +498,7 @@ export class ChatService {
         if (messageData?.offer) {
           await this.sendSystemMessage(
             chatId,
-            `Offre de ${messageData.offer.amount}€ acceptée 🎉`
+            `Offre de ${messageData.offer.amount} $ acceptée 🎉`
           );
         }
       }

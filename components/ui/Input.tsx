@@ -122,7 +122,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
   const getRightElement = () => {
     if (rightIcon) return rightIcon;
     if (variant === 'price') {
-      return <Text style={styles.priceSymbol}>€</Text>;
+      return <Text style={styles.priceSymbol}>$</Text>;
     }
     if (showClearButton && value && value.length > 0) {
       return (

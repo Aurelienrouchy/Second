@@ -55,6 +55,22 @@ export const onUserDeleted = functions.auth
     const bulkWriter = db.bulkWriter();
     const articleIds: string[] = [];
 
+    // 0. Decrement sellerLikesCount for all sellers this user liked
+    const userDoc = await db.collection('users').doc(uid).get();
+    const userData = userDoc.data();
+    if (userData?.likedSellers && Array.isArray(userData.likedSellers) && userData.likedSellers.length > 0) {
+      const likeBatch = db.batch();
+      for (const sellerId of userData.likedSellers) {
+        const sellerRef = db.collection('users').doc(sellerId);
+        likeBatch.update(sellerRef, { sellerLikesCount: FieldValue.increment(-1) });
+      }
+      await likeBatch.commit();
+      functions.logger.info('[onUserDeleted] Decremented sellerLikesCount', {
+        uid,
+        sellersCount: userData.likedSellers.length,
+      });
+    }
+
     // 1. Delete /users/{uid} sub-collections then the doc itself
     for (const subCol of ['savedSearches', 'searchHistory']) {
       const subSnap = await db.collection('users').doc(uid).collection(subCol).get();
@@ -114,6 +130,21 @@ export const onUserDeleted = functions.auth
         }
         bulkWriter.update(d.ref, { participantsInfo: info, updatedAt: FieldValue.serverTimestamp() });
       }
+    }
+
+    // 7b. Anonymise messages sent by the user (batch 500)
+    let msgQuery = db.collection('messages').where('senderId', '==', uid).limit(500);
+    let msgSnap = await msgQuery.get();
+    while (!msgSnap.empty) {
+      for (const d of msgSnap.docs) {
+        bulkWriter.update(d.ref, {
+          senderName: DELETED_NAME,
+          senderImage: null,
+        });
+      }
+      if (msgSnap.size < 500) break;
+      msgQuery = db.collection('messages').where('senderId', '==', uid).startAfter(msgSnap.docs[msgSnap.docs.length - 1]).limit(500);
+      msgSnap = await msgQuery.get();
     }
 
     // 8. Anonymise reviews — reviews written BY the user

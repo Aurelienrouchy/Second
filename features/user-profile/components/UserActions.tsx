@@ -12,6 +12,7 @@ import { colors, fonts, radius, spacing } from '@/constants/theme';
 interface UserActionsProps {
   isFollowing: boolean;
   isContactLoading: boolean;
+  isFollowLoading?: boolean;
   onContact: () => void;
   onFollow: () => void;
 }
@@ -19,6 +20,7 @@ interface UserActionsProps {
 export const UserActions = React.memo(function UserActions({
   isFollowing,
   isContactLoading,
+  isFollowLoading = false,
   onContact,
   onFollow,
 }: UserActionsProps) {
@@ -47,6 +49,7 @@ export const UserActions = React.memo(function UserActions({
           isFollowing && styles.followButtonActive,
         ]}
         onPress={onFollow}
+        disabled={isFollowLoading}
       >
         <Ionicons
           name={isFollowing ? 'checkmark' : 'add'}

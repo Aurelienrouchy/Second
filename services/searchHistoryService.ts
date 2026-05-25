@@ -253,11 +253,11 @@ export class SearchHistoryService {
 
     if (item.filters.minPrice !== undefined || item.filters.maxPrice !== undefined) {
       if (item.filters.minPrice && item.filters.maxPrice) {
-        parts.push(`${item.filters.minPrice}-${item.filters.maxPrice}€`);
+        parts.push(`${item.filters.minPrice}-${item.filters.maxPrice} $`);
       } else if (item.filters.minPrice) {
-        parts.push(`>${item.filters.minPrice}€`);
+        parts.push(`>${item.filters.minPrice} $`);
       } else if (item.filters.maxPrice) {
-        parts.push(`<${item.filters.maxPrice}€`);
+        parts.push(`<${item.filters.maxPrice} $`);
       }
     }
 

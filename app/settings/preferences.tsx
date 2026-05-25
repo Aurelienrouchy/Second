@@ -10,6 +10,7 @@ import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption } from '@/components/ui';
 import { Button } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Stack, useRouter } from 'expo-router';
@@ -24,6 +25,8 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { UserPreferences } from '@/types';
 
 // Tailles vêtements (lettres)
 const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -34,8 +37,6 @@ export default function PreferencesScreen() {
   const router = useRouter();
   const user = useUser();
   const brandSelectionRef = useRef<BrandSelectionSheetRef>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [location, setLocation] = useState<{
@@ -44,52 +45,41 @@ export default function PreferencesScreen() {
     city: string;
   } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [isFormInitialized, setIsFormInitialized] = useState(false);
 
+  const { data: preferences, isLoading } = useQuery({
+    queryKey: ['userPreferences', user?.id],
+    queryFn: () => UserService.getUserPreferences(user!.id),
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Sync fetched preferences into local form state
   useEffect(() => {
-    if (user) {
-      loadPreferences();
+    if (preferences && !isFormInitialized) {
+      setSelectedSizes(preferences.sizes || []);
+      setSelectedBrands(preferences.favoriteBrands || []);
+      setLocation(preferences.location || null);
+      setIsFormInitialized(true);
     }
-  }, [user]);
+  }, [preferences, isFormInitialized]);
 
-  const loadPreferences = async () => {
-    try {
-      setIsLoading(true);
-      if (!user) return;
-
-      const preferences = await UserService.getUserPreferences(user.id);
-      if (preferences) {
-        setSelectedSizes(preferences.sizes || []);
-        setSelectedBrands(preferences.favoriteBrands || []);
-        setLocation(preferences.location || null);
-      }
-    } catch (error) {
-      if (__DEV__) console.error('Error loading preferences:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!user) return;
-
-    setIsSaving(true);
-    try {
-      await UserService.updateUserPreferences(user.id, {
+  const { mutate: handleSave, isPending: isSaving } = useMutation({
+    mutationFn: () =>
+      UserService.updateUserPreferences(user!.id, {
         sizes: selectedSizes,
         favoriteBrands: selectedBrands,
         location: location ?? null,
-      } as Partial<import('@/types').UserPreferences>);
-
+      } as Partial<UserPreferences>),
+    onSuccess: () => {
       Alert.alert('Succès', 'Vos préférences ont été enregistrées', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch (error) {
-      if (__DEV__) console.error('Error saving preferences:', error);
+    },
+    onError: () => {
       Alert.alert('Erreur', "Une erreur est survenue lors de l'enregistrement");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    },
+  });
 
   const toggleSize = useCallback((size: string) => {
     setSelectedSizes((prev) =>
@@ -137,9 +127,30 @@ export default function PreferencesScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <Stack.Screen options={{ title: 'Préférences' }} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text variant="body" style={styles.loadingText}>Chargement...</Text>
+        <View style={styles.skeletonContent}>
+          <View style={styles.section}>
+            <Skeleton width="50%" height={14} />
+            <Skeleton width="70%" height={12} style={{ marginTop: spacing.xs }} />
+            <View style={styles.skeletonChips}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} width={56} height={40} borderRadius={radius.full} />
+              ))}
+            </View>
+          </View>
+          <View style={styles.section}>
+            <Skeleton width="50%" height={14} />
+            <Skeleton width="70%" height={12} style={{ marginTop: spacing.xs }} />
+            <View style={styles.skeletonChips}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} width={48} height={40} borderRadius={radius.full} />
+              ))}
+            </View>
+          </View>
+          <View style={styles.section}>
+            <Skeleton width="55%" height={14} />
+            <Skeleton width="80%" height={12} style={{ marginTop: spacing.xs }} />
+            <Skeleton width="100%" height={48} borderRadius={radius.sm} style={{ marginTop: spacing.md }} />
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -305,7 +316,7 @@ export default function PreferencesScreen() {
             variant="primary"
             fullWidth
             loading={isSaving}
-            onPress={handleSave}
+            onPress={() => handleSave()}
           >
             Enregistrer
           </Button>
@@ -330,14 +341,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
+  skeletonContent: {
+    padding: spacing.md,
   },
-  loadingText: {
-    color: colors.foregroundSecondary,
+  skeletonChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   scrollView: {
     flex: 1,

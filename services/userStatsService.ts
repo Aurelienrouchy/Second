@@ -7,12 +7,10 @@ import {
   orderBy,
   query,
   QueryDocumentSnapshot,
-  setDoc,
-  updateDoc,
   where
 } from 'firebase/firestore';
-import { firestore } from '../config/firebaseConfig';
-import { Article } from '../types';
+import { firestore } from '@/config/firebaseConfig';
+import { Article } from '@/types';
 import { ArticlesService } from './articlesService';
 
 export interface UserStats {
@@ -32,36 +30,36 @@ export interface VentesRecentes {
 }
 
 export class UserStatsService {
-  
+
   /**
-   * Récupère les statistiques complètes d'un vendeur
+   * Recupere les statistiques completes d'un vendeur
    */
   static async getUserStats(userId: string): Promise<UserStats> {
     try {
-      // Récupérer tous les articles du vendeur
+      // Recuperer tous les articles du vendeur
       const articlesRef = collection(firestore, 'articles');
       const articlesQuery = query(
         articlesRef,
         where('sellerId', '==', userId)
       );
-      
+
       const articlesSnapshot = await getDocs(articlesQuery);
       const articles = articlesSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => ({
         id: docSnap.id,
         ...docSnap.data()
       } as Article));
-      
+
       // Calculer les statistiques
       const articlesEnVente = articles.filter(a => a.isActive && !a.isSold).length;
       const articlesVendus = articles.filter(a => a.isSold).length;
-      
+
       const totalVues = articles.reduce((sum, article) => sum + (article.views || 0), 0);
       const totalLikes = articles.reduce((sum, article) => sum + (article.likes || 0), 0);
-      
+
       // Calculer les gains (pour les articles vendus)
       let gainsTotal = 0;
       for (const article of articles.filter(a => a.isSold)) {
-        // Récupérer les détails de vente si disponibles
+        // Recuperer les details de vente si disponibles
         const venteRef = doc(firestore, 'ventes', article.id);
         const venteDoc = await getDoc(venteRef);
         if (venteDoc.exists()) {
@@ -70,22 +68,22 @@ export class UserStatsService {
           gainsTotal += article.price;
         }
       }
-      
-      // Récupérer les avis du vendeur
+
+      // Recuperer les avis du vendeur
       const avisRef = collection(firestore, 'avis');
       const avisQuery = query(
         avisRef,
         where('vendeurId', '==', userId)
       );
-      
+
       const avisSnapshot = await getDocs(avisQuery);
       const avis = avisSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => docSnap.data());
-      
+
       const nombreAvis = avis.length;
-      const moyenneNote = nombreAvis > 0 
-        ? avis.reduce((sum, avis) => sum + avis.note, 0) / nombreAvis 
+      const moyenneNote = nombreAvis > 0
+        ? avis.reduce((sum, avis) => sum + avis.note, 0) / nombreAvis
         : 0;
-      
+
       return {
         articlesEnVente,
         articlesVendus,
@@ -95,15 +93,15 @@ export class UserStatsService {
         moyenneNote,
         nombreAvis
       };
-      
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
-      throw new Error('Impossible de récupérer les statistiques');
+
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Erreur lors de la recuperation des statistiques:', error);
+      throw new Error('Impossible de recuperer les statistiques');
     }
   }
-  
+
   /**
-   * Récupère les ventes récentes d'un vendeur
+   * Recupere les ventes recentes d'un vendeur
    */
   static async getVentesRecentes(userId: string, limitCount: number = 5): Promise<VentesRecentes[]> {
     try {
@@ -114,14 +112,14 @@ export class UserStatsService {
         orderBy('datePaiement', 'desc'),
         firestoreLimit(limitCount)
       );
-      
+
       const ventesSnapshot = await getDocs(ventesQuery);
       const ventes: VentesRecentes[] = [];
-      
+
       for (const venteDoc of ventesSnapshot.docs) {
         const venteData = venteDoc.data();
-        
-        // Récupérer l'article associé
+
+        // Recuperer l'article associe
         const articleRef = doc(firestore, 'articles', venteData.articleId);
         const articleDoc = await getDoc(articleRef);
         if (articleDoc.exists()) {
@@ -132,17 +130,17 @@ export class UserStatsService {
           });
         }
       }
-      
+
       return ventes;
-      
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération des ventes récentes:', error);
+
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Erreur lors de la recuperation des ventes recentes:', error);
       return [];
     }
   }
-  
+
   /**
-   * Récupère les articles en vente d'un utilisateur
+   * Recupere les articles en vente d'un utilisateur
    */
   static async getArticlesEnVente(userId: string): Promise<Article[]> {
     try {
@@ -154,9 +152,9 @@ export class UserStatsService {
         where('isSold', '==', false),
         orderBy('createdAt', 'desc')
       );
-      
+
       const articlesSnapshot = await getDocs(articlesQuery);
-      
+
       return articlesSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
         return {
@@ -166,15 +164,15 @@ export class UserStatsService {
           images: ArticlesService.fixArticleImageUrls(data.images),
         } as Article;
       });
-      
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération des articles en vente:', error);
+
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Erreur lors de la recuperation des articles en vente:', error);
       return [];
     }
   }
-  
+
   /**
-   * Récupère les articles vendus d'un utilisateur
+   * Recupere les articles vendus d'un utilisateur
    */
   static async getArticlesVendus(userId: string): Promise<Article[]> {
     try {
@@ -185,9 +183,9 @@ export class UserStatsService {
         where('isSold', '==', true),
         orderBy('createdAt', 'desc')
       );
-      
+
       const articlesSnapshot = await getDocs(articlesQuery);
-      
+
       return articlesSnapshot.docs.map((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
         return {
@@ -197,41 +195,10 @@ export class UserStatsService {
           images: ArticlesService.fixArticleImageUrls(data.images),
         } as Article;
       });
-      
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération des articles vendus:', error);
+
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Erreur lors de la recuperation des articles vendus:', error);
       return [];
-    }
-  }
-  
-  /**
-   * Met à jour les statistiques après une vente
-   */
-  static async enregistrerVente(articleId: string, vendeurId: string, acheteurId: string, prixVente: number): Promise<void> {
-    try {
-      // Créer l'enregistrement de vente
-      const venteData = {
-        articleId,
-        vendeurId,
-        acheteurId,
-        prixVente,
-        datePaiement: new Date(),
-        statut: 'payee'
-      };
-      
-      const venteRef = doc(firestore, 'ventes', articleId);
-      await setDoc(venteRef, venteData);
-      
-      // Marquer l'article comme vendu
-      const articleRef = doc(firestore, 'articles', articleId);
-      await updateDoc(articleRef, {
-        isSold: true,
-        dateVente: new Date()
-      });
-      
-    } catch (error: any) {
-      console.error('Erreur lors de l\'enregistrement de la vente:', error);
-      throw new Error('Impossible d\'enregistrer la vente');
     }
   }
 }

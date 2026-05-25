@@ -7,8 +7,7 @@ import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Alert,
   ScrollView,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 type NotificationType =
   | 'email'
@@ -104,60 +104,58 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
   },
 ];
 
-export default function NotificationsSettingsScreen() {
-  const router = useRouter();
-  const user = useUser();
+const DEFAULT_SETTINGS: Record<NotificationType, boolean> = {
+  email: true,
+  push: true,
+  newMessages: true,
+  newOrders: true,
+  priceDrops: true,
+  articleFavorited: true,
+  swapZoneReminder: true,
+  offerReceived: true,
+  offerResponse: true,
+};
 
-  const [settings, setSettings] = useState<Record<NotificationType, boolean>>({
-    email: true,
-    push: true,
-    newMessages: true,
-    newOrders: true,
-    priceDrops: true,
-    articleFavorited: true,
-    swapZoneReminder: true,
-    offerReceived: true,
-    offerResponse: true,
+export default function NotificationsSettingsScreen() {
+  const user = useUser();
+  const queryClient = useQueryClient();
+
+  const { data: settings = DEFAULT_SETTINGS, isLoading } = useQuery({
+    queryKey: ['userNotificationPreferences', user?.id],
+    queryFn: () => UserService.getNotificationPreferences(user!.id),
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
   });
 
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) {
-      loadPreferences();
-    }
-  }, [user]);
-
-  const loadPreferences = async () => {
-    try {
-      setIsLoading(true);
-      if (!user) return;
-
-      const preferences = await UserService.getUserPreferences(user.id);
-      if (preferences?.notifications) {
-        setSettings(preferences.notifications);
+  const { mutate: toggleSetting } = useMutation({
+    mutationFn: (key: NotificationType) => {
+      const newSettings = { ...settings, [key]: !settings[key] };
+      return UserService.updateNotificationPreferences(user!.id, newSettings);
+    },
+    onMutate: async (key: NotificationType) => {
+      await queryClient.cancelQueries({ queryKey: ['userNotificationPreferences', user?.id] });
+      const previousSettings = queryClient.getQueryData<Record<NotificationType, boolean>>(
+        ['userNotificationPreferences', user?.id]
+      );
+      queryClient.setQueryData(
+        ['userNotificationPreferences', user?.id],
+        (old: Record<NotificationType, boolean> | undefined) => {
+          const current = old ?? DEFAULT_SETTINGS;
+          return { ...current, [key]: !current[key] };
+        }
+      );
+      return { previousSettings };
+    },
+    onError: (_error, _key, context) => {
+      if (context?.previousSettings) {
+        queryClient.setQueryData(
+          ['userNotificationPreferences', user?.id],
+          context.previousSettings
+        );
       }
-    } catch (error) {
-      if (__DEV__) console.error('Error loading notification preferences:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleSetting = async (key: NotificationType) => {
-    const newSettings = { ...settings, [key]: !settings[key] };
-    setSettings(newSettings);
-
-    if (user) {
-      try {
-        await UserService.updateNotificationPreferences(user.id, newSettings);
-      } catch (error) {
-        if (__DEV__) console.error('Error saving notification preferences:', error);
-        setSettings(settings); // Revert on error
-        Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
-      }
-    }
-  };
+      Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
+    },
+  });
 
   if (isLoading) {
     return (

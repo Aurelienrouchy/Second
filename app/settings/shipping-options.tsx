@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Alert,
   ScrollView,
@@ -15,6 +14,7 @@ import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const CARRIERS = [
   { id: 'postes_canada_bureau', name: 'Postes Canada — Bureau de poste', description: 'Retrait en bureau de poste · 200+ points à Montréal' },
@@ -23,66 +23,58 @@ const CARRIERS = [
   { id: 'hand_delivery', name: 'Remise en main propre', description: 'Rencontre avec l\'acheteur · Gratuit' },
 ];
 
+const ALL_CARRIER_IDS = CARRIERS.map(c => c.id);
+
 export default function ShippingOptionsScreen() {
-  const router = useRouter();
   const user = useUser();
-  
-  const [enabledCarriers, setEnabledCarriers] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (user) {
-      loadPreferences();
-    }
-  }, [user]);
+  const { data: enabledCarriers = ALL_CARRIER_IDS, isLoading } = useQuery({
+    queryKey: ['userShippingCarriers', user?.id],
+    queryFn: async () => {
+      const preferences = await UserService.getUserPreferences(user!.id);
+      return preferences?.shippingCarriers ?? ALL_CARRIER_IDS;
+    },
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
+  });
 
-  const loadPreferences = async () => {
-    try {
-      setIsLoading(true);
-      if (!user) return;
-
-      const preferences = await UserService.getUserPreferences(user.id);
-      if (preferences && preferences.shippingCarriers) {
-        setEnabledCarriers(preferences.shippingCarriers);
-      } else {
-        // Default: all enabled
-        setEnabledCarriers(CARRIERS.map(c => c.id));
+  const { mutate: toggleCarrier } = useMutation({
+    mutationFn: (carrierId: string) => {
+      const isEnabled = enabledCarriers.includes(carrierId);
+      const newCarriers = isEnabled
+        ? enabledCarriers.filter(id => id !== carrierId)
+        : [...enabledCarriers, carrierId];
+      return UserService.updateUserPreferences(user!.id, {
+        shippingCarriers: newCarriers,
+      });
+    },
+    onMutate: async (carrierId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['userShippingCarriers', user?.id] });
+      const previousCarriers = queryClient.getQueryData<string[]>(
+        ['userShippingCarriers', user?.id]
+      );
+      queryClient.setQueryData(
+        ['userShippingCarriers', user?.id],
+        (old: string[] | undefined) => {
+          const current = old ?? ALL_CARRIER_IDS;
+          return current.includes(carrierId)
+            ? current.filter(id => id !== carrierId)
+            : [...current, carrierId];
+        }
+      );
+      return { previousCarriers };
+    },
+    onError: (_error, _carrierId, context) => {
+      if (context?.previousCarriers) {
+        queryClient.setQueryData(
+          ['userShippingCarriers', user?.id],
+          context.previousCarriers
+        );
       }
-    } catch (error) {
-      if (__DEV__) console.error('Error loading preferences:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleCarrier = async (carrierId: string) => {
-    const previousCarriers = [...enabledCarriers];
-    const isEnabled = enabledCarriers.includes(carrierId);
-    let newCarriers: string[];
-
-    if (isEnabled) {
-      newCarriers = enabledCarriers.filter(id => id !== carrierId);
-    } else {
-      newCarriers = [...enabledCarriers, carrierId];
-    }
-
-    setEnabledCarriers(newCarriers);
-
-    // Auto-save
-    if (user) {
-      try {
-        await UserService.updateUserPreferences(user.id, {
-          shippingCarriers: newCarriers
-        });
-      } catch (error) {
-        if (__DEV__) console.error('Error saving shipping preferences:', error);
-        // Revert on error avec l'état précédent capturé
-        setEnabledCarriers(previousCarriers);
-        Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
-      }
-    }
-  };
+      Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
+    },
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

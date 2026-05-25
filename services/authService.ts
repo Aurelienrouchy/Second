@@ -12,7 +12,7 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   linkWithCredential,
-  updateEmail as firebaseUpdateEmail,
+  verifyBeforeUpdateEmail,
   updatePassword as firebaseUpdatePassword,
   deleteUser,
   sendEmailVerification as firebaseSendEmailVerification,
@@ -20,6 +20,7 @@ import {
   reload,
 } from 'firebase/auth';
 import {
+  arrayUnion,
   doc,
   getDoc,
   serverTimestamp,
@@ -27,6 +28,7 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 
@@ -392,6 +394,10 @@ export class AuthService {
   }
 
   static async reauthenticateWithApple(): Promise<void> {
+    if (Platform.OS !== 'ios') {
+      throw new Error('La ré-authentification Apple n\'est disponible que sur iOS. Veuillez ajouter un mot de passe à votre compte depuis un appareil iOS.');
+    }
+
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
 
@@ -425,20 +431,20 @@ export class AuthService {
   }
 
   /**
-   * Mettre à jour l'email
+   * Mettre à jour l'email via lien de vérification.
+   * Envoie un email de vérification au nouvel email. L'email ne sera effectif
+   * dans Firebase Auth qu'après clic sur le lien. La synchronisation Firestore
+   * se fait au prochain onAuthStateChanged / reload après vérification.
    */
   static async updateEmail(newEmail: string): Promise<void> {
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
 
     try {
-      await firebaseUpdateEmail(user, newEmail);
-
-      // Mettre à jour Firestore
-      await updateDoc(doc(firestore, 'users', user.uid), {
-        email: newEmail,
-        updatedAt: serverTimestamp()
-      });
+      await verifyBeforeUpdateEmail(user, newEmail);
+      // Ne PAS mettre à jour Firestore ici : l'email n'est pas encore vérifié.
+      // La sync Firestore se fera au prochain onAuthStateChanged après que
+      // l'utilisateur ait cliqué le lien de vérification.
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
@@ -541,9 +547,11 @@ export class AuthService {
       const credential = EmailAuthProvider.credential(email, password);
       await linkWithCredential(user, credential);
 
-      // Update Firestore to reflect the linked auth provider
+      // Ne pas écraser authProvider (le provider original reste la source de vérité).
+      // On ajoute 'email' aux providers liés et on marque hasPassword: true.
       await updateDoc(doc(firestore, 'users', user.uid), {
-        authProvider: 'email',
+        authProviders: arrayUnion('email'),
+        hasPassword: true,
         email,
         updatedAt: serverTimestamp(),
       });

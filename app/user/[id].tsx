@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -23,6 +23,9 @@ import {
   View,
 } from 'react-native';
 
+import ReportBottomSheet, {
+  ReportBottomSheetRef,
+} from '@/components/ReportBottomSheet';
 import { ScreenHeader } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
@@ -38,8 +41,10 @@ import type { ProfileTab, Review } from '@/features/user-profile';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
 import { queryKeys } from '@/lib/queryKeys';
 import { ChatService } from '@/services/chatService';
+import { getUserReviews } from '@/services/reviewService';
 import { UserService } from '@/services/userService';
 import { UserStatsService, UserStats } from '@/services/userStatsService';
+import { useAuthSheetStore } from '@/store/authSheetStore';
 import { Article, User } from '@/types';
 import { formatDisplayName } from '@/utils/formatName';
 
@@ -47,11 +52,13 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const currentUser = useUser();
+  const showAuthSheet = useAuthSheetStore((state) => state.show);
+  const reportSheetRef = useRef<ReportBottomSheetRef>(null);
 
   // State
-  const [reviews] = useState<Review[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>('articles');
   const [isContactLoading, setIsContactLoading] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   // Follow hook
   const { likedSellerIds, toggleLike } = useSellerLikes();
@@ -86,6 +93,24 @@ export default function UserProfileScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: reviews = [], isLoading: reviewsLoading } = useQuery<Review[]>({
+    queryKey: ['reviews', 'user', id] as const,
+    queryFn: async () => {
+      const result = await getUserReviews({ userId: id!, limit: 20 });
+      return result.reviews.map((r) => ({
+        id: r.id,
+        reviewerName: r.reviewerName,
+        reviewerImage: r.reviewerImage,
+        reviewerId: undefined,
+        date: r.createdAt,
+        text: r.text,
+        note: r.note,
+      }));
+    },
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handleBack = useCallback(() => {
@@ -93,7 +118,11 @@ export default function UserProfileScreen() {
   }, [router]);
 
   const handleContact = useCallback(async () => {
-    if (!currentUser?.id || !id || !profileUser) return;
+    if (!currentUser?.id) {
+      showAuthSheet('Connectez-vous pour contacter ce vendeur');
+      return;
+    }
+    if (!id || !profileUser) return;
 
     setIsContactLoading(true);
     try {
@@ -101,17 +130,26 @@ export default function UserProfileScreen() {
       router.push(`/chat/${chat.id}`);
     } catch (error) {
       if (__DEV__) console.error('Error creating chat:', error);
-      Alert.alert('Erreur', 'Impossible de demarrer la conversation.');
+      Alert.alert('Erreur', 'Impossible de démarrer la conversation.');
     } finally {
       setIsContactLoading(false);
     }
-  }, [currentUser?.id, id, profileUser, router]);
+  }, [currentUser?.id, id, profileUser, router, showAuthSheet]);
 
   const handleFollow = useCallback(async () => {
-    if (!currentUser || !id) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await toggleLike(id);
-  }, [currentUser, id, toggleLike]);
+    if (!currentUser) {
+      showAuthSheet('Connectez-vous pour suivre ce vendeur');
+      return;
+    }
+    if (!id) return;
+    setIsFollowLoading(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await toggleLike(id);
+    } finally {
+      setIsFollowLoading(false);
+    }
+  }, [currentUser, id, toggleLike, showAuthSheet]);
 
   const handleArticlePress = useCallback(
     (articleId: string) => {
@@ -144,18 +182,10 @@ export default function UserProfileScreen() {
   }, [profileUser, id]);
 
   const handleReport = useCallback(() => {
+    if (!id) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    Alert.alert(
-      'Signaler cet utilisateur',
-      'Pour quelle raison souhaitez-vous signaler ce profil ?',
-      [
-        { text: 'Contenu inapproprié', onPress: () => { if (__DEV__) console.log('Report: inappropriate'); } },
-        { text: 'Comportement suspect', onPress: () => { if (__DEV__) console.log('Report: suspicious'); } },
-        { text: 'Spam', onPress: () => { if (__DEV__) console.log('Report: spam'); } },
-        { text: 'Annuler', style: 'cancel' },
-      ],
-    );
-  }, []);
+    reportSheetRef.current?.open('user', id);
+  }, [id]);
 
   const handleMore = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -199,7 +229,7 @@ export default function UserProfileScreen() {
           <Ionicons name="person-outline" size={48} color={colors.muted} />
           <Text style={styles.emptyTitle}>Utilisateur introuvable</Text>
           <Text style={styles.emptySubtitle}>
-            Ce profil n'existe pas ou a ete supprime
+            Ce profil n&apos;existe pas ou a été supprimé
           </Text>
         </View>
       </View>
@@ -246,6 +276,7 @@ export default function UserProfileScreen() {
             <UserActions
               isFollowing={isFollowing}
               isContactLoading={isContactLoading}
+              isFollowLoading={isFollowLoading}
               onContact={handleContact}
               onFollow={handleFollow}
             />
@@ -269,12 +300,15 @@ export default function UserProfileScreen() {
           <ReviewList
             stats={stats}
             reviews={reviews}
+            isLoading={reviewsLoading}
             onReviewerPress={handleReviewerPress}
           />
         )}
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      <ReportBottomSheet ref={reportSheetRef} />
     </View>
   );
 }

@@ -46,7 +46,7 @@ const ProfileHeader = React.memo(function ProfileHeader({
     if (!createdAt) return '';
     const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
     return `Membre depuis ${date.toLocaleDateString('fr-FR', {
-      month: 'short',
+      month: 'long',
       year: 'numeric',
     })}`;
   }, [createdAt]);
@@ -62,8 +62,6 @@ const ProfileHeader = React.memo(function ProfileHeader({
           source={profileImage}
           name={displayName || 'U'}
           size="xxl"
-          showOnline
-          isOnline
         />
         <View style={styles.nameSection}>
           <Text style={styles.userName}>

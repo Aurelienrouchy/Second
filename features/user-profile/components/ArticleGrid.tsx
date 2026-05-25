@@ -10,7 +10,7 @@ import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { Article } from '@/types';
 
-import { ArticleGridItem, ITEM_SIZE } from './ArticleGridItem';
+import { ArticleGridItem } from './ArticleGridItem';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_GAP = 2;

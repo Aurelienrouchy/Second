@@ -4,7 +4,6 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -12,8 +11,16 @@ import {
   serverTimestamp,
   updateDoc,
   where,
-  writeBatch
 } from 'firebase/firestore';
+
+interface ExportedUserData {
+  exportedAt: string;
+  user: (Record<string, unknown> & { createdAt?: string }) | null;
+  articles: Record<string, unknown>[];
+  favorites: Record<string, unknown>[];
+  notifications: Record<string, unknown>[];
+  chats: Record<string, unknown>[];
+}
 
 export class UserService {
   private static readonly COLLECTION = 'users';
@@ -29,13 +36,13 @@ export class UserService {
         return null;
       }
 
-      const data = userDoc.data() as any;
+      const data = userDoc.data();
       if (!data) return null;
 
       return {
         ...data,
         id: userDoc.id,
-        createdAt: data.createdAt?.toDate() || new Date(),
+        createdAt: (data.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() || new Date(),
       } as User;
     } catch (error) {
       if (__DEV__) console.error('Error fetching user:', error);
@@ -137,17 +144,21 @@ export class UserService {
     data: Partial<User>
   ): Promise<void> {
     try {
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         ...data,
         isActive: true,
         updatedAt: serverTimestamp(),
       };
 
-      // Ne pas permettre la mise à jour de certains champs via cette méthode
+      // Ne pas permettre la mise à jour de certains champs via cette methode
       delete updateData.id;
       delete updateData.email;
       delete updateData.createdAt;
       delete updateData.isAdmin;
+      delete updateData.role;
+      delete updateData.customClaims;
+      delete updateData.onboardingCompleted;
+      delete updateData.onboardingPreferences;
 
       await updateDoc(doc(firestore, this.COLLECTION, userId), updateData);
     } catch (error) {
@@ -269,114 +280,12 @@ export class UserService {
   // ============================================
 
   /**
-   * Supprimer toutes les données utilisateur (RGPD Art. 17 - Droit à l'effacement)
-   * Supprime : profil, articles, favoris, notifications, chats
-   */
-  static async deleteAllUserData(userId: string): Promise<void> {
-    try {
-      // Firestore writeBatch is limited to 500 operations. We collect all
-      // operations as callbacks that receive a batch, then execute them in
-      // chunks of BATCH_LIMIT to stay safely under the cap.
-      const BATCH_LIMIT = 450;
-
-      type BatchOp = (b: ReturnType<typeof writeBatch>) => void;
-      const operations: BatchOp[] = [];
-
-      // 1. Supprimer les articles de l'utilisateur
-      const articlesQuery = query(
-        collection(firestore, 'articles'),
-        where('sellerId', '==', userId)
-      );
-      const articlesSnapshot = await getDocs(articlesQuery);
-      articlesSnapshot.forEach((d) => {
-        operations.push((b) => b.delete(d.ref));
-      });
-
-      // 2. Supprimer les favoris de l'utilisateur
-      const favoritesQuery = query(
-        collection(firestore, 'favorites'),
-        where('userId', '==', userId)
-      );
-      const favoritesSnapshot = await getDocs(favoritesQuery);
-      favoritesSnapshot.forEach((d) => {
-        operations.push((b) => b.delete(d.ref));
-      });
-
-      // 3. Supprimer les notifications de l'utilisateur
-      const notificationsQuery = query(
-        collection(firestore, 'notifications'),
-        where('userId', '==', userId)
-      );
-      const notificationsSnapshot = await getDocs(notificationsQuery);
-      notificationsSnapshot.forEach((d) => {
-        operations.push((b) => b.delete(d.ref));
-      });
-
-      // 4. Anonymiser les messages dans les chats (on ne supprime pas les chats pour l'autre participant)
-      const chatsQuery = query(
-        collection(firestore, 'chats'),
-        where('participants', 'array-contains', userId)
-      );
-      const chatsSnapshot = await getDocs(chatsQuery);
-      for (const chatDoc of chatsSnapshot.docs) {
-        const participantsInfo = chatDoc.data().participantsInfo || [];
-        const updatedParticipantsInfo = participantsInfo.map((p: any) => {
-          if (p.userId === userId) {
-            return { ...p, userName: 'Utilisateur supprimé', userImage: null };
-          }
-          return p;
-        });
-        operations.push((b) =>
-          b.update(chatDoc.ref, { participantsInfo: updatedParticipantsInfo })
-        );
-      }
-
-      // 5. Supprimer les swaps de l'utilisateur
-      const swapsInitiatorQuery = query(
-        collection(firestore, 'swaps'),
-        where('initiatorId', '==', userId)
-      );
-      const swapsInitiatorSnapshot = await getDocs(swapsInitiatorQuery);
-      swapsInitiatorSnapshot.forEach((d) => {
-        operations.push((b) => b.delete(d.ref));
-      });
-
-      const swapsReceiverQuery = query(
-        collection(firestore, 'swaps'),
-        where('receiverId', '==', userId)
-      );
-      const swapsReceiverSnapshot = await getDocs(swapsReceiverQuery);
-      swapsReceiverSnapshot.forEach((d) => {
-        operations.push((b) => b.delete(d.ref));
-      });
-
-      // 6. Supprimer le profil utilisateur
-      operations.push((b) =>
-        b.delete(doc(firestore, this.COLLECTION, userId))
-      );
-
-      // Exécuter par chunks pour respecter la limite Firestore de 500 ops/batch
-      for (let i = 0; i < operations.length; i += BATCH_LIMIT) {
-        const chunk = operations.slice(i, i + BATCH_LIMIT);
-        const batch = writeBatch(firestore);
-        chunk.forEach((op) => op(batch));
-        await batch.commit();
-      }
-
-      if (__DEV__) console.log('All user data deleted successfully');
-    } catch (error) {
-      if (__DEV__) console.error('Error deleting user data:', error);
-      throw new Error('Erreur lors de la suppression des données');
-    }
-  }
-
-  /**
    * Exporter toutes les données utilisateur (RGPD Art. 20 - Portabilité)
    * Retourne un objet JSON avec toutes les données de l'utilisateur
    */
-  static async exportUserData(userId: string): Promise<object> {
+  static async exportUserData(userId: string): Promise<ExportedUserData> {
     try {
-      const exportData: any = {
+      const exportData: ExportedUserData = {
         exportedAt: new Date().toISOString(),
         user: null,
         articles: [],
@@ -400,10 +309,10 @@ export class UserService {
         where('sellerId', '==', userId)
       );
       const articlesSnapshot = await getDocs(articlesQuery);
-      articlesSnapshot.forEach((doc) => {
-        const data = doc.data();
+      articlesSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         exportData.articles.push({
-          id: doc.id,
+          id: docSnap.id,
           ...data,
           createdAt: data.createdAt?.toDate?.()?.toISOString(),
         });
@@ -415,10 +324,10 @@ export class UserService {
         where('userId', '==', userId)
       );
       const favoritesSnapshot = await getDocs(favoritesQuery);
-      favoritesSnapshot.forEach((doc) => {
-        const data = doc.data();
+      favoritesSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         exportData.favorites.push({
-          id: doc.id,
+          id: docSnap.id,
           ...data,
           createdAt: data.createdAt?.toDate?.()?.toISOString(),
         });
@@ -430,16 +339,16 @@ export class UserService {
         where('userId', '==', userId)
       );
       const notificationsSnapshot = await getDocs(notificationsQuery);
-      notificationsSnapshot.forEach((doc) => {
-        const data = doc.data();
+      notificationsSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         exportData.notifications.push({
-          id: doc.id,
+          id: docSnap.id,
           ...data,
           createdAt: data.createdAt?.toDate?.()?.toISOString(),
         });
       });
 
-      // 5. Chats (messages où l'utilisateur participe)
+      // 5. Chats (messages ou l'utilisateur participe)
       const chatsQuery = query(
         collection(firestore, 'chats'),
         where('participants', 'array-contains', userId)
@@ -452,7 +361,7 @@ export class UserService {
           where('senderId', '==', userId)
         );
         const messagesSnapshot = await getDocs(messagesQuery);
-        const messages: any[] = [];
+        const messages: Record<string, unknown>[] = [];
         messagesSnapshot.forEach((msgDoc) => {
           const msgData = msgDoc.data();
           messages.push({
@@ -472,7 +381,7 @@ export class UserService {
       return exportData;
     } catch (error) {
       if (__DEV__) console.error('Error exporting user data:', error);
-      throw new Error('Erreur lors de l\'export des données');
+      throw new Error('Erreur lors de l\'export des donnees');
     }
   }
 }

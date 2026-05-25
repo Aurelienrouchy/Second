@@ -306,6 +306,63 @@ export class TransactionService {
   }
 
   /**
+   * Get active (non-finalized) transactions for a user.
+   *
+   * Used to block account deletion when the user has pending orders.
+   * Active statuses: pending_payment, meetup_pending, meetup_confirmed, paid, shipped.
+   *
+   * Firestore does not support OR on different fields, so we run two
+   * queries (buyer-side + seller-side) and merge.
+   */
+  static async getActiveTransactionsForUser(userId: string): Promise<Transaction[]> {
+    const activeStatuses: TransactionStatus[] = [
+      'pending_payment',
+      'meetup_pending',
+      'meetup_confirmed',
+      'paid',
+      'shipped',
+    ];
+
+    const transactionsRef = collection(firestore, 'transactions');
+
+    const buyerQuery = query(
+      transactionsRef,
+      where('buyerId', '==', userId),
+      where('status', 'in', activeStatuses)
+    );
+
+    const sellerQuery = query(
+      transactionsRef,
+      where('sellerId', '==', userId),
+      where('status', 'in', activeStatuses)
+    );
+
+    const [buyerSnap, sellerSnap] = await Promise.all([
+      getDocs(buyerQuery),
+      getDocs(sellerQuery),
+    ]);
+
+    const seen = new Set<string>();
+    const transactions: Transaction[] = [];
+
+    for (const d of [...buyerSnap.docs, ...sellerSnap.docs]) {
+      if (seen.has(d.id)) continue;
+      seen.add(d.id);
+      const data = d.data();
+      transactions.push({
+        id: d.id,
+        ...data,
+        createdAt: data?.createdAt?.toDate() || new Date(),
+        paidAt: data?.paidAt?.toDate(),
+        shippedAt: data?.shippedAt?.toDate(),
+        deliveredAt: data?.deliveredAt?.toDate(),
+      } as Transaction);
+    }
+
+    return transactions;
+  }
+
+  /**
    * Get all transactions for a user (buyer or seller)
    */
   static async getUserTransactions(userId: string): Promise<Transaction[]> {

@@ -273,7 +273,7 @@ export class NotificationService {
       userId,
       'price_drop',
       'Baisse de prix !',
-      `"${articleTitle}" est passé de ${oldPrice}€ à ${newPrice}€ (-${discount}%)`,
+      `"${articleTitle}" est passé de ${oldPrice} $ à ${newPrice} $ (-${discount}%)`,
       { articleId, articleTitle, oldPrice, newPrice }
     );
   }
@@ -350,7 +350,7 @@ export class NotificationService {
       sellerId,
       'offer_received',
       `Nouvelle offre de ${buyerName}`,
-      `${amount}€ pour "${articleTitle}"`,
+      `${amount} $ pour "${articleTitle}"`,
       { articleId, articleTitle, amount, userName: buyerName, chatId }
     );
   }
@@ -384,7 +384,7 @@ export class NotificationService {
         break;
       case 'counter':
         title = 'Contre-offre reçue';
-        message = `${sellerName} propose ${counterAmount}€ pour "${articleTitle}"`;
+        message = `${sellerName} propose ${counterAmount} $ pour "${articleTitle}"`;
         type = 'offer_counter';
         break;
     }

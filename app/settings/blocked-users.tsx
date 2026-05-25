@@ -9,7 +9,7 @@ import { Text, Caption } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Alert,
   StyleSheet,
@@ -19,32 +19,51 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDisplayName } from '@/utils/formatName';
 import { Skeleton, SkeletonAvatar } from '@/components/ui/Skeleton';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+const keyExtractor = (item: BlockedUser) => item.blockedUserId;
+
+const formatDate = (date: Date) => {
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+};
 
 export default function BlockedUsersScreen() {
   const user = useUser();
-  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [unblocking, setUnblocking] = useState<string | null>(null);
 
-  const loadBlockedUsers = useCallback(async () => {
-    if (!user) return;
+  const { data: blockedUsers = [], isLoading: loading } = useQuery({
+    queryKey: ['blockedUsers', user?.id],
+    queryFn: () => ModerationService.getBlockedUsers(user!.id),
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
+  });
 
-    try {
-      setLoading(true);
-      const users = await ModerationService.getBlockedUsers(user.id);
-      setBlockedUsers(users);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading blocked users:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const { mutate: performUnblock } = useMutation({
+    mutationFn: (blockedUserId: string) =>
+      ModerationService.unblockUser(user!.id, blockedUserId),
+    onMutate: (blockedUserId: string) => {
+      setUnblocking(blockedUserId);
+    },
+    onSuccess: (_data, blockedUserId) => {
+      queryClient.setQueryData(
+        ['blockedUsers', user?.id],
+        (old: BlockedUser[] | undefined) =>
+          (old ?? []).filter((u) => u.blockedUserId !== blockedUserId)
+      );
+      setUnblocking(null);
+    },
+    onError: (error: Error) => {
+      Alert.alert('Erreur', error.message || 'Une erreur est survenue');
+      setUnblocking(null);
+    },
+  });
 
-  useEffect(() => {
-    loadBlockedUsers();
-  }, [loadBlockedUsers]);
-
-  const handleUnblock = async (blockedUser: BlockedUser) => {
+  const handleUnblock = useCallback((blockedUser: BlockedUser) => {
     if (!user) return;
 
     Alert.alert(
@@ -54,33 +73,13 @@ export default function BlockedUsersScreen() {
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Débloquer',
-          onPress: async () => {
-            try {
-              setUnblocking(blockedUser.blockedUserId);
-              await ModerationService.unblockUser(user.id, blockedUser.blockedUserId);
-              setBlockedUsers((prev) =>
-                prev.filter((u) => u.blockedUserId !== blockedUser.blockedUserId)
-              );
-            } catch (error: any) {
-              Alert.alert('Erreur', error.message || 'Une erreur est survenue');
-            } finally {
-              setUnblocking(null);
-            }
-          },
+          onPress: () => performUnblock(blockedUser.blockedUserId),
         },
       ]
     );
-  };
+  }, [user, performUnblock]);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const renderItem = ({ item }: { item: BlockedUser }) => (
+  const renderItem = useCallback(({ item }: { item: BlockedUser }) => (
     <View style={styles.userItem}>
       <View style={styles.userInfo}>
         <View style={styles.avatar}>
@@ -101,7 +100,7 @@ export default function BlockedUsersScreen() {
         Débloquer
       </Button>
     </View>
-  );
+  ), [unblocking, handleUnblock]);
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -135,7 +134,7 @@ export default function BlockedUsersScreen() {
       ) : (
         <FlashList
           data={blockedUsers}
-          keyExtractor={(item) => item.blockedUserId}
+          keyExtractor={keyExtractor}
           renderItem={renderItem}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={

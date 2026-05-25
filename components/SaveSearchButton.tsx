@@ -211,7 +211,7 @@ function SaveSearchButtonComponent({
                 <View style={styles.summaryRow}>
                   <Ionicons name="cash-outline" size={16} color={colors.muted} />
                   <Text style={styles.summaryText}>
-                    Prix: {filters.minPrice ?? 0}€ - {filters.maxPrice ?? '∞'}€
+                    Prix: {filters.minPrice ?? 0} $ - {filters.maxPrice ?? '∞'} $
                   </Text>
                 </View>
               )}

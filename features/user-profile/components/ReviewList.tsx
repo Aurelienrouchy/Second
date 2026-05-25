@@ -4,7 +4,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { colors, fonts, spacing } from '@/constants/theme';
@@ -16,12 +16,14 @@ import { ReviewItem } from './ReviewItem';
 interface ReviewListProps {
   stats: UserStats | null;
   reviews: Review[];
+  isLoading?: boolean;
   onReviewerPress: (reviewerId: string) => void;
 }
 
 export const ReviewList = React.memo(function ReviewList({
   stats,
   reviews,
+  isLoading = false,
   onReviewerPress,
 }: ReviewListProps) {
   return (
@@ -51,14 +53,18 @@ export const ReviewList = React.memo(function ReviewList({
               ))}
             </View>
             <Text style={styles.ratingCount}>
-              {stats.nombreAvis} {stats.nombreAvis > 1 ? 'evaluations' : 'evaluation'}
+              {stats.nombreAvis} {stats.nombreAvis > 1 ? 'évaluations' : 'évaluation'}
             </Text>
           </View>
         </Animated.View>
       )}
 
       {/* Reviews */}
-      {reviews.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.emptyTab}>
+          <ActivityIndicator size="small" color={colors.muted} />
+        </View>
+      ) : reviews.length === 0 ? (
         <View style={styles.emptyTab}>
           <Ionicons name="chatbubble-outline" size={40} color={colors.muted} />
           <Text style={styles.emptyTabText}>Aucun avis pour le moment</Text>

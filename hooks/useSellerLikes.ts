@@ -54,7 +54,7 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
           setLikedSellerIds([]);
         }
       } catch (err) {
-        console.error('Error fetching liked sellers:', err);
+        if (__DEV__) console.error('Error fetching liked sellers:', err);
         setError(err instanceof Error ? err : new Error('Failed to fetch liked sellers'));
       } finally {
         setIsLoading(false);
@@ -62,12 +62,12 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
     };
 
     fetchLikedSellers();
-  }, [currentUserId, firestore]);
+  }, [currentUserId]);
 
   const toggleLike = useCallback(
     async (sellerId: string) => {
       if (!currentUserId) {
-        console.warn('User not authenticated');
+        if (__DEV__) console.warn('User not authenticated');
         return;
       }
 
@@ -91,7 +91,7 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
           isLiked: !isCurrentlyLiked,
         });
       } catch (err) {
-        console.error('Error toggling seller like:', err);
+        if (__DEV__) console.error('Error toggling seller like:', err);
         // Revert optimistic update on error
         setLikedSellerIds((prev) =>
           likedSellerIds.includes(sellerId)
@@ -112,4 +112,3 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
   };
 }
 
-export default useSellerLikes;
