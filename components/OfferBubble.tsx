@@ -11,6 +11,7 @@ import {
   MessageOfferWithMeetup,
 } from '@/types';
 import { colors } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 import { CounterPriceInput } from './offer-bubble/CounterPriceInput';
 import { MeetupActions } from './offer-bubble/MeetupActions';
@@ -92,8 +93,8 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
 
   const handleAccept = async () => {
     const confirmMessage = isMeetupOffer
-      ? `Voulez-vous accepter cette offre de ${amount}$ avec meetup ?`
-      : `Voulez-vous accepter cette offre de ${amount}$ ?`;
+      ? `Voulez-vous accepter cette offre de ${formatPrice(amount)} avec meetup ?`
+      : `Voulez-vous accepter cette offre de ${formatPrice(amount)} ?`;
 
     Alert.alert("Accepter l'offre", confirmMessage, [
       { text: 'Annuler', style: 'cancel' },
@@ -106,7 +107,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await onAcceptOffer(message.id, message.id);
           } catch (error) {
-            console.error('Error accepting offer:', error);
+            if (__DEV__) console.error('Error accepting offer:', error);
             Alert.alert('Erreur', "Impossible d'accepter l'offre");
           } finally {
             setIsAccepting(false);
@@ -117,7 +118,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   };
 
   const handleReject = async () => {
-    Alert.alert("Refuser l'offre", `Voulez-vous refuser cette offre de ${amount}$ ?`, [
+    Alert.alert("Refuser l'offre", `Voulez-vous refuser cette offre de ${formatPrice(amount)} ?`, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Refuser',
@@ -128,7 +129,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             await onRejectOffer(message.id, message.id);
           } catch (error) {
-            console.error('Error rejecting offer:', error);
+            if (__DEV__) console.error('Error rejecting offer:', error);
             Alert.alert('Erreur', 'Impossible de refuser l\'offre');
           } finally {
             setIsRejecting(false);
@@ -155,7 +156,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       setCounterPriceAmount('');
       setCounterMessage('');
     } catch (error) {
-      console.error('Error counter offering:', error);
+      if (__DEV__) console.error('Error counter offering:', error);
       Alert.alert('Erreur', "Impossible d'envoyer la contre-offre");
     } finally {
       setIsCountering(false);
@@ -177,7 +178,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               await onConfirmMeetup(message.id);
             } catch (error) {
-              console.error('Error confirming meetup:', error);
+              if (__DEV__) console.error('Error confirming meetup:', error);
               Alert.alert('Erreur', 'Impossible de confirmer le meetup');
             }
           },
@@ -202,7 +203,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
               await onReportNoShow(message.id, "L'autre personne ne s'est pas présentée");
             } catch (error) {
-              console.error('Error reporting no-show:', error);
+              if (__DEV__) console.error('Error reporting no-show:', error);
               Alert.alert('Erreur', 'Impossible de signaler le no-show');
             }
           },
@@ -249,7 +250,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           </View>
           {listedPrice != null && (
             <Text style={styles.amountSubtext}>
-              sur un prix affiche de {listedPrice.toFixed(2)}$
+              sur un prix affiche de {formatPrice(listedPrice)}
             </Text>
           )}
 
@@ -260,7 +261,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
                 Livraison ({shippingEstimate.carrier})
               </Text>
               <Text style={styles.shippingAmount}>
-                + {shippingEstimate.amount.toFixed(2)}$
+                + {formatPrice(shippingEstimate.amount)}
               </Text>
             </View>
           )}
@@ -268,7 +269,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           {totalAmount && shippingEstimate && !isMeetupOffer && (
             <View style={styles.totalInfo}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalAmount}>{totalAmount.toFixed(2)}$</Text>
+              <Text style={styles.totalAmount}>{formatPrice(totalAmount)}</Text>
             </View>
           )}
         </View>

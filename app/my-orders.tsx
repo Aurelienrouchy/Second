@@ -12,6 +12,7 @@ import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { queryKeys } from '@/lib/queryKeys';
+import { formatPrice } from '@/utils/formatPrice';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
@@ -74,7 +75,7 @@ function OrderCard({
         <Text style={styles.cardTitle} numberOfLines={2}>
           {article?.title || 'Article indisponible'}
         </Text>
-        <Text style={styles.cardPrice}>{transaction.totalAmount.toFixed(2)} $</Text>
+        <Text style={styles.cardPrice}>{formatPrice(transaction.totalAmount)}</Text>
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, { backgroundColor: status.color }]} />
           <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
@@ -193,6 +194,8 @@ export default function MyOrdersScreen() {
           renderItem={({ item }) => (
             <OrderCard item={item} onPress={() => handleOrderPress(item)} />
           )}
+          // @ts-expect-error estimatedItemSize valid at runtime
+          estimatedItemSize={100}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.listContent}
           refreshControl={

@@ -14,7 +14,7 @@ import {
 
 import { functions } from '@/config/firebaseConfig';
 import { Transaction } from '@/types';
-import { colors } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
 
 interface ShipmentTrackingProps {
   transaction: Transaction;
@@ -85,7 +85,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         }
       }
     } catch (error: any) {
-      console.error('Error refreshing tracking:', error);
+      if (__DEV__) console.error('Error refreshing tracking:', error);
       Alert.alert('Erreur', 'Impossible de mettre à jour le suivi');
     } finally {
       setIsRefreshing(false);
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fonts.sansBold,
     color: colors.foreground,
   },
   refreshButton: {
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fonts.sansBold,
     marginBottom: 4,
   },
   statusDescription: {
@@ -321,9 +321,8 @@ const styles = StyleSheet.create({
   },
   trackingNumber: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
     color: colors.foreground,
-    fontFamily: 'monospace',
   },
   timeline: {
     marginBottom: 16,
@@ -354,7 +353,7 @@ const styles = StyleSheet.create({
   },
   timelineTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
     color: colors.foreground,
     marginBottom: 2,
   },
@@ -365,7 +364,7 @@ const styles = StyleSheet.create({
   timelineActive: {
     fontSize: 12,
     color: colors.primary,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
   },
   actions: {
     flexDirection: 'row',
@@ -386,7 +385,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fonts.sansMedium,
     color: colors.primary,
   },
   deliveryNote: {
@@ -401,7 +400,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#34C759',
-    fontWeight: '500',
+    fontFamily: fonts.sansMedium,
   },
 });
 

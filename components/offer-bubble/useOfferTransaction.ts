@@ -42,7 +42,7 @@ export function useOfferTransaction({
           setTransactionId(transaction.id);
         }
       } catch (error) {
-        console.error('Error loading transaction:', error);
+        if (__DEV__) console.error('Error loading transaction:', error);
       } finally {
         if (!cancelled) setIsLoading(false);
       }

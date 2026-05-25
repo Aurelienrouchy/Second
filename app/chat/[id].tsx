@@ -157,9 +157,17 @@ export default function ChatScreen() {
       Alert.alert('Erreur', 'Aucun article associe a cette conversation');
       return;
     }
+    // H4: Prevent multiple simultaneous offers
+    const hasPendingOffer = messages.some(
+      (msg) => msg.type === 'offer' && msg.offer?.status === 'pending' && msg.senderId === user?.id
+    );
+    if (hasPendingOffer) {
+      Alert.alert('Offre en cours', 'Vous avez déjà une offre en attente pour cet article.');
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
-  }, [article?.price, chat?.articlePrice]);
+  }, [article?.price, chat?.articlePrice, messages, user?.id]);
 
   const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
@@ -205,6 +213,47 @@ export default function ChatScreen() {
     }
   }, [rejectOffer]);
 
+  // H3: Counter-offer, meetup confirmation, no-show, and complete meetup handlers
+  const handleCounterPrice = useCallback(async (messageId: string, newAmount: number, message?: string) => {
+    if (!user || !chatId || !otherParticipant) return;
+    try {
+      await ChatService.counterOfferPrice(chatId, messageId, user.id, otherParticipant.userId, newAmount, message);
+    } catch (error) {
+      if (__DEV__) console.error('[Chat] Counter offer error:', error);
+      Alert.alert('Erreur', "Impossible d'envoyer la contre-offre");
+    }
+  }, [chatId, user, otherParticipant]);
+
+  const handleConfirmMeetup = useCallback(async (messageId: string) => {
+    if (!user || !chatId) return;
+    try {
+      await ChatService.confirmMeetup(chatId, messageId, user.id);
+    } catch (error) {
+      if (__DEV__) console.error('[Chat] Confirm meetup error:', error);
+      Alert.alert('Erreur', 'Impossible de confirmer le meetup');
+    }
+  }, [chatId, user]);
+
+  const handleReportNoShow = useCallback(async (messageId: string, reason?: string) => {
+    if (!user || !chatId) return;
+    try {
+      await ChatService.reportNoShow(chatId, messageId, user.id, reason);
+    } catch (error) {
+      if (__DEV__) console.error('[Chat] Report no-show error:', error);
+      Alert.alert('Erreur', "Impossible de signaler l'absence");
+    }
+  }, [chatId, user]);
+
+  const handleCompleteMeetup = useCallback(async (messageId: string) => {
+    if (!user || !chatId) return;
+    try {
+      await ChatService.completeMeetup(chatId, messageId, user.id);
+    } catch (error) {
+      if (__DEV__) console.error('[Chat] Complete meetup error:', error);
+      Alert.alert('Erreur', 'Impossible de compléter le meetup');
+    }
+  }, [chatId, user]);
+
   const { handleMoreOptions } = useChatModeration({
     otherParticipant,
     currentUserId: user?.id,
@@ -226,6 +275,10 @@ export default function ChatScreen() {
             articlePrice={article?.price ?? chat?.articlePrice}
             onAcceptOffer={handleAcceptOffer}
             onRejectOffer={handleRejectOffer}
+            onCounterPrice={handleCounterPrice}
+            onConfirmMeetup={handleConfirmMeetup}
+            onReportNoShow={handleReportNoShow}
+            onCompleteMeetup={handleCompleteMeetup}
           />
         );
       }
@@ -238,7 +291,7 @@ export default function ChatScreen() {
         />
       );
     },
-    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, otherAvatar, article?.price, chat?.articlePrice],
+    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, handleCounterPrice, handleConfirmMeetup, handleReportNoShow, handleCompleteMeetup, otherAvatar, article?.price, chat?.articlePrice],
   );
 
   // ─── Auth gate: redirect guests AFTER all hooks have been called ───

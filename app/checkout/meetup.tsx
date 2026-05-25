@@ -44,14 +44,35 @@ const VIA_CHAT_OPTION = '__via_chat__';
 export default function MeetupCheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams();
-  const articleId = params.articleId as string;
+  const { articleId, chatId: chatIdParam, negotiatedPrice } = useLocalSearchParams<{
+    articleId: string;
+    chatId?: string;
+    negotiatedPrice?: string;
+  }>();
+
+  const currentUser = auth.currentUser;
+
+  // H5 — Auth guard: redirect unauthenticated users
+  useEffect(() => {
+    if (!currentUser) {
+      router.replace('/(tabs)');
+    }
+  }, [currentUser, router]);
 
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   // selectedOption: either a MeetupSpot or VIA_CHAT_OPTION string
   const [selectedOption, setSelectedOption] = useState<MeetupSpot | string | null>(null);
+
+  // C1 — Use negotiated price from accepted offer if provided
+  const finalPrice = negotiatedPrice && !isNaN(parseFloat(negotiatedPrice))
+    ? parseFloat(negotiatedPrice)
+    : article?.price ?? 0;
+  const hasNegotiatedPrice = negotiatedPrice != null
+    && !isNaN(parseFloat(negotiatedPrice))
+    && article != null
+    && parseFloat(negotiatedPrice) !== article.price;
 
   // =============================================================================
   // LOAD ARTICLE
@@ -94,13 +115,7 @@ export default function MeetupCheckoutScreen() {
   const isViaChatSelected = selectedOption === VIA_CHAT_OPTION;
 
   const handleConfirm = async () => {
-    if (!article || !selectedOption || submitting) return;
-
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Erreur', 'Vous devez etre connecte pour acheter.');
-      return;
-    }
+    if (!article || !selectedOption || submitting || !currentUser) return;
 
     try {
       setSubmitting(true);
@@ -120,12 +135,12 @@ export default function MeetupCheckoutScreen() {
         article.id,
       );
 
-      // Create meetup transaction (with or without spot)
+      // Create meetup transaction (with or without spot) — use finalPrice
       const transactionId = await TransactionService.createMeetupTransaction(
         article.id,
         currentUser.uid,
         article.sellerId,
-        article.price,
+        finalPrice,
         selectedSpot, // null if "via chat" option
         chat.id,
       );
@@ -138,7 +153,7 @@ export default function MeetupCheckoutScreen() {
         chat.id,
         currentUser.uid,
         article.sellerId,
-        `Demande de meetup pour "${article.title}" ${spotLabel} (${formatPrice(article.price)})`,
+        `Demande de meetup pour "${article.title}" ${spotLabel} (${formatPrice(finalPrice)})`,
       );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -150,7 +165,7 @@ export default function MeetupCheckoutScreen() {
           transactionId,
           deliveryType: 'meetup',
           articleTitle: article.title,
-          amount: String(article.price),
+          amount: String(finalPrice),
           spotName: selectedSpot?.name || 'A convenir',
           chatId: chat.id,
         },
@@ -271,7 +286,19 @@ export default function MeetupCheckoutScreen() {
               <Text style={styles.articleBrand}>{article.brand.toUpperCase()}</Text>
             )}
             <Text style={styles.articleName}>{article.title}</Text>
-            <Text style={styles.articlePrice}>{formatPrice(article.price)}</Text>
+            {hasNegotiatedPrice ? (
+              <View style={styles.priceRow}>
+                <Text style={styles.articlePrice}>{formatPrice(finalPrice)}</Text>
+                <Text style={styles.originalPrice}>{formatPrice(article.price)}</Text>
+              </View>
+            ) : (
+              <Text style={styles.articlePrice}>{formatPrice(finalPrice)}</Text>
+            )}
+            {hasNegotiatedPrice && (
+              <View style={styles.negotiatedBadge}>
+                <Text style={styles.negotiatedBadgeText}>PRIX NEGOCIE</Text>
+              </View>
+            )}
             <View style={styles.meetupBadge}>
               <Text style={styles.meetupBadgeText}>MEETUP</Text>
             </View>
@@ -453,6 +480,31 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displaySemiBold,
     fontSize: 20,
     color: colors.rust,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  originalPrice: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textDecorationLine: 'line-through',
+  },
+  negotiatedBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.xs,
+  },
+  negotiatedBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: colors.rust,
+    textTransform: 'uppercase',
   },
   meetupBadge: {
     alignSelf: 'flex-start',

@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo, useState } from 'react';
 import {
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 
 import {
   getPopularSpotsForNeighborhood,
@@ -219,11 +219,12 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
           {searchQuery ? 'RÉSULTATS' : 'TOUS LES QUARTIERS'}
         </Text>
 
-        <FlatList
+        <FlashList
           data={filteredNeighborhoods}
           renderItem={renderNeighborhoodItem}
           keyExtractor={(item) => item.id}
-          style={styles.list}
+          // @ts-expect-error estimatedItemSize valid at runtime
+          estimatedItemSize={60}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <Text style={styles.emptyText}>Aucun quartier trouvé</Text>
@@ -312,11 +313,12 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
       {availableSpots.length > 0 ? (
         <>
           <Text style={styles.sectionTitle}>LIEUX POPULAIRES</Text>
-          <FlatList
+          <FlashList
             data={availableSpots}
             renderItem={renderSpotItem}
             keyExtractor={(item, index) => `${item.name}-${index}`}
-            style={styles.list}
+            // @ts-expect-error estimatedItemSize valid at runtime
+            estimatedItemSize={60}
             showsVerticalScrollIndicator={false}
           />
         </>

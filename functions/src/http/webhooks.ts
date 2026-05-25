@@ -117,7 +117,7 @@ export const helcimWebhook = onRequest(
       }
 
       const isValid = HelcimClient.verifyWebhookSignature(
-        JSON.stringify(req.body),
+        (req as any).rawBody.toString('utf8'),
         signature,
         secretToken
       );
@@ -145,9 +145,13 @@ export const helcimWebhook = onRequest(
           throw new Error(`Transaction ${transactionId} disappeared mid-processing`);
         }
 
-        // IDEMPOTENCE: If already paid/shipped, do nothing (replay protection)
-        if (txData.status === 'paid' || txData.status === 'shipped') {
-          return true; // already processed
+        // IDEMPOTENCE: If already paid/shipped/delivered, do nothing (replay protection).
+        // Also reject cancelled transactions — a late webhook must NOT resurrect a
+        // cancelled order by re-marking the article as sold and crediting the seller.
+        const currentStatus = txData.status;
+        if (currentStatus === 'paid' || currentStatus === 'shipped' || currentStatus === 'delivered' || currentStatus === 'cancelled') {
+          logger.info(`[helcimWebhook] Transaction ${transactionId} already in status ${currentStatus}, skipping`);
+          return true; // already processed or cancelled
         }
 
         // --- Mark transaction as paid ---

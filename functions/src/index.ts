@@ -102,7 +102,7 @@ export { onUserCreated, onUserDeleted } from './triggers/auth';
 export { onUserProfileUpdated } from './triggers/users';
 
 // Article Triggers
-export { onArticleSoftDeleted } from './triggers/articles';
+export { onArticleSoftDeleted, onArticleSold } from './triggers/articles';
 
 // ============================================================
 // SCHEDULED FUNCTIONS (pubsub)

@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 
 import { MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 interface OfferStepProps {
   context: MakeOfferContext;
@@ -69,7 +70,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
           {articleTitle}
         </Text>
         <Text style={styles.currentPrice}>
-          Prix affiché : <Text style={styles.priceValue}>{currentPrice} $</Text>
+          Prix affiché : <Text style={styles.priceValue}>{formatPrice(currentPrice)}</Text>
         </Text>
       </View>
 

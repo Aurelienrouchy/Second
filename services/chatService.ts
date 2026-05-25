@@ -564,20 +564,37 @@ export class ChatService {
   ): Promise<void> {
     try {
       const messageRef = doc(firestore, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        throw new Error('Message non trouve');
+      }
+
+      const offerData = messageDoc.data();
+
+      // H9: Enforce offer expiry — reject if past expiresAt
+      if (offerData?.offer?.expiresAt) {
+        const expiresAt = offerData.offer.expiresAt.toDate
+          ? offerData.offer.expiresAt.toDate()
+          : new Date(offerData.offer.expiresAt);
+        if (expiresAt < new Date()) {
+          await updateDoc(messageRef, {
+            'offer.status': 'expired',
+          });
+          throw new Error('Cette offre a expire');
+        }
+      }
+
       await updateDoc(messageRef, {
         'offer.status': 'accepted',
       });
 
       // Send system message
-      const messageDoc = await getDoc(messageRef);
-      if (messageDoc.exists()) {
-        const msgData = messageDoc.data();
-        if (msgData?.offer) {
-          await this.sendSystemMessage(
-            chatId,
-            `Offre de ${msgData.offer.amount} $ acceptée`
-          );
-        }
+      if (offerData?.offer) {
+        await this.sendSystemMessage(
+          chatId,
+          `Offre de ${offerData.offer.amount} $ acceptee`
+        );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -723,6 +740,19 @@ export class ChatService {
         throw new Error('Offre originale non trouvée');
       }
 
+      // H9: Enforce offer expiry — reject if past expiresAt
+      if (originalOffer.expiresAt) {
+        const expiresAt = originalOffer.expiresAt.toDate
+          ? originalOffer.expiresAt.toDate()
+          : new Date(originalOffer.expiresAt);
+        if (expiresAt < new Date()) {
+          await updateDoc(messageRef, {
+            'offer.status': 'expired',
+          });
+          throw new Error('Cette offre a expire');
+        }
+      }
+
       // Update original offer status
       await updateDoc(messageRef, {
         'offer.status': 'counter_price',
@@ -744,19 +774,13 @@ export class ChatService {
       const newHistory = [...(originalOffer.history || []), historyEntry];
 
       const meetupDetails = originalOffer.meetup;
-      const formattedDate = new Date(meetupDetails.dateTime).toLocaleDateString('fr-CA', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      });
-      const formattedTime = new Date(meetupDetails.dateTime).toLocaleTimeString('fr-CA', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      const dateTimeInfo = meetupDetails.dateTime
+        ? `le ${new Date(meetupDetails.dateTime).toLocaleDateString('fr-CA')} a ${new Date(meetupDetails.dateTime).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`
+        : 'a une date a convenir';
 
       let content = `Contre-offre: ${newAmount} $\n`;
       content += `${meetupDetails.location.name}\n`;
-      content += `${formattedDate} a ${formattedTime}`;
+      content += dateTimeInfo;
       if (message) {
         content += `\n${message}`;
       }
@@ -820,6 +844,19 @@ export class ChatService {
         throw new Error('Offre originale non trouvée');
       }
 
+      // H9: Enforce offer expiry — reject if past expiresAt
+      if (originalOffer.expiresAt) {
+        const expiresAt = originalOffer.expiresAt.toDate
+          ? originalOffer.expiresAt.toDate()
+          : new Date(originalOffer.expiresAt);
+        if (expiresAt < new Date()) {
+          await updateDoc(messageRef, {
+            'offer.status': 'expired',
+          });
+          throw new Error('Cette offre a expire');
+        }
+      }
+
       // Update original offer status
       await updateDoc(messageRef, {
         'offer.status': 'counter_location',
@@ -845,21 +882,14 @@ export class ChatService {
         proposedBy: userId === originalData.senderId ? 'buyer' : 'seller',
       };
 
-      const meetupDateTime = new Date(originalOffer.meetup.dateTime);
-      const formattedDate = meetupDateTime.toLocaleDateString('fr-CA', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      });
-      const formattedTime = meetupDateTime.toLocaleTimeString('fr-CA', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      const dateTimeInfo = originalOffer.meetup.dateTime
+        ? `le ${new Date(originalOffer.meetup.dateTime).toLocaleDateString('fr-CA')} a ${new Date(originalOffer.meetup.dateTime).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`
+        : 'a une date a convenir';
 
       let content = `Nouveau lieu propose\n`;
       content += `${originalOffer.amount} $\n`;
       content += `${newLocation.name}\n`;
-      content += `${formattedDate} a ${formattedTime}`;
+      content += dateTimeInfo;
       if (message) {
         content += `\n${message}`;
       }
@@ -1024,20 +1054,13 @@ export class ChatService {
         'offer.meetup.confirmedAt': new Date(),
       });
 
-      const meetupDateTime = new Date(offer.meetup.dateTime);
-      const formattedDate = meetupDateTime.toLocaleDateString('fr-CA', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      });
-      const formattedTime = meetupDateTime.toLocaleTimeString('fr-CA', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      const dateTimeInfo = offer.meetup.dateTime
+        ? `le ${new Date(offer.meetup.dateTime).toLocaleDateString('fr-CA')} a ${new Date(offer.meetup.dateTime).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`
+        : 'a une date a convenir';
 
       await this.sendSystemMessage(
         chatId,
-        `Meetup confirme!\n${offer.meetup.location.name}\n${formattedDate} a ${formattedTime}`
+        `Meetup confirme!\n${offer.meetup.location.name}\n${dateTimeInfo}`
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

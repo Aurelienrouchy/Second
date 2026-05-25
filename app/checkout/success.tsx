@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import { TransactionDeliveryType } from '@/types';
 
 // =============================================================================
@@ -34,6 +35,7 @@ export default function CheckoutSuccessScreen() {
   const articleTitle = params.articleTitle as string;
   const amount = params.amount as string;
   const shippingCost = params.shippingCost as string | undefined;
+  const serviceFee = params.serviceFee as string | undefined;
   const totalAmount = params.totalAmount as string | undefined;
   const spotName = params.spotName as string | undefined;
   const chatId = params.chatId as string | undefined;
@@ -54,8 +56,13 @@ export default function CheckoutSuccessScreen() {
   };
 
   const handleViewOrder = () => {
-    // Navigate to order details or transactions list
-    router.replace('/(tabs)');
+    if (chatId) {
+      router.replace(`/chat/${chatId}`);
+    } else if (transactionId) {
+      router.replace('/my-orders');
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const handleGoHome = () => {
@@ -98,7 +105,7 @@ export default function CheckoutSuccessScreen() {
             <>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Prix</Text>
-                <Text style={[styles.summaryValue, styles.summaryPrice]}>{amount}$</Text>
+                <Text style={[styles.summaryValue, styles.summaryPrice]}>{formatPrice(parseFloat(amount))}</Text>
               </View>
               {spotName && (
                 <View style={styles.summaryRow}>
@@ -116,20 +123,26 @@ export default function CheckoutSuccessScreen() {
           ) : (
             <>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Article</Text>
-                <Text style={styles.summaryValue}>{parseFloat(amount).toFixed(2)}$</Text>
+                <Text style={styles.summaryLabel}>Prix</Text>
+                <Text style={styles.summaryValue}>{formatPrice(parseFloat(amount))}</Text>
               </View>
+              {serviceFee && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Frais de service</Text>
+                  <Text style={styles.summaryValue}>{formatPrice(parseFloat(serviceFee))}</Text>
+                </View>
+              )}
               {shippingCost && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Livraison</Text>
-                  <Text style={styles.summaryValue}>{parseFloat(shippingCost).toFixed(2)}$</Text>
+                  <Text style={styles.summaryValue}>{formatPrice(parseFloat(shippingCost))}</Text>
                 </View>
               )}
               {totalAmount && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Total payé</Text>
                   <Text style={[styles.summaryValue, styles.summaryPrice]}>
-                    {parseFloat(totalAmount).toFixed(2)}$
+                    {formatPrice(parseFloat(totalAmount))}
                   </Text>
                 </View>
               )}

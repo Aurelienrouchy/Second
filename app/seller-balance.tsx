@@ -4,9 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,7 +13,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 
-import { ScreenHeader, Skeleton, Text } from '@/components/ui';
+import { Button, ScreenHeader, Skeleton, Text } from '@/components/ui';
 import { useUser } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
@@ -244,16 +242,16 @@ export default function SellerBalanceScreen() {
 
         {/* Withdrawal Button */}
         {balance.availableBalance >= 10 && !showWithdrawalModal && (
-          <Pressable
+          <Button
+            variant="primary"
+            fullWidth
+            onPress={() => setShowWithdrawalModal(true)}
             style={styles.withdrawalButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setShowWithdrawalModal(true);
-            }}
+            textStyle={styles.withdrawalButtonText}
+            leftIcon={<Ionicons name="cash-outline" size={20} color={colors.white} />}
           >
-            <Ionicons name="cash-outline" size={20} color={colors.white} />
-            <Text style={styles.withdrawalButtonText}>Demander un retrait</Text>
-          </Pressable>
+            Demander un retrait
+          </Button>
         )}
 
         {/* Withdrawal Form */}
@@ -319,8 +317,9 @@ export default function SellerBalanceScreen() {
             </View>
 
             <View style={styles.withdrawalActions}>
-              <Pressable
-                style={styles.withdrawalCancelButton}
+              <Button
+                variant="muted"
+                style={styles.withdrawalActionButton}
                 onPress={() => {
                   setShowWithdrawalModal(false);
                   setWithdrawalAmount('');
@@ -329,23 +328,18 @@ export default function SellerBalanceScreen() {
                   setAccountNumber('');
                 }}
               >
-                <Text style={styles.withdrawalCancelButtonText}>Annuler</Text>
-              </Pressable>
+                Annuler
+              </Button>
 
-              <Pressable
-                style={[
-                  styles.withdrawalConfirmButton,
-                  isProcessingWithdrawal && styles.withdrawalConfirmButtonDisabled,
-                ]}
-                onPress={handleWithdrawal}
+              <Button
+                variant="primary"
+                style={styles.withdrawalActionButton}
+                loading={isProcessingWithdrawal}
                 disabled={isProcessingWithdrawal}
+                onPress={handleWithdrawal}
               >
-                {isProcessingWithdrawal ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.withdrawalConfirmButtonText}>Confirmer</Text>
-                )}
-              </Pressable>
+                Confirmer
+              </Button>
             </View>
           </View>
         )}
@@ -363,6 +357,8 @@ export default function SellerBalanceScreen() {
               data={balance.transactions.slice().reverse()}
               renderItem={renderTransaction}
               keyExtractor={keyExtractor}
+              // @ts-expect-error estimatedItemSize valid at runtime
+              estimatedItemSize={80}
               scrollEnabled={false}
             />
           )}
@@ -444,17 +440,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   withdrawalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.success,
+    borderColor: colors.success,
     borderRadius: radius.lg,
-    paddingVertical: spacing.md,
     marginTop: spacing.lg,
-    gap: spacing.sm,
   },
   withdrawalButtonText: {
-    ...typography.button,
     color: colors.white,
   },
   withdrawalForm: {
@@ -512,30 +503,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  withdrawalCancelButton: {
+  withdrawalActionButton: {
     flex: 1,
-    backgroundColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  withdrawalCancelButtonText: {
-    ...typography.button,
-    color: colors.foregroundSecondary,
-  },
-  withdrawalConfirmButton: {
-    flex: 1,
-    backgroundColor: colors.success,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  withdrawalConfirmButtonDisabled: {
-    opacity: 0.5,
-  },
-  withdrawalConfirmButtonText: {
-    ...typography.button,
-    color: colors.white,
   },
   historySection: {
     marginTop: spacing.xl,

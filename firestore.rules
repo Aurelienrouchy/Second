@@ -315,9 +315,11 @@ service cloud.firestore {
                        ) &&
                        request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['isRead', 'offer']) &&
-                       // If offer is being modified, amount must stay the same
+                       // If offer is being modified, caller must not be the sender
+                       // (can't accept own offer) and the amount must stay the same
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['offer']) ||
-                        request.resource.data.offer.amount == resource.data.offer.amount);
+                        (request.auth.uid != resource.data.senderId &&
+                         request.resource.data.offer.amount == resource.data.offer.amount));
 
       // No delete allowed
       allow delete: if false;
@@ -536,11 +538,9 @@ service cloud.firestore {
                       request.auth.uid == resource.data.sellerId ||
                       request.auth.token.admin == true);
 
-      // Allow create by buyer or seller with valid data
-      allow create: if isAuthenticated() &&
-                       (request.auth.uid == request.resource.data.buyerId ||
-                        request.auth.uid == request.resource.data.sellerId) &&
-                       isValidTransactionCreate(request.resource.data);
+      // No client creates — all transaction creation goes through Cloud
+      // Functions (Admin SDK bypasses rules).
+      allow create: if false;
 
       // Allow update only by buyer or seller for specific fields
       allow update: if isAuthenticated() &&
@@ -551,29 +551,27 @@ service cloud.firestore {
       // No delete allowed
       allow delete: if false;
 
-      function isValidTransactionCreate(data) {
-        return data.keys().hasAll(['articleId', 'buyerId', 'sellerId', 'amount', 'status']) &&
-               data.articleId is string &&
-               data.buyerId is string &&
-               data.sellerId is string &&
-               data.amount is number && data.amount > 0 &&
-               data.status in ['pending', 'paid', 'shipped', 'delivered', 'completed', 'cancelled', 'refunded', 'pending_payment', 'meetup_pending', 'meetup_confirmed', 'meetup_completed'];
-      }
-
       function isValidTransactionUpdate(oldData, newData) {
         // SECURITY: payment / shipping / delivery / cancellation transitions
         // are owned by Cloud Functions (helcimWebhook, checkTrackingStatus,
         // cancelPendingTransaction). Clients can only adjust meetup-related
-        // statuses (the meetup flow is peer-to-peer).
-        let allowedClientStatuses = ['meetup_pending', 'meetup_confirmed', 'meetup_completed'];
-        return // Cannot change core transaction data
-               newData.articleId == oldData.articleId &&
-               newData.buyerId == oldData.buyerId &&
-               newData.sellerId == oldData.sellerId &&
-               newData.amount == oldData.amount &&
-               // Status changes are restricted to the meetup flow
-               (newData.status == oldData.status ||
-                newData.status in allowedClientStatuses);
+        // statuses (the meetup flow is peer-to-peer) and must follow the
+        // correct transition order with role enforcement.
+
+        // Cannot change core transaction data
+        let coreFieldsUnchanged = newData.articleId == oldData.articleId &&
+          newData.buyerId == oldData.buyerId &&
+          newData.sellerId == oldData.sellerId &&
+          newData.amount == oldData.amount;
+
+        // Meetup status transitions: must follow the correct order
+        // Only seller can confirm, only buyer can mark completed
+        let validMeetupTransition =
+          (oldData.status == 'meetup_pending' && newData.status == 'meetup_confirmed' && request.auth.uid == oldData.sellerId) ||
+          (oldData.status == 'meetup_confirmed' && newData.status == 'meetup_completed' && request.auth.uid == oldData.buyerId);
+
+        return coreFieldsUnchanged &&
+          (newData.status == oldData.status || validMeetupTransition);
       }
     }
     

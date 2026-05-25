@@ -20,6 +20,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
+import { formatPrice } from '@/utils/formatPrice';
 
 import type { Article, MeetupSpot } from '@/types';
 
@@ -62,14 +63,18 @@ export function useArticleActions({
   const handleShare = useCallback(async () => {
     if (!article) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Universal link — requires Apple AASA / Android assetlinks on seconde.app
+    // Fallback scheme: seconde://article/{id} (configured in app.config.js)
+    const webUrl = `https://seconde.app/article/${article.id}`;
+    const shareMessage = `Découvrez cet article sur Seconde : ${article.title} — ${formatPrice(article.price)}\n${webUrl}`;
     try {
       await Share.share({
         title: article.title,
-        message: `Regarde cet article sur Seconde : ${article.title} — ${article.price} $\nhttps://seconde.app/article/${article.id}`,
-        url: `https://seconde.app/article/${article.id}`,
+        message: shareMessage,
+        url: webUrl,
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      if (__DEV__) console.log('Error sharing:', error);
     }
   }, [article]);
 
@@ -133,7 +138,7 @@ export function useArticleActions({
       );
       router.push(`/chat/${chat.id}`);
     } catch (error) {
-      console.error('Error submitting meetup offer:', error);
+      if (__DEV__) console.error('Error submitting meetup offer:', error);
       throw error;
     }
   }, [article, user, router]);
@@ -163,8 +168,8 @@ export function useArticleActions({
   const handleViewProfile = useCallback(() => {
     if (!article) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert('Profil', 'Navigation vers le profil du vendeur à venir');
-  }, [article]);
+    router.push(`/user/${article.sellerId}`);
+  }, [article, router]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -188,7 +193,7 @@ export function useArticleActions({
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               router.back();
             } catch (error) {
-              console.error('Erreur suppression:', error);
+              if (__DEV__) console.error('Erreur suppression:', error);
               Alert.alert('Erreur', 'Impossible de supprimer l\'article');
             }
           },
@@ -211,7 +216,7 @@ export function useArticleActions({
       setArticle((prev) => prev ? { ...prev, isSold: !prev.isSold } : null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      console.error('Erreur mise à jour:', error);
+      if (__DEV__) console.error('Erreur mise à jour:', error);
       Alert.alert('Erreur', 'Impossible de mettre à jour l\'article');
     }
   }, [article, setArticle]);

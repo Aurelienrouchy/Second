@@ -7,6 +7,7 @@ import { MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
 
 import { MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 interface ConfirmStepProps {
   context: MakeOfferContext;
@@ -44,7 +45,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup }) =>
       );
       onClose();
     } catch (error) {
-      console.error('Error submitting meetup offer:', error);
+      if (__DEV__) console.error('Error submitting meetup offer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erreur', "Impossible d'envoyer votre offre. Veuillez réessayer.");
     } finally {
@@ -64,7 +65,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup }) =>
             </View>
             <Text style={styles.sectionTitle}>VOTRE OFFRE</Text>
           </View>
-          <Text style={styles.offerAmount}>{offerAmount} $</Text>
+          <Text style={styles.offerAmount}>{formatPrice(Number(offerAmount))}</Text>
           <Text style={styles.articleTitle}>{articleTitle}</Text>
         </View>
 
@@ -100,7 +101,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup }) =>
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>MONTANT À PAYER</Text>
-          <Text style={styles.totalValue}>{offerAmount} $</Text>
+          <Text style={styles.totalValue}>{formatPrice(Number(offerAmount))}</Text>
         </View>
 
         <Text style={styles.paymentNote}>

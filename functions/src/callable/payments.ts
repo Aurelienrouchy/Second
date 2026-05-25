@@ -316,7 +316,7 @@ export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', 
     // Atomically read, validate, and update fee fields inside a transaction
     // to prevent races where concurrent calls both see !serviceFee and
     // double-write.
-    const fees = await db.runTransaction(async (tx) => {
+    const txResult = await db.runTransaction(async (tx) => {
       const transactionDoc = await tx.get(txRef);
 
       if (!transactionDoc.exists) {
@@ -330,9 +330,16 @@ export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', 
         throw new HttpsError('permission-denied', 'You are not authorized for this transaction');
       }
 
-      // Check if already paid
-      if (transaction.status === 'paid') {
-        throw new HttpsError('already-exists', 'Transaction already paid');
+      // H8: Only allow checkout creation from valid statuses
+      const checkoutableStatuses = new Set(['pending_payment']);
+      if (!checkoutableStatuses.has(transaction.status)) {
+        throw new HttpsError('failed-precondition', `Cannot create checkout for transaction in status ${transaction.status}`);
+      }
+
+      // H2: If a valid checkout already exists, return the existing token
+      if (transaction.helcimCheckoutToken && transaction.helcimCheckoutCreatedAt) {
+        const existingFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
+        return { existingCheckout: true, fees: existingFees, checkoutToken: transaction.helcimCheckoutToken as string };
       }
 
       // Always recalculate fees server-side for correctness
@@ -346,35 +353,52 @@ export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', 
         sellerPayout: calculatedFees.sellerPayout,
       });
 
-      return calculatedFees;
+      return { existingCheckout: false, fees: calculatedFees, checkoutToken: null as string | null };
     });
+
+    // H2: If checkout already existed, return early without creating a new session
+    if (txResult.existingCheckout) {
+      console.log(`♻️ Returning existing Helcim checkout for transaction ${transactionId}`);
+      return {
+        success: true,
+        checkoutToken: txResult.checkoutToken,
+        feeBreakdown: {
+          articlePrice: txResult.fees.articlePrice,
+          shippingCost: txResult.fees.shippingCost,
+          serviceFee: txResult.fees.serviceFee,
+          serviceFeePercent: txResult.fees.serviceFeePercent,
+          buyerTotal: txResult.fees.buyerTotal,
+        },
+      };
+    }
 
     // Create Helcim checkout session (external API call, after transaction commits)
     const checkout = await helcim.createCheckoutSession({
-      amount: fees.buyerTotal,
+      amount: txResult.fees.buyerTotal,
       currency: 'CAD',
       paymentType: 'purchase',
       invoiceNumber: transactionId,
       taxAmount: 0, // Pas de taxe sur les ventes C2C de seconde main
     });
 
-    // Store the secret token for webhook verification (idempotent write)
+    // Store the secret token AND checkout token for idempotent returns
     await txRef.update({
       helcimSecretToken: checkout.secretToken,
+      helcimCheckoutToken: checkout.checkoutToken,
       helcimCheckoutCreatedAt: FieldValue.serverTimestamp(),
     });
 
-    console.log(`✅ Helcim checkout created for transaction ${transactionId} — total: $${fees.buyerTotal}`);
+    console.log(`✅ Helcim checkout created for transaction ${transactionId} — total: $${txResult.fees.buyerTotal}`);
 
     return {
       success: true,
       checkoutToken: checkout.checkoutToken,
       feeBreakdown: {
-        articlePrice: fees.articlePrice,
-        shippingCost: fees.shippingCost,
-        serviceFee: fees.serviceFee,
-        serviceFeePercent: fees.serviceFeePercent,
-        buyerTotal: fees.buyerTotal,
+        articlePrice: txResult.fees.articlePrice,
+        shippingCost: txResult.fees.shippingCost,
+        serviceFee: txResult.fees.serviceFee,
+        serviceFeePercent: txResult.fees.serviceFeePercent,
+        buyerTotal: txResult.fees.buyerTotal,
       },
     };
   } catch (error: unknown) {
@@ -496,6 +520,14 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
           const balanceData = sellerBalanceDoc.data()!;
           const txns = balanceData.transactions || [];
 
+          // H7: Guard against negative pendingBalance
+          const currentPending = balanceData.pendingBalance || 0;
+          let actualPayout = sellerPayout;
+          if (currentPending < sellerPayout) {
+            logger.warn(`[checkTrackingStatus] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
+            actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
+          }
+
           const updatedTransactions = txns.map((txn: any) => {
             if (txn.id === transactionId) {
               return { ...txn, status: 'completed' };
@@ -504,9 +536,9 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
           });
 
           t.update(sellerBalanceRef, {
-            pendingBalance: FieldValue.increment(-sellerPayout),
-            availableBalance: FieldValue.increment(sellerPayout),
-            totalEarnings: FieldValue.increment(sellerPayout),
+            pendingBalance: FieldValue.increment(-actualPayout),
+            availableBalance: FieldValue.increment(actualPayout),
+            totalEarnings: FieldValue.increment(actualPayout),
             transactions: updatedTransactions,
             updatedAt: FieldValue.serverTimestamp(),
           });
@@ -613,7 +645,9 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
   const balanceRef = db.collection('seller_balances').doc(userId);
 
   try {
-    const withdrawalId = `withdrawal_${Date.now()}_${userId.slice(0, 6)}`;
+    // Use Firestore auto-generated ID to avoid collision from Date.now()
+    const withdrawalRef = db.collection('withdrawal_requests').doc();
+    const withdrawalId = withdrawalRef.id;
 
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(balanceRef);
@@ -642,17 +676,17 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
         transactions: [...transactions, withdrawalEntry],
         updatedAt: FieldValue.serverTimestamp(),
       });
-    });
 
-    // Persist the withdrawal request as a separate doc so admins can act on
-    // it without parsing the embedded array.
-    await db.collection('withdrawal_requests').doc(withdrawalId).set({
-      withdrawalId,
-      userId,
-      amount,
-      bankAccountLast4: sanitizedBankAccount.slice(-4),
-      status: 'pending',
-      createdAt: FieldValue.serverTimestamp(),
+      // Persist the withdrawal request as a separate doc INSIDE the
+      // transaction so balance deduction and record creation are atomic.
+      tx.set(withdrawalRef, {
+        withdrawalId,
+        userId,
+        amount,
+        bankAccountLast4: sanitizedBankAccount.slice(-4),
+        status: 'pending',
+        createdAt: FieldValue.serverTimestamp(),
+      });
     });
 
     return { success: true, withdrawalId };
@@ -663,6 +697,153 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
     throw new HttpsError('internal', `Failed to request withdrawal: ${message}`);
   }
 });
+
+// =============================================================================
+// COMPLETE MEETUP TRANSACTION — Buyer confirms receipt, credits seller
+// =============================================================================
+
+/**
+ * Buyer confirms the meetup exchange was completed. This transitions the
+ * transaction from `meetup_confirmed` → `meetup_completed` and credits the
+ * seller balance (pending → available), mirroring what checkTrackingStatus
+ * does for shipping transactions on DELIVERED.
+ *
+ * Only the buyer can call this (the buyer confirms receipt).
+ */
+export const completeMeetupTransaction = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { transactionId } = request.data ?? {};
+    if (typeof transactionId !== 'string' || transactionId.length === 0) {
+      throw new HttpsError('invalid-argument', 'Transaction ID is required');
+    }
+
+    const callerUid = request.auth.uid;
+    const txRef = db.collection('transactions').doc(transactionId);
+
+    try {
+      const transactionData = await db.runTransaction(async (tx) => {
+        const txSnap = await tx.get(txRef);
+        if (!txSnap.exists) {
+          throw new HttpsError('not-found', 'Transaction not found');
+        }
+
+        const data = txSnap.data()!;
+
+        // Only the buyer can confirm receipt
+        if (data.buyerId !== callerUid) {
+          throw new HttpsError('permission-denied', 'Only the buyer can complete the meetup');
+        }
+
+        // Must be in meetup_confirmed status
+        if (data.status !== 'meetup_confirmed') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Cannot complete meetup from status ${data.status}`
+          );
+        }
+
+        const sellerId = data.sellerId;
+        const sellerPayout = data.sellerPayout || data.amount;
+        const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
+
+        const sellerBalanceDoc = await tx.get(sellerBalanceRef);
+
+        // 1. Update transaction status
+        tx.update(txRef, {
+          status: 'meetup_completed',
+          completedAt: FieldValue.serverTimestamp(),
+        });
+
+        // 2. Credit seller balance: pending → available
+        if (sellerBalanceDoc.exists) {
+          const balanceData = sellerBalanceDoc.data()!;
+          const txns = balanceData.transactions || [];
+
+          // Guard against negative pendingBalance (same as H7)
+          const currentPending = balanceData.pendingBalance || 0;
+          let actualPayout = sellerPayout;
+          if (currentPending < sellerPayout) {
+            logger.warn(`[completeMeetupTransaction] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
+            actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
+          }
+
+          const updatedTransactions = txns.map((txn: any) => {
+            if (txn.id === transactionId) {
+              return { ...txn, status: 'completed' };
+            }
+            return txn;
+          });
+
+          tx.update(sellerBalanceRef, {
+            pendingBalance: FieldValue.increment(-actualPayout),
+            availableBalance: FieldValue.increment(actualPayout),
+            totalEarnings: FieldValue.increment(actualPayout),
+            transactions: updatedTransactions,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          // Seller balance doc doesn't exist yet (meetup has no webhook to create it).
+          // Create it with the payout directly as available.
+          tx.set(sellerBalanceRef, {
+            pendingBalance: 0,
+            availableBalance: sellerPayout,
+            totalEarnings: sellerPayout,
+            transactions: [{
+              id: transactionId,
+              type: 'sale',
+              amount: sellerPayout,
+              description: 'Vente meetup',
+              createdAt: new Date(),
+              status: 'completed',
+            }],
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+        }
+
+        return { chatId: data.chatId, sellerId };
+      });
+
+      // Send system message (non-critical, outside transaction)
+      if (transactionData.chatId) {
+        let participants: string[] = [];
+        try {
+          const chatSnap = await db.collection('chats').doc(transactionData.chatId).get();
+          if (chatSnap.exists) {
+            participants = (chatSnap.data()?.participants as string[]) || [];
+          }
+        } catch (lookupErr) {
+          console.warn('[completeMeetupTransaction] Could not load chat participants:', lookupErr);
+        }
+
+        await db.collection('messages').add({
+          chatId: transactionData.chatId,
+          senderId: 'system',
+          receiverId: 'system',
+          type: 'system',
+          content: 'Rencontre confirmée ! La transaction est terminée. Les fonds ont été transférés au vendeur.',
+          participants,
+          timestamp: FieldValue.serverTimestamp(),
+          status: 'sent',
+          isRead: true,
+        });
+      }
+
+      console.log(`✅ Meetup transaction ${transactionId} completed. Seller ${transactionData.sellerId} credited.`);
+
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error completing meetup transaction:', error);
+      throw new HttpsError('internal', `Failed to complete meetup: ${message}`);
+    }
+  }
+);
 
 // =============================================================================
 // CANCEL PENDING TRANSACTION — Buyer cancels a non-paid transaction
@@ -697,16 +878,21 @@ export const cancelPendingTransaction = onCall(
           throw new HttpsError('not-found', 'Transaction not found');
         }
         const data = snap.data()!;
-        if (data.buyerId !== callerUid) {
+
+        // H15: Allow both buyer and seller to cancel
+        if (data.buyerId !== callerUid && data.sellerId !== callerUid) {
           throw new HttpsError(
             'permission-denied',
-            'Only the buyer can cancel this transaction'
+            'Only buyer or seller can cancel'
           );
         }
+
+        // H15: Added meetup_confirmed to cancellable statuses
         const cancellableStatuses = new Set([
           'pending',
           'pending_payment',
           'meetup_pending',
+          'meetup_confirmed',
         ]);
         if (!cancellableStatuses.has(data.status)) {
           throw new HttpsError(
@@ -717,14 +903,19 @@ export const cancelPendingTransaction = onCall(
         tx.update(txRef, {
           status: 'cancelled',
           cancelledAt: FieldValue.serverTimestamp(),
+          cancelledBy: callerUid,
         });
 
         // Release the article so it can be purchased again.
         // createTransaction marks isSold=true atomically at creation
         // time; cancelling must undo that.
+        // D2: Guard against deleted article — only update if it still exists
         if (data.articleId) {
           const articleRef = db.collection('articles').doc(data.articleId);
-          tx.update(articleRef, { isSold: false });
+          const articleSnap = await tx.get(articleRef);
+          if (articleSnap.exists) {
+            tx.update(articleRef, { isSold: false });
+          }
         }
       });
 

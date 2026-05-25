@@ -32,6 +32,12 @@ import {
 } from '@/features/checkout-shipping';
 import type { ShippingEstimate, AddressFormValues } from '@/features/checkout-shipping';
 
+/** Default postal code used when seller location is unavailable */
+const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
+
+/** Canadian postal code pattern: A1A1A1 or A1A 1A1 */
+const CA_POSTAL_RE = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
+
 // =============================================================================
 // SCREEN
 // =============================================================================
@@ -39,7 +45,11 @@ import type { ShippingEstimate, AddressFormValues } from '@/features/checkout-sh
 export default function ShippingCheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { articleId } = useLocalSearchParams<{ articleId: string }>();
+  const { articleId, chatId: paramChatId, negotiatedPrice } = useLocalSearchParams<{
+    articleId: string;
+    chatId?: string;
+    negotiatedPrice?: string;
+  }>();
 
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +63,27 @@ export default function ShippingCheckoutScreen() {
   const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
   const [pendingChatId, setPendingChatId] = useState<string | null>(null);
   const [serviceFee, setServiceFee] = useState(0);
+
+  // --- Auth guard -------------------------------------------------------------
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      router.replace('/(tabs)');
+    }
+  }, [router]);
+
+  // --- Negotiated price (from accepted offer) --------------------------------
+
+  const finalPrice = article
+    ? (negotiatedPrice ? parseFloat(negotiatedPrice) : article.price)
+    : 0;
+
+  // Use seller's location from the article if it looks like a postal code
+  const sellerPostalCode =
+    (article?.location && CA_POSTAL_RE.test(article.location.trim())
+      ? article.location.trim().replace(/\s/g, '').toUpperCase()
+      : null)
+    || DEFAULT_SELLER_POSTAL_CODE;
 
   const handleAddressChange = useCallback(
     <K extends keyof AddressFormValues>(field: K, value: AddressFormValues[K]) => {
@@ -84,7 +115,7 @@ export default function ShippingCheckoutScreen() {
     try {
       setLoadingEstimates(true);
       const result = await httpsCallable(functions, 'getShippingEstimate')({
-        fromAddress: { postalCode: 'H2S3C4' },
+        fromAddress: { postalCode: sellerPostalCode },
         toAddress: {
           postalCode: addressForm.postalCode,
           city: addressForm.city,
@@ -106,7 +137,7 @@ export default function ShippingCheckoutScreen() {
     } finally {
       setLoadingEstimates(false);
     }
-  }, [article, addressForm.postalCode, addressForm.city, addressForm.province, addressForm.fullName]);
+  }, [article, sellerPostalCode, addressForm.postalCode, addressForm.city, addressForm.province, addressForm.fullName]);
 
   useEffect(() => {
     if (addressForm.postalCode.replace(/\s/g, '').length >= 6) fetchShippingEstimates();
@@ -115,19 +146,19 @@ export default function ShippingCheckoutScreen() {
   // --- Service fee -----------------------------------------------------------
 
   useEffect(() => {
-    if (!article) return;
-    httpsCallable(functions, 'getServiceFee')({ articlePrice: article.price })
+    if (!finalPrice) return;
+    httpsCallable(functions, 'getServiceFee')({ articlePrice: finalPrice })
       .then((r) => {
         const d = r.data as { serviceFee: number };
         setServiceFee(d.serviceFee || 0);
       })
-      .catch(() => setServiceFee(Math.round(article.price * 0.05 * 100) / 100));
-  }, [article]);
+      .catch(() => setServiceFee(Math.round(finalPrice * 0.05 * 100) / 100));
+  }, [finalPrice]);
 
   // --- Derived ---------------------------------------------------------------
 
-  const totalAmount = article
-    ? article.price + (selectedEstimate?.amount || 0) + serviceFee
+  const totalAmount = finalPrice
+    ? finalPrice + (selectedEstimate?.amount || 0) + serviceFee
     : 0;
 
   const canPay = !!(
@@ -160,13 +191,14 @@ export default function ShippingCheckoutScreen() {
           ? `${addressForm.address}, ${addressForm.apartment}`
           : addressForm.address,
         city: addressForm.city,
+        province: addressForm.province,
         postalCode: addressForm.postalCode,
         country: 'CA',
       };
 
       const chat = await ChatService.createOrGetChat(currentUser.uid, article.sellerId, article.id);
       const transactionId = await TransactionService.createShippingTransaction(
-        article.id, currentUser.uid, article.sellerId, article.price,
+        article.id, currentUser.uid, article.sellerId, finalPrice,
         selectedEstimate.amount, shippingAddress, chat.id, serviceFee, selectedEstimate.rateId,
       );
 
@@ -192,7 +224,7 @@ export default function ShippingCheckoutScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee]);
+  }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router]);
 
   const handlePaymentResult = useCallback(async (result: HelcimPaymentResult) => {
     setShowHelcimPayment(false);
@@ -213,14 +245,14 @@ export default function ShippingCheckoutScreen() {
         transactionId: pendingTransactionId || '',
         deliveryType: 'shipping',
         articleTitle: article?.title || '',
-        amount: String(article?.price || 0),
+        amount: String(finalPrice),
         shippingCost: String(selectedEstimate?.amount || 0),
         serviceFee: String(serviceFee),
         totalAmount: String(totalAmount),
         chatId: pendingChatId || '',
       },
     });
-  }, [pendingTransactionId, pendingChatId, article, selectedEstimate, serviceFee, totalAmount, router]);
+  }, [pendingTransactionId, pendingChatId, article, selectedEstimate, serviceFee, totalAmount, finalPrice, router]);
 
   // --- Render ----------------------------------------------------------------
 
@@ -262,7 +294,7 @@ export default function ShippingCheckoutScreen() {
           postalCodeLength={addressForm.postalCode.length}
         />
         <PriceBreakdown
-          articlePrice={article.price}
+          articlePrice={finalPrice}
           selectedEstimate={selectedEstimate}
           serviceFee={serviceFee}
           totalAmount={totalAmount}
