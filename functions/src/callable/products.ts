@@ -40,8 +40,8 @@ export const incrementProductView = onCall(
       // Update article views
       transaction.update(articleRef, { views: newViews });
 
-      // Update search index views
-      transaction.update(searchIndexRef, { views: newViews });
+      // Update search index views (set+merge in case doc doesn't exist yet)
+      transaction.set(searchIndexRef, { views: newViews }, { merge: true });
     });
 
     return { success: true, message: 'View count incremented' };
@@ -109,10 +109,8 @@ export const toggleProductLike = onCall({ region: 'northamerica-northeast1', mem
         favoritesCount: newLikes,
       });
 
-      // 2. Update search index for ranking
-      transaction.update(searchIndexRef, {
-        likes: newLikes,
-      });
+      // 2. Update search index for ranking (set+merge in case doc doesn't exist yet)
+      transaction.set(searchIndexRef, { likes: newLikes }, { merge: true });
 
       // 3. Unified favorites — articleIds array only
       if (isLiked) {
