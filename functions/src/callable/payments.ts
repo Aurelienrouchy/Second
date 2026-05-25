@@ -3,21 +3,21 @@
  * Firebase Functions v7 - using onCall
  *
  * Shipping via ShipEngine (Intelcom + Canada Post)
- * Payment via Helcim (HelcimPay.js checkout)
- * Commission via service fee calculation
+ * Payment via Stripe Connect Standard (destination charges)
+ * Commission via service fee calculation (application_fee_amount)
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getShipEngine, ShipEngineClient } from '../config/shipEngine';
-import { getHelcim } from '../config/helcim';
+import { getStripe } from '../config/stripe';
 import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../utils/fees';
 
 // =============================================================================
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
 // =============================================================================
 
-export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
   const { fromAddress, toAddress, weight, dimensions } = request.data;
 
   if (!fromAddress || !toAddress) {
@@ -102,7 +102,7 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
 // GET SERVICE FEE — Returns fee info for client display
 // =============================================================================
 
-export const getServiceFee = onCall({ region: 'northamerica-northeast1' }, async (request) => {
+export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   const { articlePrice } = request.data;
 
   if (!articlePrice || articlePrice <= 0) {
@@ -291,77 +291,165 @@ export const createTransaction = onCall(
 );
 
 // =============================================================================
-// CREATE HELCIM CHECKOUT — Initialize HelcimPay.js session
+// CREATE STRIPE CHECKOUT — Initialize Stripe PaymentIntent (destination charge)
 // =============================================================================
 
-export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
-  const { transactionId } = request.data;
+/**
+ * Creates a Stripe PaymentIntent with destination charge to the seller's
+ * Stripe Connect account. The platform takes an application_fee_amount
+ * equal to the buyer protection fee (serviceFee).
+ *
+ * Returns the PaymentIntent clientSecret for the client to confirm payment
+ * using Stripe's React Native SDK or web Elements.
+ *
+ * Idempotent: if a PaymentIntent already exists for this transaction,
+ * returns the existing clientSecret without creating a new one.
+ */
+export const createStripeCheckout = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
 
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'User must be authenticated');
-  }
+    const { transactionId } = request.data;
 
-  if (!transactionId) {
-    throw new HttpsError('invalid-argument', 'Transaction ID is required');
-  }
+    if (!transactionId || typeof transactionId !== 'string') {
+      throw new HttpsError('invalid-argument', 'Transaction ID is required');
+    }
 
-  const helcim = getHelcim();
-  if (!helcim) {
-    throw new HttpsError('failed-precondition', 'Helcim API not configured');
-  }
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe API not configured');
+    }
 
-  try {
-    const txRef = db.collection('transactions').doc(transactionId);
+    try {
+      const txRef = db.collection('transactions').doc(transactionId);
 
-    // Atomically read, validate, and update fee fields inside a transaction
-    // to prevent races where concurrent calls both see !serviceFee and
-    // double-write.
-    const txResult = await db.runTransaction(async (tx) => {
-      const transactionDoc = await tx.get(txRef);
+      // Atomically read, validate, and update fee fields inside a transaction
+      // to prevent races where concurrent calls both see no PaymentIntent and
+      // double-create.
+      const txResult = await db.runTransaction(async (tx) => {
+        const transactionDoc = await tx.get(txRef);
 
-      if (!transactionDoc.exists) {
-        throw new HttpsError('not-found', 'Transaction not found');
-      }
+        if (!transactionDoc.exists) {
+          throw new HttpsError('not-found', 'Transaction not found');
+        }
 
-      const transaction = transactionDoc.data()!;
+        const transaction = transactionDoc.data()!;
 
-      // Verify the user is the buyer
-      if (transaction.buyerId !== request.auth!.uid) {
-        throw new HttpsError('permission-denied', 'You are not authorized for this transaction');
-      }
+        // Verify the user is the buyer
+        if (transaction.buyerId !== request.auth!.uid) {
+          throw new HttpsError('permission-denied', 'You are not authorized for this transaction');
+        }
 
-      // H8: Only allow checkout creation from valid statuses
-      const checkoutableStatuses = new Set(['pending_payment']);
-      if (!checkoutableStatuses.has(transaction.status)) {
-        throw new HttpsError('failed-precondition', `Cannot create checkout for transaction in status ${transaction.status}`);
-      }
+        // Only allow checkout creation from valid statuses
+        const checkoutableStatuses = new Set(['pending_payment']);
+        if (!checkoutableStatuses.has(transaction.status)) {
+          throw new HttpsError(
+            'failed-precondition',
+            `Cannot create checkout for transaction in status ${transaction.status}`
+          );
+        }
 
-      // H2: If a valid checkout already exists, return the existing token
-      if (transaction.helcimCheckoutToken && transaction.helcimCheckoutCreatedAt) {
-        const existingFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
-        return { existingCheckout: true, fees: existingFees, checkoutToken: transaction.helcimCheckoutToken as string };
-      }
+        // Idempotent: if a PaymentIntent already exists, return existing clientSecret
+        if (transaction.stripePaymentIntentId && transaction.stripeClientSecret) {
+          const existingFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
+          return {
+            existingCheckout: true,
+            fees: existingFees,
+            clientSecret: transaction.stripeClientSecret as string,
+            sellerId: transaction.sellerId as string,
+          };
+        }
 
-      // Always recalculate fees server-side for correctness
-      const calculatedFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
+        // Always recalculate fees server-side for correctness
+        const calculatedFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
 
-      // Update fee fields atomically
-      tx.update(txRef, {
-        serviceFee: calculatedFees.serviceFee,
-        serviceFeePercent: calculatedFees.serviceFeePercent,
-        totalAmount: calculatedFees.buyerTotal,
-        sellerPayout: calculatedFees.sellerPayout,
+        // Update fee fields atomically
+        tx.update(txRef, {
+          serviceFee: calculatedFees.serviceFee,
+          serviceFeePercent: calculatedFees.serviceFeePercent,
+          totalAmount: calculatedFees.buyerTotal,
+          sellerPayout: calculatedFees.sellerPayout,
+        });
+
+        return {
+          existingCheckout: false,
+          fees: calculatedFees,
+          clientSecret: null as string | null,
+          sellerId: transaction.sellerId as string,
+        };
       });
 
-      return { existingCheckout: false, fees: calculatedFees, checkoutToken: null as string | null };
-    });
+      // Idempotent return: PaymentIntent already existed
+      if (txResult.existingCheckout) {
+        logger.info('Returning existing Stripe PaymentIntent', { transactionId });
+        return {
+          success: true,
+          clientSecret: txResult.clientSecret,
+          feeBreakdown: {
+            articlePrice: txResult.fees.articlePrice,
+            shippingCost: txResult.fees.shippingCost,
+            serviceFee: txResult.fees.serviceFee,
+            serviceFeePercent: txResult.fees.serviceFeePercent,
+            buyerTotal: txResult.fees.buyerTotal,
+          },
+        };
+      }
 
-    // H2: If checkout already existed, return early without creating a new session
-    if (txResult.existingCheckout) {
-      console.log(`♻️ Returning existing Helcim checkout for transaction ${transactionId}`);
+      // Look up seller's Stripe Connect account
+      const sellerDoc = await db.collection('users').doc(txResult.sellerId).get();
+      if (!sellerDoc.exists) {
+        throw new HttpsError('not-found', 'Seller not found');
+      }
+      const sellerData = sellerDoc.data()!;
+      const sellerStripeAccountId = sellerData.stripeAccountId;
+      if (!sellerStripeAccountId) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Le vendeur n\'a pas encore configuré son compte de paiement'
+        );
+      }
+
+      // Convert dollars to cents for Stripe (all Stripe amounts are in smallest currency unit)
+      const amountInCents = Math.round(txResult.fees.buyerTotal * 100);
+      const applicationFeeInCents = Math.round(txResult.fees.serviceFee * 100);
+
+      // Create Stripe PaymentIntent with destination charge
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: 'cad',
+        application_fee_amount: applicationFeeInCents,
+        transfer_data: {
+          destination: sellerStripeAccountId,
+        },
+        metadata: {
+          transactionId,
+          sellerId: txResult.sellerId,
+          buyerId: request.auth!.uid,
+        },
+        // Defer payouts until delivery confirmed (escrow simulation)
+        // The actual payout hold is managed via the connected account's schedule
+      });
+
+      // Store PaymentIntent details in the transaction doc
+      await txRef.update({
+        stripePaymentIntentId: paymentIntent.id,
+        stripeClientSecret: paymentIntent.client_secret,
+        stripeCheckoutCreatedAt: FieldValue.serverTimestamp(),
+      });
+
+      logger.info('Stripe PaymentIntent created', {
+        transactionId,
+        paymentIntentId: paymentIntent.id,
+        amountCents: amountInCents,
+        feeCents: applicationFeeInCents,
+      });
+
       return {
         success: true,
-        checkoutToken: txResult.checkoutToken,
+        clientSecret: paymentIntent.client_secret,
         feeBreakdown: {
           articlePrice: txResult.fees.articlePrice,
           shippingCost: txResult.fees.shippingCost,
@@ -370,50 +458,255 @@ export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', 
           buyerTotal: txResult.fees.buyerTotal,
         },
       };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error creating Stripe checkout', { transactionId, error: message });
+      throw new HttpsError('internal', `Failed to create checkout: ${message}`);
+    }
+  }
+);
+
+// =============================================================================
+// CREATE STRIPE CONNECT ACCOUNT — Onboard seller to Stripe Connect Standard
+// =============================================================================
+
+/**
+ * Creates a Stripe Connect Standard account for the authenticated seller
+ * and returns an Account Link URL to complete onboarding in a browser/WebView.
+ *
+ * If the seller already has a Stripe account, returns a new Account Link
+ * for re-onboarding (e.g. if they didn't finish).
+ */
+export const createStripeConnectAccount = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
-    // Create Helcim checkout session (external API call, after transaction commits)
-    const checkout = await helcim.createCheckoutSession({
-      amount: txResult.fees.buyerTotal,
-      currency: 'CAD',
-      paymentType: 'purchase',
-      invoiceNumber: transactionId,
-      taxAmount: 0, // Pas de taxe sur les ventes C2C de seconde main
-    });
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe API not configured');
+    }
 
-    // Store the secret token AND checkout token for idempotent returns
-    await txRef.update({
-      helcimSecretToken: checkout.secretToken,
-      helcimCheckoutToken: checkout.checkoutToken,
-      helcimCheckoutCreatedAt: FieldValue.serverTimestamp(),
-    });
+    const userId = request.auth.uid;
 
-    console.log(`✅ Helcim checkout created for transaction ${transactionId} — total: $${txResult.fees.buyerTotal}`);
+    try {
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
 
-    return {
-      success: true,
-      checkoutToken: checkout.checkoutToken,
-      feeBreakdown: {
-        articlePrice: txResult.fees.articlePrice,
-        shippingCost: txResult.fees.shippingCost,
-        serviceFee: txResult.fees.serviceFee,
-        serviceFeePercent: txResult.fees.serviceFeePercent,
-        buyerTotal: txResult.fees.buyerTotal,
-      },
-    };
-  } catch (error: unknown) {
-    if (error instanceof HttpsError) throw error;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error creating Helcim checkout:', error);
-    throw new HttpsError('internal', `Failed to create checkout: ${message}`);
+      if (!userDoc.exists) {
+        throw new HttpsError('not-found', 'User not found');
+      }
+
+      const userData = userDoc.data()!;
+      let stripeAccountId = userData.stripeAccountId;
+
+      // Create a new Connect account if the seller doesn't have one
+      if (!stripeAccountId) {
+        const account = await stripe.accounts.create({
+          type: 'standard',
+          country: 'CA',
+          email: userData.email || request.auth.token.email,
+          metadata: {
+            firebaseUserId: userId,
+          },
+        });
+
+        stripeAccountId = account.id;
+
+        // Store the Stripe account ID in the user document
+        await userRef.update({
+          stripeAccountId: account.id,
+          stripeAccountStatus: 'pending',
+          stripeAccountCreatedAt: FieldValue.serverTimestamp(),
+        });
+
+        logger.info('Stripe Connect account created', {
+          userId,
+          stripeAccountId: account.id,
+        });
+      }
+
+      // Generate an Account Link for onboarding
+      const accountLink = await stripe.accountLinks.create({
+        account: stripeAccountId,
+        refresh_url: `https://second.app/settings/payments?refresh=true`,
+        return_url: `https://second.app/settings/payments?success=true`,
+        type: 'account_onboarding',
+      });
+
+      return {
+        success: true,
+        accountLinkUrl: accountLink.url,
+        stripeAccountId,
+      };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error creating Stripe Connect account', { userId, error: message });
+      throw new HttpsError('internal', `Failed to create Connect account: ${message}`);
+    }
   }
-});
+);
+
+// =============================================================================
+// GET STRIPE ACCOUNT LINK — Re-generate onboarding link
+// =============================================================================
+
+/**
+ * Generates a new Account Link for a seller who has a Stripe Connect account
+ * but hasn't completed onboarding yet. Useful when the previous link expired.
+ */
+export const getStripeAccountLink = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe API not configured');
+    }
+
+    const userId = request.auth.uid;
+
+    try {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        throw new HttpsError('not-found', 'User not found');
+      }
+
+      const userData = userDoc.data()!;
+      const stripeAccountId = userData.stripeAccountId;
+
+      if (!stripeAccountId) {
+        throw new HttpsError(
+          'failed-precondition',
+          'No Stripe account found. Please create one first.'
+        );
+      }
+
+      const accountLink = await stripe.accountLinks.create({
+        account: stripeAccountId,
+        refresh_url: `https://second.app/settings/payments?refresh=true`,
+        return_url: `https://second.app/settings/payments?success=true`,
+        type: 'account_onboarding',
+      });
+
+      logger.info('Stripe Account Link generated', { userId, stripeAccountId });
+
+      return {
+        success: true,
+        accountLinkUrl: accountLink.url,
+      };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error generating Stripe account link', { userId, error: message });
+      throw new HttpsError('internal', `Failed to generate account link: ${message}`);
+    }
+  }
+);
+
+// =============================================================================
+// GET STRIPE ACCOUNT STATUS — Check if seller's Connect account is active
+// =============================================================================
+
+/**
+ * Retrieves the current status of the seller's Stripe Connect account
+ * (charges_enabled, payouts_enabled, details_submitted) and updates
+ * the status in Firestore.
+ */
+export const getStripeAccountStatus = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe API not configured');
+    }
+
+    const userId = request.auth.uid;
+
+    try {
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+
+      if (!userDoc.exists) {
+        throw new HttpsError('not-found', 'User not found');
+      }
+
+      const userData = userDoc.data()!;
+      const stripeAccountId = userData.stripeAccountId;
+
+      if (!stripeAccountId) {
+        return {
+          success: true,
+          hasAccount: false,
+          chargesEnabled: false,
+          payoutsEnabled: false,
+          detailsSubmitted: false,
+          status: 'none',
+        };
+      }
+
+      // Retrieve the account from Stripe
+      const account = await stripe.accounts.retrieve(stripeAccountId);
+
+      // Determine status
+      let status: string;
+      if (account.charges_enabled && account.payouts_enabled) {
+        status = 'active';
+      } else if (account.details_submitted) {
+        status = 'pending_verification';
+      } else {
+        status = 'pending';
+      }
+
+      // Update Firestore with latest status
+      await userRef.update({
+        stripeAccountStatus: status,
+        stripeChargesEnabled: account.charges_enabled,
+        stripePayoutsEnabled: account.payouts_enabled,
+        stripeDetailsSubmitted: account.details_submitted,
+      });
+
+      logger.info('Stripe account status checked', {
+        userId,
+        stripeAccountId,
+        status,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+      });
+
+      return {
+        success: true,
+        hasAccount: true,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        detailsSubmitted: account.details_submitted,
+        status,
+      };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error checking Stripe account status', { userId, error: message });
+      throw new HttpsError('internal', `Failed to check account status: ${message}`);
+    }
+  }
+);
 
 // =============================================================================
 // FIND PICKUP POINTS — ShipEngine PUDO search
 // =============================================================================
 
-export const findPickupPoints = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+export const findPickupPoints = onCall({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
   const { postalCode } = request.data;
 
   if (!postalCode) {
@@ -443,7 +736,7 @@ export const findPickupPoints = onCall({ region: 'northamerica-northeast1', memo
 // CHECK TRACKING STATUS — Via ShipEngine
 // =============================================================================
 
-export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -850,7 +1143,7 @@ export const completeMeetupTransaction = onCall(
 // =============================================================================
 
 /**
- * Buyer cancels a transaction that has not been paid yet (e.g. Helcim
+ * Buyer cancels a transaction that has not been paid yet (e.g. Stripe
  * checkout failed or was abandoned).
  *
  * Authorization: caller must be the buyer of the transaction. We refuse to

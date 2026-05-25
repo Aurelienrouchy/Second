@@ -24,7 +24,7 @@ import { db, FieldValue } from '../config/firebase';
  * reindex.
  */
 export const onArticleSoftDeleted = onDocumentUpdated(
-  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '256MiB' },
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     const articleId = event.params.articleId;
     const before = event.data?.before.data();
@@ -61,7 +61,7 @@ export const onArticleSoftDeleted = onDocumentUpdated(
  * that are no longer available.
  */
 export const onArticleSold = onDocumentUpdated(
-  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '256MiB' },
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' },
   async (event) => {
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
