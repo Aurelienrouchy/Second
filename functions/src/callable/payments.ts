@@ -152,7 +152,6 @@ export const createTransaction = onCall(
       deliveryType,
       amount,
       shippingCost,
-      serviceFee: clientServiceFee,
       shippingAddress,
       meetupSpot,
       chatId,
@@ -229,8 +228,8 @@ export const createTransaction = onCall(
         // Mark article as sold
         tx.update(articleRef, { isSold: true });
 
-        // Build transaction data
-        const fee = typeof clientServiceFee === 'number' ? clientServiceFee : 0;
+        // Build transaction data — server-side fee calculation (never trust client)
+        const fee = calculateServiceFee(amount);
         const shipping = deliveryType === 'shipping' ? (shippingCost || 0) : 0;
         const totalAmount = amount + shipping + fee;
 
@@ -312,39 +311,45 @@ export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', 
   }
 
   try {
-    // Get transaction details
-    const transactionDoc = await db.collection('transactions').doc(transactionId).get();
+    const txRef = db.collection('transactions').doc(transactionId);
 
-    if (!transactionDoc.exists) {
-      throw new HttpsError('not-found', 'Transaction not found');
-    }
+    // Atomically read, validate, and update fee fields inside a transaction
+    // to prevent races where concurrent calls both see !serviceFee and
+    // double-write.
+    const fees = await db.runTransaction(async (tx) => {
+      const transactionDoc = await tx.get(txRef);
 
-    const transaction = transactionDoc.data()!;
+      if (!transactionDoc.exists) {
+        throw new HttpsError('not-found', 'Transaction not found');
+      }
 
-    // Verify the user is the buyer
-    if (transaction.buyerId !== request.auth.uid) {
-      throw new HttpsError('permission-denied', 'You are not authorized for this transaction');
-    }
+      const transaction = transactionDoc.data()!;
 
-    // Check if already paid
-    if (transaction.status === 'paid') {
-      throw new HttpsError('already-exists', 'Transaction already paid');
-    }
+      // Verify the user is the buyer
+      if (transaction.buyerId !== request.auth!.uid) {
+        throw new HttpsError('permission-denied', 'You are not authorized for this transaction');
+      }
 
-    // Calculate fees
-    const fees = calculateFees(transaction.amount, transaction.shippingCost);
+      // Check if already paid
+      if (transaction.status === 'paid') {
+        throw new HttpsError('already-exists', 'Transaction already paid');
+      }
 
-    // Update transaction with fee info if not already set
-    if (!transaction.serviceFee) {
-      await db.collection('transactions').doc(transactionId).update({
-        serviceFee: fees.serviceFee,
-        serviceFeePercent: fees.serviceFeePercent,
-        totalAmount: fees.buyerTotal,
-        sellerPayout: fees.sellerPayout,
+      // Always recalculate fees server-side for correctness
+      const calculatedFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
+
+      // Update fee fields atomically
+      tx.update(txRef, {
+        serviceFee: calculatedFees.serviceFee,
+        serviceFeePercent: calculatedFees.serviceFeePercent,
+        totalAmount: calculatedFees.buyerTotal,
+        sellerPayout: calculatedFees.sellerPayout,
       });
-    }
 
-    // Create Helcim checkout session
+      return calculatedFees;
+    });
+
+    // Create Helcim checkout session (external API call, after transaction commits)
     const checkout = await helcim.createCheckoutSession({
       amount: fees.buyerTotal,
       currency: 'CAD',
@@ -353,8 +358,8 @@ export const createHelcimCheckout = onCall({ region: 'northamerica-northeast1', 
       taxAmount: 0, // Pas de taxe sur les ventes C2C de seconde main
     });
 
-    // Store the secret token for webhook verification
-    await db.collection('transactions').doc(transactionId).update({
+    // Store the secret token for webhook verification (idempotent write)
+    await txRef.update({
       helcimSecretToken: checkout.secretToken,
       helcimCheckoutCreatedAt: FieldValue.serverTimestamp(),
     });
@@ -459,25 +464,34 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 
     const trackingStatus = ShipEngineClient.mapStatus(tracking.statusCode);
 
-    // Update transaction
-    await db.collection('transactions').doc(transactionId).update({
-      trackingStatus,
-    });
-
-    // If delivered, move funds from pending to available
+    // If delivered, atomically update transaction status AND credit seller
+    // balance in a single runTransaction to prevent partial writes (e.g.
+    // marking delivered but failing to credit the seller).
     if (trackingStatus === 'DELIVERED') {
-      await db.collection('transactions').doc(transactionId).update({
-        status: 'delivered',
-        deliveredAt: FieldValue.serverTimestamp(),
-      });
-
+      const txRef = db.collection('transactions').doc(transactionId);
       const sellerId = transaction.sellerId;
       const sellerPayout = transaction.sellerPayout || transaction.amount;
-
       const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
 
       await db.runTransaction(async (t) => {
-        const sellerBalanceDoc = await t.get(sellerBalanceRef);
+        const [txSnap, sellerBalanceDoc] = await Promise.all([
+          t.get(txRef),
+          t.get(sellerBalanceRef),
+        ]);
+
+        // Guard: if already delivered, skip (idempotent)
+        if (txSnap.exists && txSnap.data()!.status === 'delivered') {
+          return;
+        }
+
+        // 1. Update transaction: trackingStatus + status + deliveredAt
+        t.update(txRef, {
+          trackingStatus,
+          status: 'delivered',
+          deliveredAt: FieldValue.serverTimestamp(),
+        });
+
+        // 2. Credit seller balance: pending → available
         if (sellerBalanceDoc.exists) {
           const balanceData = sellerBalanceDoc.data()!;
           const txns = balanceData.transactions || [];
@@ -499,7 +513,7 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
         }
       });
 
-      // Send system message
+      // Send system message (non-critical, outside transaction)
       if (transaction.chatId) {
         // Look up chat participants so the message is visible to listeners
         // that filter messages by participants and respects rules.
@@ -525,6 +539,11 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
           isRead: true,
         });
       }
+    } else {
+      // Not delivered yet — just update the tracking status
+      await db.collection('transactions').doc(transactionId).update({
+        trackingStatus,
+      });
     }
 
     return {

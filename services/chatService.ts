@@ -14,9 +14,10 @@ import {
     where,
 } from 'firebase/firestore';
 import type { DocumentData, FieldValue } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { auth, firestore, storage } from '../config/firebaseConfig';
+import { auth, firestore, functions, storage } from '../config/firebaseConfig';
 import {
   Chat,
   ChatParticipant,
@@ -172,29 +173,63 @@ export class ChatService {
         }
       }
 
-      const [user1Doc, user2Doc] = await Promise.all([
-        getDoc(doc(firestore, 'users', user1Id)),
-        getDoc(doc(firestore, 'users', user2Id)),
-      ]);
-      const user1Data = user1Doc.exists() ? user1Doc.data() : null;
-      const user2Data = user2Doc.exists() ? user2Doc.data() : null;
+      // Determine which user is the current (authenticated) user.
+      // Security rules restrict user doc reads to isOwner, so we can only
+      // read our own doc directly.  For the OTHER user we call the
+      // getUserPublicProfile Cloud Function which uses Admin SDK.
+      const currentUserId = auth.currentUser?.uid;
+      const isUser1Current = currentUserId === user1Id;
+
+      // Current user doc — always readable (isOwner)
+      const currentUserDoc = await getDoc(
+        doc(firestore, 'users', isUser1Current ? user1Id : user2Id),
+      );
+      const currentUserData = currentUserDoc.exists() ? currentUserDoc.data() : null;
+
+      // Other user — fetch via callable to bypass security rules
+      const otherUserId = isUser1Current ? user2Id : user1Id;
+      let otherUserName = 'Utilisateur';
+      let otherUserImage: string | undefined;
+
+      try {
+        const getUserPublicProfileFn = httpsCallable<
+          { userId: string },
+          { profile: { displayName: string; profileImage: string | null } }
+        >(functions, 'getUserPublicProfile');
+        const result = await getUserPublicProfileFn({ userId: otherUserId });
+        const profile = result.data.profile;
+        otherUserName = profile.displayName || 'Utilisateur';
+        otherUserImage = profile.profileImage || undefined;
+      } catch (profileError) {
+        // Graceful degradation — chat still works, participantsInfo will
+        // use the fallback name.  The other user's real name+avatar will
+        // appear once their messages trigger a listener update.
+        if (__DEV__) console.warn('[ChatService] Could not fetch other user profile via callable:', profileError);
+      }
 
       const pickAvatar = (d: DocumentData | null): string | undefined =>
         d?.profileImage || d?.photoURL || d?.avatarUrl || undefined;
 
-      const participant1Info: ChatParticipant = {
-        userId: user1Id,
+      const currentParticipantInfo: ChatParticipant = {
+        userId: isUser1Current ? user1Id : user2Id,
         userName:
-          (user1Data?.displayName || user1Data?.email || 'Utilisateur') as string,
-        ...(pickAvatar(user1Data) ? { userImage: pickAvatar(user1Data) } : {}),
+          (currentUserData?.displayName || currentUserData?.email || 'Utilisateur') as string,
+        ...(pickAvatar(currentUserData) ? { userImage: pickAvatar(currentUserData) } : {}),
       };
 
-      const participant2Info: ChatParticipant = {
-        userId: user2Id,
-        userName:
-          (user2Data?.displayName || user2Data?.email || 'Utilisateur') as string,
-        ...(pickAvatar(user2Data) ? { userImage: pickAvatar(user2Data) } : {}),
+      const otherParticipantInfo: ChatParticipant = {
+        userId: otherUserId,
+        userName: otherUserName,
+        ...(otherUserImage ? { userImage: otherUserImage } : {}),
       };
+
+      // Maintain original ordering (user1 first, user2 second)
+      const participant1Info: ChatParticipant = isUser1Current
+        ? currentParticipantInfo
+        : otherParticipantInfo;
+      const participant2Info: ChatParticipant = isUser1Current
+        ? otherParticipantInfo
+        : currentParticipantInfo;
 
       const newChatData: NewChatData = {
         participants: participantIds,

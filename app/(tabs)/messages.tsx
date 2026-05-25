@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -21,7 +21,7 @@ import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDisplayName } from '@/utils/formatName';
 
-type ConversationType = 'achats' | 'ventes' | 'swaps';
+type ConversationType = 'achats' | 'ventes';
 
 // Stable references for FlashList (defined at module scope so the
 // FlashList prop identity doesn't change across renders).
@@ -33,6 +33,19 @@ export default function MessagesScreen() {
   const router = useRouter();
   const { chats, isLoading, error } = useChats(user?.id || null);
   const [activeTab, setActiveTab] = useState<ConversationType>('ventes');
+  const hasSetInitialTab = useRef(false);
+
+  // Pick the best default tab once chats are loaded: show "ventes" if the
+  // user has at least one sale conversation, otherwise fall back to "achats".
+  useEffect(() => {
+    if (!hasSetInitialTab.current && chats.length > 0 && user) {
+      const hasVentes = chats.some((c) => c.sellerId === user.id);
+      if (!hasVentes) {
+        setActiveTab('achats');
+      }
+      hasSetInitialTab.current = true;
+    }
+  }, [chats, user]);
 
   const handleChatPress = useCallback(
     (chatId: string) => {
@@ -80,9 +93,6 @@ export default function MessagesScreen() {
       ventes: chats
         .filter((c) => getConversationType(c) === 'ventes')
         .reduce((sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0), 0),
-      swaps: chats
-        .filter((c) => getConversationType(c) === 'swaps')
-        .reduce((sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0), 0),
     }),
     [chats, user, getConversationType],
   );
@@ -118,7 +128,7 @@ export default function MessagesScreen() {
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
-        {(['ventes', 'achats', 'swaps'] as const).map((tab) => (
+        {(['ventes', 'achats'] as const).map((tab) => (
           <React.Fragment key={tab}>
             <Pressable
               style={[
@@ -225,7 +235,6 @@ const MessagesLoadingSkeleton: React.FC = () => (
     <View style={styles.skeletonTabsRow}>
       <SkeletonTab width={48} />
       <SkeletonTab width={48} />
-      <SkeletonTab width={42} />
     </View>
     {Array.from({ length: 5 }).map((_, i) => (
       <SkeletonConversationItem key={`msg-skeleton-${i}`} />

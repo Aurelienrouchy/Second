@@ -14,15 +14,17 @@ export const updatePopularityScores = onSchedule({ schedule: 'every 6 hours', re
   try {
     console.log('Starting popularity scores update...');
 
-    const batch = db.batch();
-    let updateCount = 0;
-
     // Get all active products from search index
     const searchIndexSnapshot = await db
       .collection('search_index')
       .where('isActive', '==', true)
       .where('isSold', '==', false)
       .get();
+
+    // Collect updates first, then chunk into batches of 499 ops max
+    // (Firestore batch limit is 500 operations)
+    const MAX_BATCH_OPS = 499;
+    const updates: Array<{ ref: FirebaseFirestore.DocumentReference; score: number }> = [];
 
     searchIndexSnapshot.forEach((doc) => {
       const data = doc.data();
@@ -35,17 +37,32 @@ export const updatePopularityScores = onSchedule({ schedule: 'every 6 hours', re
       // Only update if score changed significantly
       const currentScore = data.popularityScore || 0;
       if (Math.abs(newPopularityScore - currentScore) > 0.1) {
-        batch.update(doc.ref, {
-          popularityScore: newPopularityScore,
-          lastIndexed: FieldValue.serverTimestamp(),
-        });
-        updateCount++;
+        updates.push({ ref: doc.ref, score: newPopularityScore });
       }
     });
 
-    if (updateCount > 0) {
-      await batch.commit();
-      console.log(`Updated ${updateCount} popularity scores`);
+    if (updates.length > 0) {
+      let batch = db.batch();
+      let opCount = 0;
+
+      for (const { ref, score } of updates) {
+        if (opCount >= MAX_BATCH_OPS) {
+          await batch.commit();
+          batch = db.batch();
+          opCount = 0;
+        }
+        batch.update(ref, {
+          popularityScore: score,
+          lastIndexed: FieldValue.serverTimestamp(),
+        });
+        opCount++;
+      }
+
+      if (opCount > 0) {
+        await batch.commit();
+      }
+
+      console.log(`Updated ${updates.length} popularity scores`);
     } else {
       console.log('No popularity scores needed updating');
     }

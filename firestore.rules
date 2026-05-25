@@ -301,7 +301,9 @@ service cloud.firestore {
                        (isValidMessageCreate(request.resource.data) ||
                         isValidSystemMessage(request.resource.data));
 
-      // Allow update for marking as read or updating offer status
+      // Allow update for marking as read or updating offer status ONLY.
+      // SECURITY: restrict to isRead and offer fields. When offer is
+      // modified, the offer.amount must stay the same (prevent amount tampering).
       allow update: if isAuthenticated() &&
                        (
                          ('participants' in resource.data &&
@@ -310,7 +312,12 @@ service cloud.firestore {
                           exists(/databases/$(database)/documents/chats/$(resource.data.chatId)) &&
                           request.auth.uid in
                             get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants)
-                       );
+                       ) &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['isRead', 'offer']) &&
+                       // If offer is being modified, amount must stay the same
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['offer']) ||
+                        request.resource.data.offer.amount == resource.data.offer.amount);
 
       // No delete allowed
       allow delete: if false;
@@ -388,10 +395,11 @@ service cloud.firestore {
       // Create only via Cloud Functions (Admin SDK)
       allow create: if false;
 
-      // SECURITY: counters (participantsCount, itemsCount, swapsCount) and
-      // creatorId are admin-only fields managed by Cloud Functions. Clients
-      // can only update non-sensitive metadata fields.
+      // SECURITY: only the creator can update a swap party, and counters
+      // (participantsCount, itemsCount, swapsCount) plus creatorId are
+      // admin-only fields managed by Cloud Functions.
       allow update: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid
         && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['participantsCount', 'itemsCount', 'swapsCount', 'creatorId']);
 

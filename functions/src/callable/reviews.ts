@@ -83,59 +83,54 @@ export const createReview = onCall(
     }
 
     try {
-      // Check if review already exists for this transaction + reviewer
-      const existingReview = await db
-        .collection('avis')
-        .where('reviewerId', '==', reviewerId)
-        .where('transactionId', '==', transactionId)
-        .limit(1)
-        .get();
-
-      if (!existingReview.empty) {
-        throw new HttpsError(
-          'already-exists',
-          'You have already reviewed this transaction',
-        );
-      }
-
-      // Get reviewer info
-      const reviewerDoc = await db.collection('users').doc(reviewerId).get();
+      // Get reviewer info and article title in parallel (read-only, outside transaction)
+      const [reviewerDoc, articleDoc] = await Promise.all([
+        db.collection('users').doc(reviewerId).get(),
+        articleId ? db.collection('articles').doc(articleId).get() : Promise.resolve(null),
+      ]);
       const reviewerData = reviewerDoc.exists ? reviewerDoc.data()! : {};
+      const articleTitle = articleDoc?.exists ? articleDoc.data()!.title : null;
 
-      // Get article title if articleId provided
-      let articleTitle: string | undefined;
-      if (articleId) {
-        const articleDoc = await db.collection('articles').doc(articleId).get();
-        if (articleDoc.exists) {
-          articleTitle = articleDoc.data()!.title;
+      // Deterministic doc ID prevents duplicate reviews atomically:
+      // two simultaneous calls will both try to set the same doc, and
+      // only one will succeed because we check for existence inside
+      // the transaction.
+      const reviewDocId = `${reviewerId}_${transactionId}`;
+      const reviewRef = db.collection('avis').doc(reviewDocId);
+
+      await db.runTransaction(async (tx) => {
+        const existingSnap = await tx.get(reviewRef);
+        if (existingSnap.exists) {
+          throw new HttpsError(
+            'already-exists',
+            'You have already reviewed this transaction',
+          );
         }
-      }
 
-      // Create the review
-      const reviewRef = db.collection('avis').doc();
-      const reviewData = {
-        id: reviewRef.id,
-        reviewerId,
-        reviewerName: reviewerData.displayName || 'Utilisateur',
-        reviewerImage: reviewerData.profileImage || null,
-        vendeurId: targetUserId, // kept as 'vendeurId' for backwards compat with UserStatsService
-        transactionId,
-        transactionType,
-        articleId: articleId || null,
-        articleTitle: articleTitle || null,
-        note,
-        text: text.trim(),
-        createdAt: FieldValue.serverTimestamp(),
-      };
+        const reviewData = {
+          id: reviewDocId,
+          reviewerId,
+          reviewerName: reviewerData.displayName || 'Utilisateur',
+          reviewerImage: reviewerData.profileImage || null,
+          vendeurId: targetUserId, // kept as 'vendeurId' for backwards compat with UserStatsService
+          transactionId,
+          transactionType,
+          articleId: articleId || null,
+          articleTitle: articleTitle || null,
+          note,
+          text: text.trim(),
+          createdAt: FieldValue.serverTimestamp(),
+        };
 
-      await reviewRef.set(reviewData);
+        tx.set(reviewRef, reviewData);
+      });
 
-      // Update target user's aggregate rating
+      // Update target user's aggregate rating (outside transaction, non-critical)
       await updateUserRating(targetUserId);
 
       return {
         success: true,
-        reviewId: reviewRef.id,
+        reviewId: reviewDocId,
       };
     } catch (error) {
       if (error instanceof HttpsError) throw error;

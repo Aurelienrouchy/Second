@@ -9,8 +9,12 @@ import { db, FieldValue } from '../config/firebase';
  * Increment product view count
  */
 export const incrementProductView = onCall(
-  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
   const { productId } = request.data;
 
   if (!productId) {
