@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { InteractionManager, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 
@@ -28,7 +28,7 @@ async function setupAndroidChannels(): Promise<void> {
       name: 'Messages',
       description: 'Notifications de nouveaux messages',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
+      sound: null,
       vibrationPattern: [0, 250, 250, 250],
       enableLights: true,
       enableVibrate: true,
@@ -37,20 +37,20 @@ async function setupAndroidChannels(): Promise<void> {
       name: 'Offres',
       description: 'Notifications d\'offres et propositions',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
+      sound: null,
       enableVibrate: true,
     }),
     Notifications.setNotificationChannelAsync('notifications', {
       name: 'Notifications',
       description: 'Notifications générales (favoris, baisses de prix, etc.)',
       importance: Notifications.AndroidImportance.DEFAULT,
-      sound: 'default',
+      sound: null,
     }),
     Notifications.setNotificationChannelAsync('swaps', {
       name: 'Swap Zones',
       description: 'Rappels et mises à jour Swap Zone',
       importance: Notifications.AndroidImportance.DEFAULT,
-      sound: 'default',
+      sound: null,
     }),
   ]);
 }
@@ -148,10 +148,9 @@ async function handleInitialNotification(userId: string | null): Promise<void> {
 
   const data = lastResponse.notification.request.content.data as PushNotificationData;
   if (data) {
-    // Small delay to let the navigator mount
-    setTimeout(() => {
+    InteractionManager.runAfterInteractions(() => {
       routeFromNotificationData(data, userId);
-    }, 500);
+    });
   }
 }
 
