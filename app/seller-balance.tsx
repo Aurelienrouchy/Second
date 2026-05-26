@@ -14,7 +14,6 @@ import {
 import { FlashList } from '@shopify/flash-list';
 
 import { Button, ScreenHeader, Skeleton, Text } from '@/components/ui';
-import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { queryKeys } from '@/lib/queryKeys';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
