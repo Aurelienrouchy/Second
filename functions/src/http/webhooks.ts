@@ -19,6 +19,7 @@ import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getShipEngine } from '../config/shipEngine';
 import { getStripe } from '../config/stripe';
+import { sendPushNotification } from '../utils/notifications';
 
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
