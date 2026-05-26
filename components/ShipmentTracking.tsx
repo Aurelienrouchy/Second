@@ -44,7 +44,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
           icon: 'car' as const,
           color: '#FF9500',
           label: 'En cours de livraison',
-          description: 'Votre colis est en livraison avec Intelcom aujourd\'hui',
+          description: 'Votre colis est en livraison aujourd\'hui',
         };
       case 'DELIVERED':
         return {
