@@ -46,6 +46,11 @@ export const queryKeys = {
     all: ['payments'] as const,
     transaction: (id: string) => ['payments', id] as const,
   },
+  reviews: {
+    all: ['reviews'] as const,
+    user: (userId: string) => ['reviews', 'user', userId] as const,
+    transaction: (transactionId: string) => ['reviews', 'transaction', transactionId] as const,
+  },
   sellers: {
     all: ['sellers'] as const,
     liked: (userId: string) => ['sellers', 'liked', userId] as const,
