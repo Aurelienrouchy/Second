@@ -412,6 +412,9 @@ interface TransactionDocument {
   cancelledBy?: string;            // UID of user who cancelled (manual cancel only)
   refundedAt?: Timestamp;
 
+  // Delivery type
+  deliveryType: 'shipping' | 'meetup';
+
   // Shipping (ShipEngine)
   shipEngineRateId?: string;
   trackingNumber?: string;
@@ -420,6 +423,18 @@ interface TransactionDocument {
   shippingLabelUrl?: string;
   shipEngineLabelId?: string;
   carrierCode?: string;
+  labelCreationPending?: boolean;  // True when label must be created manually (fallback rateId or API error)
+  labelCreationNote?: string;      // Explanation of why label creation was skipped
+
+  // Shipping address (deliveryType === 'shipping')
+  shippingAddress?: {
+    name?: string;
+    street: string;
+    city: string;
+    postalCode: string;
+    province?: string;
+    country: string;
+  };
 
   // Meetup (deliveryType === 'meetup')
   meetupSpot?: {                   // Agreed meeting location
