@@ -309,10 +309,17 @@ export const createTransaction = onCall(
                 // Refresh sellerData with the new account info
                 sellerData = { ...sellerData, stripeAccountId: account.id, stripeChargesEnabled: chargesEnabled };
               } catch (stripeErr) {
-                logger.warn('Failed to create Stripe account on-the-fly', {
+                const stripeErrDetails: Record<string, unknown> = {
                   sellerId: articleData.sellerId,
                   error: stripeErr instanceof Error ? stripeErr.message : stripeErr,
-                });
+                };
+                if (stripeErr && typeof stripeErr === 'object') {
+                  const e = stripeErr as any;
+                  if (e.type) stripeErrDetails.stripeErrorType = e.type;
+                  if (e.code) stripeErrDetails.stripeErrorCode = e.code;
+                  if (e.statusCode) stripeErrDetails.stripeStatusCode = e.statusCode;
+                }
+                logger.warn('Failed to create Stripe account on-the-fly', stripeErrDetails);
               }
             }
           }
