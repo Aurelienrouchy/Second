@@ -361,7 +361,7 @@ exports.getActiveSwapPartyInfo = (0, https_1.onCall)({ region: 'northamerica-nor
  * Join a swap party securely -- atomic participant creation + counter increment.
  * Uses runTransaction to prevent race conditions on participantsCount.
  */
-exports.joinSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' }, async (request) => {
+exports.joinSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -436,7 +436,7 @@ exports.joinSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-northe
  * Leave a swap party securely -- atomic participant removal + item cleanup + counter decrements.
  * Uses runTransaction to prevent race conditions on counters.
  */
-exports.leaveSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' }, async (request) => {
+exports.leaveSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -518,7 +518,7 @@ exports.leaveSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-north
  * Add an item to a swap party securely -- atomic item creation + counter increment.
  * Uses runTransaction to prevent race conditions on itemsCount.
  */
-exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' }, async (request) => {
+exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -627,7 +627,7 @@ exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-north
  * Remove an item from a swap party securely -- atomic item deletion + counter decrement.
  * Uses runTransaction to prevent race conditions on itemsCount.
  */
-exports.removeItemFromPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' }, async (request) => {
+exports.removeItemFromPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -785,7 +785,7 @@ async function releasePartyItems(swap) {
  * Uses runTransaction to guard the status transition.
  * Releases party items if the swap belongs to a party.
  */
-exports.declineSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+exports.declineSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -835,7 +835,7 @@ exports.declineSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', i
  * Uses runTransaction to guard the status transition.
  * Releases party items if the swap belongs to a party.
  */
-exports.cancelSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+exports.cancelSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -883,7 +883,7 @@ exports.cancelSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
  * Transitions status from 'accepted' to 'photos_pending'.
  * Uses runTransaction to guard the status transition.
  */
-exports.setSwapExchangeMode = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+exports.setSwapExchangeMode = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -933,7 +933,7 @@ exports.setSwapExchangeMode = (0, https_1.onCall)({ region: 'northamerica-northe
  * If BOTH sides have uploaded, transitions to status 'shipping'.
  * Uses runTransaction to safely check the "both uploaded" condition.
  */
-exports.uploadSwapPhotos = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+exports.uploadSwapPhotos = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1000,7 +1000,7 @@ exports.uploadSwapPhotos = (0, https_1.onCall)({ region: 'northamerica-northeast
  * Writes initiatorShippedAt or receiverShippedAt.
  * Uses runTransaction for consistency.
  */
-exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1184,7 +1184,7 @@ exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-north
  * Writes initiatorRating or receiverRating.
  * Uses runTransaction to verify status == 'completed'.
  */
-exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1293,7 +1293,7 @@ exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invo
  * Transitions swap status to 'disputed'.
  * Uses runTransaction to guard the status transition.
  */
-exports.openSwapDispute = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+exports.openSwapDispute = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
