@@ -25,9 +25,9 @@ export const INITIAL_ADDRESS: AddressFormValues = {
   fullName: '',
   address: '',
   apartment: '',
-  city: 'Montreal',
+  city: '',
   postalCode: '',
-  province: 'QC',
+  province: '',
 };
 
 export const FALLBACK_ESTIMATES: ShippingEstimate[] = [
