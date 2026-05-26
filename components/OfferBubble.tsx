@@ -290,8 +290,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
         {/* Amount Section */}
         <View style={styles.amountSection}>
           <View style={styles.amountDisplay}>
-            <Text style={styles.amountPrefix}>$</Text>
-            <Text style={styles.amount}>{amount}</Text>
+            <Text style={styles.amount}>{formatPrice(amount)}</Text>
           </View>
           {listedPrice != null && (
             <Text style={styles.amountSubtext}>
