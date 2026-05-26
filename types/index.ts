@@ -232,7 +232,7 @@ export interface Category {
 export type TransactionDeliveryType = 'meetup' | 'shipping';
 
 export type TransactionStatus =
-  | 'pending_payment'    // Awaiting Helcim payment (shipping only)
+  | 'pending_payment'    // Awaiting Stripe payment (shipping only)
   | 'meetup_pending'     // Meetup requested, awaiting seller confirmation
   | 'meetup_confirmed'   // Seller confirmed meetup
   | 'meetup_completed'   // Both parties confirmed exchange
