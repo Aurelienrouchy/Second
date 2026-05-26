@@ -3,11 +3,31 @@
  * Renders the address input fields for checkout shipping.
  */
 
-import React from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { colors, fonts, radius } from '@/constants/theme';
 import type { AddressFormValues } from '../types';
+
+// =============================================================================
+// CANADIAN PROVINCES
+// =============================================================================
+
+const PROVINCES = [
+  { code: 'AB', label: 'Alberta' },
+  { code: 'BC', label: 'Colombie-Britannique' },
+  { code: 'MB', label: 'Manitoba' },
+  { code: 'NB', label: 'Nouveau-Brunswick' },
+  { code: 'NL', label: 'Terre-Neuve-et-Labrador' },
+  { code: 'NS', label: 'Nouvelle-Écosse' },
+  { code: 'NT', label: 'Territoires du Nord-Ouest' },
+  { code: 'NU', label: 'Nunavut' },
+  { code: 'ON', label: 'Ontario' },
+  { code: 'PE', label: 'Île-du-Prince-Édouard' },
+  { code: 'QC', label: 'Québec' },
+  { code: 'SK', label: 'Saskatchewan' },
+  { code: 'YT', label: 'Yukon' },
+] as const;
 
 // =============================================================================
 // TYPES
