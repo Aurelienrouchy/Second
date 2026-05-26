@@ -24,7 +24,7 @@ import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
 
 export default function SellerBalanceScreen() {
   const router = useRouter();
-  const user = useUser();
+  const { user, isLoggedIn } = useAuthRequired();
   const queryClient = useQueryClient();
 
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
