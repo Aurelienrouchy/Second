@@ -174,6 +174,13 @@ export default function MyOrdersScreen() {
     [router],
   );
 
+  const handleReview = useCallback(
+    (transactionId: string) => {
+      router.push(`/review/${transactionId}`);
+    },
+    [router],
+  );
+
   if (!user) {
     return (
       <View style={styles.container}>
