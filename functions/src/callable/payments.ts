@@ -960,6 +960,13 @@ export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', mem
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
 
+  // TODO: This manual withdrawal mechanism will be replaced by Stripe Connect
+  // Custom automatic payouts. Logging a warning so we can track usage during
+  // the transition period.
+  logger.warn('[requestWithdrawal] Legacy manual withdrawal called — will be replaced by Stripe Connect Custom automatic payouts', {
+    userId: request.auth.uid,
+  });
+
   const { amount, bankAccount } = request.data ?? {};
   const userId = request.auth.uid;
 
