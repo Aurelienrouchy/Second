@@ -325,7 +325,7 @@ export default function ChatScreen() {
         />
       );
     },
-    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, handleCounterPrice, handleConfirmMeetup, handleReportNoShow, handleCompleteMeetup, otherAvatar, article?.price, chat?.articlePrice],
+    [user?.id, chatId, handleAcceptOffer, handleRejectOffer, handleCounterPrice, handleCounterLocation, handleCounterTime, handleConfirmMeetup, handleReportNoShow, handleCompleteMeetup, otherAvatar, article?.price, chat?.articlePrice, chat?.sellerId],
   );
 
   // ─── Auth gate: redirect guests AFTER all hooks have been called ───
