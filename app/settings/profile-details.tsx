@@ -74,12 +74,23 @@ export default function ProfileDetailsScreen() {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!displayName.trim()) {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    const trimmedName = displayName.trim();
+    if (!trimmedName) {
       Alert.alert('Erreur', 'Le nom d\'affichage ne peut pas être vide');
+      setIsSaving(false);
       return;
     }
 
-    setIsSaving(true);
+    // Only allow letters (unicode), spaces, hyphens, apostrophes
+    const nameRegex = /^[\p{L}\s\-']+$/u;
+    if (!nameRegex.test(trimmedName)) {
+      Alert.alert('Erreur', 'Le nom ne peut contenir que des lettres, espaces, tirets et apostrophes');
+      setIsSaving(false);
+      return;
+    }
     try {
       // Upload profile image to Firebase Storage if it is a new local file
       let imageUrl = profileImage;
@@ -180,6 +191,7 @@ export default function ProfileDetailsScreen() {
                 placeholder="Votre nom d'utilisateur"
                 placeholderTextColor={colors.muted}
                 autoCapitalize="words"
+                maxLength={50}
               />
             </View>
 

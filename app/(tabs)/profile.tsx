@@ -175,6 +175,8 @@ export default function ProfileScreen() {
               displayName={user.displayName}
               bio={user.bio}
               createdAt={user.createdAt}
+              city={user.address?.city}
+              styleTags={user.styleProfile?.styleTags}
               articlesCount={stats?.articlesEnVente ?? 0}
               salesCount={stats?.articlesVendus ?? 0}
               rating={stats?.moyenneNote ?? null}

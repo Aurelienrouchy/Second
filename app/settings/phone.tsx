@@ -108,7 +108,7 @@ export default function PhoneSettingsScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
             <Text variant="body" style={styles.infoText}>
-              Ajouter un numéro de téléphone vérifié aide à sécuriser votre compte et facilite les transactions.
+              Ajouter un numéro de téléphone aide à sécuriser votre compte et facilite les transactions.
             </Text>
           </View>
 
