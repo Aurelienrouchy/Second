@@ -308,6 +308,8 @@ export default function ChatScreen() {
             onAcceptOffer={handleAcceptOffer}
             onRejectOffer={handleRejectOffer}
             onCounterPrice={handleCounterPrice}
+            onCounterLocation={handleCounterLocation}
+            onCounterTime={handleCounterTime}
             onConfirmMeetup={handleConfirmMeetup}
             onReportNoShow={handleReportNoShow}
             onCompleteMeetup={handleCompleteMeetup}
