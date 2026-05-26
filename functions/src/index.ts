@@ -143,6 +143,9 @@ export { checkSavedSearchNotifications } from './scheduled/savedSearches';
 // Draft image cleanup
 export { cleanupExpiredDrafts } from './scheduled/cleanupDrafts';
 
+// Offer expiration (hourly cleanup of stale pending offers)
+export { expireStaleOffers } from './scheduled/offerExpiration';
+
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
