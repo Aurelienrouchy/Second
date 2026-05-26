@@ -8,7 +8,6 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
-// Note: logger is also used for structured logging below (replacing console.log/warn)
 import { db, FieldValue } from '../config/firebase';
 import { getShipEngine, ShipEngineClient } from '../config/shipEngine';
 import { getStripe } from '../config/stripe';
