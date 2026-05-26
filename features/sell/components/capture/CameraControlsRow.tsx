@@ -49,7 +49,7 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
 
   return (
     <View style={styles.controlsRow}>
-      {/* Capture button */}
+      {/* Capture button — always centered regardless of Continue visibility */}
       <Pressable
         style={styles.captureButton}
         onPress={onCapture}
@@ -73,7 +73,7 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
         )}
       </Pressable>
 
-      {/* Continue button — always rendered, animated in/out */}
+      {/* Continue button — positioned absolutely so it never shifts the capture button */}
       <AnimatedPressable
         style={[styles.continueButton, continueContainerStyle]}
         onPress={onContinue}
@@ -92,18 +92,18 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
 
 const styles = StyleSheet.create({
   controlsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    position: 'relative',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 20,
-    gap: 24,
+    height: 72 + 20, // captureButton height + paddingTop
   },
   captureButton: {
     width: 72,
     height: 72,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
   },
   captureButtonOuter: {
     position: 'absolute',
@@ -126,6 +126,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
   },
   continueButton: {
+    position: 'absolute',
+    right: 24,
+    top: 20 + (72 - 48) / 2, // vertically centered with capture button
     height: 48,
     borderRadius: 24,
     backgroundColor: colors.rust,
