@@ -391,10 +391,12 @@ interface TransactionDocument {
   sellerPayout?: number;         // What the seller receives
 
   // Status flow:
-  //   Shipping: pending_payment -> paid -> shipped -> delivered | cancelled
+  //   Shipping: pending_payment -> paid -> shipped -> delivered | cancelled | disputed | refunded
   //   Meetup:   meetup_pending -> meetup_confirmed -> meetup_completed | cancelled
+  //   Failed:   pending_payment -> cancelled (via payment_failed webhook)
   status: 'pending_payment' | 'meetup_pending' | 'meetup_confirmed'
-        | 'meetup_completed' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+        | 'meetup_completed' | 'paid' | 'shipped' | 'delivered'
+        | 'cancelled' | 'disputed' | 'refunded';
 
   // Stripe Connect payment
   stripePaymentIntentId?: string;  // Stripe PaymentIntent ID
