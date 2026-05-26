@@ -175,6 +175,7 @@ export default function SearchScreen() {
         selectedValue={screen.filters.colors?.[0]}
         selectedValues={screen.filters.colors || []}
         onSelect={screen.handleColorSelect}
+        onSelectMultiple={screen.handleColorsConfirm}
         type="color"
         multiSelect
       />
@@ -193,6 +194,7 @@ export default function SearchScreen() {
         selectedValue={screen.filters.materials?.[0]}
         selectedValues={screen.filters.materials || []}
         onSelect={screen.handleMaterialSelect}
+        onSelectMultiple={screen.handleMaterialsConfirm}
         multiSelect
       />
 

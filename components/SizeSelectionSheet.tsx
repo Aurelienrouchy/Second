@@ -10,7 +10,7 @@
  * Sharp corners on chips. Charcoal selected state.
  */
 
-import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, TouchableOpacity } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFooter, BottomSheetScrollView, TouchableOpacity } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 import {
@@ -111,6 +111,29 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
       []
     );
 
+    const renderFooter = useCallback(
+      (props: any) => (
+        <BottomSheetFooter {...props} bottomInset={insets.bottom}>
+          <View style={styles.confirmContainer}>
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                localSelectedSizes.length === 0 && styles.confirmButtonDisabled,
+              ]}
+              onPress={handleConfirm}
+            >
+              <Text style={styles.confirmButtonText}>
+                {localSelectedSizes.length > 0
+                  ? `VALIDER (${localSelectedSizes.length})`
+                  : 'VALIDER'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </BottomSheetFooter>
+      ),
+      [insets.bottom, localSelectedSizes, handleConfirm]
+    );
+
     const renderSizeSection = useCallback((section: SizeSection) => {
       const sizes = getSizes(section, sizeSystem, demographic);
       const label = SIZE_SECTION_LABELS[section];
@@ -150,6 +173,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
         index={-1}
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
+        footerComponent={renderFooter}
         enablePanDownToClose
         topInset={insets.top}
         handleIndicatorStyle={styles.handleIndicator}
@@ -194,7 +218,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: insets.bottom + 80 },
+            { paddingBottom: 80 },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -277,23 +301,6 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
             SIZE_SECTIONS.map(renderSizeSection)
           )}
         </BottomSheetScrollView>
-
-        {/* ── Confirm button ── */}
-        <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity
-            style={[
-              styles.confirmButton,
-              localSelectedSizes.length === 0 && styles.confirmButtonDisabled,
-            ]}
-            onPress={handleConfirm}
-          >
-            <Text style={styles.confirmButtonText}>
-              {localSelectedSizes.length > 0
-                ? `VALIDER (${localSelectedSizes.length})`
-                : 'VALIDER'}
-            </Text>
-          </TouchableOpacity>
-        </View>
       </BottomSheet>
     );
   }
@@ -462,13 +469,10 @@ const styles = StyleSheet.create({
 
   // ── Confirm button ──
   confirmContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: colors.surface,
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },

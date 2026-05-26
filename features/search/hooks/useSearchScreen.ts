@@ -255,6 +255,14 @@ export function useSearchScreen() {
     [filters, setFilters, isSearching]
   );
 
+  const handleColorsConfirm = useCallback(
+    (selectedColors: string[]) => {
+      setFilters({ ...filters, colors: selectedColors.length > 0 ? selectedColors : [] });
+      if (!isSearching && selectedColors.length > 0) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
   const handleSizesConfirm = useCallback(
     (sizes: string[]) => {
       setFilters({ ...filters, sizes });
@@ -269,6 +277,14 @@ export function useSearchScreen() {
       const next = cur.includes(material) ? cur.filter((m: string) => m !== material) : [...cur, material];
       setFilters({ ...filters, materials: next });
       if (!isSearching) setIsSearching(true);
+    },
+    [filters, setFilters, isSearching]
+  );
+
+  const handleMaterialsConfirm = useCallback(
+    (selectedMaterials: string[]) => {
+      setFilters({ ...filters, materials: selectedMaterials.length > 0 ? selectedMaterials : [] });
+      if (!isSearching && selectedMaterials.length > 0) setIsSearching(true);
     },
     [filters, setFilters, isSearching]
   );
@@ -463,8 +479,10 @@ export function useSearchScreen() {
     handleSortSelect,
     handleCategorySelect,
     handleColorSelect,
+    handleColorsConfirm,
     handleSizesConfirm,
     handleMaterialSelect,
+    handleMaterialsConfirm,
     handleConditionSelect,
     handleBrandsConfirm,
     handlePriceApply,
