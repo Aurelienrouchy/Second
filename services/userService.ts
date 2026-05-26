@@ -22,6 +22,12 @@ interface ExportedUserData {
   favorites: Record<string, unknown>[];
   notifications: Record<string, unknown>[];
   chats: Record<string, unknown>[];
+  reviews: Record<string, unknown>[];
+  purchases: Record<string, unknown>[];
+  sales: Record<string, unknown>[];
+  drafts: Record<string, unknown>[];
+  savedSearches: Record<string, unknown>[];
+  searchHistory: Record<string, unknown>[];
 }
 
 export class UserService {
@@ -342,8 +348,9 @@ export class UserService {
   // RGPD COMPLIANCE
   // ============================================
 
+  // TODO: migrate to Cloud Function callable for large accounts (timeout risk with 500+ articles)
   /**
-   * Exporter toutes les données utilisateur (RGPD Art. 20 - Portabilité)
+   * Exporter toutes les données utilisateur (PIPEDA / RGPD Art. 20 - Portabilité)
    * Retourne un objet JSON avec toutes les données de l'utilisateur
    */
   static async exportUserData(userId: string): Promise<ExportedUserData> {
@@ -355,6 +362,12 @@ export class UserService {
         favorites: [],
         notifications: [],
         chats: [],
+        reviews: [],
+        purchases: [],
+        sales: [],
+        drafts: [],
+        savedSearches: [],
+        searchHistory: [],
       };
 
       // 1. Profil utilisateur
@@ -440,6 +453,98 @@ export class UserService {
           myMessages: messages,
         });
       }
+
+      // 6. Reviews (avis) written by the user
+      const reviewsQuery = query(
+        collection(firestore, 'avis'),
+        where('reviewerId', '==', userId)
+      );
+      const reviewsSnapshot = await getDocs(reviewsQuery);
+      reviewsSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        exportData.reviews.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString(),
+        });
+      });
+
+      // 7. Transactions — purchases (buyer)
+      const purchasesQuery = query(
+        collection(firestore, 'transactions'),
+        where('buyerId', '==', userId)
+      );
+      const purchasesSnapshot = await getDocs(purchasesQuery);
+      purchasesSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        exportData.purchases.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString(),
+          paidAt: data.paidAt?.toDate?.()?.toISOString(),
+        });
+      });
+
+      // 8. Transactions — sales (seller)
+      const salesQuery = query(
+        collection(firestore, 'transactions'),
+        where('sellerId', '==', userId)
+      );
+      const salesSnapshot = await getDocs(salesQuery);
+      salesSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        exportData.sales.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString(),
+          paidAt: data.paidAt?.toDate?.()?.toISOString(),
+        });
+      });
+
+      // 9. Drafts
+      const draftsQuery = query(
+        collection(firestore, 'drafts'),
+        where('userId', '==', userId)
+      );
+      const draftsSnapshot = await getDocs(draftsQuery);
+      draftsSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        exportData.drafts.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString(),
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString(),
+        });
+      });
+
+      // 10. Saved searches (subcollection)
+      const savedSearchesSnapshot = await getDocs(
+        collection(firestore, 'users', userId, 'savedSearches')
+      );
+      savedSearchesSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        exportData.savedSearches.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString(),
+        });
+      });
+
+      // 11. Search history (subcollection)
+      const searchHistorySnapshot = await getDocs(
+        collection(firestore, 'users', userId, 'searchHistory')
+      );
+      searchHistorySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        exportData.searchHistory.push({
+          id: docSnap.id,
+          ...data,
+          searchedAt: data.searchedAt?.toDate?.()?.toISOString(),
+        });
+      });
+
+      // TODO: add swaps export (requires queries on both initiatorId and receiverId)
+      // TODO: add seller_balances export (requires composite queries)
 
       return exportData;
     } catch (error) {
