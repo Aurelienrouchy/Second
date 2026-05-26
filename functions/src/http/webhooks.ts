@@ -709,22 +709,40 @@ async function handleAccountUpdated(account: any): Promise<void> {
 
   const userDoc = usersQuery.docs[0];
 
-  // Determine status
+  // Determine status — works for both Standard and Custom accounts.
+  // For Custom accounts, charges_enabled becomes true once capabilities
+  // are active and payouts_enabled becomes true once a bank account is
+  // attached and verified.
   let status: string;
   if (account.charges_enabled && account.payouts_enabled) {
     status = 'active';
+  } else if (account.charges_enabled) {
+    // Custom accounts: charges enabled but no bank account yet
+    status = 'partially_active';
   } else if (account.details_submitted) {
     status = 'pending_verification';
   } else {
     status = 'pending';
   }
 
-  await userDoc.ref.update({
+  // Check if external accounts (bank accounts) are attached
+  const hasExternalAccount =
+    account.external_accounts?.data?.length > 0 ||
+    false;
+
+  const updateData: Record<string, any> = {
     stripeAccountStatus: status,
     stripeChargesEnabled: account.charges_enabled || false,
     stripePayoutsEnabled: account.payouts_enabled || false,
     stripeDetailsSubmitted: account.details_submitted || false,
-  });
+  };
+
+  // Track external account status for Custom accounts
+  if (hasExternalAccount) {
+    updateData.stripeBankAccountAdded = true;
+  }
+
+  await userDoc.ref.update(updateData);
 
   logger.info('Stripe webhook: seller account status updated', {
     userId: userDoc.id,
@@ -732,5 +750,6 @@ async function handleAccountUpdated(account: any): Promise<void> {
     status,
     chargesEnabled: account.charges_enabled,
     payoutsEnabled: account.payouts_enabled,
+    hasExternalAccount,
   });
 }

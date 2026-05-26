@@ -8,6 +8,7 @@ export { FeaturedSellersSection } from './featured-sellers/FeaturedSellersSectio
 export { HomeHeader } from './header/HomeHeader';
 export { useHomeHeader } from './header/useHomeHeader';
 export { NewArrivalsSection } from './new-arrivals/NewArrivalsSection';
+export { PourToiSection } from './pour-toi/PourToiSection';
 export { PriceDropsSection } from './price-drops/PriceDropsSection';
 export { SectionErrorBoundary } from './SectionErrorBoundary';
 export { SwapZoneWrapper } from './swap-zone/SwapZoneSection';

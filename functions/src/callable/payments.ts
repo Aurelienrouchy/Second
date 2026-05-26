@@ -1016,126 +1016,202 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 });
 
 // =============================================================================
-// REQUEST WITHDRAWAL — Atomic balance debit + withdrawal record creation
+// REQUEST WITHDRAWAL — Stripe Payout + atomic balance debit
 // =============================================================================
 
 /**
- * Caller (the seller) requests a withdrawal of `amount` to `bankAccount`.
+ * Caller (the seller) requests a withdrawal of `amount` from their
+ * available balance. The function creates a real Stripe Payout on the
+ * seller's Custom connected account, debits the seller_balance atomically,
+ * and stores the payoutId for tracking.
  *
- * TODO: migrate to Stripe Connect Custom with automatic payouts. Sellers
- * receive funds automatically via their connected account. This manual
- * withdrawal flow (collecting bank info + creating a pending doc) will be
- * replaced by Stripe's automatic payout schedule once the migration to
- * Connect Custom is complete. Until then, this function remains callable
- * from the frontend but the created `withdrawal_requests` docs require
- * manual admin processing.
+ * Prerequisites:
+ * - Seller must have a stripeAccountId (Custom account)
+ * - Seller must have a bank account attached (via addBankAccount)
+ * - Minimum withdrawal: 10 CAD
  *
  * Why this is a CF, not a client mutation:
  * - The previous client implementation read the balance, then issued an
  *   updateDoc with `increment(-amount)`. Two concurrent requests could both
  *   pass the read-side check and double-spend.
- * - Validation (min amount, bank account format, balance check) must run on
+ * - Validation (min amount, balance check, Stripe account check) must run on
  *   a server we trust.
- *
- * Canadian bank account format:
- * - With dashes: TTTTT-III-AAAAAAA (transit 5, institution 3, account 7-12)
- * - Raw digits: 15-20 digits total
  *
  * Authorization: caller must be the balance owner (request.auth.uid).
  */
-export const requestWithdrawal = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'User must be authenticated');
-  }
+export const requestWithdrawal = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
 
-  // TODO: This manual withdrawal mechanism will be replaced by Stripe Connect
-  // Custom automatic payouts. Logging a warning so we can track usage during
-  // the transition period.
-  logger.warn('[requestWithdrawal] Legacy manual withdrawal called — will be replaced by Stripe Connect Custom automatic payouts', {
-    userId: request.auth.uid,
-  });
+    const { amount } = request.data ?? {};
+    const userId = request.auth.uid;
 
-  const { amount, bankAccount } = request.data ?? {};
-  const userId = request.auth.uid;
+    if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
+      throw new HttpsError('invalid-argument', 'Invalid amount');
+    }
+    if (amount < 10) {
+      throw new HttpsError('invalid-argument', 'Le retrait minimum est de 10 $');
+    }
 
-  if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
-    throw new HttpsError('invalid-argument', 'Invalid amount');
-  }
-  if (amount < 10) {
-    throw new HttpsError('invalid-argument', 'Minimum withdrawal is 10');
-  }
-  if (typeof bankAccount !== 'string') {
-    throw new HttpsError('invalid-argument', 'Numéro de compte bancaire requis');
-  }
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe API not configured');
+    }
 
-  // Validate Canadian bank account format
-  // Accept either TTTTT-III-AAAAAAA (dashed) or raw digits (15-20 chars)
-  const sanitizedBankAccount = bankAccount.replace(/[\s-]/g, '');
-  const dashedFormat = /^\d{5}-\d{3}-\d{7,12}$/.test(bankAccount.trim());
-  const rawFormat = /^\d{15,20}$/.test(sanitizedBankAccount);
+    // Verify seller has a Stripe Custom account with bank account attached
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', 'User not found');
+    }
+    const userData = userDoc.data()!;
+    const stripeAccountId = userData.stripeAccountId;
 
-  if (!dashedFormat && !rawFormat) {
-    throw new HttpsError(
-      'invalid-argument',
-      'Format de compte bancaire invalide. Attendu : TTTTT-III-AAAAAAA ou 15-20 chiffres'
-    );
-  }
+    if (!stripeAccountId) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Aucun compte de paiement configure. Publiez un article d\'abord.'
+      );
+    }
+    if (!userData.stripeBankAccountAdded) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Veuillez ajouter un compte bancaire avant de demander un retrait.'
+      );
+    }
 
-  const balanceRef = db.collection('seller_balances').doc(userId);
+    const balanceRef = db.collection('seller_balances').doc(userId);
 
-  try {
-    // Use Firestore auto-generated ID to avoid collision from Date.now()
-    const withdrawalRef = db.collection('withdrawal_requests').doc();
-    const withdrawalId = withdrawalRef.id;
+    try {
+      // Use Firestore auto-generated ID to avoid collision from Date.now()
+      const withdrawalRef = db.collection('withdrawal_requests').doc();
+      const withdrawalId = withdrawalRef.id;
 
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(balanceRef);
-      if (!snap.exists) {
-        throw new HttpsError('not-found', 'Balance not found');
-      }
-      const data = snap.data()!;
-      const available = typeof data.availableBalance === 'number' ? data.availableBalance : 0;
-      if (available < amount) {
-        throw new HttpsError('failed-precondition', 'Insufficient balance');
-      }
+      // Step 1: Atomically debit the balance and create the withdrawal record
+      const bankLast4 = userData.stripeBankAccountLast4 || '****';
 
-      const transactions = Array.isArray(data.transactions) ? data.transactions : [];
-      const withdrawalEntry = {
-        id: withdrawalId,
-        type: 'withdrawal',
-        amount: -amount,
-        description: `Retrait vers ****${sanitizedBankAccount.slice(-4)}`,
-        // serverTimestamp() can't be used inside an array element; use Date instead.
-        createdAt: new Date(),
-        status: 'pending',
-      };
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(balanceRef);
+        if (!snap.exists) {
+          throw new HttpsError('not-found', 'Balance not found');
+        }
+        const data = snap.data()!;
+        const available = typeof data.availableBalance === 'number' ? data.availableBalance : 0;
+        if (available < amount) {
+          throw new HttpsError('failed-precondition', 'Solde insuffisant');
+        }
 
-      tx.update(balanceRef, {
-        availableBalance: FieldValue.increment(-amount),
-        transactions: [...transactions, withdrawalEntry],
-        updatedAt: FieldValue.serverTimestamp(),
+        const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+        const withdrawalEntry = {
+          id: withdrawalId,
+          type: 'withdrawal',
+          amount: -amount,
+          description: `Retrait vers ****${bankLast4}`,
+          // serverTimestamp() can't be used inside an array element; use Date instead.
+          createdAt: new Date(),
+          status: 'processing',
+        };
+
+        tx.update(balanceRef, {
+          availableBalance: FieldValue.increment(-amount),
+          transactions: [...transactions, withdrawalEntry],
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        // Persist the withdrawal request as a separate doc INSIDE the
+        // transaction so balance deduction and record creation are atomic.
+        tx.set(withdrawalRef, {
+          withdrawalId,
+          userId,
+          amount,
+          bankAccountLast4: bankLast4,
+          stripeAccountId,
+          status: 'processing',
+          createdAt: FieldValue.serverTimestamp(),
+        });
       });
 
-      // Persist the withdrawal request as a separate doc INSIDE the
-      // transaction so balance deduction and record creation are atomic.
-      tx.set(withdrawalRef, {
-        withdrawalId,
-        userId,
-        amount,
-        bankAccountLast4: sanitizedBankAccount.slice(-4),
-        status: 'pending',
-        createdAt: FieldValue.serverTimestamp(),
-      });
-    });
+      // Step 2: Create the Stripe Payout on the connected account
+      // This is outside the Firestore transaction because it's an external
+      // API call. If it fails, we have the withdrawal_request doc with status
+      // 'processing' that can be retried.
+      try {
+        const amountInCents = Math.round(amount * 100);
+        const payout = await stripe.payouts.create(
+          {
+            amount: amountInCents,
+            currency: 'cad',
+            metadata: {
+              withdrawalId,
+              firebaseUserId: userId,
+            },
+          },
+          { stripeAccount: stripeAccountId }
+        );
 
-    return { success: true, withdrawalId };
-  } catch (error: unknown) {
-    if (error instanceof HttpsError) throw error;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[requestWithdrawal] Error', { userId, error: message });
-    throw new HttpsError('internal', `Failed to request withdrawal: ${message}`);
+        // Update the withdrawal request with the Stripe payout ID
+        await withdrawalRef.update({
+          stripePayoutId: payout.id,
+          status: 'processing',
+        });
+
+        logger.info('Stripe payout created', {
+          userId,
+          withdrawalId,
+          payoutId: payout.id,
+          amount,
+        });
+
+        return { success: true, withdrawalId, payoutId: payout.id };
+      } catch (payoutError) {
+        // Stripe payout failed — revert the balance deduction
+        logger.error('Stripe payout failed — reverting balance', {
+          userId,
+          withdrawalId,
+          error: payoutError instanceof Error ? payoutError.message : payoutError,
+        });
+
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(balanceRef);
+          if (!snap.exists) return;
+
+          const data = snap.data()!;
+          const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+          const updatedTransactions = transactions.map((txn: any) => {
+            if (txn.id === withdrawalId) {
+              return { ...txn, status: 'failed' };
+            }
+            return txn;
+          });
+
+          tx.update(balanceRef, {
+            availableBalance: FieldValue.increment(amount),
+            transactions: updatedTransactions,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        });
+
+        // Mark withdrawal request as failed
+        await withdrawalRef.update({
+          status: 'failed',
+          failureReason: payoutError instanceof Error ? payoutError.message : 'Unknown Stripe error',
+          failedAt: FieldValue.serverTimestamp(),
+        });
+
+        const message = payoutError instanceof Error ? payoutError.message : 'Unknown error';
+        throw new HttpsError('internal', `Echec du retrait: ${message}`);
+      }
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[requestWithdrawal] Error', { userId, error: message });
+      throw new HttpsError('internal', `Failed to request withdrawal: ${message}`);
+    }
   }
-});
+);
 
 // =============================================================================
 // COMPLETE MEETUP TRANSACTION — Buyer confirms receipt, credits seller

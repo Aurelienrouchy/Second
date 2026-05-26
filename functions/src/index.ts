@@ -62,7 +62,7 @@ export {
   createTransaction,
   createStripeCheckout,
   createStripeConnectAccount,
-  getStripeAccountLink,
+  addBankAccount,
   getStripeAccountStatus,
   findPickupPoints,
   checkTrackingStatus,

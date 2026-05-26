@@ -27,6 +27,7 @@ import {
   HomeHeader,
   useHomeHeader,
   NewArrivalsSection,
+  PourToiSection,
   PriceDropsSection,
   SectionErrorBoundary,
   SwapZoneWrapper,
@@ -40,6 +41,7 @@ import {
 type SectionId =
   | 'trending-brands'
   | 'new-arrivals'
+  | 'pour-toi'
   | 'swap-zone'
   | 'price-drops'
   | 'featured-sellers'
@@ -48,6 +50,7 @@ type SectionId =
 const SECTIONS: ReadonlyArray<SectionId> = [
   'trending-brands',
   'new-arrivals',
+  'pour-toi',
   'swap-zone',
   'price-drops',
   'featured-sellers',
@@ -57,6 +60,7 @@ const SECTIONS: ReadonlyArray<SectionId> = [
 const SectionComponent: Record<SectionId, React.ComponentType> = {
   'trending-brands': TrendingBrandsSection,
   'new-arrivals': NewArrivalsSection,
+  'pour-toi': PourToiSection,
   'swap-zone': SwapZoneWrapper,
   'price-drops': PriceDropsSection,
   'featured-sellers': FeaturedSellersSection,
