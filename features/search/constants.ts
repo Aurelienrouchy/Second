@@ -11,6 +11,7 @@ export const CONDITION_ITEMS = [
 
 export const SORT_ITEMS = [
   { value: 'recent', label: 'Plus récents' },
+  { value: 'popular', label: 'Populaires' },
   { value: 'price_asc', label: 'Prix croissant' },
   { value: 'price_desc', label: 'Prix décroissant' },
 ];
