@@ -26,6 +26,9 @@ const MEETUP_EXPIRY_MS = 48 * 60 * 60 * 1000;
 /** Pending payment transactions expire after 1 hour */
 const PENDING_PAYMENT_EXPIRY_MS = 1 * 60 * 60 * 1000;
 
+/** Paid but not shipped transactions expire after 7 days (seller didn't ship) */
+const PAID_NOT_SHIPPED_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const expireOrphanedTransactions = onSchedule(
   {
     schedule: 'every 1 hours',
