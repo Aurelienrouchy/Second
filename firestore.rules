@@ -547,7 +547,7 @@ service cloud.firestore {
         return data.keys().hasAll(['reporterId', 'targetId', 'targetType', 'reason']) &&
                data.reporterId == request.auth.uid &&
                isValidString(data.reason, 1, 100) &&
-               data.targetType in ['user', 'article', 'message'];
+               data.targetType in ['user', 'article', 'message', 'review'];
       }
     }
     

@@ -9,6 +9,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { sendPushNotification } from '../utils/notifications';
 
 // =============================================================================
 // TYPES
@@ -82,6 +83,21 @@ export const createReview = onCall(
       );
     }
 
+    // Correction #8: basic profanity filter (FR)
+    const PROFANITY_LIST = [
+      'putain', 'merde', 'connard', 'connasse', 'enculé', 'enculer',
+      'salaud', 'salope', 'batard', 'bâtard', 'nique', 'ntm', 'fdp',
+      'pd ', 'pédé', 'tapette', 'gouine', 'négro', 'negro',
+    ];
+    const lowerText = text.toLowerCase();
+    const hasProfanity = PROFANITY_LIST.some((word) => lowerText.includes(word));
+    if (hasProfanity) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Votre avis contient des termes inappropriés. Veuillez le reformuler.',
+      );
+    }
+
     if (reviewerId === targetUserId) {
       throw new HttpsError(
         'invalid-argument',
@@ -102,12 +118,27 @@ export const createReview = onCall(
       }
       const txData = txDoc.data()!;
 
-      const terminalStatuses = new Set(['delivered', 'meetup_completed', 'completed']);
+      // Only real terminal statuses — 'completed' does not exist in TransactionStatus
+      const terminalStatuses = new Set(['delivered', 'meetup_completed']);
       if (!terminalStatuses.has(txData.status)) {
         throw new HttpsError(
           'failed-precondition',
           'Transaction must be completed before reviewing',
         );
+      }
+
+      // Correction #7: 60-day review window
+      const completionDate = txData.completedAt?.toDate?.()
+        || txData.deliveredAt?.toDate?.()
+        || txData.meetupCompletedAt?.toDate?.();
+      if (completionDate) {
+        const daysSinceCompletion = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceCompletion > 60) {
+          throw new HttpsError(
+            'deadline-exceeded',
+            'La période pour laisser un avis est expirée (60 jours).',
+          );
+        }
       }
 
       if (txData.buyerId !== reviewerId && txData.sellerId !== reviewerId) {
@@ -151,6 +182,7 @@ export const createReview = onCall(
           reviewerId,
           reviewerName: reviewerData.displayName || 'Utilisateur',
           reviewerImage: reviewerData.profileImage || null,
+          // TODO: rename vendeurId to targetUserId in next schema migration
           vendeurId: targetUserId, // kept as 'vendeurId' for backwards compat with UserStatsService
           transactionId,
           transactionType,
@@ -166,6 +198,21 @@ export const createReview = onCall(
 
       // Update target user's aggregate rating (outside transaction, non-critical)
       await updateUserRating(targetUserId);
+
+      // Correction #4: Send push notification to the review target
+      try {
+        const reviewerName = reviewerData.displayName || 'Un utilisateur';
+        await sendPushNotification(
+          targetUserId,
+          'Nouvel avis reçu',
+          `${reviewerName} vous a laissé un avis ${note}/5`,
+          { reviewId: reviewDocId, reviewerId },
+          'review_received',
+        );
+      } catch (notifError) {
+        // Non-critical — don't fail the review creation
+        logger.warn('[createReview] Failed to send notification', { error: notifError });
+      }
 
       return {
         success: true,
@@ -339,13 +386,10 @@ export const getUserPublicProfile = onCall(
       ).length;
       const articlesVendus = allArticles.filter((a) => a.isSold).length;
 
-      // Reviews summary
-      const allReviews = reviewsSnapshot.docs.map((d) => d.data());
-      const totalReviews = allReviews.length;
-      const averageRating =
-        totalReviews > 0
-          ? allReviews.reduce((sum, r) => sum + (r.note || 0), 0) / totalReviews
-          : 0;
+      // Reviews summary — use pre-calculated values from updateUserRating()
+      // instead of recalculating from the limited (10) snapshot
+      const totalReviews = userData.reviewCount || 0;
+      const averageRating = userData.rating || 0;
 
       const reviews = reviewsSnapshot.docs.map((doc) => {
         const data = doc.data();
@@ -399,9 +443,10 @@ export const getUserPublicProfile = onCall(
 // =============================================================================
 
 /**
- * Update aggregate rating on user document
+ * Update aggregate rating on user document.
+ * Exported so that swap rating (rateSwap) can also recalculate the target user's average.
  */
-async function updateUserRating(userId: string): Promise<void> {
+export async function updateUserRating(userId: string): Promise<void> {
   try {
     const reviewsSnapshot = await db
       .collection('avis')

@@ -37,13 +37,17 @@ import {
   ReviewList,
   UserActions,
 } from '@/features/user-profile';
-import type { ProfileTab, Review } from '@/features/user-profile';
+import type { ProfileTab, ProfileReview } from '@/features/user-profile';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
 import { queryKeys } from '@/lib/queryKeys';
 import { ChatService } from '@/services/chatService';
-import { getUserReviews } from '@/services/reviewService';
+import {
+  getUserPublicProfile,
+  getUserReviews,
+  type UserPublicProfile,
+} from '@/services/reviewService';
 import { UserService } from '@/services/userService';
-import { UserStatsService, UserStats } from '@/services/userStatsService';
+import { UserStatsService, type UserStats } from '@/services/userStatsService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { Article, User } from '@/types';
 import { formatDisplayName } from '@/utils/formatName';
@@ -68,35 +72,55 @@ export default function UserProfileScreen() {
   const isOwnProfile = currentUser?.id === id;
 
   // ─── Data loading via React Query ───
+  //
+  // Non-own profiles use getUserPublicProfile (callable, guest-safe, single
+  // round-trip) to avoid direct Firestore reads on `avis/` which fail for
+  // unauthenticated users.
+  // Own profiles still use direct Firestore reads (authenticated).
 
+  // Public profile (single callable for non-own profiles)
   const {
-    data: profileUser = null,
-    isLoading,
-  } = useQuery<User | null>({
-    queryKey: queryKeys.users.profile(id ?? ''),
-    queryFn: () =>
-      isOwnProfile
-        ? UserService.getUserById(id!)
-        : UserService.getPublicProfile(id!),
-    enabled: !!id,
+    data: publicProfile = null,
+    isLoading: publicProfileLoading,
+  } = useQuery<UserPublicProfile | null>({
+    queryKey: ['users', 'publicProfile', id] as const,
+    queryFn: () => getUserPublicProfile(id!),
+    enabled: !!id && !isOwnProfile,
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: stats = null } = useQuery<UserStats | null>({
+  // Own profile: fetch user data directly
+  const {
+    data: ownProfileUser = null,
+    isLoading: ownProfileLoading,
+  } = useQuery<User | null>({
+    queryKey: queryKeys.users.profile(id ?? ''),
+    queryFn: () => UserService.getUserById(id!),
+    enabled: !!id && isOwnProfile,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Own profile stats (authenticated — direct Firestore read)
+  const { data: ownStats = null } = useQuery<UserStats | null>({
     queryKey: ['users', 'stats', id] as const,
     queryFn: () => UserStatsService.getUserStats(id!).catch(() => null),
-    enabled: !!id,
+    enabled: !!id && isOwnProfile,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: articles = [] } = useQuery<Article[]>({
+  // Own profile articles (authenticated — direct Firestore read)
+  const { data: ownArticles = [] } = useQuery<Article[]>({
     queryKey: queryKeys.users.articles(id ?? ''),
     queryFn: () => UserStatsService.getArticlesEnVente(id!).catch(() => [] as Article[]),
-    enabled: !!id,
+    enabled: !!id && isOwnProfile,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: reviews = [], isLoading: reviewsLoading } = useQuery<Review[]>({
+  // Own profile reviews (authenticated — callable)
+  const {
+    data: ownReviews = [],
+    isLoading: ownReviewsLoading,
+  } = useQuery<ProfileReview[]>({
     queryKey: ['reviews', 'user', id] as const,
     queryFn: async () => {
       const result = await getUserReviews({ userId: id!, limit: 20 });
@@ -110,9 +134,70 @@ export default function UserProfileScreen() {
         note: r.note,
       }));
     },
-    enabled: !!id,
+    enabled: !!id && isOwnProfile,
     staleTime: 5 * 60 * 1000,
   });
+
+  // ─── Derive unified data from the two paths ───
+
+  const isLoading = isOwnProfile ? ownProfileLoading : publicProfileLoading;
+
+  const profileUser: User | null = isOwnProfile
+    ? ownProfileUser
+    : publicProfile
+      ? ({
+          id: publicProfile.profile.id,
+          displayName: publicProfile.profile.displayName,
+          profileImage: publicProfile.profile.profileImage ?? undefined,
+          bio: publicProfile.profile.bio ?? undefined,
+          createdAt: publicProfile.profile.createdAt
+            ? new Date(publicProfile.profile.createdAt)
+            : new Date(),
+          rating: publicProfile.profile.rating ?? undefined,
+          accountType: publicProfile.profile.accountType,
+          sellerLikesCount: publicProfile.profile.sellerLikesCount,
+        } as unknown as User)
+      : null;
+
+  const stats: UserStats | null = isOwnProfile
+    ? ownStats
+    : publicProfile
+      ? {
+          articlesEnVente: publicProfile.stats.articlesEnVente,
+          articlesVendus: publicProfile.stats.articlesVendus,
+          gainsTotal: 0,
+          totalVues: 0,
+          totalLikes: 0,
+          moyenneNote: publicProfile.stats.averageRating,
+          nombreAvis: publicProfile.stats.totalReviews,
+        }
+      : null;
+
+  const articles: Article[] = isOwnProfile
+    ? ownArticles
+    : (publicProfile?.articles ?? []).map((a) => ({
+        id: a.id,
+        title: a.title,
+        price: a.price,
+        images: a.images,
+        isSold: a.isSold,
+        condition: a.condition,
+        brand: a.brand,
+      } as unknown as Article));
+
+  const reviews: ProfileReview[] = isOwnProfile
+    ? ownReviews
+    : (publicProfile?.reviews ?? []).map((r) => ({
+        id: r.id,
+        reviewerName: r.reviewerName,
+        reviewerImage: r.reviewerImage ?? undefined,
+        reviewerId: r.reviewerId,
+        date: r.createdAt,
+        text: r.text,
+        note: r.note,
+      }));
+
+  const reviewsLoading = isOwnProfile ? ownReviewsLoading : publicProfileLoading;
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -304,6 +389,7 @@ export default function UserProfileScreen() {
             stats={stats}
             reviews={reviews}
             isLoading={reviewsLoading}
+            isOwnProfile={isOwnProfile}
             onReviewerPress={handleReviewerPress}
           />
         )}

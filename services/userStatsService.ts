@@ -1,8 +1,5 @@
 import {
   collection,
-  doc,
-  limit as firestoreLimit,
-  getDoc,
   getDocs,
   orderBy,
   query,
@@ -21,12 +18,6 @@ export interface UserStats {
   totalLikes: number;
   moyenneNote: number;
   nombreAvis: number;
-}
-
-export interface VentesRecentes {
-  article: Article;
-  datePaiement: Date;
-  prixVente: number;
 }
 
 export class UserStatsService {
@@ -87,45 +78,6 @@ export class UserStatsService {
     } catch (error: unknown) {
       if (__DEV__) console.error('Erreur lors de la recuperation des statistiques:', error);
       throw new Error('Impossible de recuperer les statistiques');
-    }
-  }
-
-  /**
-   * Recupere les ventes recentes d'un vendeur
-   */
-  static async getVentesRecentes(userId: string, limitCount: number = 5): Promise<VentesRecentes[]> {
-    try {
-      const ventesRef = collection(firestore, 'ventes');
-      const ventesQuery = query(
-        ventesRef,
-        where('vendeurId', '==', userId),
-        orderBy('datePaiement', 'desc'),
-        firestoreLimit(limitCount)
-      );
-
-      const ventesSnapshot = await getDocs(ventesQuery);
-      const ventes: VentesRecentes[] = [];
-
-      for (const venteDoc of ventesSnapshot.docs) {
-        const venteData = venteDoc.data();
-
-        // Recuperer l'article associe
-        const articleRef = doc(firestore, 'articles', venteData.articleId);
-        const articleDoc = await getDoc(articleRef);
-        if (articleDoc.exists()) {
-          ventes.push({
-            article: { id: articleDoc.id, ...articleDoc.data() } as Article,
-            datePaiement: venteData.datePaiement.toDate(),
-            prixVente: venteData.prixVente
-          });
-        }
-      }
-
-      return ventes;
-
-    } catch (error: unknown) {
-      if (__DEV__) console.error('Erreur lors de la recuperation des ventes recentes:', error);
-      return [];
     }
   }
 

@@ -13,4 +13,4 @@ export { StatItem } from './components/StatItem';
 export { StyleTag } from './components/StyleTag';
 export { UserActions } from './components/UserActions';
 
-export type { ProfileTab, Review } from './types';
+export type { ProfileTab, ProfileReview } from './types';

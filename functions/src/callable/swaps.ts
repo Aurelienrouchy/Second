@@ -6,6 +6,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
+import { updateUserRating } from './reviews';
+import { sendPushNotification } from '../utils/notifications';
 
 /** Strip undefined values (Firestore rejects undefined) */
 const stripUndefined = <T extends Record<string, any>>(obj: T): T =>
@@ -1356,6 +1358,15 @@ export const rateSwap = onCall(
     }
 
     try {
+      // We need swap data outside the transaction for the avis creation
+      let targetUserId = '';
+      let reviewerName = '';
+      let reviewerImage: string | null = null;
+      let articleTitle: string | null = null;
+      const trimmedComment = (comment != null && typeof comment === 'string' && comment.trim().length > 0)
+        ? comment.trim()
+        : null;
+
       await db.runTransaction(async (tx) => {
         const swapRef = db.collection('swaps').doc(swapId);
         const swapSnap = await tx.get(swapRef);
@@ -1380,26 +1391,79 @@ export const rateSwap = onCall(
           );
         }
 
+        const isInitiator = swap.initiatorId === uid;
+
+        // Determine the target user (the OTHER participant)
+        targetUserId = isInitiator ? swap.receiverId : swap.initiatorId;
+        reviewerName = isInitiator ? swap.initiatorName : swap.receiverName;
+        reviewerImage = isInitiator ? (swap.initiatorImage || null) : (swap.receiverImage || null);
+
+        // Get article title from the first item of the swap (for the avis record)
+        const items = getSwapItems(swap, isInitiator ? 'initiator' : 'receiver');
+        articleTitle = items.length > 0 ? (items[0].title || null) : null;
+
         // Build rating object, excluding comment if not provided
         const rating: Record<string, any> = { score };
-        if (comment != null && typeof comment === 'string' && comment.trim().length > 0) {
-          rating.comment = comment.trim();
+        if (trimmedComment) {
+          rating.comment = trimmedComment;
         }
 
         const updateData: Record<string, any> = {
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        if (swap.initiatorId === uid) {
+        if (isInitiator) {
           updateData.initiatorRating = rating;
         } else {
           updateData.receiverRating = rating;
         }
 
         tx.update(swapRef, updateData);
+
+        // Create a review document in avis/ (deterministic ID prevents duplicates)
+        const reviewDocId = `${uid}_swap_${swapId}`;
+        const reviewRef = db.collection('avis').doc(reviewDocId);
+
+        // Check if review already exists (idempotence)
+        const existingReview = await tx.get(reviewRef);
+        if (!existingReview.exists) {
+          tx.set(reviewRef, {
+            id: reviewDocId,
+            reviewerId: uid,
+            reviewerName: reviewerName || 'Utilisateur',
+            reviewerImage: reviewerImage,
+            // TODO: rename vendeurId to targetUserId in next schema migration
+            vendeurId: targetUserId,
+            transactionId: swapId,
+            transactionType: 'swap',
+            articleId: null,
+            articleTitle: articleTitle,
+            note: score,
+            text: trimmedComment || '',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
       });
 
-      logger.info('Swap rated', { swapId, score, userId: request.auth.uid });
+      // Update target user's aggregate rating (outside transaction, non-critical)
+      if (targetUserId) {
+        await updateUserRating(targetUserId);
+
+        // Send push notification for the review
+        try {
+          await sendPushNotification(
+            targetUserId,
+            'Nouvel avis reçu',
+            `${reviewerName || 'Un utilisateur'} vous a laissé un avis ${score}/5`,
+            { reviewId: `${request.auth.uid}_swap_${swapId}`, reviewerId: request.auth.uid },
+            'review_received',
+          );
+        } catch (notifError) {
+          logger.warn('Failed to send swap review notification', { error: notifError });
+        }
+      }
+
+      logger.info('Swap rated', { swapId, score, userId: request.auth.uid, targetUserId });
       return { success: true };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;

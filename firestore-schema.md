@@ -508,7 +508,13 @@ interface WithdrawalRequestDocument {
 
 ### `avis/{reviewId}`
 
-User reviews tied to completed transactions.
+User reviews tied to completed transactions (sales or swaps).
+
+**Review window**: Reviews can only be submitted within 60 days of transaction completion (`deliveredAt`, `meetupCompletedAt`, or swap `completedAt`).
+
+**Doc ID format**:
+- Sale reviews: `{reviewerId}_{transactionId}`
+- Swap reviews: `{reviewerId}_swap_{swapId}`
 
 ```typescript
 interface AvisDocument {
@@ -516,11 +522,11 @@ interface AvisDocument {
   reviewerId: string;
   reviewerName: string;
   reviewerImage?: string | null;
-  vendeurId: string;             // Target user receiving the review
-  transactionId: string;
+  vendeurId: string;             // Target user receiving the review (TODO: rename to targetUserId)
+  transactionId: string;         // Transaction ID (sale) or Swap ID (swap)
   transactionType: 'achat' | 'vente' | 'swap';
   articleId?: string | null;
-  articleTitle?: string | null;
+  articleTitle?: string | null;   // For swaps: title of the first exchanged article
   note: number;                  // 1-5 rating
   text: string;
   createdAt: Timestamp;

@@ -9,14 +9,15 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { colors, fonts, spacing } from '@/constants/theme';
 import { UserStats } from '@/services/userStatsService';
-import type { Review } from '../types';
+import type { ProfileReview } from '../types';
 
 import { ReviewItem } from './ReviewItem';
 
 interface ReviewListProps {
   stats: UserStats | null;
-  reviews: Review[];
+  reviews: ProfileReview[];
   isLoading?: boolean;
+  isOwnProfile?: boolean;
   onReviewerPress: (reviewerId: string) => void;
 }
 
@@ -24,6 +25,7 @@ export const ReviewList = React.memo(function ReviewList({
   stats,
   reviews,
   isLoading = false,
+  isOwnProfile = false,
   onReviewerPress,
 }: ReviewListProps) {
   return (
@@ -67,7 +69,11 @@ export const ReviewList = React.memo(function ReviewList({
       ) : reviews.length === 0 ? (
         <View style={styles.emptyTab}>
           <Ionicons name="chatbubble-outline" size={40} color={colors.muted} />
-          <Text style={styles.emptyTabText}>Aucun avis pour le moment</Text>
+          <Text style={styles.emptyTabText}>
+            {isOwnProfile
+              ? 'Les avis de vos acheteurs apparaîtront ici.'
+              : 'Aucun avis pour le moment'}
+          </Text>
         </View>
       ) : (
         reviews.map((review, index) => (

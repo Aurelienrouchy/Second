@@ -9,10 +9,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { colors, fonts, spacing } from '@/constants/theme';
-import type { Review } from '../types';
+import type { ProfileReview } from '../types';
 
 interface ReviewItemProps {
-  review: Review;
+  review: ProfileReview;
   index: number;
   onReviewerPress?: (reviewerId: string) => void;
 }
@@ -62,7 +62,13 @@ export const ReviewItem = React.memo(function ReviewItem({
           <Text style={styles.reviewName}>{review.reviewerName}</Text>
           <View style={styles.reviewStarsRow}>{renderStars(review.note)}</View>
         </View>
-        <Text style={styles.reviewDate}>{review.date}</Text>
+        <Text style={styles.reviewDate}>
+          {new Date(review.date).toLocaleDateString('fr-CA', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </Text>
       </View>
       <Text style={styles.reviewText}>{review.text}</Text>
     </Animated.View>

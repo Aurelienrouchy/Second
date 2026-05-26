@@ -61,6 +61,9 @@ export function buildDeepLink(
         ? `https://${DEEP_LINK_HOST}/my-orders`
         : '';
 
+    case 'review_received':
+      return `https://${DEEP_LINK_HOST}/notifications`;
+
     case 'shop_approved':
     case 'shop_rejected':
     case 'shop_created':
@@ -127,6 +130,9 @@ function getAndroidChannel(notificationType: string): string {
     case 'order_delivered':
     case 'order_cancelled':
       return 'orders';
+
+    case 'review_received':
+      return 'notifications';
 
     default:
       return 'notifications';

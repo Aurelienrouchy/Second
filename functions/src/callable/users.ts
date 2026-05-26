@@ -141,12 +141,21 @@ export const deleteUserAccount = onCall(
       msgSnap = await msgQuery.get();
     }
 
-    // 8. Anonymise reviews -- reviews written BY the user
+    // 8a. Anonymise reviews -- reviews written BY the user
     const reviewsByUser = await db.collection('avis').where('reviewerId', '==', uid).get();
     for (const d of reviewsByUser.docs) {
       bulkWriter.update(d.ref, {
         reviewerName: DELETED_NAME,
         reviewerImage: null,
+      });
+    }
+
+    // 8b. Anonymise reviews -- reviews received BY the user (vendeurId == uid)
+    const reviewsForUser = await db.collection('avis').where('vendeurId', '==', uid).get();
+    for (const d of reviewsForUser.docs) {
+      // Keep the review content but anonymise the target identity
+      bulkWriter.update(d.ref, {
+        vendeurId: `deleted_${uid.slice(0, 8)}`,
       });
     }
 
