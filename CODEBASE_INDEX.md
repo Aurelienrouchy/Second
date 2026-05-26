@@ -389,7 +389,8 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `savedSearches.ts` | Notif nouvelles correspondances |
 | `stats.ts` | Agrégation stats |
 | `swaps.ts` | Expiration swap parties |
-| `transactionExpiration.ts` | Expiration meetup_pending (48h) et pending_payment (1h) orphelins |
+| `trackingCheck.ts` | Poll ShipEngine toutes les 6h pour les transactions shipped, marque delivered si livré |
+| `transactionExpiration.ts` | Expiration meetup_pending (48h), pending_payment (1h), paid-not-shipped (7j) orphelins |
 
 ### HTTP — `functions/src/http/`
 | Fichier | Route |
