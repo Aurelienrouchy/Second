@@ -40,6 +40,7 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/shop/[id]` | `shop/[id].tsx` | Boutique vendeur |
 | `/user/[id]` | `user/[id].tsx` | Profil public |
 | `/payment/[txId]` | `payment/[transactionId].tsx` | Paiement Stripe |
+| `/review/[txId]` | `review/[transactionId].tsx` | Laisser un avis (post-transaction) |
 | `/visual-search-results` | `visual-search-results.tsx` | Résultats recherche visuelle |
 
 ### Checkout — `app/checkout/`
