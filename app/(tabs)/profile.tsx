@@ -111,6 +111,14 @@ export default function ProfileScreen() {
         icon: 'wallet-outline',
         iconColor: colors.sage,
         iconBg: colors.sageLight,
+        action: () => router.push('/my-sales'),
+      },
+      {
+        id: 'my-articles',
+        title: 'Mes articles',
+        icon: 'shirt-outline',
+        iconColor: colors.charcoal,
+        iconBg: 'rgba(26, 24, 20, 0.04)',
         action: () => router.push('/my-articles'),
       },
       {
