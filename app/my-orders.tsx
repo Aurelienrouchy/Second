@@ -240,7 +240,11 @@ export default function MyOrdersScreen() {
           data={orders}
           keyExtractor={(item) => item.transaction.id}
           renderItem={({ item }) => (
-            <OrderCard item={item} onPress={() => handleOrderPress(item)} />
+            <OrderCard
+              item={item}
+              onPress={() => handleOrderPress(item)}
+              onReview={() => handleReview(item.transaction.id)}
+            />
           )}
           // @ts-expect-error estimatedItemSize valid at runtime
           estimatedItemSize={100}
