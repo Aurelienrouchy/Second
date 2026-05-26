@@ -128,7 +128,7 @@ export default function CheckoutSuccessScreen() {
               {serviceFee && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Frais de service</Text>
-                  <Text style={styles.summaryValue}>{formatPrice(parseFloat(serviceFee))}</Text>
+                  <Text style={styles.summaryValue}>{formatPrice(parseFloat(serviceFee || '0'))}</Text>
                 </View>
               )}
               {shippingCost && (
