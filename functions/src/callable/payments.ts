@@ -12,6 +12,7 @@ import { db, FieldValue } from '../config/firebase';
 import { getShipEngine, ShipEngineClient } from '../config/shipEngine';
 import { getStripe } from '../config/stripe';
 import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../utils/fees';
+import { sendPushNotification } from '../utils/notifications';
 
 // =============================================================================
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
