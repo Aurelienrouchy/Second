@@ -96,15 +96,34 @@ export const ShippingAddressForm = React.memo(function ShippingAddressForm({
           </View>
           <View style={styles.formFieldHalf}>
             <Text style={styles.fieldLabel}>PROVINCE</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={values.province}
-              onChangeText={(v) => onChangeField('province', v.toUpperCase())}
-              placeholder="QC"
-              placeholderTextColor={colors.muted}
-              autoCapitalize="characters"
-              maxLength={2}
-            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.provinceChipsContainer}
+            >
+              {PROVINCES.map((p) => {
+                const selected = values.province === p.code;
+                return (
+                  <Pressable
+                    key={p.code}
+                    style={[
+                      styles.provinceChip,
+                      selected && styles.provinceChipSelected,
+                    ]}
+                    onPress={() => onChangeField('province', p.code)}
+                  >
+                    <Text
+                      style={[
+                        styles.provinceChipText,
+                        selected && styles.provinceChipTextSelected,
+                      ]}
+                    >
+                      {p.code}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
         <View style={styles.formField}>
