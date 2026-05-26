@@ -6,8 +6,9 @@
  * Follows service pattern: async functions, no classes.
  */
 
+import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '@/config/firebaseConfig';
+import { firestore, functions } from '@/config/firebaseConfig';
 
 // =============================================================================
 // TYPES
