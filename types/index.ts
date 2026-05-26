@@ -155,13 +155,16 @@ export interface ShippingAddress {
   phoneNumber?: string;
 }
 
+/** Shipping estimate attached to chat offers (legacy field structure). */
 export interface ShippingEstimate {
   carrier: string;
   serviceName: string;
   estimatedDays: string;
   amount: number;
   currency: string;
-  intelcomRateId: string;
+  /** @deprecated Legacy Intelcom field, kept for existing Firestore documents. */
+  intelcomRateId?: string;
+  /** @deprecated Legacy Intelcom field, kept for existing Firestore documents. */
   intelcomServiceLevel?: string;
 }
 

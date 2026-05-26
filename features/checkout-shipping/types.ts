@@ -33,8 +33,8 @@ export const INITIAL_ADDRESS: AddressFormValues = {
 export const FALLBACK_ESTIMATES: ShippingEstimate[] = [
   {
     rateId: 'fallback_standard',
-    carrier: 'Intelcom',
-    carrierCode: 'intelcom_ca',
+    carrier: 'Postes Canada',
+    carrierCode: 'canada_post',
     serviceName: 'Standard',
     amount: 8.5,
     deliveryDays: '3-5 jours ouvrables',
@@ -42,8 +42,8 @@ export const FALLBACK_ESTIMATES: ShippingEstimate[] = [
   },
   {
     rateId: 'fallback_express',
-    carrier: 'Intelcom',
-    carrierCode: 'intelcom_ca',
+    carrier: 'Postes Canada',
+    carrierCode: 'canada_post',
     serviceName: 'Express',
     amount: 14.5,
     deliveryDays: '1-2 jours ouvrables',
