@@ -237,7 +237,11 @@ export default function MySalesScreen() {
           data={sales}
           keyExtractor={(item) => item.transaction.id}
           renderItem={({ item }) => (
-            <SaleCard item={item} onPress={() => handleSalePress(item)} />
+            <SaleCard
+              item={item}
+              onPress={() => handleSalePress(item)}
+              onReview={() => handleReview(item.transaction.id)}
+            />
           )}
           // @ts-expect-error estimatedItemSize valid at runtime
           estimatedItemSize={100}
