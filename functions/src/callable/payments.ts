@@ -539,10 +539,15 @@ export const createStripeConnectAccount = onCall(
 
         stripeAccountId = account.id;
 
-        // Store the Stripe account ID in the user document
+        // Store the Stripe account ID and initial status in the user document.
+        // All five Stripe fields are written here so the frontend can read
+        // them immediately without waiting for the account.updated webhook.
         await userRef.update({
           stripeAccountId: account.id,
           stripeAccountStatus: 'pending',
+          stripeChargesEnabled: false,
+          stripePayoutsEnabled: false,
+          stripeDetailsSubmitted: false,
           stripeAccountCreatedAt: FieldValue.serverTimestamp(),
         });
 
