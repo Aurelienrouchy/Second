@@ -245,7 +245,7 @@ export default function SellerBalanceScreen() {
         <View style={styles.totalCard}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total des gains</Text>
-            <Text style={styles.totalAmount}>{formatPrice(balance.totalEarnings)}</Text>
+            <Text style={styles.totalAmount}>{formatPriceWithCurrency(balance.totalEarnings)}</Text>
           </View>
         </View>
 
