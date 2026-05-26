@@ -208,8 +208,42 @@ export default function SellerBalanceScreen() {
     );
   }
 
+  if (!isLoggedIn) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Mon solde" onBack={() => router.back()} />
+        <View style={styles.errorState}>
+          <Ionicons name="lock-closed-outline" size={48} color={colors.muted} />
+          <Text style={styles.errorStateText}>Connectez-vous pour accéder à votre solde</Text>
+          <Button
+            variant="primary"
+            onPress={() => router.replace('/(tabs)/profile')}
+            style={styles.errorStateButton}
+          >
+            Se connecter
+          </Button>
+        </View>
+      </View>
+    );
+  }
+
   if (!balance) {
-    return null;
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Mon solde" onBack={() => router.back()} />
+        <View style={styles.errorState}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.danger} />
+          <Text style={styles.errorStateText}>Impossible de charger votre solde</Text>
+          <Button
+            variant="primary"
+            onPress={() => refetch()}
+            style={styles.errorStateButton}
+          >
+            Réessayer
+          </Button>
+        </View>
+      </View>
+    );
   }
 
   return (
