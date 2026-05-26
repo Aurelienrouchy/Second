@@ -50,12 +50,10 @@ const RgpdItem = ({ icon, iconColor, title, description, onPress, isLast }: Rgpd
 
 interface PrivacySettings {
   showProfilePhoto: boolean;
-  allowSearchEngines: boolean;
 }
 
 const DEFAULT_PRIVACY: PrivacySettings = {
   showProfilePhoto: true,
-  allowSearchEngines: false,
 };
 
 export default function PrivacySettingsScreen() {
@@ -69,7 +67,6 @@ export default function PrivacySettingsScreen() {
       const preferences = await UserService.getUserPreferences(user!.id);
       return {
         showProfilePhoto: preferences?.privacy?.showProfilePhoto ?? true,
-        allowSearchEngines: preferences?.privacy?.allowSearchEngines ?? false,
       };
     },
     enabled: !!user?.id,
@@ -80,7 +77,6 @@ export default function PrivacySettingsScreen() {
     mutationFn: (updates: Partial<PrivacySettings>) => {
       const newPrivacy = {
         showProfilePhoto: updates.showProfilePhoto ?? privacySettings.showProfilePhoto,
-        allowSearchEngines: updates.allowSearchEngines ?? privacySettings.allowSearchEngines,
       };
       return UserService.updateUserPreferences(user!.id, { privacy: newPrivacy });
     },
@@ -114,12 +110,12 @@ export default function PrivacySettingsScreen() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.skeletonContent}>
           <View style={styles.settingsList}>
-            {[0, 1, 2, 3].map((i) => (
+            {[0, 1, 2].map((i) => (
               <View
                 key={i}
                 style={[
                   styles.settingItem,
-                  i === 3 && styles.settingItemLast,
+                  i === 2 && styles.settingItemLast,
                 ]}
               >
                 <View style={styles.settingInfo}>
@@ -144,7 +140,7 @@ export default function PrivacySettingsScreen() {
       >
         {/* Privacy Settings */}
         <View style={styles.settingsList}>
-          <View style={styles.settingItem}>
+          <View style={[styles.settingItem, styles.settingItemLast]}>
             <View style={styles.settingInfo}>
               <Text variant="body" style={styles.settingTitle}>Afficher ma photo de profil</Text>
               <Caption>Rendre ma photo visible aux autres utilisateurs</Caption>
@@ -160,22 +156,7 @@ export default function PrivacySettingsScreen() {
             />
           </View>
 
-          <View style={[styles.settingItem, styles.settingItemLast]}>
-            <View style={styles.settingInfo}>
-              <Text variant="body" style={styles.settingTitle}>Référencement</Text>
-              <Caption>Permettre aux moteurs de recherche de trouver mon profil</Caption>
-            </View>
-            <Switch
-              value={privacySettings.allowSearchEngines}
-              onValueChange={(value) => {
-                savePreferences({ allowSearchEngines: value });
-              }}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.white}
-              ios_backgroundColor={colors.border}
-            />
           </View>
-        </View>
 
         {/* Privacy Rights Section */}
         <Label style={styles.sectionHeader}>Vos droits</Label>
