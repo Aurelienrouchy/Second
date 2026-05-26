@@ -35,7 +35,9 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
           icon: 'airplane' as const,
           color: colors.primary,
           label: 'En transit',
-          description: 'Votre colis est en cours d\'acheminement via Intelcom',
+          description: transaction.carrierCode
+            ? `Votre colis est en cours d'acheminement via ${transaction.carrierCode}`
+            : 'Votre colis est en cours d\'acheminement',
         };
       case 'OUT_FOR_DELIVERY':
         return {
