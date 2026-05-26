@@ -121,6 +121,10 @@ export function useArticleActions({
       return;
     }
 
+    // TODO: check for existing pending offers before opening modal
+    // Requires knowing the chatId to query messages — not available here without
+    // a Firestore lookup. The chat screen already guards against duplicates.
+
     requireAuth(
       () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
