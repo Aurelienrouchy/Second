@@ -136,7 +136,21 @@ export default function MyOrdersScreen() {
         ),
       );
 
-      return purchases.map((tx, i) => ({ transaction: tx, article: articles[i] }));
+      // Check which completed transactions already have reviews
+      const reviewChecks = await Promise.all(
+        purchases.map((tx) => {
+          const isCompleted =
+            tx.status === 'delivered' || tx.status === 'meetup_completed';
+          if (!isCompleted) return Promise.resolve(false);
+          return hasUserReviewedTransaction(user!.id, tx.id);
+        }),
+      );
+
+      return purchases.map((tx, i) => ({
+        transaction: tx,
+        article: articles[i],
+        hasReview: reviewChecks[i],
+      }));
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
