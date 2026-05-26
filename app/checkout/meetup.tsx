@@ -265,8 +265,45 @@ export default function MeetupCheckoutScreen() {
 
   if (!article) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Article introuvable</Text>
+      <View style={styles.container}>
+        <ScreenHeader title="Lieu de rencontre" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Text style={styles.errorText}>Article introuvable</Text>
+          <Pressable style={styles.backBtn} onPress={handleBack}>
+            <Text style={styles.backBtnText}>Retour</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (article.isSold) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Lieu de rencontre" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Ionicons name="bag-check-outline" size={40} color={colors.muted} />
+          <Text style={styles.guardTitle}>Cet article n'est plus disponible</Text>
+          <Text style={styles.guardSubtitle}>Il a déjà été vendu.</Text>
+          <Pressable style={styles.backBtn} onPress={handleBack}>
+            <Text style={styles.backBtnText}>Retour</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (currentUser && currentUser.uid === article.sellerId) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Lieu de rencontre" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
+          <Text style={styles.guardTitle}>Vous ne pouvez pas acheter votre propre article</Text>
+          <Pressable style={styles.backBtn} onPress={handleBack}>
+            <Text style={styles.backBtnText}>Retour</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -306,7 +343,7 @@ export default function MeetupCheckoutScreen() {
             )}
             {hasNegotiatedPrice && (
               <View style={styles.negotiatedBadge}>
-                <Text style={styles.negotiatedBadgeText}>PRIX NEGOCIE</Text>
+                <Text style={styles.negotiatedBadgeText}>PRIX NÉGOCIÉ</Text>
               </View>
             )}
             <View style={styles.meetupBadge}>
@@ -318,7 +355,7 @@ export default function MeetupCheckoutScreen() {
         {/* Seller's preferred spots */}
         {spots.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>LIEUX SUGGERES PAR LE VENDEUR</Text>
+            <Text style={styles.sectionTitle}>LIEUX SUGGÉRÉS PAR LE VENDEUR</Text>
 
             {spots.map((spot, index) => {
               const isSelected = selectedSpot?.name === spot.name
@@ -360,9 +397,9 @@ export default function MeetupCheckoutScreen() {
             <Ionicons name="chatbubble-outline" size={16} color={colors.rust} />
           </View>
           <View style={styles.spotInfo}>
-            <Text style={styles.spotName}>A convenir par messagerie</Text>
+            <Text style={styles.spotName}>À convenir par messagerie</Text>
             <Text style={styles.spotDetails}>
-              Vous choisirez le lieu avec le vendeur apres confirmation
+              Vous choisirez le lieu avec le vendeur après confirmation
             </Text>
           </View>
           <View style={[styles.radio, isViaChatSelected && styles.radioSelected]}>
@@ -376,7 +413,7 @@ export default function MeetupCheckoutScreen() {
           <Text style={styles.infoText}>
             {isViaChatSelected
               ? 'Vous conviendrez du lieu, de la date et de l\'heure avec le vendeur par messagerie.'
-              : 'Vous conviendrez de la date et de l\'heure avec le vendeur par messagerie apres la confirmation.'}
+              : 'Vous conviendrez de la date et de l\'heure avec le vendeur par messagerie après la confirmation.'}
           </Text>
         </View>
       </ScrollView>
@@ -419,6 +456,39 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 14,
     color: colors.muted,
+  },
+  guardContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  guardTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 18,
+    color: colors.charcoal,
+    textAlign: 'center',
+  },
+  guardSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  backBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+  },
+  backBtnText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    letterSpacing: 1.5,
+    color: colors.cream,
+    textTransform: 'uppercase',
   },
   skeletonContent: {
     paddingHorizontal: 20,

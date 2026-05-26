@@ -5,16 +5,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import * as Haptics from 'expo-haptics';
 
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { firestore, functions, auth } from '@/config/firebaseConfig';
 import { Article, ShippingAddress } from '@/types';
@@ -155,7 +156,7 @@ export default function ShippingCheckoutScreen() {
         const d = r.data as { serviceFee: number };
         setServiceFee(d.serviceFee || 0);
       })
-      .catch(() => setServiceFee(Math.round(finalPrice * 0.05 * 100) / 100));
+      .catch(() => setServiceFee(Math.max(2.00, Math.round((finalPrice * 0.05 + 1.50) * 100) / 100)));
   }, [finalPrice]);
 
   // --- Derived ---------------------------------------------------------------
@@ -271,8 +272,45 @@ export default function ShippingCheckoutScreen() {
 
   if (!article) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Article introuvable</Text>
+      <View style={styles.container}>
+        <ScreenHeader title="Paiement" onBack={() => router.back()} />
+        <View style={styles.guardContainer}>
+          <Text style={styles.errorText}>Article introuvable</Text>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.backBtnText}>Retour</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (article.isSold) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Paiement" onBack={() => router.back()} />
+        <View style={styles.guardContainer}>
+          <Ionicons name="bag-check-outline" size={40} color={colors.muted} />
+          <Text style={styles.guardTitle}>Cet article n'est plus disponible</Text>
+          <Text style={styles.guardSubtitle}>Il a déjà été vendu.</Text>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.backBtnText}>Retour</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (auth.currentUser && auth.currentUser.uid === article.sellerId) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Paiement" onBack={() => router.back()} />
+        <View style={styles.guardContainer}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
+          <Text style={styles.guardTitle}>Vous ne pouvez pas acheter votre propre article</Text>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.backBtnText}>Retour</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -334,6 +372,39 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surfaceWarm },
   centered: { justifyContent: 'center', alignItems: 'center' },
   errorText: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted },
+  guardContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  guardTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 18,
+    color: colors.charcoal,
+    textAlign: 'center',
+  },
+  guardSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  backBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+  },
+  backBtnText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    letterSpacing: 1.5,
+    color: colors.cream,
+    textTransform: 'uppercase',
+  },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 },
 });

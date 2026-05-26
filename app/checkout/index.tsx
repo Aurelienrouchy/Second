@@ -4,7 +4,7 @@
  *
  * Shows article summary + delivery options:
  * - Meetup (free, in-person)
- * - Shipping (paid, Intelcom)
+ * - Shipping (paid, ShipEngine)
  * Navigates to /checkout/meetup or /checkout/shipping
  */
 
@@ -29,6 +29,7 @@ import { ArticlesService } from '@/services/articlesService';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatPrice } from '@/utils/formatPrice';
 import { TransactionDeliveryType } from '@/types';
+import { useAuthStore, selectUser } from '@/store/authStore';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -39,6 +40,8 @@ export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const articleId = params.articleId as string;
+
+  const user = useAuthStore(selectUser);
 
   const { data: article = null, isLoading: loading } = useQuery({
     queryKey: queryKeys.articles.detail(articleId),
@@ -121,7 +124,44 @@ export default function CheckoutScreen() {
   if (!article) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Article introuvable</Text>
+        <ScreenHeader title="Commander" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Text style={styles.errorText}>Article introuvable</Text>
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>Retour</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (article.isSold) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Commander" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Ionicons name="bag-check-outline" size={40} color={colors.muted} />
+          <Text style={styles.guardTitle}>Cet article n'est plus disponible</Text>
+          <Text style={styles.guardSubtitle}>Il a déjà été vendu.</Text>
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>Retour</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (user?.id === article.sellerId) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Commander" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
+          <Text style={styles.guardTitle}>Vous ne pouvez pas acheter votre propre article</Text>
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>Retour</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -279,6 +319,39 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 14,
     color: colors.muted,
+  },
+  guardContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  guardTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 18,
+    color: colors.charcoal,
+    textAlign: 'center',
+  },
+  guardSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  backButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+  },
+  backButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    letterSpacing: 1.5,
+    color: colors.cream,
+    textTransform: 'uppercase',
   },
 
 
