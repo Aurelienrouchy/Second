@@ -387,6 +387,242 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
 }
 
 // =============================================================================
+// HANDLER: payment_intent.payment_failed
+// =============================================================================
+
+async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
+  const transactionId = paymentIntent.metadata?.transactionId;
+
+  if (!transactionId) {
+    logger.error('Stripe webhook: payment_failed PaymentIntent missing transactionId in metadata', {
+      paymentIntentId: paymentIntent.id,
+    });
+    return;
+  }
+
+  if (
+    typeof transactionId !== 'string' ||
+    transactionId.length === 0 ||
+    transactionId.length > 200 ||
+    transactionId.includes('/')
+  ) {
+    logger.error('Stripe webhook: payment_failed invalid transactionId shape', { transactionId });
+    return;
+  }
+
+  const transactionRef = db.collection('transactions').doc(transactionId);
+
+  await db.runTransaction(async (tx) => {
+    const txSnap = await tx.get(transactionRef);
+    const txData = txSnap.data();
+
+    if (!txData) {
+      logger.error('Stripe webhook: payment_failed transaction not found', { transactionId });
+      return;
+    }
+
+    // Idempotence: only cancel if still in a pre-payment status
+    const cancellableStatuses = new Set(['pending_payment', 'pending']);
+    if (!cancellableStatuses.has(txData.status)) {
+      logger.info('Stripe webhook: payment_failed skipping — transaction not in cancellable status', {
+        transactionId,
+        currentStatus: txData.status,
+      });
+      return;
+    }
+
+    // Cancel the transaction
+    tx.update(transactionRef, {
+      status: 'cancelled',
+      cancelledAt: FieldValue.serverTimestamp(),
+      cancelReason: 'payment_failed',
+    });
+
+    // Release the article so it can be purchased again
+    if (txData.articleId) {
+      const articleRef = db.collection('articles').doc(txData.articleId);
+      const articleSnap = await tx.get(articleRef);
+      if (articleSnap.exists) {
+        tx.update(articleRef, { isSold: false });
+      }
+    }
+  });
+
+  const failureMessage = paymentIntent.last_payment_error?.message || 'Unknown failure';
+  logger.error('Stripe webhook: payment failed — transaction cancelled', {
+    transactionId,
+    paymentIntentId: paymentIntent.id,
+    failureMessage,
+  });
+}
+
+// =============================================================================
+// HANDLER: charge.dispute.created
+// =============================================================================
+
+async function handleDisputeCreated(dispute: any): Promise<void> {
+  // The dispute object contains a payment_intent field
+  const paymentIntentId = dispute.payment_intent;
+
+  if (!paymentIntentId) {
+    logger.error('Stripe webhook: dispute missing payment_intent', {
+      disputeId: dispute.id,
+    });
+    return;
+  }
+
+  // Look up the transaction by stripePaymentIntentId
+  const txQuery = await db
+    .collection('transactions')
+    .where('stripePaymentIntentId', '==', paymentIntentId)
+    .limit(1)
+    .get();
+
+  if (txQuery.empty) {
+    logger.error('Stripe webhook: dispute — no transaction found for PaymentIntent', {
+      disputeId: dispute.id,
+      paymentIntentId,
+    });
+    return;
+  }
+
+  const txDoc = txQuery.docs[0];
+  const transactionId = txDoc.id;
+
+  await db.runTransaction(async (tx) => {
+    const txSnap = await tx.get(txDoc.ref);
+    const txData = txSnap.data();
+
+    if (!txData) return;
+
+    // Idempotence: if already disputed or refunded, skip
+    if (txData.status === 'disputed' || txData.status === 'refunded') {
+      logger.info('Stripe webhook: dispute skipping — already in terminal status', {
+        transactionId,
+        currentStatus: txData.status,
+      });
+      return;
+    }
+
+    tx.update(txDoc.ref, {
+      status: 'disputed',
+      disputeId: dispute.id,
+      disputedAt: FieldValue.serverTimestamp(),
+      disputeReason: dispute.reason || null,
+    });
+  });
+
+  logger.warn('Stripe webhook: dispute created — transaction marked disputed', {
+    transactionId,
+    disputeId: dispute.id,
+    reason: dispute.reason,
+    amount: dispute.amount,
+  });
+}
+
+// =============================================================================
+// HANDLER: charge.refunded
+// =============================================================================
+
+async function handleChargeRefunded(charge: any): Promise<void> {
+  const paymentIntentId = charge.payment_intent;
+
+  if (!paymentIntentId) {
+    logger.error('Stripe webhook: refund missing payment_intent on charge', {
+      chargeId: charge.id,
+    });
+    return;
+  }
+
+  // Look up the transaction by stripePaymentIntentId
+  const txQuery = await db
+    .collection('transactions')
+    .where('stripePaymentIntentId', '==', paymentIntentId)
+    .limit(1)
+    .get();
+
+  if (txQuery.empty) {
+    logger.error('Stripe webhook: refund — no transaction found for PaymentIntent', {
+      chargeId: charge.id,
+      paymentIntentId,
+    });
+    return;
+  }
+
+  const txDoc = txQuery.docs[0];
+  const transactionId = txDoc.id;
+
+  await db.runTransaction(async (tx) => {
+    const txSnap = await tx.get(txDoc.ref);
+    const txData = txSnap.data();
+
+    if (!txData) return;
+
+    // Idempotence: if already refunded, skip
+    if (txData.status === 'refunded') {
+      logger.info('Stripe webhook: refund skipping — already refunded', { transactionId });
+      return;
+    }
+
+    // Mark transaction as refunded
+    tx.update(txDoc.ref, {
+      status: 'refunded',
+      refundedAt: FieldValue.serverTimestamp(),
+      stripeRefundId: charge.refunds?.data?.[0]?.id || null,
+    });
+
+    // Decrement seller balance
+    const sellerId = txData.sellerId;
+    const sellerPayout = txData.sellerPayout || txData.amount;
+    const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
+    const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+
+    if (sellerBalanceSnap.exists) {
+      const balanceData = sellerBalanceSnap.data()!;
+
+      // Determine which balance to decrement based on transaction status
+      // If the funds were already available (delivered), decrement availableBalance.
+      // If still pending (paid but not delivered), decrement pendingBalance.
+      const previousStatus = txData.status;
+      const wasDelivered = previousStatus === 'delivered' || previousStatus === 'meetup_completed';
+
+      if (wasDelivered) {
+        // Guard against going negative
+        const currentAvailable = balanceData.availableBalance || 0;
+        const deduction = Math.min(sellerPayout, currentAvailable);
+        tx.update(sellerBalanceRef, {
+          availableBalance: FieldValue.increment(-deduction),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Funds still in pending
+        const currentPending = balanceData.pendingBalance || 0;
+        const deduction = Math.min(sellerPayout, currentPending);
+        tx.update(sellerBalanceRef, {
+          pendingBalance: FieldValue.increment(-deduction),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    // Release the article
+    if (txData.articleId) {
+      const articleRef = db.collection('articles').doc(txData.articleId);
+      const articleSnap = await tx.get(articleRef);
+      if (articleSnap.exists) {
+        tx.update(articleRef, { isSold: false });
+      }
+    }
+  });
+
+  logger.warn('Stripe webhook: charge refunded — transaction marked refunded, seller balance decremented', {
+    transactionId,
+    chargeId: charge.id,
+    paymentIntentId,
+  });
+}
+
+// =============================================================================
 // HANDLER: account.updated
 // =============================================================================
 
