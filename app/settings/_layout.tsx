@@ -52,6 +52,7 @@ export default function SettingsLayout() {
       {/* Shipping & Payments */}
       <Stack.Screen name="shipping-options" options={{ title: 'Options de livraison' }} />
       <Stack.Screen name="payments" options={{ title: 'Moyens de paiement' }} />
+      <Stack.Screen name="stripe-onboarding" options={{ title: 'Compte de paiement' }} />
 
       {/* Notifications & Privacy */}
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
