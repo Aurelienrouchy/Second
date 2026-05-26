@@ -86,6 +86,7 @@ function toProductCardProduct(article: Article | ArticleWithLocation) {
     brand: article.brand,
     condition: article.condition,
     likes: article.likes,
+    isSold: article.isSold,
     location,
   };
 }

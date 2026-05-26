@@ -34,6 +34,7 @@ export const onArticleSoftDeleted = onDocumentUpdated(
 
     // Only act when isActive transitions from true to false
     if (before.isActive === true && after.isActive === false) {
+      // 1. Remove search_index entry
       try {
         const siRef = db.collection('search_index').doc(articleId);
         const siSnap = await siRef.get();
@@ -44,6 +45,62 @@ export const onArticleSoftDeleted = onDocumentUpdated(
         }
       } catch (error) {
         logger.error('[onArticleSoftDeleted] Failed to remove search_index', {
+          articleId,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
+
+      // 2. Expire pending offers in related chats (same logic as onArticleSold)
+      try {
+        const chatsSnap = await db.collection('chats')
+          .where('articleId', '==', articleId)
+          .get();
+
+        if (!chatsSnap.empty) {
+          const chatIds = chatsSnap.docs.map((d) => d.id);
+          let totalExpired = 0;
+
+          for (const chatId of chatIds) {
+            const pendingOffers = await db.collection('messages')
+              .where('chatId', '==', chatId)
+              .where('type', '==', 'offer')
+              .where('offer.status', '==', 'pending')
+              .get();
+
+            const batch = db.batch();
+            let count = 0;
+            for (const msgDoc of pendingOffers.docs) {
+              batch.update(msgDoc.ref, {
+                'offer.status': 'expired',
+              });
+              count++;
+            }
+
+            if (count > 0) {
+              await batch.commit();
+              totalExpired += count;
+
+              // Send system message to inform participants
+              const chatDoc = await db.collection('chats').doc(chatId).get();
+              const participants = chatDoc.exists ? (chatDoc.data()?.participants || []) : [];
+              await db.collection('messages').add({
+                chatId,
+                senderId: 'system',
+                receiverId: 'system',
+                type: 'system',
+                content: 'Cet article a ete retire de la vente. Les offres en attente ont ete annulees.',
+                participants,
+                timestamp: FieldValue.serverTimestamp(),
+                status: 'sent',
+                isRead: true,
+              });
+            }
+          }
+
+          logger.info(`[onArticleSoftDeleted] Expired ${totalExpired} pending offers across ${chatIds.length} chats`, { articleId });
+        }
+      } catch (error) {
+        logger.error('[onArticleSoftDeleted] Failed to expire pending offers', {
           articleId,
           error: error instanceof Error ? error.message : error,
         });

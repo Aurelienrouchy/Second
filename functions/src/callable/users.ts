@@ -31,10 +31,25 @@ export const deleteUserAccount = onCall(
 
     logger.info('[deleteUserAccount] Starting cleanup', { uid });
 
+    // 0. Pre-check: reject if the seller has a remaining balance
+    const balanceDoc = await db.collection('seller_balances').doc(uid).get();
+    if (balanceDoc.exists) {
+      const balData = balanceDoc.data();
+      const available = balData?.availableBalance ?? 0;
+      const pending = balData?.pendingBalance ?? 0;
+      if (available > 0 || pending > 0) {
+        const total = (available + pending).toFixed(2);
+        throw new HttpsError(
+          'failed-precondition',
+          `Vous avez un solde de ${total} $. Veuillez effectuer un retrait avant de supprimer votre compte.`,
+        );
+      }
+    }
+
     const bulkWriter = db.bulkWriter();
     const articleIds: string[] = [];
 
-    // 0. Decrement sellerLikesCount for all sellers this user liked
+    // 0b. Decrement sellerLikesCount for all sellers this user liked
     const userDoc = await db.collection('users').doc(uid).get();
 
     if (!userDoc.exists) {

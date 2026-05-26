@@ -125,91 +125,13 @@ service cloud.firestore {
     }
 
     // Products Collection Rules
+    // DEPRECATED: The client uses `articles` collection exclusively.
+    // These rules existed for a legacy `products` collection that is no
+    // longer written to or read from by any client code. Locked down to
+    // prevent accidental use. Kept as a placeholder until the collection
+    // is fully removed from Firestore.
     match /products/{productId} {
-      // Allow read for everyone for now to fix search issues
-      allow read: if true;
-      
-      // Allow create for authenticated users with valid data
-      allow create: if isAuthenticated() && 
-                       request.auth.uid == request.resource.data.sellerId &&
-                       isValidProductData(request.resource.data);
-      
-      // Allow update only by owner with valid data
-      allow update: if isAuthenticated() && 
-                       request.auth.uid == resource.data.sellerId &&
-                       isValidProductUpdate(resource.data, request.resource.data);
-      
-      // Allow delete only by owner (soft delete by setting isActive = false)
-      allow delete: if isAuthenticated() && 
-                       request.auth.uid == resource.data.sellerId;
-      
-      function isValidProductData(data) {
-        return data.keys().hasAll([
-          'title', 'description', 'price', 'category', 'condition', 
-          'sellerId', 'location', 'deliveryOptions', 'isActive', 'isSold'
-        ]) &&
-        // Title validation
-        isValidString(data.title, 3, 100) &&
-        // Description validation
-        isValidString(data.description, 10, 2000) &&
-        // Price validation
-        isValidPrice(data.price) &&
-        // Category validation
-        isValidString(data.category, 1, 50) &&
-        // Condition validation
-        isValidCondition(data.condition) &&
-        // Seller ID matches authenticated user
-        data.sellerId == request.auth.uid &&
-        // Location validation
-        isValidLocation(data.location) &&
-        // Delivery options validation
-        isValidDeliveryOptions(data.deliveryOptions) &&
-        // Status validation
-        data.isActive is bool &&
-        data.isSold is bool &&
-        // Images validation (if present)
-        (!('images' in data) || isValidImages(data.images)) &&
-        // Metrics initialization
-        data.views == 0 &&
-        data.likes == 0 &&
-        (!('likedBy' in data) || data.likedBy.size() == 0);
-      }
-      
-      function isValidProductUpdate(oldData, newData) {
-        return // Cannot change sellerId
-               newData.sellerId == oldData.sellerId &&
-               // Cannot directly modify metrics (handled by cloud functions)
-               newData.views == oldData.views &&
-               newData.likes == oldData.likes &&
-               // Validate updated fields
-               isValidString(newData.title, 3, 100) &&
-               isValidString(newData.description, 10, 2000) &&
-               isValidPrice(newData.price) &&
-               isValidCondition(newData.condition) &&
-               isValidLocation(newData.location) &&
-               isValidDeliveryOptions(newData.deliveryOptions);
-      }
-      
-      function isValidLocation(location) {
-        return location.keys().hasAll(['city', 'postalCode', 'country', 'coordinates']) &&
-               isValidString(location.city, 1, 100) &&
-               isValidString(location.postalCode, 1, 20) &&
-               isValidString(location.country, 2, 3) &&
-               isValidCoordinates(location.coordinates);
-      }
-      
-      function isValidDeliveryOptions(options) {
-        return options.keys().hasAll(['pickup', 'shipping']) &&
-               options.pickup is bool &&
-               options.shipping is bool &&
-               (options.pickup || options.shipping); // At least one must be true
-      }
-      
-      function isValidImages(images) {
-        return images is list &&
-               images.size() >= 1 &&
-               images.size() <= 10;
-      }
+      allow read, write: if false;
     }
     
     // Users Collection Rules

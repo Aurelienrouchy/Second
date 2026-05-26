@@ -33,7 +33,7 @@ export { consolidateChatDuplicates } from './callable/chats';
 export { visualSearch, getSimilarProducts } from './callable/search';
 
 // Product Functions
-export { createArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed } from './callable/products';
+export { createArticle, updateArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed } from './callable/products';
 
 // Swap Functions
 export {

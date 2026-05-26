@@ -510,14 +510,6 @@ export class ArticlesService {
     }
   }
 
-  static async markAsSold(articleId: string): Promise<void> {
-    try {
-      await this.updateArticle(articleId, { isSold: true });
-    } catch (error: any) {
-      throw new Error(`Erreur lors du marquage comme vendu: ${error.message}`);
-    }
-  }
-
   static async uploadImages(files: File[], articleId: string): Promise<string[]> {
     try {
       const uploadPromises = files.map(async (file, index) => {

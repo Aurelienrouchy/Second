@@ -449,6 +449,266 @@ export const toggleArticleSold = onCall(
 );
 
 /**
+ * Update an existing article server-side with validation and sanitisation.
+ *
+ * The client sends { articleId, updates } where `updates` contains only the
+ * modifiable fields. This callable validates ownership, prevents editing sold
+ * articles, sanitises text inputs and applies price-drop tracking when the
+ * price decreases.
+ *
+ * Returns { success: true }.
+ */
+export const updateArticle = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB' },
+  async (request) => {
+    // ── 1. Auth check ──
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Utilisateur non connecte');
+    }
+
+    const uid = request.auth.uid;
+    const { articleId, updates } = request.data ?? {};
+
+    if (!articleId || typeof articleId !== 'string') {
+      throw new HttpsError('invalid-argument', 'articleId requis');
+    }
+    if (!updates || typeof updates !== 'object') {
+      throw new HttpsError('invalid-argument', 'updates requis');
+    }
+
+    // ── 2. Sanitise helper ──
+    const stripHtml = (s: string): string =>
+      s.replace(/<[^>]*>/g, '').trim();
+
+    // ── 3. Validate individual fields from `updates` ──
+    const sanitized: Record<string, unknown> = {};
+
+    // Title
+    if ('title' in updates) {
+      if (
+        typeof updates.title !== 'string' ||
+        updates.title.trim().length < 3
+      ) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Le titre doit contenir au moins 3 caracteres',
+        );
+      }
+      sanitized.title = stripHtml(updates.title).substring(0, 200);
+    }
+
+    // Description
+    if ('description' in updates) {
+      if (typeof updates.description !== 'string') {
+        throw new HttpsError('invalid-argument', 'Description invalide');
+      }
+      sanitized.description = stripHtml(updates.description).substring(0, 5000);
+    }
+
+    // Price
+    if ('price' in updates) {
+      if (
+        typeof updates.price !== 'number' ||
+        updates.price < 0.01 ||
+        updates.price > 10000
+      ) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Le prix doit etre entre 0.01 et 10 000 $',
+        );
+      }
+      sanitized.price = updates.price;
+    }
+
+    // Condition
+    const validConditions = ['neuf', 'très bon état', 'bon état', 'satisfaisant'];
+    if ('condition' in updates) {
+      if (!validConditions.includes(updates.condition)) {
+        throw new HttpsError('invalid-argument', 'Condition invalide');
+      }
+      sanitized.condition = updates.condition;
+    }
+
+    // CategoryIds
+    if ('categoryIds' in updates) {
+      if (
+        !Array.isArray(updates.categoryIds) ||
+        updates.categoryIds.length === 0
+      ) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Au moins une categorie est requise',
+        );
+      }
+      sanitized.categoryIds = updates.categoryIds;
+    }
+
+    // Category (string)
+    if ('category' in updates) {
+      if (typeof updates.category === 'string') {
+        sanitized.category = updates.category;
+      }
+    }
+
+    // Images
+    if ('images' in updates) {
+      if (
+        !Array.isArray(updates.images) ||
+        updates.images.length === 0
+      ) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Au moins une image est requise',
+        );
+      }
+      if (updates.images.length > 10) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Maximum 10 images autorisees',
+        );
+      }
+      for (const img of updates.images) {
+        if (!img || typeof img.url !== 'string' || img.url.trim().length === 0) {
+          throw new HttpsError(
+            'invalid-argument',
+            'Chaque image doit avoir une URL valide',
+          );
+        }
+      }
+      sanitized.images = updates.images.map(
+        (img: { url: string; blurhash?: string }) => {
+          const entry: { url: string; blurhash?: string } = {
+            url: img.url.trim(),
+          };
+          if (img.blurhash && typeof img.blurhash === 'string') {
+            entry.blurhash = img.blurhash;
+          }
+          return entry;
+        },
+      );
+    }
+
+    // Optional scalar fields
+    if ('size' in updates && typeof updates.size === 'string') {
+      sanitized.size = updates.size.trim().substring(0, 50);
+    }
+    if ('brand' in updates && typeof updates.brand === 'string') {
+      sanitized.brand = updates.brand.trim().substring(0, 100);
+    }
+    if ('pattern' in updates && typeof updates.pattern === 'string') {
+      sanitized.pattern = updates.pattern.trim().substring(0, 100);
+    }
+
+    // Colors
+    if ('colors' in updates && Array.isArray(updates.colors)) {
+      sanitized.colors = updates.colors
+        .filter((c: unknown) => typeof c === 'string')
+        .slice(0, 20);
+      sanitized.color = (sanitized.colors as string[])[0] || null;
+    } else if ('color' in updates && typeof updates.color === 'string') {
+      sanitized.color = updates.color.trim();
+    }
+
+    // Materials
+    if ('materials' in updates && Array.isArray(updates.materials)) {
+      sanitized.materials = updates.materials
+        .filter((m: unknown) => typeof m === 'string')
+        .slice(0, 20);
+      sanitized.material = (sanitized.materials as string[])[0] || null;
+    } else if ('material' in updates && typeof updates.material === 'string') {
+      sanitized.material = updates.material.trim();
+    }
+
+    // Delivery options
+    if ('isHandDelivery' in updates) {
+      sanitized.isHandDelivery = updates.isHandDelivery === true;
+    }
+    if ('isShipping' in updates) {
+      sanitized.isShipping = updates.isShipping === true;
+    }
+
+    // Package size
+    const validPackageSizes = ['small', 'medium', 'large'];
+    if (
+      'packageSize' in updates &&
+      typeof updates.packageSize === 'string' &&
+      validPackageSizes.includes(updates.packageSize)
+    ) {
+      sanitized.packageSize = updates.packageSize;
+    }
+
+    // Neighborhoods
+    if ('neighborhoods' in updates && Array.isArray(updates.neighborhoods)) {
+      sanitized.neighborhoods = updates.neighborhoods.slice(0, 10);
+      sanitized.neighborhood = updates.neighborhoods[0] || null;
+    }
+
+    // isActive (allow seller to deactivate/reactivate)
+    if ('isActive' in updates && typeof updates.isActive === 'boolean') {
+      sanitized.isActive = updates.isActive;
+    }
+
+    // Check we have at least one field to update
+    if (Object.keys(sanitized).length === 0) {
+      throw new HttpsError('invalid-argument', 'Aucun champ valide a mettre a jour');
+    }
+
+    // ── 4. Transaction: ownership + sold check + price drop + write ──
+    const articleRef = db.collection('articles').doc(articleId);
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(articleRef);
+      if (!snap.exists) {
+        throw new HttpsError('not-found', 'Article introuvable');
+      }
+
+      const existing = snap.data()!;
+
+      // Ownership check
+      if (existing.sellerId !== uid) {
+        throw new HttpsError('permission-denied', 'Pas votre article');
+      }
+
+      // Block editing sold articles
+      if (existing.isSold === true) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Impossible de modifier un article vendu',
+        );
+      }
+
+      // Price drop tracking: if price has decreased, record it
+      if (
+        sanitized.price !== undefined &&
+        typeof sanitized.price === 'number' &&
+        sanitized.price < existing.price
+      ) {
+        const originalPrice = existing.originalPrice || existing.price;
+        const priceDropPercent = Math.round(
+          ((originalPrice - (sanitized.price as number)) / originalPrice) * 100,
+        );
+        sanitized.originalPrice = originalPrice;
+        sanitized.priceDropPercent = priceDropPercent;
+        sanitized.lastPriceDropAt = FieldValue.serverTimestamp();
+      }
+
+      // Always set updatedAt
+      sanitized.updatedAt = FieldValue.serverTimestamp();
+
+      tx.update(articleRef, sanitized);
+    });
+
+    logger.info('Article updated via callable', {
+      articleId,
+      sellerId: uid,
+      updatedFields: Object.keys(sanitized).filter((k) => k !== 'updatedAt'),
+    });
+
+    return { success: true };
+  },
+);
+
+/**
  * Mark saved search as viewed (resets newItemsCount)
  */
 export const markSavedSearchViewed = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {

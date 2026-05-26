@@ -1,4 +1,4 @@
-import { useUser } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/store/authStore';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { ArticlesService } from '@/services/articlesService';
 import { Article } from '@/types';
@@ -11,7 +11,9 @@ import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/config/firebaseConfig';
 import {
   ActionSheetIOS,
   Alert,
@@ -26,7 +28,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { ScreenHeader, Skeleton, Text } from '@/components/ui';
 
 export default function MyArticlesScreen() {
-  const user = useUser();
+  const user = useAuthStore((s) => s.user);
   const router = useRouter();
   const queryClient = useQueryClient();
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
@@ -42,6 +44,14 @@ export default function MyArticlesScreen() {
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
+
+  const [filter, setFilter] = useState<'all' | 'active' | 'sold'>('all');
+
+  const filteredArticles = useMemo(() => {
+    if (filter === 'all') return articles;
+    if (filter === 'active') return articles.filter((a) => !a.isSold);
+    return articles.filter((a) => a.isSold);
+  }, [articles, filter]);
 
   const closeAllSwipeables = () => {
     swipeableRefs.current.forEach((ref) => ref?.close());
@@ -76,7 +86,7 @@ export default function MyArticlesScreen() {
 
   const handleMarkAsSold = async (article: Article) => {
     try {
-      await ArticlesService.updateArticle(article.id, { isSold: !article.isSold });
+      await httpsCallable(functions, 'toggleArticleSold')({ articleId: article.id });
       queryClient.setQueryData<Article[]>(
         queryKeys.articles.userList(user!.id),
         (old) =>
@@ -96,34 +106,53 @@ export default function MyArticlesScreen() {
     const soldOption = article.isSold ? 'Remettre en vente' : 'Marquer comme vendu';
 
     if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Annuler', 'Modifier', soldOption, 'Supprimer'],
-          destructiveButtonIndex: 3,
-          cancelButtonIndex: 0,
-          title: article.title,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
-            handleEditArticle(article);
-          } else if (buttonIndex === 2) {
-            handleMarkAsSold(article);
-          } else if (buttonIndex === 3) {
-            handleDeleteArticle(article);
+      if (article.isSold) {
+        // Sold articles: no "Modifier" option
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: ['Annuler', soldOption, 'Supprimer'],
+            destructiveButtonIndex: 2,
+            cancelButtonIndex: 0,
+            title: article.title,
+          },
+          (buttonIndex) => {
+            if (buttonIndex === 1) {
+              handleMarkAsSold(article);
+            } else if (buttonIndex === 2) {
+              handleDeleteArticle(article);
+            }
           }
-        }
-      );
+        );
+      } else {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: ['Annuler', 'Modifier', soldOption, 'Supprimer'],
+            destructiveButtonIndex: 3,
+            cancelButtonIndex: 0,
+            title: article.title,
+          },
+          (buttonIndex) => {
+            if (buttonIndex === 1) {
+              handleEditArticle(article);
+            } else if (buttonIndex === 2) {
+              handleMarkAsSold(article);
+            } else if (buttonIndex === 3) {
+              handleDeleteArticle(article);
+            }
+          }
+        );
+      }
     } else {
-      Alert.alert(
-        article.title,
-        'Que souhaitez-vous faire ?',
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Modifier', onPress: () => handleEditArticle(article) },
-          { text: soldOption, onPress: () => handleMarkAsSold(article) },
-          { text: 'Supprimer', style: 'destructive', onPress: () => handleDeleteArticle(article) },
-        ]
-      );
+      const alertOptions: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [
+        { text: 'Annuler', style: 'cancel' },
+      ];
+      if (!article.isSold) {
+        alertOptions.push({ text: 'Modifier', onPress: () => handleEditArticle(article) });
+      }
+      alertOptions.push({ text: soldOption, onPress: () => handleMarkAsSold(article) });
+      alertOptions.push({ text: 'Supprimer', style: 'destructive', onPress: () => handleDeleteArticle(article) });
+
+      Alert.alert(article.title, 'Que souhaitez-vous faire ?', alertOptions);
     }
   };
 
@@ -301,15 +330,44 @@ export default function MyArticlesScreen() {
           </Pressable>
         </View>
       ) : (
-        <FlashList
-          data={articles}
-          renderItem={renderArticleItem}
-          keyExtractor={keyExtractor}
-          refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
-          }
-          showsVerticalScrollIndicator={false}
-        />
+        <>
+          <View style={styles.filterTabs}>
+            {([
+              { key: 'all' as const, label: 'Tous' },
+              { key: 'active' as const, label: 'En vente' },
+              { key: 'sold' as const, label: 'Vendus' },
+            ]).map((tab) => (
+              <Pressable
+                key={tab.key}
+                style={[
+                  styles.filterTab,
+                  filter === tab.key && styles.filterTabActive,
+                ]}
+                onPress={() => setFilter(tab.key)}
+              >
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    filter === tab.key && styles.filterTabTextActive,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <FlashList
+            data={filteredArticles}
+            renderItem={renderArticleItem}
+            keyExtractor={keyExtractor}
+            // @ts-expect-error estimatedItemSize valid at runtime
+            estimatedItemSize={100}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
+            }
+            showsVerticalScrollIndicator={false}
+          />
+        </>
       )}
     </View>
   );
@@ -463,5 +521,30 @@ const styles = StyleSheet.create({
   articleStatRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  filterTab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceWarm,
+  },
+  filterTabActive: {
+    backgroundColor: colors.primary,
+  },
+  filterTabText: {
+    ...typography.caption,
+    fontFamily: fonts.sansMedium,
+    color: colors.foregroundSecondary,
+  },
+  filterTabTextActive: {
+    color: colors.white,
   },
 });

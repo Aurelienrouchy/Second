@@ -40,7 +40,9 @@ import { getCategoryInfoFromIds } from '@/data/categories-v2';
 
 // Services & Types
 import { ArticlesService } from '@/services/articlesService';
-import { useUser } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/store/authStore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/config/firebaseConfig';
 import { Article, MeetupNeighborhood } from '@/types';
 import { colors } from '@/constants/theme';
 
@@ -69,7 +71,7 @@ export default function EditArticleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const user = useUser();
+  const user = useAuthStore((s) => s.user);
 
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -125,6 +127,16 @@ export default function EditArticleScreen() {
       if (user?.id !== articleData.sellerId) {
         Alert.alert('Erreur', 'Vous ne pouvez pas modifier cet article');
         router.back();
+        return;
+      }
+
+      // Block editing sold articles
+      if (articleData.isSold) {
+        Alert.alert(
+          'Article vendu',
+          'Cet article est vendu et ne peut plus être modifié.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
         return;
       }
 
@@ -256,7 +268,7 @@ export default function EditArticleScreen() {
         articleData.images = editedImages;
       }
 
-      await ArticlesService.updateArticle(id, articleData as Partial<import('@/types').Article>);
+      await httpsCallable(functions, 'updateArticle')({ articleId: id, updates: articleData });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Succès', 'Article modifié avec succès', [

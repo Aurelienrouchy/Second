@@ -281,31 +281,54 @@ export function useArticleActions({
 
     if (isOwner) {
       const soldOption = article.isSold ? 'Remettre en vente' : 'Marquer comme vendu';
-      const options = ['Modifier', soldOption, 'Supprimer', 'Annuler'];
-      const destructiveButtonIndex = 2;
-      const cancelButtonIndex = 3;
 
-      if (Platform.OS === 'ios') {
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options,
-            destructiveButtonIndex,
-            cancelButtonIndex,
-            title: article.title,
-          },
-          (buttonIndex) => {
-            if (buttonIndex === 0) handleEditArticle();
-            else if (buttonIndex === 1) handleMarkAsSold();
-            else if (buttonIndex === 2) handleDeleteArticle();
-          }
-        );
+      if (article.isSold) {
+        // Sold articles: no "Modifier" option
+        const options = [soldOption, 'Supprimer', 'Annuler'];
+        if (Platform.OS === 'ios') {
+          ActionSheetIOS.showActionSheetWithOptions(
+            {
+              options,
+              destructiveButtonIndex: 1,
+              cancelButtonIndex: 2,
+              title: article.title,
+            },
+            (buttonIndex) => {
+              if (buttonIndex === 0) handleMarkAsSold();
+              else if (buttonIndex === 1) handleDeleteArticle();
+            }
+          );
+        } else {
+          Alert.alert(article.title, 'Que souhaitez-vous faire ?', [
+            { text: 'Annuler', style: 'cancel' },
+            { text: soldOption, onPress: handleMarkAsSold },
+            { text: 'Supprimer', style: 'destructive', onPress: handleDeleteArticle },
+          ]);
+        }
       } else {
-        Alert.alert(article.title, 'Que souhaitez-vous faire ?', [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Modifier', onPress: handleEditArticle },
-          { text: soldOption, onPress: handleMarkAsSold },
-          { text: 'Supprimer', style: 'destructive', onPress: handleDeleteArticle },
-        ]);
+        const options = ['Modifier', soldOption, 'Supprimer', 'Annuler'];
+        if (Platform.OS === 'ios') {
+          ActionSheetIOS.showActionSheetWithOptions(
+            {
+              options,
+              destructiveButtonIndex: 2,
+              cancelButtonIndex: 3,
+              title: article.title,
+            },
+            (buttonIndex) => {
+              if (buttonIndex === 0) handleEditArticle();
+              else if (buttonIndex === 1) handleMarkAsSold();
+              else if (buttonIndex === 2) handleDeleteArticle();
+            }
+          );
+        } else {
+          Alert.alert(article.title, 'Que souhaitez-vous faire ?', [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Modifier', onPress: handleEditArticle },
+            { text: soldOption, onPress: handleMarkAsSold },
+            { text: 'Supprimer', style: 'destructive', onPress: handleDeleteArticle },
+          ]);
+        }
       }
     } else {
       const options = ['Signaler cet article', 'Annuler'];

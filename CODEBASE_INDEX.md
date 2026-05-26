@@ -363,7 +363,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `moments.ts` | Stories/moments |
 | `onboarding.ts` | Préférences onboarding |
 | `payments.ts` | Paiement Stripe Connect (checkout, onboarding, status) |
-| `products.ts` | CRUD articles server-side (createArticle, incrementProductView, toggleProductLike, markSavedSearchViewed) |
+| `products.ts` | CRUD articles server-side (createArticle, updateArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed) |
 | `reviews.ts` | Avis vendeurs |
 | `search.ts` | Recherche avancée |
 | `style.ts` | Profil style |
@@ -373,7 +373,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 ### Triggers — `functions/src/triggers/`
 | Fichier | Événement |
 |---------|-----------|
-| `articles.ts` | onUpdate article → search_index cleanup, offer expiration |
+| `articles.ts` | onUpdate article → search_index cleanup + offer expiration on soft-delete (isActive→false) and sold (isSold→true) |
 | `embeddings.ts` | onCreate article → génère embeddings |
 | `favorites.ts` | onWrite favoris → MAJ compteurs |
 | `messages.ts` | onCreate message → notif push |
