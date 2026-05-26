@@ -673,7 +673,17 @@ export const createStripeConnectAccount = onCall(
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error creating Stripe Custom account', { userId, error: message });
+      // Log full Stripe error details (type, code, statusCode, param) for debugging
+      const stripeDetails: Record<string, unknown> = { userId, error: message };
+      if (error && typeof error === 'object') {
+        const e = error as any;
+        if (e.type) stripeDetails.stripeErrorType = e.type;
+        if (e.code) stripeDetails.stripeErrorCode = e.code;
+        if (e.statusCode) stripeDetails.stripeStatusCode = e.statusCode;
+        if (e.param) stripeDetails.stripeParam = e.param;
+        if (e.raw) stripeDetails.stripeRaw = JSON.stringify(e.raw).substring(0, 500);
+      }
+      logger.error('Error creating Stripe Custom account', stripeDetails);
       throw new HttpsError('internal', `Failed to create Connect account: ${message}`);
     }
   }
