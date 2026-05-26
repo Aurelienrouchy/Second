@@ -94,7 +94,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
 
           <View style={styles.titleContainer}>
             <Text style={styles.title}>
-              {categoryNav.isAtRoot ? 'Categorie' : categoryNav.currentTitle}
+              {categoryNav.isAtRoot ? 'Catégorie' : categoryNav.currentTitle}
             </Text>
             {breadcrumb && !categoryNav.isAtRoot && (
               <Text style={styles.breadcrumb} numberOfLines={1}>
@@ -128,7 +128,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
                   <Text style={styles.categoryItemText}>{item.label}</Text>
                   {isSuggested && (
                     <View style={styles.suggestedBadge}>
-                      <Text style={styles.suggestedBadgeText}>Suggere</Text>
+                      <Text style={styles.suggestedBadgeText}>Suggéré</Text>
                     </View>
                   )}
                 </View>
