@@ -37,6 +37,8 @@ interface OfferBubbleProps {
   currentUserId: string;
   /** The seller's uid — used to determine roles for meetup actions */
   sellerId?: string;
+  /** The article id linked to this chat — used for checkout fallback */
+  articleId?: string;
   /** Original listed price of the article (used for context display) */
   articlePrice?: number;
   // Legacy actions
@@ -58,6 +60,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   chatId,
   currentUserId,
   sellerId,
+  articleId,
   articlePrice: listedPrice,
   onAcceptOffer,
   onRejectOffer,
@@ -333,7 +336,9 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
 
   const statusColor = getStatusColor(status);
   const canRespondToOffer = !isOwnMessage && status === 'pending';
-  const canPay = isOwnMessage && status === 'accepted' && transactionId && !isMeetupOffer;
+  // Buyer can pay when offer is accepted and it's not a meetup. For shipping
+  // offers the transaction may not exist yet — the checkout flow creates it.
+  const canPay = isOwnMessage && status === 'accepted' && !isMeetupOffer;
   const isSeller = !!sellerId && currentUserId === sellerId;
   const isBuyer = !!sellerId && currentUserId !== sellerId;
   // Seller confirms meetup ("J'ai rencontre l'acheteur") — before confirmedAt is set
@@ -343,9 +348,17 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const expiryText = getTimeUntilExpiry(expiresAt, status);
 
   const handlePayment = () => {
-    if (!transactionId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(`/payment/${transactionId}`);
+
+    if (transactionId) {
+      // Transaction already exists — go straight to payment
+      router.push(`/payment/${transactionId}`);
+    } else if (articleId) {
+      // Shipping offer accepted but no transaction yet — start checkout flow
+      router.push({ pathname: '/checkout' as '/checkout', params: { articleId, chatId } });
+    } else {
+      Alert.alert('Erreur', 'Impossible de procéder au paiement');
+    }
   };
 
   return (
