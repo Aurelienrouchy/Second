@@ -92,6 +92,7 @@ export default function SwapPartyDetailScreen() {
   const [showMyArticles, setShowMyArticles] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
 
   // Multi-select state
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
@@ -187,7 +188,7 @@ export default function SwapPartyDetailScreen() {
 
     Alert.alert(
       'Quitter la party',
-      'Êtes-vous sûr de vouloir quitter cette Swap Party ? Vos articles seront retirés.',
+      'Es-tu sûr de vouloir quitter cette Swap Zone ? Tes articles seront retirés.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -209,8 +210,9 @@ export default function SwapPartyDetailScreen() {
   }, [user, party, invalidatePartyData]);
 
   const handleAddItem = useCallback(async (article: Article) => {
-    if (!user || !party) return;
+    if (!user || !party || isAddingItem) return;
 
+    setIsAddingItem(true);
     try {
       await addItemToParty(party.id, article, user.id, user.displayName || 'Utilisateur', user.profileImage);
       invalidatePartyData();
@@ -218,15 +220,17 @@ export default function SwapPartyDetailScreen() {
     } catch (error) {
       if (__DEV__) console.error('Error adding item:', error);
       Alert.alert('Erreur', "Impossible d'ajouter l'article");
+    } finally {
+      setIsAddingItem(false);
     }
-  }, [user, party, invalidatePartyData, queryClient]);
+  }, [user, party, isAddingItem, invalidatePartyData, queryClient]);
 
   const handleRemoveItem = useCallback(async (articleId: string) => {
     if (!user || !party) return;
 
     Alert.alert(
       "Retirer l'article",
-      'Êtes-vous sûr de vouloir retirer cet article de la Swap Party ?',
+      'Es-tu sûr de vouloir retirer cet article de la Swap Zone ?',
       [
         { text: 'Annuler', style: 'cancel' },
         {

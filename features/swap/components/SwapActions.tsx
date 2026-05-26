@@ -175,7 +175,7 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
   return (
     <View style={styles.modeSelection}>
       <Text variant="h3" style={styles.modeTitle}>
-        {"Comment voulez-vous échanger ?"}
+        {"Comment veux-tu échanger ?"}
       </Text>
 
       <Pressable
@@ -188,7 +188,7 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
           <Text variant="body" style={styles.modeButtonTitle}>
             En main propre
           </Text>
-          <Caption>Rencontrez-vous pour échanger</Caption>
+          <Caption>Retrouvez-vous pour échanger</Caption>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>
@@ -203,7 +203,7 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
           <Text variant="body" style={styles.modeButtonTitle}>
             Envoi postal
           </Text>
-          <Caption>Envoyez-vous mutuellement les articles</Caption>
+          <Caption>Envoyez-vous les articles par la poste</Caption>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>

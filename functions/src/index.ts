@@ -46,8 +46,13 @@ export {
   confirmSwapShipping,
   confirmSwapReception,
   rateSwap,
+  openSwapDispute,
   getActiveSwapPartyInfo,
   getSwapPartyLeaderboard,
+  joinSwapPartySecure,
+  leaveSwapPartySecure,
+  addItemToPartySecure,
+  removeItemFromPartySecure,
 } from './callable/swaps';
 
 // Payment & Shipping Functions

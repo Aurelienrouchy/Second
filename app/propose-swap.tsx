@@ -70,7 +70,15 @@ export default function ProposeSwapScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Derive available items from user articles query
+  // --- React Query: fetch receiver's articles (for receiver selector) ---
+  const { data: receiverArticlesRaw } = useQuery({
+    queryKey: queryKeys.articles.userList(receiverId ?? ''),
+    queryFn: () => ArticlesService.getUserArticles(receiverId!),
+    enabled: !!receiverId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Derive available items from user articles query (initiator side)
   const allAvailableItems = useMemo<SwapItemInfo[]>(() => {
     if (!userArticlesRaw) return [];
     return userArticlesRaw
@@ -84,6 +92,21 @@ export default function ProposeSwapScreen() {
         size: a.size,
       }));
   }, [userArticlesRaw]);
+
+  // Derive available items from receiver articles query (receiver side)
+  const receiverAvailableItems = useMemo<SwapItemInfo[]>(() => {
+    if (!receiverArticlesRaw) return [];
+    return receiverArticlesRaw
+      .filter((a) => a.isActive !== false && !a.isSold)
+      .map((a) => ({
+        articleId: a.id,
+        title: a.title,
+        price: a.price,
+        imageUrl: a.images?.[0]?.url,
+        brand: a.brand,
+        size: a.size,
+      }));
+  }, [receiverArticlesRaw]);
 
   // Derive initial receiver items from params or target article query
   const initialReceiverItems = useMemo<SwapItemInfo[]>(() => {
@@ -159,7 +182,7 @@ export default function ProposeSwapScreen() {
   // Submit swap proposal
   const handleSubmit = useCallback(async () => {
     if (!user || initiatorItems.length === 0 || receiverItems.length === 0) {
-      Alert.alert('Erreur', "Veuillez sélectionner des articles de part et d'autre");
+      Alert.alert('Erreur', "Sélectionne des articles de chaque côté");
       return;
     }
 
@@ -168,7 +191,7 @@ export default function ProposeSwapScreen() {
       // Check if users are blocked before proceeding
       const blocked = await ModerationService.areUsersBlocked(user.id, receiverId || '');
       if (blocked) {
-        Alert.alert('Action impossible', 'Vous ne pouvez pas proposer un echange avec cet utilisateur.');
+        Alert.alert('Action impossible', 'Tu ne peux pas proposer un échange avec cet utilisateur.');
         return;
       }
 
@@ -297,7 +320,7 @@ export default function ProposeSwapScreen() {
       />
 
       <SwapItemSelector
-        items={allAvailableItems}
+        items={receiverAvailableItems}
         selectedItems={receiverItems}
         onSelectionChange={setReceiverItems}
         visible={showReceiverSelector}

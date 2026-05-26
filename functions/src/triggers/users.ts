@@ -154,11 +154,73 @@ export const onUserProfileUpdated = onDocumentUpdated(
       if (batchCount > 0) await batch.commit();
     }
 
+    // 4. Update swapPartyParticipants where userId == uid
+    let swapParticipantsUpdated = 0;
+    const swapParticipantsSnap = await db
+      .collection('swapPartyParticipants')
+      .where('userId', '==', uid)
+      .get();
+
+    if (!swapParticipantsSnap.empty) {
+      const participantUpdates: Record<string, any> = {};
+      if (nameChanged) participantUpdates.userName = newName;
+      if (imageChanged) participantUpdates.userImage = newImage;
+
+      let batch = db.batch();
+      let batchCount = 0;
+
+      for (const doc of swapParticipantsSnap.docs) {
+        batch.update(doc.ref, participantUpdates);
+        batchCount++;
+        swapParticipantsUpdated++;
+
+        if (batchCount >= 499) {
+          await batch.commit();
+          batch = db.batch();
+          batchCount = 0;
+        }
+      }
+
+      if (batchCount > 0) await batch.commit();
+    }
+
+    // 5. Update swapPartyItems where sellerId == uid
+    let swapItemsUpdated = 0;
+    const swapItemsSnap = await db
+      .collection('swapPartyItems')
+      .where('sellerId', '==', uid)
+      .get();
+
+    if (!swapItemsSnap.empty) {
+      const itemUpdates: Record<string, any> = {};
+      if (nameChanged) itemUpdates.sellerName = newName;
+      if (imageChanged) itemUpdates.sellerImage = newImage;
+
+      let batch = db.batch();
+      let batchCount = 0;
+
+      for (const doc of swapItemsSnap.docs) {
+        batch.update(doc.ref, itemUpdates);
+        batchCount++;
+        swapItemsUpdated++;
+
+        if (batchCount >= 499) {
+          await batch.commit();
+          batch = db.batch();
+          batchCount = 0;
+        }
+      }
+
+      if (batchCount > 0) await batch.commit();
+    }
+
     logger.info('[onUserProfileUpdated] Propagation complete', {
       uid,
       articlesUpdated,
       chatsUpdated,
       avisUpdated,
+      swapParticipantsUpdated,
+      swapItemsUpdated,
     });
   }
 );

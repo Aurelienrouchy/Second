@@ -102,6 +102,14 @@ export const proposeMultiSwap = onCall(
       partyId,
     } = request.data;
 
+    // Reject cashTopUp — feature not yet implemented (no Stripe payment initiated)
+    if (cashTopUp) {
+      throw new HttpsError(
+        'unimplemented',
+        'Le complément monétaire n\'est pas encore disponible.'
+      );
+    }
+
     // Auth: initiatorId must match the authenticated user
     if (initiatorId !== request.auth.uid) {
       throw new HttpsError(
@@ -171,7 +179,6 @@ export const proposeMultiSwap = onCall(
           receiverTotalValue,
           status: 'proposed',
           message,
-          cashTopUp: cashTopUp ? { amount: cashTopUp.amount, payerId: cashTopUp.payerId } : undefined,
           partyId,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -294,7 +301,7 @@ export const acceptSwap = onCall(
         });
       });
 
-      // Mark party items as swapped AFTER transaction succeeds (non-critical)
+      // Mark party items as pending (NOT swapped yet — isSwapped only on completed reception)
       const swapSnap = await db.collection('swaps').doc(swapId).get();
       const swap = swapSnap.data();
 
@@ -309,7 +316,7 @@ export const acceptSwap = onCall(
             .where('sellerId', '==', swap.initiatorId)
             .get();
           for (const d of q.docs) {
-            await d.ref.update({ isSwapped: true });
+            await d.ref.update({ isPending: true });
           }
         }
 
@@ -321,7 +328,7 @@ export const acceptSwap = onCall(
             .where('sellerId', '==', swap.receiverId)
             .get();
           for (const d of q.docs) {
-            await d.ref.update({ isSwapped: true });
+            await d.ref.update({ isPending: true });
           }
         }
       }
@@ -458,6 +465,18 @@ export const joinSwapPartySecure = onCall(
           throw new HttpsError('failed-precondition', 'Cette swap party n\'est plus ouverte');
         }
 
+        // Check maxParticipants limit
+        if (
+          partyData.maxParticipants != null &&
+          typeof partyData.maxParticipants === 'number' &&
+          (partyData.participantsCount || 0) >= partyData.maxParticipants
+        ) {
+          throw new HttpsError(
+            'resource-exhausted',
+            'Cette Swap Zone a atteint le nombre maximum de participants'
+          );
+        }
+
         // Check if already joined
         const existingQuery = await db
           .collection('swapPartyParticipants')
@@ -524,6 +543,29 @@ export const leaveSwapPartySecure = onCall(
     const userId = request.auth.uid;
 
     try {
+      // Pre-check: reject if user has active swaps in this party
+      // (query outside transaction because it uses 'in' operator which is read-only check)
+      const activeSwapsInitiator = await db
+        .collection('swaps')
+        .where('partyId', '==', partyId)
+        .where('initiatorId', '==', userId)
+        .where('status', 'in', ['proposed', 'accepted', 'photos_pending', 'shipping'])
+        .get();
+
+      const activeSwapsReceiver = await db
+        .collection('swaps')
+        .where('partyId', '==', partyId)
+        .where('receiverId', '==', userId)
+        .where('status', 'in', ['proposed', 'accepted', 'photos_pending', 'shipping'])
+        .get();
+
+      if (!activeSwapsInitiator.empty || !activeSwapsReceiver.empty) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Vous avez des échanges en cours dans cette Swap Zone. Terminez-les avant de quitter.'
+        );
+      }
+
       await db.runTransaction(async (tx) => {
         // Check the party exists
         const partyRef = db.collection('swapParties').doc(partyId);
@@ -1273,6 +1315,14 @@ export const confirmSwapReception = onCall(
           throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
         }
 
+        // Status guard: reception only valid during shipping
+        if (swap.status !== 'shipping') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible de confirmer la réception en statut "${swap.status}"`
+          );
+        }
+
         const updateData: Record<string, any> = {
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
@@ -1302,6 +1352,34 @@ export const confirmSwapReception = onCall(
           swap,
         };
       });
+
+      // If completed, mark ALL articles on both sides as sold + inactive
+      if (swapData.bothReceived) {
+        const allArticleIds: string[] = [];
+        const initiatorArticles = getSwapItems(swapData.swap, 'initiator');
+        const receiverArticles = getSwapItems(swapData.swap, 'receiver');
+
+        for (const item of [...initiatorArticles, ...receiverArticles]) {
+          if (item.articleId) allArticleIds.push(item.articleId);
+        }
+
+        for (const articleId of allArticleIds) {
+          try {
+            await db.collection('articles').doc(articleId).update({
+              isSold: true,
+              isActive: false,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          } catch (err) {
+            // Non-critical: article may have been deleted since swap was proposed
+            logger.warn('Failed to mark article as sold after swap completion', {
+              articleId,
+              swapId,
+              error: err instanceof Error ? err.message : 'Unknown',
+            });
+          }
+        }
+      }
 
       // If completed and has a partyId, mark items as swapped + increment count
       if (swapData.bothReceived && swapData.partyId) {
@@ -1488,6 +1566,73 @@ export const rateSwap = onCall(
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error rating swap', { error: errMsg, swapId });
       throw new HttpsError('internal', 'Erreur lors de la notation: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Open a dispute on a swap — participant can dispute during shipping or after completion.
+ * Transitions swap status to 'disputed'.
+ * Uses runTransaction to guard the status transition.
+ */
+export const openSwapDispute = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId, reason } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+      throw new HttpsError('invalid-argument', 'reason requis (texte non vide)');
+    }
+
+    const trimmedReason = reason.trim();
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+        const uid = request.auth!.uid;
+
+        // Auth: must be a participant
+        if (swap.initiatorId !== uid && swap.receiverId !== uid) {
+          throw new HttpsError('permission-denied', 'Vous n\'etes pas participant de cet echange');
+        }
+
+        // Status must be 'shipping' or 'completed'
+        if (!['shipping', 'completed'].includes(swap.status)) {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible d'ouvrir un litige sur un echange en statut "${swap.status}"`
+          );
+        }
+
+        tx.update(swapRef, {
+          status: 'disputed',
+          disputeReason: trimmedReason,
+          disputeOpenedBy: uid,
+          disputeOpenedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+
+      logger.info('Swap dispute opened', { swapId, userId: request.auth.uid, reason: trimmedReason });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error opening swap dispute', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de l\'ouverture du litige: ' + errMsg);
     }
   }
 );

@@ -42,6 +42,16 @@ const notificationIcons: Record<NotificationType, { name: keyof typeof Ionicons.
   meetup_confirmed: { name: 'checkmark-circle', color: colors.success },
   meetup_cancelled: { name: 'close-circle', color: colors.danger },
   no_show_reported: { name: 'warning', color: colors.danger },
+  swap_proposed: { name: 'swap-horizontal', color: colors.primary },
+  swap_accepted: { name: 'checkmark-circle', color: colors.success },
+  swap_declined: { name: 'close-circle', color: colors.danger },
+  swap_photos_uploaded: { name: 'camera', color: colors.primary },
+  swap_shipped: { name: 'send', color: colors.primary },
+  swap_received: { name: 'cube', color: colors.success },
+  swap_completed: { name: 'ribbon', color: colors.success },
+  swap_party_starting: { name: 'people', color: colors.warning },
+  swap_party_ending: { name: 'time', color: colors.warning },
+  swap_match_found: { name: 'flash', color: colors.success },
 };
 
 // Strip leading emoji from notification titles/messages.

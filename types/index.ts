@@ -440,7 +440,17 @@ export type NotificationType =
   | 'meetup_confirmed'     // Meetup confirmé
   | 'meetup_cancelled'     // Meetup annulé
   | 'no_show_reported'     // No-show signalé
-  | 'swap_zone_reminder';  // Rappel Swap Zone (3 jours avant)
+  | 'swap_zone_reminder'   // Rappel Swap Zone (3 jours avant)
+  | 'swap_proposed'
+  | 'swap_accepted'
+  | 'swap_declined'
+  | 'swap_photos_uploaded'
+  | 'swap_shipped'
+  | 'swap_received'
+  | 'swap_completed'
+  | 'swap_party_starting'
+  | 'swap_party_ending'
+  | 'swap_match_found';
 
 export interface NotificationData {
   articleId?: string;
@@ -786,15 +796,3 @@ export interface Swap {
   };
 }
 
-// Swap notification types (to add to NotificationType)
-export type SwapNotificationType =
-  | 'swap_proposed'
-  | 'swap_accepted'
-  | 'swap_declined'
-  | 'swap_photos_uploaded'
-  | 'swap_shipped'
-  | 'swap_received'
-  | 'swap_completed'
-  | 'swap_party_starting'
-  | 'swap_party_ending'
-  | 'swap_match_found';

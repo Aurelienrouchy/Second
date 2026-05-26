@@ -11,7 +11,10 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
 import { useUser } from '@/contexts/AuthContext';
+import { storage } from '@/config/firebaseConfig';
 import {
   acceptSwap,
   declineSwap,
@@ -112,7 +115,7 @@ export default function SwapDetailScreen() {
   const handleDecline = useCallback(async () => {
     Alert.alert(
       "Refuser l'échange",
-      'Êtes-vous sûr de vouloir refuser cette proposition ?',
+      'Es-tu sûr de vouloir refuser cette proposition ?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -138,7 +141,7 @@ export default function SwapDetailScreen() {
   const handleCancel = useCallback(async () => {
     Alert.alert(
       "Annuler l'échange",
-      'Êtes-vous sûr de vouloir annuler cette proposition ?',
+      'Es-tu sûr de vouloir annuler cette proposition ?',
       [
         { text: 'Non', style: 'cancel' },
         {
@@ -190,9 +193,23 @@ export default function SwapDetailScreen() {
       if (result.canceled) return;
 
       setIsProcessing(true);
-      const photoUrls = result.assets.map((asset) => asset.uri);
-      await uploadSwapPhotos(id, user.id, photoUrls);
-      Alert.alert('Photos envoyées', "Vos photos ont été ajoutées à l'échange.");
+
+      // Upload each image to Firebase Storage and get download URLs
+      const uploadedUrls = await Promise.all(
+        result.assets.map(async (asset, i) => {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          const storageRef = ref(
+            storage,
+            `swaps/${id}/photos/${user.id}_${i}_${Date.now()}.jpg`
+          );
+          await uploadBytes(storageRef, blob);
+          return getDownloadURL(storageRef);
+        })
+      );
+
+      await uploadSwapPhotos(id, user.id, uploadedUrls);
+      Alert.alert('Photos envoyées', 'Tes photos ont bien été ajoutées.');
     } catch (error) {
       if (__DEV__) console.error('Error uploading photos:', error);
       Alert.alert('Erreur', "Impossible d'envoyer les photos");
@@ -203,7 +220,7 @@ export default function SwapDetailScreen() {
 
   const handleConfirmShipping = useCallback(async () => {
     if (!id || !user) return;
-    Alert.alert("Confirmer l'envoi", 'Avez-vous bien envoyé votre article ?', [
+    Alert.alert("Confirmer l'envoi", 'As-tu bien envoyé ton article ?', [
       { text: 'Non', style: 'cancel' },
       {
         text: 'Oui, envoyé !',
@@ -224,7 +241,7 @@ export default function SwapDetailScreen() {
 
   const handleConfirmReception = useCallback(async () => {
     if (!id || !user) return;
-    Alert.alert('Confirmer la réception', "Avez-vous bien reçu l'article ?", [
+    Alert.alert('Confirmer la réception', "As-tu bien reçu l'article ?", [
       { text: 'Non', style: 'cancel' },
       {
         text: 'Oui, reçu !',
@@ -325,7 +342,7 @@ export default function SwapDetailScreen() {
       <SwapTopBar showNewBadge={showNewBadge} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Proposed status: detailed offer layout */}
+        {/* Proposed status: detailed offer layout (receiver perspective) */}
         {swap.status === 'proposed' && !participant.isInitiator && (
           <SwapProposalView
             senderName={participant.senderName}
@@ -335,6 +352,26 @@ export default function SwapDetailScreen() {
             myItems={participant.myItems}
             cashTopUp={swap.cashTopUp}
           />
+        )}
+
+        {/* Proposed status: initiator sees their sent proposal */}
+        {swap.status === 'proposed' && participant.isInitiator && (
+          <View style={styles.initiatorPendingSection}>
+            <View style={styles.pendingBadge}>
+              <Ionicons name="time-outline" size={20} color={colors.sage} />
+              <Text variant="body" style={styles.pendingText}>
+                Ta proposition est en attente de réponse
+              </Text>
+            </View>
+            <SwapProposalView
+              senderName={participant.senderName}
+              senderImage={participant.senderImage}
+              message={swap.message}
+              senderItems={participant.myItems}
+              myItems={participant.senderItems}
+              cashTopUp={swap.cashTopUp}
+            />
+          </View>
         )}
 
         {/* Other statuses: simplified layout */}
@@ -398,5 +435,26 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 120,
+  },
+  initiatorPendingSection: {
+    paddingTop: spacing.md,
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    marginBottom: 16,
+    backgroundColor: 'rgba(122, 140, 110, 0.08)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(122, 140, 110, 0.2)',
+  },
+  pendingText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.sage,
   },
 });

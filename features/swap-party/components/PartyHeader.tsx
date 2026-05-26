@@ -27,7 +27,7 @@ export const PartyHeader = React.memo(function PartyHeader({
 
       <View style={styles.headerTitleSection}>
         <Text style={styles.headerLabel}>
-          Swap Zone · {party.status === 'active' ? 'En cours' : 'À venir'}
+          Swap Zone · {party.status === 'active' ? 'En cours' : party.status === 'ended' ? 'Terminée' : 'À venir'}
         </Text>
         <Text style={styles.headerTitle}>{party.name}</Text>
       </View>
