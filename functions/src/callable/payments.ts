@@ -280,7 +280,7 @@ export const createTransaction = onCall(
                   },
                   business_type: 'individual',
                   tos_acceptance: {
-                    service_agreement: 'recipient',
+                    service_agreement: 'full',
                   },
                   metadata: {
                     firebaseUserId: articleData.sellerId,

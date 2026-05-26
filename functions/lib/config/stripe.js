@@ -61,7 +61,8 @@ let stripeInstanceKey = null;
  * preventing stale credentials from being used in warm function containers.
  */
 const getStripe = () => {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+    var _a;
+    const secretKey = (_a = process.env.STRIPE_SECRET_KEY) === null || _a === void 0 ? void 0 : _a.trim();
     if (!secretKey) {
         logger.error('STRIPE_SECRET_KEY not found in environment');
         return null;
