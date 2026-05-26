@@ -188,6 +188,7 @@ function AppContent() {
               {/* admin/* routes live under app/admin/_layout.tsx (centralised guard) */}
               <Stack.Screen name="admin" />
               <Stack.Screen name="payment/[transactionId]" />
+              <Stack.Screen name="review/[transactionId]" />
               <Stack.Screen name="visual-search-results" />
               <Stack.Screen name="search" />
               <Stack.Screen name="+not-found" />
