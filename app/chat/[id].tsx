@@ -413,7 +413,7 @@ export default function ChatScreen() {
               flatListRef.current?.scrollToEnd({ animated: false })
             }
             ListHeaderComponent={
-              transaction && transaction.status !== 'pending_payment' ? (
+              transaction && transaction.status !== 'pending_payment' && transaction.deliveryType === 'shipping' ? (
                 <ShipmentTracking
                   transaction={transaction}
                   onStatusUpdate={() => { refetchTransaction(); }}
