@@ -107,6 +107,30 @@ export const stripeWebhook = onRequest(
       }
 
       // =======================================================================
+      // PAYMENT_INTENT.PAYMENT_FAILED
+      // =======================================================================
+
+      else if (eventType === 'payment_intent.payment_failed') {
+        await handlePaymentIntentFailed(event.data.object);
+      }
+
+      // =======================================================================
+      // CHARGE.DISPUTE.CREATED — Buyer opened a dispute
+      // =======================================================================
+
+      else if (eventType === 'charge.dispute.created') {
+        await handleDisputeCreated(event.data.object);
+      }
+
+      // =======================================================================
+      // CHARGE.REFUNDED — Full or partial refund processed
+      // =======================================================================
+
+      else if (eventType === 'charge.refunded') {
+        await handleChargeRefunded(event.data.object);
+      }
+
+      // =======================================================================
       // ACCOUNT.UPDATED — Seller's Connect account status changed
       // =======================================================================
 
