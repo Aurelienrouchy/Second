@@ -328,6 +328,13 @@ service cloud.firestore {
                        // If offer is being modified: amount must stay the same,
                        // and the sender cannot ACCEPT their own offer (but can
                        // complete/noShow which are post-acceptance actions).
+                       // SECURITY: only the message receiver should be able to
+                       // accept/reject offers. Current check only prevents
+                       // self-acceptance by the sender. Ideally we would verify
+                       // request.auth.uid == resource.data.receiverId when
+                       // offer.status transitions to 'accepted' or 'rejected',
+                       // but receiverId may not always be set on legacy
+                       // messages. This remains a hardening TODO.
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['offer']) ||
                         (request.resource.data.offer.amount == resource.data.offer.amount &&
                          !(request.auth.uid == resource.data.senderId &&
