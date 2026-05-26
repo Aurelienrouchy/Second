@@ -279,7 +279,7 @@ export default function SellerBalanceScreen() {
                   value={withdrawalAmount}
                   onChangeText={setWithdrawalAmount}
                 />
-                <Text style={styles.inputCurrency}>$</Text>
+                <Text style={styles.inputCurrency}>$ CA</Text>
               </View>
               <Text style={styles.inputHint}>
                 Disponible: {formatPrice(balance.availableBalance)} (min. {formatPrice(10)})
