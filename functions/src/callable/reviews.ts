@@ -349,10 +349,12 @@ export const getUserPublicProfile = onCall(
       const userData = userDoc.data()!;
 
       // Build public profile (exclude sensitive fields)
+      // Respect privacy preference: if showProfilePhoto is explicitly false, hide the image
+      const showPhoto = userData.preferences?.privacy?.showProfilePhoto;
       const profile = {
         id: userId,
         displayName: userData.displayName || 'Utilisateur',
-        profileImage: userData.profileImage || null,
+        profileImage: showPhoto === false ? null : (userData.profileImage || null),
         bio: userData.bio || null,
         createdAt: userData.createdAt?.toDate?.()?.toISOString(),
         rating: userData.rating || null,

@@ -646,6 +646,22 @@ export const addItemToPartySecure = onCall(
           throw new HttpsError('permission-denied', 'Cet article ne vous appartient pas');
         }
 
+        // Validate article is still available (not sold, not deactivated)
+        if (articleData.isSold === true || articleData.isActive === false) {
+          throw new HttpsError('failed-precondition', 'Cet article n\'est plus disponible.');
+        }
+
+        // Check for duplicate: article already in this party (inside tx to prevent race conditions)
+        const duplicateQuery = await db
+          .collection('swapPartyItems')
+          .where('partyId', '==', partyId)
+          .where('articleId', '==', articleId)
+          .get();
+
+        if (!duplicateQuery.empty) {
+          throw new HttpsError('already-exists', 'Cet article est déjà dans cette Swap Zone.');
+        }
+
         // Create the party item
         const itemRef = db.collection('swapPartyItems').doc();
         const itemData: Record<string, any> = {

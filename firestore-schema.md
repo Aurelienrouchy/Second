@@ -185,6 +185,7 @@ interface UserDocument {
     privacy?: {
       showEmail?: boolean;
       showPhone?: boolean;
+      showProfilePhoto?: boolean;  // When false, getUserPublicProfile returns null profileImage
       showLastSeen?: boolean;
     };
     sizes?: string[];
@@ -294,10 +295,14 @@ Chat thread between two users. Document ID is deterministic: `${minUid}__${maxUi
 ```typescript
 interface ChatDocument {
   participants: string[];        // Exactly 2 user IDs
+  // NOTE: Two formats exist in production (dual-format, both must be handled):
+  //   Map format (current): { [userId]: { userName, profileImage } }
+  //   Array format (legacy): [{ odlUserId, userName, userImage }]
+  // New code writes map format. Reads must handle both.
   participantsInfo: {
     [userId: string]: {
       userName: string;
-      profileImage?: string | null;
+      profileImage?: string | null;  // Legacy array format uses `userImage` instead
     };
   };
   // Article context (set when chat initiated from an article)
