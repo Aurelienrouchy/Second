@@ -225,6 +225,24 @@ export const createTransaction = onCall(
           );
         }
 
+        // For shipping transactions, verify seller has active Stripe Connect
+        // before locking the article. This prevents articles from being marked
+        // sold for a seller who can't receive payment.
+        if (deliveryType === 'shipping') {
+          const sellerRef = db.collection('users').doc(articleData.sellerId);
+          const sellerSnap = await tx.get(sellerRef);
+          if (!sellerSnap.exists) {
+            throw new HttpsError('not-found', 'Vendeur introuvable');
+          }
+          const sellerData = sellerSnap.data()!;
+          if (!sellerData.stripeAccountId || sellerData.stripeChargesEnabled !== true) {
+            throw new HttpsError(
+              'failed-precondition',
+              'Le vendeur n\'a pas encore configuré son compte de paiement.'
+            );
+          }
+        }
+
         // Mark article as sold
         tx.update(articleRef, { isSold: true });
 
