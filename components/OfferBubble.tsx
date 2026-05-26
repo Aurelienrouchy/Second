@@ -150,6 +150,18 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       return;
     }
 
+    // Cap counter-offers at 3x the original offer (safety rail)
+    const maxAmount = listedPrice ?? amount * 3;
+    if (newAmount > maxAmount) {
+      Alert.alert(
+        'Montant trop élevé',
+        listedPrice
+          ? `Votre contre-offre ne peut pas dépasser le prix affiché (${formatPrice(listedPrice)}).`
+          : 'Votre contre-offre semble trop élevée. Veuillez entrer un montant raisonnable.',
+      );
+      return;
+    }
+
     if (!onCounterPrice) return;
 
     try {
