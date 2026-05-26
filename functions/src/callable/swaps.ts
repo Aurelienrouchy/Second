@@ -435,7 +435,7 @@ export const getActiveSwapPartyInfo = onCall(
  * Uses runTransaction to prevent race conditions on participantsCount.
  */
 export const joinSwapPartySecure = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -528,7 +528,7 @@ export const joinSwapPartySecure = onCall(
  * Uses runTransaction to prevent race conditions on counters.
  */
 export const leaveSwapPartySecure = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -630,7 +630,7 @@ export const leaveSwapPartySecure = onCall(
  * Uses runTransaction to prevent race conditions on itemsCount.
  */
 export const addItemToPartySecure = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -756,7 +756,7 @@ export const addItemToPartySecure = onCall(
  * Uses runTransaction to prevent race conditions on itemsCount.
  */
 export const removeItemFromPartySecure = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1012,7 +1012,7 @@ export const declineSwap = onCall(
  * Releases party items if the swap belongs to a party.
  */
 export const cancelSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1075,7 +1075,7 @@ export const cancelSwap = onCall(
  * Uses runTransaction to guard the status transition.
  */
 export const setSwapExchangeMode = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1138,7 +1138,7 @@ export const setSwapExchangeMode = onCall(
  * Uses runTransaction to safely check the "both uploaded" condition.
  */
 export const uploadSwapPhotos = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1222,7 +1222,7 @@ export const uploadSwapPhotos = onCall(
  * Uses runTransaction for consistency.
  */
 export const confirmSwapShipping = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1439,7 +1439,7 @@ export const confirmSwapReception = onCall(
  * Uses runTransaction to verify status == 'completed'.
  */
 export const rateSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1576,7 +1576,7 @@ export const rateSwap = onCall(
  * Uses runTransaction to guard the status transition.
  */
 export const openSwapDispute = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
