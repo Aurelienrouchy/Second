@@ -56,9 +56,9 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
 
   return (
     <View style={styles.controlsRow}>
-      {/* Capture button — always centered regardless of Continue visibility */}
-      <Pressable
-        style={styles.captureButton}
+      {/* Capture button — centered when alone, shifts left when Continue appears */}
+      <AnimatedPressable
+        style={[styles.captureButton, captureButtonStyle]}
         onPress={onCapture}
         disabled={!canTakeMore || isCapturing}
       >
