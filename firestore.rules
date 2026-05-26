@@ -344,13 +344,12 @@ service cloud.firestore {
       // Create only via Cloud Functions (Admin SDK)
       allow create: if false;
 
-      // SECURITY: only the creator can update a swap party, and counters
-      // (participantsCount, itemsCount, swapsCount) plus creatorId are
-      // admin-only fields managed by Cloud Functions.
-      allow update: if isAuthenticated()
-        && resource.data.creatorId == request.auth.uid
-        && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['participantsCount', 'itemsCount', 'swapsCount', 'creatorId']);
+      // SECURITY: all swapParties updates go through Cloud Functions (Admin SDK)
+      // which manage counters (participantsCount, itemsCount, swapsCount) and
+      // status transitions atomically. No client-side updates allowed.
+      // Note: creatorId was never written by any code path, so the previous
+      // rule referencing it was always false in practice.
+      allow update: if false;
 
       // No delete - managed by Cloud Functions/scripts
       allow delete: if false;

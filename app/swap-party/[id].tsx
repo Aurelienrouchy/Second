@@ -9,6 +9,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
+  Pressable,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -16,6 +17,7 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useUser } from '@/contexts/AuthContext';
@@ -384,11 +386,18 @@ export default function SwapPartyDetailScreen() {
           onLeave={handleLeave}
         />
 
-        {/* "Articles disponibles" label with count */}
+        {/* "Articles disponibles" label with count + filter button */}
         <View style={styles.gridLabelSection}>
           <Text style={styles.gridLabel}>
             Articles disponibles · {otherItems.length}
           </Text>
+          <Pressable
+            style={({ pressed }) => [styles.filterButton, pressed && { opacity: 0.7 }]}
+            onPress={() => setShowFilters(true)}
+          >
+            <Ionicons name="options-outline" size={16} color={hasActiveFilters ? colors.sage : colors.muted} />
+            {hasActiveFilters && <View style={styles.filterActiveDot} />}
+          </Pressable>
         </View>
 
         {otherItems.length === 0 ? (
@@ -455,9 +464,27 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['2xl'],
   },
   gridLabelSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 14,
     marginBottom: 12,
+  },
+  filterButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterActiveDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.sage,
   },
   gridLabel: {
     fontSize: 10,

@@ -58,12 +58,15 @@ export function useSwapZone(): SwapZoneData {
         const active = await getActiveSwapParty();
         if (active) {
           setHasActiveParty(true);
+          const activeThemeName = typeof active.theme === 'string'
+            ? active.theme
+            : active.theme?.name;
           setActiveParty({
             id: active.id,
             name: active.name,
             emoji: active.emoji,
             description: active.description,
-            theme: active.theme?.name,
+            theme: activeThemeName,
             isGeneralist: active.isGeneralist,
             endDate: active.endDate?.toISOString(),
             participantsCount: active.participantsCount,
@@ -78,12 +81,15 @@ export function useSwapZone(): SwapZoneData {
           const upcoming = await getUpcomingSwapParties(1);
           if (upcoming.length > 0) {
             const next = upcoming[0];
+            const nextThemeName = typeof next.theme === 'string'
+              ? next.theme
+              : next.theme?.name;
             setNextParty({
               id: next.id,
               name: next.name,
               emoji: next.emoji,
               description: next.description,
-              theme: next.theme?.name,
+              theme: nextThemeName,
               isGeneralist: next.isGeneralist,
               startDate: next.startDate?.toISOString(),
               endDate: next.endDate?.toISOString(),

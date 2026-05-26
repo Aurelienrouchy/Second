@@ -631,6 +631,9 @@ interface SwapPartyDocument {
 interface SwapPartyParticipantDocument {
   partyId: string;
   userId: string;
+  userName: string;              // Display name (written by joinSwapPartySecure)
+  userImage?: string;            // Profile image URL (optional)
+  itemIds: string[];             // Article IDs added to the party by this user
   joinedAt: Timestamp;
 }
 ```
@@ -642,7 +645,13 @@ interface SwapPartyItemDocument {
   partyId: string;
   articleId: string;
   sellerId: string;
-  isPending?: boolean;           // Item is in an active swap proposal
+  sellerName: string;            // Seller display name
+  sellerImage?: string;          // Seller profile image URL
+  title: string;                 // Article title
+  price: number;                 // Article price
+  imageUrl?: string;             // Article image URL
+  isSwapped: boolean;            // Whether this item has been swapped (managed by Cloud Functions)
+  isPending?: boolean;           // Item is in an active swap proposal (managed by Cloud Functions)
   addedAt: Timestamp;
 }
 ```

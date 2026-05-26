@@ -1208,6 +1208,11 @@ export const confirmSwapShipping = onCall(
           throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
         }
 
+        // Status guard: shipping confirmation only valid during shipping or photos_pending phase
+        if (!['shipping', 'photos_pending'].includes(swap.status)) {
+          throw new HttpsError('failed-precondition', 'Le swap n\'est pas en cours d\'expédition.');
+        }
+
         const updateData: Record<string, any> = {
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
@@ -1328,14 +1333,11 @@ export const confirmSwapReception = onCall(
           }
         }
 
-        // Increment swapsCount on the party
+        // Atomically increment swapsCount on the party (no read-then-write race condition)
         const partyRef = db.collection('swapParties').doc(swapData.partyId);
-        const partySnap = await partyRef.get();
-        if (partySnap.exists) {
-          await partyRef.update({
-            swapsCount: (partySnap.data()?.swapsCount || 0) + 1,
-          });
-        }
+        await partyRef.update({
+          swapsCount: admin.firestore.FieldValue.increment(1),
+        });
       }
 
       logger.info('Swap reception confirmed', {

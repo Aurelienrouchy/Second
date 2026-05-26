@@ -50,8 +50,8 @@ async function cleanupEndedParty(partyId: string, partyName: string): Promise<vo
       try {
         await sendPushNotification(
           userId,
-          'Swap Zone terminee',
-          `La Swap Zone "${partyName}" est terminee. Tes propositions en attente ont ete annulees.`,
+          'Swap Zone terminée',
+          `La Swap Zone "${partyName}" est terminée. Tes propositions en attente ont été annulées.`,
           { partyId, partyName },
           'swap_update'
         );

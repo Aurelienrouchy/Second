@@ -8,6 +8,10 @@ const sa = require('./serviceAccountKey.json');
 admin.initializeApp({ credential: admin.credential.cert(sa) });
 const db = admin.firestore();
 
+// NOTE: `theme` is stored as a plain string (e.g. 'printemps', 'eco', 'capsule'),
+// NOT as a SwapPartyTheme object. The client-side hook (useSwapZone.ts) must handle
+// both formats: string from this script, or object { name, ... } if future scripts
+// use the TypeScript SwapPartyTheme type.
 const swapParties = [
   {
     name: 'Printemps Parisien',
