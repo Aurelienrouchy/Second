@@ -87,7 +87,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
           />
           <Text style={styles.currencySuffix}>$</Text>
         </View>
-        {discount !== null && (
+        {discount !== null && discount > 0 && (
           <Text style={[styles.discountText, discount > 50 && styles.discountWarning]}>
             {discount}% de réduction
           </Text>
