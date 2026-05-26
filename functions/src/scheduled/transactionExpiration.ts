@@ -147,6 +147,77 @@ export const expireOrphanedTransactions = onSchedule(
       });
     }
 
+    // =========================================================================
+    // 3. Expire paid but not shipped transactions older than 7 days
+    // =========================================================================
+
+    try {
+      const paidCutoff = new Date(now - PAID_NOT_SHIPPED_EXPIRY_MS);
+      const paidSnap = await db
+        .collection('transactions')
+        .where('status', '==', 'paid')
+        .where('createdAt', '<', paidCutoff)
+        .get();
+
+      if (!paidSnap.empty) {
+        let batch = db.batch();
+        let count = 0;
+
+        for (const doc of paidSnap.docs) {
+          const data = doc.data();
+
+          // Cancel the transaction
+          batch.update(doc.ref, {
+            status: 'cancelled',
+            cancelledAt: FieldValue.serverTimestamp(),
+            cancelReason: 'seller_did_not_ship_7d',
+          });
+
+          // Release the article
+          if (data.articleId) {
+            const articleRef = db.collection('articles').doc(data.articleId);
+            batch.update(articleRef, { isSold: false });
+          }
+
+          count++;
+          totalExpired++;
+
+          if (count >= BATCH_SIZE) {
+            await batch.commit();
+            batch = db.batch();
+            count = 0;
+          }
+
+          // Notify buyer that the order was cancelled (non-blocking)
+          if (data.buyerId) {
+            const articleTitle = data.articleTitle || 'votre article';
+            sendPushNotification(
+              data.buyerId,
+              'Commande annulee',
+              `Votre commande ${articleTitle} a ete annulee car le vendeur n'a pas expedie dans les delais.`,
+              { transactionId: doc.id, articleId: data.articleId || '' },
+              'order_cancelled'
+            ).catch((err) => {
+              logger.warn('[expireOrphanedTransactions] Failed to notify buyer of paid expiry', {
+                transactionId: doc.id,
+                error: err instanceof Error ? err.message : err,
+              });
+            });
+          }
+        }
+
+        if (count > 0) {
+          await batch.commit();
+        }
+
+        logger.info(`[expireOrphanedTransactions] Expired ${paidSnap.size} paid-not-shipped transactions (7d)`);
+      }
+    } catch (error) {
+      logger.error('[expireOrphanedTransactions] Error expiring paid-not-shipped transactions', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
     logger.info(`[expireOrphanedTransactions] Total expired: ${totalExpired}`);
   }
 );
