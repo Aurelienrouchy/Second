@@ -260,11 +260,14 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     };
 
     if (!sellerBalanceSnap.exists) {
+      // Initialize totalEarnings to sellerPayout (not 0) because this IS
+      // a sale — the amount is pending delivery confirmation but it still
+      // counts as an earning for the seller's dashboard display.
       tx.set(sellerBalanceRef, {
         userId: sellerId,
         availableBalance: 0,
         pendingBalance: sellerPayout,
-        totalEarnings: 0,
+        totalEarnings: sellerPayout,
         transactions: [saleTransaction],
         updatedAt: FieldValue.serverTimestamp(),
       });
