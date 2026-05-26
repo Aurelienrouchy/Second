@@ -325,20 +325,26 @@ service cloud.firestore {
                        ) &&
                        request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['isRead', 'offer']) &&
-                       // If offer is being modified: amount must stay the same,
-                       // and the sender cannot ACCEPT their own offer (but can
-                       // complete/noShow which are post-acceptance actions).
-                       // SECURITY: only the message receiver should be able to
-                       // accept/reject offers. Current check only prevents
-                       // self-acceptance by the sender. Ideally we would verify
-                       // request.auth.uid == resource.data.receiverId when
-                       // offer.status transitions to 'accepted' or 'rejected',
-                       // but receiverId may not always be set on legacy
-                       // messages. This remains a hardening TODO.
+                       // If offer is being modified: amount must stay the same.
+                       // SECURITY: only the receiver of the offer message can
+                       // accept or reject it. The sender may still transition
+                       // to 'completed' (post-acceptance meetup flow). For
+                       // legacy messages without receiverId we fall back to the
+                       // weaker "sender cannot self-accept" check.
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['offer']) ||
                         (request.resource.data.offer.amount == resource.data.offer.amount &&
-                         !(request.auth.uid == resource.data.senderId &&
-                           request.resource.data.offer.status == 'accepted')));
+                         (
+                           // Strong check: if receiverId exists, only receiver
+                           // can accept/reject the offer.
+                           ('receiverId' in resource.data &&
+                            (!(request.resource.data.offer.status in ['accepted', 'rejected']) ||
+                             request.auth.uid == resource.data.receiverId)) ||
+                           // Fallback for legacy messages without receiverId:
+                           // at minimum, sender cannot accept their own offer.
+                           (!('receiverId' in resource.data) &&
+                            !(request.auth.uid == resource.data.senderId &&
+                              request.resource.data.offer.status == 'accepted'))
+                         )));
 
       // No delete allowed
       allow delete: if false;
