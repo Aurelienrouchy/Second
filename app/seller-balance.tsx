@@ -18,6 +18,7 @@ import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { queryKeys } from '@/lib/queryKeys';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
 import { SellerBalance } from '@/types';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius, sizing, typography } from '@/constants/theme';
 import { formatPriceWithCurrency } from '@/utils/formatPrice';
 
@@ -150,7 +151,7 @@ export default function SellerBalanceScreen() {
           <View style={styles.transactionContent}>
             <Text style={styles.transactionDescription}>{item.description}</Text>
             <Text style={styles.transactionDate}>
-              {item.createdAt.toLocaleDateString('fr-FR', {
+              {item.createdAt.toLocaleDateString(APP_LOCALE, {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',

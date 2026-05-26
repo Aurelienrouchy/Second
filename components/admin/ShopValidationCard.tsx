@@ -2,6 +2,7 @@ import { Shop, ShopTypeLabels } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors } from '@/constants/theme';
 
 interface ShopValidationCardProps {
@@ -97,7 +98,7 @@ export default function ShopValidationCard({
 
       {/* Date de création */}
       <Text style={styles.date}>
-        Créée le {new Date(shop.createdAt).toLocaleDateString('fr-FR')}
+        Créée le {new Date(shop.createdAt).toLocaleDateString(APP_LOCALE)}
       </Text>
 
       {/* Actions pour les boutiques en attente */}

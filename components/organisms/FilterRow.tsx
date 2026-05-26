@@ -13,6 +13,7 @@ import {
   spacing,
   typography,
 } from '@/constants/theme';
+import { APP_LOCALE } from '@/constants/locale';
 import { FilterChip } from '@/components/atoms/FilterChip';
 
 export interface FilterConfig {
@@ -46,7 +47,7 @@ export const FilterRow: React.FC<FilterRowProps> = ({
         <View style={styles.resultRow}>
           {resultCount !== undefined && (
             <Text style={styles.resultCount}>
-              {resultCount.toLocaleString('fr-FR')} articles
+              {resultCount.toLocaleString(APP_LOCALE)} articles
             </Text>
           )}
           {sortLabel && onSortPress && (

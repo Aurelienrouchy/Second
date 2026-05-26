@@ -1,4 +1,5 @@
 import { useUser } from '@/contexts/AuthContext';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { refreshNotificationBadge } from '@/hooks/useNotificationSetup';
@@ -62,7 +63,7 @@ function formatTimeAgo(date: Date): string {
   if (diffMins < 60) return `Il y a ${diffMins} min`;
   if (diffHours < 24) return `Il y a ${diffHours}h`;
   if (diffDays < 7) return `Il y a ${diffDays}j`;
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(APP_LOCALE, { day: 'numeric', month: 'short' });
 }
 
 interface NotificationItemProps {

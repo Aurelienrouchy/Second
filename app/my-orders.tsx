@@ -10,6 +10,7 @@ import { hasUserReviewedTransaction } from '@/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
 import { Article, Transaction, TransactionStatus } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { queryKeys } from '@/lib/queryKeys';
@@ -59,7 +60,7 @@ function OrderCard({
   const { transaction, article, hasReview } = item;
   const status = STATUS_LABELS[transaction.status];
   const firstImage = article?.images?.[0];
-  const dateLabel = transaction.createdAt.toLocaleDateString('fr-FR', {
+  const dateLabel = transaction.createdAt.toLocaleDateString(APP_LOCALE, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { SwapParty } from '@/types';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing } from '@/constants/theme';
 
 export interface ZoneCardProps {
@@ -66,7 +67,7 @@ export const ZoneCard = React.memo(function ZoneCard({
       )
     : 0;
   const startDate = zone.startDate
-    ? new Date(zone.startDate).toLocaleDateString('fr-FR', {
+    ? new Date(zone.startDate).toLocaleDateString(APP_LOCALE, {
         day: 'numeric',
         month: 'long',
       })

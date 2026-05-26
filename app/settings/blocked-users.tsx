@@ -4,6 +4,7 @@
 
 import { useUser } from '@/contexts/AuthContext';
 import { BlockedUser, ModerationService } from '@/services/moderationService';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { Text, Caption } from '@/components/ui';
 import { Button } from '@/components/ui';
@@ -24,7 +25,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 const keyExtractor = (item: BlockedUser) => item.blockedUserId;
 
 const formatDate = (date: Date) => {
-  return date.toLocaleDateString('fr-FR', {
+  return date.toLocaleDateString(APP_LOCALE, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

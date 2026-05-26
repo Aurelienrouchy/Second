@@ -14,6 +14,7 @@ import {
 
 import { functions } from '@/config/firebaseConfig';
 import { Transaction } from '@/types';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts } from '@/constants/theme';
 
 interface ShipmentTrackingProps {
@@ -166,7 +167,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
           <View style={styles.timelineContent}>
             <Text style={styles.timelineTitle}>Paiement confirmé</Text>
             <Text style={styles.timelineDate}>
-              {transaction.paidAt?.toLocaleDateString('fr-FR')}
+              {transaction.paidAt?.toLocaleDateString(APP_LOCALE)}
             </Text>
           </View>
         </View>
@@ -177,7 +178,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitle}>Colis expédié</Text>
               <Text style={styles.timelineDate}>
-                {transaction.shippedAt.toLocaleDateString('fr-FR')}
+                {transaction.shippedAt.toLocaleDateString(APP_LOCALE)}
               </Text>
             </View>
           </View>
@@ -218,7 +219,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
             <Text style={styles.timelineTitle}>Livré</Text>
             {transaction.deliveredAt && (
               <Text style={styles.timelineDate}>
-                {transaction.deliveredAt.toLocaleDateString('fr-FR')}
+                {transaction.deliveredAt.toLocaleDateString(APP_LOCALE)}
               </Text>
             )}
           </View>

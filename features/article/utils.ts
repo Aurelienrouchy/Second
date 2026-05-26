@@ -2,6 +2,7 @@
  * Article detail screen helpers.
  */
 
+import { APP_LOCALE } from '@/constants/locale';
 import type { Article } from '@/types';
 
 /** Build tags from real Article fields: size, condition, color, material, pattern */
@@ -52,5 +53,5 @@ export const formatArticleDate = (date: Date) => {
   if (diffInDays === 1) return 'Hier';
   if (diffInDays < 7) return `Il y a ${diffInDays}j`;
   if (diffInDays < 30) return `Il y a ${Math.floor(diffInDays / 7)} sem.`;
-  return date.toLocaleDateString('fr-FR');
+  return date.toLocaleDateString(APP_LOCALE);
 };

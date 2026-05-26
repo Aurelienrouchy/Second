@@ -22,6 +22,7 @@ import { useUser } from '@/contexts/AuthContext';
 import { getUserSwaps, getSwapItems } from '@/services/swapService';
 import { queryKeys } from '@/lib/queryKeys';
 import { Swap, SwapStatus, SwapItemInfo } from '@/types';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Button } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -320,7 +321,7 @@ function SwapCard({
     } else if (days < 7) {
       return `Il y a ${days} jours`;
     } else {
-      return date.toLocaleDateString('fr-FR', {
+      return date.toLocaleDateString(APP_LOCALE, {
         day: 'numeric',
         month: 'short',
       });

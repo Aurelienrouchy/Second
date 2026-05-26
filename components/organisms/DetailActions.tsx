@@ -11,6 +11,7 @@ import {
   colors,
   spacing,
 } from '@/constants/theme';
+import { APP_LOCALE } from '@/constants/locale';
 
 export interface DetailActionsProps {
   price: number;
@@ -28,7 +29,7 @@ export const DetailActions: React.FC<DetailActionsProps> = ({
   const styles = getStyles();
 
   const formatPrice = (p: number): string => {
-    return p.toLocaleString('fr-FR', {
+    return p.toLocaleString(APP_LOCALE, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });

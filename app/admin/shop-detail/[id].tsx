@@ -23,6 +23,7 @@ import {
 import { Image } from 'expo-image';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, radius } from '@/constants/theme';
 
 export default function AdminShopDetailScreen() {
@@ -312,11 +313,11 @@ export default function AdminShopDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Informations système</Text>
             <Text style={styles.metaText}>
-              Créée le {new Date(shop.createdAt).toLocaleDateString('fr-FR')}
+              Créée le {new Date(shop.createdAt).toLocaleDateString(APP_LOCALE)}
             </Text>
             {shop.verificationDetails?.verifiedAt && (
               <Text style={styles.metaText}>
-                Validée le {new Date(shop.verificationDetails.verifiedAt).toLocaleDateString('fr-FR')}
+                Validée le {new Date(shop.verificationDetails.verifiedAt).toLocaleDateString(APP_LOCALE)}
               </Text>
             )}
           </View>

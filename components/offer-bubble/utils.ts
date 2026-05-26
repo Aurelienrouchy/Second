@@ -4,11 +4,12 @@
 
 import type { Ionicons } from '@expo/vector-icons';
 
+import { APP_LOCALE } from '@/constants/locale';
 import { colors } from '@/constants/theme';
 import type { OfferStatus } from '@/types';
 
 export const formatTime = (date: Date) => {
-  return date.toLocaleTimeString('fr-FR', {
+  return date.toLocaleTimeString(APP_LOCALE, {
     hour: '2-digit',
     minute: '2-digit',
   });

@@ -8,6 +8,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/ui';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { UserStats } from '@/services/userStatsService';
 import { User } from '@/types';
@@ -31,7 +32,7 @@ export const ProfileHeader = React.memo(function ProfileHeader({
       user.createdAt instanceof Date
         ? user.createdAt
         : new Date(user.createdAt);
-    return `Membre depuis ${date.toLocaleDateString('fr-FR', {
+    return `Membre depuis ${date.toLocaleDateString(APP_LOCALE, {
       month: 'long',
       year: 'numeric',
     })}`;

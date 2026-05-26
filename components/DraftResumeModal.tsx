@@ -9,6 +9,7 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ArticleDraft, getDaysUntilExpiration } from '@/services/draftService';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors } from '@/constants/theme';
 
 interface DraftResumeModalProps {
@@ -40,7 +41,7 @@ export default function DraftResumeModal({
   // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(APP_LOCALE, {
       day: 'numeric',
       month: 'long',
       hour: '2-digit',

@@ -3,12 +3,14 @@
  * Extracted from profile screen.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Avatar, Text } from '@/components/ui';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { APP_LOCALE } from '@/constants/locale';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
 
 import { ProfileStats } from './ProfileStats';
@@ -22,6 +24,8 @@ interface ProfileHeaderProps {
   displayName: string | undefined;
   bio: string | undefined;
   createdAt: Date | string | undefined;
+  city: string | undefined;
+  styleTags: string[] | undefined;
   articlesCount: number;
   salesCount: number;
   rating: number | null | undefined;
@@ -37,6 +41,8 @@ const ProfileHeader = React.memo(function ProfileHeader({
   displayName,
   bio,
   createdAt,
+  city,
+  styleTags,
   articlesCount,
   salesCount,
   rating,
@@ -45,7 +51,7 @@ const ProfileHeader = React.memo(function ProfileHeader({
   const memberSince = useMemo(() => {
     if (!createdAt) return '';
     const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
-    return `Membre depuis ${date.toLocaleDateString('fr-FR', {
+    return `Membre depuis ${date.toLocaleDateString(APP_LOCALE, {
       month: 'long',
       year: 'numeric',
     })}`;
@@ -72,7 +78,16 @@ const ProfileHeader = React.memo(function ProfileHeader({
               @{displayName.toLowerCase().replace(/\s+/g, '.')}
             </Text>
           )}
-          <Text style={styles.memberSince}>{memberSince}</Text>
+          <View style={styles.metaRow}>
+            <Ionicons name="time-outline" size={12} color={colors.muted} />
+            <Text style={styles.metaText}>{memberSince}</Text>
+          </View>
+          {city ? (
+            <View style={styles.metaRow}>
+              <Ionicons name="location-outline" size={12} color={colors.muted} />
+              <Text style={styles.metaText}>{city}</Text>
+            </View>
+          ) : null}
         </View>
       </Animated.View>
 
@@ -80,6 +95,20 @@ const ProfileHeader = React.memo(function ProfileHeader({
       {bio ? (
         <Animated.View entering={FadeInDown.duration(400).delay(50)}>
           <Text style={styles.bio}>{bio}</Text>
+        </Animated.View>
+      ) : null}
+
+      {/* Style Tags */}
+      {styleTags && styleTags.length > 0 ? (
+        <Animated.View
+          entering={FadeInDown.duration(400).delay(80)}
+          style={styles.styleTagsRow}
+        >
+          {styleTags.slice(0, 5).map((tag) => (
+            <View key={tag} style={styles.styleTag}>
+              <Text style={styles.styleTagText}>{tag}</Text>
+            </View>
+          ))}
         </Animated.View>
       ) : null}
 
@@ -123,12 +152,17 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 2,
   },
-  memberSince: {
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  metaText: {
     fontFamily: fonts.sans,
     fontSize: 11,
     lineHeight: 15,
     color: colors.muted,
-    marginTop: spacing.xs,
   },
   bio: {
     fontFamily: fonts.sans,
@@ -136,5 +170,26 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.charcoal,
     marginBottom: spacing.md,
+  },
+  styleTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  styleTag: {
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  styleTagText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.charcoal,
+    letterSpacing: 0.3,
   },
 });

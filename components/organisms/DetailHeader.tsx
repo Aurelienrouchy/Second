@@ -11,6 +11,7 @@ import {
   typography,
   fonts,
 } from '@/constants/theme';
+import { APP_LOCALE } from '@/constants/locale';
 import { Tag } from '@/components/atoms/Tag';
 
 export interface DetailHeaderProps {
@@ -37,7 +38,7 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
   const styles = getStyles();
 
   const formatPrice = (p: number): string => {
-    return p.toLocaleString('fr-FR', {
+    return p.toLocaleString(APP_LOCALE, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });

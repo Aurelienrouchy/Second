@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Message } from '@/types';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 
 interface ChatBubbleProps {
@@ -28,7 +29,7 @@ const ChatBubble = React.memo(function ChatBubble({
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
 
   const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('fr-FR', {
+    return date.toLocaleTimeString(APP_LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
     });
