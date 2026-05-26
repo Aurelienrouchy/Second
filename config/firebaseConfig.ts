@@ -54,8 +54,4 @@ const firestore = getFirestore(app);
 const storage = getStorage(app);
 const functions = getFunctions(app, 'northamerica-northeast1');
 
-if (__DEV__) {
-  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
-}
-
 export { app, auth, firestore, storage, functions };
