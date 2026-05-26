@@ -85,13 +85,14 @@ function VisualSearchCameraComponent({
         mediaTypes: ['images'] as const,
         allowsMultipleSelection: false,
         quality: 0.8,
+        exif: false,
       });
 
       if (!result.canceled && result.assets.length > 0) {
         setCapturedUri(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('[VisualSearchCamera] Error picking image:', error);
+      if (__DEV__) console.error('[VisualSearchCamera] Error picking image:', error);
     }
   };
 

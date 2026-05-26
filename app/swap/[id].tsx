@@ -185,9 +185,10 @@ export default function SwapDetailScreen() {
     if (!id || !user) return;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: ['images'] as const,
         allowsMultipleSelection: true,
         quality: 0.8,
+        exif: false,
         selectionLimit: 4,
       });
       if (result.canceled) return;

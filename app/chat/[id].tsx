@@ -135,6 +135,7 @@ export default function ChatScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
+        exif: false,
       });
       if (!result.canceled && result.assets[0]) {
         setIsSendingImage(true);

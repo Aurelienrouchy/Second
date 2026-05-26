@@ -250,7 +250,8 @@ export default function PhotosReviewScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'] as const,
         allowsMultipleSelection: true,
-        quality: 0.7,
+        quality: 0.8,
+        exif: false,
         selectionLimit: remainingSlots,
       });
 
