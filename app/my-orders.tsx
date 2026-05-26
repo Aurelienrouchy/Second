@@ -6,6 +6,7 @@
 import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { ArticlesService } from '@/services/articlesService';
+import { hasUserReviewedTransaction } from '@/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
 import { Article, Transaction, TransactionStatus } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
