@@ -223,13 +223,15 @@ interface UserDocument {
   reviewCount?: number;
   articlesCount?: number;
 
-  // Stripe Connect
-  stripeAccountId?: string;        // Stripe Connect account ID (acct_xxx)
-  stripeAccountStatus?: 'pending' | 'pending_verification' | 'active';
+  // Stripe Connect Custom
+  stripeAccountId?: string;        // Stripe Connect Custom account ID (acct_xxx)
+  stripeAccountStatus?: 'pending' | 'pending_verification' | 'partially_active' | 'active';
   stripeChargesEnabled?: boolean;  // Can receive payments via platform
   stripePayoutsEnabled?: boolean;  // Can receive payouts from Stripe
-  stripeDetailsSubmitted?: boolean; // Onboarding form completed
+  stripeDetailsSubmitted?: boolean; // Onboarding details submitted
   stripeAccountCreatedAt?: Timestamp;
+  stripeBankAccountAdded?: boolean;  // Bank account attached to Custom account
+  stripeBankAccountLast4?: string;   // Last 4 digits of bank account number
 
   // Status
   isVerified?: boolean;
