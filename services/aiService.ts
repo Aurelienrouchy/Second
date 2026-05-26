@@ -226,7 +226,9 @@ async function uploadImagesToStorage(
  */
 export async function deleteDraftImagesFromStorage(draftId: string): Promise<void> {
   try {
-    const folderRef = ref(storage, `${DRAFTS_STORAGE_PATH}/${draftId}`);
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const folderRef = ref(storage, `${DRAFTS_STORAGE_PATH}/${uid}/${draftId}`);
     const listResult = await listAll(folderRef);
 
     // Delete all files in the folder
