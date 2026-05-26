@@ -1,0 +1,118 @@
+/**
+ * StripePayment — Native Payment Sheet via @stripe/stripe-react-native
+ *
+ * Stripe's Payment Sheet is fully native. No Modal or WebView needed
+ * — the SDK presents the sheet on top of the app automatically.
+ *
+ * Flow:
+ * 1. Parent obtains a clientSecret from the createStripeCheckout CF
+ * 2. When `visible` turns true, we init + present the Payment Sheet
+ * 3. On success/error/cancel, we call onResult / onClose
+ */
+
+import { useCallback, useEffect, useRef } from 'react';
+import { useStripe } from '@stripe/stripe-react-native';
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+export interface StripePaymentResult {
+  success: boolean;
+  error?: string;
+}
+
+interface StripePaymentProps {
+  /** PaymentIntent client secret from createStripeCheckout Cloud Function */
+  clientSecret: string;
+  /** When true, initialise and present the Payment Sheet */
+  visible: boolean;
+  /** Called when payment succeeds or fails */
+  onResult: (result: StripePaymentResult) => void;
+  /** Called when user dismisses/cancels the sheet */
+  onClose: () => void;
+  /** Total amount — used for display in the sheet */
+  totalAmount: number;
+}
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
+/**
+ * StripePayment is a headless component — it renders nothing.
+ * The Stripe Payment Sheet is presented natively by the SDK.
+ */
+function StripePaymentComponent({
+  clientSecret,
+  visible,
+  onResult,
+  onClose,
+  totalAmount: _totalAmount,
+}: StripePaymentProps) {
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const isPresentingRef = useRef(false);
+
+  const handlePayment = useCallback(async () => {
+    if (isPresentingRef.current) return;
+    isPresentingRef.current = true;
+
+    try {
+      // 1. Initialise the Payment Sheet
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: 'Seconde',
+        // Apple Pay / Google Pay will be enabled automatically
+        // if the user has them configured on their device
+        applePay: {
+          merchantCountryCode: 'CA',
+        },
+        googlePay: {
+          merchantCountryCode: 'CA',
+          testEnv: __DEV__,
+        },
+        style: 'alwaysLight',
+        returnURL: 'seconde://checkout/success',
+      });
+
+      if (initError) {
+        if (__DEV__) console.error('Stripe initPaymentSheet error:', initError);
+        onResult({ success: false, error: initError.message });
+        return;
+      }
+
+      // 2. Present the Payment Sheet
+      const { error: presentError } = await presentPaymentSheet();
+
+      if (presentError) {
+        // User cancelled
+        if (presentError.code === 'Canceled') {
+          onClose();
+          return;
+        }
+        onResult({ success: false, error: presentError.message });
+        return;
+      }
+
+      // 3. Payment succeeded
+      onResult({ success: true });
+    } catch (err) {
+      if (__DEV__) console.error('Stripe payment error:', err);
+      const message = err instanceof Error ? err.message : 'Erreur de paiement inattendue';
+      onResult({ success: false, error: message });
+    } finally {
+      isPresentingRef.current = false;
+    }
+  }, [clientSecret, initPaymentSheet, presentPaymentSheet, onResult, onClose]);
+
+  useEffect(() => {
+    if (visible && clientSecret) {
+      handlePayment();
+    }
+  }, [visible, clientSecret, handlePayment]);
+
+  // Headless component — Stripe SDK presents the sheet natively
+  return null;
+}
+
+export const StripePayment = StripePaymentComponent;
