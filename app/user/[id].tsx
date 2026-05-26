@@ -74,7 +74,10 @@ export default function UserProfileScreen() {
     isLoading,
   } = useQuery<User | null>({
     queryKey: queryKeys.users.profile(id ?? ''),
-    queryFn: () => UserService.getUserById(id!),
+    queryFn: () =>
+      isOwnProfile
+        ? UserService.getUserById(id!)
+        : UserService.getPublicProfile(id!),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
   });

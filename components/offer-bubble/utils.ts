@@ -21,7 +21,11 @@ export const getTimeUntilExpiry = (
   if (!expiresAt || status !== 'pending') return null;
 
   const now = new Date();
-  const expiry = new Date(expiresAt);
+  const expiry = expiresAt instanceof Date
+    ? expiresAt
+    : typeof expiresAt === 'object' && expiresAt !== null && 'toDate' in expiresAt
+      ? (expiresAt as unknown as { toDate: () => Date }).toDate()
+      : new Date(expiresAt);
   const diffMs = expiry.getTime() - now.getTime();
 
   if (diffMs <= 0) return 'Expirée';
@@ -107,7 +111,7 @@ export const getStatusIconBackground = (status: OfferStatus): string => {
     case 'counter_price':
     case 'counter_location':
     case 'counter_time':
-      return 'rgba(212, 196, 160, 0.12)';
+      return colors.sandLight;
     default:
       return colors.primaryLight;
   }
@@ -126,7 +130,7 @@ export const getStatusBgColor = (status: OfferStatus): string => {
     case 'counter_price':
     case 'counter_location':
     case 'counter_time':
-      return 'rgba(212, 196, 160, 0.12)';
+      return colors.sandLight;
     default:
       return colors.primaryLight;
   }

@@ -33,6 +33,8 @@ interface OfferBubbleProps {
   isOwnMessage: boolean;
   chatId: string;
   currentUserId: string;
+  /** The seller's uid — used to determine roles for meetup actions */
+  sellerId?: string;
   /** Original listed price of the article (used for context display) */
   articlePrice?: number;
   // Legacy actions
@@ -52,6 +54,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   isOwnMessage,
   chatId,
   currentUserId,
+  sellerId,
   articlePrice: listedPrice,
   onAcceptOffer,
   onRejectOffer,
@@ -240,10 +243,12 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const statusColor = getStatusColor(status);
   const canRespondToOffer = !isOwnMessage && status === 'pending';
   const canPay = isOwnMessage && status === 'accepted' && transactionId && !isMeetupOffer;
-  // Seller confirms meetup (before confirmedAt is set)
-  const canConfirmMeetup = status === 'accepted' && isMeetupOffer && meetup && !meetup.confirmedAt && !meetup.completedAt;
-  // Buyer completes meetup (after confirmedAt, before completedAt)
-  const canCompleteMeetup = status === 'accepted' && isMeetupOffer && meetup && !!meetup.confirmedAt && !meetup.completedAt;
+  const isSeller = !!sellerId && currentUserId === sellerId;
+  const isBuyer = !!sellerId && currentUserId !== sellerId;
+  // Seller confirms meetup ("J'ai rencontre l'acheteur") — before confirmedAt is set
+  const canConfirmMeetup = isSeller && status === 'accepted' && isMeetupOffer && meetup && !meetup.confirmedAt && !meetup.completedAt;
+  // Buyer completes meetup ("J'ai bien recu l'article") — after confirmedAt, before completedAt
+  const canCompleteMeetup = isBuyer && status === 'accepted' && isMeetupOffer && meetup && !!meetup.confirmedAt && !meetup.completedAt;
   const expiryText = getTimeUntilExpiry(expiresAt, status);
 
   const handlePayment = () => {

@@ -246,14 +246,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   ownTimestampText: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: colors.whiteTranslucent,
   },
   systemMessageContainer: {
     alignSelf: 'center',
     marginVertical: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
-    backgroundColor: 'rgba(26, 24, 20, 0.04)',
+    backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.sm,
     maxWidth: '80%',
   },

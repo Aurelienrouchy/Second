@@ -11,7 +11,6 @@ import { useNotificationStore, PushNotificationData } from '@/store/notification
 // ─── Notification handler (configuré au niveau module, une seule fois) ──────
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
     shouldShowBanner: true,

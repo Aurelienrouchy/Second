@@ -18,6 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -33,6 +34,7 @@ import { Article, MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
 import { TransactionService } from '@/services/transactionService';
 import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
+import { homeKeys } from '@/features/home/query-keys';
 
 // Special sentinel for "to be decided via chat"
 const VIA_CHAT_OPTION = '__via_chat__';
@@ -43,6 +45,7 @@ const VIA_CHAT_OPTION = '__via_chat__';
 
 export default function MeetupCheckoutScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { articleId, chatId: chatIdParam, negotiatedPrice } = useLocalSearchParams<{
     articleId: string;
@@ -145,18 +148,25 @@ export default function MeetupCheckoutScreen() {
         chat.id,
       );
 
-      // Send message in chat
-      const spotLabel = selectedSpot
-        ? `a ${selectedSpot.name}`
-        : '(lieu a convenir)';
-      await ChatService.sendMessage(
+      // Send structured meetup offer in chat (renders an interactive OfferBubble)
+      const meetupLocation: MeetupSpot = selectedSpot ?? {
+        name: 'A convenir',
+        category: 'other_public',
+        neighborhood: { id: 'tbd', name: 'A convenir', borough: 'A convenir' },
+      };
+      await ChatService.sendMeetupOffer(
         chat.id,
         currentUser.uid,
         article.sellerId,
-        `Demande de meetup pour "${article.title}" ${spotLabel} (${formatPrice(finalPrice)})`,
+        finalPrice,
+        meetupLocation,
+        `Demande de meetup pour "${article.title}"`,
       );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Invalidate home cache so the sold article disappears
+      queryClient.invalidateQueries({ queryKey: homeKeys.all });
 
       // Navigate to success
       router.replace({

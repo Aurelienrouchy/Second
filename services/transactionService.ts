@@ -209,7 +209,7 @@ export class TransactionService {
    *
    * SECURITY: 'cancelled' goes through a Cloud Function that re-checks
    * caller identity and current status. 'paid' / 'shipped' / 'delivered'
-   * are written by Cloud Functions (helcimWebhook, checkTrackingStatus)
+   * are written by Cloud Functions (stripeWebhook, checkTrackingStatus)
    * and should not be set from the client. Other statuses still go via
    * direct Firestore update.
    */
@@ -259,7 +259,7 @@ export class TransactionService {
   }
 
   /**
-   * @deprecated Server-side only — handled by helcimWebhook Cloud Function.
+   * @deprecated Server-side only — handled by stripeWebhook Cloud Function.
    * Stub throws to surface any straggling caller instead of silently
    * hitting Firestore permission-denied (the transactions rule rejects
    * client status='paid' updates).
@@ -270,12 +270,12 @@ export class TransactionService {
   ): Promise<void> {
     throw new Error(
       'TransactionService.updatePaymentInfo is server-side only ' +
-        '(handled by helcimWebhook Cloud Function).'
+        '(handled by stripeWebhook Cloud Function).'
     );
   }
 
   /**
-   * @deprecated Server-side only — handled by helcimWebhook (label
+   * @deprecated Server-side only — handled by stripeWebhook (label
    * generation + status='shipped').
    */
   static async updateShippingInfo(
@@ -287,7 +287,7 @@ export class TransactionService {
   ): Promise<void> {
     throw new Error(
       'TransactionService.updateShippingInfo is server-side only ' +
-        '(handled by helcimWebhook Cloud Function).'
+        '(handled by stripeWebhook Cloud Function).'
     );
   }
 

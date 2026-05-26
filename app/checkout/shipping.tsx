@@ -1,6 +1,6 @@
 /**
- * Checkout — Shipping Address + Helcim Payment
- * 1. Enter shipping address  2. Select shipping option  3. Review price  4. Pay via Helcim
+ * Checkout — Shipping Address + Stripe Payment
+ * 1. Enter shipping address  2. Select shipping option  3. Review price  4. Pay via Stripe
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -8,6 +8,7 @@ import {
   View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -20,7 +21,7 @@ import { Article, ShippingAddress } from '@/types';
 import { TransactionService } from '@/services/transactionService';
 import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
-import { HelcimPayment, HelcimPaymentResult } from '@/components/HelcimPayment';
+import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
 import {
   ShippingAddressForm,
   ShippingEstimateList,
@@ -31,6 +32,7 @@ import {
   FALLBACK_ESTIMATES,
 } from '@/features/checkout-shipping';
 import type { ShippingEstimate, AddressFormValues } from '@/features/checkout-shipping';
+import { homeKeys } from '@/features/home/query-keys';
 
 /** Default postal code used when seller location is unavailable */
 const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
@@ -44,6 +46,7 @@ const CA_POSTAL_RE = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
 
 export default function ShippingCheckoutScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { articleId, chatId: paramChatId, negotiatedPrice } = useLocalSearchParams<{
     articleId: string;
@@ -58,8 +61,8 @@ export default function ShippingCheckoutScreen() {
   const [addressForm, setAddressForm] = useState<AddressFormValues>(INITIAL_ADDRESS);
   const [estimates, setEstimates] = useState<ShippingEstimate[]>([]);
   const [selectedEstimate, setSelectedEstimate] = useState<ShippingEstimate | null>(null);
-  const [showHelcimPayment, setShowHelcimPayment] = useState(false);
-  const [checkoutToken, setCheckoutToken] = useState<string | null>(null);
+  const [showStripePayment, setShowStripePayment] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
   const [pendingChatId, setPendingChatId] = useState<string | null>(null);
   const [serviceFee, setServiceFee] = useState(0);
@@ -202,14 +205,14 @@ export default function ShippingCheckoutScreen() {
         selectedEstimate.amount, shippingAddress, chat.id, serviceFee, selectedEstimate.rateId,
       );
 
-      const result = await httpsCallable(functions, 'createHelcimCheckout')({ transactionId });
-      const data = result.data as { success: boolean; checkoutToken: string };
-      if (!data.success || !data.checkoutToken) throw new Error('Impossible de créer la session de paiement');
+      const result = await httpsCallable(functions, 'createStripeCheckout')({ transactionId });
+      const data = result.data as { success: boolean; clientSecret: string };
+      if (!data.success || !data.clientSecret) throw new Error('Impossible de créer la session de paiement');
 
       setPendingTransactionId(transactionId);
       setPendingChatId(chat.id);
-      setCheckoutToken(data.checkoutToken);
-      setShowHelcimPayment(true);
+      setClientSecret(data.clientSecret);
+      setShowStripePayment(true);
     } catch (error: unknown) {
       if (__DEV__) console.error('Error initiating payment:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -226,9 +229,9 @@ export default function ShippingCheckoutScreen() {
     }
   }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router]);
 
-  const handlePaymentResult = useCallback(async (result: HelcimPaymentResult) => {
-    setShowHelcimPayment(false);
-    setCheckoutToken(null);
+  const handlePaymentResult = useCallback(async (result: StripePaymentResult) => {
+    setShowStripePayment(false);
+    setClientSecret(null);
 
     if (!result.success) {
       if (pendingTransactionId) {
@@ -239,6 +242,7 @@ export default function ShippingCheckoutScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    queryClient.invalidateQueries({ queryKey: homeKeys.all });
     router.replace({
       pathname: '/checkout/success' as any,
       params: {
@@ -309,12 +313,12 @@ export default function ShippingCheckoutScreen() {
         bottomInset={insets.bottom}
       />
 
-      {checkoutToken && (
-        <HelcimPayment
-          checkoutToken={checkoutToken}
-          visible={showHelcimPayment}
+      {clientSecret && (
+        <StripePayment
+          clientSecret={clientSecret}
+          visible={showStripePayment}
           onResult={handlePaymentResult}
-          onClose={() => { setShowHelcimPayment(false); setCheckoutToken(null); }}
+          onClose={() => { setShowStripePayment(false); setClientSecret(null); }}
           totalAmount={totalAmount}
         />
       )}

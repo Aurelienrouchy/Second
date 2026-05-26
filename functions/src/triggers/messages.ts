@@ -7,7 +7,9 @@ import {
   onDocumentUpdated,
 } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
+import { sendPushNotification } from '../utils/notifications';
 
 /**
  * Send push notification when a message is created
@@ -168,7 +170,17 @@ export const sendMessageNotification = onDocumentCreated(
 );
 
 /**
- * Send notification when offer status changes
+ * Send notification when offer status changes (accepted, rejected, counter-offer)
+ *
+ * The notification goes to the original offer sender (buyer) when the
+ * receiver (seller) accepts, rejects, or counter-offers.
+ *
+ * Handled statuses:
+ * - accepted: "Votre offre a ete acceptee !"
+ * - rejected: "Offre refusee"
+ * - counter_price: "Nouvelle contre-offre" (price)
+ * - counter_location: "Nouveau lieu propose"
+ * - counter_time: "Nouvel horaire propose"
  */
 export const sendOfferStatusNotification = onDocumentUpdated(
   { document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB' },
@@ -192,95 +204,100 @@ export const sendOfferStatusNotification = onDocumentUpdated(
       const offerStatus = after.offer.status;
       const amount = after.offer.amount;
 
-      // Only send notification for accepted/rejected offers
-      if (offerStatus !== 'accepted' && offerStatus !== 'rejected') {
+      // Only send notification for statuses that require buyer notification
+      const notifiableStatuses = [
+        'accepted',
+        'rejected',
+        'counter_price',
+        'counter_location',
+        'counter_time',
+      ];
+
+      if (!notifiableStatuses.includes(offerStatus)) {
         return;
       }
 
-      // Get offer sender's (original buyer) FCM tokens
-      const buyerDoc = await db.collection('users').doc(senderId).get();
-      if (!buyerDoc.exists) {
-        console.log(`Buyer user ${senderId} not found`);
+      if (!senderId || !receiverId || !chatId) {
+        logger.warn('Missing required fields for offer status notification', {
+          senderId,
+          receiverId,
+          chatId,
+          offerStatus,
+        });
         return;
       }
 
-      const buyerData = buyerDoc.data()!;
-      const fcmTokens = buyerData.fcmTokens || [];
-
-      if (fcmTokens.length === 0) {
-        console.log(`No FCM tokens found for user ${senderId}`);
-        return;
-      }
-
-      // Get seller info
+      // Get seller info (the one who changed the status)
       const sellerDoc = await db.collection('users').doc(receiverId).get();
       const sellerName = sellerDoc.exists
         ? sellerDoc.data()!.displayName || 'Le vendeur'
         : 'Le vendeur';
 
-      // Build notification
-      const title =
-        offerStatus === 'accepted' ? 'Offre acceptée !' : 'Offre refusée';
-      const body =
-        offerStatus === 'accepted'
-          ? `${sellerName} a accepté votre offre de ${amount} $`
-          : `${sellerName} a refusé votre offre de ${amount} $`;
+      // Build notification based on status
+      let title: string;
+      let body: string;
+      let notificationType: string;
 
-      // Send notification to all buyer's devices
-      const messages = fcmTokens.map((token: string) => ({
-        token,
-        notification: {
-          title,
-          body,
-        },
-        data: {
-          type: `offer_${offerStatus}`,
+      switch (offerStatus) {
+        case 'accepted':
+          title = 'Votre offre a ete acceptee !';
+          body = `${sellerName} a accepte votre offre de ${amount} $`;
+          notificationType = 'offer_accepted';
+          break;
+
+        case 'rejected':
+          title = 'Offre refusee';
+          body = `${sellerName} a decline votre offre`;
+          notificationType = 'offer_rejected';
+          break;
+
+        case 'counter_price':
+          title = 'Nouvelle contre-offre';
+          body = `${sellerName} vous propose un nouveau prix`;
+          notificationType = 'offer_counter';
+          break;
+
+        case 'counter_location':
+          title = 'Nouveau lieu propose';
+          body = `${sellerName} propose un autre lieu de rencontre`;
+          notificationType = 'offer_counter';
+          break;
+
+        case 'counter_time':
+          title = 'Nouvel horaire propose';
+          body = `${sellerName} propose un autre horaire`;
+          notificationType = 'offer_counter';
+          break;
+
+        default:
+          return;
+      }
+
+      // Send push notification + in-app notification to the original offer sender (buyer)
+      const result = await sendPushNotification(
+        senderId,
+        title,
+        body,
+        {
           chatId,
           senderId: receiverId,
           senderName: sellerName,
-          amount: amount.toString(),
+          amount: String(amount || ''),
+          offerStatus,
         },
-        android: {
-          priority: 'high' as const,
-          notification: {
-            sound: 'default',
-            channelId: 'offers',
-            priority: 'high' as const,
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: 'default',
-              badge: 1,
-            },
-          },
-        },
-      }));
-
-      // Send all notifications
-      const results = await admin.messaging().sendEach(messages);
-
-      let successCount = 0;
-      let failureCount = 0;
-
-      results.responses.forEach((response, index) => {
-        if (response.success) {
-          successCount++;
-        } else {
-          failureCount++;
-          console.error(
-            `Failed to send to token ${fcmTokens[index]}:`,
-            response.error
-          );
-        }
-      });
-
-      console.log(
-        `Offer status notifications sent: ${successCount} successful, ${failureCount} failed`
+        notificationType
       );
+
+      logger.info('Offer status notification sent', {
+        messageId: event.params.messageId,
+        recipientId: senderId,
+        offerStatus,
+        notificationType,
+        success: result.success,
+        sentCount: result.sentCount,
+      });
     } catch (error) {
-      console.error('Error sending offer status notification:', error);
+      logger.error('Error sending offer status notification', { error });
     }
   }
 );

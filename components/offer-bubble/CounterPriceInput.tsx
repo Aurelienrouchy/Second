@@ -40,7 +40,7 @@ function CounterPriceInputComponent({
         placeholderTextColor={colors.muted}
       />
       <TextInput
-        style={[styles.counterMessageInput, { minHeight: 60 }]}
+        style={[styles.counterMessageInput, styles.counterMessageInputMultiline]}
         placeholder="Message (optionnel)"
         value={message}
         onChangeText={onChangeMessage}

@@ -9,7 +9,7 @@ export class SellerBalanceService {
    *
    * If the balance doc doesn't exist yet (the seller has never received
    * a payment), return an in-memory zero balance. The doc itself will be
-   * created server-side by the helcimWebhook Cloud Function on the first
+   * created server-side by the stripeWebhook Cloud Function on the first
    * sale — the client cannot write to seller_balances anymore.
    */
   static async getBalance(userId: string): Promise<SellerBalance> {
@@ -46,7 +46,7 @@ export class SellerBalanceService {
   }
 
   /**
-   * @deprecated Server-side only — use the helcimWebhook Cloud Function.
+   * @deprecated Server-side only — use the stripeWebhook Cloud Function.
    *
    * Kept as a stub so any straggling caller fails loudly instead of
    * silently hitting Firestore permission-denied (the seller_balances
@@ -60,7 +60,7 @@ export class SellerBalanceService {
   ): Promise<void> {
     throw new Error(
       'SellerBalanceService.addPendingAmount is server-side only ' +
-        '(handled by helcimWebhook Cloud Function).'
+        '(handled by stripeWebhook Cloud Function).'
     );
   }
 

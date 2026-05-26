@@ -224,18 +224,8 @@ const SkeletonConversationItem: React.FC = () => (
   </View>
 );
 
-const SkeletonTab: React.FC<{ width: number }> = ({ width }) => (
-  <View style={styles.skeletonTab}>
-    <Skeleton width={width} height={11} borderRadius={radius.xs} />
-  </View>
-);
-
 const MessagesLoadingSkeleton: React.FC = () => (
   <View>
-    <View style={styles.skeletonTabsRow}>
-      <SkeletonTab width={48} />
-      <SkeletonTab width={48} />
-    </View>
     {Array.from({ length: 5 }).map((_, i) => (
       <SkeletonConversationItem key={`msg-skeleton-${i}`} />
     ))}
@@ -345,10 +335,14 @@ function getLastMessagePreviewStatic(chat: Chat): string {
   switch (chat.lastMessageType) {
     case 'image':
       return '[Photo]';
-    case 'offer':
-      return '[Offre envoyée]';
+    case 'offer': {
+      const msg = chat.lastMessage.toLowerCase();
+      if (msg.includes('contre-offre')) return '[Contre-offre]';
+      if (msg.includes('meetup') || msg.includes('remise en main')) return '[Offre meetup]';
+      return '[Offre]';
+    }
     case 'system':
-      return chat.lastMessage;
+      return `ℹ️ ${chat.lastMessage}`;
     default:
       return chat.lastMessage;
   }
@@ -381,7 +375,7 @@ function formatTimestampStatic(timestamp?: Date): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -440,9 +434,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
     alignItems: 'flex-start',
   },
   avatarContainer: {
@@ -450,6 +444,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     width: 48,
     height: 48,
+    overflow: 'visible',
   },
   userAvatar: {
     width: 48,
@@ -580,18 +575,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  skeletonTabsRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  skeletonTab: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   skeletonMessagePreview: {
     marginTop: spacing.xs,

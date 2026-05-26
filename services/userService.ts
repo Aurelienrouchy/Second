@@ -1,4 +1,4 @@
-import { auth, firestore, storage } from '@/config/firebaseConfig';
+import { auth, firestore, functions, storage } from '@/config/firebaseConfig';
 import { User, UserPreferences } from '@/types';
 import {
   arrayRemove,
@@ -12,6 +12,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface ExportedUserData {
@@ -47,6 +48,47 @@ export class UserService {
       } as User;
     } catch (error) {
       if (__DEV__) console.error('Error fetching user:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch a user's public profile via the getUserPublicProfile Cloud Function.
+   * Use this when reading ANOTHER user's profile — Firestore rules block
+   * direct reads to users/{uid} unless you are the owner.
+   * Returns a User-shaped subset with the fields available publicly.
+   */
+  static async getPublicProfile(userId: string): Promise<User | null> {
+    try {
+      const getUserPublicProfileFn = httpsCallable<
+        { userId: string },
+        {
+          profile: {
+            id: string;
+            displayName: string;
+            profileImage: string | null;
+            bio: string | null;
+            createdAt?: string;
+            rating: number | null;
+            accountType: string;
+            sellerLikesCount: number;
+          };
+        }
+      >(functions, 'getUserPublicProfile');
+      const result = await getUserPublicProfileFn({ userId });
+      const p = result.data.profile;
+      return {
+        id: p.id,
+        displayName: p.displayName,
+        profileImage: p.profileImage ?? null,
+        bio: p.bio ?? null,
+        createdAt: p.createdAt ? new Date(p.createdAt) : new Date(),
+        rating: p.rating ?? null,
+        accountType: p.accountType as 'user' | 'shop',
+        sellerLikesCount: p.sellerLikesCount,
+      } as unknown as User;
+    } catch (error) {
+      if (__DEV__) console.error('Error fetching public profile via callable:', error);
       return null;
     }
   }

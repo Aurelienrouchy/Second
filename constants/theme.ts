@@ -56,14 +56,17 @@ export const colors = {
   sage: '#7A8C6E',             // Sage green (= secondary)
   sageLight: 'rgba(122, 140, 110, 0.12)',
   sand: '#D4C4A0',             // Warm sand
+  sandLight: 'rgba(212, 196, 160, 0.12)',  // Sand at 12% opacity
   clay: '#B8847C',             // Muted clay
   rust: '#C4603A',             // Alias for primary
 
   // Utility
   white: '#FFFFFF',
+  whiteTranslucent: 'rgba(255, 255, 255, 0.5)',  // White at 50% opacity (timestamps on dark bg)
   black: '#000000',
   cream: '#F5F0E8',            // Alias for surfaceWarm
   charcoal: '#1A1814',         // Alias for dark
+  surfaceSubtle: 'rgba(26, 24, 20, 0.04)',  // Near-transparent surface (system messages)
   transparent: 'transparent',
 
   // Overlay

@@ -13,7 +13,7 @@ export const ChatErrorState = React.memo(function ChatErrorState({
 
   return (
     <View style={styles.container}>
-      <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
+      <Ionicons name="alert-circle-outline" size={64} color={colors.danger} />
       <Text style={styles.title}>Erreur</Text>
       <Text style={styles.text}>{errorMessage}</Text>
       <Pressable style={styles.backButton} onPress={() => router.back()}>

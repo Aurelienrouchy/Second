@@ -272,6 +272,7 @@ export default function ChatScreen() {
             isOwnMessage={isOwnMessage}
             chatId={chatId || ''}
             currentUserId={user?.id || ''}
+            sellerId={chat?.sellerId}
             articlePrice={article?.price ?? chat?.articlePrice}
             onAcceptOffer={handleAcceptOffer}
             onRejectOffer={handleRejectOffer}

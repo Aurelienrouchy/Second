@@ -32,6 +32,7 @@ import {
   ShippingEstimate,
 } from '../types';
 import { ModerationService } from './moderationService';
+import { TransactionService } from './transactionService';
 
 /** Shape of a new chat document before it is written to Firestore. */
 interface NewChatData {
@@ -596,6 +597,36 @@ export class ChatService {
           `Offre de ${offerData.offer.amount} $ acceptee`
         );
       }
+
+      // Create meetup transaction if one does not already exist for this chat.
+      // When an offer is made via checkout/meetup.tsx the transaction is already
+      // created before sendMeetupOffer. When made from the chat directly, no
+      // transaction exists yet — we must create it on accept so the article is
+      // marked sold and a proper transaction record exists.
+      if (offerData?.offer?.meetup) {
+        const existingTx = await TransactionService.getTransactionByChat(chatId, userId);
+        if (!existingTx) {
+          // Retrieve articleId from the chat document
+          const chatDoc = await getDoc(doc(firestore, 'chats', chatId));
+          const articleId = chatDoc.data()?.articleId;
+
+          if (articleId) {
+            const buyerId = offerData.senderId;
+            const sellerId = offerData.receiverId;
+            const amount = offerData.offer.amount;
+            const meetupSpot: MeetupSpot | null = offerData.offer.meetup?.location || null;
+
+            await TransactionService.createMeetupTransaction(
+              articleId,
+              buyerId,
+              sellerId,
+              amount,
+              meetupSpot,
+              chatId
+            );
+          }
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Erreur lors de l'acceptation de l'offre: ${message}`);
@@ -624,6 +655,14 @@ export class ChatService {
             `Offre de ${msgData.offer.amount} $ refusée`
           );
         }
+      }
+
+      // Cancel the transaction if one exists for this chat (e.g. created via
+      // checkout/meetup.tsx before the offer was sent). This ensures the article
+      // is unmarked as sold when the seller rejects.
+      const existingTx = await TransactionService.getTransactionByChat(chatId, userId);
+      if (existingTx && (existingTx.status === 'meetup_pending' || existingTx.status === 'meetup_confirmed')) {
+        await TransactionService.updateTransactionStatus(existingTx.id, 'cancelled');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1239,17 +1278,20 @@ export class ChatService {
 
   static listenToMessages(
     chatId: string,
-    _userId: string,
+    userId: string,
     onUpdate: (messages: Message[]) => void,
     onError?: (error: Error) => void
   ): () => void {
-    // Filter only by chatId — including legacy messages and system messages
-    // (which don't have a `participants` field). Authorization is enforced by
-    // Firestore rules on the `chats` document containing the user.
+    // The Firestore read rule requires `request.auth.uid in resource.data.participants`.
+    // For query validation, the query MUST include an `array-contains` constraint on
+    // `participants` so Firestore can guarantee all returned docs satisfy the rule.
+    // Legacy messages without a `participants` field won't appear — but new messages
+    // (including system messages) always include it since the fix.
     const messagesRef = collection(firestore, 'messages');
     const q = query(
       messagesRef,
       where('chatId', '==', chatId),
+      where('participants', 'array-contains', userId),
       orderBy('timestamp', 'asc')
     );
 
@@ -1363,7 +1405,6 @@ export class ChatService {
         updatePromises.push(
           updateDoc(doc(firestore, 'messages', docSnap.id), {
             isRead: true,
-            status: 'read',
           })
         );
       });

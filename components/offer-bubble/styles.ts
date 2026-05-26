@@ -19,7 +19,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    borderRadius: radius.sm,
+    borderRadius: radius.lg,
     padding: spacing.md,
   },
 
@@ -238,6 +238,9 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     textAlignVertical: 'top',
     marginBottom: spacing.md,
+  },
+  counterMessageInputMultiline: {
+    minHeight: 60,
   },
   counterButtonsRow: {
     flexDirection: 'row',

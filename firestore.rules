@@ -296,10 +296,6 @@ service cloud.firestore {
       //   - the message has a participants list and the caller is in it; OR
       //   - the message lacks participants (legacy docs) BUT the parent
       //     chat doc lists the caller as a participant.
-      // The chat-doc fallback costs one extra read per non-cached query
-      // but keeps the query rules-aware: we do NOT need to add a
-      // participants filter on every messages query, which would fail
-      // for legacy docs missing the field.
       allow read: if isAuthenticated() &&
                      (
                        ('participants' in resource.data &&
@@ -329,11 +325,13 @@ service cloud.firestore {
                        ) &&
                        request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['isRead', 'offer']) &&
-                       // If offer is being modified, caller must not be the sender
-                       // (can't accept own offer) and the amount must stay the same
+                       // If offer is being modified: amount must stay the same,
+                       // and the sender cannot ACCEPT their own offer (but can
+                       // complete/noShow which are post-acceptance actions).
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['offer']) ||
-                        (request.auth.uid != resource.data.senderId &&
-                         request.resource.data.offer.amount == resource.data.offer.amount));
+                        (request.resource.data.offer.amount == resource.data.offer.amount &&
+                         !(request.auth.uid == resource.data.senderId &&
+                           request.resource.data.offer.status == 'accepted')));
 
       // No delete allowed
       allow delete: if false;
@@ -628,9 +626,12 @@ service cloud.firestore {
     
     // Chats Collection Rules
     match /chats/{chatId} {
-      // Allow read if user is a participant
-      allow read: if isAuthenticated() && 
-                     request.auth.uid in resource.data.participants;
+      // Allow read if user is a participant.
+      // resource == null handles get-or-create pattern: when the doc does not
+      // exist yet, resource is null and we still need the read to succeed
+      // (returns exists()==false) so the client can decide to create it.
+      allow read: if isAuthenticated() &&
+                     (resource == null || request.auth.uid in resource.data.participants);
       
       // Allow create for authenticated users
       allow create: if isAuthenticated() && 
@@ -643,7 +644,7 @@ service cloud.firestore {
       allow update: if isAuthenticated() &&
                        request.auth.uid in resource.data.participants &&
                        request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['unreadCount', 'lastMessage', 'lastMessageTimestamp', 'updatedAt']);
+                         .hasOnly(['unreadCount', 'lastMessage', 'lastMessageType', 'lastMessageTimestamp', 'updatedAt']);
       
       // No delete allowed
       allow delete: if false;

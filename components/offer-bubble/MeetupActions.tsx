@@ -24,7 +24,7 @@ function MeetupActionsComponent({ onConfirm, onReportNoShow }: MeetupActionsProp
           onPress={onReportNoShow}
         >
           <Ionicons name="person-remove" size={16} color={colors.danger} />
-          <Text style={styles.noShowButtonText}>No-show</Text>
+          <Text style={styles.noShowButtonText}>Signaler une absence</Text>
         </Pressable>
         <Pressable
           style={[styles.actionButton, styles.confirmMeetupButton]}
