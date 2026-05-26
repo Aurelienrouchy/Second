@@ -9,12 +9,14 @@
  * The route file is the orchestrator: refs (for bottom sheets) + JSX composition.
  */
 
-import React, { useRef } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import ProductGrid from '@/components/ProductGrid';
+import SaveSearchButton from '@/components/SaveSearchButton';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
 import SizeSelectionSheet, { SizeSelectionSheetRef } from '@/components/SizeSelectionSheet';
 import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
@@ -37,6 +39,11 @@ import {
 
 export default function SearchScreen() {
   const screen = useSearchScreen();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['articles', 'search'] });
+  }, [queryClient]);
 
   // ─── Refs (sheets stay here so JSX can imperatively show them) ──
   const categorySheetRef = useRef<CategoryBottomSheetRef>(null);
@@ -116,19 +123,28 @@ export default function SearchScreen() {
 
         {/* Product grid (shown when searching) */}
         {screen.isSearching && (
-          <ProductGrid
-            articles={screen.articles || []}
-            isLoading={screen.isLoading}
-            isPaginating={screen.isPaginating}
-            onLoadMore={screen.loadMore}
-            onProductPress={screen.handleProductPress}
-            emptyMessage={
-              screen.activeSearchQuery
-                ? `Aucun résultat pour "${screen.activeSearchQuery}"`
-                : 'Aucun article trouvé avec ces filtres'
-            }
-            testID="search-results-grid"
-          />
+          <>
+            {!screen.isLoading && screen.articles.length > 0 && (
+              <SaveSearchButton
+                query={screen.activeSearchQuery}
+                filters={{ ...screen.filters, categoryIds: screen.selectedCategoryPath }}
+              />
+            )}
+            <ProductGrid
+              articles={screen.articles || []}
+              isLoading={screen.isLoading}
+              isPaginating={screen.isPaginating}
+              onLoadMore={screen.loadMore}
+              onProductPress={screen.handleProductPress}
+              onRefresh={handleRefresh}
+              emptyMessage={
+                screen.activeSearchQuery
+                  ? `Aucun résultat pour "${screen.activeSearchQuery}"`
+                  : 'Aucun article trouvé avec ces filtres'
+              }
+              testID="search-results-grid"
+            />
+          </>
         )}
       </View>
 

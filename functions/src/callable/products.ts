@@ -5,6 +5,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { getStripe } from '../config/stripe';
 
 /**
  * Increment article view count
@@ -153,7 +154,7 @@ export const toggleProductLike = onCall({ region: 'northamerica-northeast1', mem
  * Returns { articleId: string }.
  */
 export const createArticle = onCall(
-  { region: 'northamerica-northeast1', memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     // ── 1. Auth check ──
     if (!request.auth) {
@@ -276,6 +277,59 @@ export const createArticle = onCall(
       } else {
         sellerName = 'Utilisateur';
       }
+    }
+
+    // ── 4b. Silently create Stripe Custom account if seller doesn't have one ──
+    // This ensures every seller who publishes an article has a Stripe Connect
+    // Custom account ready for payments, without any seller-facing Stripe UI.
+    try {
+      const userRef = db.collection('users').doc(uid);
+      const userSnap2 = await userRef.get();
+      const existingUserData = userSnap2.data();
+
+      if (existingUserData && !existingUserData.stripeAccountId) {
+        const stripe = getStripe();
+        if (stripe) {
+          const account = await stripe.accounts.create({
+            type: 'custom',
+            country: 'CA',
+            email: existingUserData.email || request.auth.token.email || '',
+            capabilities: {
+              card_payments: { requested: true },
+              transfers: { requested: true },
+            },
+            business_type: 'individual',
+            tos_acceptance: {
+              service_agreement: 'recipient',
+            },
+            metadata: {
+              firebaseUserId: uid,
+            },
+          });
+
+          await userRef.update({
+            stripeAccountId: account.id,
+            stripeAccountStatus: 'pending',
+            stripeChargesEnabled: false,
+            stripePayoutsEnabled: false,
+            stripeDetailsSubmitted: false,
+            stripeAccountCreatedAt: FieldValue.serverTimestamp(),
+          });
+
+          logger.info('Stripe Custom account created silently at article publish', {
+            userId: uid,
+            stripeAccountId: account.id,
+          });
+        }
+      }
+    } catch (stripeError) {
+      // Non-blocking: article creation should still succeed even if Stripe
+      // account creation fails. The seller can create the account later via
+      // createStripeConnectAccount or the next article publish will retry.
+      logger.warn('Failed to create Stripe Custom account at article publish', {
+        userId: uid,
+        error: stripeError instanceof Error ? stripeError.message : stripeError,
+      });
     }
 
     // ── 5. Build sanitised images array ──
