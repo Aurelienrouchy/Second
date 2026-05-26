@@ -15,11 +15,12 @@ import { FlashList } from '@shopify/flash-list';
 
 import { Button, ScreenHeader, Skeleton, Text } from '@/components/ui';
 import { useUser } from '@/contexts/AuthContext';
+import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { queryKeys } from '@/lib/queryKeys';
 import { SellerBalanceService } from '@/services/sellerBalanceService';
 import { SellerBalance } from '@/types';
 import { colors, fonts, spacing, radius, sizing, typography } from '@/constants/theme';
-import { formatPrice } from '@/utils/formatPrice';
+import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
 
 export default function SellerBalanceScreen() {
   const router = useRouter();
