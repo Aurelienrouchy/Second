@@ -429,8 +429,8 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           {expiryText && <Text style={styles.expiryText}>{expiryText}</Text>}
         </View>
 
-        {/* Counter Price Input */}
-        {showCounterPriceInput && (
+        {/* Counter-offer Inline Inputs */}
+        {activeCounterPanel === 'price' && (
           <CounterPriceInput
             amount={counterPriceAmount}
             message={counterMessage}
@@ -438,7 +438,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             onChangeAmount={setCounterPriceAmount}
             onChangeMessage={setCounterMessage}
             onCancel={() => {
-              setShowCounterPriceInput(false);
+              setActiveCounterPanel(null);
               setCounterPriceAmount('');
               setCounterMessage('');
             }}
@@ -446,15 +446,50 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           />
         )}
 
+        {activeCounterPanel === 'location' && (
+          <CounterLocationInput
+            locationName={counterLocationName}
+            message={counterMessage}
+            isSubmitting={isCountering}
+            onChangeLocationName={setCounterLocationName}
+            onChangeMessage={setCounterMessage}
+            onCancel={() => {
+              setActiveCounterPanel(null);
+              setCounterLocationName('');
+              setCounterMessage('');
+            }}
+            onSubmit={handleCounterLocation}
+          />
+        )}
+
+        {activeCounterPanel === 'time' && (
+          <CounterTimeInput
+            dateTime={counterDateTime}
+            message={counterMessage}
+            isSubmitting={isCountering}
+            onChangeDateTime={setCounterDateTime}
+            onChangeMessage={setCounterMessage}
+            onCancel={() => {
+              setActiveCounterPanel(null);
+              setCounterDateTime('');
+              setCounterMessage('');
+            }}
+            onSubmit={handleCounterTime}
+          />
+        )}
+
         {/* Action Buttons */}
-        {canRespondToOffer && !showCounterPriceInput && (
+        {canRespondToOffer && !activeCounterPanel && (
           <OfferActions
             isAccepting={isAccepting}
             isRejecting={isRejecting}
             showCounterOfferButton={!!onCounterPrice}
+            isMeetupOffer={isMeetupOffer}
             onAccept={handleAccept}
             onReject={handleReject}
-            onOpenCounterOffer={() => setShowCounterPriceInput(true)}
+            onOpenCounterPrice={() => setActiveCounterPanel('price')}
+            onCounterLocation={onCounterLocation ? () => setActiveCounterPanel('location') : undefined}
+            onCounterTime={onCounterTime ? () => setActiveCounterPanel('time') : undefined}
           />
         )}
 
