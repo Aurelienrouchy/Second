@@ -60,6 +60,8 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   onAcceptOffer,
   onRejectOffer,
   onCounterPrice,
+  onCounterLocation,
+  onCounterTime,
   onConfirmMeetup,
   onReportNoShow,
   onCompleteMeetup,
