@@ -383,12 +383,16 @@ export const createStripeCheckout = onCall(
         };
       });
 
-      // Idempotent return: PaymentIntent already existed
+      // Idempotent return: PaymentIntent already existed — retrieve clientSecret from Stripe
       if (txResult.existingCheckout) {
-        logger.info('Returning existing Stripe PaymentIntent', { transactionId });
+        const existingPI = await stripe.paymentIntents.retrieve(txResult.existingPaymentIntentId!);
+        logger.info('Returning existing Stripe PaymentIntent', {
+          transactionId,
+          paymentIntentId: existingPI.id,
+        });
         return {
           success: true,
-          clientSecret: txResult.clientSecret,
+          clientSecret: existingPI.client_secret,
           feeBreakdown: {
             articlePrice: txResult.fees.articlePrice,
             shippingCost: txResult.fees.shippingCost,
