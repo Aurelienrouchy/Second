@@ -386,6 +386,31 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     });
   }
 
+  // =====================================================================
+  // PUSH NOTIFICATION: Notify seller of new sale
+  // =====================================================================
+
+  try {
+    const articleTitle = result.articleTitle || 'un article';
+    await sendPushNotification(
+      result.sellerId,
+      'Nouvelle vente !',
+      `Vous avez vendu ${articleTitle}. Preparez l'envoi.`,
+      { transactionId, articleId: result.articleId || '' },
+      'new_sale'
+    );
+    logger.info('Stripe webhook: seller notification sent', {
+      transactionId,
+      sellerId: result.sellerId,
+    });
+  } catch (notifError) {
+    // Non-critical: payment is already confirmed, don't fail the webhook
+    logger.warn('Stripe webhook: failed to send seller notification', {
+      transactionId,
+      error: notifError instanceof Error ? notifError.message : notifError,
+    });
+  }
+
   logger.info('Stripe webhook: fully processed', { transactionId });
 }
 
