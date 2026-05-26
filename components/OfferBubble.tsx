@@ -174,7 +174,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       setIsCountering(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await onCounterPrice(message.id, newAmount, counterMessage || undefined);
-      setShowCounterPriceInput(false);
+      setActiveCounterPanel(null);
       setCounterPriceAmount('');
       setCounterMessage('');
     } catch (error) {
