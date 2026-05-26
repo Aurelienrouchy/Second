@@ -226,7 +226,7 @@ export function useArticleActions({
 
     Alert.alert(
       'Supprimer l\'article',
-      `Êtes-vous sûr de vouloir supprimer "${article.title}" ?`,
+      `Êtes-vous sûr de vouloir supprimer "${article.title}" ? Si des offres ou transactions sont en cours, elles seront affectées.`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
