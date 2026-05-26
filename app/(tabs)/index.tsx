@@ -122,6 +122,7 @@ export default function HomeScreen() {
         renderItem={renderItem}
         getItemType={keyExtractor}
         showsVerticalScrollIndicator={false}
+        drawDistance={500}
         contentContainerStyle={styles.scrollContent}
       />
 

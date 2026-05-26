@@ -58,6 +58,7 @@ export interface ProductCardProduct {
   brand?: string;
   condition?: string;
   likes?: number;
+  isSold?: boolean;
 }
 
 export interface ProductCardProps {
@@ -287,6 +288,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
             onPress={handleLikePress}
             testID={`like-button-${product.id}`}
           />
+
+          {/* Sold overlay */}
+          {product.isSold && (
+            <View style={styles.soldOverlay}>
+              <Text style={styles.soldText}>VENDU</Text>
+            </View>
+          )}
         </View>
 
         {/* ── Content below image ── */}
@@ -362,6 +370,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(250, 248, 245, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // ── Sold overlay ──
+  soldOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(250, 248, 245, 0.70)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  soldText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 2.4,
+    color: colors.charcoal,
+    textTransform: 'uppercase',
   },
 
   // ── Save Button — top-right ──
@@ -482,6 +509,7 @@ export default memo(ProductCard, (prevProps, nextProps) => {
     prevProps.product.images?.[0]?.url === nextProps.product.images?.[0]?.url &&
     prevProps.product.size === nextProps.product.size &&
     prevProps.product.condition === nextProps.product.condition &&
+    prevProps.product.isSold === nextProps.product.isSold &&
     prevProps.isLoading === nextProps.isLoading &&
     prevProps.compact === nextProps.compact &&
     prevProps.fillWidth === nextProps.fillWidth

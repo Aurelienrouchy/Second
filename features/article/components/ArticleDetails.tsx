@@ -112,7 +112,7 @@ function ArticleDetailsComponent({
               <View style={styles.deliveryCardContent}>
                 <Text style={styles.deliveryCardTitle}>Livraison</Text>
                 <Text style={styles.deliveryCardSub}>
-                  {shippingCost ? formatPrice(shippingCost) : 'Gratuit'}
+                  {shippingCost ? formatPrice(shippingCost) : 'À partir de 8,50 $'}
                 </Text>
               </View>
             </View>
@@ -183,6 +183,7 @@ function ArticleDetailsComponent({
       <SimilarProducts
         currentArticleId={article.id}
         category={article.category}
+        categoryIds={article.categoryIds}
         maxResults={10}
       />
     </View>
