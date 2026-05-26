@@ -53,6 +53,14 @@ export function buildDeepLink(
         ? `https://${DEEP_LINK_HOST}/search?savedSearchId=${data.savedSearchId}`
         : '';
 
+    case 'new_sale':
+    case 'order_shipped':
+    case 'order_delivered':
+    case 'order_cancelled':
+      return data.transactionId
+        ? `https://${DEEP_LINK_HOST}/my-orders`
+        : '';
+
     case 'shop_approved':
     case 'shop_rejected':
     case 'shop_created':
