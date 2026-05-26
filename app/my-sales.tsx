@@ -51,11 +51,13 @@ const STATUS_LABELS: Record<TransactionStatus, { label: string; color: string }>
 function SaleCard({
   item,
   onPress,
+  onReview,
 }: {
   item: SaleItem;
   onPress: () => void;
+  onReview?: () => void;
 }) {
-  const { transaction, article } = item;
+  const { transaction, article, hasReview } = item;
   const status = STATUS_LABELS[transaction.status];
   const firstImage = article?.images?.[0];
   const dateLabel = transaction.createdAt.toLocaleDateString('fr-FR', {
@@ -63,6 +65,10 @@ function SaleCard({
     month: 'short',
     year: 'numeric',
   });
+
+  const isReviewable =
+    (transaction.status === 'delivered' || transaction.status === 'meetup_completed') &&
+    !hasReview;
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -84,6 +90,25 @@ function SaleCard({
           <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
         </View>
         <Text style={styles.cardDate}>{dateLabel}</Text>
+        {isReviewable && (
+          <Pressable
+            style={styles.reviewButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onReview?.();
+            }}
+            hitSlop={4}
+          >
+            <Ionicons name="star-outline" size={12} color={colors.rust} />
+            <Text style={styles.reviewButtonText}>Laisser un avis</Text>
+          </Pressable>
+        )}
+        {hasReview && (transaction.status === 'delivered' || transaction.status === 'meetup_completed') && (
+          <View style={styles.reviewDoneRow}>
+            <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+            <Text style={styles.reviewDoneText}>Avis laisse</Text>
+          </View>
+        )}
       </View>
       <Ionicons name="chevron-forward" size={20} color={colors.muted} />
     </Pressable>
