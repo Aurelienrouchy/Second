@@ -77,6 +77,21 @@ export default function ShippingCheckoutScreen() {
     }
   }, [router]);
 
+  // --- Pre-fill address from user profile -----------------------------------
+
+  useEffect(() => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    setAddressForm((prev) => ({
+      ...prev,
+      fullName: prev.fullName || user.displayName || '',
+      address: prev.address || user.address?.street || '',
+      city: prev.city || user.address?.city || '',
+      province: prev.province || user.address?.province || '',
+      postalCode: prev.postalCode || user.address?.postalCode || '',
+    }));
+  }, []);
+
   // --- Negotiated price (from accepted offer) --------------------------------
 
   const finalPrice = article
