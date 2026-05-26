@@ -872,7 +872,10 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
             participants = (chatSnap.data()?.participants as string[]) || [];
           }
         } catch (lookupErr) {
-          console.warn('[payments] Could not load chat participants:', lookupErr);
+          logger.warn('[payments] Could not load chat participants', {
+            chatId: transaction.chatId,
+            error: lookupErr instanceof Error ? lookupErr.message : lookupErr,
+          });
         }
 
         await db.collection('messages').add({
@@ -885,6 +888,23 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
           timestamp: FieldValue.serverTimestamp(),
           status: 'sent',
           isRead: true,
+        });
+      }
+
+      // Push notification to buyer: order delivered
+      try {
+        const articleTitle = transaction.articleTitle || 'votre commande';
+        await sendPushNotification(
+          transaction.buyerId,
+          'Colis livre !',
+          `Votre commande ${articleTitle} a ete livree.`,
+          { transactionId, articleId: transaction.articleId || '' },
+          'order_delivered'
+        );
+      } catch (notifError) {
+        logger.warn('[checkTrackingStatus] Failed to send buyer delivery notification', {
+          transactionId,
+          error: notifError instanceof Error ? notifError.message : notifError,
         });
       }
     } else {
