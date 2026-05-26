@@ -408,7 +408,7 @@ interface TransactionDocument {
   disputeId?: string;              // Stripe dispute ID
   disputedAt?: Timestamp;
   disputeReason?: string;
-  cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, etc.)
+  cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, pending_payment_expired_1h, seller_did_not_ship_7d, etc.)
   cancelledBy?: string;            // UID of user who cancelled (manual cancel only)
   refundedAt?: Timestamp;
 
