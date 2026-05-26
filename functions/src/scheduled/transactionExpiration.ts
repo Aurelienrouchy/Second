@@ -15,6 +15,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { sendPushNotification } from '../utils/notifications';
 
 /** Firestore batch limit is 500; use 450 for safety margin */
 const BATCH_SIZE = 450;
