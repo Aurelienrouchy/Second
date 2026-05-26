@@ -105,7 +105,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup }) =>
         </View>
 
         <Text style={styles.paymentNote}>
-          Le paiement se fera en main propre lors du meetup
+          Aucun frais de service — paiement en main propre lors du meetup
         </Text>
       </View>
 
