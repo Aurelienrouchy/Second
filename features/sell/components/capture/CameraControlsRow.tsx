@@ -35,82 +35,77 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
     continueProgress.value = withTiming(hasPhotos ? 1 : 0, TIMING_CONFIG);
   }, [hasPhotos, continueProgress]);
 
-  const captureButtonStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(continueProgress.value, [0, 1], [0, -40]) },
-    ],
-  }));
-
   const continueContainerStyle = useAnimatedStyle(() => ({
-    width: interpolate(continueProgress.value, [0, 0.5, 1], [48, 48, 140]),
+    width: interpolate(continueProgress.value, [0, 1], [0, 140]),
+    marginLeft: interpolate(continueProgress.value, [0, 1], [0, 16]),
     opacity: continueProgress.value,
     transform: [
-      { scale: interpolate(continueProgress.value, [0, 1], [0, 1]) },
-      { translateX: interpolate(continueProgress.value, [0, 1], [0, -40]) },
+      { scale: interpolate(continueProgress.value, [0, 1], [0.5, 1]) },
     ],
   }));
 
   const continueTextStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(continueProgress.value, [0.6, 1], [0, 1]),
+    opacity: interpolate(continueProgress.value, [0.5, 1], [0, 1]),
   }));
 
   return (
     <View style={styles.controlsRow}>
-      {/* Capture button — centered when alone, shifts left when Continue appears */}
-      <AnimatedPressable
-        style={[styles.captureButton, captureButtonStyle]}
-        onPress={onCapture}
-        disabled={!canTakeMore || isCapturing}
-      >
-        <View
-          style={[
-            styles.captureButtonOuter,
-            !canTakeMore && styles.captureButtonOuterDisabled,
-          ]}
-        />
-        {isCapturing ? (
-          <ActivityIndicator size="small" color={colors.charcoal} />
-        ) : (
+      <View style={styles.buttonGroup}>
+        <Pressable
+          style={styles.captureButton}
+          onPress={onCapture}
+          disabled={!canTakeMore || isCapturing}
+        >
           <View
             style={[
-              styles.captureButtonInner,
-              !canTakeMore && styles.captureButtonInnerDisabled,
+              styles.captureButtonOuter,
+              !canTakeMore && styles.captureButtonOuterDisabled,
             ]}
           />
-        )}
-      </AnimatedPressable>
+          {isCapturing ? (
+            <ActivityIndicator size="small" color={colors.charcoal} />
+          ) : (
+            <View
+              style={[
+                styles.captureButtonInner,
+                !canTakeMore && styles.captureButtonInnerDisabled,
+              ]}
+            />
+          )}
+        </Pressable>
 
-      {/* Continue button — positioned absolutely, shifts left with capture */}
-      <AnimatedPressable
-        style={[styles.continueButton, continueContainerStyle]}
-        onPress={onContinue}
-        disabled={!hasPhotos}
-      >
-        <Animated.Text style={[styles.continueText, continueTextStyle]}>
-          Continuer
-        </Animated.Text>
-        <Animated.View style={continueTextStyle}>
-          <Ionicons name="arrow-forward" size={14} color={colors.cream} />
-        </Animated.View>
-      </AnimatedPressable>
+        <AnimatedPressable
+          style={[styles.continueButton, continueContainerStyle]}
+          onPress={onContinue}
+          disabled={!hasPhotos}
+        >
+          <Animated.Text style={[styles.continueText, continueTextStyle]}>
+            Continuer
+          </Animated.Text>
+          <Animated.View style={continueTextStyle}>
+            <Ionicons name="arrow-forward" size={14} color={colors.cream} />
+          </Animated.View>
+        </AnimatedPressable>
+      </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   controlsRow: {
-    position: 'relative',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 20,
-    height: 72 + 20, // captureButton height + paddingTop
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   captureButton: {
     width: 72,
     height: 72,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
   },
   captureButtonOuter: {
     position: 'absolute',
@@ -133,10 +128,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
   },
   continueButton: {
-    position: 'absolute',
-    right: '50%',
-    marginRight: -140, // positions it to the right of the shifted capture button
-    top: 20 + (72 - 48) / 2, // vertically centered with capture button
     height: 48,
     borderRadius: 24,
     backgroundColor: colors.rust,
