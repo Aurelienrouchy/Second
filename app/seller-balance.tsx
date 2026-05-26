@@ -614,4 +614,20 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: spacing.md,
   },
+  errorState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  errorStateText: {
+    ...typography.body,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  errorStateButton: {
+    minWidth: 160,
+  },
 });
