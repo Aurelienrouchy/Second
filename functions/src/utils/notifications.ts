@@ -122,6 +122,12 @@ function getAndroidChannel(notificationType: string): string {
     case 'swap_update':
       return 'swaps';
 
+    case 'new_sale':
+    case 'order_shipped':
+    case 'order_delivered':
+    case 'order_cancelled':
+      return 'orders';
+
     default:
       return 'notifications';
   }
