@@ -235,6 +235,26 @@ export default function ChatScreen() {
     }
   }, [chatId, user, otherParticipant]);
 
+  const handleCounterLocation = useCallback(async (messageId: string, newLocation: MeetupSpot, message?: string) => {
+    if (!user || !chatId || !otherParticipant) return;
+    try {
+      await ChatService.counterOfferLocation(chatId, messageId, user.id, otherParticipant.userId, newLocation, message);
+    } catch (error) {
+      if (__DEV__) console.error('[Chat] Counter location error:', error);
+      Alert.alert('Erreur', "Impossible d'envoyer la contre-offre de lieu");
+    }
+  }, [chatId, user, otherParticipant]);
+
+  const handleCounterTime = useCallback(async (messageId: string, newDateTime: Date, message?: string) => {
+    if (!user || !chatId || !otherParticipant) return;
+    try {
+      await ChatService.counterOfferTime(chatId, messageId, user.id, otherParticipant.userId, newDateTime, message);
+    } catch (error) {
+      if (__DEV__) console.error('[Chat] Counter time error:', error);
+      Alert.alert('Erreur', "Impossible d'envoyer la contre-offre d'horaire");
+    }
+  }, [chatId, user, otherParticipant]);
+
   const handleConfirmMeetup = useCallback(async (messageId: string) => {
     if (!user || !chatId) return;
     try {
