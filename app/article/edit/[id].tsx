@@ -20,18 +20,20 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 
 // Components
 import EditableField from '@/components/EditableField';
-import SmartSelector from '@/components/SmartSelector';
 import CategoryDisplay from '@/components/CategoryDisplay';
 import ConditionSelector from '@/components/ConditionSelector';
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
-import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
+import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ChipSelector } from '@/features/sell';
 
 // Data
-import { getColorItems } from '@/data/colors';
+import { colors as dataColors, getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';
 import { getSizesForCategory } from '@/data/sizes';
 import { getCategoryInfoFromIds } from '@/data/categories-v2';
@@ -39,10 +41,12 @@ import { getCategoryInfoFromIds } from '@/data/categories-v2';
 // Services & Types
 import { ArticlesService } from '@/services/articlesService';
 import { useUser } from '@/contexts/AuthContext';
-import { Article } from '@/types';
+import { Article, MeetupNeighborhood } from '@/types';
 import { colors } from '@/constants/theme';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
+
+type PackageSize = 'small' | 'medium' | 'large';
 
 interface EditedFields {
   title: string;
@@ -50,11 +54,15 @@ interface EditedFields {
   categoryIds: string[];
   categoryDisplay: { icon: string; name: string; context: string };
   condition: ConditionValue;
-  color: string | null;
-  material: string | null;
+  colors: string[];
+  materials: string[];
   size: string | null;
   brand: string;
   price: number;
+  isHandDelivery: boolean;
+  isShipping: boolean;
+  neighborhoods: import('@/types').MeetupNeighborhood[];
+  packageSize: PackageSize | null;
 }
 
 export default function EditArticleScreen() {
@@ -74,18 +82,26 @@ export default function EditArticleScreen() {
     categoryIds: [],
     categoryDisplay: { icon: 'pricetag-outline', name: '', context: '' },
     condition: 'très bon état',
-    color: null,
-    material: null,
+    colors: [],
+    materials: [],
     size: null,
     brand: '',
     price: 0,
+    isHandDelivery: false,
+    isShipping: true,
+    neighborhoods: [],
+    packageSize: null,
   });
+
+  // Editable photos state
+  const [editedImages, setEditedImages] = useState<{ url: string }[]>([]);
 
   // Bottom sheet refs
   const categorySheetRef = useRef<CategoryBottomSheetRef>(null);
   const colorSheetRef = useRef<SelectionBottomSheetRef>(null);
   const materialSheetRef = useRef<SelectionBottomSheetRef>(null);
   const sizeSheetRef = useRef<SelectionBottomSheetRef>(null);
+  const neighborhoodSheetRef = useRef<NeighborhoodBottomSheetRef>(null);
 
   // Load article on mount
   useEffect(() => {
@@ -113,13 +129,25 @@ export default function EditArticleScreen() {
       }
 
       setArticle(articleData);
+      setEditedImages(articleData.images || []);
 
       // Get category info
       const categoryInfo = articleData.categoryIds
         ? getCategoryInfoFromIds(articleData.categoryIds)
         : null;
 
-      // Initialize form fields from article
+      // Initialize form fields from article — prefer arrays, fallback to single values
+      const loadedColors = articleData.colors?.length
+        ? articleData.colors
+        : articleData.color
+          ? [articleData.color.toLowerCase().replace(/\s+/g, '-')]
+          : [];
+      const loadedMaterials = articleData.materials?.length
+        ? articleData.materials
+        : articleData.material
+          ? [articleData.material.toLowerCase().replace(/\s+/g, '-')]
+          : [];
+
       setFields({
         title: articleData.title || '',
         description: articleData.description || '',
@@ -130,11 +158,15 @@ export default function EditArticleScreen() {
           context: categoryInfo.fullLabel?.split(' > ').slice(0, -1).join(' · ') || '',
         } : { icon: 'pricetag-outline', name: articleData.category || '', context: '' },
         condition: (articleData.condition as ConditionValue) || 'très bon état',
-        color: articleData.color?.toLowerCase().replace(/\s+/g, '-') || null,
-        material: articleData.material?.toLowerCase().replace(/\s+/g, '-') || null,
+        colors: loadedColors,
+        materials: loadedMaterials,
         size: articleData.size || null,
         brand: articleData.brand || '',
         price: articleData.price || 0,
+        isHandDelivery: articleData.isHandDelivery ?? false,
+        isShipping: articleData.isShipping ?? true,
+        neighborhoods: articleData.neighborhoods || (articleData.neighborhood ? [articleData.neighborhood] : []),
+        packageSize: (articleData.packageSize as PackageSize) || null,
       });
     } catch (error) {
       if (__DEV__) console.error('Error loading article:', error);
@@ -185,10 +217,6 @@ export default function EditArticleScreen() {
 
     setIsSaving(true);
     try {
-      // Find color and material labels
-      const colorItem = getColorItems().find(c => c.value === fields.color);
-      const materialItem = getMaterialItems().find(m => m.value === fields.material);
-
       const articleData: Record<string, unknown> = {
         title: fields.title.trim(),
         description: fields.description.trim(),
@@ -197,13 +225,36 @@ export default function EditArticleScreen() {
         condition: fields.condition,
         price: fields.price,
       };
-      const resolvedColor = colorItem?.label || fields.color;
-      if (resolvedColor) articleData.color = resolvedColor;
-      const resolvedMaterial = materialItem?.label || fields.material;
-      if (resolvedMaterial) articleData.material = resolvedMaterial;
+
+      // Colors — multi-select with backward compat
+      if (fields.colors.length > 0) {
+        articleData.colors = fields.colors;
+        articleData.color = fields.colors[0];
+      }
+
+      // Materials — multi-select with backward compat
+      if (fields.materials.length > 0) {
+        articleData.materials = fields.materials;
+        articleData.material = fields.materials[0];
+      }
+
       if (fields.size) articleData.size = fields.size;
       const trimmedBrand = fields.brand.trim();
       if (trimmedBrand) articleData.brand = trimmedBrand;
+
+      // Delivery options
+      articleData.isHandDelivery = fields.isHandDelivery;
+      articleData.isShipping = fields.isShipping;
+      if (fields.neighborhoods.length > 0) {
+        articleData.neighborhoods = fields.neighborhoods;
+        articleData.neighborhood = fields.neighborhoods[0];
+      }
+      if (fields.packageSize) articleData.packageSize = fields.packageSize;
+
+      // Photos (if edited)
+      if (editedImages.length > 0) {
+        articleData.images = editedImages;
+      }
 
       await ArticlesService.updateArticle(id, articleData as Partial<import('@/types').Article>);
 
@@ -223,6 +274,74 @@ export default function EditArticleScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   }, [router]);
+
+  const handleColorToggle = useCallback((colorId: string) => {
+    setFields((prev) => {
+      const newColors = prev.colors.includes(colorId)
+        ? prev.colors.filter((c) => c !== colorId)
+        : [...prev.colors, colorId];
+      return { ...prev, colors: newColors };
+    });
+  }, []);
+
+  const handleMaterialToggle = useCallback((matId: string) => {
+    setFields((prev) => {
+      const newMaterials = prev.materials.includes(matId)
+        ? prev.materials.filter((m) => m !== matId)
+        : [...prev.materials, matId];
+      return { ...prev, materials: newMaterials };
+    });
+  }, []);
+
+  const allColorItems = getColorItems();
+  const allMaterialItems = getMaterialItems();
+
+  const resolveColorLabel = useCallback(
+    (colorId: string): string => {
+      const colorData = dataColors.find(
+        (c) => c.id === colorId || c.name.toLowerCase() === colorId.toLowerCase(),
+      );
+      if (colorData) return colorData.name;
+      const colorItem = allColorItems.find((c) => c.value === colorId);
+      return colorItem?.label || colorId;
+    },
+    [allColorItems],
+  );
+
+  // Photo management
+  const handleAddPhoto = useCallback(async () => {
+    const remainingSlots = 5 - editedImages.length;
+    if (remainingSlots <= 0) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'] as const,
+        allowsMultipleSelection: true,
+        quality: 0.7,
+        selectionLimit: remainingSlots,
+      });
+      if (!result.canceled && result.assets.length > 0) {
+        const newImages = result.assets.map((asset) => ({ url: asset.uri }));
+        setEditedImages((prev) => [...prev, ...newImages.slice(0, remainingSlots)]);
+      }
+    } catch (error) {
+      if (__DEV__) console.error('Error picking images:', error);
+    }
+  }, [editedImages.length]);
+
+  const handleRemovePhoto = useCallback((index: number) => {
+    setEditedImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Delivery management
+  const handleNeighborhoodToggle = useCallback((neighborhood: MeetupNeighborhood) => {
+    setFields((prev) => {
+      const exists = prev.neighborhoods.some((n) => n.id === neighborhood.id);
+      const newNeighborhoods = exists
+        ? prev.neighborhoods.filter((n) => n.id !== neighborhood.id)
+        : [...prev.neighborhoods, neighborhood];
+      return { ...prev, neighborhoods: newNeighborhoods };
+    });
+  }, []);
 
   const isFormValid = fields.title.trim() !== '' &&
                       fields.description.trim() !== '' &&
@@ -308,33 +427,50 @@ export default function EditArticleScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Photo preview (non-editable for now) */}
+        {/* Photo section — editable */}
         <View style={styles.photoSection}>
-          {article.images && article.images.length > 0 && (
+          {editedImages.length > 0 && (
             <>
               <Image
-                source={{ uri: article.images[0]?.url }}
+                source={{ uri: editedImages[0]?.url }}
                 style={styles.mainPhoto}
                 contentFit="cover"
               />
-              {article.images.length > 1 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.thumbnailStrip}
-                  contentContainerStyle={styles.thumbnailContent}
-                >
-                  {article.images.slice(1).map((img, index) => (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.thumbnailStrip}
+                contentContainerStyle={styles.thumbnailContent}
+              >
+                {editedImages.map((img, index) => (
+                  <View key={index} style={styles.thumbnailWrapper}>
                     <Image
-                      key={index}
                       source={{ uri: img.url }}
                       style={styles.thumbnail}
                       contentFit="cover"
                     />
-                  ))}
-                </ScrollView>
-              )}
+                    <Pressable
+                      style={styles.thumbnailRemove}
+                      onPress={() => handleRemovePhoto(index)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="close" size={10} color={colors.white} />
+                    </Pressable>
+                  </View>
+                ))}
+                {editedImages.length < 5 && (
+                  <Pressable style={styles.addPhotoButton} onPress={handleAddPhoto}>
+                    <Ionicons name="add" size={24} color={colors.muted} />
+                  </Pressable>
+                )}
+              </ScrollView>
             </>
+          )}
+          {editedImages.length === 0 && (
+            <Pressable style={styles.emptyPhotoButton} onPress={handleAddPhoto}>
+              <Ionicons name="camera-outline" size={32} color={colors.muted} />
+              <Text style={styles.emptyPhotoText}>Ajouter des photos</Text>
+            </Pressable>
           )}
         </View>
 
@@ -402,48 +538,115 @@ export default function EditArticleScreen() {
             placeholder="Ex: Nike, Zara, H&M..."
           />
 
-          {/* Color */}
-          <SmartSelector
+          {/* Color — multi-select */}
+          <ChipSelector
             label="Couleur"
-            options={fields.color ? [{
-              value: fields.color,
-              label: getColorItems().find(c => c.value === fields.color)?.label || fields.color,
-              color: getColorItems().find(c => c.value === fields.color)?.color,
-            }] : []}
-            selectedValue={fields.color}
-            onSelect={(value) => updateField('color', value)}
+            selectedValues={fields.colors}
+            aiSuggestedIds={[]}
+            allItems={allColorItems}
+            onToggle={handleColorToggle}
             onViewAll={() => colorSheetRef.current?.show()}
-            viewAllLabel="Voir toutes les couleurs"
-            emptyMessage="Sélectionner une couleur"
+            resolveLabel={resolveColorLabel}
           />
 
-          {/* Material */}
-          <SmartSelector
+          {/* Material — multi-select */}
+          <ChipSelector
             label="Matière"
-            options={fields.material ? [{
-              value: fields.material,
-              label: getMaterialItems().find(m => m.value === fields.material)?.label || fields.material,
-            }] : []}
-            selectedValue={fields.material}
-            onSelect={(value) => updateField('material', value)}
+            selectedValues={fields.materials}
+            aiSuggestedIds={[]}
+            allItems={allMaterialItems}
+            onToggle={handleMaterialToggle}
             onViewAll={() => materialSheetRef.current?.show()}
-            viewAllLabel="Voir toutes les matières"
-            emptyMessage="Sélectionner une matière"
           />
 
           {/* Size */}
-          <SmartSelector
-            label="Taille"
-            options={fields.size ? [{
-              value: fields.size,
-              label: fields.size,
-            }] : []}
-            selectedValue={fields.size}
-            onSelect={(value) => updateField('size', value)}
-            onViewAll={() => sizeSheetRef.current?.show()}
-            viewAllLabel="Voir toutes les tailles"
-            emptyMessage="Sélectionner une taille"
-          />
+          <Pressable
+            style={styles.sizeSelector}
+            onPress={() => sizeSheetRef.current?.show()}
+          >
+            <Text style={styles.sizeSelectorLabel}>Taille</Text>
+            <Text style={[styles.sizeSelectorValue, !fields.size && styles.sizeSelectorPlaceholder]}>
+              {fields.size || 'Sélectionner une taille'}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+          </Pressable>
+
+          {/* Delivery options separator */}
+          <View style={styles.separator}>
+            <View style={styles.separatorLine} />
+            <Text style={styles.separatorText}>Livraison</Text>
+            <View style={styles.separatorLine} />
+          </View>
+
+          {/* Hand delivery toggle */}
+          <Pressable
+            style={styles.deliveryToggle}
+            onPress={() => updateField('isHandDelivery', !fields.isHandDelivery)}
+          >
+            <View style={styles.deliveryToggleLeft}>
+              <Ionicons name="person-outline" size={20} color={colors.foreground} />
+              <Text style={styles.deliveryToggleLabel}>Remise en main propre</Text>
+            </View>
+            <Ionicons
+              name={fields.isHandDelivery ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={fields.isHandDelivery ? colors.primary : colors.muted}
+            />
+          </Pressable>
+
+          {fields.isHandDelivery && (
+            <Pressable
+              style={styles.neighborhoodSelector}
+              onPress={() => neighborhoodSheetRef.current?.show()}
+            >
+              <Text style={styles.neighborhoodSelectorText}>
+                {fields.neighborhoods.length > 0
+                  ? fields.neighborhoods.map((n) => n.name).join(', ')
+                  : 'Choisir les quartiers'}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+            </Pressable>
+          )}
+
+          {/* Shipping toggle */}
+          <Pressable
+            style={styles.deliveryToggle}
+            onPress={() => updateField('isShipping', !fields.isShipping)}
+          >
+            <View style={styles.deliveryToggleLeft}>
+              <Ionicons name="cube-outline" size={20} color={colors.foreground} />
+              <Text style={styles.deliveryToggleLabel}>Expédition</Text>
+            </View>
+            <Ionicons
+              name={fields.isShipping ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={fields.isShipping ? colors.primary : colors.muted}
+            />
+          </Pressable>
+
+          {fields.isShipping && (
+            <View style={styles.packageSizeRow}>
+              {(['small', 'medium', 'large'] as const).map((size) => {
+                const labels: Record<PackageSize, string> = {
+                  small: 'Petit',
+                  medium: 'Moyen',
+                  large: 'Grand',
+                };
+                const isSelected = fields.packageSize === size;
+                return (
+                  <Pressable
+                    key={size}
+                    style={[styles.packageSizeChip, isSelected && styles.packageSizeChipSelected]}
+                    onPress={() => updateField('packageSize', size)}
+                  >
+                    <Text style={[styles.packageSizeChipText, isSelected && styles.packageSizeChipTextSelected]}>
+                      {labels[size]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -481,15 +684,22 @@ export default function EditArticleScreen() {
       <SelectionBottomSheet
         ref={colorSheetRef}
         title="Couleur"
-        items={getColorItems()}
-        onSelect={(value) => updateField('color', value)}
+        items={allColorItems}
+        selectedValues={fields.colors}
+        onSelect={(value) => handleColorToggle(value)}
+        onSelectMultiple={(values) => updateField('colors', values)}
+        type="color"
+        multiSelect
       />
 
       <SelectionBottomSheet
         ref={materialSheetRef}
         title="Matière"
-        items={getMaterialItems()}
-        onSelect={(value) => updateField('material', value)}
+        items={allMaterialItems}
+        selectedValues={fields.materials}
+        onSelect={(value) => handleMaterialToggle(value)}
+        onSelectMultiple={(values) => updateField('materials', values)}
+        multiSelect
       />
 
       <SelectionBottomSheet
@@ -499,7 +709,16 @@ export default function EditArticleScreen() {
           value: s,
           label: s,
         }))}
+        selectedValue={fields.size}
         onSelect={(value) => updateField('size', value)}
+        type="size"
+      />
+
+      <NeighborhoodBottomSheet
+        ref={neighborhoodSheetRef}
+        selectedNeighborhoods={fields.neighborhoods}
+        onSelect={handleNeighborhoodToggle}
+        multiSelect
       />
     </KeyboardAvoidingView>
   );
@@ -572,6 +791,42 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.surfaceWarm,
   },
+  thumbnailWrapper: {
+    position: 'relative',
+  },
+  thumbnailRemove: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPhotoButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWarm,
+  },
+  emptyPhotoButton: {
+    height: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWarm,
+    gap: 8,
+  },
+  emptyPhotoText: {
+    fontSize: 13,
+    color: colors.muted,
+  },
   formSection: {
     paddingHorizontal: 16,
   },
@@ -615,5 +870,96 @@ const styles = StyleSheet.create({
   },
   saveButtonTextDisabled: {
     color: colors.muted,
+  },
+  sizeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    marginBottom: 16,
+    backgroundColor: colors.white,
+  },
+  sizeSelectorLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.foreground,
+    marginRight: 12,
+  },
+  sizeSelectorValue: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.foreground,
+  },
+  sizeSelectorPlaceholder: {
+    color: colors.muted,
+  },
+  deliveryToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: colors.white,
+  },
+  deliveryToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  deliveryToggleLabel: {
+    fontSize: 14,
+    color: colors.foreground,
+  },
+  neighborhoodSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginLeft: 32,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.white,
+  },
+  neighborhoodSelectorText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.foreground,
+  },
+  packageSizeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginLeft: 32,
+    marginBottom: 16,
+  },
+  packageSizeChip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: colors.white,
+  },
+  packageSizeChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  packageSizeChipText: {
+    fontSize: 13,
+    color: colors.foreground,
+  },
+  packageSizeChipTextSelected: {
+    color: colors.white,
+    fontWeight: '600',
   },
 });
