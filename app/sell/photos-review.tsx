@@ -27,6 +27,7 @@ import { Image } from 'expo-image';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
+import StepProgressBar from '@/components/sell/StepProgressBar';
 import {
   AnalysisCard,
   ProgressStepsList,
@@ -297,15 +298,7 @@ export default function PhotosReviewScreen() {
     });
   }, [aiResult, photos, storageUrls, router]);
 
-  // =============================================================================
-  // AUTO-REDIRECT ON ANALYSIS COMPLETE
-  // =============================================================================
-
-  useEffect(() => {
-    if (analysisState === 'complete' && aiResult) {
-      handleContinue();
-    }
-  }, [analysisState, aiResult, handleContinue]);
+  // No auto-redirect — user reviews photos and clicks "Continuer" manually
 
   const handleManualEntry = () => {
     const mockResult = createMockAIResult();
@@ -353,6 +346,7 @@ export default function PhotosReviewScreen() {
           </Text>
         }
       />
+      <StepProgressBar currentStep={1} />
 
       <ScrollView
         style={styles.scrollView}
@@ -553,6 +547,18 @@ export default function PhotosReviewScreen() {
           onRetry={handleRetry}
           onManualEntry={handleManualEntry}
         />
+      )}
+
+      {analysisState === 'complete' && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <Pressable
+            style={styles.continueButton}
+            onPress={handleContinue}
+          >
+            <Ionicons name="checkmark-circle-outline" size={18} color={colors.cream} />
+            <Text style={styles.continueButtonText}>CONTINUER</Text>
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -762,5 +768,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
     letterSpacing: 0.72,
+  },
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sage,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    gap: 8,
+  },
+  continueButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    letterSpacing: 2.16,
+    color: colors.cream,
+    textTransform: 'uppercase',
   },
 });
