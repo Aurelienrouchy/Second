@@ -71,9 +71,12 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const [isRejecting, setIsRejecting] = useState(false);
   const [isCountering, setIsCountering] = useState(false);
 
-  // Counter-offer state
-  const [showCounterPriceInput, setShowCounterPriceInput] = useState(false);
+  // Counter-offer state — tracks which counter-offer panel is open
+  type CounterOfferPanel = 'price' | 'location' | 'time' | null;
+  const [activeCounterPanel, setActiveCounterPanel] = useState<CounterOfferPanel>(null);
   const [counterPriceAmount, setCounterPriceAmount] = useState('');
+  const [counterLocationName, setCounterLocationName] = useState('');
+  const [counterDateTime, setCounterDateTime] = useState('');
   const [counterMessage, setCounterMessage] = useState('');
 
   if (!message.offer) return null;
