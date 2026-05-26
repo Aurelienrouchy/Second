@@ -1115,10 +1115,15 @@ export const completeMeetupTransaction = onCall(
             return txn;
           });
 
+          // NOTE: totalEarnings includes ALL completed sales (shipping + meetup)
+          // as a comprehensive reference. totalMeetupEarnings tracks meetup-only
+          // amounts separately so the seller balance screen can distinguish
+          // platform-processed funds from in-person exchanges.
           tx.update(sellerBalanceRef, {
             pendingBalance: FieldValue.increment(-actualPayout),
             availableBalance: FieldValue.increment(actualPayout),
             totalEarnings: FieldValue.increment(actualPayout),
+            totalMeetupEarnings: FieldValue.increment(actualPayout),
             transactions: updatedTransactions,
             updatedAt: FieldValue.serverTimestamp(),
           });
@@ -1129,6 +1134,7 @@ export const completeMeetupTransaction = onCall(
             pendingBalance: 0,
             availableBalance: sellerPayout,
             totalEarnings: sellerPayout,
+            totalMeetupEarnings: sellerPayout,
             transactions: [{
               id: transactionId,
               type: 'sale',
