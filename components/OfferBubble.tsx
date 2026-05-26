@@ -13,7 +13,9 @@ import {
 import { colors } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 
+import { CounterLocationInput } from './offer-bubble/CounterLocationInput';
 import { CounterPriceInput } from './offer-bubble/CounterPriceInput';
+import { CounterTimeInput } from './offer-bubble/CounterTimeInput';
 import { MeetupActions } from './offer-bubble/MeetupActions';
 import { OfferActions } from './offer-bubble/OfferActions';
 import { styles } from './offer-bubble/styles';
