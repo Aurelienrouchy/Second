@@ -78,6 +78,26 @@ const getUserPublicProfileFn = httpsCallable(functions, 'getUserPublicProfile');
 // =============================================================================
 
 /**
+ * Check if a user has already reviewed a specific transaction.
+ * Uses the deterministic doc ID pattern: `${reviewerId}_${transactionId}`.
+ * Requires authenticated user (Firestore rules on `avis/` enforce auth).
+ */
+export async function hasUserReviewedTransaction(
+  reviewerId: string,
+  transactionId: string,
+): Promise<boolean> {
+  try {
+    const reviewDocId = `${reviewerId}_${transactionId}`;
+    const reviewRef = doc(firestore, 'avis', reviewDocId);
+    const reviewSnap = await getDoc(reviewRef);
+    return reviewSnap.exists();
+  } catch (error) {
+    if (__DEV__) console.error('Error checking review existence:', error);
+    return false;
+  }
+}
+
+/**
  * Submit a review for another user after a completed transaction
  */
 export async function createReview(params: {
