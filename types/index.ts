@@ -65,6 +65,12 @@ export interface User {
   sellerLikesCount?: number;   // Nombre de likes reçus en tant que vendeur
   articlesCount?: number;      // Nombre d'articles actifs
   salesCount?: number;         // Nombre de ventes réalisées
+  // Stripe Connect
+  stripeAccountId?: string;
+  stripeAccountStatus?: string;
+  stripeChargesEnabled?: boolean;
+  stripePayoutsEnabled?: boolean;
+  stripeDetailsSubmitted?: boolean;
 }
 
 export interface ArticleImage {
