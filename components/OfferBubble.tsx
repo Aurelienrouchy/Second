@@ -185,6 +185,77 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
     }
   };
 
+  const handleCounterLocation = async () => {
+    const name = counterLocationName.trim();
+    if (!name) {
+      Alert.alert('Erreur', 'Veuillez entrer le nom du lieu');
+      return;
+    }
+
+    if (!onCounterLocation || !meetup) return;
+
+    // Build a new MeetupSpot using the same neighborhood as the original offer
+    const newLocation: MeetupSpot = {
+      name,
+      category: 'other' as MeetupSpot['category'],
+      neighborhood: meetup.location.neighborhood,
+      isUserSuggested: true,
+    };
+
+    try {
+      setIsCountering(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await onCounterLocation(message.id, newLocation, counterMessage || undefined);
+      setActiveCounterPanel(null);
+      setCounterLocationName('');
+      setCounterMessage('');
+    } catch (error) {
+      if (__DEV__) console.error('Error counter-offering location:', error);
+      Alert.alert('Erreur', "Impossible d'envoyer la contre-offre de lieu");
+    } finally {
+      setIsCountering(false);
+    }
+  };
+
+  const handleCounterTime = async () => {
+    const raw = counterDateTime.trim();
+    if (!raw) {
+      Alert.alert('Erreur', 'Veuillez entrer une date et heure');
+      return;
+    }
+
+    if (!onCounterTime) return;
+
+    // Try to parse user input — accept common Canadian-FR formats
+    const parsed = new Date(raw);
+    if (isNaN(parsed.getTime())) {
+      Alert.alert(
+        'Format invalide',
+        'Veuillez entrer une date au format "AAAA-MM-JJ HH:MM" (ex: 2026-06-01 14:30).',
+      );
+      return;
+    }
+
+    if (parsed <= new Date()) {
+      Alert.alert('Date passée', 'La date proposée doit être dans le futur.');
+      return;
+    }
+
+    try {
+      setIsCountering(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await onCounterTime(message.id, parsed, counterMessage || undefined);
+      setActiveCounterPanel(null);
+      setCounterDateTime('');
+      setCounterMessage('');
+    } catch (error) {
+      if (__DEV__) console.error('Error counter-offering time:', error);
+      Alert.alert('Erreur', "Impossible d'envoyer la contre-offre d'horaire");
+    } finally {
+      setIsCountering(false);
+    }
+  };
+
   const handleConfirmMeetup = async () => {
     if (!onConfirmMeetup) return;
 
