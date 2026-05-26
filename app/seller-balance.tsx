@@ -282,7 +282,7 @@ export default function SellerBalanceScreen() {
                 <Text style={styles.inputCurrency}>$ CA</Text>
               </View>
               <Text style={styles.inputHint}>
-                Disponible: {formatPrice(balance.availableBalance)} (min. {formatPrice(10)})
+                Disponible: {formatPriceWithCurrency(balance.availableBalance)} (min. {formatPriceWithCurrency(10)})
               </Text>
             </View>
 
