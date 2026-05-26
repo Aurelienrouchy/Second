@@ -137,7 +137,21 @@ export default function MySalesScreen() {
         ),
       );
 
-      return sellerTx.map((tx, i) => ({ transaction: tx, article: articles[i] }));
+      // Check which completed transactions already have reviews
+      const reviewChecks = await Promise.all(
+        sellerTx.map((tx) => {
+          const isCompleted =
+            tx.status === 'delivered' || tx.status === 'meetup_completed';
+          if (!isCompleted) return Promise.resolve(false);
+          return hasUserReviewedTransaction(user!.id, tx.id);
+        }),
+      );
+
+      return sellerTx.map((tx, i) => ({
+        transaction: tx,
+        article: articles[i],
+        hasReview: reviewChecks[i],
+      }));
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
