@@ -261,7 +261,7 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
                                 },
                                 business_type: 'individual',
                                 tos_acceptance: {
-                                    service_agreement: 'recipient',
+                                    service_agreement: 'full',
                                 },
                                 metadata: {
                                     firebaseUserId: articleData.sellerId,
@@ -575,7 +575,7 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
             },
             business_type: 'individual',
             tos_acceptance: {
-                service_agreement: 'recipient',
+                service_agreement: 'full',
             },
             metadata: {
                 firebaseUserId: userId,

@@ -151,7 +151,7 @@ const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
           </Text>
 
           {/* Rating */}
-          {seller.rating && seller.rating > 0 && (
+          {seller.rating != null && seller.rating > 0 && (
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={sizing.iconSM} color={colors.warning} />
               <Text style={styles.rating}>{seller.rating.toFixed(1)}</Text>
