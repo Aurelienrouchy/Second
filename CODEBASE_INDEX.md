@@ -389,11 +389,12 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `savedSearches.ts` | Notif nouvelles correspondances |
 | `stats.ts` | Agrégation stats |
 | `swaps.ts` | Expiration swap parties |
+| `transactionExpiration.ts` | Expiration meetup_pending (48h) et pending_payment (1h) orphelins |
 
 ### HTTP — `functions/src/http/`
 | Fichier | Route |
 |---------|-------|
-| `webhooks.ts` | Webhook Stripe (signature, payment_intent.succeeded, account.updated) |
+| `webhooks.ts` | Webhook Stripe (signature, payment_intent.succeeded/failed, charge.dispute.created, charge.refunded, account.updated) |
 
 ### Services backend — `functions/src/services/`
 | Fichier | Rôle |
