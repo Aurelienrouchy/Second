@@ -181,7 +181,9 @@ async function uploadImageToStorage(
 ): Promise<string> {
   const extension = uri.split('.').pop()?.split('?')[0] || 'jpg';
   const filename = `${draftId}_${index}_${Date.now()}.${extension}`;
-  const storagePath = `${DRAFTS_STORAGE_PATH}/${draftId}/${filename}`;
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('User not authenticated');
+  const storagePath = `${DRAFTS_STORAGE_PATH}/${uid}/${draftId}/${filename}`;
 
   const storageRef = ref(storage, storagePath);
 
