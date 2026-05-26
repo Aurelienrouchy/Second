@@ -134,7 +134,7 @@ export default function CheckoutSuccessScreen() {
               {shippingCost && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Livraison</Text>
-                  <Text style={styles.summaryValue}>{formatPrice(parseFloat(shippingCost))}</Text>
+                  <Text style={styles.summaryValue}>{formatPrice(parseFloat(shippingCost || '0'))}</Text>
                 </View>
               )}
               {totalAmount && (
