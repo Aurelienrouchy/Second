@@ -33,6 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 interface SaleItem {
   transaction: Transaction;
   article: Article | null;
+  hasReview: boolean;
 }
 
 /** Seller-oriented status labels */
