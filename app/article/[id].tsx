@@ -100,6 +100,7 @@ export default function ArticleDetailScreen() {
     handleBuy,
     handleMakeOffer,
     handleMeetupOfferSubmit,
+    handleShippingOfferSubmit,
     handleProposeSwap,
     handleViewProfile,
     handleBack,
@@ -201,9 +202,11 @@ export default function ArticleDetailScreen() {
         articleId={article.id}
         articleTitle={article.title}
         currentPrice={article.price}
+        defaultMode={article.isShipping && !article.isHandDelivery ? 'shipping' : 'meetup'}
         sellerNeighborhood={article.neighborhood}
         sellerPreferredSpots={article.preferredMeetupSpots}
         onMeetupOfferSubmit={handleMeetupOfferSubmit}
+        onShippingOfferSubmit={handleShippingOfferSubmit}
       />
 
       <ReportBottomSheet ref={reportBottomSheetRef} />

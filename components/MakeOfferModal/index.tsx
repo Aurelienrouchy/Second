@@ -16,6 +16,7 @@ import {
   initialState,
   MakeOfferContext,
   MakeOfferState,
+  OfferMode,
   Step,
 } from './types';
 
@@ -28,12 +29,18 @@ interface MakeOfferModalProps {
   articleId: string;
   articleTitle: string;
   currentPrice: number;
+  /** Default offer mode — 'meetup' if unset */
+  defaultMode?: OfferMode;
   sellerNeighborhood?: MeetupNeighborhood;
   sellerPreferredSpots?: MeetupSpot[];
   onMeetupOfferSubmit?: (
     amount: number,
     message: string,
     meetupSpot: MeetupSpot
+  ) => Promise<void>;
+  onShippingOfferSubmit?: (
+    amount: number,
+    message: string,
   ) => Promise<void>;
 }
 
@@ -43,9 +50,11 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
       articleId,
       articleTitle,
       currentPrice,
+      defaultMode = 'meetup',
       sellerNeighborhood,
       sellerPreferredSpots,
       onMeetupOfferSubmit,
+      onShippingOfferSubmit,
     },
     ref
   ) => {
@@ -53,15 +62,15 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     const insets = useSafeAreaInsets();
     const [state, setState] = useState<MakeOfferState>({
       ...initialState,
-      mode: 'meetup',
+      mode: defaultMode,
     });
 
     const [isOpen, setIsOpen] = useState(false);
     const snapPoints = useMemo(() => ['85%', '95%'], []);
 
     const resetState = useCallback(() => {
-      setState({ ...initialState, mode: 'meetup' });
-    }, []);
+      setState({ ...initialState, mode: defaultMode });
+    }, [defaultMode]);
 
     const handleSheetChanges = useCallback(
       (index: number) => {
@@ -106,7 +115,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 
     const handleBack = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const previousStep = getPreviousStep(state.step, 'meetup');
+      const previousStep = getPreviousStep(state.step, state.mode);
       if (previousStep) {
         setState((s) => ({ ...s, step: previousStep }));
       }
@@ -115,7 +124,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     const actions = useMemo(
       () => ({
         setStep: (step: Step) => setState((s) => ({ ...s, step })),
-        setMode: () => {},
+        setMode: (mode: OfferMode) => setState((s) => ({ ...s, mode })),
         setOfferAmount: (offerAmount: string) => setState((s) => ({ ...s, offerAmount })),
         setMessage: (message: string) => setState((s) => ({ ...s, message })),
         setSelectedNeighborhood: (selectedNeighborhood: MeetupNeighborhood | null) =>
@@ -152,9 +161,11 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
       }
     };
 
-    const meetupSteps: Step[] = ['offer', 'location', 'confirm'];
-    const currentIndex = meetupSteps.indexOf(state.step);
-    const progress = { current: currentIndex + 1, total: meetupSteps.length };
+    const stepsForMode: Step[] = state.mode === 'shipping'
+      ? ['offer', 'confirm']
+      : ['offer', 'location', 'confirm'];
+    const currentIndex = stepsForMode.indexOf(state.step);
+    const progress = { current: currentIndex + 1, total: stepsForMode.length };
 
     if (!isOpen) return null;
 
@@ -205,9 +216,15 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 
           <View style={styles.content}>
             {state.step === 'offer' && <OfferStep context={context} />}
-            {state.step === 'location' && <LocationStep context={context} />}
+            {state.step === 'location' && state.mode === 'meetup' && (
+              <LocationStep context={context} />
+            )}
             {state.step === 'confirm' && (
-              <ConfirmStep context={context} onSubmitMeetup={onMeetupOfferSubmit} />
+              <ConfirmStep
+                context={context}
+                onSubmitMeetup={onMeetupOfferSubmit}
+                onSubmitShipping={onShippingOfferSubmit}
+              />
             )}
           </View>
         </BottomSheetScrollView>

@@ -162,6 +162,32 @@ export function useArticleActions({
     }
   }, [article, user, router]);
 
+  const handleShippingOfferSubmit = useCallback(async (
+    amount: number,
+    message: string,
+  ) => {
+    if (!article || !user) return;
+
+    if (user.id === article.sellerId) {
+      throw new Error('Vous ne pouvez pas faire une offre sur votre propre article.');
+    }
+
+    try {
+      const chat = await ChatService.createOrGetChat(user.id, article.sellerId, article.id);
+      await ChatService.sendOffer(
+        chat.id,
+        user.id,
+        article.sellerId,
+        amount,
+        message
+      );
+      router.push(`/chat/${chat.id}`);
+    } catch (error) {
+      if (__DEV__) console.error('Error submitting shipping offer:', error);
+      throw error;
+    }
+  }, [article, user, router]);
+
   const handleProposeSwap = useCallback(() => {
     if (!article || !user || !partyId) return;
 
@@ -321,6 +347,7 @@ export function useArticleActions({
     handleBuy,
     handleMakeOffer,
     handleMeetupOfferSubmit,
+    handleShippingOfferSubmit,
     handleProposeSwap,
     handleViewProfile,
     handleBack,

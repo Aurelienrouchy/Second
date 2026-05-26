@@ -16,20 +16,53 @@ interface ConfirmStepProps {
     message: string,
     meetupSpot: MeetupSpot
   ) => Promise<void>;
+  onSubmitShipping?: (
+    amount: number,
+    message: string,
+  ) => Promise<void>;
 }
 
-const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup }) => {
+const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSubmitShipping }) => {
   const { state, actions, articleTitle, onClose } = context;
   const {
+    mode,
     offerAmount,
     message,
     selectedSpot,
     isSubmitting,
   } = state;
 
+  const isShipping = mode === 'shipping';
+
   const handleSubmit = async () => {
     const amount = parseFloat(offerAmount);
 
+    if (isShipping) {
+      if (!onSubmitShipping) {
+        Alert.alert('Erreur', 'Informations manquantes');
+        return;
+      }
+
+      try {
+        actions.setIsSubmitting(true);
+        await onSubmitShipping(amount, message);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Offre envoyée',
+          'Votre offre a été envoyée au vendeur. Il peut accepter, refuser ou proposer une contre-offre.'
+        );
+        onClose();
+      } catch (error) {
+        if (__DEV__) console.error('Error submitting shipping offer:', error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Erreur', "Impossible d'envoyer votre offre. Veuillez réessayer.");
+      } finally {
+        actions.setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Meetup mode
     if (!selectedSpot || !onSubmitMeetup) {
       Alert.alert('Erreur', 'Informations manquantes');
       return;
@@ -78,34 +111,62 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup }) =>
           </>
         )}
 
-        <View style={styles.divider} />
+        {/* Meetup location section — only for meetup mode */}
+        {!isShipping && selectedSpot && (
+          <>
+            <View style={styles.divider} />
 
-        <View style={styles.summarySection}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.headerIconContainer, { backgroundColor: colors.sageLight }]}>
-              <Ionicons name="location" size={16} color={colors.sage} />
+            <View style={styles.summarySection}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.headerIconContainer, { backgroundColor: colors.sageLight }]}>
+                  <Ionicons name="location" size={16} color={colors.sage} />
+                </View>
+                <Text style={styles.sectionTitle}>LIEU DE RENCONTRE</Text>
+              </View>
+              <Text style={styles.spotName}>{selectedSpot.name}</Text>
+              <Text style={styles.spotDetails}>
+                {selectedSpot.category && MeetupSpotCategoryLabels[selectedSpot.category]} •{' '}
+                {selectedSpot.neighborhood.name}
+              </Text>
+              {selectedSpot.address && (
+                <Text style={styles.spotAddress}>{selectedSpot.address}</Text>
+              )}
             </View>
-            <Text style={styles.sectionTitle}>LIEU DE RENCONTRE</Text>
-          </View>
-          <Text style={styles.spotName}>{selectedSpot?.name}</Text>
-          <Text style={styles.spotDetails}>
-            {selectedSpot?.category && MeetupSpotCategoryLabels[selectedSpot.category]} •{' '}
-            {selectedSpot?.neighborhood.name}
-          </Text>
-          {selectedSpot?.address && (
-            <Text style={styles.spotAddress}>{selectedSpot.address}</Text>
-          )}
-        </View>
+          </>
+        )}
+
+        {/* Shipping mode delivery info */}
+        {isShipping && (
+          <>
+            <View style={styles.divider} />
+
+            <View style={styles.summarySection}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.headerIconContainer, { backgroundColor: colors.sageLight }]}>
+                  <Ionicons name="cube" size={16} color={colors.sage} />
+                </View>
+                <Text style={styles.sectionTitle}>LIVRAISON</Text>
+              </View>
+              <Text style={styles.spotDetails}>
+                Les frais de livraison seront calcules lors du paiement
+              </Text>
+            </View>
+          </>
+        )}
 
         <View style={styles.divider} />
 
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>MONTANT À PAYER</Text>
+          <Text style={styles.totalLabel}>
+            {isShipping ? 'MONTANT DE L\'OFFRE' : 'MONTANT A PAYER'}
+          </Text>
           <Text style={styles.totalValue}>{formatPrice(Number(offerAmount))}</Text>
         </View>
 
         <Text style={styles.paymentNote}>
-          Aucun frais de service — paiement en main propre lors du meetup
+          {isShipping
+            ? 'Les frais de livraison s\'ajouteront au montant de l\'offre'
+            : 'Aucun frais de service — paiement en main propre lors du meetup'}
         </Text>
       </View>
 
@@ -114,8 +175,9 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup }) =>
         <View style={styles.infoContent}>
           <Text style={styles.infoTitle}>Comment ça marche?</Text>
           <Text style={styles.infoText}>
-            Le vendeur peut accepter, refuser, ou proposer un autre prix ou lieu.
-            L'offre expire après 48h sans réponse.
+            {isShipping
+              ? "Le vendeur peut accepter, refuser ou proposer un autre prix. L'offre expire après 48h sans réponse."
+              : "Le vendeur peut accepter, refuser, ou proposer un autre prix ou lieu. L'offre expire après 48h sans réponse."}
           </Text>
         </View>
       </View>

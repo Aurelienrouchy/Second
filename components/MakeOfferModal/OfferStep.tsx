@@ -4,7 +4,7 @@ import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
-import { MakeOfferContext } from './types';
+import { getNextStep, MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 
@@ -39,6 +39,11 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       return;
     }
 
+    const goToNext = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      actions.setStep(getNextStep('offer', state.mode));
+    };
+
     if (amount < currentPrice * 0.3) {
       Alert.alert(
         'Offre trop basse',
@@ -47,19 +52,14 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
           { text: 'Modifier', style: 'cancel' },
           {
             text: 'Continuer quand même',
-            onPress: () => {
-              actions.setMode('meetup');
-              actions.setStep('location');
-            },
+            onPress: goToNext,
           },
         ]
       );
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    actions.setMode('meetup');
-    actions.setStep('location');
+    goToNext();
   };
 
   const discount = calculateDiscount();
@@ -118,7 +118,9 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
           <Ionicons name="information-circle" size={18} color={colors.sage} />
         </View>
         <Text style={styles.tipText}>
-          Vous proposerez ensuite un lieu de rencontre
+          {state.mode === 'shipping'
+            ? 'Votre offre sera envoyée au vendeur pour validation'
+            : 'Vous proposerez ensuite un lieu de rencontre'}
         </Text>
       </View>
 

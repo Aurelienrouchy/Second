@@ -3,8 +3,8 @@ import { MeetupNeighborhood, MeetupSpot } from '@/types';
 // Steps for meetup flow (datetime removed)
 export type Step = 'offer' | 'location' | 'confirm';
 
-// Offer mode (meetup only for now)
-export type OfferMode = 'meetup';
+// Offer mode: meetup (in-person) or shipping (delivery)
+export type OfferMode = 'meetup' | 'shipping';
 
 export interface MakeOfferState {
   step: Step;
@@ -61,8 +61,18 @@ export const initialState: MakeOfferState = {
   isSubmitting: false,
 };
 
-// Helper to get next step
-export const getNextStep = (currentStep: Step): Step => {
+// Helper to get next step — shipping mode skips the location step
+export const getNextStep = (currentStep: Step, mode?: OfferMode): Step => {
+  if (mode === 'shipping') {
+    // shipping: offer -> confirm (no location)
+    switch (currentStep) {
+      case 'offer':
+        return 'confirm';
+      default:
+        return 'confirm';
+    }
+  }
+  // meetup: offer -> location -> confirm
   switch (currentStep) {
     case 'offer':
       return 'location';
@@ -73,8 +83,16 @@ export const getNextStep = (currentStep: Step): Step => {
   }
 };
 
-// Helper to get previous step
-export const getPreviousStep = (currentStep: Step, _mode?: OfferMode): Step | null => {
+// Helper to get previous step — shipping mode skips the location step
+export const getPreviousStep = (currentStep: Step, mode?: OfferMode): Step | null => {
+  if (mode === 'shipping') {
+    switch (currentStep) {
+      case 'confirm':
+        return 'offer';
+      default:
+        return null;
+    }
+  }
   switch (currentStep) {
     case 'location':
       return 'offer';

@@ -72,7 +72,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
   const handleSpotSelect = (spot: MeetupSpot) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     actions.setSelectedSpot(spot);
-    actions.setStep(getNextStep(state.step));
+    actions.setStep(getNextStep(state.step, state.mode));
   };
 
   const handleCustomSpotSubmit = () => {
@@ -88,7 +88,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
     };
 
     actions.setSelectedSpot(customSpot);
-    actions.setStep(getNextStep(state.step));
+    actions.setStep(getNextStep(state.step, state.mode));
   };
 
   const handleBack = () => {

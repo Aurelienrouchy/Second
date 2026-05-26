@@ -206,6 +206,30 @@ export default function ChatScreen() {
     }
   }, [chatId, user, chat]);
 
+  const handleShippingOfferSubmit = useCallback(async (
+    amount: number,
+    message: string,
+  ) => {
+    if (!chatId || !user || !chat) return;
+    try {
+      await ChatService.sendOffer(
+        chatId,
+        user.id,
+        chat.participantsInfo.find(p => p.userId !== user.id)?.userId || '',
+        amount,
+        message,
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: unknown) {
+      if (__DEV__) console.error('Error sending shipping offer:', err);
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('Impossible')) {
+        Alert.alert('Erreur', msg);
+      }
+      throw err;
+    }
+  }, [chatId, user, chat]);
+
   const handleAcceptOffer = useCallback(async (messageId: string, offerId: string) => {
     try {
       await acceptOffer(messageId, offerId);
@@ -416,9 +440,11 @@ export default function ChatScreen() {
           articleId={chat?.articleId || ''}
           articleTitle={chat?.articleTitle || ''}
           currentPrice={article?.price ?? chat?.articlePrice ?? 0}
+          defaultMode={article?.isShipping && !article?.isHandDelivery ? 'shipping' : 'meetup'}
           sellerNeighborhood={article?.neighborhood}
           sellerPreferredSpots={article?.preferredMeetupSpots}
           onMeetupOfferSubmit={handleMeetupOfferSubmit}
+          onShippingOfferSubmit={handleShippingOfferSubmit}
         />
       )}
 
