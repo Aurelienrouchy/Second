@@ -171,6 +171,13 @@ export default function MySalesScreen() {
     [router],
   );
 
+  const handleReview = useCallback(
+    (transactionId: string) => {
+      router.push(`/review/${transactionId}`);
+    },
+    [router],
+  );
+
   if (!user) {
     return (
       <View style={styles.container}>
