@@ -400,9 +400,17 @@ interface TransactionDocument {
 
   // Stripe Connect payment
   stripePaymentIntentId?: string;  // Stripe PaymentIntent ID
-  stripeClientSecret?: string;     // Client secret for confirming payment
   stripeCheckoutCreatedAt?: Timestamp;
   stripeChargeId?: string;         // Latest charge ID from webhook
+  stripeRefundId?: string;         // Stripe refund ID (if refunded)
+
+  // Dispute / cancellation
+  disputeId?: string;              // Stripe dispute ID
+  disputedAt?: Timestamp;
+  disputeReason?: string;
+  cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, etc.)
+  cancelledBy?: string;            // UID of user who cancelled (manual cancel only)
+  refundedAt?: Timestamp;
 
   // Shipping (ShipEngine)
   shipEngineRateId?: string;
