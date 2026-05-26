@@ -15,6 +15,7 @@ import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search
 import ConditionSelector from '@/components/ConditionSelector';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
 import FormFieldGroup from '@/components/sell/FormFieldGroup';
+import StepProgressBar from '@/components/sell/StepProgressBar';
 import { ScreenHeader } from '@/components/ui';
 import {
   PhotoStripPreview,
@@ -211,7 +212,7 @@ export default function DetailsScreen() {
     });
   }, []);
 
-  const isFormValid = fields.title.trim() !== '' && fields.categoryIds.length > 0;
+  const isFormValid = fields.title.trim() !== '' && fields.description.trim() !== '' && fields.categoryIds.length > 0;
 
   // Chip data
   const allColorItems = getColorItems();
@@ -245,6 +246,7 @@ export default function DetailsScreen() {
         title="Détails"
         onBack={handleBack}
       />
+      <StepProgressBar currentStep={2} />
 
       <ScrollView
         style={styles.scrollView}

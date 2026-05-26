@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
+import StepProgressBar from '@/components/sell/StepProgressBar';
 import { ScreenHeader } from '@/components/ui';
 import {
   PriceCard,
@@ -144,7 +145,7 @@ export default function PricingScreen() {
   const validateForm = (): boolean => {
     const newErrors: string[] = [];
     const priceNum = parseFloat(price);
-    if (!price || isNaN(priceNum) || priceNum <= 0) {
+    if (!price || isNaN(priceNum) || priceNum < 0.01) {
       newErrors.push('Entrez un prix valide');
     } else if (priceNum > 10000) {
       newErrors.push('Le prix maximum est de 10 000 $');
@@ -204,6 +205,7 @@ export default function PricingScreen() {
         title="Prix & livraison"
         onBack={handleBack}
       />
+      <StepProgressBar currentStep={3} />
 
       <ScrollView
         style={styles.scrollView}
