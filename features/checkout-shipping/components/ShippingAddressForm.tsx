@@ -3,7 +3,7 @@
  * Renders the address input fields for checkout shipping.
  */
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { colors, fonts, radius } from '@/constants/theme';
