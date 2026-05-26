@@ -243,15 +243,52 @@ export default function ShippingCheckoutScreen() {
     }
   }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router]);
 
+  const retryStripePayment = useCallback(async () => {
+    if (!pendingTransactionId) return;
+    try {
+      setSubmitting(true);
+      const result = await httpsCallable(functions, 'createStripeCheckout')({ transactionId: pendingTransactionId });
+      const data = result.data as { success: boolean; clientSecret: string };
+      if (!data.success || !data.clientSecret) throw new Error('Impossible de relancer le paiement');
+      setClientSecret(data.clientSecret);
+      setShowStripePayment(true);
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Error retrying payment:', error);
+      const msg = error instanceof Error ? error.message : 'Impossible de relancer le paiement.';
+      Alert.alert('Erreur', msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [pendingTransactionId]);
+
+  const cancelPendingTransaction = useCallback(async () => {
+    if (pendingTransactionId) {
+      try {
+        await TransactionService.updateTransactionStatus(pendingTransactionId, 'cancelled');
+      } catch (cancelError) {
+        if (__DEV__) console.error('Error cancelling transaction:', cancelError);
+      }
+    }
+    router.back();
+  }, [pendingTransactionId, router]);
+
   const handlePaymentResult = useCallback(async (result: StripePaymentResult) => {
     setShowStripePayment(false);
     setClientSecret(null);
 
     if (!result.success) {
-      if (pendingTransactionId) {
-        await TransactionService.updateTransactionStatus(pendingTransactionId, 'cancelled');
-      }
-      Alert.alert('Paiement échoué', result.error || 'Veuillez réessayer.');
+      // User explicitly cancelled the payment sheet — do nothing
+      if (result.error === 'cancelled') return;
+
+      // Payment failed — offer retry instead of immediately cancelling
+      Alert.alert(
+        'Le paiement a echoue',
+        result.error || 'Voulez-vous reessayer ?',
+        [
+          { text: 'Reessayer', onPress: retryStripePayment },
+          { text: 'Annuler', style: 'destructive', onPress: cancelPendingTransaction },
+        ],
+      );
       return;
     }
 
@@ -270,7 +307,7 @@ export default function ShippingCheckoutScreen() {
         chatId: pendingChatId || '',
       },
     });
-  }, [pendingTransactionId, pendingChatId, article, selectedEstimate, serviceFee, totalAmount, finalPrice, router]);
+  }, [pendingTransactionId, pendingChatId, article, selectedEstimate, serviceFee, totalAmount, finalPrice, router, retryStripePayment, cancelPendingTransaction]);
 
   // --- Render ----------------------------------------------------------------
 
