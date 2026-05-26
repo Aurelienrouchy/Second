@@ -171,7 +171,15 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
         { "fieldPath": "sellerId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
-    }
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
     {
       "collectionGroup": "swapParties",
       "queryScope": "COLLECTION",
