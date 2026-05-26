@@ -195,4 +195,29 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     padding: 0,
   },
+  provinceChipsContainer: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  provinceChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceWarm,
+  },
+  provinceChipSelected: {
+    borderColor: colors.charcoal,
+    backgroundColor: colors.charcoal,
+  },
+  provinceChipText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  provinceChipTextSelected: {
+    color: colors.cream,
+  },
 });
