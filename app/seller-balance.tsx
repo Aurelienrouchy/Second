@@ -164,7 +164,7 @@ export default function SellerBalanceScreen() {
             style={[styles.transactionAmount, isWithdrawal && styles.transactionAmountNegative]}
           >
             {item.amount > 0 ? '+' : ''}
-            {formatPrice(Math.abs(item.amount))}
+            {formatPriceWithCurrency(Math.abs(item.amount))}
           </Text>
         </View>
       );
