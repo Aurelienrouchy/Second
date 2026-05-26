@@ -71,12 +71,12 @@ export default function SuccessModal({
           </Animated.View>
 
           {/* Title */}
-          <Text style={styles.title}>Annonce publiee</Text>
+          <Text style={styles.title}>Annonce publiée</Text>
 
           {/* Description */}
           <Text style={styles.description}>
             Ton {articleTitle ? articleTitle.toLowerCase() : 'article'} est
-            maintenant visible par tous les acheteurs de Montreal.
+            maintenant visible par tous les acheteurs.
           </Text>
 
           {/* Primary CTA */}
@@ -93,7 +93,7 @@ export default function SuccessModal({
             onPress={onReturnHome}
           >
             <Text style={styles.secondaryButtonText}>
-              Retour a l'accueil
+              Retour à l'accueil
             </Text>
           </Pressable>
         </Animated.View>

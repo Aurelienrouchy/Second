@@ -159,6 +159,14 @@ export const createArticle = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Utilisateur non connecte');
     }
+    // Email verification required before publishing.
+    // Google/Apple sign-in users always have email_verified: true.
+    if (!request.auth.token.email_verified) {
+      throw new HttpsError(
+        'permission-denied',
+        'Veuillez verifier votre adresse e-mail avant de publier.',
+      );
+    }
     const uid = request.auth.uid;
     const data = request.data;
 
@@ -203,10 +211,11 @@ export const createArticle = onCall(
         'Au moins une image est requise',
       );
     }
-    if (data.images.length > 20) {
+    // Client limit: 5, server safety limit: 10
+    if (data.images.length > 10) {
       throw new HttpsError(
         'invalid-argument',
-        'Maximum 20 images autorisees',
+        'Maximum 10 images autorisees',
       );
     }
     for (const img of data.images) {

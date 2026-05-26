@@ -117,7 +117,7 @@ export default function PricingScreen() {
   const handleBack = () => {
     Alert.alert(
       'Quitter ?',
-      'Tes modifications seront sauvegardees dans le brouillon.',
+      'Tes modifications seront sauvegardées dans le brouillon.',
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Quitter', onPress: () => router.back() },

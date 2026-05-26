@@ -222,7 +222,7 @@ export default function PreviewScreen() {
     { label: 'Condition', value: conditionLabels[fields.condition] || fields.condition },
     { label: 'Taille', value: fields.size },
     { label: 'Couleur', value: colorsDisplay },
-    { label: 'Matiere', value: materialsDisplay },
+    { label: 'Matière', value: materialsDisplay },
   ].filter((s) => s.value);
 
   return (
@@ -317,7 +317,7 @@ export default function PreviewScreen() {
             {pricing.isShipping && (
               <View style={styles.deliveryBadge}>
                 <Ionicons name="cube-outline" size={14} color={colors.charcoal} />
-                <Text style={styles.deliveryBadgeText}>Expedition</Text>
+                <Text style={styles.deliveryBadgeText}>Expédition</Text>
               </View>
             )}
           </View>

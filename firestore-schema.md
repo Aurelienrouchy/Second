@@ -84,10 +84,25 @@ interface ArticleDocument {
   };
 
   // Delivery
-  deliveryOptions?: {
+  isHandDelivery?: boolean;        // Supports in-person pickup
+  isShipping?: boolean;            // Supports shipping
+  packageSize?: 'small' | 'medium' | 'large'; // For shipping cost estimation
+  deliveryOptions?: {              // Legacy structure (some older articles)
     pickup: boolean;
     shipping: boolean;
     shippingCost?: number;
+  };
+
+  // Meetup neighborhoods
+  neighborhoods?: {                // Preferred meetup locations (max 10)
+    id: string;
+    name: string;
+    city?: string;
+  }[];
+  neighborhood?: {                 // Primary meetup location (first of neighborhoods)
+    id: string;
+    name: string;
+    city?: string;
   };
 
   // Status
