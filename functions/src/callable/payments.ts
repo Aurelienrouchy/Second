@@ -352,13 +352,14 @@ export const createStripeCheckout = onCall(
           );
         }
 
-        // Idempotent: if a PaymentIntent already exists, return existing clientSecret
-        if (transaction.stripePaymentIntentId && transaction.stripeClientSecret) {
+        // Idempotent: if a PaymentIntent already exists, retrieve clientSecret from Stripe
+        // (never store client_secret in Firestore — it's a sensitive credential)
+        if (transaction.stripePaymentIntentId) {
           const existingFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
           return {
             existingCheckout: true,
             fees: existingFees,
-            clientSecret: transaction.stripeClientSecret as string,
+            existingPaymentIntentId: transaction.stripePaymentIntentId as string,
             sellerId: transaction.sellerId as string,
           };
         }
