@@ -406,7 +406,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `brands.ts` | Gestion marques |
 
 ### Config backend — `functions/src/config/`
-firebase.ts, gemini.ts, helcim.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, stripe.ts
+firebase.ts, gemini.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, stripe.ts
 
 ### Utils backend — `functions/src/utils/`
 debounce.ts, fees.ts, geohash.ts, notifications.ts, search.ts
