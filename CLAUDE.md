@@ -4,6 +4,16 @@
 
 ---
 
+## RÈGLE ABSOLUE — GIT SAFETY
+
+- **COMMIT APRÈS CHAQUE MODIFICATION** : après chaque fichier modifié ou groupe cohérent, `git add` + `git commit` immédiatement. Ne JAMAIS laisser du travail non commité.
+- **JAMAIS de commande git destructive** (`git checkout -- .`, `git reset --hard`, `git clean -fd`) sans `git stash` préalable ET confirmation utilisateur.
+- **JAMAIS de push** sans demande explicite de l'utilisateur.
+- **JAMAIS de deploy** (`firebase deploy`) sans demande explicite de l'utilisateur.
+- Cette règle s'applique à l'orchestrateur ET à tous les agents délégués.
+
+---
+
 ## PROJET
 
 **Second** — marketplace seconde main (style Vinted), mono-langue FR, déployée sur Firebase `seconde-b47a6` (sprints 1-5 livrés).
