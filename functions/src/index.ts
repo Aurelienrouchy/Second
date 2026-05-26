@@ -146,8 +146,11 @@ export { cleanupExpiredDrafts } from './scheduled/cleanupDrafts';
 // Offer expiration (hourly cleanup of stale pending offers)
 export { expireStaleOffers } from './scheduled/offerExpiration';
 
-// Transaction expiration (meetup_pending 48h + pending_payment 1h)
+// Transaction expiration (meetup_pending 48h + pending_payment 1h + paid-not-shipped 7d)
 export { expireOrphanedTransactions } from './scheduled/transactionExpiration';
+
+// Tracking check (poll ShipEngine every 6h for shipped transactions)
+export { checkShippedTracking } from './scheduled/trackingCheck';
 
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
