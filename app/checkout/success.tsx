@@ -104,7 +104,7 @@ export default function CheckoutSuccessScreen() {
             <>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Prix</Text>
-                <Text style={[styles.summaryValue, styles.summaryPrice]}>{formatPrice(parseFloat(amount))}</Text>
+                <Text style={[styles.summaryValue, styles.summaryPrice]}>{formatPrice(parseFloat(amount || '0'))}</Text>
               </View>
               {spotName && (
                 <View style={styles.summaryRow}>
@@ -123,7 +123,7 @@ export default function CheckoutSuccessScreen() {
             <>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Prix</Text>
-                <Text style={styles.summaryValue}>{formatPrice(parseFloat(amount))}</Text>
+                <Text style={styles.summaryValue}>{formatPrice(parseFloat(amount || '0'))}</Text>
               </View>
               {serviceFee && (
                 <View style={styles.summaryRow}>
