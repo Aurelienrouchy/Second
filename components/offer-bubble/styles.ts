@@ -70,12 +70,6 @@ export const styles = StyleSheet.create({
     alignItems: 'baseline',
     marginBottom: spacing.sm,
   },
-  amountPrefix: {
-    fontFamily: fonts.displaySemiBold,
-    fontSize: 22,
-    color: colors.muted,
-    marginRight: 4,
-  },
   amount: {
     fontFamily: fonts.displaySemiBold,
     fontSize: 36,
