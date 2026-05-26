@@ -438,10 +438,9 @@ export const createStripeCheckout = onCall(
         // The actual payout hold is managed via the connected account's schedule
       });
 
-      // Store PaymentIntent details in the transaction doc
+      // Store PaymentIntent ID in the transaction doc (never store client_secret)
       await txRef.update({
         stripePaymentIntentId: paymentIntent.id,
-        stripeClientSecret: paymentIntent.client_secret,
         stripeCheckoutCreatedAt: FieldValue.serverTimestamp(),
       });
 
