@@ -255,14 +255,10 @@ export interface Transaction {
   serviceFee?: number;
   serviceFeePercent?: number;
   sellerPayout?: number;
-  // Helcim payment
-  helcimTransactionId?: number;
-  helcimApprovalCode?: string;
-  helcimCardLast4?: string;
-  helcimCardType?: string;
-  helcimSecretToken?: string;
-  // Legacy - unused (kept for migration)
-  paymentIntentId?: string;
+  // Stripe payment
+  stripePaymentIntentId?: string;
+  stripeClientSecret?: string;
+  stripeChargeId?: string;
   // ShipEngine shipping
   shipEngineRateId?: string;
   shipEngineLabelId?: string;
