@@ -227,7 +227,7 @@ export default function SellerBalanceScreen() {
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Disponible</Text>
             <Text style={styles.balanceAmount}>
-              {formatPrice(balance.availableBalance)}
+              {formatPriceWithCurrency(balance.availableBalance)}
             </Text>
             <Text style={styles.balanceHint}>Prêt pour retrait</Text>
           </View>
