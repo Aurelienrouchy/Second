@@ -235,7 +235,7 @@ export default function SellerBalanceScreen() {
           <View style={[styles.balanceCard, styles.balanceCardPending]}>
             <Text style={styles.balanceLabel}>En attente</Text>
             <Text style={styles.balanceAmount}>
-              {formatPrice(balance.pendingBalance)}
+              {formatPriceWithCurrency(balance.pendingBalance)}
             </Text>
             <Text style={styles.balanceHint}>Livraisons en cours</Text>
           </View>
