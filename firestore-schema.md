@@ -277,11 +277,18 @@ interface ChatDocument {
       profileImage?: string | null;
     };
   };
+  // Article context (set when chat initiated from an article)
+  sellerId?: string;             // Seller UID — optional, may be null on legacy
+                                 // chats created before this field was added.
+                                 // Cloud Functions (e.g. createTransaction) read
+                                 // sellerId from the article, not the chat.
   articleId?: string;            // Article being discussed
   articleTitle?: string;
   articleImage?: string;
   articlePrice?: number;
+
   lastMessage?: string;
+  lastMessageType?: 'text' | 'image' | 'offer' | 'system';
   lastMessageTimestamp?: Timestamp;
   unreadCount?: { [userId: string]: number };
   createdAt: Timestamp;
@@ -309,8 +316,39 @@ interface MessageDocument {
   // Offer data (type === 'offer')
   offer?: {
     amount: number;
-    status: 'pending' | 'accepted' | 'declined' | 'expired';
+    status: 'pending' | 'accepted' | 'rejected' | 'completed'
+          | 'counter_price' | 'counter_location' | 'counter_time'
+          | 'expired';
+    message?: string;
+    shippingAddress?: ShippingAddress;
+    shippingEstimate?: ShippingEstimate;
+    totalAmount?: number;            // amount + shipping
     expiresAt?: Timestamp;
+    offerId?: string;                // Reference to MeetupOffer document
+
+    // Meetup details (present when offer involves in-person exchange)
+    meetup?: {
+      location: MeetupSpot;          // { name, address, category, neighborhood }
+      dateTime?: Timestamp;          // Optional — date/time agreed via chat
+      proposedBy: 'buyer' | 'seller';
+      confirmedAt?: Timestamp;
+      completedAt?: Timestamp;
+      noShow?: {
+        reportedBy: string;          // userId who reported
+        reportedAt: Timestamp;
+        reason?: string;
+      };
+    };
+
+    // Negotiation history (counter-offers, status changes)
+    history?: {
+      action: string;                // e.g. 'created', 'counter_price', 'accepted'
+      by: string;                    // userId
+      timestamp: Timestamp;
+      previousValue?: any;
+      newValue?: any;
+      message?: string;
+    }[];
   };
 
   // Shipping label (system messages)
@@ -352,8 +390,11 @@ interface TransactionDocument {
   totalAmount?: number;          // What the buyer pays (amount + shipping + fee)
   sellerPayout?: number;         // What the seller receives
 
-  // Status flow: pending -> paid -> shipped -> delivered | cancelled
-  status: 'pending' | 'pending_payment' | 'meetup_pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  // Status flow:
+  //   Shipping: pending_payment -> paid -> shipped -> delivered | cancelled
+  //   Meetup:   meetup_pending -> meetup_confirmed -> meetup_completed | cancelled
+  status: 'pending_payment' | 'meetup_pending' | 'meetup_confirmed'
+        | 'meetup_completed' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
 
   // Stripe Connect payment
   stripePaymentIntentId?: string;  // Stripe PaymentIntent ID
@@ -369,6 +410,21 @@ interface TransactionDocument {
   shippingLabelUrl?: string;
   shipEngineLabelId?: string;
   carrierCode?: string;
+
+  // Meetup (deliveryType === 'meetup')
+  meetupSpot?: {                   // Agreed meeting location
+    name: string;
+    address: string;
+    category: string;              // e.g. 'cafe', 'metro', 'parc'
+    neighborhood: {
+      id: string;
+      name: string;
+      city?: string;
+    };
+    coordinates?: { lat: number; lon: number };
+  };
+  meetupConfirmedAt?: Timestamp;
+  meetupCompletedAt?: Timestamp;
 
   // Chat
   chatId?: string;
