@@ -2,16 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
 import {
-  FlatList,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 
 import { SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 export interface SwapItemSelectorProps {
   visible: boolean;
@@ -91,7 +92,7 @@ const SwapItemSelector: React.FC<SwapItemSelectorProps> = ({
           <Text style={styles.itemTitle} numberOfLines={2}>
             {item.title}
           </Text>
-          <Text style={styles.itemPrice}>${item.price}</Text>
+          <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
         </View>
       </Pressable>
     );
@@ -119,14 +120,13 @@ const SwapItemSelector: React.FC<SwapItemSelectorProps> = ({
           </View>
 
           {/* Grid of items */}
-          <FlatList
+          <FlashList
             data={items}
             renderItem={renderItem}
             keyExtractor={item => item.articleId}
             numColumns={2}
-            columnWrapperStyle={styles.gridRow}
-            scrollEnabled
-            style={styles.list}
+            // @ts-expect-error estimatedItemSize valid at runtime
+            estimatedItemSize={180}
             contentContainerStyle={styles.listContent}
           />
 
@@ -137,7 +137,7 @@ const SwapItemSelector: React.FC<SwapItemSelectorProps> = ({
                 {selectedItems.length} article{selectedItems.length !== 1 ? 's' : ''} sélectionnés
               </Text>
               <Text style={styles.bottomBarTotal}>
-                Total: ${totalValue}
+                Total: {formatPrice(totalValue)}
               </Text>
             </View>
 
@@ -186,16 +186,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.charcoal,
   },
-  list: {
-    flex: 1,
-  },
   listContent: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-  },
-  gridRow: {
-    gap: spacing.md,
-    marginBottom: spacing.md,
   },
   itemCard: {
     flex: 1,

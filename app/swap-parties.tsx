@@ -3,25 +3,30 @@
  * Very dark background with cream text, sage filter tabs, and zone cards
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   Pressable,
   RefreshControl,
+  Alert,
   Text as RNText,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useUser } from '@/contexts/AuthContext';
+import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { AUTH_MESSAGES } from '@/constants/authMessages';
 import {
   getSwapParties,
   getActiveSwapParty,
-  isParticipant,
+  getEndedSwapParties,
+  getUserParticipatingPartyIds,
+  joinSwapParty,
 } from '@/services/swapService';
 import { queryKeys } from '@/lib/queryKeys';
 import { SwapParty } from '@/types';
@@ -32,6 +37,8 @@ import type { FilterTab } from '@/features/swap-parties';
 
 export default function SwapPartiesScreen() {
   const user = useUser();
+  const { requireAuth } = useAuthRequired();
+  const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
   const {
@@ -49,17 +56,23 @@ export default function SwapPartiesScreen() {
 
       let participatingIds = new Set<string>();
       if (user) {
-        const results = await Promise.all(
-          allParties.map((party) => isParticipant(party.id, user.id))
-        );
-        allParties.forEach((party, i) => {
-          if (results[i]) participatingIds.add(party.id);
-        });
+        participatingIds = await getUserParticipatingPartyIds(user.id);
       }
 
       return { allParties, activeParty, participatingIds };
     },
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Lazy-load ended parties only when the "Terminées" tab is selected
+  const {
+    data: endedParties = [],
+    isLoading: isEndedLoading,
+  } = useQuery({
+    queryKey: [...queryKeys.swapParties.list(), 'ended'],
+    queryFn: () => getEndedSwapParties(20),
+    enabled: activeFilter === 'ended',
+    staleTime: 10 * 60 * 1000,
   });
 
   const allParties = data?.allParties ?? [];
@@ -73,21 +86,37 @@ export default function SwapPartiesScreen() {
     router.back();
   };
 
+  const handleJoinParty = useCallback(async (partyId: string) => {
+    if (!user) {
+      requireAuth(async () => {}, AUTH_MESSAGES.swapParty);
+      return;
+    }
+    try {
+      await joinSwapParty(partyId, user.id, user.displayName || 'Utilisateur', user.profileImage);
+      queryClient.invalidateQueries({ queryKey: queryKeys.swapParties.list() });
+    } catch (error) {
+      if (__DEV__) console.error('Error joining party:', error);
+      Alert.alert('Erreur', 'Impossible de rejoindre la Swap Zone');
+    }
+  }, [user, requireAuth, queryClient]);
+
   const filteredParties = useMemo((): SwapParty[] => {
     switch (activeFilter) {
       case 'active':
         return allParties.filter((p) => p.status === 'active');
       case 'upcoming':
         return allParties.filter((p) => p.status === 'upcoming');
+      case 'ended':
+        return endedParties;
       case 'my':
         return allParties.filter((p) => participatingIds.has(p.id));
       case 'all':
       default:
         return allParties;
     }
-  }, [activeFilter, allParties, participatingIds]);
+  }, [activeFilter, allParties, endedParties, participatingIds]);
 
-  if (isLoading) {
+  if (isLoading || (activeFilter === 'ended' && isEndedLoading)) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header skeleton */}
@@ -151,6 +180,7 @@ export default function SwapPartiesScreen() {
                 zone={zone}
                 isEnrolled={participatingIds.has(zone.id)}
                 onPress={() => handlePartyPress(zone.id)}
+                onJoin={() => handleJoinParty(zone.id)}
                 opacity={
                   zone.status === 'active'
                     ? 1

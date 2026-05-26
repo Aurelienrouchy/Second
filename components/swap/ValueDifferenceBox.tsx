@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 export interface ValueDifferenceBoxProps {
   difference: number;
@@ -24,7 +25,7 @@ const ValueDifferenceBox: React.FC<ValueDifferenceBoxProps> = ({
       {/* Header Row */}
       <View style={styles.headerRow}>
         <Text style={styles.headerLabel}>Différence de valeur</Text>
-        <Text style={styles.headerValue}>${difference}</Text>
+        <Text style={styles.headerValue}>{formatPrice(difference)}</Text>
       </View>
 
       {/* Description */}
@@ -42,7 +43,7 @@ const ValueDifferenceBox: React.FC<ValueDifferenceBoxProps> = ({
           onPress={() => onToggleSupplement(true)}
         >
           <Text style={styles.supplementButtonText}>
-            + ${difference} complément
+            + {formatPrice(difference)} complément
           </Text>
         </Pressable>
 

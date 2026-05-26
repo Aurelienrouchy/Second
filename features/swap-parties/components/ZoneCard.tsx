@@ -24,6 +24,7 @@ export interface ZoneCardProps {
   zone: SwapParty;
   isEnrolled: boolean;
   onPress: () => void;
+  onJoin?: () => void;
   opacity?: number;
 }
 
@@ -31,6 +32,7 @@ export const ZoneCard = React.memo(function ZoneCard({
   zone,
   isEnrolled,
   onPress,
+  onJoin,
   opacity = 1,
 }: ZoneCardProps) {
   const isActive = zone.status === 'active';
@@ -143,11 +145,15 @@ export const ZoneCard = React.memo(function ZoneCard({
           </RNText>
 
           <View style={styles.upcomingButtonsRow}>
-            <Pressable style={styles.upcomingSignupButton} onPress={onPress}>
-              <RNText style={styles.upcomingSignupText}>S'inscrire</RNText>
-            </Pressable>
+            {!isEnrolled && onJoin && (
+              <Pressable style={styles.upcomingSignupButton} onPress={onJoin}>
+                <RNText style={styles.upcomingSignupText}>S'inscrire</RNText>
+              </Pressable>
+            )}
             <Pressable style={styles.upcomingPreviewButton} onPress={onPress}>
-              <RNText style={styles.upcomingPreviewText}>Aperçu</RNText>
+              <RNText style={styles.upcomingPreviewText}>
+                {isEnrolled ? 'Inscrit' : 'Aperçu'}
+              </RNText>
             </Pressable>
           </View>
         </View>
@@ -156,7 +162,7 @@ export const ZoneCard = React.memo(function ZoneCard({
           <View style={styles.futureStatusBadge}>
             <View style={styles.futureDot} />
             <RNText style={styles.futureStatusText}>
-              Démarre {startDate}
+              {zone.status === 'ended' ? 'Terminée' : `Démarre ${startDate}`}
             </RNText>
           </View>
 
@@ -165,6 +171,18 @@ export const ZoneCard = React.memo(function ZoneCard({
           <RNText style={styles.futureDescription}>
             {zone.description}
           </RNText>
+
+          {zone.status === 'ended' && (
+            <View style={styles.endedStatsRow}>
+              <RNText style={styles.futureStatusText}>
+                {zone.participantsCount ?? 0} membres
+              </RNText>
+              <RNText style={styles.futureStatusText}> · </RNText>
+              <RNText style={styles.futureStatusText}>
+                {zone.swapsCount ?? 0} swaps
+              </RNText>
+            </View>
+          )}
         </View>
       )}
     </Animated.View>
@@ -391,5 +409,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(245, 240, 232, 0.25)',
     lineHeight: 18,
+  },
+  endedStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
   },
 });

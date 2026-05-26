@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import type { PartyItemCardProps } from '../types';
 
 export const PartyItemCard = React.memo(function PartyItemCard({
@@ -20,8 +21,6 @@ export const PartyItemCard = React.memo(function PartyItemCard({
   onPress,
   onLongPress,
 }: PartyItemCardProps) {
-  const hasValueDifference = item.price != null && item.price > 0;
-
   return (
     <Pressable
       style={({ pressed }) => [styles.productCard, pressed && { opacity: 0.7 }]}
@@ -48,25 +47,14 @@ export const PartyItemCard = React.memo(function PartyItemCard({
           </View>
         )}
 
-        <Pressable style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.7 }]}>
-          <Ionicons name="heart-outline" size={16} color={colors.charcoal} />
-        </Pressable>
-
-        <View
-          style={[
-            styles.swapBadge,
-            hasValueDifference && styles.swapBadgeWithPrice,
-          ]}
-        >
+        <View style={styles.swapBadge}>
           <Ionicons
             name="swap-horizontal"
             size={10}
             color={colors.white}
             style={styles.swapIcon}
           />
-          <Text style={styles.swapBadgeText}>
-            {hasValueDifference ? `Swap + $${item.price}` : 'Swap'}
-          </Text>
+          <Text style={styles.swapBadgeText}>Swap</Text>
         </View>
       </View>
 
@@ -78,11 +66,8 @@ export const PartyItemCard = React.memo(function PartyItemCard({
           {item.title}
         </Text>
         <View style={styles.productFooter}>
-          <Text style={[
-            styles.productPrice,
-            hasValueDifference && styles.productPriceRust,
-          ]}>
-            ${item.price}
+          <Text style={styles.productPrice}>
+            {formatPrice(item.price)}
           </Text>
           <Text style={styles.productSize}>
             {item.size || 'U'}
@@ -111,17 +96,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  saveButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(245, 240, 232, 0.88)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   swapBadge: {
     position: 'absolute',
     bottom: 8,
@@ -133,9 +107,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-  },
-  swapBadgeWithPrice: {
-    backgroundColor: 'rgba(196, 96, 58, 0.9)',
   },
   swapIcon: {
     marginRight: 2,
@@ -195,9 +166,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.sage,
-  },
-  productPriceRust: {
-    color: colors.rust,
   },
   productSize: {
     fontSize: 10,

@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
 export const MyArticlesSection = React.memo(function MyArticlesSection({
@@ -57,7 +58,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
               <View style={styles.myArticleValue}>
                 <Text style={styles.myArticleValueLabel}>Valeur</Text>
                 <Text style={styles.myArticlePrice}>
-                  {item.price}$
+                  {formatPrice(item.price)}
                 </Text>
               </View>
               {partyStatus !== 'ended' && (

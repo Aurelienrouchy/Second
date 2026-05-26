@@ -13,12 +13,13 @@ import {
 
 import { colors, fonts, spacing } from '@/constants/theme';
 
-export type FilterTab = 'all' | 'active' | 'upcoming' | 'my';
+export type FilterTab = 'all' | 'active' | 'upcoming' | 'ended' | 'my';
 
 const FILTER_TABS: { label: string; value: FilterTab }[] = [
   { label: 'Toutes', value: 'all' },
   { label: 'En cours', value: 'active' },
   { label: 'À venir', value: 'upcoming' },
+  { label: 'Terminées', value: 'ended' },
   { label: 'Mes zones', value: 'my' },
 ];
 

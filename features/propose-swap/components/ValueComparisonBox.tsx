@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 type ValueComparisonBoxProps = {
   initiatorTotal: number;
@@ -38,12 +39,12 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
         <View style={styles.priceSummaryRow}>
           <View style={styles.priceSummaryItem}>
             <Text style={styles.priceSummaryLabel}>Vos articles</Text>
-            <Text style={styles.priceSummaryValue}>${initiatorTotal}</Text>
+            <Text style={styles.priceSummaryValue}>{formatPrice(initiatorTotal)}</Text>
           </View>
           <View style={styles.priceSummaryDivider} />
           <View style={styles.priceSummaryItem}>
             <Text style={styles.priceSummaryLabel}>Leurs articles</Text>
-            <Text style={styles.priceSummaryValue}>${receiverTotal}</Text>
+            <Text style={styles.priceSummaryValue}>{formatPrice(receiverTotal)}</Text>
           </View>
         </View>
 
@@ -53,8 +54,8 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
             <Ionicons name="information-circle-outline" size={14} color={colors.rust} />
             <Text style={styles.diffIndicatorText}>
               {receiverHasMore
-                ? `Différence de $${valueDifference} en leur faveur`
-                : `Différence de $${valueDifference} en votre faveur`}
+                ? `Différence de ${formatPrice(valueDifference)} en leur faveur`
+                : `Différence de ${formatPrice(valueDifference)} en votre faveur`}
             </Text>
           </View>
         ) : (
@@ -126,7 +127,7 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
                 onPress={() => onComplementAmountChange(String(valueDifference))}
               >
                 <Text style={styles.suggestAmountText}>
-                  Suggéré: ${valueDifference}
+                  Suggéré: {formatPrice(valueDifference)}
                 </Text>
               </Pressable>
             )}

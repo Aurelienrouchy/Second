@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text, Caption } from '@/components/ui';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import type { Article } from '@/types';
 import type { AddItemModalProps } from '../types';
 
@@ -46,7 +47,7 @@ export const AddItemModal = React.memo(function AddItemModal({
         </Text>
       </View>
       <Text variant="price" style={styles.articleListPrice}>
-        {item.price}$
+        {formatPrice(item.price)}
       </Text>
       <View style={styles.addItemIcon}>
         <Ionicons name="add-circle" size={24} color={colors.sage} />

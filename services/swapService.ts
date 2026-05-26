@@ -107,6 +107,29 @@ export async function getActiveSwapParty(): Promise<SwapParty | null> {
 }
 
 /**
+ * Get ended swap parties
+ */
+export async function getEndedSwapParties(count: number = 10): Promise<SwapParty[]> {
+  const partiesRef = collection(firestore, 'swapParties');
+  const q = query(
+    partiesRef,
+    where('status', '==', 'ended'),
+    orderBy('endDate', 'desc'),
+    limit(count)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+    startDate: d.data().startDate?.toDate(),
+    endDate: d.data().endDate?.toDate(),
+    createdAt: d.data().createdAt?.toDate(),
+    updatedAt: d.data().updatedAt?.toDate(),
+  })) as SwapParty[];
+}
+
+/**
  * Get upcoming swap parties
  */
 export async function getUpcomingSwapParties(count: number = 5): Promise<SwapParty[]> {
@@ -178,6 +201,19 @@ export async function isParticipant(partyId: string, userId: string): Promise<bo
   );
   const snapshot = await getDocs(q);
   return !snapshot.empty;
+}
+
+/**
+ * Get all party IDs a user participates in (batch query, avoids N+1)
+ */
+export async function getUserParticipatingPartyIds(userId: string): Promise<Set<string>> {
+  const participantsRef = collection(firestore, 'swapPartyParticipants');
+  const q = query(
+    participantsRef,
+    where('userId', '==', userId)
+  );
+  const snapshot = await getDocs(q);
+  return new Set(snapshot.docs.map((d) => d.data().partyId as string));
 }
 
 /**
