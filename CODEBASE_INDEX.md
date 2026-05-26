@@ -28,7 +28,8 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/onboarding` | `onboarding.tsx` | Onboarding préférences |
 | `/notifications` | `notifications.tsx` | Centre notifications |
 | `/my-articles` | `my-articles.tsx` | Mes articles en vente |
-| `/my-orders` | `my-orders.tsx` | Mes commandes |
+| `/my-orders` | `my-orders.tsx` | Mes commandes (acheteur) |
+| `/my-sales` | `my-sales.tsx` | Mes ventes (vendeur) |
 | `/my-swaps` | `my-swaps.tsx` | Mes échanges |
 | `/liked-sellers` | `liked-sellers.tsx` | Vendeurs suivis |
 | `/seller-balance` | `seller-balance.tsx` | Solde vendeur |
