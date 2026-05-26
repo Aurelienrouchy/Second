@@ -146,6 +146,9 @@ export { cleanupExpiredDrafts } from './scheduled/cleanupDrafts';
 // Offer expiration (hourly cleanup of stale pending offers)
 export { expireStaleOffers } from './scheduled/offerExpiration';
 
+// Transaction expiration (meetup_pending 48h + pending_payment 1h)
+export { expireOrphanedTransactions } from './scheduled/transactionExpiration';
+
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
