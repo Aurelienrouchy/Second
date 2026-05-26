@@ -248,7 +248,9 @@ export const createTransaction = onCall(
         tx.update(articleRef, { isSold: true });
 
         // Build transaction data — server-side fee calculation (never trust client)
-        const fee = calculateServiceFee(amount);
+        // Meetup transactions have NO platform fee (aligned with frontend
+        // messaging "Aucun frais de plateforme") and no shipping cost.
+        const fee = deliveryType === 'meetup' ? 0 : calculateServiceFee(amount);
         const shipping = deliveryType === 'shipping' ? (shippingCost || 0) : 0;
         const totalAmount = amount + shipping + fee;
 
