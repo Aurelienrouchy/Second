@@ -364,6 +364,9 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.white,
   },
+  disabledButton: {
+    opacity: 0.6,
+  },
 
   // Completed Badge
   completedBadge: {
