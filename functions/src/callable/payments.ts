@@ -493,15 +493,20 @@ export const createStripeCheckout = onCall(
 );
 
 // =============================================================================
-// CREATE STRIPE CONNECT ACCOUNT — Onboard seller to Stripe Connect Standard
+// CREATE STRIPE CONNECT ACCOUNT — Custom account (zero seller interaction)
 // =============================================================================
 
 /**
- * Creates a Stripe Connect Standard account for the authenticated seller
- * and returns an Account Link URL to complete onboarding in a browser/WebView.
+ * Creates a Stripe Connect Custom account for the authenticated seller.
+ * With Custom accounts, the platform controls the entire onboarding —
+ * the seller never sees Stripe UI. Bank account info is collected in-app
+ * and submitted via the addBankAccount callable.
  *
- * If the seller already has a Stripe account, returns a new Account Link
- * for re-onboarding (e.g. if they didn't finish).
+ * Idempotent: if the seller already has a stripeAccountId, returns it
+ * without creating a new account.
+ *
+ * This function serves as a fallback/manual trigger. The primary path
+ * creates the Stripe account silently inside createArticle at first publish.
  */
 export const createStripeConnectAccount = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
@@ -528,68 +533,87 @@ export const createStripeConnectAccount = onCall(
       const userData = userDoc.data()!;
       let stripeAccountId = userData.stripeAccountId;
 
-      // Create a new Connect account if the seller doesn't have one
-      if (!stripeAccountId) {
-        const account = await stripe.accounts.create({
-          type: 'standard',
-          country: 'CA',
-          email: userData.email || request.auth.token.email,
-          metadata: {
-            firebaseUserId: userId,
-          },
-        });
-
-        stripeAccountId = account.id;
-
-        // Store the Stripe account ID and initial status in the user document.
-        // All five Stripe fields are written here so the frontend can read
-        // them immediately without waiting for the account.updated webhook.
-        await userRef.update({
-          stripeAccountId: account.id,
-          stripeAccountStatus: 'pending',
-          stripeChargesEnabled: false,
-          stripePayoutsEnabled: false,
-          stripeDetailsSubmitted: false,
-          stripeAccountCreatedAt: FieldValue.serverTimestamp(),
-        });
-
-        logger.info('Stripe Connect account created', {
+      // Idempotent: if account already exists, return it
+      if (stripeAccountId) {
+        logger.info('Stripe Custom account already exists', {
           userId,
-          stripeAccountId: account.id,
+          stripeAccountId,
         });
+        return {
+          success: true,
+          stripeAccountId,
+        };
       }
 
-      // Generate an Account Link for onboarding
-      const accountLink = await stripe.accountLinks.create({
-        account: stripeAccountId,
-        refresh_url: `https://seconde.app/settings/payments?refresh=true`,
-        return_url: `https://seconde.app/settings/payments?success=true`,
-        type: 'account_onboarding',
+      // Create a new Connect Custom account
+      const account = await stripe.accounts.create({
+        type: 'custom',
+        country: 'CA',
+        email: userData.email || request.auth.token.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_type: 'individual',
+        tos_acceptance: {
+          service_agreement: 'recipient',
+        },
+        metadata: {
+          firebaseUserId: userId,
+        },
       });
+
+      stripeAccountId = account.id;
+
+      // Store the Stripe account ID and initial status in the user document.
+      // All five Stripe fields are written here so the frontend can read
+      // them immediately without waiting for the account.updated webhook.
+      await userRef.update({
+        stripeAccountId: account.id,
+        stripeAccountStatus: 'pending',
+        stripeChargesEnabled: false,
+        stripePayoutsEnabled: false,
+        stripeDetailsSubmitted: false,
+        stripeAccountCreatedAt: FieldValue.serverTimestamp(),
+      });
+
+      logger.info('Stripe Custom account created', {
+        userId,
+        stripeAccountId: account.id,
+      });
+
+      // No Account Links needed for Custom accounts — bank info is
+      // collected in-app via addBankAccount callable.
 
       return {
         success: true,
-        accountLinkUrl: accountLink.url,
         stripeAccountId,
       };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error creating Stripe Connect account', { userId, error: message });
+      logger.error('Error creating Stripe Custom account', { userId, error: message });
       throw new HttpsError('internal', `Failed to create Connect account: ${message}`);
     }
   }
 );
 
 // =============================================================================
-// GET STRIPE ACCOUNT LINK — Re-generate onboarding link
+// ADD BANK ACCOUNT — Attach Canadian bank account to seller's Custom account
 // =============================================================================
 
 /**
- * Generates a new Account Link for a seller who has a Stripe Connect account
- * but hasn't completed onboarding yet. Useful when the previous link expired.
+ * Attaches a Canadian bank account to the seller's Stripe Connect Custom
+ * account. The seller provides transit number (5 digits), institution
+ * number (3 digits), and account number directly in the app UI.
+ *
+ * Canadian routing_number format for Stripe:
+ * transit (5 digits) + institution (3 digits) = 8 digits total
+ *
+ * After attaching the bank account, configures manual payouts so the
+ * platform controls when funds are disbursed (via requestWithdrawal).
  */
-export const getStripeAccountLink = onCall(
+export const addBankAccount = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     if (!request.auth) {
@@ -602,9 +626,32 @@ export const getStripeAccountLink = onCall(
     }
 
     const userId = request.auth.uid;
+    const { transitNumber, institutionNumber, accountNumber, accountHolderName } = request.data ?? {};
+
+    // ── Input validation ──
+    if (typeof transitNumber !== 'string' || !/^\d{5}$/.test(transitNumber)) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Le numero de transit doit contenir exactement 5 chiffres'
+      );
+    }
+    if (typeof institutionNumber !== 'string' || !/^\d{3}$/.test(institutionNumber)) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Le numero d\'institution doit contenir exactement 3 chiffres'
+      );
+    }
+    if (typeof accountNumber !== 'string' || !/^\d{7,12}$/.test(accountNumber)) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Le numero de compte doit contenir entre 7 et 12 chiffres'
+      );
+    }
 
     try {
-      const userDoc = await db.collection('users').doc(userId).get();
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+
       if (!userDoc.exists) {
         throw new HttpsError('not-found', 'User not found');
       }
@@ -615,28 +662,62 @@ export const getStripeAccountLink = onCall(
       if (!stripeAccountId) {
         throw new HttpsError(
           'failed-precondition',
-          'No Stripe account found. Please create one first.'
+          'Aucun compte de paiement trouve. Publiez un article d\'abord.'
         );
       }
 
-      const accountLink = await stripe.accountLinks.create({
-        account: stripeAccountId,
-        refresh_url: `https://seconde.app/settings/payments?refresh=true`,
-        return_url: `https://seconde.app/settings/payments?success=true`,
-        type: 'account_onboarding',
+      // Canadian routing_number = transit (5) + institution (3) = 8 digits
+      const routingNumber = `${transitNumber}${institutionNumber}`;
+
+      // Create external bank account on the Custom connected account
+      await stripe.accounts.createExternalAccount(stripeAccountId, {
+        external_account: {
+          object: 'bank_account',
+          country: 'CA',
+          currency: 'cad',
+          routing_number: routingNumber,
+          account_number: accountNumber,
+          ...(accountHolderName && typeof accountHolderName === 'string'
+            ? { account_holder_name: accountHolderName.trim().substring(0, 200) }
+            : {}),
+        },
       });
 
-      logger.info('Stripe Account Link generated', { userId, stripeAccountId });
+      // Configure manual payouts — the platform controls disbursement
+      // via the requestWithdrawal callable (Stripe Payouts API)
+      await stripe.accounts.update(stripeAccountId, {
+        settings: {
+          payouts: {
+            schedule: {
+              interval: 'manual' as const,
+            },
+          },
+        },
+      });
+
+      // Update user document with bank account status
+      await userRef.update({
+        stripeBankAccountAdded: true,
+        stripeBankAccountLast4: accountNumber.slice(-4),
+        stripePayoutsEnabled: true,
+      });
+
+      logger.info('Bank account added to Stripe Custom account', {
+        userId,
+        stripeAccountId,
+        routingNumber,
+        accountLast4: accountNumber.slice(-4),
+      });
 
       return {
         success: true,
-        accountLinkUrl: accountLink.url,
+        bankAccountLast4: accountNumber.slice(-4),
       };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error generating Stripe account link', { userId, error: message });
-      throw new HttpsError('internal', `Failed to generate account link: ${message}`);
+      logger.error('Error adding bank account', { userId, error: message });
+      throw new HttpsError('internal', `Echec de l'ajout du compte bancaire: ${message}`);
     }
   }
 );

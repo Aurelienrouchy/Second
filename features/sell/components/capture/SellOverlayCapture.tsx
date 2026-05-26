@@ -46,16 +46,17 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   const canTakeMore = photos.length < MAX_PHOTOS;
   const hasPhotos = photos.length > 0;
+  const showThumbStrip = hasPhotos || canTakeMore;
 
   // ── Thumb container height animation ──
   const thumbContainerHeight = useSharedValue(0);
 
   useEffect(() => {
-    thumbContainerHeight.value = withTiming(hasPhotos ? THUMB_CONTAINER_HEIGHT : 0, {
+    thumbContainerHeight.value = withTiming(showThumbStrip ? THUMB_CONTAINER_HEIGHT : 0, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
     });
-  }, [hasPhotos]);
+  }, [showThumbStrip]);
 
   const thumbContainerStyle = useAnimatedStyle(() => ({
     height: thumbContainerHeight.value,
@@ -242,8 +243,13 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         <CameraGuides message={guideMessage} subMessage={guideSubMessage} />
 
         <Animated.View style={[styles.thumbOverlay, thumbContainerStyle]}>
-          {hasPhotos && (
-            <ThumbnailStrip photos={photos} onRemovePhoto={handleRemovePhoto} />
+          {showThumbStrip && (
+            <ThumbnailStrip
+              photos={photos}
+              onRemovePhoto={handleRemovePhoto}
+              onGalleryPress={handleGalleryPress}
+              canAddMore={canTakeMore}
+            />
           )}
         </Animated.View>
       </View>

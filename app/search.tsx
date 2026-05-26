@@ -183,6 +183,7 @@ export default function SearchScreen() {
         ref={sizeSheetRef}
         selectedSizes={screen.filters.sizes || []}
         onConfirm={screen.handleSizesConfirm}
+        categoryPath={screen.selectedCategoryPath}
       />
 
       <SelectionBottomSheet

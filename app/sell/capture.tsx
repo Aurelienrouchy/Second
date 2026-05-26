@@ -55,16 +55,17 @@ export default function CaptureScreen() {
 
   const canTakeMore = photos.length < MAX_PHOTOS;
   const hasPhotos = photos.length > 0;
+  const showThumbStrip = hasPhotos || canTakeMore;
 
   // ── Thumb container height animation ──
   const thumbContainerHeight = useSharedValue(0);
 
   useEffect(() => {
-    thumbContainerHeight.value = withTiming(hasPhotos ? THUMB_CONTAINER_HEIGHT : 0, {
+    thumbContainerHeight.value = withTiming(showThumbStrip ? THUMB_CONTAINER_HEIGHT : 0, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
     });
-  }, [hasPhotos]);
+  }, [showThumbStrip]);
 
   const thumbContainerStyle = useAnimatedStyle(() => ({
     height: thumbContainerHeight.value,
@@ -258,8 +259,13 @@ export default function CaptureScreen() {
         <CameraGuides message={guideMessage} subMessage={guideSubMessage} />
 
         <Animated.View style={[styles.thumbOverlay, thumbContainerStyle]}>
-          {hasPhotos && (
-            <ThumbnailStrip photos={photos} onRemovePhoto={handleRemovePhoto} />
+          {showThumbStrip && (
+            <ThumbnailStrip
+              photos={photos}
+              onRemovePhoto={handleRemovePhoto}
+              onGalleryPress={handleGalleryPress}
+              canAddMore={canTakeMore}
+            />
           )}
         </Animated.View>
       </View>
@@ -285,7 +291,6 @@ export default function CaptureScreen() {
           canTakeMore={canTakeMore}
           isCapturing={isCapturing}
           hasPhotos={photos.length > 0}
-          onGalleryPress={handleGalleryPress}
           onCapture={handleCapture}
           onContinue={handleContinue}
         />

@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing } from '@/constants/theme';
 import {
   getSizes,
+  getSizesForCategory,
   SIZE_SECTIONS,
   SIZE_SECTION_LABELS,
   SizeSystem,
@@ -39,6 +40,8 @@ export interface SizeSelectionSheetRef {
 interface SizeSelectionSheetProps {
   selectedSizes: string[];
   onConfirm: (sizes: string[]) => void;
+  /** When provided, restricts available sizes to this category */
+  categoryPath?: string[];
 }
 
 const SIZE_SYSTEM_OPTIONS: { id: SizeSystem; label: string }[] = [
@@ -52,7 +55,7 @@ const DEMOGRAPHIC_OPTIONS: { id: SizeDemographic; label: string }[] = [
 ];
 
 const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetProps>(
-  ({ selectedSizes, onConfirm }, ref) => {
+  ({ selectedSizes, onConfirm, categoryPath }, ref) => {
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
@@ -244,7 +247,35 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
           </View>
 
           {/* ── Size sections ── */}
-          {SIZE_SECTIONS.map(renderSizeSection)}
+          {categoryPath && categoryPath.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>TAILLES DISPONIBLES</Text>
+              <View style={styles.sizeGrid}>
+                {getSizesForCategory(categoryPath).map((size) => {
+                  const isSelected = localSelectedSizes.includes(size);
+                  return (
+                    <Pressable
+                      key={size}
+                      style={[
+                        styles.sizeChip,
+                        isSelected && styles.sizeChipSelected,
+                      ]}
+                      onPress={() => handleSizeToggle(size)}
+                    >
+                      <Text style={[
+                        styles.sizeChipText,
+                        isSelected && styles.sizeChipTextSelected,
+                      ]}>
+                        {size}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : (
+            SIZE_SECTIONS.map(renderSizeSection)
+          )}
         </BottomSheetScrollView>
 
         {/* ── Confirm button ── */}
