@@ -17,6 +17,7 @@ import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
 
 import type { Article, ArticleWithLocation, SortBy } from '@/types';
+import { formatPrice } from '@/utils/formatPrice';
 
 import { CONDITION_ITEMS, SORT_ITEMS } from '../constants';
 
@@ -203,13 +204,14 @@ export function useSearchScreen() {
   const handleClearAll = useCallback(() => {
     setSearchQueryLocal('');
     clearAllFilters();
+    setSelectedCategoryPath([]);
     categoryNav.goToRoot();
     setIsSearching(false);
     setSelectedSort('recent');
     setMinPriceText('');
     setMaxPriceText('');
     setShowPriceInputs(false);
-  }, [clearAllFilters, categoryNav]);
+  }, [clearAllFilters, categoryNav, setSelectedCategoryPath]);
 
   // ─── Visual search ──────────────────────────────────────────────
   const handleOpenVisualSearch = useCallback(() => {
@@ -288,8 +290,18 @@ export function useSearchScreen() {
   );
 
   const handlePriceApply = useCallback(() => {
-    const minPrice = minPriceText ? parseFloat(minPriceText) : undefined;
-    const maxPrice = maxPriceText ? parseFloat(maxPriceText) : undefined;
+    const parsedMin = parseFloat(minPriceText);
+    const parsedMax = parseFloat(maxPriceText);
+    let minPrice = (!isNaN(parsedMin) && parsedMin >= 0) ? parsedMin : undefined;
+    let maxPrice = (!isNaN(parsedMax) && parsedMax >= 0) ? parsedMax : undefined;
+    // Ensure min <= max when both are provided
+    if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
+      const temp = minPrice;
+      minPrice = maxPrice;
+      maxPrice = temp;
+      setMinPriceText(String(minPrice));
+      setMaxPriceText(String(maxPrice));
+    }
     setFilters({ ...filters, minPrice, maxPrice });
     setShowPriceInputs(false);
     if (!isSearching && (minPrice || maxPrice)) setIsSearching(true);
@@ -305,7 +317,7 @@ export function useSearchScreen() {
 
   // ─── Label helpers ──────────────────────────────────────────────
   const getCategoryLabel = (): string =>
-    selectedCategoryPath.length > 0 ? getCategoryLabelFromIds(selectedCategoryPath) : 'Categorie';
+    selectedCategoryPath.length > 0 ? getCategoryLabelFromIds(selectedCategoryPath) : 'Catégorie';
 
   const getColorLabel = (): string => {
     const sel = filters.colors || [];
@@ -323,9 +335,9 @@ export function useSearchScreen() {
 
   const getMaterialLabel = (): string => {
     const sel = filters.materials || [];
-    if (sel.length === 0) return 'Matiere';
+    if (sel.length === 0) return 'Matière';
     if (sel.length === 1) return sel[0];
-    return `${sel.length} matieres`;
+    return `${sel.length} matières`;
   };
 
   const getBrandLabel = (): string => {
@@ -336,14 +348,14 @@ export function useSearchScreen() {
   };
 
   const getConditionLabel = (): string => {
-    if (!filters.condition) return 'Etat';
-    return CONDITION_ITEMS.find((c) => c.value === filters.condition)?.label || 'Etat';
+    if (!filters.condition) return 'État';
+    return CONDITION_ITEMS.find((c) => c.value === filters.condition)?.label || 'État';
   };
 
   const getPriceLabel = (): string => {
-    if (filters.minPrice && filters.maxPrice) return `${filters.minPrice}$ - ${filters.maxPrice}$`;
-    if (filters.minPrice) return `Min ${filters.minPrice}$`;
-    if (filters.maxPrice) return `Max ${filters.maxPrice}$`;
+    if (filters.minPrice && filters.maxPrice) return `${formatPrice(filters.minPrice)} - ${formatPrice(filters.maxPrice)}`;
+    if (filters.minPrice) return `Min ${formatPrice(filters.minPrice)}`;
+    if (filters.maxPrice) return `Max ${formatPrice(filters.maxPrice)}`;
     return 'Prix';
   };
 
@@ -368,7 +380,7 @@ export function useSearchScreen() {
 
   // ─── Page title ─────────────────────────────────────────────────
   const getPageTitle = (): string => {
-    if (params.brands) return 'Resultats par marque';
+    if (params.brands) return 'Résultats par marque';
     if (selectedCategoryPath.length > 0) return getCategoryLabelFromIds(selectedCategoryPath);
     if (params.category) {
       const cat = CATEGORIES.find((c) => c.id === params.category);
