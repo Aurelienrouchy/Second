@@ -33,6 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 interface OrderItem {
   transaction: Transaction;
   article: Article | null;
+  hasReview: boolean;
 }
 
 const STATUS_LABELS: Record<TransactionStatus, { label: string; color: string }> = {
