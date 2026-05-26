@@ -5,10 +5,12 @@
  * Expires orphaned transactions that were never completed:
  * 1. meetup_pending transactions older than 48h (seller never confirmed)
  * 2. pending_payment transactions older than 1h (buyer never paid)
+ * 3. paid transactions older than 7 days (seller never shipped)
  *
  * For each expired transaction:
  * - Status is set to 'cancelled'
  * - The article's isSold flag is reset to false
+ * - For paid-not-shipped: buyer is notified via push notification
  *
  * Runs every hour.
  */
