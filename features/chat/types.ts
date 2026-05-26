@@ -5,6 +5,8 @@ export interface ChatParticipantInfo {
   userId: string;
   userName: string;
   userImage?: string;
+  /** Backend trigger uses profileImage for map-format participantsInfo */
+  profileImage?: string;
 }
 
 export interface ChatHeaderProps {

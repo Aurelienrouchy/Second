@@ -20,7 +20,8 @@ export interface UserPreferences {
   };
   privacy?: {
     showProfilePhoto: boolean;
-    allowSearchEngines: boolean;
+    /** @deprecated Not implemented — toggle removed from UI */
+    allowSearchEngines?: boolean;
   };
 }
 
@@ -209,6 +210,8 @@ export interface ChatParticipant {
   userId: string;
   userName: string;
   userImage?: string;
+  /** Backend trigger uses profileImage for map-format participantsInfo */
+  profileImage?: string;
 }
 
 export interface Chat {

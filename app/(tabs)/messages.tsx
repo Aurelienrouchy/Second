@@ -16,6 +16,7 @@ import { useChats } from '@/hooks/useChat';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Chat } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -257,6 +258,7 @@ const ConversationItem = React.memo(function ConversationItem({
   const { data: liveProfile } = useUserProfile(otherParticipant?.userId);
   const avatarUri =
     liveProfile?.profileImage ||
+    otherParticipant?.profileImage ||
     otherParticipant?.userImage ||
     undefined;
 
@@ -356,16 +358,16 @@ function formatTimestampStatic(timestamp?: Date): string {
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
   if (days === 0) {
-    return timestamp.toLocaleTimeString('fr-FR', {
+    return timestamp.toLocaleTimeString(APP_LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
     });
   } else if (days === 1) {
     return 'Hier';
   } else if (days < 7) {
-    return timestamp.toLocaleDateString('fr-FR', { weekday: 'short' });
+    return timestamp.toLocaleDateString(APP_LOCALE, { weekday: 'short' });
   } else {
-    return timestamp.toLocaleDateString('fr-FR', {
+    return timestamp.toLocaleDateString(APP_LOCALE, {
       day: '2-digit',
       month: '2-digit',
     });

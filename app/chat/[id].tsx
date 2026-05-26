@@ -106,7 +106,7 @@ export default function ChatScreen() {
     : null;
 
   const { data: otherProfile } = useUserProfile(otherParticipant?.userId);
-  const otherAvatar = otherProfile?.profileImage || otherParticipant?.userImage;
+  const otherAvatar = otherProfile?.profileImage || otherParticipant?.profileImage || otherParticipant?.userImage;
 
   // ─── Handlers ───
 
