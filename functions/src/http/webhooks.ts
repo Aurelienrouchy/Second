@@ -282,6 +282,8 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       chatId: txData.chatId,
       shipEngineRateId: txData.shipEngineRateId,
       deliveryType: txData.deliveryType,
+      articleId: txData.articleId,
+      articleTitle: txData.articleTitle || null,
     };
   });
 
