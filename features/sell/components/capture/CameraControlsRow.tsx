@@ -35,11 +35,18 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
     continueProgress.value = withTiming(hasPhotos ? 1 : 0, TIMING_CONFIG);
   }, [hasPhotos, continueProgress]);
 
+  const captureButtonStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(continueProgress.value, [0, 1], [0, -40]) },
+    ],
+  }));
+
   const continueContainerStyle = useAnimatedStyle(() => ({
     width: interpolate(continueProgress.value, [0, 0.5, 1], [48, 48, 140]),
     opacity: continueProgress.value,
     transform: [
       { scale: interpolate(continueProgress.value, [0, 1], [0, 1]) },
+      { translateX: interpolate(continueProgress.value, [0, 1], [0, -40]) },
     ],
   }));
 
