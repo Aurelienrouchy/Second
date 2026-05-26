@@ -934,6 +934,14 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 /**
  * Caller (the seller) requests a withdrawal of `amount` to `bankAccount`.
  *
+ * TODO: migrate to Stripe Connect Custom with automatic payouts. Sellers
+ * receive funds automatically via their connected account. This manual
+ * withdrawal flow (collecting bank info + creating a pending doc) will be
+ * replaced by Stripe's automatic payout schedule once the migration to
+ * Connect Custom is complete. Until then, this function remains callable
+ * from the frontend but the created `withdrawal_requests` docs require
+ * manual admin processing.
+ *
  * Why this is a CF, not a client mutation:
  * - The previous client implementation read the balance, then issued an
  *   updateDoc with `increment(-amount)`. Two concurrent requests could both
