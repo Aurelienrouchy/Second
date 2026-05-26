@@ -38,9 +38,9 @@ class ShipEngineClient {
     async getRates(shipFrom, shipTo, parcel) {
         var _a;
         const response = await this.request('POST', '/v1/rates', {
-            rate_options: {
-                carrier_ids: [], // Uses all connected carriers
-            },
+            // Omit rate_options.carrier_ids to use ALL connected carriers in the
+            // ShipEngine account. An empty array [] means "no carriers" and returns
+            // zero rates — the opposite of what we want.
             shipment: {
                 ship_from: {
                     name: shipFrom.name,

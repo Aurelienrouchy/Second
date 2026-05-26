@@ -289,11 +289,12 @@ export const createArticle = onCall(
 
       if (existingUserData && !existingUserData.stripeAccountId) {
         const stripe = getStripe();
-        if (stripe) {
+        const accountEmail = existingUserData.email || request.auth.token.email || '';
+        if (stripe && accountEmail) {
           const account = await stripe.accounts.create({
             type: 'custom',
             country: 'CA',
-            email: existingUserData.email || request.auth.token.email || '',
+            email: accountEmail,
             capabilities: {
               card_payments: { requested: true },
               transfers: { requested: true },
@@ -309,10 +310,10 @@ export const createArticle = onCall(
 
           await userRef.update({
             stripeAccountId: account.id,
-            stripeAccountStatus: 'pending',
-            stripeChargesEnabled: false,
-            stripePayoutsEnabled: false,
-            stripeDetailsSubmitted: false,
+            stripeAccountStatus: account.charges_enabled ? 'active' : 'pending',
+            stripeChargesEnabled: account.charges_enabled === true,
+            stripePayoutsEnabled: account.payouts_enabled === true,
+            stripeDetailsSubmitted: account.details_submitted === true,
             stripeAccountCreatedAt: FieldValue.serverTimestamp(),
           });
 

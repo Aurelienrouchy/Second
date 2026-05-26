@@ -36,29 +36,51 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
     const parcelWidth = parseFloat(dimensions?.width) || 25;
     const parcelHeight = parseFloat(dimensions?.height) || 10;
 
-    console.log('📦 Getting ShipEngine multi-carrier rates:', {
-      from: fromAddress.postalCode,
+    // Default Montreal address used when the seller hasn't set their address yet.
+    // This provides a reasonable estimate for shipping rates in the Montreal area.
+    const MONTREAL_FALLBACK = {
+      name: 'Vendeur',
+      addressLine1: '1000 Rue Sainte-Catherine O',
+      cityLocality: 'Montreal',
+      stateProvince: 'QC',
+      postalCode: 'H3B 1C9',
+      countryCode: 'CA',
+      phone: '5141234567',
+    };
+
+    // Build the from-address with fallback for missing fields
+    const hasValidFromAddress =
+      fromAddress.street && fromAddress.street.trim().length > 0 &&
+      fromAddress.city && fromAddress.city.trim().length > 0;
+
+    logger.info('Getting ShipEngine multi-carrier rates', {
+      from: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
       to: toAddress.postalCode,
       weight: parcelWeight,
+      usingFallbackAddress: !hasValidFromAddress,
     });
 
     // Rate shopping across Intelcom + Canada Post via ShipEngine
     const rates = await shipEngine.getRates(
-      {
-        name: fromAddress.name || 'Vendeur',
-        addressLine1: fromAddress.street || '',
-        cityLocality: fromAddress.city || '',
-        stateProvince: fromAddress.province || 'QC',
-        postalCode: fromAddress.postalCode,
-        countryCode: 'CA',
-      },
+      hasValidFromAddress
+        ? {
+            name: fromAddress.name || 'Vendeur',
+            addressLine1: fromAddress.street,
+            cityLocality: fromAddress.city,
+            stateProvince: fromAddress.province || 'QC',
+            postalCode: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
+            countryCode: 'CA',
+            phone: fromAddress.phone || MONTREAL_FALLBACK.phone,
+          }
+        : MONTREAL_FALLBACK,
       {
         name: toAddress.name || 'Acheteur',
-        addressLine1: toAddress.street || '',
-        cityLocality: toAddress.city || '',
+        addressLine1: toAddress.street || MONTREAL_FALLBACK.addressLine1,
+        cityLocality: toAddress.city || MONTREAL_FALLBACK.cityLocality,
         stateProvince: toAddress.province || 'QC',
-        postalCode: toAddress.postalCode,
+        postalCode: toAddress.postalCode || MONTREAL_FALLBACK.postalCode,
         countryCode: 'CA',
+        phone: toAddress.phone || MONTREAL_FALLBACK.phone,
       },
       {
         weight: { value: parcelWeight, unit: 'kilogram' },
@@ -86,7 +108,7 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
         deliveryType: rate.deliveryType,
       }));
 
-    console.log(`✅ Retrieved ${formattedRates.length} shipping rates from ShipEngine`);
+    logger.info(`Retrieved ${formattedRates.length} shipping rates from ShipEngine`);
 
     return {
       success: true,
@@ -94,7 +116,7 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error getting shipping estimate:', error);
+    logger.error('Error getting shipping estimate:', error);
     throw new HttpsError('internal', `Failed to get shipping estimate: ${message}`);
   }
 });
@@ -142,7 +164,7 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory:
  * Supports both delivery types: 'shipping' and 'meetup'.
  */
 export const createTransaction = onCall(
-  { region: 'northamerica-northeast1', memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
@@ -229,17 +251,76 @@ export const createTransaction = onCall(
         // For shipping transactions, verify seller has active Stripe Connect
         // before locking the article. This prevents articles from being marked
         // sold for a seller who can't receive payment.
+        //
+        // If the seller has no Stripe account yet (e.g. article was published
+        // before the silent-create logic was added), attempt to create one on
+        // the fly. This is non-blocking for Custom accounts with
+        // service_agreement: 'recipient' — charges are enabled immediately.
         if (deliveryType === 'shipping') {
           const sellerRef = db.collection('users').doc(articleData.sellerId);
           const sellerSnap = await tx.get(sellerRef);
           if (!sellerSnap.exists) {
             throw new HttpsError('not-found', 'Vendeur introuvable');
           }
-          const sellerData = sellerSnap.data()!;
+          let sellerData = sellerSnap.data()!;
+
+          // Attempt on-the-fly Stripe Custom account creation if missing
+          if (!sellerData.stripeAccountId) {
+            const stripe = getStripe();
+            const sellerEmail = sellerData.email || '';
+            if (stripe && sellerEmail) {
+              try {
+                const account = await stripe.accounts.create({
+                  type: 'custom',
+                  country: 'CA',
+                  email: sellerEmail,
+                  capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                  },
+                  business_type: 'individual',
+                  tos_acceptance: {
+                    service_agreement: 'recipient',
+                  },
+                  metadata: {
+                    firebaseUserId: articleData.sellerId,
+                  },
+                });
+
+                // Check actual charges_enabled status from the freshly created account
+                const chargesEnabled = account.charges_enabled === true;
+
+                // Update seller doc within the transaction
+                tx.update(sellerRef, {
+                  stripeAccountId: account.id,
+                  stripeAccountStatus: chargesEnabled ? 'active' : 'pending',
+                  stripeChargesEnabled: chargesEnabled,
+                  stripePayoutsEnabled: account.payouts_enabled === true,
+                  stripeDetailsSubmitted: account.details_submitted === true,
+                  stripeAccountCreatedAt: FieldValue.serverTimestamp(),
+                });
+
+                logger.info('Stripe Custom account created on-the-fly during transaction', {
+                  sellerId: articleData.sellerId,
+                  stripeAccountId: account.id,
+                  chargesEnabled,
+                });
+
+                // Refresh sellerData with the new account info
+                sellerData = { ...sellerData, stripeAccountId: account.id, stripeChargesEnabled: chargesEnabled };
+              } catch (stripeErr) {
+                logger.warn('Failed to create Stripe account on-the-fly', {
+                  sellerId: articleData.sellerId,
+                  error: stripeErr instanceof Error ? stripeErr.message : stripeErr,
+                });
+              }
+            }
+          }
+
           if (!sellerData.stripeAccountId || sellerData.stripeChargesEnabled !== true) {
             throw new HttpsError(
               'failed-precondition',
-              'Le vendeur n\'a pas encore configuré son compte de paiement.'
+              'Le vendeur n\'a pas encore configure son compte de paiement.'
             );
           }
         }
@@ -297,15 +378,15 @@ export const createTransaction = onCall(
         return newTxRef.id;
       });
 
-      console.log(
-        `✅ Transaction ${transactionId} created for article ${articleId} (${deliveryType}) by buyer ${buyerId}`
-      );
+      logger.info('Transaction created', {
+        transactionId, articleId, deliveryType, buyerId,
+      });
 
       return { success: true, transactionId };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error creating transaction:', error);
+      logger.error('Error creating transaction:', error);
       throw new HttpsError('internal', `Failed to create transaction: ${message}`);
     }
   }
@@ -838,7 +919,7 @@ export const findPickupPoints = onCall({ region: 'northamerica-northeast1', memo
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error finding pickup points:', error);
+    logger.error('Error finding pickup points:', error);
     throw new HttpsError('internal', `Failed to find pickup points: ${message}`);
   }
 });
@@ -1010,7 +1091,7 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
   } catch (error: unknown) {
     if (error instanceof HttpsError) throw error;
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error checking tracking status:', error);
+    logger.error('Error checking tracking status:', error);
     throw new HttpsError('internal', `Failed to check tracking: ${message}`);
   }
 });
@@ -1338,7 +1419,7 @@ export const completeMeetupTransaction = onCall(
             participants = (chatSnap.data()?.participants as string[]) || [];
           }
         } catch (lookupErr) {
-          console.warn('[completeMeetupTransaction] Could not load chat participants:', lookupErr);
+          logger.warn('[completeMeetupTransaction] Could not load chat participants:', lookupErr);
         }
 
         await db.collection('messages').add({
@@ -1354,13 +1435,13 @@ export const completeMeetupTransaction = onCall(
         });
       }
 
-      console.log(`✅ Meetup transaction ${transactionId} completed. Seller ${transactionData.sellerId} credited.`);
+      logger.info('Meetup transaction completed', { transactionId, sellerId: transactionData.sellerId });
 
       return { success: true };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error completing meetup transaction:', error);
+      logger.error('Error completing meetup transaction:', error);
       throw new HttpsError('internal', `Failed to complete meetup: ${message}`);
     }
   }
@@ -1394,6 +1475,7 @@ export const cancelPendingTransaction = onCall(
 
     try {
       await db.runTransaction(async (tx) => {
+        // ── ALL READS FIRST (Firestore requires reads before writes) ──
         const snap = await tx.get(txRef);
         if (!snap.exists) {
           throw new HttpsError('not-found', 'Transaction not found');
@@ -1421,6 +1503,17 @@ export const cancelPendingTransaction = onCall(
             `Cannot cancel transaction in status ${data.status}`
           );
         }
+
+        // Read the article doc BEFORE any writes (Firestore transaction rule)
+        // D2: Guard against deleted article — only update if it still exists
+        let articleSnap = null;
+        let articleRef = null;
+        if (data.articleId) {
+          articleRef = db.collection('articles').doc(data.articleId);
+          articleSnap = await tx.get(articleRef);
+        }
+
+        // ── ALL WRITES AFTER ALL READS ──
         tx.update(txRef, {
           status: 'cancelled',
           cancelledAt: FieldValue.serverTimestamp(),
@@ -1430,13 +1523,8 @@ export const cancelPendingTransaction = onCall(
         // Release the article so it can be purchased again.
         // createTransaction marks isSold=true atomically at creation
         // time; cancelling must undo that.
-        // D2: Guard against deleted article — only update if it still exists
-        if (data.articleId) {
-          const articleRef = db.collection('articles').doc(data.articleId);
-          const articleSnap = await tx.get(articleRef);
-          if (articleSnap.exists) {
-            tx.update(articleRef, { isSold: false });
-          }
+        if (articleRef && articleSnap && articleSnap.exists) {
+          tx.update(articleRef, { isSold: false });
         }
       });
 
@@ -1444,7 +1532,7 @@ export const cancelPendingTransaction = onCall(
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error cancelling transaction:', error);
+      logger.error('Error cancelling transaction:', error);
       throw new HttpsError('internal', `Failed to cancel: ${message}`);
     }
   }

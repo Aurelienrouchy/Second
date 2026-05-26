@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelPendingTransaction = exports.completeMeetupTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.getStripeAccountLink = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
+exports.cancelPendingTransaction = exports.completeMeetupTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
 /**
  * Payment callable functions
  * Firebase Functions v7 - using onCall
@@ -66,26 +66,45 @@ exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northe
         const parcelLength = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.length) || 30;
         const parcelWidth = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.width) || 25;
         const parcelHeight = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.height) || 10;
-        console.log('📦 Getting ShipEngine multi-carrier rates:', {
-            from: fromAddress.postalCode,
+        // Default Montreal address used when the seller hasn't set their address yet.
+        // This provides a reasonable estimate for shipping rates in the Montreal area.
+        const MONTREAL_FALLBACK = {
+            name: 'Vendeur',
+            addressLine1: '1000 Rue Sainte-Catherine O',
+            cityLocality: 'Montreal',
+            stateProvince: 'QC',
+            postalCode: 'H3B 1C9',
+            countryCode: 'CA',
+            phone: '5141234567',
+        };
+        // Build the from-address with fallback for missing fields
+        const hasValidFromAddress = fromAddress.street && fromAddress.street.trim().length > 0 &&
+            fromAddress.city && fromAddress.city.trim().length > 0;
+        logger.info('Getting ShipEngine multi-carrier rates', {
+            from: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
             to: toAddress.postalCode,
             weight: parcelWeight,
+            usingFallbackAddress: !hasValidFromAddress,
         });
         // Rate shopping across Intelcom + Canada Post via ShipEngine
-        const rates = await shipEngine.getRates({
-            name: fromAddress.name || 'Vendeur',
-            addressLine1: fromAddress.street || '',
-            cityLocality: fromAddress.city || '',
-            stateProvince: fromAddress.province || 'QC',
-            postalCode: fromAddress.postalCode,
-            countryCode: 'CA',
-        }, {
+        const rates = await shipEngine.getRates(hasValidFromAddress
+            ? {
+                name: fromAddress.name || 'Vendeur',
+                addressLine1: fromAddress.street,
+                cityLocality: fromAddress.city,
+                stateProvince: fromAddress.province || 'QC',
+                postalCode: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
+                countryCode: 'CA',
+                phone: fromAddress.phone || MONTREAL_FALLBACK.phone,
+            }
+            : MONTREAL_FALLBACK, {
             name: toAddress.name || 'Acheteur',
-            addressLine1: toAddress.street || '',
-            cityLocality: toAddress.city || '',
+            addressLine1: toAddress.street || MONTREAL_FALLBACK.addressLine1,
+            cityLocality: toAddress.city || MONTREAL_FALLBACK.cityLocality,
             stateProvince: toAddress.province || 'QC',
-            postalCode: toAddress.postalCode,
+            postalCode: toAddress.postalCode || MONTREAL_FALLBACK.postalCode,
             countryCode: 'CA',
+            phone: toAddress.phone || MONTREAL_FALLBACK.phone,
         }, {
             weight: { value: parcelWeight, unit: 'kilogram' },
             dimensions: {
@@ -109,7 +128,7 @@ exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northe
             currency: rate.shippingAmount.currency,
             deliveryType: rate.deliveryType,
         }));
-        console.log(`✅ Retrieved ${formattedRates.length} shipping rates from ShipEngine`);
+        logger.info(`Retrieved ${formattedRates.length} shipping rates from ShipEngine`);
         return {
             success: true,
             rates: formattedRates,
@@ -117,7 +136,7 @@ exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northe
     }
     catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error getting shipping estimate:', error);
+        logger.error('Error getting shipping estimate:', error);
         throw new https_1.HttpsError('internal', `Failed to get shipping estimate: ${message}`);
     }
 });
@@ -157,7 +176,7 @@ exports.getServiceFee = (0, https_1.onCall)({ region: 'northamerica-northeast1',
  *
  * Supports both delivery types: 'shipping' and 'meetup'.
  */
-exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
@@ -214,15 +233,69 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             // For shipping transactions, verify seller has active Stripe Connect
             // before locking the article. This prevents articles from being marked
             // sold for a seller who can't receive payment.
+            //
+            // If the seller has no Stripe account yet (e.g. article was published
+            // before the silent-create logic was added), attempt to create one on
+            // the fly. This is non-blocking for Custom accounts with
+            // service_agreement: 'recipient' — charges are enabled immediately.
             if (deliveryType === 'shipping') {
                 const sellerRef = firebase_1.db.collection('users').doc(articleData.sellerId);
                 const sellerSnap = await tx.get(sellerRef);
                 if (!sellerSnap.exists) {
                     throw new https_1.HttpsError('not-found', 'Vendeur introuvable');
                 }
-                const sellerData = sellerSnap.data();
+                let sellerData = sellerSnap.data();
+                // Attempt on-the-fly Stripe Custom account creation if missing
+                if (!sellerData.stripeAccountId) {
+                    const stripe = (0, stripe_1.getStripe)();
+                    const sellerEmail = sellerData.email || '';
+                    if (stripe && sellerEmail) {
+                        try {
+                            const account = await stripe.accounts.create({
+                                type: 'custom',
+                                country: 'CA',
+                                email: sellerEmail,
+                                capabilities: {
+                                    card_payments: { requested: true },
+                                    transfers: { requested: true },
+                                },
+                                business_type: 'individual',
+                                tos_acceptance: {
+                                    service_agreement: 'recipient',
+                                },
+                                metadata: {
+                                    firebaseUserId: articleData.sellerId,
+                                },
+                            });
+                            // Check actual charges_enabled status from the freshly created account
+                            const chargesEnabled = account.charges_enabled === true;
+                            // Update seller doc within the transaction
+                            tx.update(sellerRef, {
+                                stripeAccountId: account.id,
+                                stripeAccountStatus: chargesEnabled ? 'active' : 'pending',
+                                stripeChargesEnabled: chargesEnabled,
+                                stripePayoutsEnabled: account.payouts_enabled === true,
+                                stripeDetailsSubmitted: account.details_submitted === true,
+                                stripeAccountCreatedAt: firebase_1.FieldValue.serverTimestamp(),
+                            });
+                            logger.info('Stripe Custom account created on-the-fly during transaction', {
+                                sellerId: articleData.sellerId,
+                                stripeAccountId: account.id,
+                                chargesEnabled,
+                            });
+                            // Refresh sellerData with the new account info
+                            sellerData = Object.assign(Object.assign({}, sellerData), { stripeAccountId: account.id, stripeChargesEnabled: chargesEnabled });
+                        }
+                        catch (stripeErr) {
+                            logger.warn('Failed to create Stripe account on-the-fly', {
+                                sellerId: articleData.sellerId,
+                                error: stripeErr instanceof Error ? stripeErr.message : stripeErr,
+                            });
+                        }
+                    }
+                }
                 if (!sellerData.stripeAccountId || sellerData.stripeChargesEnabled !== true) {
-                    throw new https_1.HttpsError('failed-precondition', 'Le vendeur n\'a pas encore configuré son compte de paiement.');
+                    throw new https_1.HttpsError('failed-precondition', 'Le vendeur n\'a pas encore configure son compte de paiement.');
                 }
             }
             // Mark article as sold
@@ -273,14 +346,16 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             tx.set(newTxRef, transactionData);
             return newTxRef.id;
         });
-        console.log(`✅ Transaction ${transactionId} created for article ${articleId} (${deliveryType}) by buyer ${buyerId}`);
+        logger.info('Transaction created', {
+            transactionId, articleId, deliveryType, buyerId,
+        });
         return { success: true, transactionId };
     }
     catch (error) {
         if (error instanceof https_1.HttpsError)
             throw error;
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error creating transaction:', error);
+        logger.error('Error creating transaction:', error);
         throw new https_1.HttpsError('internal', `Failed to create transaction: ${message}`);
     }
 });
@@ -437,14 +512,19 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
     }
 });
 // =============================================================================
-// CREATE STRIPE CONNECT ACCOUNT — Onboard seller to Stripe Connect Standard
+// CREATE STRIPE CONNECT ACCOUNT — Custom account (zero seller interaction)
 // =============================================================================
 /**
- * Creates a Stripe Connect Standard account for the authenticated seller
- * and returns an Account Link URL to complete onboarding in a browser/WebView.
+ * Creates a Stripe Connect Custom account for the authenticated seller.
+ * With Custom accounts, the platform controls the entire onboarding —
+ * the seller never sees Stripe UI. Bank account info is collected in-app
+ * and submitted via the addBankAccount callable.
  *
- * If the seller already has a Stripe account, returns a new Account Link
- * for re-onboarding (e.g. if they didn't finish).
+ * Idempotent: if the seller already has a stripeAccountId, returns it
+ * without creating a new account.
+ *
+ * This function serves as a fallback/manual trigger. The primary path
+ * creates the Stripe account silently inside createArticle at first publish.
  */
 exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     if (!request.auth) {
@@ -463,43 +543,54 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
         }
         const userData = userDoc.data();
         let stripeAccountId = userData.stripeAccountId;
-        // Create a new Connect account if the seller doesn't have one
-        if (!stripeAccountId) {
-            const account = await stripe.accounts.create({
-                type: 'standard',
-                country: 'CA',
-                email: userData.email || request.auth.token.email,
-                metadata: {
-                    firebaseUserId: userId,
-                },
-            });
-            stripeAccountId = account.id;
-            // Store the Stripe account ID and initial status in the user document.
-            // All five Stripe fields are written here so the frontend can read
-            // them immediately without waiting for the account.updated webhook.
-            await userRef.update({
-                stripeAccountId: account.id,
-                stripeAccountStatus: 'pending',
-                stripeChargesEnabled: false,
-                stripePayoutsEnabled: false,
-                stripeDetailsSubmitted: false,
-                stripeAccountCreatedAt: firebase_1.FieldValue.serverTimestamp(),
-            });
-            logger.info('Stripe Connect account created', {
+        // Idempotent: if account already exists, return it
+        if (stripeAccountId) {
+            logger.info('Stripe Custom account already exists', {
                 userId,
-                stripeAccountId: account.id,
+                stripeAccountId,
             });
+            return {
+                success: true,
+                stripeAccountId,
+            };
         }
-        // Generate an Account Link for onboarding
-        const accountLink = await stripe.accountLinks.create({
-            account: stripeAccountId,
-            refresh_url: `https://seconde.app/settings/payments?refresh=true`,
-            return_url: `https://seconde.app/settings/payments?success=true`,
-            type: 'account_onboarding',
+        // Create a new Connect Custom account
+        const account = await stripe.accounts.create({
+            type: 'custom',
+            country: 'CA',
+            email: userData.email || request.auth.token.email,
+            capabilities: {
+                card_payments: { requested: true },
+                transfers: { requested: true },
+            },
+            business_type: 'individual',
+            tos_acceptance: {
+                service_agreement: 'recipient',
+            },
+            metadata: {
+                firebaseUserId: userId,
+            },
         });
+        stripeAccountId = account.id;
+        // Store the Stripe account ID and initial status in the user document.
+        // All five Stripe fields are written here so the frontend can read
+        // them immediately without waiting for the account.updated webhook.
+        await userRef.update({
+            stripeAccountId: account.id,
+            stripeAccountStatus: 'pending',
+            stripeChargesEnabled: false,
+            stripePayoutsEnabled: false,
+            stripeDetailsSubmitted: false,
+            stripeAccountCreatedAt: firebase_1.FieldValue.serverTimestamp(),
+        });
+        logger.info('Stripe Custom account created', {
+            userId,
+            stripeAccountId: account.id,
+        });
+        // No Account Links needed for Custom accounts — bank info is
+        // collected in-app via addBankAccount callable.
         return {
             success: true,
-            accountLinkUrl: accountLink.url,
             stripeAccountId,
         };
     }
@@ -507,18 +598,26 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
         if (error instanceof https_1.HttpsError)
             throw error;
         const message = error instanceof Error ? error.message : 'Unknown error';
-        logger.error('Error creating Stripe Connect account', { userId, error: message });
+        logger.error('Error creating Stripe Custom account', { userId, error: message });
         throw new https_1.HttpsError('internal', `Failed to create Connect account: ${message}`);
     }
 });
 // =============================================================================
-// GET STRIPE ACCOUNT LINK — Re-generate onboarding link
+// ADD BANK ACCOUNT — Attach Canadian bank account to seller's Custom account
 // =============================================================================
 /**
- * Generates a new Account Link for a seller who has a Stripe Connect account
- * but hasn't completed onboarding yet. Useful when the previous link expired.
+ * Attaches a Canadian bank account to the seller's Stripe Connect Custom
+ * account. The seller provides transit number (5 digits), institution
+ * number (3 digits), and account number directly in the app UI.
+ *
+ * Canadian routing_number format for Stripe:
+ * transit (5 digits) + institution (3 digits) = 8 digits total
+ *
+ * After attaching the bank account, configures manual payouts so the
+ * platform controls when funds are disbursed (via requestWithdrawal).
  */
-exports.getStripeAccountLink = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+exports.addBankAccount = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+    var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -527,34 +626,70 @@ exports.getStripeAccountLink = (0, https_1.onCall)({ region: 'northamerica-north
         throw new https_1.HttpsError('failed-precondition', 'Stripe API not configured');
     }
     const userId = request.auth.uid;
+    const { transitNumber, institutionNumber, accountNumber, accountHolderName } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
+    // ── Input validation ──
+    if (typeof transitNumber !== 'string' || !/^\d{5}$/.test(transitNumber)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le numero de transit doit contenir exactement 5 chiffres');
+    }
+    if (typeof institutionNumber !== 'string' || !/^\d{3}$/.test(institutionNumber)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le numero d\'institution doit contenir exactement 3 chiffres');
+    }
+    if (typeof accountNumber !== 'string' || !/^\d{7,12}$/.test(accountNumber)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le numero de compte doit contenir entre 7 et 12 chiffres');
+    }
     try {
-        const userDoc = await firebase_1.db.collection('users').doc(userId).get();
+        const userRef = firebase_1.db.collection('users').doc(userId);
+        const userDoc = await userRef.get();
         if (!userDoc.exists) {
             throw new https_1.HttpsError('not-found', 'User not found');
         }
         const userData = userDoc.data();
         const stripeAccountId = userData.stripeAccountId;
         if (!stripeAccountId) {
-            throw new https_1.HttpsError('failed-precondition', 'No Stripe account found. Please create one first.');
+            throw new https_1.HttpsError('failed-precondition', 'Aucun compte de paiement trouve. Publiez un article d\'abord.');
         }
-        const accountLink = await stripe.accountLinks.create({
-            account: stripeAccountId,
-            refresh_url: `https://seconde.app/settings/payments?refresh=true`,
-            return_url: `https://seconde.app/settings/payments?success=true`,
-            type: 'account_onboarding',
+        // Canadian routing_number = transit (5) + institution (3) = 8 digits
+        const routingNumber = `${transitNumber}${institutionNumber}`;
+        // Create external bank account on the Custom connected account
+        await stripe.accounts.createExternalAccount(stripeAccountId, {
+            external_account: Object.assign({ object: 'bank_account', country: 'CA', currency: 'cad', routing_number: routingNumber, account_number: accountNumber }, (accountHolderName && typeof accountHolderName === 'string'
+                ? { account_holder_name: accountHolderName.trim().substring(0, 200) }
+                : {})),
         });
-        logger.info('Stripe Account Link generated', { userId, stripeAccountId });
+        // Configure manual payouts — the platform controls disbursement
+        // via the requestWithdrawal callable (Stripe Payouts API)
+        await stripe.accounts.update(stripeAccountId, {
+            settings: {
+                payouts: {
+                    schedule: {
+                        interval: 'manual',
+                    },
+                },
+            },
+        });
+        // Update user document with bank account status
+        await userRef.update({
+            stripeBankAccountAdded: true,
+            stripeBankAccountLast4: accountNumber.slice(-4),
+            stripePayoutsEnabled: true,
+        });
+        logger.info('Bank account added to Stripe Custom account', {
+            userId,
+            stripeAccountId,
+            routingNumber,
+            accountLast4: accountNumber.slice(-4),
+        });
         return {
             success: true,
-            accountLinkUrl: accountLink.url,
+            bankAccountLast4: accountNumber.slice(-4),
         };
     }
     catch (error) {
         if (error instanceof https_1.HttpsError)
             throw error;
         const message = error instanceof Error ? error.message : 'Unknown error';
-        logger.error('Error generating Stripe account link', { userId, error: message });
-        throw new https_1.HttpsError('internal', `Failed to generate account link: ${message}`);
+        logger.error('Error adding bank account', { userId, error: message });
+        throw new https_1.HttpsError('internal', `Echec de l'ajout du compte bancaire: ${message}`);
     }
 });
 // =============================================================================
@@ -657,7 +792,7 @@ exports.findPickupPoints = (0, https_1.onCall)({ region: 'northamerica-northeast
     }
     catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error finding pickup points:', error);
+        logger.error('Error finding pickup points:', error);
         throw new https_1.HttpsError('internal', `Failed to find pickup points: ${message}`);
     }
 });
@@ -802,72 +937,71 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
         if (error instanceof https_1.HttpsError)
             throw error;
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error checking tracking status:', error);
+        logger.error('Error checking tracking status:', error);
         throw new https_1.HttpsError('internal', `Failed to check tracking: ${message}`);
     }
 });
 // =============================================================================
-// REQUEST WITHDRAWAL — Atomic balance debit + withdrawal record creation
+// REQUEST WITHDRAWAL — Stripe Payout + atomic balance debit
 // =============================================================================
 /**
- * Caller (the seller) requests a withdrawal of `amount` to `bankAccount`.
+ * Caller (the seller) requests a withdrawal of `amount` from their
+ * available balance. The function creates a real Stripe Payout on the
+ * seller's Custom connected account, debits the seller_balance atomically,
+ * and stores the payoutId for tracking.
  *
- * TODO: migrate to Stripe Connect Custom with automatic payouts. Sellers
- * receive funds automatically via their connected account. This manual
- * withdrawal flow (collecting bank info + creating a pending doc) will be
- * replaced by Stripe's automatic payout schedule once the migration to
- * Connect Custom is complete. Until then, this function remains callable
- * from the frontend but the created `withdrawal_requests` docs require
- * manual admin processing.
+ * Prerequisites:
+ * - Seller must have a stripeAccountId (Custom account)
+ * - Seller must have a bank account attached (via addBankAccount)
+ * - Minimum withdrawal: 10 CAD
  *
  * Why this is a CF, not a client mutation:
  * - The previous client implementation read the balance, then issued an
  *   updateDoc with `increment(-amount)`. Two concurrent requests could both
  *   pass the read-side check and double-spend.
- * - Validation (min amount, bank account format, balance check) must run on
+ * - Validation (min amount, balance check, Stripe account check) must run on
  *   a server we trust.
- *
- * Canadian bank account format:
- * - With dashes: TTTTT-III-AAAAAAA (transit 5, institution 3, account 7-12)
- * - Raw digits: 15-20 digits total
  *
  * Authorization: caller must be the balance owner (request.auth.uid).
  */
-exports.requestWithdrawal = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+exports.requestWithdrawal = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
-    // TODO: This manual withdrawal mechanism will be replaced by Stripe Connect
-    // Custom automatic payouts. Logging a warning so we can track usage during
-    // the transition period.
-    logger.warn('[requestWithdrawal] Legacy manual withdrawal called — will be replaced by Stripe Connect Custom automatic payouts', {
-        userId: request.auth.uid,
-    });
-    const { amount, bankAccount } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
+    const { amount } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     const userId = request.auth.uid;
     if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
         throw new https_1.HttpsError('invalid-argument', 'Invalid amount');
     }
     if (amount < 10) {
-        throw new https_1.HttpsError('invalid-argument', 'Minimum withdrawal is 10');
+        throw new https_1.HttpsError('invalid-argument', 'Le retrait minimum est de 10 $');
     }
-    if (typeof bankAccount !== 'string') {
-        throw new https_1.HttpsError('invalid-argument', 'Numéro de compte bancaire requis');
+    const stripe = (0, stripe_1.getStripe)();
+    if (!stripe) {
+        throw new https_1.HttpsError('failed-precondition', 'Stripe API not configured');
     }
-    // Validate Canadian bank account format
-    // Accept either TTTTT-III-AAAAAAA (dashed) or raw digits (15-20 chars)
-    const sanitizedBankAccount = bankAccount.replace(/[\s-]/g, '');
-    const dashedFormat = /^\d{5}-\d{3}-\d{7,12}$/.test(bankAccount.trim());
-    const rawFormat = /^\d{15,20}$/.test(sanitizedBankAccount);
-    if (!dashedFormat && !rawFormat) {
-        throw new https_1.HttpsError('invalid-argument', 'Format de compte bancaire invalide. Attendu : TTTTT-III-AAAAAAA ou 15-20 chiffres');
+    // Verify seller has a Stripe Custom account with bank account attached
+    const userRef = firebase_1.db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        throw new https_1.HttpsError('not-found', 'User not found');
+    }
+    const userData = userDoc.data();
+    const stripeAccountId = userData.stripeAccountId;
+    if (!stripeAccountId) {
+        throw new https_1.HttpsError('failed-precondition', 'Aucun compte de paiement configure. Publiez un article d\'abord.');
+    }
+    if (!userData.stripeBankAccountAdded) {
+        throw new https_1.HttpsError('failed-precondition', 'Veuillez ajouter un compte bancaire avant de demander un retrait.');
     }
     const balanceRef = firebase_1.db.collection('seller_balances').doc(userId);
     try {
         // Use Firestore auto-generated ID to avoid collision from Date.now()
         const withdrawalRef = firebase_1.db.collection('withdrawal_requests').doc();
         const withdrawalId = withdrawalRef.id;
+        // Step 1: Atomically debit the balance and create the withdrawal record
+        const bankLast4 = userData.stripeBankAccountLast4 || '****';
         await firebase_1.db.runTransaction(async (tx) => {
             const snap = await tx.get(balanceRef);
             if (!snap.exists) {
@@ -876,17 +1010,17 @@ exports.requestWithdrawal = (0, https_1.onCall)({ region: 'northamerica-northeas
             const data = snap.data();
             const available = typeof data.availableBalance === 'number' ? data.availableBalance : 0;
             if (available < amount) {
-                throw new https_1.HttpsError('failed-precondition', 'Insufficient balance');
+                throw new https_1.HttpsError('failed-precondition', 'Solde insuffisant');
             }
             const transactions = Array.isArray(data.transactions) ? data.transactions : [];
             const withdrawalEntry = {
                 id: withdrawalId,
                 type: 'withdrawal',
                 amount: -amount,
-                description: `Retrait vers ****${sanitizedBankAccount.slice(-4)}`,
+                description: `Retrait vers ****${bankLast4}`,
                 // serverTimestamp() can't be used inside an array element; use Date instead.
                 createdAt: new Date(),
-                status: 'pending',
+                status: 'processing',
             };
             tx.update(balanceRef, {
                 availableBalance: firebase_1.FieldValue.increment(-amount),
@@ -899,12 +1033,73 @@ exports.requestWithdrawal = (0, https_1.onCall)({ region: 'northamerica-northeas
                 withdrawalId,
                 userId,
                 amount,
-                bankAccountLast4: sanitizedBankAccount.slice(-4),
-                status: 'pending',
+                bankAccountLast4: bankLast4,
+                stripeAccountId,
+                status: 'processing',
                 createdAt: firebase_1.FieldValue.serverTimestamp(),
             });
         });
-        return { success: true, withdrawalId };
+        // Step 2: Create the Stripe Payout on the connected account
+        // This is outside the Firestore transaction because it's an external
+        // API call. If it fails, we have the withdrawal_request doc with status
+        // 'processing' that can be retried.
+        try {
+            const amountInCents = Math.round(amount * 100);
+            const payout = await stripe.payouts.create({
+                amount: amountInCents,
+                currency: 'cad',
+                metadata: {
+                    withdrawalId,
+                    firebaseUserId: userId,
+                },
+            }, { stripeAccount: stripeAccountId });
+            // Update the withdrawal request with the Stripe payout ID
+            await withdrawalRef.update({
+                stripePayoutId: payout.id,
+                status: 'processing',
+            });
+            logger.info('Stripe payout created', {
+                userId,
+                withdrawalId,
+                payoutId: payout.id,
+                amount,
+            });
+            return { success: true, withdrawalId, payoutId: payout.id };
+        }
+        catch (payoutError) {
+            // Stripe payout failed — revert the balance deduction
+            logger.error('Stripe payout failed — reverting balance', {
+                userId,
+                withdrawalId,
+                error: payoutError instanceof Error ? payoutError.message : payoutError,
+            });
+            await firebase_1.db.runTransaction(async (tx) => {
+                const snap = await tx.get(balanceRef);
+                if (!snap.exists)
+                    return;
+                const data = snap.data();
+                const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+                const updatedTransactions = transactions.map((txn) => {
+                    if (txn.id === withdrawalId) {
+                        return Object.assign(Object.assign({}, txn), { status: 'failed' });
+                    }
+                    return txn;
+                });
+                tx.update(balanceRef, {
+                    availableBalance: firebase_1.FieldValue.increment(amount),
+                    transactions: updatedTransactions,
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            });
+            // Mark withdrawal request as failed
+            await withdrawalRef.update({
+                status: 'failed',
+                failureReason: payoutError instanceof Error ? payoutError.message : 'Unknown Stripe error',
+                failedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            const message = payoutError instanceof Error ? payoutError.message : 'Unknown error';
+            throw new https_1.HttpsError('internal', `Echec du retrait: ${message}`);
+        }
     }
     catch (error) {
         if (error instanceof https_1.HttpsError)
@@ -1021,7 +1216,7 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                 }
             }
             catch (lookupErr) {
-                console.warn('[completeMeetupTransaction] Could not load chat participants:', lookupErr);
+                logger.warn('[completeMeetupTransaction] Could not load chat participants:', lookupErr);
             }
             await firebase_1.db.collection('messages').add({
                 chatId: transactionData.chatId,
@@ -1035,14 +1230,14 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                 isRead: true,
             });
         }
-        console.log(`✅ Meetup transaction ${transactionId} completed. Seller ${transactionData.sellerId} credited.`);
+        logger.info('Meetup transaction completed', { transactionId, sellerId: transactionData.sellerId });
         return { success: true };
     }
     catch (error) {
         if (error instanceof https_1.HttpsError)
             throw error;
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error completing meetup transaction:', error);
+        logger.error('Error completing meetup transaction:', error);
         throw new https_1.HttpsError('internal', `Failed to complete meetup: ${message}`);
     }
 });
@@ -1070,6 +1265,7 @@ exports.cancelPendingTransaction = (0, https_1.onCall)({ region: 'northamerica-n
     const callerUid = request.auth.uid;
     try {
         await firebase_1.db.runTransaction(async (tx) => {
+            // ── ALL READS FIRST (Firestore requires reads before writes) ──
             const snap = await tx.get(txRef);
             if (!snap.exists) {
                 throw new https_1.HttpsError('not-found', 'Transaction not found');
@@ -1089,6 +1285,15 @@ exports.cancelPendingTransaction = (0, https_1.onCall)({ region: 'northamerica-n
             if (!cancellableStatuses.has(data.status)) {
                 throw new https_1.HttpsError('failed-precondition', `Cannot cancel transaction in status ${data.status}`);
             }
+            // Read the article doc BEFORE any writes (Firestore transaction rule)
+            // D2: Guard against deleted article — only update if it still exists
+            let articleSnap = null;
+            let articleRef = null;
+            if (data.articleId) {
+                articleRef = firebase_1.db.collection('articles').doc(data.articleId);
+                articleSnap = await tx.get(articleRef);
+            }
+            // ── ALL WRITES AFTER ALL READS ──
             tx.update(txRef, {
                 status: 'cancelled',
                 cancelledAt: firebase_1.FieldValue.serverTimestamp(),
@@ -1097,13 +1302,8 @@ exports.cancelPendingTransaction = (0, https_1.onCall)({ region: 'northamerica-n
             // Release the article so it can be purchased again.
             // createTransaction marks isSold=true atomically at creation
             // time; cancelling must undo that.
-            // D2: Guard against deleted article — only update if it still exists
-            if (data.articleId) {
-                const articleRef = firebase_1.db.collection('articles').doc(data.articleId);
-                const articleSnap = await tx.get(articleRef);
-                if (articleSnap.exists) {
-                    tx.update(articleRef, { isSold: false });
-                }
+            if (articleRef && articleSnap && articleSnap.exists) {
+                tx.update(articleRef, { isSold: false });
             }
         });
         return { success: true };
@@ -1112,7 +1312,7 @@ exports.cancelPendingTransaction = (0, https_1.onCall)({ region: 'northamerica-n
         if (error instanceof https_1.HttpsError)
             throw error;
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error cancelling transaction:', error);
+        logger.error('Error cancelling transaction:', error);
         throw new https_1.HttpsError('internal', `Failed to cancel: ${message}`);
     }
 });
