@@ -79,7 +79,7 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
         carrier: rate.carrierFriendlyName,
         carrierCode: rate.carrierCode,
         serviceName: rate.serviceType,
-        estimatedDays: `${rate.estimatedDeliveryDays} jour${rate.estimatedDeliveryDays > 1 ? 's' : ''} ouvrable${rate.estimatedDeliveryDays > 1 ? 's' : ''}`,
+        deliveryDays: `${rate.estimatedDeliveryDays} jour${rate.estimatedDeliveryDays > 1 ? 's' : ''} ouvrable${rate.estimatedDeliveryDays > 1 ? 's' : ''}`,
         amount: rate.shippingAmount.amount,
         currency: rate.shippingAmount.currency,
         deliveryType: rate.deliveryType,

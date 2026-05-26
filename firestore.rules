@@ -583,7 +583,7 @@ service cloud.firestore {
 
       function isValidTransactionUpdate(oldData, newData) {
         // SECURITY: payment / shipping / delivery / cancellation transitions
-        // are owned by Cloud Functions (helcimWebhook, checkTrackingStatus,
+        // are owned by Cloud Functions (stripeWebhook, checkTrackingStatus,
         // cancelPendingTransaction). Clients can only adjust meetup-related
         // statuses (the meetup flow is peer-to-peer) and must follow the
         // correct transition order with role enforcement.
@@ -610,7 +610,7 @@ service cloud.firestore {
     // Seller Balances Collection Rules
     //
     // SECURITY: balance mutations are server-side ONLY. All writes go
-    // through Cloud Functions (helcimWebhook, checkTrackingStatus,
+    // through Cloud Functions (stripeWebhook, checkTrackingStatus,
     // requestWithdrawal) which use the Admin SDK and bypass these rules.
     // Letting clients write was the vector for double-spend / forged
     // crediting.

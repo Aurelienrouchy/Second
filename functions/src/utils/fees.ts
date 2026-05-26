@@ -9,7 +9,7 @@
  *
  * Ce que ça couvre :
  * - Protection acheteur (litige, remboursement)
- * - Paiement sécurisé (Helcim processing)
+ * - Paiement sécurisé (Stripe processing)
  * - Support client
  * - Infrastructure (hébergement, API shipping)
  *

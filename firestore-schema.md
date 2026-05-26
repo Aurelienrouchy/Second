@@ -12,7 +12,7 @@
 | 6 | `favorites` | Root | Per-user favorite article IDs |
 | 7 | `chats` | Root | Chat threads between two users |
 | 8 | `messages` | Root | Individual chat messages |
-| 9 | `transactions` | Root | Purchase transactions (Helcim payments) |
+| 9 | `transactions` | Root | Purchase transactions (Stripe Connect payments) |
 | 10 | `seller_balances` | Root | Seller payout balances |
 | 11 | `withdrawal_requests` | Root | Seller withdrawal requests |
 | 12 | `avis` | Root | User reviews / ratings |
@@ -355,13 +355,11 @@ interface TransactionDocument {
   // Status flow: pending -> paid -> shipped -> delivered | cancelled
   status: 'pending' | 'pending_payment' | 'meetup_pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
 
-  // Helcim payment
-  helcimSecretToken?: string;    // Per-transaction HMAC secret
-  helcimCheckoutCreatedAt?: Timestamp;
-  helcimTransactionId?: string;
-  helcimApprovalCode?: string;
-  helcimCardLast4?: string;
-  helcimCardType?: string;
+  // Stripe Connect payment
+  stripePaymentIntentId?: string;  // Stripe PaymentIntent ID
+  stripeClientSecret?: string;     // Client secret for confirming payment
+  stripeCheckoutCreatedAt?: Timestamp;
+  stripeChargeId?: string;         // Latest charge ID from webhook
 
   // Shipping (ShipEngine)
   shipEngineRateId?: string;
