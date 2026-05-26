@@ -156,12 +156,12 @@ export default function SettingsScreen() {
 
         {/* Paiements */}
         <SettingSection title="Paiements">
-          {/* TODO: Réactiver quand l'intégration Stripe saved payment methods sera prête */}
-          {/* <SettingItem
+          <SettingItem
             icon="card-outline"
-            title="Moyens de paiement"
-            onPress={() => router.push('/settings/payments')}
-          /> */}
+            title="Compte de paiement"
+            subtitle="Configurer Stripe Connect"
+            onPress={() => router.push('/settings/stripe-onboarding')}
+          />
           <SettingItem
             icon="wallet-outline"
             title="Mon porte-monnaie"
