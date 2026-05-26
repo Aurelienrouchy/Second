@@ -947,7 +947,7 @@ async function releasePartyItems(swap: FirebaseFirestore.DocumentData): Promise<
  * Releases party items if the swap belongs to a party.
  */
 export const declineSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private' },
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');

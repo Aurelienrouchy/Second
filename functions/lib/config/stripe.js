@@ -1,13 +1,14 @@
 "use strict";
 /**
  * Stripe Connect client initialization
- * Stripe Connect Standard accounts for marketplace payments
+ * Stripe Connect Custom accounts for marketplace payments
  *
  * Architecture:
- * - Each seller has a Stripe Connect Standard account
+ * - Each seller has a Stripe Connect Custom account (created silently)
  * - Payments via destination charges with application_fee_amount
  * - Platform takes the buyer protection fee (5% + 1.50$)
- * - Payouts controlled via transfer schedule for escrow simulation
+ * - Bank accounts collected in-app (addBankAccount callable)
+ * - Payouts controlled via manual schedule + requestWithdrawal callable
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };

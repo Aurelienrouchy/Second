@@ -118,7 +118,7 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
             // Apply filters (only first filter due to Firestore limitations)
             if (filters.categoryIds && filters.categoryIds.length > 0) {
                 const mostSpecificCategory = filters.categoryIds[filters.categoryIds.length - 1];
-                articlesQuery = articlesQuery.where('categoryId', '==', mostSpecificCategory);
+                articlesQuery = articlesQuery.where('categoryIds', 'array-contains', mostSpecificCategory);
             }
             else if (filters.brands && filters.brands.length > 0) {
                 articlesQuery = articlesQuery.where('brands', 'array-contains-any', filters.brands.slice(0, 10));

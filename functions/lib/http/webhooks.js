@@ -616,6 +616,7 @@ async function handleChargeRefunded(charge) {
 // HANDLER: account.updated
 // =============================================================================
 async function handleAccountUpdated(account) {
+    var _a, _b;
     const stripeAccountId = account.id;
     if (!stripeAccountId) {
         logger.warn('Stripe webhook: account.updated missing account id');
@@ -632,10 +633,17 @@ async function handleAccountUpdated(account) {
         return;
     }
     const userDoc = usersQuery.docs[0];
-    // Determine status
+    // Determine status — works for both Standard and Custom accounts.
+    // For Custom accounts, charges_enabled becomes true once capabilities
+    // are active and payouts_enabled becomes true once a bank account is
+    // attached and verified.
     let status;
     if (account.charges_enabled && account.payouts_enabled) {
         status = 'active';
+    }
+    else if (account.charges_enabled) {
+        // Custom accounts: charges enabled but no bank account yet
+        status = 'partially_active';
     }
     else if (account.details_submitted) {
         status = 'pending_verification';
@@ -643,18 +651,27 @@ async function handleAccountUpdated(account) {
     else {
         status = 'pending';
     }
-    await userDoc.ref.update({
+    // Check if external accounts (bank accounts) are attached
+    const hasExternalAccount = ((_b = (_a = account.external_accounts) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.length) > 0 ||
+        false;
+    const updateData = {
         stripeAccountStatus: status,
         stripeChargesEnabled: account.charges_enabled || false,
         stripePayoutsEnabled: account.payouts_enabled || false,
         stripeDetailsSubmitted: account.details_submitted || false,
-    });
+    };
+    // Track external account status for Custom accounts
+    if (hasExternalAccount) {
+        updateData.stripeBankAccountAdded = true;
+    }
+    await userDoc.ref.update(updateData);
     logger.info('Stripe webhook: seller account status updated', {
         userId: userDoc.id,
         stripeAccountId,
         status,
         chargesEnabled: account.charges_enabled,
         payoutsEnabled: account.payouts_enabled,
+        hasExternalAccount,
     });
 }
 //# sourceMappingURL=webhooks.js.map
