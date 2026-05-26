@@ -55,6 +55,7 @@ const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const shipEngine_1 = require("../config/shipEngine");
 const stripe_1 = require("../config/stripe");
+const notifications_1 = require("../utils/notifications");
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
 // =============================================================================
@@ -63,6 +64,9 @@ const stripe_1 = require("../config/stripe");
  *
  * Handled events:
  * - payment_intent.succeeded: Mark transaction paid, credit seller, create label
+ * - payment_intent.payment_failed: Cancel transaction, release article
+ * - charge.dispute.created: Mark transaction disputed
+ * - charge.refunded: Mark transaction refunded, decrement seller balance
  * - account.updated: Update seller's Connect account status in Firestore
  *
  * Flow for payment_intent.succeeded:
@@ -124,6 +128,24 @@ exports.stripeWebhook = (0, https_1.onRequest)({
         // =======================================================================
         if (eventType === 'payment_intent.succeeded') {
             await handlePaymentIntentSucceeded(event.data.object);
+        }
+        // =======================================================================
+        // PAYMENT_INTENT.PAYMENT_FAILED
+        // =======================================================================
+        else if (eventType === 'payment_intent.payment_failed') {
+            await handlePaymentIntentFailed(event.data.object);
+        }
+        // =======================================================================
+        // CHARGE.DISPUTE.CREATED — Buyer opened a dispute
+        // =======================================================================
+        else if (eventType === 'charge.dispute.created') {
+            await handleDisputeCreated(event.data.object);
+        }
+        // =======================================================================
+        // CHARGE.REFUNDED — Full or partial refund processed
+        // =======================================================================
+        else if (eventType === 'charge.refunded') {
+            await handleChargeRefunded(event.data.object);
         }
         // =======================================================================
         // ACCOUNT.UPDATED — Seller's Connect account status changed
@@ -231,11 +253,14 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
             status: 'pending',
         };
         if (!sellerBalanceSnap.exists) {
+            // Initialize totalEarnings to sellerPayout (not 0) because this IS
+            // a sale — the amount is pending delivery confirmation but it still
+            // counts as an earning for the seller's dashboard display.
             tx.set(sellerBalanceRef, {
                 userId: sellerId,
                 availableBalance: 0,
                 pendingBalance: sellerPayout,
-                totalEarnings: 0,
+                totalEarnings: sellerPayout,
                 transactions: [saleTransaction],
                 updatedAt: firebase_1.FieldValue.serverTimestamp(),
             });
@@ -253,6 +278,8 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
             chatId: txData.chatId,
             shipEngineRateId: txData.shipEngineRateId,
             deliveryType: txData.deliveryType,
+            articleId: txData.articleId,
+            articleTitle: txData.articleTitle || null,
         };
     });
     if (!result.processed) {
@@ -274,34 +301,64 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
     let trackingUrl = '';
     let carrierCode = '';
     if (result.deliveryType === 'shipping') {
-        const shipEngine = (0, shipEngine_1.getShipEngine)();
-        if (shipEngine && result.shipEngineRateId) {
-            try {
-                const label = await shipEngine.createLabel(result.shipEngineRateId);
-                trackingNumber = label.trackingNumber;
-                labelUrl = label.labelDownload.href;
-                trackingUrl = label.trackingUrl;
-                carrierCode = label.carrierCode;
-                await firebase_1.db.collection('transactions').doc(transactionId).update({
-                    trackingNumber,
-                    shippingLabelUrl: labelUrl,
-                    trackingUrl,
-                    carrierCode,
-                    trackingStatus: 'TRANSIT',
-                    shipEngineLabelId: label.labelId,
-                });
-                logger.info('ShipEngine label created', {
-                    transactionId,
-                    trackingNumber,
-                    carrierCode,
-                });
-            }
-            catch (labelError) {
-                logger.error('Error creating ShipEngine label (will retry manually)', {
-                    transactionId,
-                    error: labelError instanceof Error ? labelError.message : labelError,
-                });
-                // Payment is still valid — label can be created manually later
+        const rateId = result.shipEngineRateId;
+        // Guard: reject fallback rateIds generated by the client when ShipEngine
+        // was unreachable. These are not real ShipEngine rate IDs and will fail
+        // label creation. Flag the transaction for manual label creation instead.
+        if (rateId && rateId.startsWith('fallback_')) {
+            logger.warn('Stripe webhook: fallback rateId detected — skipping label creation', {
+                transactionId,
+                rateId,
+            });
+            await firebase_1.db.collection('transactions').doc(transactionId).update({
+                labelCreationPending: true,
+                labelCreationNote: `Fallback rateId "${rateId}" — label must be created manually`,
+                status: 'paid',
+            });
+        }
+        else {
+            const shipEngine = (0, shipEngine_1.getShipEngine)();
+            if (shipEngine && rateId) {
+                try {
+                    const label = await shipEngine.createLabel(rateId);
+                    trackingNumber = label.trackingNumber;
+                    labelUrl = label.labelDownload.href;
+                    trackingUrl = label.trackingUrl;
+                    carrierCode = label.carrierCode;
+                    // Correction #3: also set status to 'shipped' when label is created
+                    await firebase_1.db.collection('transactions').doc(transactionId).update({
+                        trackingNumber,
+                        shippingLabelUrl: labelUrl,
+                        trackingUrl,
+                        carrierCode,
+                        trackingStatus: 'TRANSIT',
+                        shipEngineLabelId: label.labelId,
+                        status: 'shipped',
+                        shippedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                    logger.info('ShipEngine label created — transaction marked shipped', {
+                        transactionId,
+                        trackingNumber,
+                        carrierCode,
+                    });
+                }
+                catch (labelError) {
+                    logger.error('Error creating ShipEngine label (will retry manually)', {
+                        transactionId,
+                        error: labelError instanceof Error ? labelError.message : labelError,
+                    });
+                    // Payment is still valid — label can be created manually later
+                    // Flag for manual creation
+                    await firebase_1.db.collection('transactions').doc(transactionId).update({
+                        labelCreationPending: true,
+                        labelCreationNote: 'ShipEngine createLabel failed — retry needed',
+                    }).catch((err) => {
+                        logger.error('Failed to flag labelCreationPending', {
+                            transactionId,
+                            error: err instanceof Error ? err.message : err,
+                        });
+                    });
+                }
             }
         }
     }
@@ -334,7 +391,226 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
             },
         })));
     }
+    // =====================================================================
+    // PUSH NOTIFICATION: Notify seller of new sale
+    // =====================================================================
+    try {
+        const articleTitle = result.articleTitle || 'un article';
+        await (0, notifications_1.sendPushNotification)(result.sellerId, 'Nouvelle vente !', `Vous avez vendu ${articleTitle}. Preparez l'envoi.`, { transactionId, articleId: result.articleId || '' }, 'new_sale');
+        logger.info('Stripe webhook: seller notification sent', {
+            transactionId,
+            sellerId: result.sellerId,
+        });
+    }
+    catch (notifError) {
+        // Non-critical: payment is already confirmed, don't fail the webhook
+        logger.warn('Stripe webhook: failed to send seller notification', {
+            transactionId,
+            error: notifError instanceof Error ? notifError.message : notifError,
+        });
+    }
     logger.info('Stripe webhook: fully processed', { transactionId });
+}
+// =============================================================================
+// HANDLER: payment_intent.payment_failed
+// =============================================================================
+async function handlePaymentIntentFailed(paymentIntent) {
+    var _a, _b;
+    const transactionId = (_a = paymentIntent.metadata) === null || _a === void 0 ? void 0 : _a.transactionId;
+    if (!transactionId) {
+        logger.error('Stripe webhook: payment_failed PaymentIntent missing transactionId in metadata', {
+            paymentIntentId: paymentIntent.id,
+        });
+        return;
+    }
+    if (typeof transactionId !== 'string' ||
+        transactionId.length === 0 ||
+        transactionId.length > 200 ||
+        transactionId.includes('/')) {
+        logger.error('Stripe webhook: payment_failed invalid transactionId shape', { transactionId });
+        return;
+    }
+    const transactionRef = firebase_1.db.collection('transactions').doc(transactionId);
+    await firebase_1.db.runTransaction(async (tx) => {
+        const txSnap = await tx.get(transactionRef);
+        const txData = txSnap.data();
+        if (!txData) {
+            logger.error('Stripe webhook: payment_failed transaction not found', { transactionId });
+            return;
+        }
+        // Idempotence: only cancel if still in a pre-payment status
+        const cancellableStatuses = new Set(['pending_payment', 'pending']);
+        if (!cancellableStatuses.has(txData.status)) {
+            logger.info('Stripe webhook: payment_failed skipping — transaction not in cancellable status', {
+                transactionId,
+                currentStatus: txData.status,
+            });
+            return;
+        }
+        // Cancel the transaction
+        tx.update(transactionRef, {
+            status: 'cancelled',
+            cancelledAt: firebase_1.FieldValue.serverTimestamp(),
+            cancelReason: 'payment_failed',
+        });
+        // Release the article so it can be purchased again
+        if (txData.articleId) {
+            const articleRef = firebase_1.db.collection('articles').doc(txData.articleId);
+            const articleSnap = await tx.get(articleRef);
+            if (articleSnap.exists) {
+                tx.update(articleRef, { isSold: false });
+            }
+        }
+    });
+    const failureMessage = ((_b = paymentIntent.last_payment_error) === null || _b === void 0 ? void 0 : _b.message) || 'Unknown failure';
+    logger.error('Stripe webhook: payment failed — transaction cancelled', {
+        transactionId,
+        paymentIntentId: paymentIntent.id,
+        failureMessage,
+    });
+}
+// =============================================================================
+// HANDLER: charge.dispute.created
+// =============================================================================
+async function handleDisputeCreated(dispute) {
+    // The dispute object contains a payment_intent field
+    const paymentIntentId = dispute.payment_intent;
+    if (!paymentIntentId) {
+        logger.error('Stripe webhook: dispute missing payment_intent', {
+            disputeId: dispute.id,
+        });
+        return;
+    }
+    // Look up the transaction by stripePaymentIntentId
+    const txQuery = await firebase_1.db
+        .collection('transactions')
+        .where('stripePaymentIntentId', '==', paymentIntentId)
+        .limit(1)
+        .get();
+    if (txQuery.empty) {
+        logger.error('Stripe webhook: dispute — no transaction found for PaymentIntent', {
+            disputeId: dispute.id,
+            paymentIntentId,
+        });
+        return;
+    }
+    const txDoc = txQuery.docs[0];
+    const transactionId = txDoc.id;
+    await firebase_1.db.runTransaction(async (tx) => {
+        const txSnap = await tx.get(txDoc.ref);
+        const txData = txSnap.data();
+        if (!txData)
+            return;
+        // Idempotence: if already disputed or refunded, skip
+        if (txData.status === 'disputed' || txData.status === 'refunded') {
+            logger.info('Stripe webhook: dispute skipping — already in terminal status', {
+                transactionId,
+                currentStatus: txData.status,
+            });
+            return;
+        }
+        tx.update(txDoc.ref, {
+            status: 'disputed',
+            disputeId: dispute.id,
+            disputedAt: firebase_1.FieldValue.serverTimestamp(),
+            disputeReason: dispute.reason || null,
+        });
+    });
+    logger.warn('Stripe webhook: dispute created — transaction marked disputed', {
+        transactionId,
+        disputeId: dispute.id,
+        reason: dispute.reason,
+        amount: dispute.amount,
+    });
+}
+// =============================================================================
+// HANDLER: charge.refunded
+// =============================================================================
+async function handleChargeRefunded(charge) {
+    const paymentIntentId = charge.payment_intent;
+    if (!paymentIntentId) {
+        logger.error('Stripe webhook: refund missing payment_intent on charge', {
+            chargeId: charge.id,
+        });
+        return;
+    }
+    // Look up the transaction by stripePaymentIntentId
+    const txQuery = await firebase_1.db
+        .collection('transactions')
+        .where('stripePaymentIntentId', '==', paymentIntentId)
+        .limit(1)
+        .get();
+    if (txQuery.empty) {
+        logger.error('Stripe webhook: refund — no transaction found for PaymentIntent', {
+            chargeId: charge.id,
+            paymentIntentId,
+        });
+        return;
+    }
+    const txDoc = txQuery.docs[0];
+    const transactionId = txDoc.id;
+    await firebase_1.db.runTransaction(async (tx) => {
+        var _a, _b, _c;
+        const txSnap = await tx.get(txDoc.ref);
+        const txData = txSnap.data();
+        if (!txData)
+            return;
+        // Idempotence: if already refunded, skip
+        if (txData.status === 'refunded') {
+            logger.info('Stripe webhook: refund skipping — already refunded', { transactionId });
+            return;
+        }
+        // Mark transaction as refunded
+        tx.update(txDoc.ref, {
+            status: 'refunded',
+            refundedAt: firebase_1.FieldValue.serverTimestamp(),
+            stripeRefundId: ((_c = (_b = (_a = charge.refunds) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.id) || null,
+        });
+        // Decrement seller balance
+        const sellerId = txData.sellerId;
+        const sellerPayout = txData.sellerPayout || txData.amount;
+        const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
+        const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+        if (sellerBalanceSnap.exists) {
+            const balanceData = sellerBalanceSnap.data();
+            // Determine which balance to decrement based on transaction status
+            // If the funds were already available (delivered), decrement availableBalance.
+            // If still pending (paid but not delivered), decrement pendingBalance.
+            const previousStatus = txData.status;
+            const wasDelivered = previousStatus === 'delivered' || previousStatus === 'meetup_completed';
+            if (wasDelivered) {
+                // Guard against going negative
+                const currentAvailable = balanceData.availableBalance || 0;
+                const deduction = Math.min(sellerPayout, currentAvailable);
+                tx.update(sellerBalanceRef, {
+                    availableBalance: firebase_1.FieldValue.increment(-deduction),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+            else {
+                // Funds still in pending
+                const currentPending = balanceData.pendingBalance || 0;
+                const deduction = Math.min(sellerPayout, currentPending);
+                tx.update(sellerBalanceRef, {
+                    pendingBalance: firebase_1.FieldValue.increment(-deduction),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+        }
+        // Release the article
+        if (txData.articleId) {
+            const articleRef = firebase_1.db.collection('articles').doc(txData.articleId);
+            const articleSnap = await tx.get(articleRef);
+            if (articleSnap.exists) {
+                tx.update(articleRef, { isSold: false });
+            }
+        }
+    });
+    logger.warn('Stripe webhook: charge refunded — transaction marked refunded, seller balance decremented', {
+        transactionId,
+        chargeId: charge.id,
+        paymentIntentId,
+    });
 }
 // =============================================================================
 // HANDLER: account.updated

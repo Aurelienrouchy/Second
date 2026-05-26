@@ -41,9 +41,11 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = void 0;
+exports.updateUserRating = updateUserRating;
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+const notifications_1 = require("../utils/notifications");
 // =============================================================================
 // CREATE REVIEW
 // =============================================================================
@@ -51,6 +53,7 @@ const firebase_1 = require("../config/firebase");
  * Submit a review for another user after a completed transaction
  */
 exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    var _a, _b, _c, _d, _e, _f;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -69,6 +72,17 @@ exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', 
     if (text.trim().length > 2000) {
         throw new https_1.HttpsError('invalid-argument', 'Review text too long');
     }
+    // Correction #8: basic profanity filter (FR)
+    const PROFANITY_LIST = [
+        'putain', 'merde', 'connard', 'connasse', 'enculé', 'enculer',
+        'salaud', 'salope', 'batard', 'bâtard', 'nique', 'ntm', 'fdp',
+        'pd ', 'pédé', 'tapette', 'gouine', 'négro', 'negro',
+    ];
+    const lowerText = text.toLowerCase();
+    const hasProfanity = PROFANITY_LIST.some((word) => lowerText.includes(word));
+    if (hasProfanity) {
+        throw new https_1.HttpsError('invalid-argument', 'Votre avis contient des termes inappropriés. Veuillez le reformuler.');
+    }
     if (reviewerId === targetUserId) {
         throw new https_1.HttpsError('invalid-argument', 'Cannot review yourself');
     }
@@ -84,9 +98,20 @@ exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', 
             throw new https_1.HttpsError('not-found', 'Transaction not found');
         }
         const txData = txDoc.data();
-        const terminalStatuses = new Set(['delivered', 'meetup_completed', 'completed']);
+        // Only real terminal statuses — 'completed' does not exist in TransactionStatus
+        const terminalStatuses = new Set(['delivered', 'meetup_completed']);
         if (!terminalStatuses.has(txData.status)) {
             throw new https_1.HttpsError('failed-precondition', 'Transaction must be completed before reviewing');
+        }
+        // Correction #7: 60-day review window
+        const completionDate = ((_b = (_a = txData.completedAt) === null || _a === void 0 ? void 0 : _a.toDate) === null || _b === void 0 ? void 0 : _b.call(_a))
+            || ((_d = (_c = txData.deliveredAt) === null || _c === void 0 ? void 0 : _c.toDate) === null || _d === void 0 ? void 0 : _d.call(_c))
+            || ((_f = (_e = txData.meetupCompletedAt) === null || _e === void 0 ? void 0 : _e.toDate) === null || _f === void 0 ? void 0 : _f.call(_e));
+        if (completionDate) {
+            const daysSinceCompletion = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60 * 24);
+            if (daysSinceCompletion > 60) {
+                throw new https_1.HttpsError('deadline-exceeded', 'La période pour laisser un avis est expirée (60 jours).');
+            }
         }
         if (txData.buyerId !== reviewerId && txData.sellerId !== reviewerId) {
             throw new https_1.HttpsError('permission-denied', 'You are not a party to this transaction');
@@ -120,6 +145,7 @@ exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', 
                 reviewerId,
                 reviewerName: reviewerData.displayName || 'Utilisateur',
                 reviewerImage: reviewerData.profileImage || null,
+                // TODO: rename vendeurId to targetUserId in next schema migration
                 vendeurId: targetUserId, // kept as 'vendeurId' for backwards compat with UserStatsService
                 transactionId,
                 transactionType,
@@ -133,6 +159,15 @@ exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', 
         });
         // Update target user's aggregate rating (outside transaction, non-critical)
         await updateUserRating(targetUserId);
+        // Correction #4: Send push notification to the review target
+        try {
+            const reviewerName = reviewerData.displayName || 'Un utilisateur';
+            await (0, notifications_1.sendPushNotification)(targetUserId, 'Nouvel avis reçu', `${reviewerName} vous a laissé un avis ${note}/5`, { reviewId: reviewDocId, reviewerId }, 'review_received');
+        }
+        catch (notifError) {
+            // Non-critical — don't fail the review creation
+            logger.warn('[createReview] Failed to send notification', { error: notifError });
+        }
         return {
             success: true,
             reviewId: reviewDocId,
@@ -218,7 +253,7 @@ exports.getUserReviews = (0, https_1.onCall)({ region: 'northamerica-northeast1'
  * in a single call to avoid multiple round trips
  */
 exports.getUserPublicProfile = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g;
     const { userId } = request.data;
     const currentUserId = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
     if (!userId) {
@@ -247,12 +282,14 @@ exports.getUserPublicProfile = (0, https_1.onCall)({ region: 'northamerica-north
         }
         const userData = userDoc.data();
         // Build public profile (exclude sensitive fields)
+        // Respect privacy preference: if showProfilePhoto is explicitly false, hide the image
+        const showPhoto = (_c = (_b = userData.preferences) === null || _b === void 0 ? void 0 : _b.privacy) === null || _c === void 0 ? void 0 : _c.showProfilePhoto;
         const profile = {
             id: userId,
             displayName: userData.displayName || 'Utilisateur',
-            profileImage: userData.profileImage || null,
+            profileImage: showPhoto === false ? null : (userData.profileImage || null),
             bio: userData.bio || null,
-            createdAt: (_d = (_c = (_b = userData.createdAt) === null || _b === void 0 ? void 0 : _b.toDate) === null || _c === void 0 ? void 0 : _c.call(_b)) === null || _d === void 0 ? void 0 : _d.toISOString(),
+            createdAt: (_f = (_e = (_d = userData.createdAt) === null || _d === void 0 ? void 0 : _d.toDate) === null || _e === void 0 ? void 0 : _e.call(_d)) === null || _f === void 0 ? void 0 : _f.toISOString(),
             rating: userData.rating || null,
             accountType: userData.accountType || 'user',
             sellerLikesCount: userData.sellerLikesCount || 0,
@@ -279,12 +316,10 @@ exports.getUserPublicProfile = (0, https_1.onCall)({ region: 'northamerica-north
         const allArticles = allArticlesSnapshot.docs.map((d) => d.data());
         const articlesEnVente = allArticles.filter((a) => a.isActive && !a.isSold).length;
         const articlesVendus = allArticles.filter((a) => a.isSold).length;
-        // Reviews summary
-        const allReviews = reviewsSnapshot.docs.map((d) => d.data());
-        const totalReviews = allReviews.length;
-        const averageRating = totalReviews > 0
-            ? allReviews.reduce((sum, r) => sum + (r.note || 0), 0) / totalReviews
-            : 0;
+        // Reviews summary — use pre-calculated values from updateUserRating()
+        // instead of recalculating from the limited (10) snapshot
+        const totalReviews = userData.reviewCount || 0;
+        const averageRating = userData.rating || 0;
         const reviews = reviewsSnapshot.docs.map((doc) => {
             var _a, _b, _c;
             const data = doc.data();
@@ -306,7 +341,7 @@ exports.getUserPublicProfile = (0, https_1.onCall)({ region: 'northamerica-north
                 .doc(currentUserId)
                 .get();
             if (currentUserDoc.exists) {
-                const likedSellers = ((_e = currentUserDoc.data()) === null || _e === void 0 ? void 0 : _e.likedSellers) || [];
+                const likedSellers = ((_g = currentUserDoc.data()) === null || _g === void 0 ? void 0 : _g.likedSellers) || [];
                 isFollowing = likedSellers.includes(userId);
             }
         }
@@ -335,7 +370,8 @@ exports.getUserPublicProfile = (0, https_1.onCall)({ region: 'northamerica-north
 // HELPERS
 // =============================================================================
 /**
- * Update aggregate rating on user document
+ * Update aggregate rating on user document.
+ * Exported so that swap rating (rateSwap) can also recalculate the target user's average.
  */
 async function updateUserRating(userId) {
     try {

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rateSwap = exports.confirmSwapReception = exports.confirmSwapShipping = exports.uploadSwapPhotos = exports.setSwapExchangeMode = exports.cancelSwap = exports.declineSwap = exports.getSwapPartyLeaderboard = exports.removeItemFromPartySecure = exports.addItemToPartySecure = exports.leaveSwapPartySecure = exports.joinSwapPartySecure = exports.getActiveSwapPartyInfo = exports.acceptSwap = exports.proposeMultiSwap = void 0;
+exports.openSwapDispute = exports.rateSwap = exports.confirmSwapReception = exports.confirmSwapShipping = exports.uploadSwapPhotos = exports.setSwapExchangeMode = exports.cancelSwap = exports.declineSwap = exports.getSwapPartyLeaderboard = exports.removeItemFromPartySecure = exports.addItemToPartySecure = exports.leaveSwapPartySecure = exports.joinSwapPartySecure = exports.getActiveSwapPartyInfo = exports.acceptSwap = exports.proposeMultiSwap = void 0;
 /**
  * Swap callable functions
  * Firebase Functions v7 - using onCall
@@ -42,6 +42,8 @@ const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+const reviews_1 = require("./reviews");
+const notifications_1 = require("../utils/notifications");
 /** Strip undefined values (Firestore rejects undefined) */
 const stripUndefined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 /** Resolve items arrays with backward compat for legacy single-item swaps */
@@ -96,6 +98,10 @@ exports.proposeMultiSwap = (0, https_1.onCall)({ region: 'northamerica-northeast
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
     const { initiatorId, initiatorName, initiatorImage, initiatorItems, receiverItems, receiverId, receiverName, receiverImage, message, cashTopUp, partyId, } = request.data;
+    // Reject cashTopUp — feature not yet implemented (no Stripe payment initiated)
+    if (cashTopUp) {
+        throw new https_1.HttpsError('unimplemented', 'Le complément monétaire n\'est pas encore disponible.');
+    }
     // Auth: initiatorId must match the authenticated user
     if (initiatorId !== request.auth.uid) {
         throw new https_1.HttpsError('permission-denied', 'L\'initiateur doit correspondre à l\'utilisateur authentifié');
@@ -142,7 +148,6 @@ exports.proposeMultiSwap = (0, https_1.onCall)({ region: 'northamerica-northeast
                 receiverTotalValue,
                 status: 'proposed',
                 message,
-                cashTopUp: cashTopUp ? { amount: cashTopUp.amount, payerId: cashTopUp.payerId } : undefined,
                 partyId,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -236,7 +241,7 @@ exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         });
-        // Mark party items as swapped AFTER transaction succeeds (non-critical)
+        // Mark party items as pending (NOT swapped yet — isSwapped only on completed reception)
         const swapSnap = await firebase_1.db.collection('swaps').doc(swapId).get();
         const swap = swapSnap.data();
         if (swap === null || swap === void 0 ? void 0 : swap.partyId) {
@@ -249,7 +254,7 @@ exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
                     .where('sellerId', '==', swap.initiatorId)
                     .get();
                 for (const d of q.docs) {
-                    await d.ref.update({ isSwapped: true });
+                    await d.ref.update({ isPending: true });
                 }
             }
             const receiverItems = getSwapItems(swap, 'receiver');
@@ -260,7 +265,7 @@ exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
                     .where('sellerId', '==', swap.receiverId)
                     .get();
                 for (const d of q.docs) {
-                    await d.ref.update({ isSwapped: true });
+                    await d.ref.update({ isPending: true });
                 }
             }
         }
@@ -380,6 +385,12 @@ exports.joinSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-northe
             if (!['upcoming', 'active'].includes(partyData.status)) {
                 throw new https_1.HttpsError('failed-precondition', 'Cette swap party n\'est plus ouverte');
             }
+            // Check maxParticipants limit
+            if (partyData.maxParticipants != null &&
+                typeof partyData.maxParticipants === 'number' &&
+                (partyData.participantsCount || 0) >= partyData.maxParticipants) {
+                throw new https_1.HttpsError('resource-exhausted', 'Cette Swap Zone a atteint le nombre maximum de participants');
+            }
             // Check if already joined
             const existingQuery = await firebase_1.db
                 .collection('swapPartyParticipants')
@@ -435,6 +446,23 @@ exports.leaveSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-north
     }
     const userId = request.auth.uid;
     try {
+        // Pre-check: reject if user has active swaps in this party
+        // (query outside transaction because it uses 'in' operator which is read-only check)
+        const activeSwapsInitiator = await firebase_1.db
+            .collection('swaps')
+            .where('partyId', '==', partyId)
+            .where('initiatorId', '==', userId)
+            .where('status', 'in', ['proposed', 'accepted', 'photos_pending', 'shipping'])
+            .get();
+        const activeSwapsReceiver = await firebase_1.db
+            .collection('swaps')
+            .where('partyId', '==', partyId)
+            .where('receiverId', '==', userId)
+            .where('status', 'in', ['proposed', 'accepted', 'photos_pending', 'shipping'])
+            .get();
+        if (!activeSwapsInitiator.empty || !activeSwapsReceiver.empty) {
+            throw new https_1.HttpsError('failed-precondition', 'Vous avez des échanges en cours dans cette Swap Zone. Terminez-les avant de quitter.');
+        }
         await firebase_1.db.runTransaction(async (tx) => {
             // Check the party exists
             const partyRef = firebase_1.db.collection('swapParties').doc(partyId);
@@ -538,6 +566,19 @@ exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-north
             const articleData = articleSnap.data();
             if (articleData.sellerId !== userId) {
                 throw new https_1.HttpsError('permission-denied', 'Cet article ne vous appartient pas');
+            }
+            // Validate article is still available (not sold, not deactivated)
+            if (articleData.isSold === true || articleData.isActive === false) {
+                throw new https_1.HttpsError('failed-precondition', 'Cet article n\'est plus disponible.');
+            }
+            // Check for duplicate: article already in this party (inside tx to prevent race conditions)
+            const duplicateQuery = await firebase_1.db
+                .collection('swapPartyItems')
+                .where('partyId', '==', partyId)
+                .where('articleId', '==', articleId)
+                .get();
+            if (!duplicateQuery.empty) {
+                throw new https_1.HttpsError('already-exists', 'Cet article est déjà dans cette Swap Zone.');
             }
             // Create the party item
             const itemRef = firebase_1.db.collection('swapPartyItems').doc();
@@ -980,6 +1021,10 @@ exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northe
             if (swap.initiatorId !== uid && swap.receiverId !== uid) {
                 throw new https_1.HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
             }
+            // Status guard: shipping confirmation only valid during shipping or photos_pending phase
+            if (!['shipping', 'photos_pending'].includes(swap.status)) {
+                throw new https_1.HttpsError('failed-precondition', 'Le swap n\'est pas en cours d\'expédition.');
+            }
             const updateData = {
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
@@ -1010,7 +1055,6 @@ exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northe
  * Uses runTransaction for the status transition check.
  */
 exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
-    var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1030,6 +1074,10 @@ exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-north
             // Auth: must be a participant
             if (swap.initiatorId !== uid && swap.receiverId !== uid) {
                 throw new https_1.HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+            }
+            // Status guard: reception only valid during shipping
+            if (swap.status !== 'shipping') {
+                throw new https_1.HttpsError('failed-precondition', `Impossible de confirmer la réception en statut "${swap.status}"`);
             }
             const updateData = {
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1056,6 +1104,33 @@ exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-north
                 swap,
             };
         });
+        // If completed, mark ALL articles on both sides as sold + inactive
+        if (swapData.bothReceived) {
+            const allArticleIds = [];
+            const initiatorArticles = getSwapItems(swapData.swap, 'initiator');
+            const receiverArticles = getSwapItems(swapData.swap, 'receiver');
+            for (const item of [...initiatorArticles, ...receiverArticles]) {
+                if (item.articleId)
+                    allArticleIds.push(item.articleId);
+            }
+            for (const articleId of allArticleIds) {
+                try {
+                    await firebase_1.db.collection('articles').doc(articleId).update({
+                        isSold: true,
+                        isActive: false,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+                catch (err) {
+                    // Non-critical: article may have been deleted since swap was proposed
+                    logger.warn('Failed to mark article as sold after swap completion', {
+                        articleId,
+                        swapId,
+                        error: err instanceof Error ? err.message : 'Unknown',
+                    });
+                }
+            }
+        }
         // If completed and has a partyId, mark items as swapped + increment count
         if (swapData.bothReceived && swapData.partyId) {
             const partyItemsRef = firebase_1.db.collection('swapPartyItems');
@@ -1083,14 +1158,11 @@ exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-north
                     await d.ref.update({ isSwapped: true });
                 }
             }
-            // Increment swapsCount on the party
+            // Atomically increment swapsCount on the party (no read-then-write race condition)
             const partyRef = firebase_1.db.collection('swapParties').doc(swapData.partyId);
-            const partySnap = await partyRef.get();
-            if (partySnap.exists) {
-                await partyRef.update({
-                    swapsCount: (((_a = partySnap.data()) === null || _a === void 0 ? void 0 : _a.swapsCount) || 0) + 1,
-                });
-            }
+            await partyRef.update({
+                swapsCount: admin.firestore.FieldValue.increment(1),
+            });
         }
         logger.info('Swap reception confirmed', {
             swapId,
@@ -1124,6 +1196,14 @@ exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invo
         throw new https_1.HttpsError('invalid-argument', 'score requis (1-5)');
     }
     try {
+        // We need swap data outside the transaction for the avis creation
+        let targetUserId = '';
+        let reviewerName = '';
+        let reviewerImage = null;
+        let articleTitle = null;
+        const trimmedComment = (comment != null && typeof comment === 'string' && comment.trim().length > 0)
+            ? comment.trim()
+            : null;
         await firebase_1.db.runTransaction(async (tx) => {
             const swapRef = firebase_1.db.collection('swaps').doc(swapId);
             const swapSnap = await tx.get(swapRef);
@@ -1140,23 +1220,64 @@ exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invo
             if (swap.status !== 'completed') {
                 throw new https_1.HttpsError('failed-precondition', `Impossible de noter un échange en statut "${swap.status}"`);
             }
+            const isInitiator = swap.initiatorId === uid;
+            // Determine the target user (the OTHER participant)
+            targetUserId = isInitiator ? swap.receiverId : swap.initiatorId;
+            reviewerName = isInitiator ? swap.initiatorName : swap.receiverName;
+            reviewerImage = isInitiator ? (swap.initiatorImage || null) : (swap.receiverImage || null);
+            // Get article title from the first item of the swap (for the avis record)
+            const items = getSwapItems(swap, isInitiator ? 'initiator' : 'receiver');
+            articleTitle = items.length > 0 ? (items[0].title || null) : null;
             // Build rating object, excluding comment if not provided
             const rating = { score };
-            if (comment != null && typeof comment === 'string' && comment.trim().length > 0) {
-                rating.comment = comment.trim();
+            if (trimmedComment) {
+                rating.comment = trimmedComment;
             }
             const updateData = {
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
-            if (swap.initiatorId === uid) {
+            if (isInitiator) {
                 updateData.initiatorRating = rating;
             }
             else {
                 updateData.receiverRating = rating;
             }
             tx.update(swapRef, updateData);
+            // Create a review document in avis/ (deterministic ID prevents duplicates)
+            const reviewDocId = `${uid}_swap_${swapId}`;
+            const reviewRef = firebase_1.db.collection('avis').doc(reviewDocId);
+            // Check if review already exists (idempotence)
+            const existingReview = await tx.get(reviewRef);
+            if (!existingReview.exists) {
+                tx.set(reviewRef, {
+                    id: reviewDocId,
+                    reviewerId: uid,
+                    reviewerName: reviewerName || 'Utilisateur',
+                    reviewerImage: reviewerImage,
+                    // TODO: rename vendeurId to targetUserId in next schema migration
+                    vendeurId: targetUserId,
+                    transactionId: swapId,
+                    transactionType: 'swap',
+                    articleId: null,
+                    articleTitle: articleTitle,
+                    note: score,
+                    text: trimmedComment || '',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
         });
-        logger.info('Swap rated', { swapId, score, userId: request.auth.uid });
+        // Update target user's aggregate rating (outside transaction, non-critical)
+        if (targetUserId) {
+            await (0, reviews_1.updateUserRating)(targetUserId);
+            // Send push notification for the review
+            try {
+                await (0, notifications_1.sendPushNotification)(targetUserId, 'Nouvel avis reçu', `${reviewerName || 'Un utilisateur'} vous a laissé un avis ${score}/5`, { reviewId: `${request.auth.uid}_swap_${swapId}`, reviewerId: request.auth.uid }, 'review_received');
+            }
+            catch (notifError) {
+                logger.warn('Failed to send swap review notification', { error: notifError });
+            }
+        }
+        logger.info('Swap rated', { swapId, score, userId: request.auth.uid, targetUserId });
         return { success: true };
     }
     catch (error) {
@@ -1165,6 +1286,59 @@ exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invo
         const errMsg = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Error rating swap', { error: errMsg, swapId });
         throw new https_1.HttpsError('internal', 'Erreur lors de la notation: ' + errMsg);
+    }
+});
+/**
+ * Open a dispute on a swap — participant can dispute during shipping or after completion.
+ * Transitions swap status to 'disputed'.
+ * Uses runTransaction to guard the status transition.
+ */
+exports.openSwapDispute = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private' }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
+    }
+    const { swapId, reason } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+        throw new https_1.HttpsError('invalid-argument', 'swapId requis');
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'reason requis (texte non vide)');
+    }
+    const trimmedReason = reason.trim();
+    try {
+        await firebase_1.db.runTransaction(async (tx) => {
+            const swapRef = firebase_1.db.collection('swaps').doc(swapId);
+            const swapSnap = await tx.get(swapRef);
+            if (!swapSnap.exists) {
+                throw new https_1.HttpsError('not-found', 'Swap introuvable');
+            }
+            const swap = swapSnap.data();
+            const uid = request.auth.uid;
+            // Auth: must be a participant
+            if (swap.initiatorId !== uid && swap.receiverId !== uid) {
+                throw new https_1.HttpsError('permission-denied', 'Vous n\'etes pas participant de cet echange');
+            }
+            // Status must be 'shipping' or 'completed'
+            if (!['shipping', 'completed'].includes(swap.status)) {
+                throw new https_1.HttpsError('failed-precondition', `Impossible d'ouvrir un litige sur un echange en statut "${swap.status}"`);
+            }
+            tx.update(swapRef, {
+                status: 'disputed',
+                disputeReason: trimmedReason,
+                disputeOpenedBy: uid,
+                disputeOpenedAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        });
+        logger.info('Swap dispute opened', { swapId, userId: request.auth.uid, reason: trimmedReason });
+        return { success: true };
+    }
+    catch (error) {
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('Error opening swap dispute', { error: errMsg, swapId });
+        throw new https_1.HttpsError('internal', 'Erreur lors de l\'ouverture du litige: ' + errMsg);
     }
 });
 //# sourceMappingURL=swaps.js.map

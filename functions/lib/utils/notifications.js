@@ -80,6 +80,15 @@ function buildDeepLink(notificationType, data) {
             return data.savedSearchId
                 ? `https://${DEEP_LINK_HOST}/search?savedSearchId=${data.savedSearchId}`
                 : '';
+        case 'new_sale':
+        case 'order_shipped':
+        case 'order_delivered':
+        case 'order_cancelled':
+            return data.transactionId
+                ? `https://${DEEP_LINK_HOST}/my-orders`
+                : '';
+        case 'review_received':
+            return `https://${DEEP_LINK_HOST}/notifications`;
         case 'shop_approved':
         case 'shop_rejected':
         case 'shop_created':
@@ -125,6 +134,13 @@ function getAndroidChannel(notificationType) {
         case 'swap_zone_reminder':
         case 'swap_update':
             return 'swaps';
+        case 'new_sale':
+        case 'order_shipped':
+        case 'order_delivered':
+        case 'order_cancelled':
+            return 'orders';
+        case 'review_received':
+            return 'notifications';
         default:
             return 'notifications';
     }

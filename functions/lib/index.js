@@ -20,8 +20,8 @@
  * - /http         - HTTP endpoints (webhooks)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateUserStats = exports.updateSearchIndex = exports.deleteUserAccount = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.completeMeetupTransaction = exports.cancelPendingTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.getStripeAccountLink = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.rateSwap = exports.confirmSwapReception = exports.confirmSwapShipping = exports.uploadSwapPhotos = exports.setSwapExchangeMode = exports.cancelSwap = exports.declineSwap = exports.acceptSwap = exports.proposeMultiSwap = exports.markSavedSearchViewed = exports.toggleArticleSold = exports.toggleProductLike = exports.incrementProductView = exports.createArticle = exports.getSimilarProducts = exports.visualSearch = exports.consolidateChatDuplicates = exports.analyzeProductImage = void 0;
-exports.stripeWebhook = exports.cleanupExpiredDrafts = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticleSold = exports.onArticleSoftDeleted = exports.onUserProfileUpdated = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = void 0;
+exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.completeMeetupTransaction = exports.cancelPendingTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.getStripeAccountLink = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = exports.removeItemFromPartySecure = exports.addItemToPartySecure = exports.leaveSwapPartySecure = exports.joinSwapPartySecure = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.openSwapDispute = exports.rateSwap = exports.confirmSwapReception = exports.confirmSwapShipping = exports.uploadSwapPhotos = exports.setSwapExchangeMode = exports.cancelSwap = exports.declineSwap = exports.acceptSwap = exports.proposeMultiSwap = exports.markSavedSearchViewed = exports.toggleArticleSold = exports.toggleProductLike = exports.incrementProductView = exports.updateArticle = exports.createArticle = exports.getSimilarProducts = exports.visualSearch = exports.consolidateChatDuplicates = exports.analyzeProductImage = void 0;
+exports.stripeWebhook = exports.checkShippedTracking = exports.expireOrphanedTransactions = exports.expireStaleOffers = exports.cleanupExpiredDrafts = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticleSold = exports.onArticleSoftDeleted = exports.onUserProfileUpdated = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.deleteUserAccount = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = void 0;
 // ============================================================
 // CALLABLE FUNCTIONS (onCall)
 // ============================================================
@@ -38,6 +38,7 @@ Object.defineProperty(exports, "getSimilarProducts", { enumerable: true, get: fu
 // Product Functions
 var products_1 = require("./callable/products");
 Object.defineProperty(exports, "createArticle", { enumerable: true, get: function () { return products_1.createArticle; } });
+Object.defineProperty(exports, "updateArticle", { enumerable: true, get: function () { return products_1.updateArticle; } });
 Object.defineProperty(exports, "incrementProductView", { enumerable: true, get: function () { return products_1.incrementProductView; } });
 Object.defineProperty(exports, "toggleProductLike", { enumerable: true, get: function () { return products_1.toggleProductLike; } });
 Object.defineProperty(exports, "toggleArticleSold", { enumerable: true, get: function () { return products_1.toggleArticleSold; } });
@@ -53,8 +54,13 @@ Object.defineProperty(exports, "uploadSwapPhotos", { enumerable: true, get: func
 Object.defineProperty(exports, "confirmSwapShipping", { enumerable: true, get: function () { return swaps_1.confirmSwapShipping; } });
 Object.defineProperty(exports, "confirmSwapReception", { enumerable: true, get: function () { return swaps_1.confirmSwapReception; } });
 Object.defineProperty(exports, "rateSwap", { enumerable: true, get: function () { return swaps_1.rateSwap; } });
+Object.defineProperty(exports, "openSwapDispute", { enumerable: true, get: function () { return swaps_1.openSwapDispute; } });
 Object.defineProperty(exports, "getActiveSwapPartyInfo", { enumerable: true, get: function () { return swaps_1.getActiveSwapPartyInfo; } });
 Object.defineProperty(exports, "getSwapPartyLeaderboard", { enumerable: true, get: function () { return swaps_1.getSwapPartyLeaderboard; } });
+Object.defineProperty(exports, "joinSwapPartySecure", { enumerable: true, get: function () { return swaps_1.joinSwapPartySecure; } });
+Object.defineProperty(exports, "leaveSwapPartySecure", { enumerable: true, get: function () { return swaps_1.leaveSwapPartySecure; } });
+Object.defineProperty(exports, "addItemToPartySecure", { enumerable: true, get: function () { return swaps_1.addItemToPartySecure; } });
+Object.defineProperty(exports, "removeItemFromPartySecure", { enumerable: true, get: function () { return swaps_1.removeItemFromPartySecure; } });
 // Payment & Shipping Functions
 var payments_1 = require("./callable/payments");
 Object.defineProperty(exports, "getShippingEstimate", { enumerable: true, get: function () { return payments_1.getShippingEstimate; } });
@@ -152,6 +158,15 @@ Object.defineProperty(exports, "checkSavedSearchNotifications", { enumerable: tr
 // Draft image cleanup
 var cleanupDrafts_1 = require("./scheduled/cleanupDrafts");
 Object.defineProperty(exports, "cleanupExpiredDrafts", { enumerable: true, get: function () { return cleanupDrafts_1.cleanupExpiredDrafts; } });
+// Offer expiration (hourly cleanup of stale pending offers)
+var offerExpiration_1 = require("./scheduled/offerExpiration");
+Object.defineProperty(exports, "expireStaleOffers", { enumerable: true, get: function () { return offerExpiration_1.expireStaleOffers; } });
+// Transaction expiration (meetup_pending 48h + pending_payment 1h + paid-not-shipped 7d)
+var transactionExpiration_1 = require("./scheduled/transactionExpiration");
+Object.defineProperty(exports, "expireOrphanedTransactions", { enumerable: true, get: function () { return transactionExpiration_1.expireOrphanedTransactions; } });
+// Tracking check (poll ShipEngine every 6h for shipped transactions)
+var trackingCheck_1 = require("./scheduled/trackingCheck");
+Object.defineProperty(exports, "checkShippedTracking", { enumerable: true, get: function () { return trackingCheck_1.checkShippedTracking; } });
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================

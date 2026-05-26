@@ -108,8 +108,8 @@ export const checkSavedSearchNotifications = onSchedule(
           const mostSpecificCategory =
             filters.categoryIds[filters.categoryIds.length - 1];
           articlesQuery = articlesQuery.where(
-            'categoryId',
-            '==',
+            'categoryIds',
+            'array-contains',
             mostSpecificCategory
           );
         } else if (filters.brands && filters.brands.length > 0) {

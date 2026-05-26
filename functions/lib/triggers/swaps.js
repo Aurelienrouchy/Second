@@ -40,6 +40,7 @@ exports.onSwapStatusUpdated = exports.onSwapCreated = void 0;
  */
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
+const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const notifications_1 = require("../utils/notifications");
 /** Resolve items arrays with backward compat for legacy single-item swaps */
@@ -61,19 +62,19 @@ exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{s
         const swap = snapshot.data();
         const swapId = event.params.swapId;
         if (!swap.receiverId) {
-            console.log('No receiver for swap notification');
+            logger.info('No receiver for swap notification');
             return;
         }
         // Get receiver's FCM tokens
         const receiverDoc = await firebase_1.db.collection('users').doc(swap.receiverId).get();
         if (!receiverDoc.exists) {
-            console.log(`Receiver user ${swap.receiverId} not found`);
+            logger.info('Receiver user not found', { receiverId: swap.receiverId });
             return;
         }
         const receiverData = receiverDoc.data();
         const fcmTokens = receiverData.fcmTokens || [];
         if (fcmTokens.length === 0) {
-            console.log(`No FCM tokens for user ${swap.receiverId}`);
+            logger.info('No FCM tokens for user', { userId: swap.receiverId });
             return;
         }
         // Build notification
@@ -131,7 +132,7 @@ exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{s
                 successCount++;
             }
             else {
-                console.error(`Failed to send swap notification:`, response.error);
+                logger.error('Failed to send swap notification', { error: response.error });
                 // Remove invalid tokens
                 if (((_a = response.error) === null || _a === void 0 ? void 0 : _a.code) === 'messaging/invalid-registration-token' ||
                     ((_b = response.error) === null || _b === void 0 ? void 0 : _b.code) === 'messaging/registration-token-not-registered') {
@@ -140,11 +141,11 @@ exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{s
                         .update({
                         fcmTokens: admin.firestore.FieldValue.arrayRemove(fcmTokens[index]),
                     })
-                        .catch((err) => console.error('Error removing invalid token:', err));
+                        .catch((err) => logger.error('Error removing invalid token', { error: err }));
                 }
             }
         });
-        console.log(`Swap proposal notification sent: ${successCount} successful`);
+        logger.info('Swap proposal notification sent', { successCount });
     }
     catch (error) {
         console.error('Error sending swap proposal notification:', error);

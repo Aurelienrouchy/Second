@@ -165,6 +165,19 @@ export function useArticleSearch({
     [debouncedSearchQuery, selectedCategoryPath, searchFilters, excludeUserId]
   );
 
+  const hasNonDefaultFilters = useMemo(
+    () =>
+      (filters.colors?.length ?? 0) > 0 ||
+      (filters.sizes?.length ?? 0) > 0 ||
+      (filters.materials?.length ?? 0) > 0 ||
+      (filters.brands?.length ?? 0) > 0 ||
+      (filters.patterns?.length ?? 0) > 0 ||
+      !!filters.condition ||
+      filters.minPrice !== undefined ||
+      filters.maxPrice !== undefined,
+    [filters]
+  );
+
   const {
     data,
     isLoading,
@@ -192,13 +205,23 @@ export function useArticleSearch({
       lastPage.lastVisible ? lastPage.lastVisible : undefined,
     staleTime: SEARCH_STALE_TIME,
     retry: 3,
+    enabled: Boolean(
+      debouncedSearchQuery.trim() ||
+      selectedCategoryPath.length > 0 ||
+      hasNonDefaultFilters
+    ),
   });
 
   const articles = useMemo(() => {
     if (!data?.pages) return [];
     const flat = data.pages.flatMap((page) => page.articles);
     const transformed = transformArticlesWithLocation(flat, center);
-    return sortArticles(transformed, filters.sortBy, center);
+    // Only re-sort client-side when geolocation center is provided (distance sort)
+    // Otherwise the service already sorted the results
+    if (center) {
+      return sortArticles(transformed, filters.sortBy, center);
+    }
+    return transformed;
   }, [data, center, filters.sortBy]);
 
   const loadMore = useCallback(() => {
@@ -217,7 +240,7 @@ export function useArticleSearch({
       !!filters.condition ||
       filters.minPrice !== undefined ||
       filters.maxPrice !== undefined ||
-      !!filters.sortBy ||
+      (!!filters.sortBy && filters.sortBy !== 'recent') ||
       selectedCategoryPath.length > 0,
     [filters, selectedCategoryPath]
   );

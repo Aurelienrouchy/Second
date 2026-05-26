@@ -59,7 +59,7 @@ const firebase_1 = require("../config/firebase");
  * reindex.
  */
 exports.onArticleSoftDeleted = (0, firestore_1.onDocumentUpdated)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
-    var _a, _b;
+    var _a, _b, _c;
     const articleId = event.params.articleId;
     const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
@@ -67,6 +67,7 @@ exports.onArticleSoftDeleted = (0, firestore_1.onDocumentUpdated)({ document: 'a
         return;
     // Only act when isActive transitions from true to false
     if (before.isActive === true && after.isActive === false) {
+        // 1. Remove search_index entry
         try {
             const siRef = firebase_1.db.collection('search_index').doc(articleId);
             const siSnap = await siRef.get();
@@ -77,6 +78,56 @@ exports.onArticleSoftDeleted = (0, firestore_1.onDocumentUpdated)({ document: 'a
         }
         catch (error) {
             logger.error('[onArticleSoftDeleted] Failed to remove search_index', {
+                articleId,
+                error: error instanceof Error ? error.message : error,
+            });
+        }
+        // 2. Expire pending offers in related chats (same logic as onArticleSold)
+        try {
+            const chatsSnap = await firebase_1.db.collection('chats')
+                .where('articleId', '==', articleId)
+                .get();
+            if (!chatsSnap.empty) {
+                const chatIds = chatsSnap.docs.map((d) => d.id);
+                let totalExpired = 0;
+                for (const chatId of chatIds) {
+                    const pendingOffers = await firebase_1.db.collection('messages')
+                        .where('chatId', '==', chatId)
+                        .where('type', '==', 'offer')
+                        .where('offer.status', '==', 'pending')
+                        .get();
+                    const batch = firebase_1.db.batch();
+                    let count = 0;
+                    for (const msgDoc of pendingOffers.docs) {
+                        batch.update(msgDoc.ref, {
+                            'offer.status': 'expired',
+                        });
+                        count++;
+                    }
+                    if (count > 0) {
+                        await batch.commit();
+                        totalExpired += count;
+                        // Send system message to inform participants
+                        const chatDoc = await firebase_1.db.collection('chats').doc(chatId).get();
+                        const participants = chatDoc.exists ? (((_c = chatDoc.data()) === null || _c === void 0 ? void 0 : _c.participants) || []) : [];
+                        await firebase_1.db.collection('messages').add({
+                            chatId,
+                            senderId: 'system',
+                            receiverId: 'system',
+                            type: 'system',
+                            content: 'Cet article a ete retire de la vente. Les offres en attente ont ete annulees.',
+                            participants,
+                            timestamp: firebase_1.FieldValue.serverTimestamp(),
+                            status: 'sent',
+                            isRead: true,
+                        });
+                    }
+                }
+                logger.info(`[onArticleSoftDeleted] Expired ${totalExpired} pending offers across ${chatIds.length} chats`, { articleId });
+            }
+        }
+        catch (error) {
+            logger.error('[onArticleSoftDeleted] Failed to expire pending offers', {
                 articleId,
                 error: error instanceof Error ? error.message : error,
             });

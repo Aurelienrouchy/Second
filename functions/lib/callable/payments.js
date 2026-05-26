@@ -48,6 +48,7 @@ const firebase_1 = require("../config/firebase");
 const shipEngine_1 = require("../config/shipEngine");
 const stripe_1 = require("../config/stripe");
 const fees_1 = require("../utils/fees");
+const notifications_1 = require("../utils/notifications");
 // =============================================================================
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
 // =============================================================================
@@ -103,7 +104,7 @@ exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northe
             carrier: rate.carrierFriendlyName,
             carrierCode: rate.carrierCode,
             serviceName: rate.serviceType,
-            estimatedDays: `${rate.estimatedDeliveryDays} jour${rate.estimatedDeliveryDays > 1 ? 's' : ''} ouvrable${rate.estimatedDeliveryDays > 1 ? 's' : ''}`,
+            deliveryDays: `${rate.estimatedDeliveryDays} jour${rate.estimatedDeliveryDays > 1 ? 's' : ''} ouvrable${rate.estimatedDeliveryDays > 1 ? 's' : ''}`,
             amount: rate.shippingAmount.amount,
             currency: rate.shippingAmount.currency,
             deliveryType: rate.deliveryType,
@@ -210,10 +211,26 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             if (amount !== articleData.price && amount <= 0) {
                 throw new https_1.HttpsError('invalid-argument', 'Le montant doit être supérieur à zéro.');
             }
+            // For shipping transactions, verify seller has active Stripe Connect
+            // before locking the article. This prevents articles from being marked
+            // sold for a seller who can't receive payment.
+            if (deliveryType === 'shipping') {
+                const sellerRef = firebase_1.db.collection('users').doc(articleData.sellerId);
+                const sellerSnap = await tx.get(sellerRef);
+                if (!sellerSnap.exists) {
+                    throw new https_1.HttpsError('not-found', 'Vendeur introuvable');
+                }
+                const sellerData = sellerSnap.data();
+                if (!sellerData.stripeAccountId || sellerData.stripeChargesEnabled !== true) {
+                    throw new https_1.HttpsError('failed-precondition', 'Le vendeur n\'a pas encore configuré son compte de paiement.');
+                }
+            }
             // Mark article as sold
             tx.update(articleRef, { isSold: true });
             // Build transaction data — server-side fee calculation (never trust client)
-            const fee = (0, fees_1.calculateServiceFee)(amount);
+            // Meetup transactions have NO platform fee (aligned with frontend
+            // messaging "Aucun frais de plateforme") and no shipping cost.
+            const fee = deliveryType === 'meetup' ? 0 : (0, fees_1.calculateServiceFee)(amount);
             const shipping = deliveryType === 'shipping' ? (shippingCost || 0) : 0;
             const totalAmount = amount + shipping + fee;
             const transactionData = {
@@ -313,13 +330,14 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
             if (!checkoutableStatuses.has(transaction.status)) {
                 throw new https_1.HttpsError('failed-precondition', `Cannot create checkout for transaction in status ${transaction.status}`);
             }
-            // Idempotent: if a PaymentIntent already exists, return existing clientSecret
-            if (transaction.stripePaymentIntentId && transaction.stripeClientSecret) {
+            // Idempotent: if a PaymentIntent already exists, retrieve clientSecret from Stripe
+            // (never store client_secret in Firestore — it's a sensitive credential)
+            if (transaction.stripePaymentIntentId) {
                 const existingFees = (0, fees_1.calculateFees)(transaction.amount, transaction.shippingCost || 0);
                 return {
                     existingCheckout: true,
                     fees: existingFees,
-                    clientSecret: transaction.stripeClientSecret,
+                    existingPaymentIntentId: transaction.stripePaymentIntentId,
                     sellerId: transaction.sellerId,
                 };
             }
@@ -335,16 +353,20 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
             return {
                 existingCheckout: false,
                 fees: calculatedFees,
-                clientSecret: null,
+                existingPaymentIntentId: null,
                 sellerId: transaction.sellerId,
             };
         });
-        // Idempotent return: PaymentIntent already existed
+        // Idempotent return: PaymentIntent already existed — retrieve clientSecret from Stripe
         if (txResult.existingCheckout) {
-            logger.info('Returning existing Stripe PaymentIntent', { transactionId });
+            const existingPI = await stripe.paymentIntents.retrieve(txResult.existingPaymentIntentId);
+            logger.info('Returning existing Stripe PaymentIntent', {
+                transactionId,
+                paymentIntentId: existingPI.id,
+            });
             return {
                 success: true,
-                clientSecret: txResult.clientSecret,
+                clientSecret: existingPI.client_secret,
                 feeBreakdown: {
                     articlePrice: txResult.fees.articlePrice,
                     shippingCost: txResult.fees.shippingCost,
@@ -383,10 +405,9 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
             // Defer payouts until delivery confirmed (escrow simulation)
             // The actual payout hold is managed via the connected account's schedule
         });
-        // Store PaymentIntent details in the transaction doc
+        // Store PaymentIntent ID in the transaction doc (never store client_secret)
         await txRef.update({
             stripePaymentIntentId: paymentIntent.id,
-            stripeClientSecret: paymentIntent.client_secret,
             stripeCheckoutCreatedAt: firebase_1.FieldValue.serverTimestamp(),
         });
         logger.info('Stripe PaymentIntent created', {
@@ -453,10 +474,15 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
                 },
             });
             stripeAccountId = account.id;
-            // Store the Stripe account ID in the user document
+            // Store the Stripe account ID and initial status in the user document.
+            // All five Stripe fields are written here so the frontend can read
+            // them immediately without waiting for the account.updated webhook.
             await userRef.update({
                 stripeAccountId: account.id,
                 stripeAccountStatus: 'pending',
+                stripeChargesEnabled: false,
+                stripePayoutsEnabled: false,
+                stripeDetailsSubmitted: false,
                 stripeAccountCreatedAt: firebase_1.FieldValue.serverTimestamp(),
             });
             logger.info('Stripe Connect account created', {
@@ -467,8 +493,8 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
         // Generate an Account Link for onboarding
         const accountLink = await stripe.accountLinks.create({
             account: stripeAccountId,
-            refresh_url: `https://second.app/settings/payments?refresh=true`,
-            return_url: `https://second.app/settings/payments?success=true`,
+            refresh_url: `https://seconde.app/settings/payments?refresh=true`,
+            return_url: `https://seconde.app/settings/payments?success=true`,
             type: 'account_onboarding',
         });
         return {
@@ -513,8 +539,8 @@ exports.getStripeAccountLink = (0, https_1.onCall)({ region: 'northamerica-north
         }
         const accountLink = await stripe.accountLinks.create({
             account: stripeAccountId,
-            refresh_url: `https://second.app/settings/payments?refresh=true`,
-            return_url: `https://second.app/settings/payments?success=true`,
+            refresh_url: `https://seconde.app/settings/payments?refresh=true`,
+            return_url: `https://seconde.app/settings/payments?success=true`,
             type: 'account_onboarding',
         });
         logger.info('Stripe Account Link generated', { userId, stripeAccountId });
@@ -731,7 +757,10 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
                     }
                 }
                 catch (lookupErr) {
-                    console.warn('[payments] Could not load chat participants:', lookupErr);
+                    logger.warn('[payments] Could not load chat participants', {
+                        chatId: transaction.chatId,
+                        error: lookupErr instanceof Error ? lookupErr.message : lookupErr,
+                    });
                 }
                 await firebase_1.db.collection('messages').add({
                     chatId: transaction.chatId,
@@ -743,6 +772,17 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
                     timestamp: firebase_1.FieldValue.serverTimestamp(),
                     status: 'sent',
                     isRead: true,
+                });
+            }
+            // Push notification to buyer: order delivered
+            try {
+                const articleTitle = transaction.articleTitle || 'votre commande';
+                await (0, notifications_1.sendPushNotification)(transaction.buyerId, 'Colis livre !', `Votre commande ${articleTitle} a ete livree.`, { transactionId, articleId: transaction.articleId || '' }, 'order_delivered');
+            }
+            catch (notifError) {
+                logger.warn('[checkTrackingStatus] Failed to send buyer delivery notification', {
+                    transactionId,
+                    error: notifError instanceof Error ? notifError.message : notifError,
                 });
             }
         }
@@ -772,6 +812,14 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
 /**
  * Caller (the seller) requests a withdrawal of `amount` to `bankAccount`.
  *
+ * TODO: migrate to Stripe Connect Custom with automatic payouts. Sellers
+ * receive funds automatically via their connected account. This manual
+ * withdrawal flow (collecting bank info + creating a pending doc) will be
+ * replaced by Stripe's automatic payout schedule once the migration to
+ * Connect Custom is complete. Until then, this function remains callable
+ * from the frontend but the created `withdrawal_requests` docs require
+ * manual admin processing.
+ *
  * Why this is a CF, not a client mutation:
  * - The previous client implementation read the balance, then issued an
  *   updateDoc with `increment(-amount)`. Two concurrent requests could both
@@ -790,6 +838,12 @@ exports.requestWithdrawal = (0, https_1.onCall)({ region: 'northamerica-northeas
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    // TODO: This manual withdrawal mechanism will be replaced by Stripe Connect
+    // Custom automatic payouts. Logging a warning so we can track usage during
+    // the transition period.
+    logger.warn('[requestWithdrawal] Legacy manual withdrawal called — will be replaced by Stripe Connect Custom automatic payouts', {
+        userId: request.auth.uid,
+    });
     const { amount, bankAccount } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     const userId = request.auth.uid;
     if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
@@ -923,10 +977,15 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                     }
                     return txn;
                 });
+                // NOTE: totalEarnings includes ALL completed sales (shipping + meetup)
+                // as a comprehensive reference. totalMeetupEarnings tracks meetup-only
+                // amounts separately so the seller balance screen can distinguish
+                // platform-processed funds from in-person exchanges.
                 tx.update(sellerBalanceRef, {
                     pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
                     availableBalance: firebase_1.FieldValue.increment(actualPayout),
                     totalEarnings: firebase_1.FieldValue.increment(actualPayout),
+                    totalMeetupEarnings: firebase_1.FieldValue.increment(actualPayout),
                     transactions: updatedTransactions,
                     updatedAt: firebase_1.FieldValue.serverTimestamp(),
                 });
@@ -938,6 +997,7 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                     pendingBalance: 0,
                     availableBalance: sellerPayout,
                     totalEarnings: sellerPayout,
+                    totalMeetupEarnings: sellerPayout,
                     transactions: [{
                             id: transactionId,
                             type: 'sale',

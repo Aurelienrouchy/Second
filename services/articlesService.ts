@@ -390,35 +390,59 @@ export class ArticlesService {
         if (searchTerm && searchTerm.trim()) {
           const searchLower = searchTerm.toLowerCase();
           const titleMatch = (article.title || '').toLowerCase().includes(searchLower);
-          matches = matches && titleMatch;
+          const descMatch = (article.description || '').toLowerCase().includes(searchLower);
+          const brandMatch = (article.brand || '').toLowerCase().includes(searchLower);
+          matches = matches && (titleMatch || descMatch || brandMatch);
         }
 
-        if (filters?.colors && filters.colors.length > 0 && article.color) {
-          matches = matches && filters.colors.some(color =>
-            article.color?.toLowerCase().includes(color.toLowerCase())
-          );
+        if (filters?.colors && filters.colors.length > 0) {
+          const articleColors = (article as any).colors || (article.color ? [article.color] : []);
+          if (articleColors.length === 0) {
+            matches = false;
+          } else {
+            matches = matches && filters.colors.some((color: string) =>
+              articleColors.some((ac: string) => ac.toLowerCase().includes(color.toLowerCase()))
+            );
+          }
         }
 
-        if (filters?.sizes && filters.sizes.length > 0 && article.size) {
-          matches = matches && filters.sizes.includes(article.size);
+        if (filters?.sizes && filters.sizes.length > 0) {
+          if (!article.size) {
+            matches = false;
+          } else {
+            matches = matches && filters.sizes.includes(article.size);
+          }
         }
 
-        if (filters?.materials && filters.materials.length > 0 && article.material) {
-          matches = matches && filters.materials.some(material =>
-            article.material?.toLowerCase().includes(material.toLowerCase())
-          );
+        if (filters?.materials && filters.materials.length > 0) {
+          const articleMaterials = (article as any).materials || (article.material ? [article.material] : []);
+          if (articleMaterials.length === 0) {
+            matches = false;
+          } else {
+            matches = matches && filters.materials.some((material: string) =>
+              articleMaterials.some((am: string) => am.toLowerCase().includes(material.toLowerCase()))
+            );
+          }
         }
 
-        if (filters?.brands && filters.brands.length > 0 && article.brand) {
-          matches = matches && filters.brands.some(brand =>
-            article.brand?.toLowerCase().includes(brand.toLowerCase())
-          );
+        if (filters?.brands && filters.brands.length > 0) {
+          if (!article.brand) {
+            matches = false;
+          } else {
+            matches = matches && filters.brands.some((brand: string) =>
+              article.brand!.toLowerCase().includes(brand.toLowerCase())
+            );
+          }
         }
 
-        if (filters?.patterns && filters.patterns.length > 0 && article.pattern) {
-          matches = matches && filters.patterns.some(pattern =>
-            article.pattern?.toLowerCase().includes(pattern.toLowerCase())
-          );
+        if (filters?.patterns && filters.patterns.length > 0) {
+          if (!article.pattern) {
+            matches = false;
+          } else {
+            matches = matches && filters.patterns.some((pattern: string) =>
+              article.pattern!.toLowerCase().includes(pattern.toLowerCase())
+            );
+          }
         }
 
         if (matches) {
@@ -445,8 +469,9 @@ export class ArticlesService {
       }
 
       const limitedArticles = articles.slice(0, limitCount);
-      const idx = Math.min(querySnapshot.docs.length - 1, limitedArticles.length - 1);
-      const lastVisibleDoc = (querySnapshot.docs[idx] as QueryDocumentSnapshot) || null;
+      const lastVisibleDoc = querySnapshot.docs.length > 0
+        ? querySnapshot.docs[querySnapshot.docs.length - 1] as QueryDocumentSnapshot
+        : null;
 
       if (__DEV__) {
         console.log('Final results:', limitedArticles.length, 'articles');

@@ -3,6 +3,7 @@
  * Firebase Functions v7 - using onDocumentWritten
  */
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { encodeGeohash } from '../utils/geohash';
 import {
@@ -13,6 +14,9 @@ import { debounceUpdate } from '../utils/debounce';
 
 /**
  * Update search index when article is created/updated/deleted
+ *
+ * TODO: the client currently searches via articlesService.ts client-side filtering.
+ * Migrate to search_index queries for better performance.
  */
 export const updateSearchIndex = onDocumentWritten(
   { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' },
@@ -23,7 +27,7 @@ export const updateSearchIndex = onDocumentWritten(
       // If document was deleted, remove from search index
       if (!event.data?.after?.exists) {
         await db.collection('search_index').doc(articleId).delete();
-        console.log(`Removed article ${articleId} from search index`);
+        logger.info(`Removed article ${articleId} from search index`);
         return;
       }
 
@@ -135,7 +139,7 @@ export const updateSearchIndex = onDocumentWritten(
           .collection('search_index')
           .doc(articleId)
           .set(searchIndexData, { merge: true });
-        console.log(`Updated search index for article ${articleId}`);
+        logger.info(`Updated search index for article ${articleId}`);
       });
 
       // Update article with geohash if not present
@@ -145,14 +149,11 @@ export const updateSearchIndex = onDocumentWritten(
           await db.collection('articles').doc(articleId).update({
             'location.geohash': geohash,
           });
-          console.log(`Added geohash to article ${articleId}`);
+          logger.info(`Added geohash to article ${articleId}`);
         });
       }
     } catch (error) {
-      console.error(
-        `Error updating search index for article ${articleId}:`,
-        error
-      );
+      logger.error(`Error updating search index for article ${articleId}`, { error });
     }
   }
 );
@@ -231,15 +232,12 @@ export const updateUserStats = onDocumentWritten(
             { merge: true }
           );
 
-          console.log(`Updated stats for user ${sellerId}`);
+          logger.info(`Updated stats for user ${sellerId}`);
         },
         10000
       ); // 10 second debounce
     } catch (error) {
-      console.error(
-        `Error updating user stats for article ${articleId}:`,
-        error
-      );
+      logger.error(`Error updating user stats for article ${articleId}`, { error });
     }
   }
 );

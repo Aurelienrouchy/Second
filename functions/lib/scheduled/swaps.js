@@ -82,7 +82,7 @@ async function cleanupEndedParty(partyId, partyName) {
         // Notify affected users
         for (const userId of usersToNotify) {
             try {
-                await (0, notifications_1.sendPushNotification)(userId, 'Swap Zone terminee', `La Swap Zone "${partyName}" est terminee. Tes propositions en attente ont ete annulees.`, { partyId, partyName }, 'swap_update');
+                await (0, notifications_1.sendPushNotification)(userId, 'Swap Zone terminée', `La Swap Zone "${partyName}" est terminée. Tes propositions en attente ont été annulées.`, { partyId, partyName }, 'swap_update');
             }
             catch (notifError) {
                 logger.error('[swapPartyCleanup] Failed to notify user', { userId, error: notifError });
