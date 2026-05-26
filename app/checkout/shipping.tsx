@@ -178,6 +178,8 @@ export default function ShippingCheckoutScreen() {
     if (!currentUser) { Alert.alert('Erreur', 'Vous devez être connecté pour acheter.'); return; }
     if (!canPay) { Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires.'); return; }
 
+    let createdTransactionId: string | null = null;
+
     try {
       setSubmitting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -205,6 +207,7 @@ export default function ShippingCheckoutScreen() {
         article.id, currentUser.uid, article.sellerId, finalPrice,
         selectedEstimate.amount, shippingAddress, chat.id, serviceFee, selectedEstimate.rateId,
       );
+      createdTransactionId = transactionId;
 
       const result = await httpsCallable(functions, 'createStripeCheckout')({ transactionId });
       const data = result.data as { success: boolean; clientSecret: string };
@@ -217,6 +220,16 @@ export default function ShippingCheckoutScreen() {
     } catch (error: unknown) {
       if (__DEV__) console.error('Error initiating payment:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+      // If the transaction was created but Stripe checkout failed,
+      // cancel it so the article is not left blocked in pending_payment.
+      if (createdTransactionId) {
+        try {
+          await TransactionService.updateTransactionStatus(createdTransactionId, 'cancelled');
+        } catch (cancelError) {
+          if (__DEV__) console.error('Error cancelling orphan transaction:', cancelError);
+        }
+      }
 
       // Cloud Function errors arrive as FirebaseError with a readable
       // message (e.g. "Cet article a deja ete vendu"). Surface it so
