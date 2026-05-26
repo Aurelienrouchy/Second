@@ -378,7 +378,7 @@ export const createStripeCheckout = onCall(
         return {
           existingCheckout: false,
           fees: calculatedFees,
-          clientSecret: null as string | null,
+          existingPaymentIntentId: null as string | null,
           sellerId: transaction.sellerId as string,
         };
       });
