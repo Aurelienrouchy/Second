@@ -134,7 +134,8 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     position: 'absolute',
-    right: 24,
+    right: '50%',
+    marginRight: -140, // positions it to the right of the shifted capture button
     top: 20 + (72 - 48) / 2, // vertically centered with capture button
     height: 48,
     borderRadius: 24,
