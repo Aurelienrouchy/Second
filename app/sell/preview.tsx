@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import PhotoCarousel from '@/components/PhotoCarousel';
+import StepProgressBar from '@/components/sell/StepProgressBar';
 import SuccessModal from '@/components/sell/SuccessModal';
 import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
@@ -113,6 +114,8 @@ export default function PreviewScreen() {
   };
 
   const handlePublish = async () => {
+    // TODO: check for duplicate articles (similar title/photos) before publishing
+
     // ── Pre-publication validation (C5) ──
     const validationErrors: string[] = [];
     if (!fields.title || fields.title.trim().length < 3) {
@@ -227,6 +230,9 @@ export default function PreviewScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={{ paddingTop: insets.top }}>
+        <StepProgressBar currentStep={4} />
+      </View>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
