@@ -29,6 +29,9 @@ import { getStripe } from '../config/stripe';
  *
  * Handled events:
  * - payment_intent.succeeded: Mark transaction paid, credit seller, create label
+ * - payment_intent.payment_failed: Cancel transaction, release article
+ * - charge.dispute.created: Mark transaction disputed
+ * - charge.refunded: Mark transaction refunded, decrement seller balance
  * - account.updated: Update seller's Connect account status in Firestore
  *
  * Flow for payment_intent.succeeded:
