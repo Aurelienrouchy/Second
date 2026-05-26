@@ -474,7 +474,8 @@ interface SellerBalanceDocument {
   userId: string;
   availableBalance: number;      // Funds ready for withdrawal
   pendingBalance: number;        // Funds held until delivery confirmed
-  totalEarnings: number;         // Lifetime earnings
+  totalEarnings: number;         // Lifetime earnings (shipping + meetup combined)
+  totalMeetupEarnings?: number;  // Meetup-only earnings (in-person, not platform-processed)
 
   // Embedded transaction log
   transactions: {
