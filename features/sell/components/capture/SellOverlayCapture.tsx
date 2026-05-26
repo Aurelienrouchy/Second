@@ -273,7 +273,6 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           canTakeMore={canTakeMore}
           isCapturing={isCapturing}
           hasPhotos={photos.length > 0}
-          onGalleryPress={handleGalleryPress}
           onCapture={handleCapture}
           onContinue={handleContinue}
         />
