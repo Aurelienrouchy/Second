@@ -85,7 +85,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
             value={offerAmount}
             onChangeText={actions.setOfferAmount}
           />
-          <Text style={styles.currencySuffix}>$</Text>
+          <Text style={styles.currencySuffix}>{' '}$</Text>
         </View>
         {discount !== null && discount > 0 && (
           <Text style={[styles.discountText, discount > 50 && styles.discountWarning]}>
