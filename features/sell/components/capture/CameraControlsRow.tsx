@@ -18,7 +18,6 @@ interface CameraControlsRowProps {
   canTakeMore: boolean;
   isCapturing: boolean;
   hasPhotos: boolean;
-  onGalleryPress: () => void;
   onCapture: () => void;
   onContinue: () => void;
 }
@@ -27,7 +26,6 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
   canTakeMore,
   isCapturing,
   hasPhotos,
-  onGalleryPress,
   onCapture,
   onContinue,
 }: CameraControlsRowProps) {
@@ -51,22 +49,6 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
 
   return (
     <View style={styles.controlsRow}>
-      {/* Gallery button */}
-      <Pressable
-        style={[
-          styles.galleryButton,
-          !canTakeMore && styles.galleryButtonDisabled,
-        ]}
-        onPress={onGalleryPress}
-        disabled={!canTakeMore}
-      >
-        <Ionicons
-          name="images-outline"
-          size={22}
-          color={canTakeMore ? colors.cream : colors.muted}
-        />
-      </Pressable>
-
       {/* Capture button */}
       <Pressable
         style={styles.captureButton}
@@ -116,18 +98,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     gap: 24,
-  },
-  galleryButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 240, 232, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  galleryButtonDisabled: {
-    borderColor: 'rgba(140, 136, 128, 0.15)',
   },
   captureButton: {
     width: 72,

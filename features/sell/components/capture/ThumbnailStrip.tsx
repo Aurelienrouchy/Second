@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInRight, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,8 @@ import { colors, fonts } from '@/constants/theme';
 interface ThumbnailStripProps {
   photos: string[];
   onRemovePhoto: (index: number) => void;
+  onGalleryPress: () => void;
+  canAddMore: boolean;
 }
 
 const THUMB_ENTERING = FadeInRight.duration(300);
@@ -17,15 +19,22 @@ const THUMB_LAYOUT = LinearTransition.duration(250);
 export const ThumbnailStrip = React.memo(function ThumbnailStrip({
   photos,
   onRemovePhoto,
+  onGalleryPress,
+  canAddMore,
 }: ThumbnailStripProps) {
-  if (photos.length === 0) return null;
-
   return (
     <Animated.ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.thumbnailStrip}
     >
+      {canAddMore && (
+        <View style={styles.thumbWrapper}>
+          <Pressable style={styles.addButton} onPress={onGalleryPress}>
+            <Ionicons name="add" size={28} color={colors.cream} />
+          </Pressable>
+        </View>
+      )}
       {photos.map((uri, index) => (
         <Animated.View
           key={uri}
@@ -105,5 +114,16 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  addButton: {
+    width: 56,
+    height: 72,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
 });

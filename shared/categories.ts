@@ -647,9 +647,87 @@ export const CATEGORIES: CategoryNode[] = [
           { id: 'men_clothing_other', label: 'Autres' },
         ]
       },
-      { id: 'men_shoes', label: 'Chaussures' },
-      { id: 'men_accessories', label: 'Accessoires' },
-      { id: 'men_grooming', label: 'Soins' },
+      {
+        id: 'men_shoes',
+        label: 'Chaussures',
+        children: [
+          { id: 'men_shoes_sneakers', label: 'Baskets' },
+          {
+            id: 'men_shoes_boots',
+            label: 'Bottes',
+            children: [
+              { id: 'men_shoes_boots_ankle', label: 'Bottines' },
+              { id: 'men_shoes_boots_mid', label: 'Bottes mi-hautes' },
+              { id: 'men_shoes_boots_snow', label: 'Bottes de neige' },
+              { id: 'men_shoes_boots_rain', label: 'Bottes de pluie' },
+              { id: 'men_shoes_boots_work', label: 'Bottes de travail' },
+            ]
+          },
+          { id: 'men_shoes_dress', label: 'Chaussures habillées' },
+          { id: 'men_shoes_loafers', label: 'Mocassins et chaussures bateau' },
+          { id: 'men_shoes_sandals', label: 'Sandales' },
+          { id: 'men_shoes_flipflops', label: 'Claquettes et tongs' },
+          { id: 'men_shoes_slippers', label: 'Chaussons et pantoufles' },
+          {
+            id: 'men_shoes_sport',
+            label: 'Chaussures de sport',
+            children: [
+              { id: 'men_shoes_sport_basketball', label: 'Basket' },
+              { id: 'men_shoes_sport_running', label: 'Course' },
+              { id: 'men_shoes_sport_hiking', label: 'Randonnée' },
+              { id: 'men_shoes_sport_football', label: 'Foot' },
+              { id: 'men_shoes_sport_tennis', label: 'Tennis' },
+              { id: 'men_shoes_sport_ski', label: 'Ski' },
+              { id: 'men_shoes_sport_cycling', label: 'Cyclisme' },
+            ]
+          },
+          { id: 'men_shoes_other', label: 'Autres' },
+        ]
+      },
+      {
+        id: 'men_accessories',
+        label: 'Accessoires',
+        children: [
+          { id: 'men_accessories_bags', label: 'Sacs' },
+          { id: 'men_accessories_belts', label: 'Ceintures' },
+          { id: 'men_accessories_watches', label: 'Montres' },
+          {
+            id: 'men_accessories_jewelry',
+            label: 'Bijoux',
+            children: [
+              { id: 'men_accessories_jewelry_bracelets', label: 'Bracelets' },
+              { id: 'men_accessories_jewelry_necklaces', label: 'Colliers' },
+              { id: 'men_accessories_jewelry_rings', label: 'Bagues' },
+              { id: 'men_accessories_jewelry_other', label: 'Autres bijoux' },
+            ]
+          },
+          {
+            id: 'men_accessories_hats',
+            label: 'Chapeaux et casquettes',
+            children: [
+              { id: 'men_accessories_hats_caps', label: 'Casquettes' },
+              { id: 'men_accessories_hats_beanies', label: 'Bonnets' },
+              { id: 'men_accessories_hats_hats', label: 'Chapeaux' },
+            ]
+          },
+          { id: 'men_accessories_scarves', label: 'Écharpes et foulards' },
+          { id: 'men_accessories_sunglasses', label: 'Lunettes de soleil' },
+          { id: 'men_accessories_gloves', label: 'Gants' },
+          { id: 'men_accessories_ties', label: 'Cravates et noeuds papillon' },
+          { id: 'men_accessories_wallets', label: 'Portefeuilles' },
+          { id: 'men_accessories_other', label: 'Autres accessoires' },
+        ]
+      },
+      {
+        id: 'men_grooming',
+        label: 'Soins',
+        children: [
+          { id: 'men_grooming_perfume', label: 'Parfums' },
+          { id: 'men_grooming_skincare', label: 'Soins du visage' },
+          { id: 'men_grooming_bodycare', label: 'Soins du corps' },
+          { id: 'men_grooming_other', label: 'Autres' },
+        ]
+      },
     ]
   },
   {
@@ -2776,13 +2854,12 @@ export function generateCategoryPromptSection(): string {
 /**
  * Top-level category descriptions for Step 1 identification
  */
+// TODO: add entertainment and pets category trees when ready
 export const TOP_LEVEL_CATEGORIES = [
   { id: 'women', label: 'Femmes', description: 'Vêtements, chaussures, sacs, accessoires pour femmes' },
   { id: 'men', label: 'Hommes', description: 'Vêtements, chaussures, accessoires pour hommes' },
   { id: 'kids', label: 'Enfants', description: 'Vêtements bébés/enfants, jouets, puériculture' },
   { id: 'home', label: 'Maison', description: 'Décoration, textile maison, vaisselle' },
-  { id: 'entertainment', label: 'Divertissement', description: 'Livres, musique, films (non-électronique)' },
-  { id: 'pets', label: 'Animaux', description: 'Accessoires pour chiens, chats' },
   { id: 'electronics', label: 'Électronique', description: 'Consoles, ordinateurs, smartphones, audio, photo, TV, objets connectés' },
 ];
 
