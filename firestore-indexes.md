@@ -196,6 +196,24 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
         { "fieldPath": "articleId", "order": "ASCENDING" },
         { "fieldPath": "sellerId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "offer.status", "order": "ASCENDING" },
+        { "fieldPath": "offer.expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chatId", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "offer.status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
