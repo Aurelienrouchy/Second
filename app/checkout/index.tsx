@@ -23,7 +23,7 @@ import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { ScreenHeader } from '@/components/ui';
+import { Button, ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ArticlesService } from '@/services/articlesService';
 import { queryKeys } from '@/lib/queryKeys';
@@ -242,28 +242,21 @@ export default function CheckoutScreen() {
 
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable
-          style={[
-            styles.ctaButton,
-            !effectiveDelivery && styles.ctaButtonDisabled,
-          ]}
-          onPress={handleContinue}
+        <Button
+          variant="primary"
+          fullWidth
           disabled={!effectiveDelivery}
+          onPress={handleContinue}
+          rightIcon={
+            <Ionicons
+              name="arrow-forward"
+              size={16}
+              color={effectiveDelivery ? colors.cream : colors.muted}
+            />
+          }
         >
-          <Ionicons
-            name="arrow-forward"
-            size={16}
-            color={effectiveDelivery ? colors.cream : colors.muted}
-          />
-          <Text
-            style={[
-              styles.ctaButtonText,
-              !effectiveDelivery && styles.ctaButtonTextDisabled,
-            ]}
-          >
-            CONTINUER
-          </Text>
-        </Pressable>
+          CONTINUER
+        </Button>
       </View>
     </View>
   );
@@ -455,29 +448,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  ctaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.charcoal,
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    gap: 8,
-  },
-  ctaButtonDisabled: {
-    backgroundColor: colors.border,
-  },
-  ctaButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    letterSpacing: 2.16,
-    color: colors.cream,
-    textTransform: 'uppercase',
-  },
-  ctaButtonTextDisabled: {
-    color: colors.muted,
-  },
-
   // Skeleton
   skeletonContent: {
     paddingHorizontal: 20,

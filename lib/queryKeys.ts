@@ -3,6 +3,12 @@ export const queryKeys = {
     all: ['articles'] as const,
     detail: (id: string) => ['articles', id] as const,
     userList: (userId: string) => ['articles', 'user', userId] as const,
+    search: (params: {
+      query: string;
+      categoryPath: string[];
+      filters: Record<string, unknown>;
+      excludeUserId?: string;
+    }) => ['articles', 'search', params] as const,
   },
   notifications: {
     all: ['notifications'] as const,

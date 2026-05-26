@@ -67,7 +67,7 @@ export const PriceBreakdown = React.memo(function PriceBreakdown({
       <View style={styles.securityNotice}>
         <Ionicons name="shield-checkmark" size={16} color={colors.success} />
         <Text style={styles.securityNoticeText}>
-          Paiement sécurisé par Helcim — Vos données bancaires ne sont jamais
+          Paiement sécurisé par Stripe — Vos données bancaires ne sont jamais
           stockées par Seconde
         </Text>
       </View>

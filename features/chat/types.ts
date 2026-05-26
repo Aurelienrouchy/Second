@@ -17,7 +17,10 @@ export interface ChatHeaderProps {
 export interface ChatArticleBarProps {
   article: Article;
   articleTitle: string | undefined;
+  /** Current (live) price of the article */
   articlePrice: number | undefined;
+  /** Original price snapshot stored in the chat document (may differ from current) */
+  snapshotPrice?: number | undefined;
 }
 
 export interface ChatInputBarProps {

@@ -11,8 +11,12 @@
  * 4. On success, Helcim calls our webhook + returns to app
  * 5. Webhook processes the payment and creates shipping label
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HelcimClient = exports.getHelcim = void 0;
+const crypto_1 = __importDefault(require("crypto"));
 // =============================================================================
 // CLIENT
 // =============================================================================
@@ -112,13 +116,14 @@ class HelcimClient {
      * Helcim sends a hash in the x-helcim-signature header
      */
     static verifyWebhookSignature(payload, signature, secretToken) {
-        // Helcim uses HMAC-SHA256 for webhook verification
-        const crypto = require('crypto');
-        const expectedSignature = crypto
+        const expectedSignature = crypto_1.default
             .createHmac('sha256', secretToken)
             .update(payload)
             .digest('hex');
-        return signature === expectedSignature;
+        if (signature.length !== expectedSignature.length) {
+            return false;
+        }
+        return crypto_1.default.timingSafeEqual(Buffer.from(signature, 'utf8'), Buffer.from(expectedSignature, 'utf8'));
     }
 }
 exports.HelcimClient = HelcimClient;

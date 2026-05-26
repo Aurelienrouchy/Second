@@ -6,9 +6,43 @@
  * Handles user reviews/evaluations after completed transactions.
  * Reviews are tied to a specific transaction (vente/achat/swap).
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 // =============================================================================
 // CREATE REVIEW
@@ -16,7 +50,7 @@ const firebase_1 = require("../config/firebase");
 /**
  * Submit a review for another user after a completed transaction
  */
-exports.createReview = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
+exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -32,59 +66,82 @@ exports.createReview = (0, https_1.onCall)({ memory: '512MiB' }, async (request)
     if (!text || text.trim().length < 5) {
         throw new https_1.HttpsError('invalid-argument', 'Review text must be at least 5 characters');
     }
+    if (text.trim().length > 2000) {
+        throw new https_1.HttpsError('invalid-argument', 'Review text too long');
+    }
     if (reviewerId === targetUserId) {
         throw new https_1.HttpsError('invalid-argument', 'Cannot review yourself');
     }
     try {
-        // Check if review already exists for this transaction + reviewer
-        const existingReview = await firebase_1.db
-            .collection('avis')
-            .where('reviewerId', '==', reviewerId)
-            .where('transactionId', '==', transactionId)
-            .limit(1)
-            .get();
-        if (!existingReview.empty) {
-            throw new https_1.HttpsError('already-exists', 'You have already reviewed this transaction');
+        // ---------------------------------------------------------------
+        // SECURITY: Verify the transaction exists, is completed, and the
+        // caller is actually a party to it. Without this, any authed user
+        // could submit a review for any other user with an arbitrary
+        // transactionId.
+        // ---------------------------------------------------------------
+        const txDoc = await firebase_1.db.collection('transactions').doc(transactionId).get();
+        if (!txDoc.exists) {
+            throw new https_1.HttpsError('not-found', 'Transaction not found');
         }
-        // Get reviewer info
-        const reviewerDoc = await firebase_1.db.collection('users').doc(reviewerId).get();
+        const txData = txDoc.data();
+        const terminalStatuses = new Set(['delivered', 'meetup_completed', 'completed']);
+        if (!terminalStatuses.has(txData.status)) {
+            throw new https_1.HttpsError('failed-precondition', 'Transaction must be completed before reviewing');
+        }
+        if (txData.buyerId !== reviewerId && txData.sellerId !== reviewerId) {
+            throw new https_1.HttpsError('permission-denied', 'You are not a party to this transaction');
+        }
+        if (targetUserId !== txData.buyerId && targetUserId !== txData.sellerId) {
+            throw new https_1.HttpsError('invalid-argument', 'Target must be the other party in the transaction');
+        }
+        if (targetUserId === reviewerId) {
+            throw new https_1.HttpsError('invalid-argument', 'Cannot review yourself');
+        }
+        // Get reviewer info and article title in parallel (read-only, outside transaction)
+        const [reviewerDoc, articleDoc] = await Promise.all([
+            firebase_1.db.collection('users').doc(reviewerId).get(),
+            articleId ? firebase_1.db.collection('articles').doc(articleId).get() : Promise.resolve(null),
+        ]);
         const reviewerData = reviewerDoc.exists ? reviewerDoc.data() : {};
-        // Get article title if articleId provided
-        let articleTitle;
-        if (articleId) {
-            const articleDoc = await firebase_1.db.collection('articles').doc(articleId).get();
-            if (articleDoc.exists) {
-                articleTitle = articleDoc.data().title;
+        const articleTitle = (articleDoc === null || articleDoc === void 0 ? void 0 : articleDoc.exists) ? articleDoc.data().title : null;
+        // Deterministic doc ID prevents duplicate reviews atomically:
+        // two simultaneous calls will both try to set the same doc, and
+        // only one will succeed because we check for existence inside
+        // the transaction.
+        const reviewDocId = `${reviewerId}_${transactionId}`;
+        const reviewRef = firebase_1.db.collection('avis').doc(reviewDocId);
+        await firebase_1.db.runTransaction(async (tx) => {
+            const existingSnap = await tx.get(reviewRef);
+            if (existingSnap.exists) {
+                throw new https_1.HttpsError('already-exists', 'You have already reviewed this transaction');
             }
-        }
-        // Create the review
-        const reviewRef = firebase_1.db.collection('avis').doc();
-        const reviewData = {
-            id: reviewRef.id,
-            reviewerId,
-            reviewerName: reviewerData.displayName || 'Utilisateur',
-            reviewerImage: reviewerData.profileImage || null,
-            vendeurId: targetUserId, // kept as 'vendeurId' for backwards compat with UserStatsService
-            transactionId,
-            transactionType,
-            articleId: articleId || null,
-            articleTitle: articleTitle || null,
-            note,
-            text: text.trim(),
-            createdAt: firebase_1.FieldValue.serverTimestamp(),
-        };
-        await reviewRef.set(reviewData);
-        // Update target user's aggregate rating
+            const reviewData = {
+                id: reviewDocId,
+                reviewerId,
+                reviewerName: reviewerData.displayName || 'Utilisateur',
+                reviewerImage: reviewerData.profileImage || null,
+                vendeurId: targetUserId, // kept as 'vendeurId' for backwards compat with UserStatsService
+                transactionId,
+                transactionType,
+                articleId: articleId || null,
+                articleTitle: articleTitle || null,
+                note,
+                text: text.trim(),
+                createdAt: firebase_1.FieldValue.serverTimestamp(),
+            };
+            tx.set(reviewRef, reviewData);
+        });
+        // Update target user's aggregate rating (outside transaction, non-critical)
         await updateUserRating(targetUserId);
         return {
             success: true,
-            reviewId: reviewRef.id,
+            reviewId: reviewDocId,
         };
     }
     catch (error) {
         if (error instanceof https_1.HttpsError)
             throw error;
-        console.error('[createReview]', error);
+        logger.error('[createReview]', error);
         throw new https_1.HttpsError('internal', 'Failed to create review');
     }
 });
@@ -94,17 +151,18 @@ exports.createReview = (0, https_1.onCall)({ memory: '512MiB' }, async (request)
 /**
  * Fetch reviews for a specific user with pagination
  */
-exports.getUserReviews = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
-    const { userId, limit: limitCount = 20, startAfter } = request.data;
+exports.getUserReviews = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    const { userId, limit: limitCount, startAfter } = request.data;
     if (!userId) {
         throw new https_1.HttpsError('invalid-argument', 'userId is required');
     }
+    const cappedLimit = Math.min(Math.max(1, limitCount || 20), 100);
     try {
         let query = firebase_1.db
             .collection('avis')
             .where('vendeurId', '==', userId)
             .orderBy('createdAt', 'desc')
-            .limit(limitCount);
+            .limit(cappedLimit);
         if (startAfter) {
             const startDoc = await firebase_1.db.collection('avis').doc(startAfter).get();
             if (startDoc.exists) {
@@ -117,6 +175,7 @@ exports.getUserReviews = (0, https_1.onCall)({ memory: '512MiB' }, async (reques
             const data = doc.data();
             return {
                 id: doc.id,
+                reviewerId: data.reviewerId,
                 reviewerName: data.reviewerName || 'Utilisateur',
                 reviewerImage: data.reviewerImage || undefined,
                 note: data.note,
@@ -140,14 +199,14 @@ exports.getUserReviews = (0, https_1.onCall)({ memory: '512MiB' }, async (reques
             reviews,
             totalReviews,
             averageRating: Math.round(averageRating * 10) / 10,
-            hasMore: snapshot.docs.length === limitCount,
+            hasMore: snapshot.docs.length === cappedLimit,
             lastDocId: snapshot.docs.length > 0
                 ? snapshot.docs[snapshot.docs.length - 1].id
                 : null,
         };
     }
     catch (error) {
-        console.error('[getUserReviews]', error);
+        logger.error('[getUserReviews]', error);
         throw new https_1.HttpsError('internal', 'Failed to fetch reviews');
     }
 });
@@ -158,7 +217,7 @@ exports.getUserReviews = (0, https_1.onCall)({ memory: '512MiB' }, async (reques
  * Fetch a user's public profile with stats, articles, and reviews summary
  * in a single call to avoid multiple round trips
  */
-exports.getUserPublicProfile = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
+exports.getUserPublicProfile = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     var _a, _b, _c, _d, _e;
     const { userId } = request.data;
     const currentUserId = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
@@ -268,7 +327,7 @@ exports.getUserPublicProfile = (0, https_1.onCall)({ memory: '512MiB' }, async (
     catch (error) {
         if (error instanceof https_1.HttpsError)
             throw error;
-        console.error('[getUserPublicProfile]', error);
+        logger.error('[getUserPublicProfile]', error);
         throw new https_1.HttpsError('internal', 'Failed to fetch user profile');
     }
 });
@@ -299,7 +358,7 @@ async function updateUserRating(userId) {
         });
     }
     catch (error) {
-        console.error('[updateUserRating]', error);
+        logger.error('[updateUserRating]', error);
     }
 }
 //# sourceMappingURL=reviews.js.map

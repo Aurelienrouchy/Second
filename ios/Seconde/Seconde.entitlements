@@ -8,9 +8,10 @@
     <array>
       <string>Default</string>
     </array>
-    <key>com.apple.developer.in-app-payments</key>
+    <key>com.apple.developer.associated-domains</key>
     <array>
-      <string>merchant.com.seconde.app</string>
+      <string>applinks:seconde.app</string>
+      <string>applinks:www.seconde.app</string>
     </array>
   </dict>
 </plist>

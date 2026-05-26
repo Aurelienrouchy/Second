@@ -30,3 +30,4 @@ export { PermissionDenied } from './components/capture/PermissionDenied';
 export { TopControls } from './components/capture/TopControls';
 export { ThumbnailStrip } from './components/capture/ThumbnailStrip';
 export { CameraControlsRow } from './components/capture/CameraControlsRow';
+export { SellOverlayCapture } from './components/capture/SellOverlayCapture';

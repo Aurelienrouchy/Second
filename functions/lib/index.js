@@ -8,9 +8,10 @@
  * - firebase-admin: ^13.6.0
  * - firebase-functions: ^7.0.3
  * - @google/genai: ^1.37.0
+ * - stripe: ^22.1.1
  *
  * File structure:
- * - /config       - Firebase, Helcim, ShipEngine, Gemini initialization
+ * - /config       - Firebase, Stripe, ShipEngine, Gemini initialization
  * - /services     - AI services, brand matching
  * - /utils        - Geohash, search, notifications, debounce
  * - /callable     - onCall functions (client-callable)
@@ -19,7 +20,8 @@
  * - /http         - HTTP endpoints (webhooks)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.helcimWebhook = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.cancelPendingTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.createHelcimCheckout = exports.getServiceFee = exports.getShippingEstimate = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.proposeMultiSwap = exports.markSavedSearchViewed = exports.toggleProductLike = exports.incrementProductView = exports.getSimilarProducts = exports.visualSearch = exports.consolidateChatDuplicates = exports.analyzeProductImage = void 0;
+exports.updateUserStats = exports.updateSearchIndex = exports.deleteUserAccount = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.completeMeetupTransaction = exports.cancelPendingTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.getStripeAccountLink = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = exports.getSwapPartyLeaderboard = exports.getActiveSwapPartyInfo = exports.rateSwap = exports.confirmSwapReception = exports.confirmSwapShipping = exports.uploadSwapPhotos = exports.setSwapExchangeMode = exports.cancelSwap = exports.declineSwap = exports.acceptSwap = exports.proposeMultiSwap = exports.markSavedSearchViewed = exports.toggleArticleSold = exports.toggleProductLike = exports.incrementProductView = exports.createArticle = exports.getSimilarProducts = exports.visualSearch = exports.consolidateChatDuplicates = exports.analyzeProductImage = void 0;
+exports.stripeWebhook = exports.cleanupExpiredDrafts = exports.checkSavedSearchNotifications = exports.sendSwapZoneReminders = exports.updateSwapPartyStatuses = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticleSold = exports.onArticleSoftDeleted = exports.onUserProfileUpdated = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = void 0;
 // ============================================================
 // CALLABLE FUNCTIONS (onCall)
 // ============================================================
@@ -35,23 +37,38 @@ Object.defineProperty(exports, "visualSearch", { enumerable: true, get: function
 Object.defineProperty(exports, "getSimilarProducts", { enumerable: true, get: function () { return search_1.getSimilarProducts; } });
 // Product Functions
 var products_1 = require("./callable/products");
+Object.defineProperty(exports, "createArticle", { enumerable: true, get: function () { return products_1.createArticle; } });
 Object.defineProperty(exports, "incrementProductView", { enumerable: true, get: function () { return products_1.incrementProductView; } });
 Object.defineProperty(exports, "toggleProductLike", { enumerable: true, get: function () { return products_1.toggleProductLike; } });
+Object.defineProperty(exports, "toggleArticleSold", { enumerable: true, get: function () { return products_1.toggleArticleSold; } });
 Object.defineProperty(exports, "markSavedSearchViewed", { enumerable: true, get: function () { return products_1.markSavedSearchViewed; } });
 // Swap Functions
 var swaps_1 = require("./callable/swaps");
 Object.defineProperty(exports, "proposeMultiSwap", { enumerable: true, get: function () { return swaps_1.proposeMultiSwap; } });
+Object.defineProperty(exports, "acceptSwap", { enumerable: true, get: function () { return swaps_1.acceptSwap; } });
+Object.defineProperty(exports, "declineSwap", { enumerable: true, get: function () { return swaps_1.declineSwap; } });
+Object.defineProperty(exports, "cancelSwap", { enumerable: true, get: function () { return swaps_1.cancelSwap; } });
+Object.defineProperty(exports, "setSwapExchangeMode", { enumerable: true, get: function () { return swaps_1.setSwapExchangeMode; } });
+Object.defineProperty(exports, "uploadSwapPhotos", { enumerable: true, get: function () { return swaps_1.uploadSwapPhotos; } });
+Object.defineProperty(exports, "confirmSwapShipping", { enumerable: true, get: function () { return swaps_1.confirmSwapShipping; } });
+Object.defineProperty(exports, "confirmSwapReception", { enumerable: true, get: function () { return swaps_1.confirmSwapReception; } });
+Object.defineProperty(exports, "rateSwap", { enumerable: true, get: function () { return swaps_1.rateSwap; } });
 Object.defineProperty(exports, "getActiveSwapPartyInfo", { enumerable: true, get: function () { return swaps_1.getActiveSwapPartyInfo; } });
 Object.defineProperty(exports, "getSwapPartyLeaderboard", { enumerable: true, get: function () { return swaps_1.getSwapPartyLeaderboard; } });
 // Payment & Shipping Functions
 var payments_1 = require("./callable/payments");
 Object.defineProperty(exports, "getShippingEstimate", { enumerable: true, get: function () { return payments_1.getShippingEstimate; } });
 Object.defineProperty(exports, "getServiceFee", { enumerable: true, get: function () { return payments_1.getServiceFee; } });
-Object.defineProperty(exports, "createHelcimCheckout", { enumerable: true, get: function () { return payments_1.createHelcimCheckout; } });
+Object.defineProperty(exports, "createTransaction", { enumerable: true, get: function () { return payments_1.createTransaction; } });
+Object.defineProperty(exports, "createStripeCheckout", { enumerable: true, get: function () { return payments_1.createStripeCheckout; } });
+Object.defineProperty(exports, "createStripeConnectAccount", { enumerable: true, get: function () { return payments_1.createStripeConnectAccount; } });
+Object.defineProperty(exports, "getStripeAccountLink", { enumerable: true, get: function () { return payments_1.getStripeAccountLink; } });
+Object.defineProperty(exports, "getStripeAccountStatus", { enumerable: true, get: function () { return payments_1.getStripeAccountStatus; } });
 Object.defineProperty(exports, "findPickupPoints", { enumerable: true, get: function () { return payments_1.findPickupPoints; } });
 Object.defineProperty(exports, "checkTrackingStatus", { enumerable: true, get: function () { return payments_1.checkTrackingStatus; } });
 Object.defineProperty(exports, "requestWithdrawal", { enumerable: true, get: function () { return payments_1.requestWithdrawal; } });
 Object.defineProperty(exports, "cancelPendingTransaction", { enumerable: true, get: function () { return payments_1.cancelPendingTransaction; } });
+Object.defineProperty(exports, "completeMeetupTransaction", { enumerable: true, get: function () { return payments_1.completeMeetupTransaction; } });
 // Moments Functions
 var moments_1 = require("./callable/moments");
 Object.defineProperty(exports, "getActiveMoments", { enumerable: true, get: function () { return moments_1.getActiveMoments; } });
@@ -80,6 +97,9 @@ var reviews_1 = require("./callable/reviews");
 Object.defineProperty(exports, "createReview", { enumerable: true, get: function () { return reviews_1.createReview; } });
 Object.defineProperty(exports, "getUserReviews", { enumerable: true, get: function () { return reviews_1.getUserReviews; } });
 Object.defineProperty(exports, "getUserPublicProfile", { enumerable: true, get: function () { return reviews_1.getUserPublicProfile; } });
+// User Account Functions
+var users_1 = require("./callable/users");
+Object.defineProperty(exports, "deleteUserAccount", { enumerable: true, get: function () { return users_1.deleteUserAccount; } });
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
@@ -103,6 +123,13 @@ Object.defineProperty(exports, "onSwapStatusUpdated", { enumerable: true, get: f
 var favorites_1 = require("./triggers/favorites");
 Object.defineProperty(exports, "onArticleFavorited", { enumerable: true, get: function () { return favorites_1.onArticleFavorited; } });
 Object.defineProperty(exports, "onArticlePriceDropped", { enumerable: true, get: function () { return favorites_1.onArticlePriceDropped; } });
+// User Profile Triggers
+var users_2 = require("./triggers/users");
+Object.defineProperty(exports, "onUserProfileUpdated", { enumerable: true, get: function () { return users_2.onUserProfileUpdated; } });
+// Article Triggers
+var articles_1 = require("./triggers/articles");
+Object.defineProperty(exports, "onArticleSoftDeleted", { enumerable: true, get: function () { return articles_1.onArticleSoftDeleted; } });
+Object.defineProperty(exports, "onArticleSold", { enumerable: true, get: function () { return articles_1.onArticleSold; } });
 // ============================================================
 // SCHEDULED FUNCTIONS (pubsub)
 // ============================================================
@@ -122,10 +149,13 @@ Object.defineProperty(exports, "sendSwapZoneReminders", { enumerable: true, get:
 // Saved Searches
 var savedSearches_1 = require("./scheduled/savedSearches");
 Object.defineProperty(exports, "checkSavedSearchNotifications", { enumerable: true, get: function () { return savedSearches_1.checkSavedSearchNotifications; } });
+// Draft image cleanup
+var cleanupDrafts_1 = require("./scheduled/cleanupDrafts");
+Object.defineProperty(exports, "cleanupExpiredDrafts", { enumerable: true, get: function () { return cleanupDrafts_1.cleanupExpiredDrafts; } });
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
-// Helcim Webhook (payment confirmation + shipping label)
+// Stripe Webhook (payment confirmation + Connect account updates)
 var webhooks_1 = require("./http/webhooks");
-Object.defineProperty(exports, "helcimWebhook", { enumerable: true, get: function () { return webhooks_1.helcimWebhook; } });
+Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return webhooks_1.stripeWebhook; } });
 //# sourceMappingURL=index.js.map

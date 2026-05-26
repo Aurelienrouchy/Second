@@ -45,14 +45,14 @@ const notifications_1 = require("../utils/notifications");
 /** Resolve items arrays with backward compat for legacy single-item swaps */
 function getSwapItems(swap, side) {
     if (side === 'initiator') {
-        return getSwapItems(swap, 'initiator');
+        return swap.initiatorItems || (swap.initiatorItem ? [swap.initiatorItem] : []);
     }
-    return getSwapItems(swap, 'receiver');
+    return swap.receiverItems || (swap.receiverItem ? [swap.receiverItem] : []);
 }
 /**
  * Send notification when a swap is proposed
  */
-exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{swapId}', memory: '512MiB' }, async (event) => {
+exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{swapId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
     var _a;
     try {
         const snapshot = event.data;
@@ -169,7 +169,7 @@ function getSwapDescription(swap) {
 /**
  * Send notification when swap status changes
  */
-exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'swaps/{swapId}', memory: '512MiB' }, async (event) => {
+exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'swaps/{swapId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
     var _a, _b, _c, _d;
     try {
         const before = (_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before) === null || _b === void 0 ? void 0 : _b.data();

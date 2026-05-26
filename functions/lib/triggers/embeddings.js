@@ -193,7 +193,7 @@ async function updateEmbeddingMetadata(articleId, article) {
 /**
  * Generate embedding when article is created
  */
-exports.generateEmbeddingOnCreate = (0, firestore_1.onDocumentCreated)({ document: 'articles/{articleId}', memory: '512MiB', timeoutSeconds: 120 }, async (event) => {
+exports.generateEmbeddingOnCreate = (0, firestore_1.onDocumentCreated)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120 }, async (event) => {
     var _a, _b, _c;
     const articleId = event.params.articleId;
     const article = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
@@ -209,7 +209,7 @@ exports.generateEmbeddingOnCreate = (0, firestore_1.onDocumentCreated)({ documen
 /**
  * Update embedding when article is updated
  */
-exports.generateEmbeddingOnUpdate = (0, firestore_1.onDocumentUpdated)({ document: 'articles/{articleId}', memory: '512MiB', timeoutSeconds: 120 }, async (event) => {
+exports.generateEmbeddingOnUpdate = (0, firestore_1.onDocumentUpdated)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120 }, async (event) => {
     var _a, _b, _c, _d, _e, _f;
     const articleId = event.params.articleId;
     const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();

@@ -35,7 +35,7 @@ const firebase_1 = require("../config/firebase");
  *   const fn = httpsCallable(functions, 'consolidateChatDuplicates');
  *   await fn({ dryRun: true, maxPairs: 50 });
  */
-exports.consolidateChatDuplicates = (0, https_1.onCall)({ memory: '1GiB', timeoutSeconds: 540 }, async (request) => {
+exports.consolidateChatDuplicates = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '1GiB', timeoutSeconds: 540 }, async (request) => {
     var _a, _b;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Sign-in required');

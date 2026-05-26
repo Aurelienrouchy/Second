@@ -1,7 +1,18 @@
-import React from 'react';
-import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '@/constants/theme';
+
+const TIMING_CONFIG = { duration: 350, easing: Easing.out(Easing.cubic) };
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface CameraControlsRowProps {
   canTakeMore: boolean;
@@ -20,6 +31,24 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
   onCapture,
   onContinue,
 }: CameraControlsRowProps) {
+  const continueProgress = useSharedValue(0);
+
+  useEffect(() => {
+    continueProgress.value = withTiming(hasPhotos ? 1 : 0, TIMING_CONFIG);
+  }, [hasPhotos, continueProgress]);
+
+  const continueContainerStyle = useAnimatedStyle(() => ({
+    width: interpolate(continueProgress.value, [0, 0.5, 1], [48, 48, 140]),
+    opacity: continueProgress.value,
+    transform: [
+      { scale: interpolate(continueProgress.value, [0, 1], [0, 1]) },
+    ],
+  }));
+
+  const continueTextStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(continueProgress.value, [0.6, 1], [0, 1]),
+  }));
+
   return (
     <View style={styles.controlsRow}>
       {/* Gallery button */}
@@ -62,15 +91,19 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
         )}
       </Pressable>
 
-      {/* Continue button or placeholder */}
-      {hasPhotos ? (
-        <Pressable style={styles.continueButton} onPress={onContinue}>
-          <Text style={styles.continueText}>Continuer</Text>
+      {/* Continue button — always rendered, animated in/out */}
+      <AnimatedPressable
+        style={[styles.continueButton, continueContainerStyle]}
+        onPress={onContinue}
+        disabled={!hasPhotos}
+      >
+        <Animated.Text style={[styles.continueText, continueTextStyle]}>
+          Continuer
+        </Animated.Text>
+        <Animated.View style={continueTextStyle}>
           <Ionicons name="arrow-forward" size={14} color={colors.cream} />
-        </Pressable>
-      ) : (
-        <View style={styles.placeholderButton} />
-      )}
+        </Animated.View>
+      </AnimatedPressable>
     </View>
   );
 });
@@ -123,22 +156,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
   },
   continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.rust,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   continueText: {
     fontFamily: fonts.sansMedium,
     fontSize: 13,
     color: colors.cream,
     letterSpacing: 0.3,
-  },
-  placeholderButton: {
-    width: 48,
-    height: 48,
   },
 });

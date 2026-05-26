@@ -1,13 +1,18 @@
 import React from 'react';
-import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import Animated, { FadeInRight, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
 
 interface ThumbnailStripProps {
   photos: string[];
   onRemovePhoto: (index: number) => void;
 }
+
+const THUMB_ENTERING = FadeInRight.duration(300);
+const THUMB_EXITING = FadeOut.duration(200);
+const THUMB_LAYOUT = LinearTransition.duration(250);
 
 export const ThumbnailStrip = React.memo(function ThumbnailStrip({
   photos,
@@ -16,14 +21,19 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
   if (photos.length === 0) return null;
 
   return (
-    <ScrollView
+    <Animated.ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.thumbnailStrip}
-      style={styles.thumbnailScrollView}
     >
       {photos.map((uri, index) => (
-        <View key={`${uri}-${index}`} style={styles.thumbWrapper}>
+        <Animated.View
+          key={uri}
+          style={styles.thumbWrapper}
+          entering={THUMB_ENTERING}
+          exiting={THUMB_EXITING}
+          layout={THUMB_LAYOUT}
+        >
           <Image
             source={{ uri }}
             style={[
@@ -32,7 +42,9 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
             ]}
             contentFit="cover"
           />
-          {index === 0 && <View style={styles.primaryDot} />}
+          <Animated.View style={styles.indexBadge}>
+            <Text style={styles.indexText}>{index + 1}</Text>
+          </Animated.View>
           <Pressable
             style={styles.thumbRemove}
             onPress={() => onRemovePhoto(index)}
@@ -40,52 +52,57 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
           >
             <Ionicons name="close" size={10} color={colors.white} />
           </Pressable>
-        </View>
+        </Animated.View>
       ))}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 });
 
 const styles = StyleSheet.create({
-  thumbnailScrollView: {
-    marginBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(245, 240, 232, 0.06)',
-  },
   thumbnailStrip: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
   },
   thumbWrapper: {
     position: 'relative',
   },
   thumbnail: {
-    width: 52,
-    height: 68,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    width: 56,
+    height: 72,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   thumbnailPrimary: {
-    borderColor: colors.rust,
+    borderColor: 'rgba(255,255,255,0.9)',
   },
-  primaryDot: {
+  indexBadge: {
     position: 'absolute',
-    bottom: -8,
-    alignSelf: 'center',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.rust,
-  },
-  thumbRemove: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
+    bottom: 4,
+    left: 4,
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.charcoal,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  indexText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    color: colors.charcoal,
+  },
+  thumbRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -18,7 +18,7 @@
 
 **Second** — marketplace seconde main (style Vinted), mono-langue FR, déployée sur Firebase `seconde-b47a6` (sprints 1-5 livrés).
 
-**Stack** : Expo Router v4 file-based · React Native 0.83 · React 19 · Zustand 5 · React Query 5 · Firebase Web SDK v12 modular · Helcim (paiement) · ShipEngine (shipping) · TypeScript strict.
+**Stack** : Expo Router v4 file-based · React Native 0.83 · React 19 · Zustand 5 · React Query 5 · Firebase Web SDK v12 modular · Stripe Connect Standard (paiement) · ShipEngine (shipping) · TypeScript strict.
 
 ---
 
@@ -53,8 +53,10 @@ Les règles détaillées (archi, conventions, patterns, interdictions) vivent **
 |-------|-----------|
 | `rn-expo-dev` | `app/`, `components/`, `features/`, `hooks/`, `store/`, `services/` (sauf data Firebase), `utils/`, `lib/`, `contexts/`, `types/`, `constants/`, `config/`. Zustand 5, RQ 5, Expo Router, FlashList, expo-image, EAS. |
 | `product-designer` | DS Editorial Luxe, copy FR, BMAD, mockups, `components/ui/`, `components/atoms/`, `constants/theme`, `assets/`. |
-| `firebase-backend` | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, `functions/**`, schemas, paiement Helcim (HMAC), shipping ShipEngine, `runTransaction`, tests sécurité. |
+| `firebase-backend` | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, `functions/**`, schemas, paiement Stripe Connect (webhook, PaymentIntent, seller_balances, withdrawals), shipping ShipEngine, `runTransaction`, tests sécurité. |
 | `ux-logic-auditor` | Audit d'incohérences **logiques et UX** : flows utilisateur cross-plateforme, états impossibles, données orphelines, propagation de données, re-auth par provider, cohérence locale (Canada). Ne code pas — produit un rapport. |
+| `business-plan-writer` | Rédaction de business plan adapté IRCC / incubateurs canadiens / C11. Recherche web + extraction codebase. Produit un BP structuré 25-40 pages. |
+| `market-validator` | Validation du marché canadien mode seconde main. Concurrents, taille de marché, tendances, pricing, SWOT. Rapport analytique sourcé. |
 
 ---
 
@@ -82,11 +84,11 @@ Avant d'agir, regarde si la tâche matche un domaine ci-dessous et **délègue v
 ### Délègue à `firebase-backend` quand
 - Édition de `firestore.rules`, `storage.rules`, `firestore.indexes.json`
 - Édition dans `functions/**`
-- Logique paiement Helcim (webhook, transactions, seller_balances, withdrawals)
+- Logique paiement Stripe Connect (webhook, PaymentIntent, destination charges, seller_balances, withdrawals)
 - Logique shipping ShipEngine (label, tracking)
 - Modif `firestore-schema.md` / `firestore-indexes.md`
 - Édition de `services/transactionService.ts`, `services/sellerBalanceService.ts`, ou service orchestrant une callable financière
-- Question sécurité (privilege escalation, HMAC, runTransaction, indexes manquants)
+- Question sécurité (privilege escalation, Stripe webhook signature, runTransaction, indexes manquants)
 - Exécution de `npm run test:security`
 
 ### Délègue à `ux-logic-auditor` quand
@@ -96,6 +98,20 @@ Avant d'agir, regarde si la tâche matche un domaine ci-dessous et **délègue v
 - Questions sur les transitions d'état des entités (article vendu, commande annulée, compte supprimé)
 - Vérification de propagation de données (changement de nom → articles, chats, reviews)
 - Audit de cohérence locale (Canada : devise, téléphone, adresse, paiement)
+
+### Délègue à `business-plan-writer` quand
+- Rédaction ou mise à jour du business plan
+- Préparation de dossier pour incubateur, programme entrepreneur, ou immigration (C11, Pilote 2026)
+- Besoin de structurer le narratif "significant benefit to Canada"
+- Extraction des métriques produit du codebase pour un dossier externe
+
+### Délègue à `market-validator` quand
+- Analyse du marché seconde main au Canada
+- Recherche de concurrents (Poshmark, Depop, etc.)
+- Calcul TAM/SAM/SOM
+- Analyse SWOT ou positionnement concurrentiel
+- Données démographiques cibles (Gen Z, millennials, mode durable)
+- Validation du product-market fit
 
 ### NE délègue PAS (traite directement) quand
 - Question / explication / lecture sans modification
@@ -126,8 +142,10 @@ Avant d'agir, regarde si la tâche matche un domaine ci-dessous et **délègue v
 - **Hook automatique** bloque l'édition de `android/` et `ios/` (cf. `.claude/hooks/block-native-edits.sh`). Toute modif native passe par `app.config.js` + `expo-build-properties` + `npx expo prebuild`.
 - **Shims `contexts/`** : 3 fichiers (`AuthContext`, `ChatContext`, `AuthRequiredContext`) sont des shims sans Provider qui délèguent à Zustand. Conservés pour ~14 consumers historiques. Ne pas étendre — `rn-expo-dev` sait migrer les consumers.
 - **Mutations financières / status sensibles** : toujours Cloud Function avec `runTransaction`, jamais client. Délègue à `firebase-backend`.
+- **Stripe Connect** : vendeurs onboardés via `createStripeConnectAccount` (Standard accounts, 0$/compte). Paiements via `createStripeCheckout` (PaymentIntent + destination charge). Webhook `stripeWebhook` gère `payment_intent.succeeded` + `account.updated`. `seller_balances` conservé comme ledger miroir.
 - **Auth flow** : hydraté une seule fois dans `app/_layout.tsx` via `useAuthListener()` → `authStore.hydrateFromFirebase`. Source de vérité unique.
-- **Pas de Stripe** (100% Helcim, Sprint 4.3) · **Pas de Lingui** (mono-FR, Sprint 2.1) · **Pas de Redux / moment / @react-native-firebase / fast-image**. Liste complète dans `rn-expo-dev`.
+- **100% Stripe Connect Standard** (migration depuis Helcim terminée Sprint 6). Destination charges avec `application_fee_amount`. Clés dans Firebase Secret Manager (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Webhook URL : `https://northamerica-northeast1-seconde-b47a6.cloudfunctions.net/stripeWebhook`.
+- **Pas de Helcim** (remplacé par Stripe, Sprint 6) · **Pas de Lingui** (mono-FR, Sprint 2.1) · **Pas de Redux / moment / @react-native-firebase / fast-image**. Liste complète dans `rn-expo-dev`.
 - **Barrels `features/`** : chaque feature expose un barrel `index.ts` (named re-exports, pas `export *`). Les imports vers `features/X` passent **toujours** par `@/features/X` (le barrel), jamais en deep import (`@/features/X/components/Foo`).
 - **ESLint boundaries** (`eslint.config.js`) : 4 layers — `shared` (lib, utils, constants, types, config) → `core` (services, store, hooks, contexts, **components**) → `features` → `app`. Cross-import entre features interdit. Vérifier avec `npm run lint:boundaries`.
 

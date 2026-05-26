@@ -11,7 +11,7 @@ const ai_1 = require("../services/ai");
 /**
  * Get active moments based on current date
  */
-exports.getActiveMoments = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB' }, async () => {
+exports.getActiveMoments = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async () => {
     try {
         const today = new Date();
         const monthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -54,7 +54,7 @@ exports.getActiveMoments = (0, https_1.onCall)({ invoker: 'public', memory: '512
 /**
  * Get products matching a specific moment using vector similarity
  */
-exports.getMomentProducts = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB' }, async (request) => {
+exports.getMomentProducts = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     var _a, _b;
     try {
         const { momentId, limit: limitParam = 20, minScore = 0.5 } = request.data;

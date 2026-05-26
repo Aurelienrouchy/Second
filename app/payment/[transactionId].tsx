@@ -1,9 +1,9 @@
 /**
- * Payment Screen — Helcim HelcimPay.js
+ * Payment Screen — Stripe Payment Sheet
  * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
  *
  * Used when navigating to an existing pending_payment transaction.
- * Creates a Helcim checkout session and opens the payment WebView.
+ * Creates a Stripe checkout session and presents the native Payment Sheet.
  */
 
 import React, { useCallback, useState } from 'react';
@@ -24,7 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { HelcimPayment, HelcimPaymentResult } from '@/components/HelcimPayment';
+import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
 import { functions } from '@/config/firebaseConfig';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
@@ -43,9 +43,9 @@ export default function PaymentScreen() {
 
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
 
-  // Helcim
-  const [checkoutToken, setCheckoutToken] = useState<string | null>(null);
-  const [showHelcimPayment, setShowHelcimPayment] = useState(false);
+  // Stripe
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [showStripePayment, setShowStripePayment] = useState(false);
 
   // =============================================================================
   // LOAD TRANSACTION
@@ -91,16 +91,16 @@ export default function PaymentScreen() {
       setIsCreatingCheckout(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const createCheckout = httpsCallable(functions, 'createHelcimCheckout');
+      const createCheckout = httpsCallable(functions, 'createStripeCheckout');
       const result = await createCheckout({ transactionId: transaction.id });
-      const data = result.data as { success: boolean; checkoutToken: string };
+      const data = result.data as { success: boolean; clientSecret: string };
 
-      if (!data.success || !data.checkoutToken) {
+      if (!data.success || !data.clientSecret) {
         throw new Error('Impossible de créer la session de paiement');
       }
 
-      setCheckoutToken(data.checkoutToken);
-      setShowHelcimPayment(true);
+      setClientSecret(data.clientSecret);
+      setShowStripePayment(true);
     } catch (error: any) {
       if (__DEV__) console.error('Error creating checkout:', error);
       Alert.alert('Erreur', error.message || 'Impossible d\'initier le paiement.');
@@ -110,9 +110,9 @@ export default function PaymentScreen() {
   };
 
   const handlePaymentResult = useCallback(
-    async (result: HelcimPaymentResult) => {
-      setShowHelcimPayment(false);
-      setCheckoutToken(null);
+    async (result: StripePaymentResult) => {
+      setShowStripePayment(false);
+      setClientSecret(null);
 
       if (!result.success) {
         if (result.error !== 'cancelled') {
@@ -244,7 +244,7 @@ export default function PaymentScreen() {
           <View style={styles.securityTextContainer}>
             <Text style={styles.securityTitle}>Protection Seconde</Text>
             <Text style={styles.securityDesc}>
-              Paiement sécurisé par Helcim. Vos données bancaires ne transitent jamais par Seconde. Remboursement si l'article ne correspond pas.
+              Paiement sécurisé par Stripe. Vos données bancaires ne transitent jamais par Seconde. Remboursement si l'article ne correspond pas.
             </Text>
           </View>
         </View>
@@ -273,15 +273,15 @@ export default function PaymentScreen() {
         </Text>
       </View>
 
-      {/* Helcim Payment Modal */}
-      {checkoutToken && (
-        <HelcimPayment
-          checkoutToken={checkoutToken}
-          visible={showHelcimPayment}
+      {/* Stripe Payment Sheet */}
+      {clientSecret && (
+        <StripePayment
+          clientSecret={clientSecret}
+          visible={showStripePayment}
           onResult={handlePaymentResult}
           onClose={() => {
-            setShowHelcimPayment(false);
-            setCheckoutToken(null);
+            setShowStripePayment(false);
+            setClientSecret(null);
           }}
           totalAmount={totalAmount}
         />

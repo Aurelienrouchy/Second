@@ -156,7 +156,7 @@ export default function SettingsScreen() {
 
         {/* Paiements */}
         <SettingSection title="Paiements">
-          {/* TODO: Réactiver quand l'intégration Helcim card vault sera prête */}
+          {/* TODO: Réactiver quand l'intégration Stripe saved payment methods sera prête */}
           {/* <SettingItem
             icon="card-outline"
             title="Moyens de paiement"

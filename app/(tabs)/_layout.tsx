@@ -5,7 +5,7 @@
  *   Accueil · Messages · Vendre (raised charcoal CTA) · Favoris · Profil
  */
 
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
@@ -18,6 +18,8 @@ import {
   MessageIcon,
   UserIcon,
 } from '@/components/ui/TabBarIcons';
+import { ImmersiveOverlay, useImmersiveOverlay } from '@/components/ui/ImmersiveOverlay';
+import { SellOverlayCapture } from '@/features/sell';
 import { colors, fonts, radius } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
 import { useAuthStore } from '@/store/authStore';
@@ -57,12 +59,15 @@ function SellTabIcon() {
 
 export default function TabLayout() {
   const user = useUser();
+  const router = useRouter();
+  const { immerse, dismiss } = useImmersiveOverlay();
   // Pre-computed in the store (chatStore.setChats), so this subscription
   // only re-renders when *this user's* unread total actually changes.
   const unreadMessageCount = useChatStore(
     selectUnreadChatCount(user?.id ?? null)
   );
   return (
+    <ImmersiveOverlay>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
@@ -125,7 +130,26 @@ export default function TabLayout() {
                 AUTH_MESSAGES.sell,
                 () => navigation.navigate('sell')
               );
+            } else if (Platform.OS === 'ios') {
+              e.preventDefault();
+              immerse({
+                component: (
+                  <SellOverlayCapture
+                    onClose={() => dismiss()}
+                    onContinue={(photos) => {
+                      dismiss();
+                      setTimeout(() => {
+                        router.push({
+                          pathname: '/sell/photos-review',
+                          params: { photos: JSON.stringify(photos) },
+                        });
+                      }, 550);
+                    }}
+                  />
+                ),
+              });
             }
+            // Android: default tab navigation (sell.tsx → /sell/capture)
           },
         })}
       />
@@ -148,6 +172,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </ImmersiveOverlay>
   );
 }
 

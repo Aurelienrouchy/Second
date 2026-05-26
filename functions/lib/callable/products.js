@@ -1,54 +1,90 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markSavedSearchViewed = exports.toggleProductLike = exports.incrementProductView = void 0;
+exports.markSavedSearchViewed = exports.toggleArticleSold = exports.createArticle = exports.toggleProductLike = exports.incrementProductView = void 0;
 /**
  * Product callable functions
  * Firebase Functions v7 - using onCall
  */
 const https_1 = require("firebase-functions/v2/https");
+const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 /**
- * Increment product view count
+ * Increment article view count
  */
-exports.incrementProductView = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB' }, async (request) => {
+exports.incrementProductView = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    }
     const { productId } = request.data;
     if (!productId) {
         throw new https_1.HttpsError('invalid-argument', 'Product ID is required');
     }
     try {
-        const productRef = firebase_1.db.collection('products').doc(productId);
+        const articleRef = firebase_1.db.collection('articles').doc(productId);
         const searchIndexRef = firebase_1.db.collection('search_index').doc(productId);
         // Use transaction to ensure consistency
         await firebase_1.db.runTransaction(async (transaction) => {
             var _a;
-            const productDoc = await transaction.get(productRef);
-            if (!productDoc.exists) {
-                throw new https_1.HttpsError('not-found', 'Product not found');
+            const articleDoc = await transaction.get(articleRef);
+            if (!articleDoc.exists) {
+                throw new https_1.HttpsError('not-found', 'Article not found');
             }
-            const currentViews = ((_a = productDoc.data()) === null || _a === void 0 ? void 0 : _a.views) || 0;
+            const currentViews = ((_a = articleDoc.data()) === null || _a === void 0 ? void 0 : _a.views) || 0;
             const newViews = currentViews + 1;
-            // Update product views
-            transaction.update(productRef, { views: newViews });
-            // Update search index views
-            transaction.update(searchIndexRef, { views: newViews });
+            // Update article views
+            transaction.update(articleRef, { views: newViews });
+            // Update search index views (set+merge in case doc doesn't exist yet)
+            transaction.set(searchIndexRef, { views: newViews }, { merge: true });
         });
         return { success: true, message: 'View count incremented' };
     }
     catch (error) {
-        console.error('Error incrementing product view:', error);
+        logger.error('Error incrementing article view:', error);
         throw new https_1.HttpsError('internal', 'Failed to increment view count');
     }
 });
 /**
- * Toggle product like/unlike
+ * Toggle article like/unlike
  *
  * Updates atomically in a single transaction:
- * 1. products/{productId} — likes counter + likedBy array
- * 2. articles/{productId} — favoritesCount (denormalised, replaces getFavoriteCount query)
- * 3. search_index/{productId} — likes for ranking
- * 4. favorites/{userId} — articleIds array (unified structure, no more products[])
+ * 1. articles/{productId} — likes counter + likedBy array + favoritesCount
+ * 2. search_index/{productId} — likes for ranking
+ * 3. favorites/{userId} — articleIds array (unified structure)
  */
-exports.toggleProductLike = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
+exports.toggleProductLike = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     const { productId, isLiked } = request.data;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
@@ -58,18 +94,17 @@ exports.toggleProductLike = (0, https_1.onCall)({ memory: '512MiB' }, async (req
     }
     const userId = request.auth.uid;
     try {
-        const productRef = firebase_1.db.collection('products').doc(productId);
         const articleRef = firebase_1.db.collection('articles').doc(productId);
         const searchIndexRef = firebase_1.db.collection('search_index').doc(productId);
         const favoritesRef = firebase_1.db.collection('favorites').doc(userId);
         await firebase_1.db.runTransaction(async (transaction) => {
-            const productDoc = await transaction.get(productRef);
-            if (!productDoc.exists) {
-                throw new https_1.HttpsError('not-found', 'Product not found');
+            const articleDoc = await transaction.get(articleRef);
+            if (!articleDoc.exists) {
+                throw new https_1.HttpsError('not-found', 'Article not found');
             }
-            const productData = productDoc.data();
-            const currentLikes = productData.likes || 0;
-            const likedBy = productData.likedBy || [];
+            const articleData = articleDoc.data();
+            const currentLikes = articleData.likes || 0;
+            const likedBy = articleData.likedBy || [];
             let newLikes = currentLikes;
             let newLikedBy = [...likedBy];
             if (isLiked && !likedBy.includes(userId)) {
@@ -80,20 +115,15 @@ exports.toggleProductLike = (0, https_1.onCall)({ memory: '512MiB' }, async (req
                 newLikes = Math.max(0, currentLikes - 1);
                 newLikedBy = likedBy.filter((id) => id !== userId);
             }
-            // 1. Update product likes + likedBy
-            transaction.update(productRef, {
+            // 1. Update article likes + likedBy + favoritesCount
+            transaction.update(articleRef, {
                 likes: newLikes,
                 likedBy: newLikedBy,
-            });
-            // 2. Denormalised favoritesCount on article (replaces expensive getFavoriteCount)
-            transaction.update(articleRef, {
                 favoritesCount: newLikes,
             });
-            // 3. Update search index for ranking
-            transaction.update(searchIndexRef, {
-                likes: newLikes,
-            });
-            // 4. Unified favorites — articleIds array only (no more products[] with metadata)
+            // 2. Update search index for ranking (set+merge in case doc doesn't exist yet)
+            transaction.set(searchIndexRef, { likes: newLikes }, { merge: true });
+            // 3. Unified favorites — articleIds array only
             if (isLiked) {
                 transaction.set(favoritesRef, {
                     userId,
@@ -112,14 +142,241 @@ exports.toggleProductLike = (0, https_1.onCall)({ memory: '512MiB' }, async (req
         return { success: true, message: 'Like status updated' };
     }
     catch (error) {
-        console.error('Error toggling product like:', error);
+        logger.error('Error toggling article like:', error);
         throw new https_1.HttpsError('internal', 'Failed to update like status');
     }
 });
 /**
+ * Create article server-side with validation and sanitisation.
+ *
+ * The client uploads images to Storage first, then passes the download URLs
+ * here. This callable validates every field, sanitises text inputs (strip
+ * HTML, trim, enforce length bounds), and creates the article atomically.
+ *
+ * Returns { articleId: string }.
+ */
+exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    // ── 1. Auth check ──
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Utilisateur non connecte');
+    }
+    const uid = request.auth.uid;
+    const data = request.data;
+    // ── 2. Validate required fields ──
+    if (!data || typeof data !== 'object') {
+        throw new https_1.HttpsError('invalid-argument', 'Donnees manquantes');
+    }
+    // Title
+    if (!data.title ||
+        typeof data.title !== 'string' ||
+        data.title.trim().length < 3) {
+        throw new https_1.HttpsError('invalid-argument', 'Le titre doit contenir au moins 3 caracteres');
+    }
+    // Price
+    if (data.price == null ||
+        typeof data.price !== 'number' ||
+        data.price < 0.01 ||
+        data.price > 10000) {
+        throw new https_1.HttpsError('invalid-argument', 'Le prix doit etre entre 0.01 et 10 000 $');
+    }
+    // Images — at least one image object with a url string
+    if (!data.images ||
+        !Array.isArray(data.images) ||
+        data.images.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Au moins une image est requise');
+    }
+    if (data.images.length > 20) {
+        throw new https_1.HttpsError('invalid-argument', 'Maximum 20 images autorisees');
+    }
+    for (const img of data.images) {
+        if (!img || typeof img.url !== 'string' || img.url.trim().length === 0) {
+            throw new https_1.HttpsError('invalid-argument', 'Chaque image doit avoir une URL valide');
+        }
+    }
+    // Condition
+    const validConditions = [
+        'neuf',
+        'très bon état',
+        'bon état',
+        'satisfaisant',
+    ];
+    if (data.condition && !validConditions.includes(data.condition)) {
+        throw new https_1.HttpsError('invalid-argument', 'Condition invalide');
+    }
+    // CategoryIds (required by publish flow)
+    if (!data.categoryIds ||
+        !Array.isArray(data.categoryIds) ||
+        data.categoryIds.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Au moins une categorie est requise');
+    }
+    // ── 3. Sanitise text fields ──
+    const stripHtml = (s) => s.replace(/<[^>]*>/g, '').trim();
+    const sanitizedTitle = stripHtml(data.title).substring(0, 200);
+    const sanitizedDescription = data.description
+        ? stripHtml(String(data.description)).substring(0, 5000)
+        : '';
+    // ── 4. Fetch seller info from Auth / Firestore ──
+    let sellerName = data.sellerName || '';
+    let sellerImage = data.sellerImage || null;
+    if (!sellerName) {
+        // Try to get displayName from Firestore user doc
+        const userSnap = await firebase_1.db.collection('users').doc(uid).get();
+        if (userSnap.exists) {
+            const userData = userSnap.data();
+            sellerName = (userData === null || userData === void 0 ? void 0 : userData.displayName) || 'Utilisateur';
+            sellerImage = sellerImage || (userData === null || userData === void 0 ? void 0 : userData.profileImage) || null;
+        }
+        else {
+            sellerName = 'Utilisateur';
+        }
+    }
+    // ── 5. Build sanitised images array ──
+    const sanitizedImages = data.images.map((img) => {
+        const entry = {
+            url: img.url.trim(),
+        };
+        if (img.blurhash && typeof img.blurhash === 'string') {
+            entry.blurhash = img.blurhash;
+        }
+        return entry;
+    });
+    // ── 6. Build the article document ──
+    // Only include defined fields (no undefined → Firestore rejects them)
+    const article = {
+        sellerId: uid,
+        sellerName,
+        title: sanitizedTitle,
+        description: sanitizedDescription,
+        price: data.price,
+        images: sanitizedImages,
+        category: typeof data.category === 'string' ? data.category : '',
+        categoryIds: data.categoryIds,
+        condition: data.condition || 'très bon état',
+        isActive: sanitizedImages.length > 0,
+        isSold: false,
+        isHandDelivery: data.isHandDelivery === true,
+        isShipping: data.isShipping === true,
+        views: 0,
+        likes: 0,
+        likedBy: [],
+        favoritesCount: 0,
+        moderationStatus: 'approved',
+        createdAt: firebase_1.FieldValue.serverTimestamp(),
+        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+    };
+    // Optional scalar fields
+    if (sellerImage)
+        article.sellerImage = sellerImage;
+    if (typeof data.size === 'string' && data.size.trim()) {
+        article.size = data.size.trim().substring(0, 50);
+    }
+    if (typeof data.brand === 'string' && data.brand.trim()) {
+        article.brand = data.brand.trim().substring(0, 100);
+    }
+    if (typeof data.pattern === 'string' && data.pattern.trim()) {
+        article.pattern = data.pattern.trim().substring(0, 100);
+    }
+    // Colors — multi-select + backward compat single value
+    if (Array.isArray(data.colors) && data.colors.length > 0) {
+        article.colors = data.colors
+            .filter((c) => typeof c === 'string')
+            .slice(0, 20);
+        article.color = article.colors[0] || null;
+    }
+    else if (typeof data.color === 'string' && data.color.trim()) {
+        article.color = data.color.trim();
+    }
+    // Materials — multi-select + backward compat single value
+    if (Array.isArray(data.materials) && data.materials.length > 0) {
+        article.materials = data.materials
+            .filter((m) => typeof m === 'string')
+            .slice(0, 20);
+        article.material = article.materials[0] || null;
+    }
+    else if (typeof data.material === 'string' && data.material.trim()) {
+        article.material = data.material.trim();
+    }
+    // Neighborhoods (meetup locations)
+    if (Array.isArray(data.neighborhoods) && data.neighborhoods.length > 0) {
+        article.neighborhoods = data.neighborhoods.slice(0, 10);
+        article.neighborhood = data.neighborhoods[0];
+    }
+    else if (data.neighborhood && typeof data.neighborhood === 'object') {
+        article.neighborhood = data.neighborhood;
+        article.neighborhoods = [data.neighborhood];
+    }
+    // Package size
+    const validPackageSizes = ['small', 'medium', 'large'];
+    if (typeof data.packageSize === 'string' &&
+        validPackageSizes.includes(data.packageSize)) {
+        article.packageSize = data.packageSize;
+    }
+    // ── 7. Create in Firestore ──
+    const docRef = await firebase_1.db.collection('articles').add(article);
+    logger.info('Article created via callable', {
+        articleId: docRef.id,
+        sellerId: uid,
+        title: sanitizedTitle,
+        imagesCount: sanitizedImages.length,
+    });
+    return { articleId: docRef.id };
+});
+/**
+ * Toggle article sold status (mark as sold / unmark)
+ *
+ * Only the seller can toggle. Rejects if an active transaction exists
+ * on this article (pending, meetup_pending, meetup_confirmed,
+ * shipping_pending, shipping_in_transit).
+ */
+exports.toggleArticleSold = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Non connecte');
+    }
+    const { articleId } = request.data;
+    if (!articleId || typeof articleId !== 'string') {
+        throw new https_1.HttpsError('invalid-argument', 'articleId requis');
+    }
+    const uid = request.auth.uid;
+    const articleRef = firebase_1.db.collection('articles').doc(articleId);
+    // Query for active transactions BEFORE the transaction (Firestore
+    // transactions only support doc gets via t.get(), not queries).
+    const activeTransactions = await firebase_1.db
+        .collection('transactions')
+        .where('articleId', '==', articleId)
+        .where('status', 'in', [
+        'pending',
+        'meetup_pending',
+        'meetup_confirmed',
+        'shipping_pending',
+        'shipping_in_transit',
+    ])
+        .limit(1)
+        .get();
+    if (!activeTransactions.empty) {
+        throw new https_1.HttpsError('failed-precondition', 'Une transaction est en cours sur cet article');
+    }
+    await firebase_1.db.runTransaction(async (t) => {
+        const doc = await t.get(articleRef);
+        if (!doc.exists) {
+            throw new https_1.HttpsError('not-found', 'Article introuvable');
+        }
+        const data = doc.data();
+        if (data.sellerId !== uid) {
+            throw new https_1.HttpsError('permission-denied', 'Pas votre article');
+        }
+        const newSoldState = !data.isSold;
+        t.update(articleRef, {
+            isSold: newSoldState,
+            updatedAt: firebase_1.FieldValue.serverTimestamp(),
+        });
+    });
+    logger.info('Article sold status toggled', { articleId, sellerId: uid });
+    return { success: true };
+});
+/**
  * Mark saved search as viewed (resets newItemsCount)
  */
-exports.markSavedSearchViewed = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
+exports.markSavedSearchViewed = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -140,7 +397,7 @@ exports.markSavedSearchViewed = (0, https_1.onCall)({ memory: '512MiB' }, async 
         return { success: true };
     }
     catch (error) {
-        console.error('Error marking saved search as viewed:', error);
+        logger.error('Error marking saved search as viewed:', error);
         throw new https_1.HttpsError('internal', 'Failed to update saved search');
     }
 });

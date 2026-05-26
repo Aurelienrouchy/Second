@@ -23,9 +23,9 @@ const VALID_SEX_VALUES = ['femme', 'homme', 'les-deux', 'enfant'];
  *
  * The data feeds into the personalized "Pour Toi" feed via usePersonalizedFeed.
  */
-exports.saveOnboardingPreferences = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB' }, async (request) => {
+exports.saveOnboardingPreferences = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     var _a;
-    const { sex, sizesTop, sizesBottom, sizesShoes, userId } = request.data;
+    const { sex, sizesTop, sizesBottom, sizesShoes } = request.data;
     // ── Validation ──
     if (!sex || !VALID_SEX_VALUES.includes(sex)) {
         throw new https_1.HttpsError('invalid-argument', `Invalid sex value. Must be one of: ${VALID_SEX_VALUES.join(', ')}`);
@@ -43,14 +43,9 @@ exports.saveOnboardingPreferences = (0, https_1.onCall)({ invoker: 'public', mem
         updatedAt: firebase_1.FieldValue.serverTimestamp(),
     };
     try {
-        // Determine target: authenticated user or guest
-        const authUid = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
-        const targetUserId = authUid || userId;
-        if (targetUserId) {
-            // ── Authenticated user or known userId ──
-            // Save as part of user preferences for the personalized feed
+        if ((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid) {
             const allSizes = [...cleanData.sizesTop, ...cleanData.sizesBottom];
-            await firebase_1.db.collection('users').doc(targetUserId).set({
+            await firebase_1.db.collection('users').doc(request.auth.uid).set({
                 onboardingPreferences: cleanData,
                 preferences: {
                     sizes: allSizes,
@@ -60,11 +55,9 @@ exports.saveOnboardingPreferences = (0, https_1.onCall)({ invoker: 'public', mem
                 onboardingCompleted: true,
                 updatedAt: firebase_1.FieldValue.serverTimestamp(),
             }, { merge: true });
-            return { success: true, saved: 'user', userId: targetUserId };
+            return { success: true, saved: 'user', userId: request.auth.uid };
         }
         else {
-            // ── Guest (no auth, no userId) ──
-            // Save to guest_preferences collection with auto-generated ID
             const docRef = await firebase_1.db.collection('guest_preferences').add(Object.assign(Object.assign({}, cleanData), { createdAt: firebase_1.FieldValue.serverTimestamp() }));
             return { success: true, saved: 'guest', guestPrefId: docRef.id };
         }

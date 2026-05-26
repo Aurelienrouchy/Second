@@ -9,9 +9,10 @@ import { Skeleton } from '@/components/ui/Skeleton';
 /**
  * Sell Tab Entry Point
  *
- * Auth is handled by the tab layout (tabPress listener intercepts
- * unauthenticated taps and shows the auth sheet before navigating).
- * This screen only runs when the user is authenticated.
+ * For the immersive overlay prototype the sell flow content is rendered
+ * directly inside the overlay (see SellOverlayContent in _layout.tsx).
+ * This tab screen is kept as a fallback / placeholder and handles
+ * draft resume logic when navigated to directly.
  */
 export default function SellTabScreen() {
   const router = useRouter();

@@ -8,14 +8,62 @@ exports.analyzeProductImage = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const ai_1 = require("../services/ai");
 const brands_1 = require("../services/brands");
+const firebase_1 = require("../config/firebase");
+// Rate limiting constants
+const RATE_LIMIT_MAX_CALLS = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+/**
+ * Check and update rate limit for a user.
+ * Uses Firestore doc `rate_limits/{userId}_analyzeProduct` with a sliding window.
+ * Throws HttpsError('resource-exhausted') if the limit is exceeded.
+ */
+async function checkRateLimit(userId) {
+    const rateLimitRef = firebase_1.db.collection('rate_limits').doc(`${userId}_analyzeProduct`);
+    await firebase_1.db.runTransaction(async (tx) => {
+        var _a, _b, _c, _d, _e;
+        const snap = await tx.get(rateLimitRef);
+        const now = Date.now();
+        const windowStart = now - RATE_LIMIT_WINDOW_MS;
+        if (snap.exists) {
+            const data = snap.data();
+            const windowStartedAt = (_d = (_c = (_b = (_a = data.windowStartedAt) === null || _a === void 0 ? void 0 : _a.toMillis) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : data.windowStartedAt) !== null && _d !== void 0 ? _d : 0;
+            const count = (_e = data.count) !== null && _e !== void 0 ? _e : 0;
+            if (windowStartedAt > windowStart) {
+                // Still within the current window
+                if (count >= RATE_LIMIT_MAX_CALLS) {
+                    throw new https_1.HttpsError('resource-exhausted', `Limite atteinte : maximum ${RATE_LIMIT_MAX_CALLS} analyses par heure. Réessayez plus tard.`);
+                }
+                tx.update(rateLimitRef, { count: firebase_1.FieldValue.increment(1) });
+            }
+            else {
+                // Window expired, reset
+                tx.set(rateLimitRef, {
+                    userId,
+                    count: 1,
+                    windowStartedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+        }
+        else {
+            // First call ever
+            tx.set(rateLimitRef, {
+                userId,
+                count: 1,
+                windowStartedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+        }
+    });
+}
 /**
  * Analyze product image(s) with AI
  * Returns structured product data for the sell flow
  */
 exports.analyzeProductImage = (0, https_1.onCall)({
+    region: 'northamerica-northeast1',
     memory: '1GiB',
     timeoutSeconds: 120,
-    minInstances: 1, // Keep one instance warm to avoid cold starts
+    minInstances: 1,
+    secrets: ['GEMINI_API_KEY'],
 }, async (request) => {
     var _a, _b, _c, _d;
     const totalStartTime = Date.now();
@@ -25,6 +73,8 @@ exports.analyzeProductImage = (0, https_1.onCall)({
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    // Rate limiting: max 10 calls per hour per user
+    await checkRateLimit(request.auth.uid);
     // Support both single image (legacy) and multiple images
     const { imageBase64, mimeType, images } = request.data;
     // Build images array

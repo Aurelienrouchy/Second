@@ -47,7 +47,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
       <View style={styles.container}>
         <Text style={styles.title}>Une erreur est survenue</Text>
         <Text style={styles.message}>
-          L'application a rencontré un problème inattendu. Tu peux réessayer.
+          L'application a rencontré un problème inattendu. Vous pouvez réessayer.
         </Text>
         {__DEV__ && this.state.errorMessage && (
           <Text style={styles.errorDetail}>{this.state.errorMessage}</Text>

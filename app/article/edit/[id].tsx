@@ -189,18 +189,23 @@ export default function EditArticleScreen() {
       const colorItem = getColorItems().find(c => c.value === fields.color);
       const materialItem = getMaterialItems().find(m => m.value === fields.material);
 
-      await ArticlesService.updateArticle(id, {
+      const articleData: Record<string, unknown> = {
         title: fields.title.trim(),
         description: fields.description.trim(),
         categoryIds: fields.categoryIds,
         category: fields.categoryDisplay.name,
         condition: fields.condition,
-        color: colorItem?.label || fields.color || undefined,
-        material: materialItem?.label || fields.material || undefined,
-        size: fields.size || undefined,
-        brand: fields.brand.trim() || undefined,
         price: fields.price,
-      });
+      };
+      const resolvedColor = colorItem?.label || fields.color;
+      if (resolvedColor) articleData.color = resolvedColor;
+      const resolvedMaterial = materialItem?.label || fields.material;
+      if (resolvedMaterial) articleData.material = resolvedMaterial;
+      if (fields.size) articleData.size = fields.size;
+      const trimmedBrand = fields.brand.trim();
+      if (trimmedBrand) articleData.brand = trimmedBrand;
+
+      await ArticlesService.updateArticle(id, articleData as Partial<import('@/types').Article>);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Succès', 'Article modifié avec succès', [

@@ -27,6 +27,7 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
   const [name, setName] = useState(initialAddress?.name || '');
   const [street, setStreet] = useState(initialAddress?.street || '');
   const [city, setCity] = useState(initialAddress?.city || '');
+  const [province, setProvince] = useState(initialAddress?.province || 'QC');
   const [postalCode, setPostalCode] = useState(initialAddress?.postalCode || '');
   const [country, setCountry] = useState(initialAddress?.country || 'CA');
   const [phoneNumber, setPhoneNumber] = useState(initialAddress?.phoneNumber || '');
@@ -38,6 +39,7 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
     name: string;
     street: string;
     city: string;
+    province: string;
     postalCode: string;
     country: string;
     phoneNumber: string;
@@ -46,6 +48,7 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
       name: !values.name.trim() ? 'Le nom est requis' : null,
       street: !values.street.trim() ? 'L\'adresse est requise' : null,
       city: !values.city.trim() ? 'La ville est requise' : null,
+      province: !values.province.trim() ? 'La province est requise' : null,
       postalCode: !values.postalCode.trim() ? 'Le code postal est requis' : null,
       country: !values.country.trim() ? 'Le pays est requis' : null,
     };
@@ -57,6 +60,7 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
         name: values.name,
         street: values.street,
         city: values.city,
+        province: values.province,
         postalCode: values.postalCode,
         country: values.country,
         phoneNumber: values.phoneNumber || undefined,
@@ -83,12 +87,14 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
     const streetNumber = getComponent('street_number');
     const route = getComponent('route');
     const newCity = getComponent('locality') || getComponent('sublocality') || getComponent('administrative_area_level_2');
+    const newProvince = getShortComponent('administrative_area_level_1') || 'QC';
     const newPostalCode = getComponent('postal_code');
     const newCountry = getShortComponent('country') || 'CA';
     const newStreet = `${streetNumber} ${route}`.trim();
 
     setStreet(newStreet);
     setCity(newCity);
+    setProvince(newProvince);
     setPostalCode(newPostalCode);
     setCountry(newCountry);
 
@@ -98,6 +104,7 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
       name,
       street: newStreet,
       city: newCity,
+      province: newProvince,
       postalCode: newPostalCode,
       country: newCountry,
       phoneNumber,
@@ -105,12 +112,13 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
   };
 
   const handleFieldChange = (field: string, value: string) => {
-    const newValues = { name, street, city, postalCode, country, phoneNumber };
+    const newValues = { name, street, city, province, postalCode, country, phoneNumber };
 
     switch (field) {
       case 'name': setName(value); newValues.name = value; break;
       case 'street': setStreet(value); newValues.street = value; break;
       case 'city': setCity(value); newValues.city = value; break;
+      case 'province': setProvince(value); newValues.province = value; break;
       case 'postalCode': setPostalCode(value); newValues.postalCode = value; break;
       case 'country': setCountry(value); newValues.country = value; break;
       case 'phoneNumber': setPhoneNumber(value); newValues.phoneNumber = value; break;
@@ -212,6 +220,22 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
             onChangeText={(value) => handleFieldChange('city', value)}
           />
         </View>
+      </View>
+
+      {/* Province */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>
+          Province <Text style={styles.required}>*</Text>
+        </Text>
+        <TextInput
+          style={[styles.input, errors.province && styles.inputError]}
+          placeholder="QC"
+          value={province}
+          onChangeText={(value) => handleFieldChange('province', value.toUpperCase())}
+          autoCapitalize="characters"
+          maxLength={2}
+        />
+        <Text style={styles.hint}>Code province (ex: QC, ON, BC, AB)</Text>
       </View>
 
       {/* Country */}

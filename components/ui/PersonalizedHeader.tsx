@@ -113,10 +113,10 @@ const getGreeting = (): string => {
 
 const getDefaultSubtitle = (): string => {
   const subtitles = [
-    'Trouve ta prochaine pépite',
-    'Des trésors t\'attendent',
-    'Prête pour de belles trouvailles ?',
-    'Explore les nouveautés',
+    'Trouvez votre prochaine pépite',
+    'Des trésors vous attendent',
+    'De belles trouvailles vous attendent',
+    'Explorez les nouveautés',
   ];
   // Use day of year to get consistent but varied subtitle
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
@@ -137,7 +137,7 @@ export const PersonalizedHeader: React.FC<PersonalizedHeaderProps> = ({
   testID,
 }) => {
   const greeting = getGreeting();
-  const displayName = userName?.split(' ')[0] || 'toi';
+  const displayName = userName?.split(' ')[0] || 'vous';
   const displaySubtitle = subtitle || getDefaultSubtitle();
 
   return (

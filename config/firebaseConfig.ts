@@ -52,6 +52,6 @@ const auth = getApps().length <= 1
 
 const firestore = getFirestore(app);
 const storage = getStorage(app);
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'northamerica-northeast1');
 
 export { app, auth, firestore, storage, functions };

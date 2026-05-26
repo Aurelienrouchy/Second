@@ -445,8 +445,15 @@ service cloud.firestore {
                        request.resource.data.sellerId == request.auth.uid;
       allow delete: if isAuthenticated() &&
                        resource.data.sellerId == request.auth.uid;
+
+      // SECURITY: sellers can update their own items, but isSwapped and
+      // isPending are managed exclusively by Cloud Functions (Admin SDK).
+      // Preventing client mutation of these fields avoids users marking
+      // their own items as swapped or manipulating pending state.
       allow update: if isAuthenticated() &&
-                       resource.data.sellerId == request.auth.uid;
+                       resource.data.sellerId == request.auth.uid &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                          .hasAny(['isSwapped', 'isPending']);
     }
 
     // Swaps Collection Rules

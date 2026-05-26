@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateUserStats = exports.updateSearchIndex = void 0;
 /**
- * Product Firestore triggers
+ * Article Firestore triggers (search index + user stats)
  * Firebase Functions v7 - using onDocumentWritten
  */
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -11,52 +11,52 @@ const geohash_1 = require("../utils/geohash");
 const search_1 = require("../utils/search");
 const debounce_1 = require("../utils/debounce");
 /**
- * Update search index when product is created/updated/deleted
+ * Update search index when article is created/updated/deleted
  */
-exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'products/{productId}', memory: '512MiB' }, async (event) => {
+exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-    const productId = event.params.productId;
+    const articleId = event.params.articleId;
     try {
         // If document was deleted, remove from search index
         if (!((_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.after) === null || _b === void 0 ? void 0 : _b.exists)) {
-            await firebase_1.db.collection('search_index').doc(productId).delete();
-            console.log(`Removed product ${productId} from search index`);
+            await firebase_1.db.collection('search_index').doc(articleId).delete();
+            console.log(`Removed article ${articleId} from search index`);
             return;
         }
-        const productData = event.data.after.data();
-        if (!productData)
+        const articleData = event.data.after.data();
+        if (!articleData)
             return;
-        // Only index active, approved products
-        if (!productData.isActive || productData.moderationStatus !== 'approved') {
-            await firebase_1.db.collection('search_index').doc(productId).delete();
+        // Only index active, approved articles
+        if (!articleData.isActive || articleData.moderationStatus !== 'approved') {
+            await firebase_1.db.collection('search_index').doc(articleId).delete();
             return;
         }
         // Generate geohash for location
         let geohash = '';
-        if ((_c = productData.location) === null || _c === void 0 ? void 0 : _c.coordinates) {
-            const { lat, lon } = productData.location.coordinates;
+        if ((_c = articleData.location) === null || _c === void 0 ? void 0 : _c.coordinates) {
+            const { lat, lon } = articleData.location.coordinates;
             geohash = (0, geohash_1.encodeGeohash)(lat, lon, 7);
         }
         // Normalize array fields (support both singular and array formats)
         const getBrands = () => {
-            if (productData.brands && Array.isArray(productData.brands))
-                return productData.brands;
-            if (productData.brand)
-                return [productData.brand];
+            if (articleData.brands && Array.isArray(articleData.brands))
+                return articleData.brands;
+            if (articleData.brand)
+                return [articleData.brand];
             return [];
         };
         const getColors = () => {
-            if (productData.colors && Array.isArray(productData.colors))
-                return productData.colors;
-            if (productData.color)
-                return [productData.color];
+            if (articleData.colors && Array.isArray(articleData.colors))
+                return articleData.colors;
+            if (articleData.color)
+                return [articleData.color];
             return [];
         };
         const getMaterials = () => {
-            if (productData.materials && Array.isArray(productData.materials))
-                return productData.materials;
-            if (productData.material)
-                return [productData.material];
+            if (articleData.materials && Array.isArray(articleData.materials))
+                return articleData.materials;
+            if (articleData.material)
+                return [articleData.material];
             return [];
         };
         const brands = getBrands();
@@ -64,82 +64,82 @@ exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'prod
         const materials = getMaterials();
         // Generate search keywords
         const brandsText = brands.join(' ');
-        const searchText = `${productData.title} ${productData.description} ${brandsText} ${productData.category || ''}`;
+        const searchText = `${articleData.title} ${articleData.description} ${brandsText} ${articleData.category || ''}`;
         const keywords = (0, search_1.generateSearchKeywords)(searchText);
         // Calculate popularity score
-        const popularityScore = (0, search_1.calculatePopularityScore)(productData.views || 0, productData.likes || 0, ((_d = productData.createdAt) === null || _d === void 0 ? void 0 : _d.toDate()) || new Date());
+        const popularityScore = (0, search_1.calculatePopularityScore)(articleData.views || 0, articleData.likes || 0, ((_d = articleData.createdAt) === null || _d === void 0 ? void 0 : _d.toDate()) || new Date());
         // Create search index document
         const searchIndexData = {
-            productId,
-            title: productData.title,
-            titleLowercase: productData.title.toLowerCase(),
-            description: productData.description,
+            articleId,
+            title: articleData.title,
+            titleLowercase: articleData.title.toLowerCase(),
+            description: articleData.description,
             keywords,
             // Filterable fields
-            category: productData.category,
-            subcategory: productData.subcategory || null,
+            category: articleData.category,
+            subcategory: articleData.subcategory || null,
             brands: brands,
             colors: colors,
             materials: materials,
             brand: brands[0] || null,
             color: colors[0] || null,
             material: materials[0] || null,
-            size: productData.size || null,
-            condition: productData.condition,
-            price: productData.price,
+            size: articleData.size || null,
+            condition: articleData.condition,
+            price: articleData.price,
             // Location data
             location: {
-                city: ((_e = productData.location) === null || _e === void 0 ? void 0 : _e.city) || '',
+                city: ((_e = articleData.location) === null || _e === void 0 ? void 0 : _e.city) || '',
                 geohash,
-                coordinates: ((_f = productData.location) === null || _f === void 0 ? void 0 : _f.coordinates) || null,
+                coordinates: ((_f = articleData.location) === null || _f === void 0 ? void 0 : _f.coordinates) || null,
             },
             // Cached display data
-            sellerId: productData.sellerId,
-            sellerName: productData.sellerName,
-            sellerRating: productData.sellerRating || null,
-            firstImage: ((_h = (_g = productData.images) === null || _g === void 0 ? void 0 : _g[0]) === null || _h === void 0 ? void 0 : _h.url) || null,
+            sellerId: articleData.sellerId,
+            sellerName: articleData.sellerName,
+            sellerRating: articleData.sellerRating || null,
+            firstImage: ((_h = (_g = articleData.images) === null || _g === void 0 ? void 0 : _g[0]) === null || _h === void 0 ? void 0 : _h.url) || null,
             // Status
-            isActive: productData.isActive,
-            isSold: productData.isSold,
-            isPromoted: productData.isPromoted || false,
+            isActive: articleData.isActive,
+            isSold: articleData.isSold,
+            isPromoted: articleData.isPromoted || false,
             // Metrics for ranking
-            views: productData.views || 0,
-            likes: productData.likes || 0,
-            createdAt: productData.createdAt,
+            views: articleData.views || 0,
+            likes: articleData.likes || 0,
+            createdAt: articleData.createdAt,
             // Search optimization
             popularityScore,
             lastIndexed: firebase_1.FieldValue.serverTimestamp(),
         };
         // Update search index with debouncing
-        const updateKey = `search_index_${productId}`;
+        const updateKey = `search_index_${articleId}`;
         (0, debounce_1.debounceUpdate)(updateKey, async () => {
             await firebase_1.db
                 .collection('search_index')
-                .doc(productId)
+                .doc(articleId)
                 .set(searchIndexData, { merge: true });
-            console.log(`Updated search index for product ${productId}`);
+            console.log(`Updated search index for article ${articleId}`);
         });
-        // Update product with geohash if not present
-        if (geohash && !((_j = productData.location) === null || _j === void 0 ? void 0 : _j.geohash)) {
-            const geoKey = `product_geohash_${productId}`;
+        // Update article with geohash if not present
+        if (geohash && !((_j = articleData.location) === null || _j === void 0 ? void 0 : _j.geohash)) {
+            const geoKey = `article_geohash_${articleId}`;
             (0, debounce_1.debounceUpdate)(geoKey, async () => {
-                await firebase_1.db.collection('products').doc(productId).update({
+                await firebase_1.db.collection('articles').doc(articleId).update({
                     'location.geohash': geohash,
                 });
-                console.log(`Added geohash to product ${productId}`);
+                console.log(`Added geohash to article ${articleId}`);
             });
         }
     }
     catch (error) {
-        console.error(`Error updating search index for product ${productId}:`, error);
+        console.error(`Error updating search index for article ${articleId}:`, error);
     }
 });
 /**
- * Update user stats when product is created/updated/sold
+ * Update user stats when article is created/updated/sold
  */
-exports.updateUserStats = (0, firestore_1.onDocumentWritten)({ document: 'products/{productId}', memory: '512MiB' }, async (event) => {
+exports.updateUserStats = (0, firestore_1.onDocumentWritten)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
     var _a, _b;
-    const productId = event.params.productId;
+    const articleId = event.params.articleId;
     try {
         const after = ((_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.after) === null || _b === void 0 ? void 0 : _b.exists) ? event.data.after.data() : null;
         if (!after)
@@ -151,39 +151,39 @@ exports.updateUserStats = (0, firestore_1.onDocumentWritten)({ document: 'produc
         const updateKey = `user_stats_${sellerId}`;
         (0, debounce_1.debounceUpdate)(updateKey, async () => {
             const userStatsRef = firebase_1.db.collection('stats').doc(`user_${sellerId}`);
-            // Get current user products
-            const userProductsSnapshot = await firebase_1.db
-                .collection('products')
+            // Get current user articles
+            const userArticlesSnapshot = await firebase_1.db
+                .collection('articles')
                 .where('sellerId', '==', sellerId)
                 .get();
-            let productsListed = 0;
-            let productsActive = 0;
-            let productsSold = 0;
+            let articlesListed = 0;
+            let articlesActive = 0;
+            let articlesSold = 0;
             let totalViews = 0;
             let totalLikes = 0;
             let totalEarnings = 0;
             let salesCount = 0;
-            userProductsSnapshot.forEach((doc) => {
-                const product = doc.data();
-                productsListed++;
-                if (product.isActive && !product.isSold) {
-                    productsActive++;
+            userArticlesSnapshot.forEach((doc) => {
+                const article = doc.data();
+                articlesListed++;
+                if (article.isActive && !article.isSold) {
+                    articlesActive++;
                 }
-                if (product.isSold) {
-                    productsSold++;
-                    totalEarnings += product.price || 0;
+                if (article.isSold) {
+                    articlesSold++;
+                    totalEarnings += article.price || 0;
                     salesCount++;
                 }
-                totalViews += product.views || 0;
-                totalLikes += product.likes || 0;
+                totalViews += article.views || 0;
+                totalLikes += article.likes || 0;
             });
             const averageSalePrice = salesCount > 0 ? totalEarnings / salesCount : 0;
             // Update user stats
             await userStatsRef.set({
                 userId: sellerId,
-                productsListed,
-                productsActive,
-                productsSold,
+                productsListed: articlesListed,
+                productsActive: articlesActive,
+                productsSold: articlesSold,
                 productsViews: totalViews,
                 productsLikes: totalLikes,
                 totalEarnings,
@@ -194,7 +194,7 @@ exports.updateUserStats = (0, firestore_1.onDocumentWritten)({ document: 'produc
         }, 10000); // 10 second debounce
     }
     catch (error) {
-        console.error(`Error updating user stats for product ${productId}:`, error);
+        console.error(`Error updating user stats for article ${articleId}:`, error);
     }
 });
 //# sourceMappingURL=products.js.map

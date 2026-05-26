@@ -11,7 +11,7 @@ import { Keyboard, TextInput } from 'react-native';
 import { CATEGORIES, getCategoryLabelFromIds } from '@/data/categories-v2';
 import { colors as colorData } from '@/data/colors';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@/contexts/AuthContext';
 import { useArticleSearch } from '@/hooks/useArticleSearch';
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
@@ -31,7 +31,7 @@ export function useSearchScreen() {
     filters?: string;
   }>();
 
-  const { user } = useAuth();
+  const user = useUser();
 
   // ─── Derive initial values from params ───────────────────────────
   const parsedFilters = useMemo(() => {
@@ -137,7 +137,7 @@ export function useSearchScreen() {
       const searches = await SearchHistoryService.getRecentSearches(user.id, 10);
       setRecentSearches(searches);
     } catch (error) {
-      console.error('Error loading recent searches:', error);
+      if (__DEV__) console.error('Error loading recent searches:', error);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -194,7 +194,7 @@ export function useSearchScreen() {
         await SearchHistoryService.deleteSearchFromHistory(user.id, item.id);
         setRecentSearches((prev) => prev.filter((s) => s.id !== item.id));
       } catch (error) {
-        console.error('Error deleting search:', error);
+        if (__DEV__) console.error('Error deleting search:', error);
       }
     },
     [user]

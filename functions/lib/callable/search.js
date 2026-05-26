@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSimilarProducts = exports.visualSearch = void 0;
 /**
@@ -9,8 +42,10 @@ exports.getSimilarProducts = exports.visualSearch = void 0;
  * - getSimilarProducts: Find similar articles by articleId embedding
  */
 const https_1 = require("firebase-functions/v2/https");
+const logger = __importStar(require("firebase-functions/logger"));
 const aiplatform_1 = require("@google-cloud/aiplatform");
 const firebase_1 = require("../config/firebase");
+const rateLimit_1 = require("../utils/rateLimit");
 // Vertex AI configuration (same as triggers/embeddings.ts)
 const VERTEX_PROJECT = process.env.GCLOUD_PROJECT || 'seconde-b47a6';
 const VERTEX_LOCATION = 'us-central1';
@@ -20,6 +55,10 @@ const EMBEDDING_MODEL = 'multimodalembedding@001';
 // similarity% = (1 - distance) * 100
 const VISUAL_SEARCH_MAX_DISTANCE = 0.55; // ~45% min similarity
 const SIMILAR_PRODUCTS_MAX_DISTANCE = 0.60; // ~40% min similarity (more lenient)
+// Rate limiting: protect Vertex AI from abuse
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_AUTHENTICATED = 20; // 20 req/min for authenticated users
+const RATE_LIMIT_UNAUTHENTICATED = 5; // 5 req/min for unauthenticated users
 // Vertex AI client (singleton)
 let vertexClient = null;
 function getVertexClient() {
@@ -56,7 +95,7 @@ async function generateQueryEmbedding(imageBase64) {
         return values.map((v) => v.numberValue || 0);
     }
     catch (error) {
-        console.error('[visualSearch] Embedding generation error:', error);
+        logger.error('[visualSearch] Embedding generation error', { error });
         return null;
     }
 }
@@ -67,24 +106,33 @@ async function generateQueryEmbedding(imageBase64) {
  * Output: ranked list of similar articles with similarity scores
  */
 exports.visualSearch = (0, https_1.onCall)({
+    region: 'northamerica-northeast1',
     invoker: 'public',
     timeoutSeconds: 60,
     memory: '512MiB',
 }, async (request) => {
     var _a, _b, _c;
+    // Rate limiting: protect Vertex AI from abuse
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'visualSearch',
+        maxCallsAuthenticated: RATE_LIMIT_AUTHENTICATED,
+        maxCallsUnauthenticated: RATE_LIMIT_UNAUTHENTICATED,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { imageBase64, filters, limit = 20 } = request.data;
     if (!imageBase64) {
         throw new https_1.HttpsError('invalid-argument', 'Image is required');
     }
     const startTime = Date.now();
     // 1. Generate embedding for the search image
-    console.log('[visualSearch] Generating query embedding...');
+    logger.info('[visualSearch] Generating query embedding...');
     const queryEmbedding = await generateQueryEmbedding(imageBase64);
     if (!queryEmbedding) {
         throw new https_1.HttpsError('internal', 'Failed to generate image embedding');
     }
     const embeddingTime = Date.now() - startTime;
-    console.log(`[visualSearch] Embedding generated in ${embeddingTime}ms (${queryEmbedding.length} dims)`);
+    logger.info('[visualSearch] Embedding generated', { embeddingTime, dims: queryEmbedding.length });
     // 2. Build Firestore query with filters
     let baseQuery = firebase_1.db.collection('embeddings')
         .where('isActive', '==', true);
@@ -103,7 +151,7 @@ exports.visualSearch = (0, https_1.onCall)({
     });
     const snapshot = await vectorQuery.get();
     const queryTime = Date.now() - startTime - embeddingTime;
-    console.log(`[visualSearch] Vector query returned ${snapshot.docs.length} results in ${queryTime}ms`);
+    logger.info('[visualSearch] Vector query returned results', { resultCount: snapshot.docs.length, queryTime });
     // 4. Fetch full article data
     const articleIds = snapshot.docs
         .filter(doc => doc.id !== (filters === null || filters === void 0 ? void 0 : filters.excludeArticleId))
@@ -141,7 +189,7 @@ exports.visualSearch = (0, https_1.onCall)({
         const distance = doc.get('__distance__') || 0;
         // Skip results below similarity threshold
         if (distance > VISUAL_SEARCH_MAX_DISTANCE) {
-            console.log(`[visualSearch] Skipping ${doc.id} (distance ${distance.toFixed(3)}, below threshold)`);
+            logger.info('[visualSearch] Skipping result below threshold', { docId: doc.id, distance: distance.toFixed(3) });
             continue;
         }
         const similarity = Math.round((1 - distance) * 100);
@@ -157,7 +205,7 @@ exports.visualSearch = (0, https_1.onCall)({
         });
     }
     const totalTime = Date.now() - startTime;
-    console.log(`[visualSearch] Complete: ${results.length} results in ${totalTime}ms`);
+    logger.info('[visualSearch] Complete', { resultCount: results.length, totalTime });
     return { results };
 });
 /**
@@ -166,8 +214,16 @@ exports.visualSearch = (0, https_1.onCall)({
  * Uses the article's stored embedding to find visually similar items.
  * Falls back gracefully if no embedding exists.
  */
-exports.getSimilarProducts = (0, https_1.onCall)({ invoker: 'public', timeoutSeconds: 30, memory: '512MiB' }, async (request) => {
+exports.getSimilarProducts = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', timeoutSeconds: 30, memory: '512MiB' }, async (request) => {
     var _a, _b;
+    // Rate limiting: protect Vertex AI from abuse
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'getSimilarProducts',
+        maxCallsAuthenticated: RATE_LIMIT_AUTHENTICATED,
+        maxCallsUnauthenticated: RATE_LIMIT_UNAUTHENTICATED,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { articleId, limit = 10, includeScore = false } = request.data;
     if (!articleId) {
         throw new https_1.HttpsError('invalid-argument', 'articleId is required');
@@ -244,7 +300,7 @@ exports.getSimilarProducts = (0, https_1.onCall)({ invoker: 'public', timeoutSec
         }
         results.push(result);
     }
-    console.log(`[getSimilarProducts] ${results.length} results for article ${articleId}`);
+    logger.info('[getSimilarProducts] Complete', { resultCount: results.length, articleId });
     return { results };
 });
 //# sourceMappingURL=search.js.map

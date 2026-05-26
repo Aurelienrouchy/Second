@@ -1,6 +1,7 @@
 import { useNotificationStore } from '@/store/notificationStore';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
+import { useImmersiveOverlayStore } from '@/store/immersiveOverlayStore';
 import { queryClient } from '@/lib/queryClient';
 
 /**
@@ -23,5 +24,6 @@ export function resetAllStores(): void {
   useNotificationStore.getState().reset();
   useAuthStore.getState().reset();
   useChatStore.getState().reset();
+  useImmersiveOverlayStore.getState().reset();
   queryClient.clear();
 }

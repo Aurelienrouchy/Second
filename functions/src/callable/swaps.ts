@@ -413,6 +413,364 @@ export const getActiveSwapPartyInfo = onCall(
   }
 });
 
+// ============================================================
+// SWAP PARTY MANAGEMENT CALLABLES
+// ============================================================
+// These use runTransaction with FieldValue.increment() for atomic
+// counter updates on swapParties (participantsCount, itemsCount).
+// Client-side rules block direct writes to these counter fields.
+// ============================================================
+
+/**
+ * Join a swap party securely -- atomic participant creation + counter increment.
+ * Uses runTransaction to prevent race conditions on participantsCount.
+ */
+export const joinSwapPartySecure = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { partyId, userName, userImage } = request.data;
+
+    if (!partyId || typeof partyId !== 'string') {
+      throw new HttpsError('invalid-argument', 'partyId requis');
+    }
+    if (!userName || typeof userName !== 'string') {
+      throw new HttpsError('invalid-argument', 'userName requis');
+    }
+
+    const userId = request.auth.uid;
+
+    try {
+      const participantId = await db.runTransaction(async (tx) => {
+        // Check the party exists and is joinable
+        const partyRef = db.collection('swapParties').doc(partyId);
+        const partySnap = await tx.get(partyRef);
+        if (!partySnap.exists) {
+          throw new HttpsError('not-found', 'Swap party introuvable');
+        }
+        const partyData = partySnap.data()!;
+        if (!['upcoming', 'active'].includes(partyData.status)) {
+          throw new HttpsError('failed-precondition', 'Cette swap party n\'est plus ouverte');
+        }
+
+        // Check if already joined
+        const existingQuery = await db
+          .collection('swapPartyParticipants')
+          .where('partyId', '==', partyId)
+          .where('userId', '==', userId)
+          .get();
+
+        if (!existingQuery.empty) {
+          // Already joined -- return existing ID without modifying counters
+          return existingQuery.docs[0].id;
+        }
+
+        // Create participant document
+        const participantRef = db.collection('swapPartyParticipants').doc();
+        const participantData: Record<string, any> = {
+          partyId,
+          userId,
+          userName,
+          itemIds: [],
+          joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (userImage && typeof userImage === 'string') {
+          participantData.userImage = userImage;
+        }
+        tx.set(participantRef, participantData);
+
+        // Atomically increment participantsCount
+        tx.update(partyRef, {
+          participantsCount: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return participantRef.id;
+      });
+
+      logger.info('User joined swap party', { partyId, userId });
+      return { participantId, success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error joining swap party', { error: errMsg, partyId, userId });
+      throw new HttpsError('internal', 'Erreur lors de l\'inscription: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Leave a swap party securely -- atomic participant removal + item cleanup + counter decrements.
+ * Uses runTransaction to prevent race conditions on counters.
+ */
+export const leaveSwapPartySecure = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { partyId } = request.data;
+
+    if (!partyId || typeof partyId !== 'string') {
+      throw new HttpsError('invalid-argument', 'partyId requis');
+    }
+
+    const userId = request.auth.uid;
+
+    try {
+      await db.runTransaction(async (tx) => {
+        // Check the party exists
+        const partyRef = db.collection('swapParties').doc(partyId);
+        const partySnap = await tx.get(partyRef);
+        if (!partySnap.exists) {
+          throw new HttpsError('not-found', 'Swap party introuvable');
+        }
+
+        // Find the participant doc
+        const participantQuery = await db
+          .collection('swapPartyParticipants')
+          .where('partyId', '==', partyId)
+          .where('userId', '==', userId)
+          .get();
+
+        if (participantQuery.empty) {
+          // Not a participant -- no-op
+          return;
+        }
+
+        // Find all items this user has in the party
+        const itemsQuery = await db
+          .collection('swapPartyItems')
+          .where('partyId', '==', partyId)
+          .where('sellerId', '==', userId)
+          .get();
+
+        const itemCount = itemsQuery.size;
+
+        // Delete all user's items from the party
+        for (const itemDoc of itemsQuery.docs) {
+          tx.delete(itemDoc.ref);
+        }
+
+        // Delete the participant doc
+        tx.delete(participantQuery.docs[0].ref);
+
+        // Atomically decrement counters
+        const updates: Record<string, any> = {
+          participantsCount: admin.firestore.FieldValue.increment(-1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (itemCount > 0) {
+          updates.itemsCount = admin.firestore.FieldValue.increment(-itemCount);
+        }
+        tx.update(partyRef, updates);
+      });
+
+      logger.info('User left swap party', { partyId, userId });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error leaving swap party', { error: errMsg, partyId, userId });
+      throw new HttpsError('internal', 'Erreur lors du depart: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Add an item to a swap party securely -- atomic item creation + counter increment.
+ * Uses runTransaction to prevent race conditions on itemsCount.
+ */
+export const addItemToPartySecure = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { partyId, articleId, title, price, imageUrl, userName, userImage } = request.data;
+
+    if (!partyId || typeof partyId !== 'string') {
+      throw new HttpsError('invalid-argument', 'partyId requis');
+    }
+    if (!articleId || typeof articleId !== 'string') {
+      throw new HttpsError('invalid-argument', 'articleId requis');
+    }
+    if (!title || typeof title !== 'string') {
+      throw new HttpsError('invalid-argument', 'title requis');
+    }
+    if (typeof price !== 'number' || price < 0) {
+      throw new HttpsError('invalid-argument', 'price invalide');
+    }
+
+    const userId = request.auth.uid;
+
+    try {
+      const itemId = await db.runTransaction(async (tx) => {
+        // Check the party exists and is active/upcoming
+        const partyRef = db.collection('swapParties').doc(partyId);
+        const partySnap = await tx.get(partyRef);
+        if (!partySnap.exists) {
+          throw new HttpsError('not-found', 'Swap party introuvable');
+        }
+        const partyData = partySnap.data()!;
+        if (!['upcoming', 'active'].includes(partyData.status)) {
+          throw new HttpsError('failed-precondition', 'Cette swap party n\'est plus ouverte');
+        }
+
+        // Verify user is a participant
+        const participantQuery = await db
+          .collection('swapPartyParticipants')
+          .where('partyId', '==', partyId)
+          .where('userId', '==', userId)
+          .get();
+
+        if (participantQuery.empty) {
+          throw new HttpsError('failed-precondition', 'Vous devez rejoindre la party avant d\'ajouter un article');
+        }
+
+        // Verify the article exists and belongs to the user
+        const articleRef = db.collection('articles').doc(articleId);
+        const articleSnap = await tx.get(articleRef);
+        if (!articleSnap.exists) {
+          throw new HttpsError('not-found', 'Article introuvable');
+        }
+        const articleData = articleSnap.data()!;
+        if (articleData.sellerId !== userId) {
+          throw new HttpsError('permission-denied', 'Cet article ne vous appartient pas');
+        }
+
+        // Create the party item
+        const itemRef = db.collection('swapPartyItems').doc();
+        const itemData: Record<string, any> = {
+          partyId,
+          articleId,
+          sellerId: userId,
+          sellerName: userName || articleData.sellerName || '',
+          title,
+          price,
+          isSwapped: false,
+          addedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (userImage && typeof userImage === 'string') {
+          itemData.sellerImage = userImage;
+        }
+        if (imageUrl && typeof imageUrl === 'string') {
+          itemData.imageUrl = imageUrl;
+        }
+        tx.set(itemRef, itemData);
+
+        // Update participant's itemIds
+        const participantDoc = participantQuery.docs[0];
+        const currentItems = participantDoc.data().itemIds || [];
+        tx.update(participantDoc.ref, {
+          itemIds: [...currentItems, articleId],
+        });
+
+        // Atomically increment itemsCount on the party
+        tx.update(partyRef, {
+          itemsCount: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return itemRef.id;
+      });
+
+      logger.info('Item added to swap party', { partyId, articleId, userId });
+      return { itemId, success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error adding item to party', { error: errMsg, partyId, articleId, userId });
+      throw new HttpsError('internal', 'Erreur lors de l\'ajout: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Remove an item from a swap party securely -- atomic item deletion + counter decrement.
+ * Uses runTransaction to prevent race conditions on itemsCount.
+ */
+export const removeItemFromPartySecure = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '256MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { partyId, articleId } = request.data;
+
+    if (!partyId || typeof partyId !== 'string') {
+      throw new HttpsError('invalid-argument', 'partyId requis');
+    }
+    if (!articleId || typeof articleId !== 'string') {
+      throw new HttpsError('invalid-argument', 'articleId requis');
+    }
+
+    const userId = request.auth.uid;
+
+    try {
+      await db.runTransaction(async (tx) => {
+        // Check the party exists
+        const partyRef = db.collection('swapParties').doc(partyId);
+        const partySnap = await tx.get(partyRef);
+        if (!partySnap.exists) {
+          throw new HttpsError('not-found', 'Swap party introuvable');
+        }
+
+        // Find the item
+        const itemQuery = await db
+          .collection('swapPartyItems')
+          .where('partyId', '==', partyId)
+          .where('articleId', '==', articleId)
+          .where('sellerId', '==', userId)
+          .get();
+
+        if (itemQuery.empty) {
+          // Item not found -- no-op
+          return;
+        }
+
+        // Delete the item
+        tx.delete(itemQuery.docs[0].ref);
+
+        // Update participant's itemIds
+        const participantQuery = await db
+          .collection('swapPartyParticipants')
+          .where('partyId', '==', partyId)
+          .where('userId', '==', userId)
+          .get();
+
+        if (!participantQuery.empty) {
+          const participantDoc = participantQuery.docs[0];
+          const currentItems = participantDoc.data().itemIds || [];
+          tx.update(participantDoc.ref, {
+            itemIds: currentItems.filter((id: string) => id !== articleId),
+          });
+        }
+
+        // Atomically decrement itemsCount on the party
+        tx.update(partyRef, {
+          itemsCount: admin.firestore.FieldValue.increment(-1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+
+      logger.info('Item removed from swap party', { partyId, articleId, userId });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error removing item from party', { error: errMsg, partyId, articleId, userId });
+      throw new HttpsError('internal', 'Erreur lors du retrait: ' + errMsg);
+    }
+  }
+);
+
 /**
  * Get swap party leaderboard (top swappers)
  */
@@ -479,3 +837,575 @@ export const getSwapPartyLeaderboard = onCall(
     throw new HttpsError('internal', 'Failed to get leaderboard: ' + message);
   }
 });
+
+// ============================================================
+// POST-ACCEPTANCE SWAP LIFECYCLE CALLABLES
+// ============================================================
+// These operations MUST run server-side because firestore.rules
+// only allows ['status','updatedAt','declinedBy','declinedAt','completedAt']
+// for client writes on swaps. All other field writes (exchangeMode,
+// photos, shipping, reception, rating) go through Admin SDK here.
+// ============================================================
+
+/**
+ * Helper: release all party items (isPending = false) for both sides of a swap.
+ * Called after decline/cancel when the swap has a partyId.
+ */
+async function releasePartyItems(swap: FirebaseFirestore.DocumentData): Promise<void> {
+  if (!swap.partyId) return;
+
+  const partyItemsRef = db.collection('swapPartyItems');
+
+  const initiatorItems = getSwapItems(swap, 'initiator');
+  for (const item of initiatorItems) {
+    const q = await partyItemsRef
+      .where('partyId', '==', swap.partyId)
+      .where('articleId', '==', item.articleId)
+      .where('sellerId', '==', swap.initiatorId)
+      .get();
+    for (const d of q.docs) {
+      await d.ref.update({ isPending: false });
+    }
+  }
+
+  const receiverItems = getSwapItems(swap, 'receiver');
+  for (const item of receiverItems) {
+    const q = await partyItemsRef
+      .where('partyId', '==', swap.partyId)
+      .where('articleId', '==', item.articleId)
+      .where('sellerId', '==', swap.receiverId)
+      .get();
+    for (const d of q.docs) {
+      await d.ref.update({ isPending: false });
+    }
+  }
+}
+
+/**
+ * Decline a swap — either participant can decline while status is 'proposed'.
+ * Uses runTransaction to guard the status transition.
+ * Releases party items if the swap belongs to a party.
+ */
+export const declineSwap = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+
+    try {
+      const swapData = await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+
+        // Auth: must be a participant
+        if (swap.initiatorId !== request.auth!.uid && swap.receiverId !== request.auth!.uid) {
+          throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+        }
+
+        // Status must be 'proposed'
+        if (swap.status !== 'proposed') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible de décliner un échange en statut "${swap.status}"`
+          );
+        }
+
+        tx.update(swapRef, {
+          status: 'declined',
+          declinedBy: request.auth!.uid,
+          declinedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return swap;
+      });
+
+      // Release party items AFTER transaction (non-critical side-effect)
+      await releasePartyItems(swapData);
+
+      logger.info('Swap declined', { swapId, userId: request.auth.uid });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error declining swap', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors du refus: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Cancel a swap — ONLY the initiator can cancel while status is 'proposed'.
+ * Uses runTransaction to guard the status transition.
+ * Releases party items if the swap belongs to a party.
+ */
+export const cancelSwap = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+
+    try {
+      const swapData = await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+
+        // Auth: ONLY the initiator can cancel
+        if (swap.initiatorId !== request.auth!.uid) {
+          throw new HttpsError('permission-denied', 'Seul l\'initiateur peut annuler cet échange');
+        }
+
+        // Status must be 'proposed'
+        if (swap.status !== 'proposed') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible d'annuler un échange en statut "${swap.status}"`
+          );
+        }
+
+        tx.update(swapRef, {
+          status: 'cancelled',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return swap;
+      });
+
+      // Release party items AFTER transaction (non-critical side-effect)
+      await releasePartyItems(swapData);
+
+      logger.info('Swap cancelled', { swapId, userId: request.auth.uid });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error cancelling swap', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de l\'annulation: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Set exchange mode for an accepted swap.
+ * Transitions status from 'accepted' to 'photos_pending'.
+ * Uses runTransaction to guard the status transition.
+ */
+export const setSwapExchangeMode = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId, exchangeMode } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+    if (!exchangeMode || typeof exchangeMode !== 'string') {
+      throw new HttpsError('invalid-argument', 'exchangeMode requis');
+    }
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+
+        // Auth: must be a participant
+        if (swap.initiatorId !== request.auth!.uid && swap.receiverId !== request.auth!.uid) {
+          throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+        }
+
+        // Status must be 'accepted'
+        if (swap.status !== 'accepted') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible de définir le mode d'échange en statut "${swap.status}"`
+          );
+        }
+
+        tx.update(swapRef, {
+          exchangeMode,
+          status: 'photos_pending',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+
+      logger.info('Swap exchange mode set', { swapId, exchangeMode, userId: request.auth.uid });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error setting swap exchange mode', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de la définition du mode: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Upload photo proof for a swap.
+ * Writes initiatorPhotos or receiverPhotos depending on the caller.
+ * If BOTH sides have uploaded, transitions to status 'shipping'.
+ * Uses runTransaction to safely check the "both uploaded" condition.
+ */
+export const uploadSwapPhotos = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId, photoUrls } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+    if (!Array.isArray(photoUrls) || photoUrls.length === 0) {
+      throw new HttpsError('invalid-argument', 'photoUrls requis (tableau non vide)');
+    }
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+        const uid = request.auth!.uid;
+
+        // Auth: must be a participant
+        if (swap.initiatorId !== uid && swap.receiverId !== uid) {
+          throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+        }
+
+        // Status must be 'photos_pending'
+        if (swap.status !== 'photos_pending') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible d'uploader des photos en statut "${swap.status}"`
+          );
+        }
+
+        const photoProof = {
+          userId: uid,
+          photos: photoUrls,
+          uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+          isValidated: false,
+        };
+
+        const updateData: Record<string, any> = {
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        const isInitiator = swap.initiatorId === uid;
+
+        if (isInitiator) {
+          updateData.initiatorPhotos = photoProof;
+        } else {
+          updateData.receiverPhotos = photoProof;
+        }
+
+        // Check if BOTH sides will have photos after this write
+        const otherSideHasPhotos = isInitiator ? !!swap.receiverPhotos : !!swap.initiatorPhotos;
+        if (otherSideHasPhotos) {
+          updateData.status = 'shipping';
+        }
+
+        tx.update(swapRef, updateData);
+      });
+
+      logger.info('Swap photos uploaded', { swapId, userId: request.auth.uid });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error uploading swap photos', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de l\'upload des photos: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Confirm shipping for a swap — participant confirms they sent their package.
+ * Writes initiatorShippedAt or receiverShippedAt.
+ * Uses runTransaction for consistency.
+ */
+export const confirmSwapShipping = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+        const uid = request.auth!.uid;
+
+        // Auth: must be a participant
+        if (swap.initiatorId !== uid && swap.receiverId !== uid) {
+          throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+        }
+
+        const updateData: Record<string, any> = {
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        if (swap.initiatorId === uid) {
+          updateData.initiatorShippedAt = admin.firestore.FieldValue.serverTimestamp();
+        } else {
+          updateData.receiverShippedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+
+        tx.update(swapRef, updateData);
+      });
+
+      logger.info('Swap shipping confirmed', { swapId, userId: request.auth.uid });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error confirming swap shipping', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de la confirmation d\'envoi: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Confirm reception for a swap — participant confirms they received the other's package.
+ * Writes initiatorReceivedAt or receiverReceivedAt.
+ * If BOTH sides have received, transitions to 'completed' + sets completedAt.
+ * Also marks party items as isSwapped and increments party swapsCount if applicable.
+ * Uses runTransaction for the status transition check.
+ */
+export const confirmSwapReception = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+
+    try {
+      const swapData = await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+        const uid = request.auth!.uid;
+
+        // Auth: must be a participant
+        if (swap.initiatorId !== uid && swap.receiverId !== uid) {
+          throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+        }
+
+        const updateData: Record<string, any> = {
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        const isInitiator = swap.initiatorId === uid;
+
+        if (isInitiator) {
+          updateData.initiatorReceivedAt = admin.firestore.FieldValue.serverTimestamp();
+        } else {
+          updateData.receiverReceivedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+
+        // Check if BOTH sides will have received after this write
+        const otherSideReceived = isInitiator ? !!swap.receiverReceivedAt : !!swap.initiatorReceivedAt;
+        if (otherSideReceived) {
+          updateData.status = 'completed';
+          updateData.completedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+
+        tx.update(swapRef, updateData);
+
+        return {
+          bothReceived: otherSideReceived,
+          partyId: swap.partyId as string | undefined,
+          initiatorId: swap.initiatorId as string,
+          receiverId: swap.receiverId as string,
+          swap,
+        };
+      });
+
+      // If completed and has a partyId, mark items as swapped + increment count
+      if (swapData.bothReceived && swapData.partyId) {
+        const partyItemsRef = db.collection('swapPartyItems');
+
+        // Mark initiator items as swapped
+        const initiatorItems = getSwapItems(swapData.swap, 'initiator');
+        for (const item of initiatorItems) {
+          const q = await partyItemsRef
+            .where('partyId', '==', swapData.partyId)
+            .where('articleId', '==', item.articleId)
+            .where('sellerId', '==', swapData.initiatorId)
+            .get();
+          for (const d of q.docs) {
+            await d.ref.update({ isSwapped: true });
+          }
+        }
+
+        // Mark receiver items as swapped
+        const receiverItems = getSwapItems(swapData.swap, 'receiver');
+        for (const item of receiverItems) {
+          const q = await partyItemsRef
+            .where('partyId', '==', swapData.partyId)
+            .where('articleId', '==', item.articleId)
+            .where('sellerId', '==', swapData.receiverId)
+            .get();
+          for (const d of q.docs) {
+            await d.ref.update({ isSwapped: true });
+          }
+        }
+
+        // Increment swapsCount on the party
+        const partyRef = db.collection('swapParties').doc(swapData.partyId);
+        const partySnap = await partyRef.get();
+        if (partySnap.exists) {
+          await partyRef.update({
+            swapsCount: (partySnap.data()?.swapsCount || 0) + 1,
+          });
+        }
+      }
+
+      logger.info('Swap reception confirmed', {
+        swapId,
+        userId: request.auth.uid,
+        completed: swapData.bothReceived,
+      });
+      return { success: true, completed: swapData.bothReceived };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error confirming swap reception', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de la confirmation de réception: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Rate a completed swap — participant rates the exchange.
+ * Writes initiatorRating or receiverRating.
+ * Uses runTransaction to verify status == 'completed'.
+ */
+export const rateSwap = onCall(
+  { region: 'northamerica-northeast1', invoker: 'private' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    const { swapId, score, comment } = request.data;
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+    if (typeof score !== 'number' || score < 1 || score > 5) {
+      throw new HttpsError('invalid-argument', 'score requis (1-5)');
+    }
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+
+        const swap = swapSnap.data()!;
+        const uid = request.auth!.uid;
+
+        // Auth: must be a participant
+        if (swap.initiatorId !== uid && swap.receiverId !== uid) {
+          throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+        }
+
+        // Status must be 'completed'
+        if (swap.status !== 'completed') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible de noter un échange en statut "${swap.status}"`
+          );
+        }
+
+        // Build rating object, excluding comment if not provided
+        const rating: Record<string, any> = { score };
+        if (comment != null && typeof comment === 'string' && comment.trim().length > 0) {
+          rating.comment = comment.trim();
+        }
+
+        const updateData: Record<string, any> = {
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        if (swap.initiatorId === uid) {
+          updateData.initiatorRating = rating;
+        } else {
+          updateData.receiverRating = rating;
+        }
+
+        tx.update(swapRef, updateData);
+      });
+
+      logger.info('Swap rated', { swapId, score, userId: request.auth.uid });
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error rating swap', { error: errMsg, swapId });
+      throw new HttpsError('internal', 'Erreur lors de la notation: ' + errMsg);
+    }
+  }
+);

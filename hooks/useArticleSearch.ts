@@ -1,9 +1,15 @@
-import { ArticlesService } from '@/services/articlesService';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { QueryDocumentSnapshot } from 'firebase/firestore';
+import { useCallback, useMemo, useState } from 'react';
+
 import { useDebounce } from '@/hooks/useDebounce';
+import { queryKeys } from '@/lib/queryKeys';
+import { ArticlesService } from '@/services/articlesService';
 import { Article, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const SEARCH_DEBOUNCE_MS = 350;
+const PAGE_SIZE = 20;
+const SEARCH_STALE_TIME = 5 * 60 * 1000;
 
 interface GeolocationCenter {
   lat: number;
@@ -15,19 +21,21 @@ interface UseArticleSearchArgs {
   initialQuery?: string;
   initialCategoryPath?: string[];
   center?: GeolocationCenter;
-  enableRetry?: boolean;
-  maxRetries?: number;
   excludeUserId?: string;
 }
 
-// Utility function to calculate distance between two points (Haversine formula)
+interface SearchPage {
+  articles: Article[];
+  lastVisible: QueryDocumentSnapshot | null;
+}
+
 const calculateDistance = (
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number
 ): number => {
-  const R = 6371; // Earth's radius in kilometers
+  const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
@@ -40,237 +48,180 @@ const calculateDistance = (
   return R * c;
 };
 
-// Retry utility with exponential backoff
-const retryWithBackoff = async <T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelay: number = 1000
-): Promise<T> => {
-  let lastError: Error;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-      
-      if (attempt === maxRetries) {
-        throw lastError;
+function transformArticlesWithLocation(
+  articles: Article[],
+  center?: GeolocationCenter
+): ArticleWithLocation[] {
+  return articles.map((article) => {
+    const { location: articleLocation, ...restArticle } = article;
+    const articleWithLocation: ArticleWithLocation = restArticle;
+
+    if (center && articleLocation && typeof articleLocation === 'object') {
+      const location = articleLocation as { lat?: number; lon?: number; address?: string };
+      if (location.lat && location.lon) {
+        const distance = calculateDistance(
+          center.lat,
+          center.lon,
+          location.lat,
+          location.lon
+        );
+        articleWithLocation.location = {
+          lat: location.lat,
+          lon: location.lon,
+          distance,
+          address: location.address,
+        };
       }
-      
-      // Exponential backoff with jitter
-      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
-      await new Promise(resolve => setTimeout(resolve, delay));
     }
-  }
-  
-  throw lastError!;
+
+    return articleWithLocation;
+  });
+}
+
+function sortArticles(
+  articles: ArticleWithLocation[],
+  sortBy: SortBy | undefined,
+  center?: GeolocationCenter
+): ArticleWithLocation[] {
+  return [...articles].sort((a, b) => {
+    if (center && a.location?.distance !== undefined && b.location?.distance !== undefined) {
+      const distanceDiff = a.location.distance - b.location.distance;
+      if (Math.abs(distanceDiff) > 0.1) {
+        return distanceDiff;
+      }
+    }
+
+    if (sortBy === 'price_asc' && a.price !== undefined && b.price !== undefined) {
+      return a.price - b.price;
+    }
+    if (sortBy === 'price_desc' && a.price !== undefined && b.price !== undefined) {
+      return b.price - a.price;
+    }
+    if (sortBy === 'popular') {
+      return (b.likes || 0) - (a.likes || 0);
+    }
+
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+}
+
+const DEFAULT_FILTERS: SearchFilters = {
+  colors: [],
+  sizes: [],
+  materials: [],
+  condition: undefined,
+  minPrice: undefined,
+  maxPrice: undefined,
+  brands: [],
+  patterns: [],
+  sortBy: 'recent',
 };
 
-export function useArticleSearch({ 
-  initialFilters, 
-  initialQuery, 
+export function useArticleSearch({
+  initialFilters,
+  initialQuery,
   initialCategoryPath,
   center,
-  enableRetry = true,
-  maxRetries = 3,
-  excludeUserId
+  excludeUserId,
 }: UseArticleSearchArgs = {}) {
   const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
-  // Debounced view of the query — used in the effect that triggers Firestore
-  // reads + in service calls. The raw `searchQuery` stays for input binding
-  // so typing remains snappy.
   const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
-  const [selectedCategoryPath, setSelectedCategoryPath] = useState<string[]>(initialCategoryPath || []);
+
+  const [selectedCategoryPath, setSelectedCategoryPath] = useState<string[]>(
+    initialCategoryPath || []
+  );
   const [filters, setFilters] = useState<SearchFilters>({
-    colors: [],
-    sizes: [],
-    materials: [],
-    condition: undefined,
-    minPrice: undefined,
-    maxPrice: undefined,
-    brands: [],
-    patterns: [],
-    sortBy: 'recent',
+    ...DEFAULT_FILTERS,
     ...(initialFilters || {}),
   } as SearchFilters);
 
-  const [articles, setArticles] = useState<ArticleWithLocation[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isPaginating, setIsPaginating] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const lastVisibleRef = useRef<any | null>(null);
+  const searchFilters = useMemo(
+    () => ({
+      category: undefined,
+      categoryIds:
+        selectedCategoryPath.length > 0 ? selectedCategoryPath : undefined,
+      colors: filters.colors ?? [],
+      sizes: filters.sizes ?? [],
+      materials: filters.materials ?? [],
+      condition: filters.condition,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      brands: filters.brands ?? [],
+      patterns: filters.patterns ?? [],
+      sortBy: filters.sortBy as SortBy | undefined,
+      excludeUserId,
+    }),
+    [filters, selectedCategoryPath, excludeUserId]
+  );
 
-  const hasActiveFilters = useMemo(() => (
-    (filters.colors?.length ?? 0) > 0 ||
-    (filters.sizes?.length ?? 0) > 0 ||
-    (filters.materials?.length ?? 0) > 0 ||
-    (filters.brands?.length ?? 0) > 0 ||
-    (filters.patterns?.length ?? 0) > 0 ||
-    !!filters.condition ||
-    filters.minPrice !== undefined ||
-    filters.maxPrice !== undefined ||
-    !!filters.sortBy ||
-    selectedCategoryPath.length > 0
-  ), [filters, selectedCategoryPath]);
+  const queryKey = useMemo(
+    () =>
+      queryKeys.articles.search({
+        query: debouncedSearchQuery.trim(),
+        categoryPath: selectedCategoryPath,
+        filters: searchFilters as unknown as Record<string, unknown>,
+        excludeUserId,
+      }),
+    [debouncedSearchQuery, selectedCategoryPath, searchFilters, excludeUserId]
+  );
 
-  const buildSearchFilters = useCallback(() => ({
-    category: undefined, // Legacy: we don't use string path anymore
-    categoryIds: selectedCategoryPath.length > 0 ? selectedCategoryPath : undefined, // Use array of IDs
-    colors: filters.colors ?? [],
-    sizes: filters.sizes ?? [],
-    materials: filters.materials ?? [],
-    condition: filters.condition,
-    minPrice: filters.minPrice,
-    maxPrice: filters.maxPrice,
-    brands: filters.brands ?? [],
-    patterns: filters.patterns ?? [],
-    sortBy: filters.sortBy as SortBy | undefined,
-    excludeUserId: excludeUserId,
-  }), [filters, selectedCategoryPath, excludeUserId]);
-
-  // Transform articles with geolocation data
-  const transformArticlesWithLocation = useCallback((articles: Article[]): ArticleWithLocation[] => {
-    return articles.map(article => {
-      const { location: articleLocation, ...restArticle } = article;
-      const articleWithLocation: ArticleWithLocation = restArticle;
-      
-      // Calculate distance if center is provided and article has location
-      if (center && articleLocation && typeof articleLocation === 'object') {
-        const location = articleLocation as any;
-        if (location.lat && location.lon) {
-          const distance = calculateDistance(
-            center.lat,
-            center.lon,
-            location.lat,
-            location.lon
-          );
-          articleWithLocation.location = {
-            lat: location.lat,
-            lon: location.lon,
-            distance,
-            address: location.address,
-          };
-        }
-      }
-      
-      return articleWithLocation;
-    });
-  }, [center]);
-
-  // Sort articles based on criteria
-  const sortArticles = useCallback((articles: ArticleWithLocation[]): ArticleWithLocation[] => {
-    return [...articles].sort((a, b) => {
-      // If we have geolocation, sort by distance first
-      if (center && a.location?.distance !== undefined && b.location?.distance !== undefined) {
-        const distanceDiff = a.location.distance - b.location.distance;
-        if (Math.abs(distanceDiff) > 0.1) { // 100m threshold
-          return distanceDiff;
-        }
-      }
-
-      // Fallback to creation date (newest first) or sortBy preference
-      if (filters.sortBy === 'price_asc' && a.price !== undefined && b.price !== undefined) {
-        return a.price - b.price;
-      }
-      if (filters.sortBy === 'price_desc' && a.price !== undefined && b.price !== undefined) {
-        return b.price - a.price;
-      }
-      if (filters.sortBy === 'popular') {
-        return (b.likes || 0) - (a.likes || 0);
-      }
-      
-      // Default: recent
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
-  }, [center, filters.sortBy]);
-
-  const search = useCallback(async (reset: boolean = true) => {
-    if (reset) {
-      lastVisibleRef.current = null;
-      setArticles([]);
-    }
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const fetchFn = async () => {
-        return await ArticlesService.searchArticles(
-          debouncedSearchQuery.trim() || undefined,
-          buildSearchFilters(),
-          20,
-          reset ? undefined : lastVisibleRef.current || undefined
-        );
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+    error: queryError,
+  } = useInfiniteQuery<SearchPage, Error>({
+    queryKey,
+    queryFn: async ({ pageParam }) => {
+      const cursor = pageParam as QueryDocumentSnapshot | undefined;
+      const result = await ArticlesService.searchArticles(
+        debouncedSearchQuery.trim() || undefined,
+        searchFilters,
+        PAGE_SIZE,
+        cursor
+      );
+      return {
+        articles: result.articles,
+        lastVisible: result.lastVisible,
       };
+    },
+    initialPageParam: undefined as QueryDocumentSnapshot | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.lastVisible ? lastPage.lastVisible : undefined,
+    staleTime: SEARCH_STALE_TIME,
+    retry: 3,
+  });
 
-      // Apply retry logic if enabled
-      const { articles: results, lastVisible } = enableRetry
-        ? await retryWithBackoff(fetchFn, maxRetries)
-        : await fetchFn();
+  const articles = useMemo(() => {
+    if (!data?.pages) return [];
+    const flat = data.pages.flatMap((page) => page.articles);
+    const transformed = transformArticlesWithLocation(flat, center);
+    return sortArticles(transformed, filters.sortBy, center);
+  }, [data, center, filters.sortBy]);
 
-      // Transform articles with geolocation
-      const transformedArticles = transformArticlesWithLocation(results);
-
-      // Sort articles (including by distance if center is provided)
-      const sortedArticles = sortArticles(transformedArticles);
-
-      setArticles(prev => reset ? sortedArticles : [...prev, ...sortedArticles]);
-      lastVisibleRef.current = lastVisible;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
-      setError(errorMessage);
-      if (__DEV__) console.error('Error searching articles:', error);
-    } finally {
-      setIsLoading(false);
+  const loadMore = useCallback(() => {
+    if (!isFetchingNextPage && hasNextPage) {
+      fetchNextPage();
     }
-  }, [debouncedSearchQuery, buildSearchFilters, enableRetry, maxRetries, transformArticlesWithLocation, sortArticles]);
+  }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  const loadMore = useCallback(async () => {
-    if (isPaginating || isLoading || !lastVisibleRef.current) return;
-    setIsPaginating(true);
-    setError(null);
-    
-    try {
-      const fetchFn = async () => {
-        return await ArticlesService.searchArticles(
-          searchQuery.trim() || undefined,
-          buildSearchFilters(),
-          20,
-          lastVisibleRef.current
-        );
-      };
+  const hasActiveFilters = useMemo(
+    () =>
+      (filters.colors?.length ?? 0) > 0 ||
+      (filters.sizes?.length ?? 0) > 0 ||
+      (filters.materials?.length ?? 0) > 0 ||
+      (filters.brands?.length ?? 0) > 0 ||
+      (filters.patterns?.length ?? 0) > 0 ||
+      !!filters.condition ||
+      filters.minPrice !== undefined ||
+      filters.maxPrice !== undefined ||
+      !!filters.sortBy ||
+      selectedCategoryPath.length > 0,
+    [filters, selectedCategoryPath]
+  );
 
-      // Apply retry logic if enabled
-      const { articles: results, lastVisible } = enableRetry
-        ? await retryWithBackoff(fetchFn, maxRetries)
-        : await fetchFn();
-
-      if (results.length > 0) {
-        // Transform articles with geolocation
-        const transformedArticles = transformArticlesWithLocation(results);
-
-        // Sort articles (including by distance if center is provided)
-        const sortedArticles = sortArticles(transformedArticles);
-
-        setArticles(prev => [...prev, ...sortedArticles]);
-        lastVisibleRef.current = lastVisible;
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
-      setError(errorMessage);
-      if (__DEV__) console.error('Error loading more articles:', error);
-    } finally {
-      setIsPaginating(false);
-    }
-  }, [isLoading, isPaginating, debouncedSearchQuery, buildSearchFilters, enableRetry, maxRetries, transformArticlesWithLocation, sortArticles]);
-
-  // Re-run search when filters or the *debounced* query change. The raw
-  // searchQuery typing doesn't trigger Firestore reads anymore.
-  useEffect(() => {
-    search(true);
-  }, [filters, selectedCategoryPath, debouncedSearchQuery]);
-
-  // Safe setter that merges partial filters with defaults
   const setFiltersSafe = useCallback((partial: Partial<SearchFilters>) => {
     setFilters({
       colors: partial.colors ?? [],
@@ -286,55 +237,59 @@ export function useArticleSearch({
   }, []);
 
   const clearAllFilters = useCallback(() => {
-    setFilters({
-      colors: [],
-      sizes: [],
-      materials: [],
-      condition: undefined,
-      minPrice: undefined,
-      maxPrice: undefined,
-      brands: [],
-      patterns: [],
-      sortBy: 'recent',
-    });
+    setFilters({ ...DEFAULT_FILTERS });
   }, []);
 
-  const handleFilterRemove = useCallback((filterType: keyof SearchFilters, value?: string) => {
-    if (filterType === 'colors' && value) {
-      setFilters(prev => ({ ...prev, colors: (prev.colors ?? []).filter(c => c !== value) }));
-    } else if (filterType === 'sizes' && value) {
-      setFilters(prev => ({ ...prev, sizes: (prev.sizes ?? []).filter(s => s !== value) }));
-    } else if (filterType === 'materials' && value) {
-      setFilters(prev => ({ ...prev, materials: (prev.materials ?? []).filter(m => m !== value) }));
-    } else if (filterType === 'brands' && value) {
-      setFilters(prev => ({ ...prev, brands: (prev.brands ?? []).filter(b => b !== value) }));
-    } else if (filterType === 'patterns' && value) {
-      setFilters(prev => ({ ...prev, patterns: (prev.patterns ?? []).filter(p => p !== value) }));
-    } else if (filterType === 'condition') {
-      setFilters(prev => ({ ...prev, condition: undefined }));
-    } else if (filterType === 'minPrice') {
-      setFilters(prev => ({ ...prev, minPrice: undefined }));
-    } else if (filterType === 'maxPrice') {
-      setFilters(prev => ({ ...prev, maxPrice: undefined }));
-    }
-  }, []);
+  const handleFilterRemove = useCallback(
+    (filterType: keyof SearchFilters, value?: string) => {
+      if (filterType === 'colors' && value) {
+        setFilters((prev) => ({
+          ...prev,
+          colors: (prev.colors ?? []).filter((c) => c !== value),
+        }));
+      } else if (filterType === 'sizes' && value) {
+        setFilters((prev) => ({
+          ...prev,
+          sizes: (prev.sizes ?? []).filter((s) => s !== value),
+        }));
+      } else if (filterType === 'materials' && value) {
+        setFilters((prev) => ({
+          ...prev,
+          materials: (prev.materials ?? []).filter((m) => m !== value),
+        }));
+      } else if (filterType === 'brands' && value) {
+        setFilters((prev) => ({
+          ...prev,
+          brands: (prev.brands ?? []).filter((b) => b !== value),
+        }));
+      } else if (filterType === 'patterns' && value) {
+        setFilters((prev) => ({
+          ...prev,
+          patterns: (prev.patterns ?? []).filter((p) => p !== value),
+        }));
+      } else if (filterType === 'condition') {
+        setFilters((prev) => ({ ...prev, condition: undefined }));
+      } else if (filterType === 'minPrice') {
+        setFilters((prev) => ({ ...prev, minPrice: undefined }));
+      } else if (filterType === 'maxPrice') {
+        setFilters((prev) => ({ ...prev, maxPrice: undefined }));
+      }
+    },
+    []
+  );
 
   return {
-    // state
     articles,
     filters,
     searchQuery,
     selectedCategoryPath,
     isLoading,
-    isPaginating,
+    isPaginating: isFetchingNextPage,
     hasActiveFilters,
-    error,
-    // setters
+    error: queryError ? queryError.message : null,
     setFilters: setFiltersSafe,
     setSearchQuery,
     setSelectedCategoryPath,
-    // actions
-    search,
     loadMore,
     clearAllFilters,
     handleFilterRemove,
@@ -343,44 +298,9 @@ export function useArticleSearch({
 
 export type UseArticleSearchReturn = ReturnType<typeof useArticleSearch>;
 
-// Hook for getting user's current location
-// Note: Install expo-location and uncomment implementation when needed
 export const useUserLocation = () => {
   const [location, setLocation] = useState<GeolocationCenter | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // TODO: Implement with expo-location
-    // const getCurrentLocation = async () => {
-    //   try {
-    //     const { status } = await Location.requestForegroundPermissionsAsync();
-    //     if (status !== 'granted') {
-    //       setLocationError('Permission de localisation refusée');
-    //       return;
-    //     }
-    //
-    //     const currentLocation = await Location.getCurrentPositionAsync({
-    //       accuracy: Location.Accuracy.Balanced,
-    //     });
-    //
-    //     setLocation({
-    //       lat: currentLocation.coords.latitude,
-    //       lon: currentLocation.coords.longitude,
-    //     });
-    //   } catch (error) {
-    //     setLocationError('Impossible d\'obtenir la localisation');
-    //     console.error('Location error:', error);
-    //   }
-    // };
-    //
-    // getCurrentLocation();
-
-    // For now, return null location (no geolocation sorting)
-    setLocation(null);
-  }, []);
-
   return { location, locationError };
 };
-
-
-

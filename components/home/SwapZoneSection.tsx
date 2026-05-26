@@ -17,12 +17,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeInDown,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
-import { colors, spacing, typography, radius, animations, sizing, fonts } from '@/constants/theme';
+import { colors, spacing, typography, radius, sizing, fonts } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -123,11 +124,11 @@ const ActivePartyCard: React.FC<ActivePartyCardProps> = ({ party, onPress }) => 
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, animations.spring.snappy);
+    scale.value = withTiming(0.97, { duration: 150, easing: Easing.out(Easing.ease) });
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   };
 
   const handlePress = () => {
@@ -219,11 +220,11 @@ const UpcomingPartyCard: React.FC<UpcomingPartyCardProps> = ({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, animations.spring.snappy);
+    scale.value = withTiming(0.97, { duration: 150, easing: Easing.out(Easing.ease) });
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   };
 
   const handlePress = () => {

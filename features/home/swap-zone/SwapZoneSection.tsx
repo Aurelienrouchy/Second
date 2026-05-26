@@ -35,11 +35,6 @@ const SwapZoneWrapperComponent: React.FC = () => {
     router.push('/swap-parties');
   }, []);
 
-  // Don't render if no data and not loading
-  if (!isLoading && !hasActive && !nextParty) {
-    return null;
-  }
-
   return (
     <View style={styles.swapZoneContainer}>
       <View style={styles.swapZoneHeader}>
@@ -47,15 +42,29 @@ const SwapZoneWrapperComponent: React.FC = () => {
           Swap <Text style={styles.swapZoneTitleAccent}>Zone</Text>
         </Text>
       </View>
-      <SwapZoneSectionUI
-        hasActiveParty={hasActive}
-        activeParty={activeParty || undefined}
-        nextParty={nextParty || undefined}
-        isLoading={isLoading}
-        onActivePress={handleActivePress}
-        onUpcomingPress={handleUpcomingPress}
-        onNotifyPress={undefined}
-      />
+      {hasActive || nextParty || isLoading ? (
+        <SwapZoneSectionUI
+          hasActiveParty={hasActive}
+          activeParty={activeParty || undefined}
+          nextParty={nextParty || undefined}
+          isLoading={isLoading}
+          onActivePress={handleActivePress}
+          onUpcomingPress={handleUpcomingPress}
+          onNotifyPress={undefined}
+        />
+      ) : (
+        <Pressable
+          style={styles.emptyCard}
+          onPress={() => router.push('/swap-parties')}
+        >
+          <Text style={styles.emptyCardTitle}>
+            Pas de Swap Zone active
+          </Text>
+          <Text style={styles.emptyCardSubtitle}>
+            Les Swap Zones permettent d'échanger tes articles avec d'autres membres. Reviens bientôt !
+          </Text>
+        </Pressable>
+      )}
       <Pressable
         style={styles.swapZoneLink}
         onPress={() => router.push('/swap-parties')}
@@ -106,6 +115,29 @@ const styles = StyleSheet.create({
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.rust,
+  },
+  emptyCard: {
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 240, 232, 0.2)',
+    borderStyle: 'dashed',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  emptyCardTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 16,
+    color: colors.cream,
+    marginBottom: spacing.sm,
+  },
+  emptyCardSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: 'rgba(245, 240, 232, 0.6)',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

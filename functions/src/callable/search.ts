@@ -6,8 +6,10 @@
  * - getSimilarProducts: Find similar articles by articleId embedding
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as logger from 'firebase-functions/logger';
 import { PredictionServiceClient, helpers } from '@google-cloud/aiplatform';
 import { db, FieldValue } from '../config/firebase';
+import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 
 // Vertex AI configuration (same as triggers/embeddings.ts)
 const VERTEX_PROJECT = process.env.GCLOUD_PROJECT || 'seconde-b47a6';
@@ -19,6 +21,11 @@ const EMBEDDING_MODEL = 'multimodalembedding@001';
 // similarity% = (1 - distance) * 100
 const VISUAL_SEARCH_MAX_DISTANCE = 0.55;   // ~45% min similarity
 const SIMILAR_PRODUCTS_MAX_DISTANCE = 0.60; // ~40% min similarity (more lenient)
+
+// Rate limiting: protect Vertex AI from abuse
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_AUTHENTICATED = 20;     // 20 req/min for authenticated users
+const RATE_LIMIT_UNAUTHENTICATED = 5;    // 5 req/min for unauthenticated users
 
 // Vertex AI client (singleton)
 let vertexClient: PredictionServiceClient | null = null;
@@ -60,7 +67,7 @@ async function generateQueryEmbedding(imageBase64: string): Promise<number[] | n
 
     return values.map((v: { numberValue?: number | null }) => v.numberValue || 0);
   } catch (error) {
-    console.error('[visualSearch] Embedding generation error:', error);
+    logger.error('[visualSearch] Embedding generation error', { error });
     return null;
   }
 }
@@ -79,6 +86,15 @@ export const visualSearch = onCall(
     memory: '512MiB',
   },
   async (request) => {
+    // Rate limiting: protect Vertex AI from abuse
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'visualSearch',
+      maxCallsAuthenticated: RATE_LIMIT_AUTHENTICATED,
+      maxCallsUnauthenticated: RATE_LIMIT_UNAUTHENTICATED,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const { imageBase64, filters, limit = 20 } = request.data;
 
     if (!imageBase64) {
@@ -88,7 +104,7 @@ export const visualSearch = onCall(
     const startTime = Date.now();
 
     // 1. Generate embedding for the search image
-    console.log('[visualSearch] Generating query embedding...');
+    logger.info('[visualSearch] Generating query embedding...');
     const queryEmbedding = await generateQueryEmbedding(imageBase64);
 
     if (!queryEmbedding) {
@@ -96,7 +112,7 @@ export const visualSearch = onCall(
     }
 
     const embeddingTime = Date.now() - startTime;
-    console.log(`[visualSearch] Embedding generated in ${embeddingTime}ms (${queryEmbedding.length} dims)`);
+    logger.info('[visualSearch] Embedding generated', { embeddingTime, dims: queryEmbedding.length });
 
     // 2. Build Firestore query with filters
     let baseQuery: FirebaseFirestore.Query = db.collection('embeddings')
@@ -120,7 +136,7 @@ export const visualSearch = onCall(
     const snapshot = await vectorQuery.get();
 
     const queryTime = Date.now() - startTime - embeddingTime;
-    console.log(`[visualSearch] Vector query returned ${snapshot.docs.length} results in ${queryTime}ms`);
+    logger.info('[visualSearch] Vector query returned results', { resultCount: snapshot.docs.length, queryTime });
 
     // 4. Fetch full article data
     const articleIds = snapshot.docs
@@ -175,7 +191,7 @@ export const visualSearch = onCall(
 
       // Skip results below similarity threshold
       if (distance > VISUAL_SEARCH_MAX_DISTANCE) {
-        console.log(`[visualSearch] Skipping ${doc.id} (distance ${distance.toFixed(3)}, below threshold)`);
+        logger.info('[visualSearch] Skipping result below threshold', { docId: doc.id, distance: distance.toFixed(3) });
         continue;
       }
 
@@ -194,7 +210,7 @@ export const visualSearch = onCall(
     }
 
     const totalTime = Date.now() - startTime;
-    console.log(`[visualSearch] Complete: ${results.length} results in ${totalTime}ms`);
+    logger.info('[visualSearch] Complete', { resultCount: results.length, totalTime });
 
     return { results };
   }
@@ -209,6 +225,15 @@ export const visualSearch = onCall(
 export const getSimilarProducts = onCall(
   { region: 'northamerica-northeast1', invoker: 'public', timeoutSeconds: 30, memory: '512MiB' },
   async (request) => {
+    // Rate limiting: protect Vertex AI from abuse
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'getSimilarProducts',
+      maxCallsAuthenticated: RATE_LIMIT_AUTHENTICATED,
+      maxCallsUnauthenticated: RATE_LIMIT_UNAUTHENTICATED,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const { articleId, limit = 10, includeScore = false } = request.data;
 
     if (!articleId) {
@@ -321,7 +346,7 @@ export const getSimilarProducts = onCall(
       results.push(result);
     }
 
-    console.log(`[getSimilarProducts] ${results.length} results for article ${articleId}`);
+    logger.info('[getSimilarProducts] Complete', { resultCount: results.length, articleId });
 
     return { results };
   }

@@ -7,47 +7,45 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		010F7071282C4015B270B1DB /* CormorantGaramond-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5CE867AA16134FBAAA123C83 /* CormorantGaramond-SemiBold.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		3822090495AE446E96D40D2A /* CormorantGaramond-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E359B2B5D6A74117BD41ED53 /* CormorantGaramond-Bold.ttf */; };
+		2045D3F074244CFF9F876FDF /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 38F5B5BC609D48FFA088FB6D /* GoogleService-Info.plist */; };
+		326C132358F24D97A03B8555 /* CormorantGaramond-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CB2DD2FC8914403390B916F8 /* CormorantGaramond-Regular.ttf */; };
+		3C76C8C8CEBB4F3FAFB72D4A /* Satoshi-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = C45EAF33DAAE40F2B5261EAE /* Satoshi-Regular.otf */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		4AD8891B6A7A11C9A700902B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D344DEE178EEB9D6084AC7C5 /* ExpoModulesProvider.swift */; };
-		55FD5B3E28334F7FBF4D6FE2 /* Satoshi-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = 91913959822548F4B1407158 /* Satoshi-Medium.otf */; };
-		808A97FC5EE2118BB18217C7 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8C9B93CEF95CA7A8C58CED9F /* PrivacyInfo.xcprivacy */; };
-		8689D5A945B34E819E584E72 /* Satoshi-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 2D2BF0ED7EC64AF793E18F88 /* Satoshi-Bold.otf */; };
-		A1A9CC70F42D414E8D09ECF3 /* CormorantGaramond-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5223A4DF9F10499DBFD104B4 /* CormorantGaramond-Medium.ttf */; };
-		A91F280FE2404AC9B37CA8F3 /* Satoshi-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 220F8ED7DCA94BCE827BD67F /* Satoshi-Regular.otf */; };
+		4EA11576C81B457287C8502E /* Satoshi-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 0A4E1B08843B40FBB2D0A0AA /* Satoshi-Bold.otf */; };
+		57FA9AB02A934B77B3E3E1E8 /* Satoshi-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = DC31D298B2314CF98BDF8FB9 /* Satoshi-Medium.otf */; };
+		594B2ACEC2DC4E8F9449ECEB /* CormorantGaramond-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7CF514356FBB44DDB10B162D /* CormorantGaramond-Medium.ttf */; };
+		A1C659DFD8BD385F398F7CE5 /* libPods-Seconde.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F582CD27238F52F8A6A847A1 /* libPods-Seconde.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		D96AF8E3E2157D3EB6570C33 /* libPods-Seconde.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 216259360750FCE9AE9B7533 /* libPods-Seconde.a */; };
-		DC6C389405E5443D858CCB9D /* CormorantGaramond-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 59FA2700CB1048DFAFF1B4B3 /* CormorantGaramond-SemiBold.ttf */; };
+		D4E0B2F2648947D8AD3A60C5 /* CormorantGaramond-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9E06DFC4923B462C911A8DB9 /* CormorantGaramond-Bold.ttf */; };
+		EAD059C0C558E7DA39A6713F /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37340E56BFC7EFABC6FC0A9B /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		F7636F5028D149489BDC26E5 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 53942D345B8F4442987A7B35 /* GoogleService-Info.plist */; };
-		FA6FCFC07A1F490EA499BBB6 /* CormorantGaramond-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DCA21ED0528641FC90FB51F6 /* CormorantGaramond-Regular.ttf */; };
-		FB986E0D671A4CB994446CF2 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBD8CE09E327414B8035B3BD /* noop-file.swift */; };
+		F51B56E1D7FC7715994CBF72 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BAD365F0EEEF567892B1CEF1 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0136713706EEABDFC256BFEF /* Pods-Seconde.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Seconde.release.xcconfig"; path = "Target Support Files/Pods-Seconde/Pods-Seconde.release.xcconfig"; sourceTree = "<group>"; };
+		0A4E1B08843B40FBB2D0A0AA /* Satoshi-Bold.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Satoshi-Bold.otf"; path = "../assets/fonts/Satoshi-Bold.otf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Seconde.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Seconde.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Seconde/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Seconde/Info.plist; sourceTree = "<group>"; };
-		1C3921498157693CE8CF0CF3 /* Pods-Seconde.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Seconde.debug.xcconfig"; path = "Target Support Files/Pods-Seconde/Pods-Seconde.debug.xcconfig"; sourceTree = "<group>"; };
-		216259360750FCE9AE9B7533 /* libPods-Seconde.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Seconde.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		220F8ED7DCA94BCE827BD67F /* Satoshi-Regular.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Satoshi-Regular.otf"; path = "../assets/fonts/Satoshi-Regular.otf"; sourceTree = "<group>"; };
-		2D2BF0ED7EC64AF793E18F88 /* Satoshi-Bold.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Satoshi-Bold.otf"; path = "../assets/fonts/Satoshi-Bold.otf"; sourceTree = "<group>"; };
-		5223A4DF9F10499DBFD104B4 /* CormorantGaramond-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-Medium.ttf"; path = "../assets/fonts/CormorantGaramond-Medium.ttf"; sourceTree = "<group>"; };
-		53942D345B8F4442987A7B35 /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Seconde/GoogleService-Info.plist"; sourceTree = "<group>"; };
-		59FA2700CB1048DFAFF1B4B3 /* CormorantGaramond-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-SemiBold.ttf"; path = "../assets/fonts/CormorantGaramond-SemiBold.ttf"; sourceTree = "<group>"; };
-		8C9B93CEF95CA7A8C58CED9F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Seconde/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		91913959822548F4B1407158 /* Satoshi-Medium.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Satoshi-Medium.otf"; path = "../assets/fonts/Satoshi-Medium.otf"; sourceTree = "<group>"; };
+		37340E56BFC7EFABC6FC0A9B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Seconde/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		38F5B5BC609D48FFA088FB6D /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Seconde/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		5CE867AA16134FBAAA123C83 /* CormorantGaramond-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-SemiBold.ttf"; path = "../assets/fonts/CormorantGaramond-SemiBold.ttf"; sourceTree = "<group>"; };
+		7CF514356FBB44DDB10B162D /* CormorantGaramond-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-Medium.ttf"; path = "../assets/fonts/CormorantGaramond-Medium.ttf"; sourceTree = "<group>"; };
+		9E06DFC4923B462C911A8DB9 /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-Bold.ttf"; path = "../assets/fonts/CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Seconde/SplashScreen.storyboard; sourceTree = "<group>"; };
+		BAD365F0EEEF567892B1CEF1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Seconde/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		D344DEE178EEB9D6084AC7C5 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Seconde/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		DCA21ED0528641FC90FB51F6 /* CormorantGaramond-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-Regular.ttf"; path = "../assets/fonts/CormorantGaramond-Regular.ttf"; sourceTree = "<group>"; };
-		E359B2B5D6A74117BD41ED53 /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-Bold.ttf"; path = "../assets/fonts/CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
-		EBD8CE09E327414B8035B3BD /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "Seconde/noop-file.swift"; sourceTree = "<group>"; };
+		BBDD00FA49550DF84AF83944 /* Pods-Seconde.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Seconde.debug.xcconfig"; path = "Target Support Files/Pods-Seconde/Pods-Seconde.debug.xcconfig"; sourceTree = "<group>"; };
+		C45EAF33DAAE40F2B5261EAE /* Satoshi-Regular.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Satoshi-Regular.otf"; path = "../assets/fonts/Satoshi-Regular.otf"; sourceTree = "<group>"; };
+		CB2DD2FC8914403390B916F8 /* CormorantGaramond-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CormorantGaramond-Regular.ttf"; path = "../assets/fonts/CormorantGaramond-Regular.ttf"; sourceTree = "<group>"; };
+		DC195C4F450D46BF3E27DC96 /* Pods-Seconde.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Seconde.release.xcconfig"; path = "Target Support Files/Pods-Seconde/Pods-Seconde.release.xcconfig"; sourceTree = "<group>"; };
+		DC31D298B2314CF98BDF8FB9 /* Satoshi-Medium.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Satoshi-Medium.otf"; path = "../assets/fonts/Satoshi-Medium.otf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Seconde/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Seconde-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Seconde-Bridging-Header.h"; path = "Seconde/Seconde-Bridging-Header.h"; sourceTree = "<group>"; };
+		F582CD27238F52F8A6A847A1 /* libPods-Seconde.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Seconde.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,7 +53,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D96AF8E3E2157D3EB6570C33 /* libPods-Seconde.a in Frameworks */,
+				A1C659DFD8BD385F398F7CE5 /* libPods-Seconde.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,26 +69,25 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				53942D345B8F4442987A7B35 /* GoogleService-Info.plist */,
-				EBD8CE09E327414B8035B3BD /* noop-file.swift */,
-				8C9B93CEF95CA7A8C58CED9F /* PrivacyInfo.xcprivacy */,
+				38F5B5BC609D48FFA088FB6D /* GoogleService-Info.plist */,
+				BAD365F0EEEF567892B1CEF1 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Seconde;
 			sourceTree = "<group>";
 		};
-		21C5FBB34DC0D80E79B485DB /* ExpoModulesProviders */ = {
+		18B218E5714B5C4303A10FAB /* Seconde */ = {
 			isa = PBXGroup;
 			children = (
-				410C5A0AB37FD6951FAC2312 /* Seconde */,
+				37340E56BFC7EFABC6FC0A9B /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = Seconde;
 			sourceTree = "<group>";
 		};
-		2A49FFEB281E04B5D472F293 /* Pods */ = {
+		24729C09D93098078C0C15DD /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				1C3921498157693CE8CF0CF3 /* Pods-Seconde.debug.xcconfig */,
-				0136713706EEABDFC256BFEF /* Pods-Seconde.release.xcconfig */,
+				BBDD00FA49550DF84AF83944 /* Pods-Seconde.debug.xcconfig */,
+				DC195C4F450D46BF3E27DC96 /* Pods-Seconde.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
@@ -100,17 +97,9 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				216259360750FCE9AE9B7533 /* libPods-Seconde.a */,
+				F582CD27238F52F8A6A847A1 /* libPods-Seconde.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		410C5A0AB37FD6951FAC2312 /* Seconde */ = {
-			isa = PBXGroup;
-			children = (
-				D344DEE178EEB9D6084AC7C5 /* ExpoModulesProvider.swift */,
-			);
-			name = Seconde;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -127,9 +116,9 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				AF05F91A7FAC48FA8E3F01B2 /* Resources */,
-				2A49FFEB281E04B5D472F293 /* Pods */,
-				21C5FBB34DC0D80E79B485DB /* ExpoModulesProviders */,
+				9575A47FD35C4D3E8ED0FF8B /* Resources */,
+				24729C09D93098078C0C15DD /* Pods */,
+				F3242CE7EE2CA352F1605C0D /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -144,16 +133,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		AF05F91A7FAC48FA8E3F01B2 /* Resources */ = {
+		9575A47FD35C4D3E8ED0FF8B /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				DCA21ED0528641FC90FB51F6 /* CormorantGaramond-Regular.ttf */,
-				5223A4DF9F10499DBFD104B4 /* CormorantGaramond-Medium.ttf */,
-				59FA2700CB1048DFAFF1B4B3 /* CormorantGaramond-SemiBold.ttf */,
-				E359B2B5D6A74117BD41ED53 /* CormorantGaramond-Bold.ttf */,
-				220F8ED7DCA94BCE827BD67F /* Satoshi-Regular.otf */,
-				91913959822548F4B1407158 /* Satoshi-Medium.otf */,
-				2D2BF0ED7EC64AF793E18F88 /* Satoshi-Bold.otf */,
+				CB2DD2FC8914403390B916F8 /* CormorantGaramond-Regular.ttf */,
+				7CF514356FBB44DDB10B162D /* CormorantGaramond-Medium.ttf */,
+				5CE867AA16134FBAAA123C83 /* CormorantGaramond-SemiBold.ttf */,
+				9E06DFC4923B462C911A8DB9 /* CormorantGaramond-Bold.ttf */,
+				C45EAF33DAAE40F2B5261EAE /* Satoshi-Regular.otf */,
+				DC31D298B2314CF98BDF8FB9 /* Satoshi-Medium.otf */,
+				0A4E1B08843B40FBB2D0A0AA /* Satoshi-Bold.otf */,
 			);
 			name = Resources;
 			path = "";
@@ -168,6 +157,14 @@
 			path = Seconde/Supporting;
 			sourceTree = "<group>";
 		};
+		F3242CE7EE2CA352F1605C0D /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				18B218E5714B5C4303A10FAB /* Seconde */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -176,14 +173,14 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Seconde" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				37474B1EFA64E11E5404C5B6 /* [Expo] Configure project */,
+				1CF698CE148CF4BE923D5D7A /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				1E1D458F0255473DB3B400B3 /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
-				1F72606072E3D0A70743EEEB /* [CP] Embed Pods Frameworks */,
+				0A39EEE54F6B4A8ABFA2956A /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
+				2CDA81B9DD1230388E387891 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -235,15 +232,15 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				F7636F5028D149489BDC26E5 /* GoogleService-Info.plist in Resources */,
-				FA6FCFC07A1F490EA499BBB6 /* CormorantGaramond-Regular.ttf in Resources */,
-				A1A9CC70F42D414E8D09ECF3 /* CormorantGaramond-Medium.ttf in Resources */,
-				DC6C389405E5443D858CCB9D /* CormorantGaramond-SemiBold.ttf in Resources */,
-				3822090495AE446E96D40D2A /* CormorantGaramond-Bold.ttf in Resources */,
-				A91F280FE2404AC9B37CA8F3 /* Satoshi-Regular.otf in Resources */,
-				55FD5B3E28334F7FBF4D6FE2 /* Satoshi-Medium.otf in Resources */,
-				8689D5A945B34E819E584E72 /* Satoshi-Bold.otf in Resources */,
-				808A97FC5EE2118BB18217C7 /* PrivacyInfo.xcprivacy in Resources */,
+				2045D3F074244CFF9F876FDF /* GoogleService-Info.plist in Resources */,
+				326C132358F24D97A03B8555 /* CormorantGaramond-Regular.ttf in Resources */,
+				594B2ACEC2DC4E8F9449ECEB /* CormorantGaramond-Medium.ttf in Resources */,
+				010F7071282C4015B270B1DB /* CormorantGaramond-SemiBold.ttf in Resources */,
+				D4E0B2F2648947D8AD3A60C5 /* CormorantGaramond-Bold.ttf in Resources */,
+				3C76C8C8CEBB4F3FAFB72D4A /* Satoshi-Regular.otf in Resources */,
+				57FA9AB02A934B77B3E3E1E8 /* Satoshi-Medium.otf in Resources */,
+				4EA11576C81B457287C8502E /* Satoshi-Bold.otf in Resources */,
+				F51B56E1D7FC7715994CBF72 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -289,7 +286,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		1E1D458F0255473DB3B400B3 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
+		0A39EEE54F6B4A8ABFA2956A /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -303,29 +300,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# Strip dev-launcher-specific local network permission keys from non-Debug builds\n# This only removes _expo._tcp Bonjour services and the dev-launcher usage description.\n# Other Bonjour services and custom descriptions are preserved for production use.\n\nif [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  PLIST_PATH=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n  if [ -f \"$PLIST_PATH\" ]; then\n    # Check if NSBonjourServices exists\n    if /usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" >/dev/null 2>&1; then\n      # Get the count of services\n      COUNT=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n\n      # Remove _expo._tcp\n      for ((i=COUNT-1; i>=0; i--)); do\n        SERVICE=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n        if echo \"$SERVICE\" | grep -q \"_expo._tcp\"; then\n          /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || true\n        fi\n      done\n\n      # If the array is now empty, remove it entirely\n      REMAINING=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n      if [ \"$REMAINING\" -eq \"0\" ]; then\n        /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null || true\n      fi\n    fi\n\n    # Only delete the description if it matches the dev-launcher default text\n    DESC=$(/usr/libexec/PlistBuddy -c \"Print :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n    if echo \"$DESC\" | grep -q \"Expo Dev Launcher\"; then\n      /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || true\n    fi\n  fi\nfi\n";
 		};
-		1F72606072E3D0A70743EEEB /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Seconde/Pods-Seconde-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Seconde/Pods-Seconde-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		37474B1EFA64E11E5404C5B6 /* [Expo] Configure project */ = {
+		1CF698CE148CF4BE923D5D7A /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -348,6 +323,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Seconde/expo-configure-project.sh\"\n";
+		};
+		2CDA81B9DD1230388E387891 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Seconde/Pods-Seconde-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Seconde/Pods-Seconde-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -467,8 +464,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				FB986E0D671A4CB994446CF2 /* noop-file.swift in Sources */,
-				4AD8891B6A7A11C9A700902B /* ExpoModulesProvider.swift in Sources */,
+				EAD059C0C558E7DA39A6713F /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -477,7 +473,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 1C3921498157693CE8CF0CF3 /* Pods-Seconde.debug.xcconfig */;
+			baseConfigurationReference = BBDD00FA49550DF84AF83944 /* Pods-Seconde.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -516,7 +512,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0136713706EEABDFC256BFEF /* Pods-Seconde.release.xcconfig */;
+			baseConfigurationReference = DC195C4F450D46BF3E27DC96 /* Pods-Seconde.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

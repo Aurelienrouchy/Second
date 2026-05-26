@@ -57,10 +57,10 @@ export default {
             "deploymentTarget": "15.1"
           },
           "android": {
-            "compileSdkVersion": 35,
+            "compileSdkVersion": 36,
             "targetSdkVersion": 34,
-            "buildToolsVersion": "35.0.0",
-            "kotlinVersion": "1.9.0"
+            "buildToolsVersion": "36.0.0",
+            "kotlinVersion": "2.1.20"
           }
         }
       ]

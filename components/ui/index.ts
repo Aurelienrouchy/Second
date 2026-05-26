@@ -44,6 +44,12 @@ export { ScreenHeader } from './ScreenHeader';
 export type { ScreenHeaderProps } from './ScreenHeader';
 
 // =============================================================================
+// FEEDBACK COMPONENTS
+// =============================================================================
+
+export { OfflineBanner } from './OfflineBanner';
+
+// =============================================================================
 // OVERLAY COMPONENTS
 // =============================================================================
 
@@ -53,6 +59,9 @@ export {
   BottomSheetModalProvider,
 } from './ThemedBottomSheet';
 export type { ThemedBottomSheetRef } from './ThemedBottomSheet';
+
+export { ImmersiveOverlay } from './ImmersiveOverlay';
+export { useImmersiveOverlay } from './ImmersiveOverlay';
 
 // =============================================================================
 // EXISTING COMPONENTS (Re-export)

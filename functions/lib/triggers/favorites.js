@@ -11,7 +11,7 @@ const notifications_1 = require("../utils/notifications");
 /**
  * When someone adds an article to favorites, notify the seller
  */
-exports.onArticleFavorited = (0, firestore_1.onDocumentUpdated)({ document: 'favorites/{userId}', memory: '512MiB' }, async (event) => {
+exports.onArticleFavorited = (0, firestore_1.onDocumentUpdated)({ document: 'favorites/{userId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
     var _a, _b, _c, _d, _e, _f, _g;
     try {
         const beforeData = (_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before) === null || _b === void 0 ? void 0 : _b.data();
@@ -67,7 +67,7 @@ exports.onArticleFavorited = (0, firestore_1.onDocumentUpdated)({ document: 'fav
 /**
  * When an article's price drops, notify users who have it in favorites
  */
-exports.onArticlePriceDropped = (0, firestore_1.onDocumentUpdated)({ document: 'articles/{articleId}', memory: '512MiB' }, async (event) => {
+exports.onArticlePriceDropped = (0, firestore_1.onDocumentUpdated)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
     var _a, _b, _c, _d;
     try {
         const beforeData = (_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before) === null || _b === void 0 ? void 0 : _b.data();
@@ -83,7 +83,7 @@ exports.onArticlePriceDropped = (0, firestore_1.onDocumentUpdated)({ document: '
         const articleId = event.params.articleId;
         const articleTitle = (afterData === null || afterData === void 0 ? void 0 : afterData.title) || 'Article';
         const discount = Math.round(((oldPrice - newPrice) / oldPrice) * 100);
-        console.log(`Price dropped on ${articleId}: ${oldPrice}€ → ${newPrice}€ (-${discount}%)`);
+        console.log(`Price dropped on ${articleId}: ${oldPrice} $ → ${newPrice} $ (-${discount}%)`);
         // Find all users who have this article in favorites
         const favoritesSnapshot = await firebase_1.db
             .collection('favorites')
@@ -114,7 +114,7 @@ exports.onArticlePriceDropped = (0, firestore_1.onDocumentUpdated)({ document: '
                         return;
                     }
                 }
-                await (0, notifications_1.sendPushNotification)(userId, 'Baisse de prix !', `"${articleTitle}" est passé de ${oldPrice}€ à ${newPrice}€ (-${discount}%)`, {
+                await (0, notifications_1.sendPushNotification)(userId, 'Baisse de prix !', `"${articleTitle}" est passé de ${oldPrice} $ à ${newPrice} $ (-${discount}%)`, {
                     articleId,
                     articleTitle,
                     oldPrice: oldPrice.toString(),

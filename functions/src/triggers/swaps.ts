@@ -7,6 +7,7 @@ import {
   onDocumentUpdated,
 } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
 import { sendSwapNotification } from '../utils/notifications';
 
@@ -32,14 +33,14 @@ export const onSwapCreated = onDocumentCreated(
       const swapId = event.params.swapId;
 
       if (!swap.receiverId) {
-        console.log('No receiver for swap notification');
+        logger.info('No receiver for swap notification');
         return;
       }
 
       // Get receiver's FCM tokens
       const receiverDoc = await db.collection('users').doc(swap.receiverId).get();
       if (!receiverDoc.exists) {
-        console.log(`Receiver user ${swap.receiverId} not found`);
+        logger.info('Receiver user not found', { receiverId: swap.receiverId });
         return;
       }
 
@@ -47,7 +48,7 @@ export const onSwapCreated = onDocumentCreated(
       const fcmTokens = receiverData.fcmTokens || [];
 
       if (fcmTokens.length === 0) {
-        console.log(`No FCM tokens for user ${swap.receiverId}`);
+        logger.info('No FCM tokens for user', { userId: swap.receiverId });
         return;
       }
 
@@ -107,7 +108,7 @@ export const onSwapCreated = onDocumentCreated(
         if (response.success) {
           successCount++;
         } else {
-          console.error(`Failed to send swap notification:`, response.error);
+          logger.error('Failed to send swap notification', { error: response.error });
           // Remove invalid tokens
           if (
             response.error?.code === 'messaging/invalid-registration-token' ||
@@ -120,12 +121,12 @@ export const onSwapCreated = onDocumentCreated(
                   fcmTokens[index]
                 ),
               })
-              .catch((err) => console.error('Error removing invalid token:', err));
+              .catch((err) => logger.error('Error removing invalid token', { error: err }));
           }
         }
       });
 
-      console.log(`Swap proposal notification sent: ${successCount} successful`);
+      logger.info('Swap proposal notification sent', { successCount });
     } catch (error) {
       console.error('Error sending swap proposal notification:', error);
     }

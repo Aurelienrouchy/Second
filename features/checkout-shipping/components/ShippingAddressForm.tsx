@@ -75,16 +75,28 @@ export const ShippingAddressForm = React.memo(function ShippingAddressForm({
             />
           </View>
           <View style={styles.formFieldHalf}>
-            <Text style={styles.fieldLabel}>CODE POSTAL</Text>
+            <Text style={styles.fieldLabel}>PROVINCE</Text>
             <TextInput
               style={styles.fieldInput}
-              value={values.postalCode}
-              onChangeText={(v) => onChangeField('postalCode', v)}
-              placeholder="H2J 2K1"
+              value={values.province}
+              onChangeText={(v) => onChangeField('province', v.toUpperCase())}
+              placeholder="QC"
               placeholderTextColor={colors.muted}
               autoCapitalize="characters"
+              maxLength={2}
             />
           </View>
+        </View>
+        <View style={styles.formField}>
+          <Text style={styles.fieldLabel}>CODE POSTAL</Text>
+          <TextInput
+            style={styles.fieldInput}
+            value={values.postalCode}
+            onChangeText={(v) => onChangeField('postalCode', v)}
+            placeholder="H2J 2K1"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="characters"
+          />
         </View>
       </View>
     </>

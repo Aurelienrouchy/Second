@@ -210,6 +210,7 @@ function ProductGridComponent({
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
         testID={testID ? `${testID}-flash-list` : 'product-grid-flash-list'}
       />
     </View>

@@ -29,7 +29,7 @@ const ValueDifferenceBox: React.FC<ValueDifferenceBoxProps> = ({
 
       {/* Description */}
       <Text style={styles.description}>
-        Tu peux ajouter un complément pour équilibrer l'échange, ou proposer sans ajout.
+        Vous pouvez ajouter un complément pour équilibrer l'échange, ou proposer sans ajout.
       </Text>
 
       {/* Buttons */}

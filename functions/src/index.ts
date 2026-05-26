@@ -36,7 +36,19 @@ export { visualSearch, getSimilarProducts } from './callable/search';
 export { createArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed } from './callable/products';
 
 // Swap Functions
-export { proposeMultiSwap, acceptSwap, getActiveSwapPartyInfo, getSwapPartyLeaderboard } from './callable/swaps';
+export {
+  proposeMultiSwap,
+  acceptSwap,
+  declineSwap,
+  cancelSwap,
+  setSwapExchangeMode,
+  uploadSwapPhotos,
+  confirmSwapShipping,
+  confirmSwapReception,
+  rateSwap,
+  getActiveSwapPartyInfo,
+  getSwapPartyLeaderboard,
+} from './callable/swaps';
 
 // Payment & Shipping Functions
 export {

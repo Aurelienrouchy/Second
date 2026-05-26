@@ -11,7 +11,7 @@ const firebase_1 = require("../config/firebase");
  * Update global stats periodically
  * Runs every hour
  */
-exports.updateGlobalStats = (0, scheduler_1.onSchedule)({ schedule: 'every 1 hours', memory: '512MiB' }, async () => {
+exports.updateGlobalStats = (0, scheduler_1.onSchedule)({ schedule: 'every 1 hours', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
     try {
         console.log('Starting global stats update...');
         // Get total counts

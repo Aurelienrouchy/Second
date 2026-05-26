@@ -11,7 +11,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Dimensions,
   StyleSheet,
@@ -22,7 +22,7 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 // Design System
 import { colors, spacing, radius } from '@/constants/theme';
@@ -118,6 +118,7 @@ export default function FavoritesScreen() {
   const user = useUser();
   const { requireAuth } = useAuthRequired();
   const { toggleFavorite, favoriteIds: articleIds } = useFavorites();
+  const queryClient = useQueryClient();
 
   // ── Paginated query ──────────────────────────────────────────────────────
   const {
@@ -129,7 +130,7 @@ export default function FavoritesScreen() {
   } = useInfiniteQuery({
     queryKey: favoritesKeys.list(user?.id ?? 'guest'),
     queryFn: async ({ pageParam = 0 }) => {
-      if (!user) return { articles: [], nextCursor: null };
+      if (!user) return { articles: [], nextCursor: null, orphanedCount: 0 };
       return FavoritesService.getUserFavoriteArticlesPaginated(
         user.id,
         pageParam,
@@ -144,6 +145,20 @@ export default function FavoritesScreen() {
 
   // Flatten pages into a single array
   const favoriteArticles = data?.pages.flatMap((p) => p.articles) ?? [];
+
+  // Total orphans cleaned across all loaded pages
+  const totalOrphaned = data?.pages.reduce((sum, p) => sum + (p.orphanedCount ?? 0), 0) ?? 0;
+
+  // When orphaned favorites are detected, invalidate the IDs cache so the
+  // count stays in sync after the service has cleaned them from Firestore.
+  useEffect(() => {
+    if (totalOrphaned > 0 && user?.id) {
+      queryClient.invalidateQueries({ queryKey: favoritesKeys.ids(user.id) });
+    }
+  }, [totalOrphaned, user?.id, queryClient]);
+
+  // Use actual loaded article count when data is available, fall back to IDs count while loading
+  const displayCount = data ? favoriteArticles.length : articleIds.length;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleRemoveFavorite = useCallback(
@@ -188,7 +203,7 @@ export default function FavoritesScreen() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
-  const isEmpty = !isLoading && favoriteArticles.length === 0 && articleIds.length === 0;
+  const isEmpty = !isLoading && favoriteArticles.length === 0 && displayCount === 0;
 
   return (
     <View style={styles.container}>
@@ -196,9 +211,9 @@ export default function FavoritesScreen() {
         title="Mes favoris"
         showBack={false}
         rightContent={
-          articleIds.length > 0 ? (
+          displayCount > 0 ? (
             <Caption style={styles.count}>
-              {articleIds.length} article{articleIds.length > 1 ? 's' : ''}
+              {displayCount} article{displayCount > 1 ? 's' : ''}
             </Caption>
           ) : undefined
         }

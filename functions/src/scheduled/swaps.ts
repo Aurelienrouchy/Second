@@ -3,15 +3,92 @@
  * Firebase Functions v7 - using onSchedule
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { sendPushNotification } from '../utils/notifications';
 
 /**
+ * Cleanup pending swaps and items when a swap party ends.
+ * - Cancels all swaps in status 'proposed' linked to this party
+ * - Resets isPending on swapPartyItems that were pending
+ * - Notifies affected participants whose swaps were cancelled
+ */
+async function cleanupEndedParty(partyId: string, partyName: string): Promise<void> {
+  // 1. Cancel all 'proposed' swaps linked to this party
+  const proposedSwapsSnapshot = await db
+    .collection('swaps')
+    .where('partyId', '==', partyId)
+    .where('status', '==', 'proposed')
+    .get();
+
+  if (proposedSwapsSnapshot.empty) {
+    logger.info('[swapPartyCleanup] No proposed swaps to cancel', { partyId });
+  } else {
+    logger.info('[swapPartyCleanup] Cancelling proposed swaps', {
+      partyId,
+      count: proposedSwapsSnapshot.docs.length,
+    });
+
+    // Collect unique user IDs to notify
+    const usersToNotify = new Set<string>();
+
+    const batch = db.batch();
+    for (const swapDoc of proposedSwapsSnapshot.docs) {
+      const swap = swapDoc.data();
+      batch.update(swapDoc.ref, {
+        status: 'cancelled',
+        cancelReason: 'party_ended',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      if (swap.initiatorId) usersToNotify.add(swap.initiatorId);
+      if (swap.receiverId) usersToNotify.add(swap.receiverId);
+    }
+    await batch.commit();
+
+    // Notify affected users
+    for (const userId of usersToNotify) {
+      try {
+        await sendPushNotification(
+          userId,
+          'Swap Zone terminee',
+          `La Swap Zone "${partyName}" est terminee. Tes propositions en attente ont ete annulees.`,
+          { partyId, partyName },
+          'swap_update'
+        );
+      } catch (notifError) {
+        logger.error('[swapPartyCleanup] Failed to notify user', { userId, error: notifError });
+      }
+    }
+  }
+
+  // 2. Reset isPending on all pending items in this party
+  const pendingItemsSnapshot = await db
+    .collection('swapPartyItems')
+    .where('partyId', '==', partyId)
+    .where('isPending', '==', true)
+    .get();
+
+  if (!pendingItemsSnapshot.empty) {
+    logger.info('[swapPartyCleanup] Resetting pending items', {
+      partyId,
+      count: pendingItemsSnapshot.docs.length,
+    });
+
+    const itemsBatch = db.batch();
+    for (const itemDoc of pendingItemsSnapshot.docs) {
+      itemsBatch.update(itemDoc.ref, { isPending: false });
+    }
+    await itemsBatch.commit();
+  }
+}
+
+/**
  * Update swap party statuses automatically
  * Runs every 5 minutes to transition parties: upcoming -> active -> ended
+ * When a party transitions to 'ended', cleanup pending swaps and items.
  */
 export const updateSwapPartyStatuses = onSchedule({ schedule: 'every 5 minutes', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
-  console.log('Checking swap party statuses...');
+  logger.info('Checking swap party statuses...');
   const now = new Date();
 
   try {
@@ -41,15 +118,18 @@ export const updateSwapPartyStatuses = onSchedule({ schedule: 'every 5 minutes',
           updatedAt: FieldValue.serverTimestamp(),
         });
         updatedCount++;
-        console.log(`Updated party ${partyDoc.id} status to ${newStatus}`);
+        logger.info(`Updated party ${partyDoc.id} status to ${newStatus}`);
+
+        // Cleanup when a party ends: cancel proposed swaps, reset pending items
+        if (newStatus === 'ended') {
+          await cleanupEndedParty(partyDoc.id, party.name || 'Swap Zone');
+        }
       }
     }
 
-    console.log(
-      `Swap party status check complete. Updated ${updatedCount} parties.`
-    );
+    logger.info('Swap party status check complete', { updatedCount });
   } catch (error) {
-    console.error('Error updating swap party statuses:', error);
+    logger.error('Error updating swap party statuses', { error });
   }
 });
 
@@ -79,9 +159,10 @@ export const sendSwapZoneReminders = onSchedule(
       const endOfDay = new Date(targetDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      console.log(
-        `Looking for swap parties starting between ${startOfDay.toISOString()} and ${endOfDay.toISOString()}`
-      );
+      logger.info('Looking for swap parties starting soon', {
+        startOfDay: startOfDay.toISOString(),
+        endOfDay: endOfDay.toISOString(),
+      });
 
       // Find swap parties starting in 3 days
       const partiesSnapshot = await db
@@ -92,13 +173,11 @@ export const sendSwapZoneReminders = onSchedule(
         .get();
 
       if (partiesSnapshot.empty) {
-        console.log('No swap parties starting in 3 days');
+        logger.info('No swap parties starting in 3 days');
         return;
       }
 
-      console.log(
-        `Found ${partiesSnapshot.docs.length} swap parties to notify about`
-      );
+      logger.info('Found swap parties to notify about', { count: partiesSnapshot.docs.length });
 
       // Process each party
       for (const partyDoc of partiesSnapshot.docs) {
@@ -113,16 +192,14 @@ export const sendSwapZoneReminders = onSchedule(
           .get();
 
         if (participantsSnapshot.empty) {
-          console.log(`No participants for party ${partyId}`);
+          logger.info('No participants for party', { partyId });
           continue;
         }
 
         const userIds = participantsSnapshot.docs.map(
           (doc) => doc.data().userId
         );
-        console.log(
-          `Notifying ${userIds.length} participants for party ${partyName}`
-        );
+        logger.info('Notifying participants for party', { partyName, participantCount: userIds.length });
 
         // Send notifications to all participants
         await Promise.all(
@@ -132,9 +209,7 @@ export const sendSwapZoneReminders = onSchedule(
             if (userDoc.exists) {
               const userPrefs = userDoc.data()?.preferences?.notifications;
               if (userPrefs?.swapZoneReminder === false) {
-                console.log(
-                  `User ${userId} has swap zone reminder notifications disabled`
-                );
+                logger.info('User has swap zone reminder notifications disabled', { userId });
                 return;
               }
             }
@@ -153,10 +228,10 @@ export const sendSwapZoneReminders = onSchedule(
           })
         );
 
-        console.log(`Sent reminders for party ${partyName}`);
+        logger.info('Sent reminders for party', { partyName });
       }
     } catch (error) {
-      console.error('Error in sendSwapZoneReminders:', error);
+      logger.error('Error in sendSwapZoneReminders', { error });
     }
   }
 );

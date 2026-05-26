@@ -45,6 +45,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="verify-email" options={{ title: 'Vérifier l\'email' }} />
       <Stack.Screen name="phone" options={{ title: 'Numéro de téléphone' }} />
       <Stack.Screen name="password" options={{ title: 'Changer le mot de passe' }} />
+      <Stack.Screen name="add-password" options={{ title: 'Ajouter un mot de passe' }} />
       <Stack.Screen name="address" options={{ title: 'Mon adresse' }} />
       <Stack.Screen name="preferences" options={{ title: 'Préférences' }} />
 

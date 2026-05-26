@@ -96,21 +96,31 @@ export const LoadingState = React.memo(LoadingStateComponent);
 
 interface ErrorStateProps {
   onBack: () => void;
+  /** true when useQuery caught a network/fetch error (vs article simply not found) */
+  isNetworkError?: boolean;
 }
 
-function ErrorStateComponent({ onBack }: ErrorStateProps) {
+function ErrorStateComponent({ onBack, isNetworkError = false }: ErrorStateProps) {
+  const icon = isNetworkError ? 'cloud-offline-outline' : 'bag-remove-outline';
+  const title = isNetworkError
+    ? 'Erreur de connexion'
+    : 'Cet article n’est plus disponible';
+  const subtitle = isNetworkError
+    ? 'Impossible de charger cet article. Vérifiez votre connexion et réessayez.'
+    : 'Il a peut-être été vendu ou supprimé par le vendeur.';
+
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
         <View style={styles.errorIconCircle}>
-          <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
+          <Ionicons name={icon} size={40} color={colors.muted} />
         </View>
-        <Text style={styles.errorTitle}>Article introuvable</Text>
-        <Text style={styles.errorText}>
-          Cet article n'existe plus ou a été supprimé
-        </Text>
+        <Text style={styles.errorTitle}>{title}</Text>
+        <Text style={styles.errorText}>{subtitle}</Text>
         <Pressable style={styles.errorButton} onPress={onBack}>
-          <Text style={styles.errorButtonText}>Retour</Text>
+          <Text style={styles.errorButtonText}>
+            {isNetworkError ? 'Retour' : 'Retour à l’accueil'}
+          </Text>
         </Pressable>
       </Animated.View>
     </SafeAreaView>

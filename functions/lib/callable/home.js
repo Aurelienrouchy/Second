@@ -40,6 +40,7 @@ async function _getTrendingBrands() {
         .collection('articles')
         .where('isActive', '==', true)
         .where('isSold', '==', false)
+        .limit(500)
         .get();
     const brandCounts = new Map();
     snapshot.docs.forEach((doc) => {
@@ -52,22 +53,21 @@ async function _getTrendingBrands() {
         .slice(0, 10);
 }
 async function _getPriceDrops() {
+    // Use a targeted query with composite index instead of full-scan + client filter.
+    // Requires index: {isActive ASC, isSold ASC, lastPriceDropAt DESC}
     const snapshot = await firebase_1.db
         .collection('articles')
         .where('isActive', '==', true)
         .where('isSold', '==', false)
-        .limit(100)
+        .where('lastPriceDropAt', '!=', null)
+        .orderBy('lastPriceDropAt', 'desc')
+        .limit(20)
         .get();
-    const filtered = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return ((data.lastPriceDropAt !== undefined && data.lastPriceDropAt !== null) ||
-            data.promotionActive === true);
-    });
-    if (filtered.length === 0)
+    if (snapshot.docs.length === 0)
         return [];
     // Single batch read for all sellers — no N+1
-    const sellerMap = await batchFetchSellerNames(filtered.map((d) => d.data().sellerId));
-    const items = filtered.map((doc) => {
+    const sellerMap = await batchFetchSellerNames(snapshot.docs.map((d) => d.data().sellerId));
+    const items = snapshot.docs.map((doc) => {
         const data = doc.data();
         const originalPrice = data.originalPrice || data.price;
         const reductionPercent = Math.round(((originalPrice - data.price) / originalPrice) * 100);
@@ -83,13 +83,11 @@ async function _getPriceDrops() {
             sellerName: sellerMap.get(data.sellerId) || 'Unknown',
         };
     });
-    return items
-        .sort((a, b) => {
+    return items.sort((a, b) => {
         const aP = parseInt(a.reduction.replace(/[^0-9]/g, ''), 10) || 0;
         const bP = parseInt(b.reduction.replace(/[^0-9]/g, ''), 10) || 0;
         return bP - aP;
-    })
-        .slice(0, 20);
+    });
 }
 async function _getFeaturedSellers() {
     const snapshot = await firebase_1.db
@@ -150,7 +148,7 @@ async function _getNewArrivals(lastDocId, limit = 20) {
 // INDIVIDUAL CALLABLE FUNCTIONS — one per home section
 // =============================================================================
 /** Trending brands section */
-exports.getTrendingBrands = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async () => {
+exports.getTrendingBrands = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async () => {
     try {
         return await _getTrendingBrands();
     }
@@ -160,7 +158,7 @@ exports.getTrendingBrands = (0, https_1.onCall)({ invoker: 'public', memory: '51
     }
 });
 /** Price drops section */
-exports.getPriceDrops = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async () => {
+exports.getPriceDrops = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async () => {
     try {
         return await _getPriceDrops();
     }
@@ -170,7 +168,7 @@ exports.getPriceDrops = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB
     }
 });
 /** Featured sellers section */
-exports.getFeaturedSellers = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async () => {
+exports.getFeaturedSellers = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async () => {
     try {
         return await _getFeaturedSellers();
     }
@@ -180,7 +178,7 @@ exports.getFeaturedSellers = (0, https_1.onCall)({ invoker: 'public', memory: '5
     }
 });
 /** New arrivals — first page for Nouveautés + cursor pagination for Discover */
-exports.getNewArrivals = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async (request) => {
+exports.getNewArrivals = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 }, async (request) => {
     var _a;
     try {
         const { lastDocId = null, limit = 20 } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
@@ -195,7 +193,7 @@ exports.getNewArrivals = (0, https_1.onCall)({ invoker: 'public', memory: '512Mi
 // LEGACY — kept for any existing callers during migration
 // =============================================================================
 /** @deprecated Use the individual section callables instead. */
-exports.getHomeFeed = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB', timeoutSeconds: 30 }, async () => {
+exports.getHomeFeed = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 30 }, async () => {
     try {
         const [trendingBrands, priceDrops, featuredSellers, newArrivals] = await Promise.all([
             _getTrendingBrands(),
@@ -213,7 +211,7 @@ exports.getHomeFeed = (0, https_1.onCall)({ invoker: 'public', memory: '512MiB',
 // =============================================================================
 // SELLER LIKE
 // =============================================================================
-exports.toggleSellerLike = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
+exports.toggleSellerLike = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -262,7 +260,7 @@ exports.toggleSellerLike = (0, https_1.onCall)({ memory: '512MiB' }, async (requ
         throw new https_1.HttpsError('internal', 'Failed to update seller like status');
     }
 });
-exports.getLikedSellers = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
+exports.getLikedSellers = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     var _a, _b;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
@@ -303,7 +301,7 @@ exports.getLikedSellers = (0, https_1.onCall)({ memory: '512MiB' }, async (reque
         throw new https_1.HttpsError('internal', 'Failed to load liked sellers');
     }
 });
-exports.recordPriceDrop = (0, https_1.onCall)({ memory: '512MiB' }, async (request) => {
+exports.recordPriceDrop = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }

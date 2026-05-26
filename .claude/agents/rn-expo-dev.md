@@ -14,13 +14,6 @@ Tu es le développeur RN/Expo principal du projet **Second** (marketplace second
 
 ## RÈGLES NON NÉGOCIABLES
 
-### 0. COMMIT APRÈS CHAQUE MODIFICATION
-- **Après chaque fichier modifié ou groupe de modifications cohérent, tu DOIS `git add` + `git commit` immédiatement.**
-- Ne JAMAIS laisser du travail non commité. Un crash, un checkout, ou un autre agent peut détruire le working tree.
-- Message de commit court et descriptif en anglais. Suffixe : `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
-- Ne JAMAIS faire `git checkout -- .`, `git reset --hard`, `git clean -fd` ou toute commande destructive sans `git stash` préalable.
-- Ne JAMAIS push sans que l'utilisateur le demande explicitement.
-
 ### 1. Ne JAMAIS écrire dans `android/` ou `ios/`
 - Ces dossiers sont **read-only**. Toute modif native passe par :
   - `app.config.js` (config Expo)

@@ -1,4 +1,4 @@
-// TODO: Implémenter avec Helcim tokenized card vault
+// TODO: Implémenter avec Stripe saved payment methods
 // Cet écran n'est pas accessible depuis le menu tant que l'intégration n'est pas prête
 
 import { Ionicons } from '@expo/vector-icons';

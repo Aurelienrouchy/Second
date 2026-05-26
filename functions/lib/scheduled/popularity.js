@@ -12,17 +12,19 @@ const search_1 = require("../utils/search");
  * Update popularity scores for all active products
  * Runs every 6 hours
  */
-exports.updatePopularityScores = (0, scheduler_1.onSchedule)({ schedule: 'every 6 hours', memory: '512MiB' }, async () => {
+exports.updatePopularityScores = (0, scheduler_1.onSchedule)({ schedule: 'every 6 hours', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
     try {
         console.log('Starting popularity scores update...');
-        const batch = firebase_1.db.batch();
-        let updateCount = 0;
         // Get all active products from search index
         const searchIndexSnapshot = await firebase_1.db
             .collection('search_index')
             .where('isActive', '==', true)
             .where('isSold', '==', false)
             .get();
+        // Collect updates first, then chunk into batches of 499 ops max
+        // (Firestore batch limit is 500 operations)
+        const MAX_BATCH_OPS = 499;
+        const updates = [];
         searchIndexSnapshot.forEach((doc) => {
             var _a;
             const data = doc.data();
@@ -30,16 +32,28 @@ exports.updatePopularityScores = (0, scheduler_1.onSchedule)({ schedule: 'every 
             // Only update if score changed significantly
             const currentScore = data.popularityScore || 0;
             if (Math.abs(newPopularityScore - currentScore) > 0.1) {
-                batch.update(doc.ref, {
-                    popularityScore: newPopularityScore,
-                    lastIndexed: firebase_1.FieldValue.serverTimestamp(),
-                });
-                updateCount++;
+                updates.push({ ref: doc.ref, score: newPopularityScore });
             }
         });
-        if (updateCount > 0) {
-            await batch.commit();
-            console.log(`Updated ${updateCount} popularity scores`);
+        if (updates.length > 0) {
+            let batch = firebase_1.db.batch();
+            let opCount = 0;
+            for (const { ref, score } of updates) {
+                if (opCount >= MAX_BATCH_OPS) {
+                    await batch.commit();
+                    batch = firebase_1.db.batch();
+                    opCount = 0;
+                }
+                batch.update(ref, {
+                    popularityScore: score,
+                    lastIndexed: firebase_1.FieldValue.serverTimestamp(),
+                });
+                opCount++;
+            }
+            if (opCount > 0) {
+                await batch.commit();
+            }
+            console.log(`Updated ${updates.length} popularity scores`);
         }
         else {
             console.log('No popularity scores needed updating');
