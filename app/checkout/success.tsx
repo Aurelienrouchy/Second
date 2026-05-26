@@ -56,12 +56,11 @@ export default function CheckoutSuccessScreen() {
   };
 
   const handleViewOrder = () => {
-    if (chatId) {
+    // TODO: create /order/[id] screen for detailed order view
+    if (chatId && isMeetup) {
       router.replace(`/chat/${chatId}`);
-    } else if (transactionId) {
-      router.replace('/my-orders');
     } else {
-      router.replace('/(tabs)');
+      router.replace('/my-orders');
     }
   };
 
