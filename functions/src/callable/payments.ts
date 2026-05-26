@@ -555,8 +555,8 @@ export const createStripeConnectAccount = onCall(
       // Generate an Account Link for onboarding
       const accountLink = await stripe.accountLinks.create({
         account: stripeAccountId,
-        refresh_url: `https://second.app/settings/payments?refresh=true`,
-        return_url: `https://second.app/settings/payments?success=true`,
+        refresh_url: `https://seconde.app/settings/payments?refresh=true`,
+        return_url: `https://seconde.app/settings/payments?success=true`,
         type: 'account_onboarding',
       });
 
@@ -614,8 +614,8 @@ export const getStripeAccountLink = onCall(
 
       const accountLink = await stripe.accountLinks.create({
         account: stripeAccountId,
-        refresh_url: `https://second.app/settings/payments?refresh=true`,
-        return_url: `https://second.app/settings/payments?success=true`,
+        refresh_url: `https://seconde.app/settings/payments?refresh=true`,
+        return_url: `https://seconde.app/settings/payments?success=true`,
         type: 'account_onboarding',
       });
 
