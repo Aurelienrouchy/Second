@@ -157,6 +157,17 @@ export default function ChatScreen() {
       Alert.alert('Erreur', 'Aucun article associe a cette conversation');
       return;
     }
+
+    // H1: Block offers on sold or inactive articles
+    if (article?.isSold) {
+      Alert.alert('Article vendu', 'Cet article n\'est plus disponible.');
+      return;
+    }
+    if (article?.isActive === false) {
+      Alert.alert('Article indisponible', 'Cet article n\'est plus disponible.');
+      return;
+    }
+
     // H4: Prevent multiple simultaneous offers
     const hasPendingOffer = messages.some(
       (msg) => msg.type === 'offer' && msg.offer?.status === 'pending' && msg.senderId === user?.id
@@ -167,7 +178,7 @@ export default function ChatScreen() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
-  }, [article?.price, chat?.articlePrice, messages, user?.id]);
+  }, [article?.price, article?.isSold, article?.isActive, chat?.articlePrice, messages, user?.id]);
 
   const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
