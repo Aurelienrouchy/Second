@@ -457,8 +457,10 @@ interface TransactionDocument {
   // Timestamps
   createdAt: Timestamp;
   paidAt?: Timestamp;
+  shippedAt?: Timestamp;          // When shipping label was created
   deliveredAt?: Timestamp;
   cancelledAt?: Timestamp;
+  completedAt?: Timestamp;        // When meetup was completed
   updatedAt?: Timestamp;
 }
 ```
