@@ -51,46 +51,54 @@ export default function SellerBalanceScreen() {
   }, [refetch]);
 
   const handleWithdrawal = async () => {
+    if (isProcessingWithdrawal) return;
+    setIsProcessingWithdrawal(true);
+
     const amount = parseFloat(withdrawalAmount);
 
     if (!amount || amount <= 0) {
+      setIsProcessingWithdrawal(false);
       Alert.alert('Erreur', 'Veuillez entrer un montant valide');
       return;
     }
 
     if (transitNumber.length !== 5) {
+      setIsProcessingWithdrawal(false);
       Alert.alert('Erreur', 'Le numéro de transit doit contenir 5 chiffres');
       return;
     }
     if (institutionNumber.length !== 3) {
+      setIsProcessingWithdrawal(false);
       Alert.alert('Erreur', "Le numéro d'institution doit contenir 3 chiffres");
       return;
     }
     if (accountNumber.length < 7) {
+      setIsProcessingWithdrawal(false);
       Alert.alert('Erreur', 'Le numéro de compte doit contenir au moins 7 chiffres');
       return;
     }
 
     if (!balance || amount > balance.availableBalance) {
+      setIsProcessingWithdrawal(false);
       Alert.alert('Erreur', 'Solde insuffisant');
       return;
     }
 
     if (amount < 10) {
-      Alert.alert('Erreur', `Le montant minimum de retrait est de ${formatPrice(10)}`);
+      setIsProcessingWithdrawal(false);
+      Alert.alert('Erreur', `Le montant minimum de retrait est de ${formatPriceWithCurrency(10)}`);
       return;
     }
 
     Alert.alert(
       'Confirmer le retrait',
-      `Voulez-vous retirer ${formatPrice(amount)} vers le compte se terminant par ${accountNumber.slice(-4)} ?`,
+      `Voulez-vous retirer ${formatPriceWithCurrency(amount)} vers le compte se terminant par ${accountNumber.slice(-4)} ?`,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: 'Annuler', style: 'cancel', onPress: () => setIsProcessingWithdrawal(false) },
         {
           text: 'Confirmer',
           onPress: async () => {
             try {
-              setIsProcessingWithdrawal(true);
               const bankAccount = `${transitNumber}-${institutionNumber}-${accountNumber}`;
               await SellerBalanceService.requestWithdrawal(user!.id, amount, bankAccount);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
