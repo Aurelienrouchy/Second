@@ -19,7 +19,9 @@ import { COMPACT_CARD_WIDTH } from './ProductCard.constants';
 
 interface SimilarProductsProps {
   currentArticleId: string;
-  category: string;
+  /** @deprecated Use categoryIds instead */
+  category?: string;
+  categoryIds?: string[];
   maxResults?: number;
 }
 
@@ -46,7 +48,8 @@ interface SimilarProductsResult {
  */
 async function fetchSimilarProducts(
   currentArticleId: string,
-  category: string,
+  category: string | undefined,
+  categoryIds: string[] | undefined,
   maxResults: number,
 ): Promise<SimilarProductsResult> {
   // Try AI-powered recommendations first
@@ -75,9 +78,15 @@ async function fetchSimilarProducts(
 
   // Fallback to category-based search
   try {
+    const filters: { category?: string; categoryIds?: string[]; sortBy: 'recent' } = { sortBy: 'recent' };
+    if (categoryIds && categoryIds.length > 0) {
+      filters.categoryIds = categoryIds;
+    } else if (category) {
+      filters.category = category;
+    }
     const results = await ArticlesService.searchArticles(
       '',
-      { category, sortBy: 'recent' },
+      filters,
       maxResults + 5,
     );
 
@@ -106,11 +115,12 @@ const CARD_WIDTH = COMPACT_CARD_WIDTH;
 const SimilarProducts: React.FC<SimilarProductsProps> = ({
   currentArticleId,
   category,
+  categoryIds,
   maxResults = 10,
 }) => {
   const { data, isLoading } = useQuery({
-    queryKey: ['similarProducts', currentArticleId, category],
-    queryFn: () => fetchSimilarProducts(currentArticleId, category, maxResults),
+    queryKey: ['similarProducts', currentArticleId, categoryIds ?? category],
+    queryFn: () => fetchSimilarProducts(currentArticleId, category, categoryIds, maxResults),
     staleTime: 5 * 60 * 1000,  // 5 min
     enabled: !!currentArticleId,
   });
