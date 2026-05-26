@@ -287,10 +287,20 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
                             sellerData = Object.assign(Object.assign({}, sellerData), { stripeAccountId: account.id, stripeChargesEnabled: chargesEnabled });
                         }
                         catch (stripeErr) {
-                            logger.warn('Failed to create Stripe account on-the-fly', {
+                            const stripeErrDetails = {
                                 sellerId: articleData.sellerId,
                                 error: stripeErr instanceof Error ? stripeErr.message : stripeErr,
-                            });
+                            };
+                            if (stripeErr && typeof stripeErr === 'object') {
+                                const e = stripeErr;
+                                if (e.type)
+                                    stripeErrDetails.stripeErrorType = e.type;
+                                if (e.code)
+                                    stripeErrDetails.stripeErrorCode = e.code;
+                                if (e.statusCode)
+                                    stripeErrDetails.stripeStatusCode = e.statusCode;
+                            }
+                            logger.warn('Failed to create Stripe account on-the-fly', stripeErrDetails);
                         }
                     }
                 }
@@ -598,7 +608,22 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
         if (error instanceof https_1.HttpsError)
             throw error;
         const message = error instanceof Error ? error.message : 'Unknown error';
-        logger.error('Error creating Stripe Custom account', { userId, error: message });
+        // Log full Stripe error details (type, code, statusCode, param) for debugging
+        const stripeDetails = { userId, error: message };
+        if (error && typeof error === 'object') {
+            const e = error;
+            if (e.type)
+                stripeDetails.stripeErrorType = e.type;
+            if (e.code)
+                stripeDetails.stripeErrorCode = e.code;
+            if (e.statusCode)
+                stripeDetails.stripeStatusCode = e.statusCode;
+            if (e.param)
+                stripeDetails.stripeParam = e.param;
+            if (e.raw)
+                stripeDetails.stripeRaw = JSON.stringify(e.raw).substring(0, 500);
+        }
+        logger.error('Error creating Stripe Custom account', stripeDetails);
         throw new https_1.HttpsError('internal', `Failed to create Connect account: ${message}`);
     }
 });
