@@ -78,9 +78,9 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
             ]}
           />
         )}
-      </Pressable>
+      </AnimatedPressable>
 
-      {/* Continue button — positioned absolutely so it never shifts the capture button */}
+      {/* Continue button — positioned absolutely, shifts left with capture */}
       <AnimatedPressable
         style={[styles.continueButton, continueContainerStyle]}
         onPress={onContinue}
