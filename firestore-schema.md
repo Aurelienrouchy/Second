@@ -523,7 +523,8 @@ interface SellerBalanceDocument {
 
 ### `withdrawal_requests/{withdrawalId}`
 
-Standalone withdrawal record for admin processing.
+Withdrawal record. Created atomically with balance debit, then updated
+with Stripe payout result.
 
 ```typescript
 interface WithdrawalRequestDocument {
@@ -531,7 +532,11 @@ interface WithdrawalRequestDocument {
   userId: string;
   amount: number;
   bankAccountLast4: string;       // Last 4 digits of Canadian bank account
-  status: 'pending' | 'processing' | 'completed' | 'rejected';
+  stripeAccountId: string;        // Seller's Stripe Connect Custom account
+  stripePayoutId?: string;        // Stripe Payout ID (po_xxx) — set after payout created
+  status: 'processing' | 'completed' | 'failed';
+  failureReason?: string;         // Set if status is 'failed'
+  failedAt?: Timestamp;           // Set if status is 'failed'
   createdAt: Timestamp;
 }
 ```
