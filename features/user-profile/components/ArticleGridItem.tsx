@@ -5,9 +5,10 @@
 import React, { useCallback } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 
@@ -41,11 +42,11 @@ export const ArticleGridItem = React.memo(function ArticleGridItem({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, animations.spring.snappy);
+    scale.value = withTiming(0.97, { duration: 150, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   return (

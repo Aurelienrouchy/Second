@@ -17,10 +17,11 @@ import {
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import Animated, {
+  Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -82,11 +83,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.96, animations.spring.snappy);
+    scale.value = withTiming(0.96, { duration: 150, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePress = useCallback(() => {
