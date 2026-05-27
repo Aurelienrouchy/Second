@@ -18,7 +18,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface DataItemProps {
   icon: keyof typeof Ionicons.glyphMap;
