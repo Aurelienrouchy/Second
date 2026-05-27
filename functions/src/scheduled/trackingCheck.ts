@@ -74,12 +74,14 @@ export const checkShippedTracking = onSchedule(
           const sellerId = data.sellerId;
           const sellerPayout = data.sellerPayout || data.amount;
           const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
+          const paidVia = data.paidVia;
+          const isWalletPayment = paidVia === 'wallet' || paidVia === 'wallet_and_card';
 
           await db.runTransaction(async (tx) => {
-            const [txSnap, sellerBalanceDoc] = await Promise.all([
-              tx.get(doc.ref),
-              tx.get(sellerBalanceRef),
-            ]);
+            const txSnap = await tx.get(doc.ref);
+            const sellerBalanceDoc = await tx.get(sellerBalanceRef);
+            const sellerWalletRef = db.collection('wallets').doc(sellerId);
+            const sellerWalletSnap = await tx.get(sellerWalletRef);
 
             // Guard: if already delivered, skip (idempotent)
             if (txSnap.exists && txSnap.data()!.status === 'delivered') {
@@ -93,8 +95,30 @@ export const checkShippedTracking = onSchedule(
               deliveredAt: FieldValue.serverTimestamp(),
             });
 
-            // 2. Credit seller balance: pending -> available
-            if (sellerBalanceDoc.exists) {
+            // 2. Credit seller — wallet-first, fallback to seller_balances
+            const sellerPayoutCents = Math.round(sellerPayout * 100);
+
+            if (sellerWalletSnap.exists && sellerWalletSnap.data()!.status === 'active') {
+              // Seller has wallet: move pendingBalance -> balance
+              tx.update(sellerWalletRef, {
+                pendingBalance: FieldValue.increment(-sellerPayoutCents),
+                balance: FieldValue.increment(sellerPayoutCents),
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+
+              // Create ledger entry
+              const ledgerRef = sellerWalletRef.collection('ledger').doc();
+              const currentWallet = sellerWalletSnap.data()!;
+              tx.set(ledgerRef, {
+                type: 'sale_credit',
+                amount: sellerPayoutCents,
+                balanceAfter: (currentWallet.balance || 0) + sellerPayoutCents,
+                description: 'Vente livree — fonds disponibles',
+                transactionId,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            } else if (sellerBalanceDoc.exists) {
+              // Fallback to seller_balances
               const balanceData = sellerBalanceDoc.data()!;
               const txns = balanceData.transactions || [];
 
@@ -122,6 +146,41 @@ export const checkShippedTracking = onSchedule(
               });
             }
           });
+
+          // For wallet/mixed payments where seller has no wallet:
+          // Transfer from platform to seller's Connect account
+          if (isWalletPayment) {
+            const sellerWalletSnap = await db.collection('wallets').doc(sellerId).get();
+            if (!sellerWalletSnap.exists || sellerWalletSnap.data()?.status !== 'active') {
+              const sellerDoc = await db.collection('users').doc(sellerId).get();
+              const sellerData = sellerDoc.data();
+              if (sellerData?.stripeAccountId && sellerData?.stripeChargesEnabled) {
+                try {
+                  const stripe = getStripe();
+                  if (stripe) {
+                    const sellerPayoutCents = Math.round(sellerPayout * 100);
+                    await stripe.transfers.create({
+                      amount: sellerPayoutCents,
+                      currency: 'cad',
+                      destination: sellerData.stripeAccountId,
+                      metadata: {
+                        transactionId,
+                        reason: 'wallet_payment_delivery',
+                      },
+                    });
+                    logger.info('[checkShippedTracking] Stripe transfer for wallet delivery', {
+                      transactionId, sellerId, amount: sellerPayoutCents,
+                    });
+                  }
+                } catch (transferErr) {
+                  logger.error('[checkShippedTracking] Failed Stripe transfer for wallet payment', {
+                    transactionId, sellerId,
+                    error: transferErr instanceof Error ? transferErr.message : transferErr,
+                  });
+                }
+              }
+            }
+          }
 
           deliveredCount++;
 
