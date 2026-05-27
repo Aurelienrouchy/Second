@@ -281,21 +281,17 @@ export default function EditArticleScreen() {
         price: fields.price,
       };
 
-      // Colors — multi-select with backward compat
-      if (fields.colors.length > 0) {
-        articleData.colors = fields.colors;
-        articleData.color = fields.colors[0];
-      }
+      // Colors — always propagate (null clears server-side)
+      articleData.colors = fields.colors;
+      articleData.color = fields.colors.length > 0 ? fields.colors[0] : null;
 
-      // Materials — multi-select with backward compat
-      if (fields.materials.length > 0) {
-        articleData.materials = fields.materials;
-        articleData.material = fields.materials[0];
-      }
+      // Materials — always propagate (null clears server-side)
+      articleData.materials = fields.materials;
+      articleData.material = fields.materials.length > 0 ? fields.materials[0] : null;
 
       if (fields.size) articleData.size = fields.size;
       const trimmedBrand = fields.brand.trim();
-      if (trimmedBrand) articleData.brand = trimmedBrand;
+      articleData.brand = trimmedBrand || null;
 
       // Delivery options
       articleData.isHandDelivery = fields.isHandDelivery;
