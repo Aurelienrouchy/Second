@@ -279,59 +279,11 @@ export const createArticle = onCall(
       }
     }
 
-    // ── 4b. Silently create Stripe Custom account if seller doesn't have one ──
-    // This ensures every seller who publishes an article has a Stripe Connect
-    // Custom account ready for payments, without any seller-facing Stripe UI.
-    try {
-      const userRef = db.collection('users').doc(uid);
-      const userSnap2 = await userRef.get();
-      const existingUserData = userSnap2.data();
-
-      if (existingUserData && !existingUserData.stripeAccountId) {
-        const stripe = getStripe();
-        const accountEmail = existingUserData.email || request.auth.token.email || '';
-        if (stripe && accountEmail) {
-          const account = await stripe.accounts.create({
-            type: 'custom',
-            country: 'CA',
-            email: accountEmail,
-            capabilities: {
-              card_payments: { requested: true },
-              transfers: { requested: true },
-            },
-            business_type: 'individual',
-            tos_acceptance: {
-              service_agreement: 'recipient',
-            },
-            metadata: {
-              firebaseUserId: uid,
-            },
-          });
-
-          await userRef.update({
-            stripeAccountId: account.id,
-            stripeAccountStatus: account.charges_enabled ? 'active' : 'pending',
-            stripeChargesEnabled: account.charges_enabled === true,
-            stripePayoutsEnabled: account.payouts_enabled === true,
-            stripeDetailsSubmitted: account.details_submitted === true,
-            stripeAccountCreatedAt: FieldValue.serverTimestamp(),
-          });
-
-          logger.info('Stripe Custom account created silently at article publish', {
-            userId: uid,
-            stripeAccountId: account.id,
-          });
-        }
-      }
-    } catch (stripeError) {
-      // Non-blocking: article creation should still succeed even if Stripe
-      // account creation fails. The seller can create the account later via
-      // createStripeConnectAccount or the next article publish will retry.
-      logger.warn('Failed to create Stripe Custom account at article publish', {
-        userId: uid,
-        error: stripeError instanceof Error ? stripeError.message : stripeError,
-      });
-    }
+    // NOTE: Stripe Custom account creation is no longer done silently at
+    // article publish. Sellers must complete full in-app onboarding via
+    // createStripeConnectAccount (identity, address, bank account) before
+    // their shipping articles can be purchased. The createTransaction
+    // callable enforces this check at purchase time.
 
     // ── 5. Build sanitised images array ──
     const sanitizedImages: { url: string; blurhash?: string }[] =
