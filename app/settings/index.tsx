@@ -226,7 +226,7 @@ export default function SettingsScreen() {
           <Caption>Version {Constants.expoConfig?.version ?? '1.0.0'}</Caption>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
