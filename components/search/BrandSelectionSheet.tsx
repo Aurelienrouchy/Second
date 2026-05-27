@@ -349,8 +349,8 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         if (singleSelect) return null;
 
         return (
-          <BottomSheetFooter {...props} bottomInset={insets.bottom}>
-            <View style={styles.footer}>
+          <BottomSheetFooter {...props}>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
