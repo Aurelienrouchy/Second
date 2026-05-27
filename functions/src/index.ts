@@ -95,6 +95,9 @@ export {
   getHomeFeed,
 } from './callable/home';
 
+// Wallet Functions
+export { activateWallet, getWalletInfo, walletWithdraw, payWithWallet } from './callable/wallet';
+
 // Review Functions
 export { createReview, getUserReviews, getUserPublicProfile } from './callable/reviews';
 
