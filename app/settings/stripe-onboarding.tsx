@@ -814,7 +814,6 @@ const styles = StyleSheet.create({
   dobSeparator: {
     ...typography.body,
     color: colors.muted,
-    marginBottom: spacing.md,
   },
   provinceField: {
     width: 80,
