@@ -160,7 +160,8 @@ export default function NotificationsSettingsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <View style={styles.container}>
+        <ScreenHeader title="Notifications" onBack={() => router.back()} />
         <View style={styles.skeletonContent}>
           <View style={styles.settingsList}>
             {[0, 1, 2, 3, 4].map((i) => (
