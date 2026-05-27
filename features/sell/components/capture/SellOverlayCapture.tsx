@@ -329,16 +329,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 5,
+    overflow: 'hidden',
+  },
+  blurFill: {
+    flex: 1,
   },
   viewfinder: {
     position: 'absolute',
     left: 0,
     right: 0,
     zIndex: 3,
-  },
-  bottomContent: {
-    flex: 1,
-    justifyContent: 'flex-end',
   },
   thumbContainer: {
     overflow: 'hidden',
