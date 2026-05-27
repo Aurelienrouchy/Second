@@ -171,4 +171,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.charcoal,
   },
+  menuItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  menuSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.muted,
+  },
 });
