@@ -9,7 +9,7 @@ import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { Text, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
