@@ -1,16 +1,13 @@
 /**
  * Settings Layout
- * Design System: Luxe Français + Street Energy
+ * All screens use the custom ScreenHeader component (headerShown: false).
  */
 
-import { HeaderBackButton } from '@react-navigation/elements';
-import { Redirect, Stack, useRouter } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import React from 'react';
-import { colors, fonts } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
 
 export default function SettingsLayout() {
-  const router = useRouter();
   const user = useUser();
 
   if (!user) {
@@ -20,57 +17,9 @@ export default function SettingsLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: {
-          backgroundColor: colors.cream,
-        },
-        headerShadowVisible: false,
-        headerTintColor: colors.foreground,
-        headerTitleStyle: {
-          fontFamily: fonts.displayMedium,
-          fontSize: 20,
-        },
-        headerBackTitle: ' ',
+        headerShown: false,
         presentation: 'card',
-        headerLeft: () => (
-          <HeaderBackButton onPress={() => router.back()} tintColor={colors.foreground} />
-        ),
       }}
-    >
-      {/* Main Settings */}
-      <Stack.Screen name="index" options={{ title: 'Paramètres' }} />
-
-      {/* Account Section */}
-      <Stack.Screen name="profile-details" options={{ title: 'Détails du profil' }} />
-      <Stack.Screen name="email" options={{ title: 'Changer l\'email' }} />
-      <Stack.Screen name="verify-email" options={{ title: 'Vérifier l\'email' }} />
-      <Stack.Screen name="phone" options={{ title: 'Numéro de téléphone' }} />
-      <Stack.Screen name="password" options={{ title: 'Changer le mot de passe' }} />
-      <Stack.Screen name="add-password" options={{ title: 'Ajouter un mot de passe' }} />
-      <Stack.Screen name="address" options={{ title: 'Mon adresse' }} />
-      <Stack.Screen name="preferences" options={{ title: 'Préférences' }} />
-
-      {/* Shipping & Payments */}
-      <Stack.Screen name="shipping-options" options={{ title: 'Options de livraison' }} />
-      <Stack.Screen name="payments" options={{ title: 'Moyens de paiement' }} />
-      <Stack.Screen name="stripe-onboarding" options={{ title: 'Compte de paiement' }} />
-
-      {/* Notifications & Privacy */}
-      <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
-      <Stack.Screen name="privacy" options={{ title: 'Vie privée' }} />
-      <Stack.Screen name="blocked-users" options={{ title: 'Utilisateurs bloqués' }} />
-
-      {/* Data & Account Management */}
-      <Stack.Screen name="export-data" options={{ title: 'Exporter mes données' }} />
-      <Stack.Screen name="delete-account" options={{ title: 'Supprimer le compte' }} />
-
-      {/* Help & About */}
-      <Stack.Screen name="help" options={{ title: 'Aide' }} />
-      <Stack.Screen name="about" options={{ title: 'À propos' }} />
-
-      {/* Legal Pages */}
-      <Stack.Screen name="terms" options={{ title: 'Conditions Générales' }} />
-      <Stack.Screen name="privacy-policy" options={{ title: 'Politique de confidentialité' }} />
-      <Stack.Screen name="legal-notice" options={{ title: 'Mentions légales' }} />
-    </Stack>
+    />
   );
 }
