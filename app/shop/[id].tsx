@@ -320,7 +320,7 @@ export default function ShopDetailScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
