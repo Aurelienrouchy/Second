@@ -111,10 +111,21 @@ export default function ProfileScreen() {
       {
         id: 'selling',
         title: 'Mes ventes',
-        icon: 'wallet-outline',
+        icon: 'pricetag-outline',
         iconColor: colors.sage,
         iconBg: colors.sageLight,
         action: () => router.push('/my-sales'),
+      },
+      {
+        id: 'wallet',
+        title: 'Porte-monnaie',
+        subtitle: wallet?.hasWallet
+          ? `${(wallet.balance / 100).toFixed(2).replace('.', ',')} $`
+          : undefined,
+        icon: 'wallet-outline',
+        iconColor: colors.primary,
+        iconBg: colors.primaryLight,
+        action: () => router.push('/wallet'),
       },
       {
         id: 'my-articles',
