@@ -386,12 +386,13 @@ export default function ChatScreen() {
         onMoreOptions={handleMoreOptions}
       />
 
-      {article && (
+      {(article || chat?.articleId) && (
         <ChatArticleBar
           article={article}
-          articleTitle={chat?.articleTitle}
-          articlePrice={article.price}
+          articleTitle={article?.title ?? chat?.articleTitle}
+          articlePrice={article?.price}
           snapshotPrice={chat?.articlePrice}
+          snapshotImage={chat?.articleImage}
         />
       )}
 
@@ -431,7 +432,7 @@ export default function ChatScreen() {
           onPickImage={handlePickImage}
           onMakeOffer={handleMakeOffer}
           isSendingImage={isSendingImage}
-          hasArticle={!!chat?.articleId}
+          hasArticle={!!chat?.articleId && article !== null}
         />
       </KeyboardAvoidingView>
 

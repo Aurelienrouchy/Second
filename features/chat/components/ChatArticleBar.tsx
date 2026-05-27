@@ -11,44 +11,56 @@ export const ChatArticleBar = React.memo(function ChatArticleBar({
   articleTitle,
   articlePrice,
   snapshotPrice,
+  snapshotImage,
 }: ChatArticleBarProps) {
   const router = useRouter();
-  const imageUrl = article.images?.[0]?.url;
+  const isUnavailable = article === null;
+  const imageUrl = article?.images?.[0]?.url ?? snapshotImage;
+  const displayPrice = articlePrice ?? snapshotPrice;
 
   // Detect whether the price changed since the chat was created
   const priceChanged =
+    !isUnavailable &&
     snapshotPrice != null &&
     articlePrice != null &&
     Math.abs(snapshotPrice - articlePrice) >= 0.01;
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={imageUrl ? { uri: imageUrl } : undefined}
-        style={styles.image}
-        contentFit="cover"
-      />
+    <View style={[styles.container, isUnavailable && styles.containerUnavailable]}>
+      <View style={styles.imageWrapper}>
+        <Image
+          source={imageUrl ? { uri: imageUrl } : undefined}
+          style={[styles.image, isUnavailable && styles.imageUnavailable]}
+          contentFit="cover"
+        />
+      </View>
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={1}>
-          {articleTitle}
+          {articleTitle ?? 'Article'}
         </Text>
-        <View style={styles.priceRow}>
-          {priceChanged && (
-            <Text style={styles.oldPrice}>
-              ${snapshotPrice.toFixed(2)}
+        {isUnavailable ? (
+          <Text style={styles.unavailableLabel}>Article indisponible</Text>
+        ) : (
+          <View style={styles.priceRow}>
+            {priceChanged && (
+              <Text style={styles.oldPrice}>
+                ${snapshotPrice.toFixed(2)}
+              </Text>
+            )}
+            <Text style={styles.price}>
+              ${displayPrice?.toFixed(2)}
             </Text>
-          )}
-          <Text style={styles.price}>
-            ${articlePrice?.toFixed(2)}
-          </Text>
-        </View>
+          </View>
+        )}
       </View>
-      <Pressable
-        style={styles.viewButton}
-        onPress={() => router.push(`/article/${article.id}`)}
-      >
-        <Text style={styles.viewButtonText}>VOIR</Text>
-      </Pressable>
+      {!isUnavailable && (
+        <Pressable
+          style={styles.viewButton}
+          onPress={() => router.push(`/article/${article.id}`)}
+        >
+          <Text style={styles.viewButtonText}>VOIR</Text>
+        </Pressable>
+      )}
     </View>
   );
 });
@@ -63,11 +75,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  containerUnavailable: {
+    opacity: 0.7,
+  },
+  imageWrapper: {
+    position: 'relative',
+    marginRight: spacing.md,
+  },
   image: {
     width: 48,
     height: 60,
     borderRadius: radius.xs,
-    marginRight: spacing.md,
+  },
+  imageUnavailable: {
+    opacity: 0.5,
   },
   info: {
     flex: 1,
@@ -77,6 +98,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.foreground,
     marginBottom: 2,
+  },
+  unavailableLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.danger,
   },
   priceRow: {
     flexDirection: 'row',
