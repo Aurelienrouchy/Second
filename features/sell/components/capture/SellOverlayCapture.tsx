@@ -59,6 +59,14 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
     });
   }, [showThumbStrip]);
 
+  const blurBottomStyle = useAnimatedStyle(() => ({
+    height: bottomControlsHeight + thumbContainerHeight.value,
+  }));
+
+  const viewfinderBottom = useAnimatedStyle(() => ({
+    bottom: bottomControlsHeight + thumbContainerHeight.value,
+  }));
+
   const thumbContainerStyle = useAnimatedStyle(() => ({
     height: thumbContainerHeight.value,
     opacity: interpolate(thumbContainerHeight.value, [0, THUMB_CONTAINER_HEIGHT * 0.5], [0, 1]),
