@@ -313,6 +313,13 @@ export default function EditArticleScreen() {
 
       await httpsCallable(functions, 'updateArticle')({ articleId: id, updates: articleData });
 
+      // Invalidate article caches so lists and detail reflect the update
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.articles.userList(user.id) });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.detail(id) });
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Succès', 'Article modifié avec succès', [
         { text: 'OK', onPress: () => router.back() }
