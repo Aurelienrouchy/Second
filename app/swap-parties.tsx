@@ -204,7 +204,7 @@ export default function SwapPartiesScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
