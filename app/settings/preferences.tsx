@@ -124,8 +124,8 @@ export default function PreferencesScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: 'Préférences' }} />
+      <View style={styles.container}>
+        <ScreenHeader title="Préférences" onBack={() => router.back()} />
         <View style={styles.skeletonContent}>
           <View style={styles.section}>
             <Skeleton width="50%" height={14} />
