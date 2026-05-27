@@ -582,6 +582,38 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
         tx.update(articleRef, { isSold: false });
       }
     }
+
+    // F02: Refund wallet portion if this was a mixed wallet+card payment
+    const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
+    if (walletAmountUsed > 0 && (txData.paidVia === 'wallet_and_card' || txData.paidVia === 'wallet')) {
+      const buyerId = txData.buyerId;
+      const buyerWalletRef = db.collection('wallets').doc(buyerId);
+      const buyerWalletSnap = await tx.get(buyerWalletRef);
+
+      if (buyerWalletSnap.exists) {
+        const walletData = buyerWalletSnap.data()!;
+        tx.update(buyerWalletRef, {
+          balance: FieldValue.increment(walletAmountUsed),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+        tx.set(buyerLedgerRef, {
+          type: 'refund_credit',
+          amount: walletAmountUsed,
+          balanceAfter: (walletData.balance || 0) + walletAmountUsed,
+          description: 'Remboursement — echec de paiement',
+          transactionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        logger.info('Stripe webhook: payment_failed — wallet portion refunded', {
+          transactionId,
+          buyerId,
+          walletAmountRefunded: walletAmountUsed,
+        });
+      }
+    }
   });
 
   const failureMessage = paymentIntent.last_payment_error?.message || 'Unknown failure';
