@@ -26,7 +26,7 @@ import { auth } from '@/config/firebaseConfig';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
-import { Text, Label, Caption } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 
 export default function ProfileDetailsScreen() {
   const router = useRouter();
