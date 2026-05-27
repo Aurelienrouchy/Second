@@ -556,17 +556,57 @@ export const createStripeCheckout = onCall(
         // We do NOT set application_fee_amount here because the platform
         // receives the entire card payment (no transfer_data), so the fee
         // is implicitly captured.
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: stripeChargeCents,
-          currency: 'cad',
-          metadata: {
+        let paymentIntent;
+        try {
+          paymentIntent = await stripe.paymentIntents.create({
+            amount: stripeChargeCents,
+            currency: 'cad',
+            metadata: {
+              transactionId,
+              sellerId: txResult.sellerId,
+              buyerId: request.auth!.uid,
+              walletAmountUsed: String(walletAmount),
+              paymentType: 'wallet_and_card',
+            },
+          });
+        } catch (stripeError) {
+          // F05: Stripe PI creation failed — revert the wallet debit
+          logger.error('Stripe PaymentIntent creation failed (mixed) — reverting wallet debit', {
             transactionId,
-            sellerId: txResult.sellerId,
-            buyerId: request.auth!.uid,
-            walletAmountUsed: String(walletAmount),
-            paymentType: 'wallet_and_card',
-          },
-        });
+            walletAmount,
+            error: stripeError instanceof Error ? stripeError.message : stripeError,
+          });
+
+          const buyerWalletRef = db.collection('wallets').doc(request.auth!.uid);
+          await db.runTransaction(async (revertTx) => {
+            const walletSnap = await revertTx.get(buyerWalletRef);
+            if (!walletSnap.exists) return;
+
+            const walletData = walletSnap.data()!;
+            revertTx.update(buyerWalletRef, {
+              balance: FieldValue.increment(walletAmount),
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+
+            const revertLedgerRef = buyerWalletRef.collection('ledger').doc();
+            revertTx.set(revertLedgerRef, {
+              type: 'refund_credit',
+              amount: walletAmount,
+              balanceAfter: (walletData.balance || 0) + walletAmount,
+              description: 'Remboursement — echec creation paiement',
+              transactionId,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          });
+
+          // Also revert the paidVia/walletAmountUsed fields on the transaction
+          await txRef.update({
+            walletAmountUsed: FieldValue.delete(),
+            paidVia: FieldValue.delete(),
+          });
+
+          throw stripeError;
+        }
 
         // Store PaymentIntent ID in the transaction doc
         await txRef.update({
