@@ -142,4 +142,27 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     letterSpacing: 1.2,
   },
+  viewButtonDisabled: {
+    opacity: 0.5,
+  },
+  viewButtonTextDisabled: {
+    color: colors.muted,
+  },
+  soldOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  soldOverlayText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: colors.white,
+    textTransform: 'uppercase',
+  },
 });
