@@ -31,14 +31,6 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       return;
     }
 
-    if (amount > currentPrice) {
-      Alert.alert(
-        'Montant trop élevé',
-        'Votre offre ne peut pas dépasser le prix affiché.'
-      );
-      return;
-    }
-
     const goToNext = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       actions.setStep(getNextStep('offer', state.mode));
