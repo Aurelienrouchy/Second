@@ -705,6 +705,14 @@ export const updateArticle = onCall(
         );
       }
 
+      // Block editing deactivated articles (task #14)
+      if (existing.isActive === false) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Impossible de modifier un article desactive',
+        );
+      }
+
       // Price drop tracking: if price has decreased, record it
       if (
         sanitized.price !== undefined &&
