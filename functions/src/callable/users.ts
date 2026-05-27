@@ -262,6 +262,17 @@ export const deleteUserAccount = onCall(
     const balSnap = await balRef.get();
     if (balSnap.exists) bulkWriter.delete(balRef);
 
+    // 13b. Delete wallets/{uid} and its ledger subcollection (W3 — Loi 25 / RGPD)
+    const walletRef = db.collection('wallets').doc(uid);
+    const walletSnap = await walletRef.get();
+    if (walletSnap.exists) {
+      // Delete all ledger entries first (subcollection)
+      const ledgerSnap = await walletRef.collection('ledger').get();
+      for (const d of ledgerSnap.docs) bulkWriter.delete(d.ref);
+      // Delete the wallet doc itself
+      bulkWriter.delete(walletRef);
+    }
+
     // 14. Delete withdrawal_requests
     const wdSnap = await db.collection('withdrawal_requests').where('userId', '==', uid).get();
     for (const d of wdSnap.docs) bulkWriter.delete(d.ref);
