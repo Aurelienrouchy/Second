@@ -39,6 +39,10 @@ export interface ScreenHeaderProps {
   showBorder?: boolean;
   /** Custom title style override */
   titleStyle?: object;
+  /** Title text color (default: colors.charcoal) */
+  titleColor?: string;
+  /** Back button icon & border color (default: colors.charcoal / colors.borderStrong) */
+  backButtonColor?: string;
 }
 
 function ScreenHeaderComponent({
