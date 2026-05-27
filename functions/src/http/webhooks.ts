@@ -707,37 +707,93 @@ async function handleChargeRefunded(charge: any): Promise<void> {
       stripeRefundId: charge.refunds?.data?.[0]?.id || null,
     });
 
-    // Decrement seller balance
     const sellerId = txData.sellerId;
     const sellerPayout = txData.sellerPayout || txData.amount;
-    const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
-    const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+    const paidVia = txData.paidVia;
+    const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
+    const previousStatus = txData.status;
+    const wasDelivered = previousStatus === 'delivered' || previousStatus === 'meetup_completed';
 
-    if (sellerBalanceSnap.exists) {
-      const balanceData = sellerBalanceSnap.data()!;
+    // --- Handle wallet refund for buyer ---
+    if (paidVia === 'wallet' || paidVia === 'wallet_and_card') {
+      const buyerId = txData.buyerId;
+      const buyerWalletRef = db.collection('wallets').doc(buyerId);
+      const buyerWalletSnap = await tx.get(buyerWalletRef);
 
-      // Determine which balance to decrement based on transaction status
-      // If the funds were already available (delivered), decrement availableBalance.
-      // If still pending (paid but not delivered), decrement pendingBalance.
-      const previousStatus = txData.status;
-      const wasDelivered = previousStatus === 'delivered' || previousStatus === 'meetup_completed';
+      if (buyerWalletSnap.exists) {
+        const walletData = buyerWalletSnap.data()!;
+        // Refund the wallet portion back to buyer's wallet
+        const walletRefundAmount = paidVia === 'wallet'
+          ? Math.round((txData.totalAmount || 0) * 100) // Full amount for 100% wallet
+          : walletAmountUsed; // Wallet portion for mixed payments
+
+        if (walletRefundAmount > 0) {
+          tx.update(buyerWalletRef, {
+            balance: FieldValue.increment(walletRefundAmount),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          // Create refund ledger entry
+          const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+          tx.set(buyerLedgerRef, {
+            type: 'refund_credit',
+            amount: walletRefundAmount,
+            balanceAfter: (walletData.balance || 0) + walletRefundAmount,
+            description: 'Remboursement — retour au porte-monnaie',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    }
+
+    // --- Debit seller (wallet or seller_balances) ---
+    const sellerWalletRef = db.collection('wallets').doc(sellerId);
+    const sellerWalletSnap = await tx.get(sellerWalletRef);
+
+    if (sellerWalletSnap.exists && sellerWalletSnap.data()!.status === 'active') {
+      // Seller has wallet: debit from wallet
+      const sellerPayoutCents = Math.round(sellerPayout * 100);
+      const sellerWalletData = sellerWalletSnap.data()!;
 
       if (wasDelivered) {
-        // Guard against going negative
-        const currentAvailable = balanceData.availableBalance || 0;
-        const deduction = Math.min(sellerPayout, currentAvailable);
-        tx.update(sellerBalanceRef, {
-          availableBalance: FieldValue.increment(-deduction),
+        // Funds were in balance (available)
+        const deduction = Math.min(sellerPayoutCents, sellerWalletData.balance || 0);
+        tx.update(sellerWalletRef, {
+          balance: FieldValue.increment(-deduction),
           updatedAt: FieldValue.serverTimestamp(),
         });
       } else {
-        // Funds still in pending
-        const currentPending = balanceData.pendingBalance || 0;
-        const deduction = Math.min(sellerPayout, currentPending);
-        tx.update(sellerBalanceRef, {
+        // Funds were in pendingBalance
+        const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
+        tx.update(sellerWalletRef, {
           pendingBalance: FieldValue.increment(-deduction),
           updatedAt: FieldValue.serverTimestamp(),
         });
+      }
+    } else {
+      // Seller has no wallet: use seller_balances
+      const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
+      const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+
+      if (sellerBalanceSnap.exists) {
+        const balanceData = sellerBalanceSnap.data()!;
+
+        if (wasDelivered) {
+          const currentAvailable = balanceData.availableBalance || 0;
+          const deduction = Math.min(sellerPayout, currentAvailable);
+          tx.update(sellerBalanceRef, {
+            availableBalance: FieldValue.increment(-deduction),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          const currentPending = balanceData.pendingBalance || 0;
+          const deduction = Math.min(sellerPayout, currentPending);
+          tx.update(sellerBalanceRef, {
+            pendingBalance: FieldValue.increment(-deduction),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
       }
     }
 
@@ -751,7 +807,7 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     }
   });
 
-  logger.warn('Stripe webhook: charge refunded — transaction marked refunded, seller balance decremented', {
+  logger.warn('Stripe webhook: charge refunded — transaction marked refunded, balances adjusted', {
     transactionId,
     chargeId: charge.id,
     paymentIntentId,
