@@ -230,6 +230,25 @@ export default function EditArticleScreen() {
 
     setIsSaving(true);
     try {
+      // Upload any local images (file://) to Firebase Storage before saving
+      let finalImages: ArticleImage[] = editedImages;
+      const localUris = editedImages
+        .map((img, idx) => ({ uri: img.url, idx }))
+        .filter(({ uri }) => !isStorageUrl(uri) && !uri.startsWith('https://'));
+
+      if (localUris.length > 0) {
+        const localUriStrings = localUris.map(({ uri }) => uri);
+        const uploaded = await ArticlesService.uploadImagesReactNative(localUriStrings, id);
+        // Replace local URIs with uploaded Storage URLs
+        finalImages = editedImages.map((img, idx) => {
+          const localIndex = localUris.findIndex((l) => l.idx === idx);
+          if (localIndex !== -1 && uploaded[localIndex]) {
+            return uploaded[localIndex];
+          }
+          return img;
+        });
+      }
+
       const articleData: Record<string, unknown> = {
         title: fields.title.trim(),
         description: fields.description.trim(),
@@ -264,9 +283,9 @@ export default function EditArticleScreen() {
       }
       if (fields.packageSize) articleData.packageSize = fields.packageSize;
 
-      // Photos (if edited)
-      if (editedImages.length > 0) {
-        articleData.images = editedImages;
+      // Photos — always send the resolved images (local URIs now uploaded)
+      if (finalImages.length > 0) {
+        articleData.images = finalImages;
       }
 
       await httpsCallable(functions, 'updateArticle')({ articleId: id, updates: articleData });
