@@ -247,7 +247,7 @@ export default function LikedSellersScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
