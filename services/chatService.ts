@@ -85,12 +85,18 @@ function stripUndefined<T>(obj: T): T {
 
 export class ChatService {
   /**
-   * Build a deterministic chat ID from a sorted pair of user UIDs.
-   * Same pair → same ID, regardless of who calls or in what order.
+   * Build a deterministic chat ID from a sorted pair of user UIDs,
+   * optionally scoped to an article.
+   *
+   * - With articleId: `${minUid}__${maxUid}__${articleId}` (per-article chat)
+   * - Without articleId: `${minUid}__${maxUid}` (general chat from profile)
+   *
+   * Same inputs → same ID, regardless of who calls or in what order.
    * Eliminates the race where two simultaneous taps create two threads.
    */
-  private static chatIdForPair(uid1: string, uid2: string): string {
-    return [uid1, uid2].sort().join('__');
+  private static chatIdForPair(uid1: string, uid2: string, articleId?: string): string {
+    const base = [uid1, uid2].sort().join('__');
+    return articleId ? `${base}__${articleId}` : base;
   }
 
   static async createOrGetChat(
