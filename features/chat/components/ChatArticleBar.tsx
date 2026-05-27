@@ -89,6 +89,8 @@ const styles = StyleSheet.create({
   imageWrapper: {
     position: 'relative',
     marginRight: spacing.md,
+    overflow: 'hidden',
+    borderRadius: radius.xs,
   },
   image: {
     width: 48,
