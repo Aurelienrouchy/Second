@@ -96,13 +96,13 @@ export default function VerifyEmailScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text variant="body" style={styles.loadingText}>Vérification en cours...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Vérifier l\'email' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Vérifier l'e-mail" onBack={() => router.back()} />
 
       <View style={styles.content}>
         {isVerified ? (
