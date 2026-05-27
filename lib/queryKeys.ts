@@ -57,4 +57,8 @@ export const queryKeys = {
     likedIds: (userId: string) => ['sellers', 'likedIds', userId] as const,
     balance: (userId: string) => ['sellers', 'balance', userId] as const,
   },
+  wallet: {
+    all: ['wallet'] as const,
+    info: () => ['wallet', 'info'] as const,
+  },
 } as const;
