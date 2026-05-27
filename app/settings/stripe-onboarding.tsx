@@ -238,7 +238,6 @@ export default function StripeOnboardingScreen() {
       const month = parseInt(dobMonth, 10);
       const year = parseInt(dobYear, 10);
 
-      // Step 1: Create Stripe Connect Custom account with personal info
       const createFn = httpsCallable<
         {
           firstName: string;
@@ -250,11 +249,22 @@ export default function StripeOnboardingScreen() {
             province: string;
             postalCode: string;
           };
+          transitNumber: string;
+          institutionNumber: string;
+          accountNumber: string;
         },
-        CreateAccountResponse
+        {
+          success: boolean;
+          stripeAccountId: string;
+          chargesEnabled: boolean;
+          payoutsEnabled: boolean;
+          detailsSubmitted: boolean;
+          requirements: string[];
+          status: string;
+        }
       >(functions, 'createStripeConnectAccount');
 
-      const createResult = await createFn({
+      const result = await createFn({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         dob: { day, month, year },
@@ -264,39 +274,18 @@ export default function StripeOnboardingScreen() {
           province: province.trim(),
           postalCode: postalCode.trim().toUpperCase(),
         },
-      });
-
-      if (!createResult.data.stripeAccountId) {
-        throw new Error('Impossible de creer le compte Stripe');
-      }
-
-      // Step 2: Add bank account
-      const addBankFn = httpsCallable<
-        {
-          transitNumber: string;
-          institutionNumber: string;
-          accountNumber: string;
-          accountHolderName: string;
-        },
-        AddBankAccountResponse
-      >(functions, 'addBankAccount');
-
-      await addBankFn({
         transitNumber,
         institutionNumber,
         accountNumber,
-        accountHolderName: `${firstName.trim()} ${lastName.trim()}`,
       });
 
-      // Step 3: Refresh status
-      const statusFn = httpsCallable<Record<string, never>, StripeAccountStatus>(
-        functions,
-        'getStripeAccountStatus',
-      );
-      const statusResult = await statusFn({});
+      if (!result.data.stripeAccountId) {
+        throw new Error('Impossible de creer le compte Stripe');
+      }
+
       return {
-        chargesEnabled: statusResult.data.chargesEnabled ?? false,
-        requirements: statusResult.data.requirements,
+        chargesEnabled: result.data.chargesEnabled,
+        requirements: result.data.requirements,
       };
     },
     onSuccess: async (data) => {
