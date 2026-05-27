@@ -430,6 +430,10 @@ interface TransactionDocument {
         | 'meetup_completed' | 'paid' | 'shipped' | 'delivered'
         | 'cancelled' | 'disputed' | 'refunded';
 
+  // Payment method
+  paidVia?: 'wallet' | 'wallet_and_card';  // Set when wallet is used (absent = card-only destination charge)
+  walletAmountUsed?: number;       // Wallet portion in cents (for mixed payments)
+
   // Stripe Connect payment
   stripePaymentIntentId?: string;  // Stripe PaymentIntent ID
   stripeCheckoutCreatedAt?: Timestamp;
