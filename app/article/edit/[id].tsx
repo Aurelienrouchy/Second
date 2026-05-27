@@ -474,11 +474,16 @@ export default function EditArticleScreen() {
         <View style={styles.photoSection}>
           {editedImages.length > 0 && (
             <>
-              <Image
-                source={{ uri: editedImages[0]?.url }}
-                style={styles.mainPhoto}
-                contentFit="cover"
-              />
+              <View>
+                <Image
+                  source={{ uri: editedImages[0]?.url }}
+                  style={styles.mainPhoto}
+                  contentFit="cover"
+                />
+                <View style={styles.primaryBadge}>
+                  <Text style={styles.primaryBadgeText}>PRINCIPALE</Text>
+                </View>
+              </View>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -486,7 +491,14 @@ export default function EditArticleScreen() {
                 contentContainerStyle={styles.thumbnailContent}
               >
                 {editedImages.map((img, index) => (
-                  <View key={index} style={styles.thumbnailWrapper}>
+                  <Pressable
+                    key={index}
+                    style={[
+                      styles.thumbnailWrapper,
+                      index === 0 && styles.thumbnailPrimary,
+                    ]}
+                    onPress={() => handleMakePrimary(index)}
+                  >
                     <Image
                       source={{ uri: img.url }}
                       style={styles.thumbnail}
@@ -499,7 +511,7 @@ export default function EditArticleScreen() {
                     >
                       <Ionicons name="close" size={10} color={colors.white} />
                     </Pressable>
-                  </View>
+                  </Pressable>
                 ))}
                 {editedImages.length < 5 && (
                   <Pressable style={styles.addPhotoButton} onPress={handleAddPhoto}>
