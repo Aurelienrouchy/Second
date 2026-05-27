@@ -147,13 +147,12 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
 
 const styles = StyleSheet.create({
   sheetBackground: {
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
   },
   handleIndicator: {
-    backgroundColor: 'rgba(26,24,20,0.15)',
-    width: 36,
-    height: 3,
-    borderRadius: 100,
+    backgroundColor: colors.borderStrong,
+    width: 40,
+    height: 4,
   },
   header: {
     flexDirection: 'row',
