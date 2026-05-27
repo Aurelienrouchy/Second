@@ -529,9 +529,15 @@ export class ArticlesService {
 
   static async deleteArticle(articleId: string): Promise<void> {
     try {
-      await this.updateArticle(articleId, { isActive: false });
+      const updateArticleFn = httpsCallable<
+        { articleId: string; updates: { isActive: boolean } },
+        { success: boolean }
+      >(functions, 'updateArticle');
+
+      await updateArticleFn({ articleId, updates: { isActive: false } });
     } catch (error: any) {
-      throw new Error(`Erreur lors de la suppression de l'article: ${error.message}`);
+      const message = error.message || 'Erreur lors de la suppression';
+      throw new Error(`Erreur lors de la suppression de l'article: ${message}`);
     }
   }
 
