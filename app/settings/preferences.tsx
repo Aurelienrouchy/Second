@@ -8,7 +8,7 @@ import BrandSelectionSheet, {
 import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Label, Caption } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Ionicons } from '@expo/vector-icons';
