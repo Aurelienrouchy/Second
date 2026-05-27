@@ -195,7 +195,7 @@ export default function LikedSellersScreen() {
     return (
       <View style={styles.emptyState}>
         <Ionicons name="heart-outline" size={48} color={colors.muted} />
-        <Text style={styles.emptyTitle}>Aucun vendeur aime</Text>
+        <Text style={styles.emptyTitle}>Aucun vendeur aimé</Text>
         <Text style={styles.emptySubtitle}>
           Explorez les vendeurs et appuyez sur le coeur pour les retrouver ici
         </Text>
