@@ -30,11 +30,11 @@ function SizeChipComponent({ label, selected, onPress }: SizeChipProps) {
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.92, animations.spring.snappy);
+    scale.value = withTiming(0.92, { duration: 150, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePress = useCallback(() => {
