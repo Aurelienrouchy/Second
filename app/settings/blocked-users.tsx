@@ -162,7 +162,7 @@ export default function BlockedUsersScreen() {
           </Text>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
