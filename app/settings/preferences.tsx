@@ -24,7 +24,6 @@ import {
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { UserPreferences } from '@/types';
 
