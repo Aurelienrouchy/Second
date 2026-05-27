@@ -22,9 +22,11 @@ const InfoCard = ({ title, children }: InfoCardProps) => (
 );
 
 export default function LegalNoticeScreen() {
+  const router = useRouter();
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Mentions légales' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Mentions légales" onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
