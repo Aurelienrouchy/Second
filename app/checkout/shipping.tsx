@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable,
+  View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable, Switch,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
