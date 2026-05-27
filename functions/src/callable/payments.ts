@@ -252,82 +252,28 @@ export const createTransaction = onCall(
         // before locking the article. This prevents articles from being marked
         // sold for a seller who can't receive payment.
         //
-        // If the seller has no Stripe account yet (e.g. article was published
-        // before the silent-create logic was added), attempt to create one on
-        // the fly. This is non-blocking for Custom accounts with
-        // service_agreement: 'recipient' — charges are enabled immediately.
+        // Sellers must complete full onboarding via createStripeConnectAccount
+        // before their articles can be purchased for shipping. No on-the-fly
+        // account creation — Custom accounts require identity + bank info.
         if (deliveryType === 'shipping') {
           const sellerRef = db.collection('users').doc(articleData.sellerId);
           const sellerSnap = await tx.get(sellerRef);
           if (!sellerSnap.exists) {
             throw new HttpsError('not-found', 'Vendeur introuvable');
           }
-          let sellerData = sellerSnap.data()!;
+          const sellerData = sellerSnap.data()!;
 
-          // Attempt on-the-fly Stripe Custom account creation if missing
           if (!sellerData.stripeAccountId) {
-            const stripe = getStripe();
-            const sellerEmail = sellerData.email || '';
-            if (stripe && sellerEmail) {
-              try {
-                const account = await stripe.accounts.create({
-                  type: 'custom',
-                  country: 'CA',
-                  email: sellerEmail,
-                  capabilities: {
-                    card_payments: { requested: true },
-                    transfers: { requested: true },
-                  },
-                  business_type: 'individual',
-                  tos_acceptance: {
-                    service_agreement: 'full',
-                  },
-                  metadata: {
-                    firebaseUserId: articleData.sellerId,
-                  },
-                });
-
-                // Check actual charges_enabled status from the freshly created account
-                const chargesEnabled = account.charges_enabled === true;
-
-                // Update seller doc within the transaction
-                tx.update(sellerRef, {
-                  stripeAccountId: account.id,
-                  stripeAccountStatus: chargesEnabled ? 'active' : 'pending',
-                  stripeChargesEnabled: chargesEnabled,
-                  stripePayoutsEnabled: account.payouts_enabled === true,
-                  stripeDetailsSubmitted: account.details_submitted === true,
-                  stripeAccountCreatedAt: FieldValue.serverTimestamp(),
-                });
-
-                logger.info('Stripe Custom account created on-the-fly during transaction', {
-                  sellerId: articleData.sellerId,
-                  stripeAccountId: account.id,
-                  chargesEnabled,
-                });
-
-                // Refresh sellerData with the new account info
-                sellerData = { ...sellerData, stripeAccountId: account.id, stripeChargesEnabled: chargesEnabled };
-              } catch (stripeErr) {
-                const stripeErrDetails: Record<string, unknown> = {
-                  sellerId: articleData.sellerId,
-                  error: stripeErr instanceof Error ? stripeErr.message : stripeErr,
-                };
-                if (stripeErr && typeof stripeErr === 'object') {
-                  const e = stripeErr as any;
-                  if (e.type) stripeErrDetails.stripeErrorType = e.type;
-                  if (e.code) stripeErrDetails.stripeErrorCode = e.code;
-                  if (e.statusCode) stripeErrDetails.stripeStatusCode = e.statusCode;
-                }
-                logger.warn('Failed to create Stripe account on-the-fly', stripeErrDetails);
-              }
-            }
-          }
-
-          if (!sellerData.stripeAccountId || sellerData.stripeChargesEnabled !== true) {
             throw new HttpsError(
               'failed-precondition',
-              'Le vendeur n\'a pas encore configure son compte de paiement.'
+              'Le vendeur n\'a pas encore configure son compte de paiement. Il doit completer son inscription vendeur.'
+            );
+          }
+
+          if (sellerData.stripeChargesEnabled !== true) {
+            throw new HttpsError(
+              'failed-precondition',
+              'Le compte de paiement du vendeur n\'est pas encore actif. Veuillez reessayer plus tard.'
             );
           }
         }
