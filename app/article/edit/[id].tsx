@@ -339,10 +339,43 @@ export default function EditArticleScreen() {
     }
   };
 
+  const hasUnsavedChanges = useMemo(() => {
+    if (!initialFieldsRef.current) return false;
+    const init = initialFieldsRef.current;
+    const fieldsChanged =
+      fields.title !== init.title ||
+      fields.description !== init.description ||
+      fields.price !== init.price ||
+      fields.condition !== init.condition ||
+      fields.brand !== init.brand ||
+      fields.size !== init.size ||
+      fields.isHandDelivery !== init.isHandDelivery ||
+      fields.isShipping !== init.isShipping ||
+      fields.packageSize !== init.packageSize ||
+      JSON.stringify(fields.categoryIds) !== JSON.stringify(init.categoryIds) ||
+      JSON.stringify(fields.colors) !== JSON.stringify(init.colors) ||
+      JSON.stringify(fields.materials) !== JSON.stringify(init.materials) ||
+      JSON.stringify(fields.neighborhoods) !== JSON.stringify(init.neighborhoods);
+    const imagesChanged =
+      JSON.stringify(editedImages) !== JSON.stringify(initialImagesRef.current);
+    return fieldsChanged || imagesChanged;
+  }, [fields, editedImages]);
+
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  }, [router]);
+    if (hasUnsavedChanges) {
+      Alert.alert(
+        'Modifications non enregistrées',
+        'Voulez-vous vraiment quitter sans enregistrer ?',
+        [
+          { text: 'Rester', style: 'cancel' },
+          { text: 'Quitter', style: 'destructive', onPress: () => router.back() },
+        ]
+      );
+    } else {
+      router.back();
+    }
+  }, [router, hasUnsavedChanges]);
 
   const handleColorToggle = useCallback((colorId: string) => {
     setFields((prev) => {
