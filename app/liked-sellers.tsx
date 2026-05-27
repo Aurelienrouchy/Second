@@ -23,7 +23,6 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDisplayName } from '@/utils/formatName';
 import { httpsCallable } from 'firebase/functions';
 import { useQuery } from '@tanstack/react-query';
