@@ -204,21 +204,16 @@ export default function LikedSellersScreen() {
   }, [isLoading]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={12}
-        >
-          <Ionicons name="arrow-back" size={20} color={colors.foreground} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Vendeurs Aimes</Text>
-        <View style={styles.headerRight}>
-          <Text style={styles.headerCount}>{likedSellerIds.length}</Text>
-        </View>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Vendeurs aimés"
+        onBack={() => router.back()}
+        rightContent={
+          <View style={styles.headerRight}>
+            <Text style={styles.headerCount}>{likedSellerIds.length}</Text>
+          </View>
+        }
+      />
 
       {/* List */}
       {isLoading ? (
