@@ -75,7 +75,12 @@ const MenuItemComponent = React.memo(function MenuItemComponent({
         </View>
         <Text style={styles.menuTitle}>{item.title}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+      <View style={styles.menuItemRight}>
+        {item.subtitle ? (
+          <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+        ) : null}
+        <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+      </View>
     </AnimatedPressable>
   );
 });
