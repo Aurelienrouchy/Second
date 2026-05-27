@@ -250,7 +250,34 @@ export default function ShippingCheckoutScreen() {
       );
       createdTransactionId = transactionId;
 
-      const result = await httpsCallable(functions, 'createStripeCheckout')({ transactionId });
+      // ── Full wallet payment ─────────────────────────────────────────────
+      if (walletCoversAll) {
+        await WalletService.payWithWallet(transactionId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        queryClient.invalidateQueries({ queryKey: homeKeys.all });
+        router.replace({
+          pathname: '/checkout/success' as any,
+          params: {
+            transactionId,
+            deliveryType: 'shipping',
+            articleTitle: article.title || '',
+            amount: String(finalPrice),
+            shippingCost: String(selectedEstimate.amount || 0),
+            serviceFee: String(serviceFee),
+            totalAmount: String(totalAmount),
+            chatId: chat.id,
+          },
+        });
+        return;
+      }
+
+      // ── Stripe checkout (optionally with partial wallet) ────────────────
+      const checkoutParams: Record<string, unknown> = { transactionId };
+      if (useWalletBalance && walletAmountCents > 0) {
+        checkoutParams.walletAmount = walletAmountCents;
+      }
+
+      const result = await httpsCallable(functions, 'createStripeCheckout')(checkoutParams);
       const data = result.data as { success: boolean; clientSecret: string };
       if (!data.success || !data.clientSecret) throw new Error('Impossible de créer la session de paiement');
 
@@ -282,7 +309,7 @@ export default function ShippingCheckoutScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router]);
+  }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router, walletCoversAll, useWalletBalance, walletAmountCents, totalAmount, queryClient]);
 
   const retryStripePayment = useCallback(async () => {
     if (!pendingTransactionId) return;
