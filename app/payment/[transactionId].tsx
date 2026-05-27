@@ -13,6 +13,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -28,6 +29,8 @@ import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
 import { functions } from '@/config/firebaseConfig';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
+import { useWallet } from '@/hooks/useWallet';
+import { WalletService } from '@/services/walletService';
 import { TransactionService } from '@/services/transactionService';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatPrice } from '@/utils/formatPrice';
