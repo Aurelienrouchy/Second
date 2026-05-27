@@ -175,7 +175,7 @@ export default function AddressSettingsScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
