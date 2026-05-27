@@ -230,39 +230,38 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   return (
     <View style={styles.container}>
-      {/* Camera confined to the viewfinder area — overlay gradient shows through elsewhere */}
+      {/* Camera full-screen — feed visible edge to edge */}
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing={facing}
+      />
+
+      {/* Top blur overlay */}
+      <BlurView
+        intensity={40}
+        tint="dark"
+        style={[styles.blurTop, { height: topOverlayHeight }]}
+      >
+        <TopControls
+          topInset={insets.top}
+          photoCount={photos.length}
+          maxPhotos={MAX_PHOTOS}
+          onClose={handleClose}
+          onFlipCamera={toggleCameraFacing}
+        />
+      </BlurView>
+
+      {/* Center viewfinder — clear camera feed, 4:3 area */}
       <View
         style={[
           styles.viewfinder,
           { top: topOverlayHeight, bottom: bottomOverlayHeight },
         ]}
+        pointerEvents="none"
       >
-        <CameraView
-          ref={cameraRef}
-          style={StyleSheet.absoluteFill}
-          facing={facing}
-        />
         <CameraGuides message={guideMessage} subMessage={guideSubMessage} />
-
-        <Animated.View style={[styles.thumbOverlay, thumbContainerStyle]}>
-          {showThumbStrip && (
-            <ThumbnailStrip
-              photos={photos}
-              onRemovePhoto={handleRemovePhoto}
-              onGalleryPress={handleGalleryPress}
-              canAddMore={canTakeMore}
-            />
-          )}
-        </Animated.View>
       </View>
-
-      <TopControls
-        topInset={insets.top}
-        photoCount={photos.length}
-        maxPhotos={MAX_PHOTOS}
-        onClose={handleClose}
-        onFlipCamera={toggleCameraFacing}
-      />
 
       {!canTakeMore && (
         <View style={[styles.maxBadge, { top: topOverlayHeight + 12 }]}>
@@ -270,15 +269,33 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         </View>
       )}
 
-      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
-        <CameraControlsRow
-          canTakeMore={canTakeMore}
-          isCapturing={isCapturing}
-          hasPhotos={photos.length > 0}
-          onCapture={handleCapture}
-          onContinue={handleContinue}
-        />
-      </View>
+      {/* Bottom blur overlay — previews + controls */}
+      <BlurView
+        intensity={40}
+        tint="dark"
+        style={[styles.blurBottom, { height: bottomOverlayHeight }]}
+      >
+        <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 16 }]}>
+          <Animated.View style={[styles.thumbContainer, thumbContainerStyle]}>
+            {showThumbStrip && (
+              <ThumbnailStrip
+                photos={photos}
+                onRemovePhoto={handleRemovePhoto}
+                onGalleryPress={handleGalleryPress}
+                canAddMore={canTakeMore}
+              />
+            )}
+          </Animated.View>
+
+          <CameraControlsRow
+            canTakeMore={canTakeMore}
+            isCapturing={isCapturing}
+            hasPhotos={photos.length > 0}
+            onCapture={handleCapture}
+            onContinue={handleContinue}
+          />
+        </View>
+      </BlurView>
     </View>
   );
 }
