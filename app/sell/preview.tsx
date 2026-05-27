@@ -140,6 +140,7 @@ export default function PreviewScreen() {
       validationErrors.push('Sélectionnez une catégorie');
     }
     if (validationErrors.length > 0) {
+      publishingRef.current = false;
       Alert.alert('Informations manquantes', validationErrors.join('\n'));
       return;
     }
