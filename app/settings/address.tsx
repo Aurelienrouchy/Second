@@ -11,7 +11,7 @@ import {
 import { GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Text, Label, Caption } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
