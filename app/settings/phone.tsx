@@ -86,18 +86,20 @@ export default function PhoneSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{
-        headerRight: () => (
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Numéro de téléphone"
+        onBack={() => router.back()}
+        rightContent={
           <Pressable onPress={handleSave} disabled={isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text variant="body" style={styles.headerButton}>Enregistrer</Text>
+              <Text variant="body" style={styles.saveButton}>Enregistrer</Text>
             )}
           </Pressable>
-        ),
-      }} />
+        }
+      />
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
