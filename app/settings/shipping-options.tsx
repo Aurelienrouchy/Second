@@ -8,7 +8,6 @@ import {
   Switch,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
