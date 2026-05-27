@@ -20,6 +20,10 @@ interface PayButtonProps {
   submitting: boolean;
   onPress: () => void;
   bottomInset: number;
+  /** True when the wallet covers the full amount (no Stripe needed). */
+  walletCoversAll?: boolean;
+  /** True when wallet balance is being applied (partial or full). */
+  useWallet?: boolean;
 }
 
 // =============================================================================
