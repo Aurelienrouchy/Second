@@ -248,7 +248,9 @@ export type TransactionStatus =
   | 'paid'               // Payment received (shipping)
   | 'shipped'            // Package shipped
   | 'delivered'          // Package delivered
-  | 'cancelled';         // Cancelled by either party
+  | 'cancelled'          // Cancelled by either party
+  | 'disputed'           // Stripe dispute opened
+  | 'refunded';          // Stripe refund completed
 
 export interface Transaction {
   id: string;
