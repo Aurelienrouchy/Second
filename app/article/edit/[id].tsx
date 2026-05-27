@@ -849,6 +849,26 @@ const styles = StyleSheet.create({
   thumbnailWrapper: {
     position: 'relative',
   },
+  thumbnailPrimary: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 10,
+  },
+  primaryBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  primaryBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: colors.cream,
+    textTransform: 'uppercase',
+  },
   thumbnailRemove: {
     position: 'absolute',
     top: -4,
