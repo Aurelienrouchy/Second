@@ -1674,8 +1674,12 @@ export const completeMeetupTransaction = onCall(
         const sellerId = data.sellerId;
         const sellerPayout = data.sellerPayout || data.amount;
         const sellerBalanceRef = db.collection('seller_balances').doc(sellerId);
+        const sellerWalletRef = db.collection('wallets').doc(sellerId);
 
-        const sellerBalanceDoc = await tx.get(sellerBalanceRef);
+        const [sellerBalanceDoc, sellerWalletSnap] = await Promise.all([
+          tx.get(sellerBalanceRef),
+          tx.get(sellerWalletRef),
+        ]);
 
         // 1. Update transaction status
         tx.update(txRef, {
@@ -1683,8 +1687,29 @@ export const completeMeetupTransaction = onCall(
           completedAt: FieldValue.serverTimestamp(),
         });
 
-        // 2. Credit seller balance: pending → available
-        if (sellerBalanceDoc.exists) {
+        // 2. Credit seller — wallet-first, fallback to seller_balances
+        const sellerPayoutCents = Math.round(sellerPayout * 100);
+
+        if (sellerWalletSnap.exists && sellerWalletSnap.data()!.status === 'active') {
+          // Seller has wallet: credit directly to wallet balance (meetup = immediate)
+          tx.update(sellerWalletRef, {
+            balance: FieldValue.increment(sellerPayoutCents),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          // Create ledger entry
+          const ledgerRef = sellerWalletRef.collection('ledger').doc();
+          const currentWallet = sellerWalletSnap.data()!;
+          tx.set(ledgerRef, {
+            type: 'sale_credit',
+            amount: sellerPayoutCents,
+            balanceAfter: (currentWallet.balance || 0) + sellerPayoutCents,
+            description: 'Vente meetup — fonds disponibles',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        } else if (sellerBalanceDoc.exists) {
+          // Fallback to seller_balances
           const balanceData = sellerBalanceDoc.data()!;
           const txns = balanceData.transactions || [];
 
