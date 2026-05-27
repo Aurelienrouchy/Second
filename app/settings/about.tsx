@@ -12,7 +12,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { Text, Caption, ScreenHeader } from '@/components/ui';
 
