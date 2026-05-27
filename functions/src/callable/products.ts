@@ -153,7 +153,7 @@ export const toggleProductLike = onCall({ region: 'northamerica-northeast1', mem
  * Returns { articleId: string }.
  */
 export const createArticle = onCall(
-  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     // ── 1. Auth check ──
     if (!request.auth) {
