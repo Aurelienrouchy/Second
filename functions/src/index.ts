@@ -127,7 +127,7 @@ export { onArticleFavorited, onArticlePriceDropped } from './triggers/favorites'
 export { onUserProfileUpdated } from './triggers/users';
 
 // Article Triggers
-export { onArticleSoftDeleted, onArticleSold } from './triggers/articles';
+export { onArticleSoftDeleted, onArticleSold, onArticleInfoUpdated } from './triggers/articles';
 
 // ============================================================
 // SCHEDULED FUNCTIONS (pubsub)
