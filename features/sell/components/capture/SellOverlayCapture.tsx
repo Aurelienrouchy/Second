@@ -280,12 +280,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
       {/* Bottom blur overlay — previews + controls */}
       <Animated.View style={[styles.blurBottom, blurBottomStyle]}>
-      <BlurView
-        intensity={40}
-        tint="dark"
-        style={StyleSheet.absoluteFill}
-      >
-        <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 16 }]}>
+        <BlurView intensity={40} tint="dark" style={styles.blurFill}>
           <Animated.View style={[styles.thumbContainer, thumbContainerStyle]}>
             {showThumbStrip && (
               <ThumbnailStrip
@@ -297,15 +292,16 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
             )}
           </Animated.View>
 
-          <CameraControlsRow
-            canTakeMore={canTakeMore}
-            isCapturing={isCapturing}
-            hasPhotos={photos.length > 0}
-            onCapture={handleCapture}
-            onContinue={handleContinue}
-          />
-        </View>
-      </BlurView>
+          <View style={{ paddingBottom: insets.bottom + 16 }}>
+            <CameraControlsRow
+              canTakeMore={canTakeMore}
+              isCapturing={isCapturing}
+              hasPhotos={photos.length > 0}
+              onCapture={handleCapture}
+              onContinue={handleContinue}
+            />
+          </View>
+        </BlurView>
       </Animated.View>
     </View>
   );
