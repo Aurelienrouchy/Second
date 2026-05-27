@@ -31,6 +31,7 @@ import {
 import { queryKeys } from '@/lib/queryKeys';
 import { SwapParty } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ZoneCard, FilterTabs } from '@/features/swap-parties';
 import type { FilterTab } from '@/features/swap-parties';
