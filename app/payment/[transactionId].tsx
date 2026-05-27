@@ -50,6 +50,10 @@ export default function PaymentScreen() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [showStripePayment, setShowStripePayment] = useState(false);
 
+  // Wallet
+  const { wallet } = useWallet(!!user);
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
+
   // =============================================================================
   // LOAD TRANSACTION
   // =============================================================================
