@@ -38,6 +38,7 @@ const DataItem = ({ icon, title, description }: DataItemProps) => (
 );
 
 export default function ExportDataScreen() {
+  const router = useRouter();
   const user = useUser();
   const [loading, setLoading] = useState(false);
   const [exported, setExported] = useState(false);
