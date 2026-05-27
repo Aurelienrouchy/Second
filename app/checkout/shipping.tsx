@@ -15,13 +15,14 @@ import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import * as Haptics from 'expo-haptics';
 
-import { colors, fonts, radius } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { firestore, functions, auth } from '@/config/firebaseConfig';
 import { Article, ShippingAddress } from '@/types';
 import { TransactionService } from '@/services/transactionService';
 import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
+import { WalletService } from '@/services/walletService';
 import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
 import {
   ShippingAddressForm,
@@ -35,6 +36,7 @@ import {
 import type { ShippingEstimate, AddressFormValues } from '@/features/checkout-shipping';
 import { homeKeys } from '@/features/home/query-keys';
 import { useAuthStore } from '@/store/authStore';
+import { useWallet } from '@/hooks/useWallet';
 
 /** Default postal code used when seller location is unavailable */
 const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
