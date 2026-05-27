@@ -484,17 +484,54 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
             // We do NOT set application_fee_amount here because the platform
             // receives the entire card payment (no transfer_data), so the fee
             // is implicitly captured.
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: stripeChargeCents,
-                currency: 'cad',
-                metadata: {
+            let paymentIntent;
+            try {
+                paymentIntent = await stripe.paymentIntents.create({
+                    amount: stripeChargeCents,
+                    currency: 'cad',
+                    metadata: {
+                        transactionId,
+                        sellerId: txResult.sellerId,
+                        buyerId: request.auth.uid,
+                        walletAmountUsed: String(walletAmount),
+                        paymentType: 'wallet_and_card',
+                    },
+                });
+            }
+            catch (stripeError) {
+                // F05: Stripe PI creation failed — revert the wallet debit
+                logger.error('Stripe PaymentIntent creation failed (mixed) — reverting wallet debit', {
                     transactionId,
-                    sellerId: txResult.sellerId,
-                    buyerId: request.auth.uid,
-                    walletAmountUsed: String(walletAmount),
-                    paymentType: 'wallet_and_card',
-                },
-            });
+                    walletAmount,
+                    error: stripeError instanceof Error ? stripeError.message : stripeError,
+                });
+                const buyerWalletRef = firebase_1.db.collection('wallets').doc(request.auth.uid);
+                await firebase_1.db.runTransaction(async (revertTx) => {
+                    const walletSnap = await revertTx.get(buyerWalletRef);
+                    if (!walletSnap.exists)
+                        return;
+                    const walletData = walletSnap.data();
+                    revertTx.update(buyerWalletRef, {
+                        balance: firebase_1.FieldValue.increment(walletAmount),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                    const revertLedgerRef = buyerWalletRef.collection('ledger').doc();
+                    revertTx.set(revertLedgerRef, {
+                        type: 'refund_credit',
+                        amount: walletAmount,
+                        balanceAfter: (walletData.balance || 0) + walletAmount,
+                        description: 'Remboursement — echec creation paiement',
+                        transactionId,
+                        createdAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                });
+                // Also revert the paidVia/walletAmountUsed fields on the transaction
+                await txRef.update({
+                    walletAmountUsed: firebase_1.FieldValue.delete(),
+                    paidVia: firebase_1.FieldValue.delete(),
+                });
+                throw stripeError;
+            }
             // Store PaymentIntent ID in the transaction doc
             await txRef.update({
                 stripePaymentIntentId: paymentIntent.id,
@@ -1626,6 +1663,15 @@ exports.cancelPendingTransaction = (0, https_1.onCall)({ region: 'northamerica-n
                 articleRef = firebase_1.db.collection('articles').doc(data.articleId);
                 articleSnap = await tx.get(articleRef);
             }
+            // F03: Read buyer wallet if wallet was used (all reads before writes)
+            const walletAmountUsed = data.walletAmountUsed || 0; // in cents
+            const hasWalletDebit = walletAmountUsed > 0 && (data.paidVia === 'wallet_and_card' || data.paidVia === 'wallet');
+            let buyerWalletSnap = null;
+            let buyerWalletRef = null;
+            if (hasWalletDebit) {
+                buyerWalletRef = firebase_1.db.collection('wallets').doc(data.buyerId);
+                buyerWalletSnap = await tx.get(buyerWalletRef);
+            }
             // ── ALL WRITES AFTER ALL READS ──
             tx.update(txRef, {
                 status: 'cancelled',
@@ -1637,6 +1683,28 @@ exports.cancelPendingTransaction = (0, https_1.onCall)({ region: 'northamerica-n
             // time; cancelling must undo that.
             if (articleRef && articleSnap && articleSnap.exists) {
                 tx.update(articleRef, { isSold: false });
+            }
+            // F03: Refund wallet portion if wallet was debited
+            if (hasWalletDebit && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+                const walletData = buyerWalletSnap.data();
+                tx.update(buyerWalletRef, {
+                    balance: firebase_1.FieldValue.increment(walletAmountUsed),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+                tx.set(buyerLedgerRef, {
+                    type: 'refund_credit',
+                    amount: walletAmountUsed,
+                    balanceAfter: (walletData.balance || 0) + walletAmountUsed,
+                    description: 'Remboursement — transaction annulee',
+                    transactionId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                logger.info('cancelPendingTransaction: wallet portion refunded', {
+                    transactionId,
+                    buyerId: data.buyerId,
+                    walletAmountRefunded: walletAmountUsed,
+                });
             }
         });
         return { success: true };
