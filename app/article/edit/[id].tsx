@@ -149,7 +149,8 @@ export default function EditArticleScreen() {
       }
 
       setArticle(articleData);
-      setEditedImages(articleData.images || []);
+      const loadedImages = articleData.images || [];
+      setEditedImages(loadedImages);
 
       // Get category info
       const categoryInfo = articleData.categoryIds
@@ -168,7 +169,7 @@ export default function EditArticleScreen() {
           ? [articleData.material.toLowerCase().replace(/\s+/g, '-')]
           : [];
 
-      setFields({
+      const loadedFields: EditedFields = {
         title: articleData.title || '',
         description: articleData.description || '',
         categoryIds: articleData.categoryIds || [],
@@ -187,7 +188,13 @@ export default function EditArticleScreen() {
         isShipping: articleData.isShipping ?? true,
         neighborhoods: articleData.neighborhoods || (articleData.neighborhood ? [articleData.neighborhood] : []),
         packageSize: (articleData.packageSize as PackageSize) || null,
-      });
+      };
+
+      setFields(loadedFields);
+
+      // Capture initial state for unsaved-changes detection
+      initialFieldsRef.current = loadedFields;
+      initialImagesRef.current = loadedImages;
     } catch (error) {
       if (__DEV__) console.error('Error loading article:', error);
       Alert.alert('Erreur', 'Impossible de charger l\'article');
