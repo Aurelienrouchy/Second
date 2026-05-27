@@ -5,10 +5,10 @@
 import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Caption } from '@/components/ui';
+import { Text, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
