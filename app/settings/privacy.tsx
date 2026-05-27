@@ -201,7 +201,7 @@ export default function PrivacySettingsScreen() {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
