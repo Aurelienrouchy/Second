@@ -10,9 +10,11 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, ScreenHeader } from '@/components/ui';
 
 export default function TermsScreen() {
+  const router = useRouter();
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Conditions Générales' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Conditions d'utilisation" onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
