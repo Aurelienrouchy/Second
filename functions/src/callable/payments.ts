@@ -856,15 +856,18 @@ export const createStripeConnectAccount = onCall(
 // =============================================================================
 
 /**
- * Attaches a Canadian bank account to the seller's Stripe Connect Custom
- * account. The seller provides transit number (5 digits), institution
+ * Updates / replaces the bank account on the seller's Stripe Connect Custom
+ * account. The primary bank account is now set during account creation
+ * (createStripeConnectAccount), but sellers may need to change their
+ * bank account later.
+ *
+ * The seller provides transit number (5 digits), institution
  * number (3 digits), and account number directly in the app UI.
  *
  * Canadian routing_number format for Stripe:
  * transit (5 digits) + institution (3 digits) = 8 digits total
  *
- * After attaching the bank account, configures manual payouts so the
- * platform controls when funds are disbursed (via requestWithdrawal).
+ * Payout schedule is always set to manual (platform-controlled).
  */
 export const addBankAccount = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
