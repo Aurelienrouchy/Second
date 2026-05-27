@@ -171,14 +171,6 @@ function AppContent() {
                 name="my-orders"
                 options={{ presentation: 'card' }}
               />
-              <Stack.Screen
-                name="filters"
-                options={{
-                  presentation: 'modal',
-                  animation: 'slide_from_bottom',
-                }}
-              />
-
               <Stack.Screen name="shop/[id]" />
               <Stack.Screen name="settings" />
               <Stack.Screen

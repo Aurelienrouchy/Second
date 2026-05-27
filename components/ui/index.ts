@@ -39,7 +39,7 @@ export { TabBar } from './TabBar';
 export { SearchBar } from './SearchBar';
 export { CategoryChip } from './CategoryChip';
 // SectionHeader removed — duplicate of components/home/SectionHeader, no consumers.
-export { PersonalizedHeader } from './PersonalizedHeader';
+// PersonalizedHeader removed — 238 lines, zero consumers (dead code cleanup).
 export { ScreenHeader } from './ScreenHeader';
 export type { ScreenHeaderProps } from './ScreenHeader';
 

@@ -11,5 +11,3 @@ export type { TagProps } from './Tag';
 export { Pill } from './Pill';
 export type { PillProps } from './Pill';
 
-export { FilterChip } from './FilterChip';
-export type { FilterChipProps } from './FilterChip';

@@ -24,7 +24,6 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/article/edit/[id]` | `article/edit/[id].tsx` | Édition article |
 | `/chat/[id]` | `chat/[id].tsx` | Conversation |
 | `/search` | `search.tsx` | Recherche + filtres |
-| `/filters` | `filters.tsx` | Filtres avancés |
 | `/onboarding` | `onboarding.tsx` | Onboarding préférences |
 | `/notifications` | `notifications.tsx` | Centre notifications |
 | `/my-articles` | `my-articles.tsx` | Mes articles en vente |
