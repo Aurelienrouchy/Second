@@ -378,6 +378,7 @@ export default function StripeOnboardingScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <ScreenHeader title="Compte de paiement" onBack={() => router.back()} />
 
       <KeyboardAvoidingView
