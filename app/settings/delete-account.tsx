@@ -22,7 +22,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
