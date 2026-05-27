@@ -26,6 +26,7 @@ const CARRIERS = [
 const ALL_CARRIER_IDS = CARRIERS.map(c => c.id);
 
 export default function ShippingOptionsScreen() {
+  const router = useRouter();
   const user = useUser();
   const queryClient = useQueryClient();
 
