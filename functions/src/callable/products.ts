@@ -5,7 +5,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
-import { getStripe } from '../config/stripe';
 
 /**
  * Increment article view count
