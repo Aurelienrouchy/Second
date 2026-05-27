@@ -804,6 +804,7 @@ export type WalletLedgerType =
   | 'sale_credit'
   | 'purchase_debit'
   | 'withdrawal'
+  | 'withdrawal_failed'
   | 'refund_credit';
 
 export interface WalletLedgerEntry {
