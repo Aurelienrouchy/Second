@@ -290,6 +290,7 @@ export const deleteUserAccount = onCall(
       reviewsAnonymised: reviewsByUser.size,
       swapsDeleted: deletedSwapIds.size,
       transactionsAnonymised: anonTxIds.size,
+      walletDeleted: walletSnap.exists,
     });
 
     // 16. Storage cleanup
