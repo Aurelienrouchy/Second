@@ -50,7 +50,7 @@ export const ChatHeader = React.memo(function ChatHeader({
               </Text>
               {articlePrice != null && (
                 <Text style={styles.headerSubtitle} numberOfLines={1}>
-                  ${articlePrice.toFixed(2)}
+                  {formatPrice(articlePrice)}
                 </Text>
               )}
             </View>
