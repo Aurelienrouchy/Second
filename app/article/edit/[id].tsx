@@ -102,6 +102,10 @@ export default function EditArticleScreen() {
   // Editable photos state
   const [editedImages, setEditedImages] = useState<{ url: string }[]>([]);
 
+  // Track initial values for unsaved-changes detection
+  const initialFieldsRef = useRef<EditedFields | null>(null);
+  const initialImagesRef = useRef<{ url: string }[]>([]);
+
   // Bottom sheet refs
   const categorySheetRef = useRef<CategoryBottomSheetRef>(null);
   const colorSheetRef = useRef<SelectionBottomSheetRef>(null);
