@@ -105,13 +105,8 @@ export default function ShopDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Header skeleton */}
-        <View style={styles.header}>
-          <Skeleton width={24} height={24} borderRadius={4} />
-          <Skeleton width="45%" height={18} style={{ marginHorizontal: 16 }} />
-          <View style={styles.placeholder} />
-        </View>
+      <View style={styles.container}>
+        <ScreenHeader title="Boutique" onBack={() => router.back()} />
         {/* Main image */}
         <Skeleton width="100%" height={300} borderRadius={0} />
         {/* Thumbnails */}
