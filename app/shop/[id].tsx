@@ -150,22 +150,13 @@ export default function ShopDetailScreen() {
           <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
           <Text style={styles.errorText}>Boutique introuvable</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={24} color={colors.foreground} />
-        </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {shop.name}
-        </Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title={shop.name} onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Image Gallery */}
