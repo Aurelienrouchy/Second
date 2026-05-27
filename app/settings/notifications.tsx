@@ -117,6 +117,7 @@ const DEFAULT_SETTINGS: Record<NotificationType, boolean> = {
 };
 
 export default function NotificationsSettingsScreen() {
+  const router = useRouter();
   const user = useUser();
   const queryClient = useQueryClient();
 
