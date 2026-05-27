@@ -623,10 +623,12 @@ export const createStripeConnectAccount = onCall(
       throw new HttpsError('invalid-argument', 'Le numero de compte doit contenir entre 7 et 12 chiffres');
     }
 
-    // ToS acceptance IP
-    if (typeof data.ip !== 'string' || data.ip.trim().length < 7) {
-      throw new HttpsError('invalid-argument', 'L\'adresse IP est requise pour l\'acceptation des conditions');
-    }
+    // ToS acceptance IP — extracted from request context (more secure than client-provided)
+    const callerIp = request.rawRequest?.ip
+      || (request.rawRequest?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || data.ip
+      || '0.0.0.0';
+
 
     // ── Fetch user doc ──────────────────────────────────────────────────────
 
