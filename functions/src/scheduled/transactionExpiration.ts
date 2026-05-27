@@ -37,6 +37,7 @@ export const expireOrphanedTransactions = onSchedule(
     schedule: 'every 1 hours',
     region: 'northamerica-northeast1',
     memory: '512MiB',
+    secrets: ['STRIPE_SECRET_KEY'],
   },
   async () => {
     const now = Date.now();
