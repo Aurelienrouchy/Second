@@ -378,7 +378,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 ### Triggers — `functions/src/triggers/`
 | Fichier | Événement |
 |---------|-----------|
-| `articles.ts` | onUpdate article → search_index cleanup + offer expiration on soft-delete (isActive→false) and sold (isSold→true) |
+| `articles.ts` | onUpdate article → search_index cleanup + offer expiration on soft-delete (isActive→false) and sold (isSold→true) + propagation title/image/price vers chats |
 | `embeddings.ts` | onCreate article → génère embeddings |
 | `favorites.ts` | onWrite favoris → MAJ compteurs |
 | `messages.ts` | onCreate message → notif push |
