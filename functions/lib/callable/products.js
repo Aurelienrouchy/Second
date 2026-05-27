@@ -41,7 +41,6 @@ exports.markSavedSearchViewed = exports.updateArticle = exports.toggleArticleSol
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
-const stripe_1 = require("../config/stripe");
 /**
  * Increment article view count
  */
@@ -156,7 +155,7 @@ exports.toggleProductLike = (0, https_1.onCall)({ region: 'northamerica-northeas
  *
  * Returns { articleId: string }.
  */
-exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     // ── 1. Auth check ──
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Utilisateur non connecte');
@@ -237,57 +236,11 @@ exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
             sellerName = 'Utilisateur';
         }
     }
-    // ── 4b. Silently create Stripe Custom account if seller doesn't have one ──
-    // This ensures every seller who publishes an article has a Stripe Connect
-    // Custom account ready for payments, without any seller-facing Stripe UI.
-    try {
-        const userRef = firebase_1.db.collection('users').doc(uid);
-        const userSnap2 = await userRef.get();
-        const existingUserData = userSnap2.data();
-        if (existingUserData && !existingUserData.stripeAccountId) {
-            const stripe = (0, stripe_1.getStripe)();
-            const accountEmail = existingUserData.email || request.auth.token.email || '';
-            if (stripe && accountEmail) {
-                const account = await stripe.accounts.create({
-                    type: 'custom',
-                    country: 'CA',
-                    email: accountEmail,
-                    capabilities: {
-                        card_payments: { requested: true },
-                        transfers: { requested: true },
-                    },
-                    business_type: 'individual',
-                    tos_acceptance: {
-                        service_agreement: 'recipient',
-                    },
-                    metadata: {
-                        firebaseUserId: uid,
-                    },
-                });
-                await userRef.update({
-                    stripeAccountId: account.id,
-                    stripeAccountStatus: account.charges_enabled ? 'active' : 'pending',
-                    stripeChargesEnabled: account.charges_enabled === true,
-                    stripePayoutsEnabled: account.payouts_enabled === true,
-                    stripeDetailsSubmitted: account.details_submitted === true,
-                    stripeAccountCreatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-                logger.info('Stripe Custom account created silently at article publish', {
-                    userId: uid,
-                    stripeAccountId: account.id,
-                });
-            }
-        }
-    }
-    catch (stripeError) {
-        // Non-blocking: article creation should still succeed even if Stripe
-        // account creation fails. The seller can create the account later via
-        // createStripeConnectAccount or the next article publish will retry.
-        logger.warn('Failed to create Stripe Custom account at article publish', {
-            userId: uid,
-            error: stripeError instanceof Error ? stripeError.message : stripeError,
-        });
-    }
+    // NOTE: Stripe Custom account creation is no longer done silently at
+    // article publish. Sellers must complete full in-app onboarding via
+    // createStripeConnectAccount (identity, address, bank account) before
+    // their shipping articles can be purchased. The createTransaction
+    // callable enforces this check at purchase time.
     // ── 5. Build sanitised images array ──
     const sanitizedImages = data.images.map((img) => {
         const entry = {

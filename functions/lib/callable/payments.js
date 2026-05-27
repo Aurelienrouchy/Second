@@ -234,78 +234,21 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             // before locking the article. This prevents articles from being marked
             // sold for a seller who can't receive payment.
             //
-            // If the seller has no Stripe account yet (e.g. article was published
-            // before the silent-create logic was added), attempt to create one on
-            // the fly. This is non-blocking for Custom accounts with
-            // service_agreement: 'recipient' — charges are enabled immediately.
+            // Sellers must complete full onboarding via createStripeConnectAccount
+            // before their articles can be purchased for shipping. No on-the-fly
+            // account creation — Custom accounts require identity + bank info.
             if (deliveryType === 'shipping') {
                 const sellerRef = firebase_1.db.collection('users').doc(articleData.sellerId);
                 const sellerSnap = await tx.get(sellerRef);
                 if (!sellerSnap.exists) {
                     throw new https_1.HttpsError('not-found', 'Vendeur introuvable');
                 }
-                let sellerData = sellerSnap.data();
-                // Attempt on-the-fly Stripe Custom account creation if missing
+                const sellerData = sellerSnap.data();
                 if (!sellerData.stripeAccountId) {
-                    const stripe = (0, stripe_1.getStripe)();
-                    const sellerEmail = sellerData.email || '';
-                    if (stripe && sellerEmail) {
-                        try {
-                            const account = await stripe.accounts.create({
-                                type: 'custom',
-                                country: 'CA',
-                                email: sellerEmail,
-                                capabilities: {
-                                    card_payments: { requested: true },
-                                    transfers: { requested: true },
-                                },
-                                business_type: 'individual',
-                                tos_acceptance: {
-                                    service_agreement: 'full',
-                                },
-                                metadata: {
-                                    firebaseUserId: articleData.sellerId,
-                                },
-                            });
-                            // Check actual charges_enabled status from the freshly created account
-                            const chargesEnabled = account.charges_enabled === true;
-                            // Update seller doc within the transaction
-                            tx.update(sellerRef, {
-                                stripeAccountId: account.id,
-                                stripeAccountStatus: chargesEnabled ? 'active' : 'pending',
-                                stripeChargesEnabled: chargesEnabled,
-                                stripePayoutsEnabled: account.payouts_enabled === true,
-                                stripeDetailsSubmitted: account.details_submitted === true,
-                                stripeAccountCreatedAt: firebase_1.FieldValue.serverTimestamp(),
-                            });
-                            logger.info('Stripe Custom account created on-the-fly during transaction', {
-                                sellerId: articleData.sellerId,
-                                stripeAccountId: account.id,
-                                chargesEnabled,
-                            });
-                            // Refresh sellerData with the new account info
-                            sellerData = Object.assign(Object.assign({}, sellerData), { stripeAccountId: account.id, stripeChargesEnabled: chargesEnabled });
-                        }
-                        catch (stripeErr) {
-                            const stripeErrDetails = {
-                                sellerId: articleData.sellerId,
-                                error: stripeErr instanceof Error ? stripeErr.message : stripeErr,
-                            };
-                            if (stripeErr && typeof stripeErr === 'object') {
-                                const e = stripeErr;
-                                if (e.type)
-                                    stripeErrDetails.stripeErrorType = e.type;
-                                if (e.code)
-                                    stripeErrDetails.stripeErrorCode = e.code;
-                                if (e.statusCode)
-                                    stripeErrDetails.stripeStatusCode = e.statusCode;
-                            }
-                            logger.warn('Failed to create Stripe account on-the-fly', stripeErrDetails);
-                        }
-                    }
+                    throw new https_1.HttpsError('failed-precondition', 'Le vendeur n\'a pas encore configure son compte de paiement. Il doit completer son inscription vendeur.');
                 }
-                if (!sellerData.stripeAccountId || sellerData.stripeChargesEnabled !== true) {
-                    throw new https_1.HttpsError('failed-precondition', 'Le vendeur n\'a pas encore configure son compte de paiement.');
+                if (sellerData.stripeChargesEnabled !== true) {
+                    throw new https_1.HttpsError('failed-precondition', 'Le compte de paiement du vendeur n\'est pas encore actif. Veuillez reessayer plus tard.');
                 }
             }
             // Mark article as sold
@@ -522,21 +465,27 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
     }
 });
 // =============================================================================
-// CREATE STRIPE CONNECT ACCOUNT — Custom account (zero seller interaction)
+// CREATE STRIPE CONNECT ACCOUNT — Custom account, full in-app onboarding
 // =============================================================================
 /**
- * Creates a Stripe Connect Custom account for the authenticated seller.
- * With Custom accounts, the platform controls the entire onboarding —
- * the seller never sees Stripe UI. Bank account info is collected in-app
- * and submitted via the addBankAccount callable.
+ * Creates a Stripe Connect Custom account for the authenticated seller with
+ * ALL required information submitted in a single call so that
+ * `charges_enabled` becomes `true` immediately (or very shortly after).
+ *
+ * The client collects:
+ *   - Personal info: firstName, lastName, dob (day/month/year)
+ *   - Address: line1, city, province, postalCode
+ *   - Banking: transitNumber (5 digits), institutionNumber (3 digits),
+ *     accountNumber (7-12 digits)
+ *   - ToS acceptance IP (caller's public IP address)
+ *
+ * No Stripe hosted UI, no Account Links, no redirects.
  *
  * Idempotent: if the seller already has a stripeAccountId, returns it
- * without creating a new account.
- *
- * This function serves as a fallback/manual trigger. The primary path
- * creates the Stripe account silently inside createArticle at first publish.
+ * along with current charges_enabled / requirements status.
  */
 exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+    var _a, _b, _c;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -545,6 +494,67 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
         throw new https_1.HttpsError('failed-precondition', 'Stripe API not configured');
     }
     const userId = request.auth.uid;
+    const data = (_a = request.data) !== null && _a !== void 0 ? _a : {};
+    // ── Input validation ────────────────────────────────────────────────────
+    // Personal info
+    if (typeof data.firstName !== 'string' || data.firstName.trim().length < 1) {
+        throw new https_1.HttpsError('invalid-argument', 'Le prenom est requis');
+    }
+    if (typeof data.lastName !== 'string' || data.lastName.trim().length < 1) {
+        throw new https_1.HttpsError('invalid-argument', 'Le nom est requis');
+    }
+    // Date of birth
+    if (!data.dob || typeof data.dob !== 'object') {
+        throw new https_1.HttpsError('invalid-argument', 'La date de naissance est requise');
+    }
+    const dobDay = Number(data.dob.day);
+    const dobMonth = Number(data.dob.month);
+    const dobYear = Number(data.dob.year);
+    if (!Number.isInteger(dobDay) || dobDay < 1 || dobDay > 31) {
+        throw new https_1.HttpsError('invalid-argument', 'Jour de naissance invalide (1-31)');
+    }
+    if (!Number.isInteger(dobMonth) || dobMonth < 1 || dobMonth > 12) {
+        throw new https_1.HttpsError('invalid-argument', 'Mois de naissance invalide (1-12)');
+    }
+    if (!Number.isInteger(dobYear) || dobYear < 1900 || dobYear > new Date().getFullYear() - 13) {
+        throw new https_1.HttpsError('invalid-argument', 'Annee de naissance invalide (minimum 13 ans)');
+    }
+    // Address
+    if (!data.address || typeof data.address !== 'object') {
+        throw new https_1.HttpsError('invalid-argument', 'L\'adresse est requise');
+    }
+    if (typeof data.address.line1 !== 'string' || data.address.line1.trim().length < 1) {
+        throw new https_1.HttpsError('invalid-argument', 'L\'adresse (ligne 1) est requise');
+    }
+    if (typeof data.address.city !== 'string' || data.address.city.trim().length < 1) {
+        throw new https_1.HttpsError('invalid-argument', 'La ville est requise');
+    }
+    if (typeof data.address.province !== 'string' || data.address.province.trim().length < 1) {
+        throw new https_1.HttpsError('invalid-argument', 'La province est requise');
+    }
+    // Canadian postal code: A1A 1A1 or A1A1A1
+    const postalCodeClean = (data.address.postalCode || '').toString().replace(/\s/g, '').toUpperCase();
+    if (!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(postalCodeClean)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le code postal canadien est invalide (format A1A 1A1)');
+    }
+    // Bank account
+    const transitNumber = String(data.transitNumber || '').trim();
+    const institutionNumber = String(data.institutionNumber || '').trim();
+    const accountNumber = String(data.accountNumber || '').trim();
+    if (!/^\d{5}$/.test(transitNumber)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le numero de transit doit contenir exactement 5 chiffres');
+    }
+    if (!/^\d{3}$/.test(institutionNumber)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le numero d\'institution doit contenir exactement 3 chiffres');
+    }
+    if (!/^\d{7,12}$/.test(accountNumber)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le numero de compte doit contenir entre 7 et 12 chiffres');
+    }
+    // ToS acceptance IP
+    if (typeof data.ip !== 'string' || data.ip.trim().length < 7) {
+        throw new https_1.HttpsError('invalid-argument', 'L\'adresse IP est requise pour l\'acceptation des conditions');
+    }
+    // ── Fetch user doc ──────────────────────────────────────────────────────
     try {
         const userRef = firebase_1.db.collection('users').doc(userId);
         const userDoc = await userRef.get();
@@ -552,56 +562,132 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
             throw new https_1.HttpsError('not-found', 'User not found');
         }
         const userData = userDoc.data();
-        let stripeAccountId = userData.stripeAccountId;
-        // Idempotent: if account already exists, return it
-        if (stripeAccountId) {
-            logger.info('Stripe Custom account already exists', {
+        // Idempotent: if account already exists, retrieve current status and return
+        if (userData.stripeAccountId) {
+            const existingAccount = await stripe.accounts.retrieve(userData.stripeAccountId);
+            // Sync latest status to Firestore
+            const status = existingAccount.charges_enabled && existingAccount.payouts_enabled
+                ? 'active'
+                : existingAccount.details_submitted ? 'pending_verification' : 'pending';
+            await userRef.update({
+                stripeAccountStatus: status,
+                stripeChargesEnabled: existingAccount.charges_enabled,
+                stripePayoutsEnabled: existingAccount.payouts_enabled,
+                stripeDetailsSubmitted: existingAccount.details_submitted,
+            });
+            logger.info('Stripe Custom account already exists — returning status', {
                 userId,
-                stripeAccountId,
+                stripeAccountId: userData.stripeAccountId,
+                chargesEnabled: existingAccount.charges_enabled,
             });
             return {
                 success: true,
-                stripeAccountId,
+                stripeAccountId: userData.stripeAccountId,
+                chargesEnabled: existingAccount.charges_enabled,
+                payoutsEnabled: existingAccount.payouts_enabled,
+                detailsSubmitted: existingAccount.details_submitted,
+                requirements: ((_b = existingAccount.requirements) === null || _b === void 0 ? void 0 : _b.currently_due) || [],
+                status,
             };
         }
-        // Create a new Connect Custom account
+        // ── Create the full Custom account ──────────────────────────────────
+        const email = userData.email || request.auth.token.email || '';
+        // Canadian routing_number = transit (5) + institution (3) = 8 digits
+        const routingNumber = `${transitNumber}${institutionNumber}`;
         const account = await stripe.accounts.create({
             type: 'custom',
             country: 'CA',
-            email: userData.email || request.auth.token.email,
+            email,
+            business_type: 'individual',
+            individual: {
+                first_name: data.firstName.trim(),
+                last_name: data.lastName.trim(),
+                dob: {
+                    day: dobDay,
+                    month: dobMonth,
+                    year: dobYear,
+                },
+                address: {
+                    line1: data.address.line1.trim(),
+                    line2: data.address.line2 ? String(data.address.line2).trim() : undefined,
+                    city: data.address.city.trim(),
+                    state: data.address.province.trim(),
+                    postal_code: postalCodeClean,
+                    country: 'CA',
+                },
+            },
+            tos_acceptance: {
+                date: Math.floor(Date.now() / 1000),
+                ip: data.ip.trim(),
+            },
+            external_account: {
+                object: 'bank_account',
+                country: 'CA',
+                currency: 'cad',
+                routing_number: routingNumber,
+                account_number: accountNumber,
+            },
             capabilities: {
                 card_payments: { requested: true },
                 transfers: { requested: true },
             },
-            business_type: 'individual',
-            tos_acceptance: {
-                service_agreement: 'full',
+            business_profile: {
+                product_description: 'Vente de vetements et accessoires de seconde main',
+            },
+            settings: {
+                payouts: {
+                    schedule: {
+                        interval: 'manual',
+                    },
+                },
             },
             metadata: {
                 firebaseUserId: userId,
             },
         });
-        stripeAccountId = account.id;
-        // Store the Stripe account ID and initial status in the user document.
-        // All five Stripe fields are written here so the frontend can read
-        // them immediately without waiting for the account.updated webhook.
+        // Determine status from the freshly created account
+        const chargesEnabled = account.charges_enabled === true;
+        const payoutsEnabled = account.payouts_enabled === true;
+        const detailsSubmitted = account.details_submitted === true;
+        const pendingRequirements = ((_c = account.requirements) === null || _c === void 0 ? void 0 : _c.currently_due) || [];
+        let status;
+        if (chargesEnabled && payoutsEnabled) {
+            status = 'active';
+        }
+        else if (detailsSubmitted) {
+            status = 'pending_verification';
+        }
+        else {
+            status = 'pending';
+        }
+        // Store everything in the user document
         await userRef.update({
             stripeAccountId: account.id,
-            stripeAccountStatus: 'pending',
-            stripeChargesEnabled: false,
-            stripePayoutsEnabled: false,
-            stripeDetailsSubmitted: false,
+            stripeAccountStatus: status,
+            stripeChargesEnabled: chargesEnabled,
+            stripePayoutsEnabled: payoutsEnabled,
+            stripeDetailsSubmitted: detailsSubmitted,
+            stripeBankAccountAdded: true,
+            stripeBankAccountLast4: accountNumber.slice(-4),
             stripeAccountCreatedAt: firebase_1.FieldValue.serverTimestamp(),
         });
-        logger.info('Stripe Custom account created', {
+        logger.info('Stripe Custom account created with full onboarding', {
             userId,
             stripeAccountId: account.id,
+            chargesEnabled,
+            payoutsEnabled,
+            detailsSubmitted,
+            pendingRequirements,
+            status,
         });
-        // No Account Links needed for Custom accounts — bank info is
-        // collected in-app via addBankAccount callable.
         return {
             success: true,
-            stripeAccountId,
+            stripeAccountId: account.id,
+            chargesEnabled,
+            payoutsEnabled,
+            detailsSubmitted,
+            requirements: pendingRequirements,
+            status,
         };
     }
     catch (error) {
@@ -631,15 +717,18 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
 // ADD BANK ACCOUNT — Attach Canadian bank account to seller's Custom account
 // =============================================================================
 /**
- * Attaches a Canadian bank account to the seller's Stripe Connect Custom
- * account. The seller provides transit number (5 digits), institution
+ * Updates / replaces the bank account on the seller's Stripe Connect Custom
+ * account. The primary bank account is now set during account creation
+ * (createStripeConnectAccount), but sellers may need to change their
+ * bank account later.
+ *
+ * The seller provides transit number (5 digits), institution
  * number (3 digits), and account number directly in the app UI.
  *
  * Canadian routing_number format for Stripe:
  * transit (5 digits) + institution (3 digits) = 8 digits total
  *
- * After attaching the bank account, configures manual payouts so the
- * platform controls when funds are disbursed (via requestWithdrawal).
+ * Payout schedule is always set to manual (platform-controlled).
  */
 exports.addBankAccount = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     var _a;
