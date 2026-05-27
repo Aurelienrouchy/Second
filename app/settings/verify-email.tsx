@@ -182,7 +182,7 @@ export default function VerifyEmailScreen() {
           </View>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
