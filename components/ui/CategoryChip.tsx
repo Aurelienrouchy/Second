@@ -5,7 +5,7 @@
  * Features:
  * - Refined pill shape with subtle border
  * - Terracotta fill when selected
- * - Smooth spring animations
+ * - Smooth timing animations
  * - Haptic feedback
  */
 
