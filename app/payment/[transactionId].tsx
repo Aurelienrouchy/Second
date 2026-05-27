@@ -98,8 +98,26 @@ export default function PaymentScreen() {
       setIsCreatingCheckout(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      // Full wallet payment
+      if (walletCoversAll) {
+        await WalletService.payWithWallet(transaction.id);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Paiement confirme !',
+          "L'etiquette d'expedition sera generee automatiquement. Le vendeur sera notifie.",
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+        return;
+      }
+
+      // Stripe checkout (optionally with partial wallet)
+      const checkoutParams: Record<string, unknown> = { transactionId: transaction.id };
+      if (useWalletBalance && walletAmountCents > 0) {
+        checkoutParams.walletAmount = walletAmountCents;
+      }
+
       const createCheckout = httpsCallable(functions, 'createStripeCheckout');
-      const result = await createCheckout({ transactionId: transaction.id });
+      const result = await createCheckout(checkoutParams);
       const data = result.data as { success: boolean; clientSecret: string };
 
       if (!data.success || !data.clientSecret) {
@@ -108,9 +126,10 @@ export default function PaymentScreen() {
 
       setClientSecret(data.clientSecret);
       setShowStripePayment(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error creating checkout:', error);
-      Alert.alert('Erreur', error.message || 'Impossible d\'initier le paiement.');
+      const msg = error instanceof Error ? error.message : "Impossible d'initier le paiement.";
+      Alert.alert('Erreur', msg);
     } finally {
       setIsCreatingCheckout(false);
     }
