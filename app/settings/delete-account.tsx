@@ -384,7 +384,7 @@ export default function DeleteAccountScreen() {
       >
         {step === 'info' ? renderInfoStep() : renderConfirmStep()}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
