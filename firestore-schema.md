@@ -805,6 +805,36 @@ interface SearchIndexDocument {
 }
 ```
 
+### `wallets/{userId}`
+
+Virtual wallet for buyers and sellers. All amounts are in **cents** (not dollars) to avoid floating-point issues. Balance mutations are server-side only via Cloud Functions with `runTransaction`.
+
+```typescript
+interface WalletDocument {
+  balance: number;           // Available balance in cents
+  pendingBalance: number;    // Funds waiting for delivery confirmation, in cents
+  currency: 'cad';
+  status: 'active';
+  activatedAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+#### Sub-collection: `wallets/{userId}/ledger/{entryId}`
+
+Immutable transaction log for the wallet.
+
+```typescript
+interface WalletLedgerEntry {
+  type: 'sale_credit' | 'purchase_debit' | 'withdrawal' | 'refund_credit' | 'withdrawal_failed';
+  amount: number;            // Positive, in cents
+  balanceAfter: number;      // Wallet balance after this entry
+  description: string;       // Human-readable description (FR)
+  transactionId?: string;    // Reference to transactions collection
+  createdAt: Timestamp;
+}
+```
+
 ### `rate_limits/{userId_function}`
 
 Rate limiting documents for Cloud Functions. Document ID format: `{userId}_{functionName}`.
