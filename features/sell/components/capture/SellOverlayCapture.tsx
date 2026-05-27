@@ -261,15 +261,16 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
       </BlurView>
 
       {/* Center viewfinder — clear camera feed, 4:3 area */}
-      <View
+      <Animated.View
         style={[
           styles.viewfinder,
-          { top: topOverlayHeight, bottom: bottomOverlayHeight },
+          { top: topOverlayHeight },
+          viewfinderBottom,
         ]}
         pointerEvents="none"
       >
         <CameraGuides message={guideMessage} subMessage={guideSubMessage} />
-      </View>
+      </Animated.View>
 
       {!canTakeMore && (
         <View style={[styles.maxBadge, { top: topOverlayHeight + 12 }]}>
