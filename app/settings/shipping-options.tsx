@@ -120,7 +120,7 @@ export default function ShippingOptionsScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
