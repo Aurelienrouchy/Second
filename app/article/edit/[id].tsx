@@ -386,10 +386,19 @@ export default function EditArticleScreen() {
     });
   }, []);
 
-  const isFormValid = fields.title.trim() !== '' &&
-                      fields.description.trim() !== '' &&
-                      fields.categoryIds.length > 0 &&
-                      fields.price > 0;
+  const hasAtLeastOneDelivery = fields.isHandDelivery || fields.isShipping;
+  const handDeliveryValid = !fields.isHandDelivery || fields.neighborhoods.length > 0;
+  const shippingValid = !fields.isShipping || !!fields.packageSize;
+
+  const isFormValid =
+    fields.title.trim().length >= 3 &&
+    fields.description.trim() !== '' &&
+    fields.categoryIds.length > 0 &&
+    fields.price >= 0.01 &&
+    fields.price <= 10000 &&
+    hasAtLeastOneDelivery &&
+    handDeliveryValid &&
+    shippingValid;
 
   if (isLoading) {
     return (
