@@ -106,7 +106,8 @@ export default function PrivacySettingsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <View style={styles.container}>
+        <ScreenHeader title="Confidentialité" onBack={() => router.back()} />
         <View style={styles.skeletonContent}>
           <View style={styles.settingsList}>
             {[0, 1, 2].map((i) => (
