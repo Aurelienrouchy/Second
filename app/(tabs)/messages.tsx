@@ -288,7 +288,7 @@ const ConversationItem = React.memo(function ConversationItem({
         {/* Article Thumbnail Overlay */}
         {chat.articleImage && (
           <Image
-            source={{ uri: chat.articleImage }}
+            source={{ uri: fixStorageUrl(chat.articleImage) }}
             style={styles.articleThumbnail}
             contentFit="cover"
           />
