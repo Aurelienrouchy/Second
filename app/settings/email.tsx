@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Label, Caption } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 
 export default function EmailSettingsScreen() {
