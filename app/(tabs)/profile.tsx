@@ -160,7 +160,7 @@ export default function ProfileScreen() {
         action: () => router.push('/settings/help'),
       },
     ],
-    [router],
+    [router, wallet],
   );
 
   return (
