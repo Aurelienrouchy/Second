@@ -541,6 +541,25 @@ service cloud.firestore {
       }
     }
     
+    // Wallets Collection Rules
+    //
+    // Virtual wallet ("porte-monnaie") for buyers and sellers.
+    // All balance mutations go through Cloud Functions (Admin SDK).
+    // Clients can only READ their own wallet and ledger — no writes.
+    match /wallets/{userId} {
+      // Allow read only by owner
+      allow read: if isOwner(userId);
+
+      // No client writes — Cloud Functions only (Admin SDK bypasses rules)
+      allow create, update, delete: if false;
+
+      // Ledger subcollection — read-only for the wallet owner
+      match /ledger/{entryId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
+    }
+
     // Seller Balances Collection Rules
     //
     // SECURITY: balance mutations are server-side ONLY. All writes go
