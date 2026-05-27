@@ -1866,6 +1866,16 @@ export const cancelPendingTransaction = onCall(
           articleSnap = await tx.get(articleRef);
         }
 
+        // F03: Read buyer wallet if wallet was used (all reads before writes)
+        const walletAmountUsed = data.walletAmountUsed || 0; // in cents
+        const hasWalletDebit = walletAmountUsed > 0 && (data.paidVia === 'wallet_and_card' || data.paidVia === 'wallet');
+        let buyerWalletSnap = null;
+        let buyerWalletRef = null;
+        if (hasWalletDebit) {
+          buyerWalletRef = db.collection('wallets').doc(data.buyerId);
+          buyerWalletSnap = await tx.get(buyerWalletRef);
+        }
+
         // ── ALL WRITES AFTER ALL READS ──
         tx.update(txRef, {
           status: 'cancelled',
@@ -1878,6 +1888,31 @@ export const cancelPendingTransaction = onCall(
         // time; cancelling must undo that.
         if (articleRef && articleSnap && articleSnap.exists) {
           tx.update(articleRef, { isSold: false });
+        }
+
+        // F03: Refund wallet portion if wallet was debited
+        if (hasWalletDebit && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+          const walletData = buyerWalletSnap.data()!;
+          tx.update(buyerWalletRef, {
+            balance: FieldValue.increment(walletAmountUsed),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+          tx.set(buyerLedgerRef, {
+            type: 'refund_credit',
+            amount: walletAmountUsed,
+            balanceAfter: (walletData.balance || 0) + walletAmountUsed,
+            description: 'Remboursement — transaction annulee',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+
+          logger.info('cancelPendingTransaction: wallet portion refunded', {
+            transactionId,
+            buyerId: data.buyerId,
+            walletAmountRefunded: walletAmountUsed,
+          });
         }
       });
 
