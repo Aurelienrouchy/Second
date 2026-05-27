@@ -365,6 +365,16 @@ export default function EditArticleScreen() {
     setEditedImages((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const handleMakePrimary = useCallback((index: number) => {
+    if (index === 0) return;
+    setEditedImages((prev) => {
+      const newImages = [...prev];
+      const [image] = newImages.splice(index, 1);
+      newImages.unshift(image);
+      return newImages;
+    });
+  }, []);
+
   // Delivery management
   const handleNeighborhoodToggle = useCallback((neighborhood: MeetupNeighborhood) => {
     setFields((prev) => {
