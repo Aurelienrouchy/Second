@@ -294,7 +294,16 @@ interface FavoritesDocument {
 
 ### `chats/{chatId}`
 
-Chat thread between two users. Document ID is deterministic: `${minUid}__${maxUid}`.
+Chat thread between two users, optionally scoped to an article.
+
+**Document ID format (dual-format, both coexist in production):**
+- General chat (from profile): `${minUid}__${maxUid}` (2 segments)
+- Article-scoped chat: `${minUid}__${maxUid}__${articleId}` (3 segments)
+- Legacy chats may also have auto-generated IDs (pre-deterministic fix)
+
+New chats initiated from an article page use the 3-segment format so that
+two users can have separate conversations per article. Chats initiated
+from a profile page (no article context) use the 2-segment format.
 
 ```typescript
 interface ChatDocument {
