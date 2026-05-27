@@ -210,6 +210,8 @@ export default function PreviewScreen() {
         message,
         [{ text: 'OK' }]
       );
+    } finally {
+      publishingRef.current = false;
     }
   };
 
