@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.displaySemiBold,
     fontSize: 22,
     color: colors.charcoal,
   },
