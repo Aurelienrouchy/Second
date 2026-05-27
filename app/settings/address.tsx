@@ -121,8 +121,8 @@ export default function AddressSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* Pas de Stack.Screen ici pour ne pas surcharger le header du layout */}
+    <View style={styles.container}>
+      <ScreenHeader title="Adresse" onBack={() => router.back()} />
 
       <KeyboardAvoidingView   
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
