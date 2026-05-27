@@ -5,7 +5,7 @@
 import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Caption, Label } from '@/components/ui';
+import { Text, Caption, Label, ScreenHeader } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
