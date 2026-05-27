@@ -2,12 +2,9 @@
  * Search screen constants — condition + sort options.
  */
 
-export const CONDITION_ITEMS = [
-  { value: 'neuf', label: 'Neuf' },
-  { value: 'très bon état', label: 'Très bon état' },
-  { value: 'bon état', label: 'Bon état' },
-  { value: 'satisfaisant', label: 'Satisfaisant' },
-];
+import { CONDITIONS } from '@/data/conditions';
+
+export const CONDITION_ITEMS = CONDITIONS;
 
 export const SORT_ITEMS = [
   { value: 'recent', label: 'Plus récents' },

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
 
 interface CategoryBottomSheetProps {
   onSelect: (categoryIds: string[]) => void;

@@ -23,6 +23,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Label } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/constants/theme';
+import { colors as colorData } from '@/data/colors';
+import { CONDITIONS as CONDITIONS_DATA } from '@/data/conditions';
 
 // =============================================================================
 // TYPES
@@ -85,27 +87,9 @@ const POPULAR_BRANDS = [
   'The North Face',
 ];
 
-const COLORS = [
-  { id: 'black', label: 'Noir', hex: '#000000' },
-  { id: 'white', label: 'Blanc', hex: '#FFFFFF' },
-  { id: 'gray', label: 'Gris', hex: '#808080' },
-  { id: 'navy', label: 'Marine', hex: '#000080' },
-  { id: 'blue', label: 'Bleu', hex: '#0066CC' },
-  { id: 'red', label: 'Rouge', hex: '#DC143C' },
-  { id: 'green', label: 'Vert', hex: '#228B22' },
-  { id: 'yellow', label: 'Jaune', hex: '#FFD700' },
-  { id: 'pink', label: 'Rose', hex: '#FF69B4' },
-  { id: 'purple', label: 'Violet', hex: '#9370DB' },
-  { id: 'beige', label: 'Beige', hex: '#F5F5DC' },
-  { id: 'brown', label: 'Marron', hex: '#8B4513' },
-];
+const COLORS = colorData.map(c => ({ id: c.id, label: c.name, hex: c.hex }));
 
-const CONDITIONS = [
-  { id: 'neuf', label: '✨ Neuf avec étiquette' },
-  { id: 'très bon état', label: '👌 Très bon état' },
-  { id: 'bon état', label: '👍 Bon état' },
-  { id: 'satisfaisant', label: '✅ Satisfaisant' },
-];
+const CONDITIONS = CONDITIONS_DATA.map(c => ({ id: c.value, label: c.label }));
 
 // =============================================================================
 // MAIN COMPONENT

@@ -3,20 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ConfidenceLevel } from '@/types/ai';
 import { colors, fonts, radius } from '@/constants/theme';
+import { CONDITIONS } from '@/data/conditions';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
-
-interface ConditionOption {
-  value: ConditionValue;
-  label: string;
-}
-
-const CONDITIONS: ConditionOption[] = [
-  { value: 'neuf', label: 'Neuf avec etiquettes' },
-  { value: 'très bon état', label: 'Tres bon etat' },
-  { value: 'bon état', label: 'Bon etat' },
-  { value: 'satisfaisant', label: 'Satisfaisant' },
-];
 
 interface ConditionSelectorProps {
   value: ConditionValue;
@@ -34,7 +23,7 @@ export default function ConditionSelector({
 
   const handleCycle = () => {
     const nextIndex = (currentIndex + 1) % CONDITIONS.length;
-    onChange(CONDITIONS[nextIndex].value);
+    onChange(CONDITIONS[nextIndex].value as ConditionValue);
   };
 
   return (
