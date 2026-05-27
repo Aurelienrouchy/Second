@@ -796,3 +796,31 @@ export interface Swap {
   };
 }
 
+// ============================================
+// WALLET TYPES
+// ============================================
+
+export type WalletLedgerType =
+  | 'sale_credit'
+  | 'purchase_debit'
+  | 'withdrawal'
+  | 'refund_credit';
+
+export interface WalletLedgerEntry {
+  id: string;
+  type: WalletLedgerType;
+  amount: number;
+  balanceAfter: number;
+  description: string;
+  transactionId?: string;
+  createdAt: string;
+}
+
+export interface WalletInfo {
+  hasWallet: boolean;
+  balance: number;
+  pendingBalance: number;
+  status: 'active' | 'inactive';
+  ledger: WalletLedgerEntry[];
+}
+
