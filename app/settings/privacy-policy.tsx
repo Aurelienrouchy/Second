@@ -240,7 +240,7 @@ export default function PrivacyPolicyScreen() {
           </Caption>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
