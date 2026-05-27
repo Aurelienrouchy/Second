@@ -279,10 +279,11 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
       )}
 
       {/* Bottom blur overlay — previews + controls */}
+      <Animated.View style={[styles.blurBottom, blurBottomStyle]}>
       <BlurView
         intensity={40}
         tint="dark"
-        style={[styles.blurBottom, { height: bottomOverlayHeight }]}
+        style={StyleSheet.absoluteFill}
       >
         <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 16 }]}>
           <Animated.View style={[styles.thumbContainer, thumbContainerStyle]}>
