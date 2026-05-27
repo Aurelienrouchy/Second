@@ -6,7 +6,7 @@ import { useUser } from '@/contexts/AuthContext';
 import { BlockedUser, ModerationService } from '@/services/moderationService';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
-import { Text, Caption } from '@/components/ui';
+import { Text, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
