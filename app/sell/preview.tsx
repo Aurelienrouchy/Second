@@ -83,6 +83,7 @@ export default function PreviewScreen() {
   const [storageUrls, setStorageUrls] = useState<string[]>(storageUrlsFromParams);
   const [fields, setFields] = useState<EditedFields>(fieldsFromParams);
   const [pricing, setPricing] = useState<PricingData>(pricingFromParams);
+  const publishingRef = useRef(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [publishedArticleId, setPublishedArticleId] = useState<string | null>(null);
