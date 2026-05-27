@@ -46,6 +46,8 @@ const STATUS_LABELS: Record<TransactionStatus, { label: string; color: string }>
   shipped: { label: 'Expédiée', color: colors.primary },
   delivered: { label: 'Livrée', color: colors.success },
   cancelled: { label: 'Annulée', color: colors.danger },
+  disputed: { label: 'Litige en cours', color: colors.warning },
+  refunded: { label: 'Remboursé', color: colors.muted },
 };
 
 function OrderCard({
