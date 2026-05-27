@@ -357,6 +357,7 @@ export default function StripeOnboardingScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
         <ScreenHeader title="Compte de paiement" onBack={() => router.back()} />
         <View style={styles.content}>
           <Skeleton width="100%" height={120} borderRadius={radius.xl} />
