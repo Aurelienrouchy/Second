@@ -28,6 +28,8 @@
 | 22 | `search_index` | Root | Denormalized search documents |
 | 23 | `stats` | Root | Aggregated platform statistics |
 | 24 | `rate_limits` | Root | Rate limiting counters for Cloud Functions |
+| 25 | `wallets` | Root | Virtual wallet balances (all amounts in cents) |
+| 26 | `wallets/{uid}/ledger` | Sub-collection | Wallet transaction ledger entries |
 
 ---
 
