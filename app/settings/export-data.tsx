@@ -91,8 +91,8 @@ export default function ExportDataScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Exporter mes données' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Exporter mes données" onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Privacy Info Box */}
