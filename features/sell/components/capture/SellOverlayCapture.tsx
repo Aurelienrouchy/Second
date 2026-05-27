@@ -191,7 +191,6 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   const topOverlayHeight = insets.top + 56;
   const bottomControlsHeight = 140 + insets.bottom;
-  const bottomOverlayHeight = bottomControlsHeight + (showThumbStrip ? THUMB_CONTAINER_HEIGHT : 0);
 
   // ── Permission loading ──
 
