@@ -26,7 +26,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
   ({ onSelect, selectedCategoryIds, suggestedCategoryId }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const insets = useSafeAreaInsets();
-    const snapPoints = useMemo(() => ['80%'], []);
+    const snapPoints = useMemo(() => ['85%'], []);
 
     // Use shared category navigation hook
     const categoryNav = useCategoryNavigation({
