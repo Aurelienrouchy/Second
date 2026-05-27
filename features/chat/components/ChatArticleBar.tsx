@@ -95,7 +95,6 @@ const styles = StyleSheet.create({
   image: {
     width: 48,
     height: 60,
-    borderRadius: radius.xs,
   },
   imageUnavailable: {
     opacity: 0.5,
