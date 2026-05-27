@@ -184,7 +184,7 @@ export default function LegalNoticeScreen() {
           </Caption>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
