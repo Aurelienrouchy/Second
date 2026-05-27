@@ -307,23 +307,34 @@ export const SellOverlayCapture = React.memo(SellOverlayCaptureInner);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#0F0E0C',
+  },
+  blurTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 5,
+  },
+  blurBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 5,
   },
   viewfinder: {
     position: 'absolute',
     left: 0,
     right: 0,
-    overflow: 'hidden',
     zIndex: 3,
   },
-  thumbOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(15, 14, 12, 0.55)',
+  bottomContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  thumbContainer: {
     overflow: 'hidden',
-    zIndex: 5,
   },
   maxBadge: {
     position: 'absolute',
@@ -339,12 +350,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.cream,
     letterSpacing: 0.3,
-  },
-  bottomSection: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
   },
 });
