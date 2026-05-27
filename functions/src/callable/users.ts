@@ -46,6 +46,22 @@ export const deleteUserAccount = onCall(
       }
     }
 
+    // 0a. Pre-check: reject if the wallet has a remaining balance (W3 — Loi 25 compliance)
+    const walletDoc = await db.collection('wallets').doc(uid).get();
+    if (walletDoc.exists) {
+      const walletData = walletDoc.data();
+      const walletBalance = walletData?.balance ?? 0;
+      const walletPending = walletData?.pendingBalance ?? 0;
+      if (walletBalance > 0 || walletPending > 0) {
+        // Wallet amounts are in cents — convert to dollars for the message
+        const walletTotal = ((walletBalance + walletPending) / 100).toFixed(2);
+        throw new HttpsError(
+          'failed-precondition',
+          `Votre porte-monnaie contient ${walletTotal} $. Veuillez effectuer un retrait avant de supprimer votre compte.`,
+        );
+      }
+    }
+
     const bulkWriter = db.bulkWriter();
     const articleIds: string[] = [];
 
