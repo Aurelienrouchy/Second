@@ -16,7 +16,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
