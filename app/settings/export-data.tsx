@@ -176,7 +176,7 @@ export default function ExportDataScreen() {
           ouvrir avec n'importe quel éditeur de texte.
         </Caption>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
