@@ -41,8 +41,8 @@ export default function AboutSettingsScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'À propos' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="À propos" onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
