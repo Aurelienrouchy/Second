@@ -109,8 +109,8 @@ export default function HelpSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Aide' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Aide" onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
