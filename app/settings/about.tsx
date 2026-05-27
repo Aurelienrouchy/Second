@@ -92,7 +92,7 @@ export default function AboutSettingsScreen() {
           © 2026 Seconde. Tous droits réservés.
         </Caption>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
