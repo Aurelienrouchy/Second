@@ -115,6 +115,10 @@ export default function PreviewScreen() {
   };
 
   const handlePublish = async () => {
+    // Synchronous guard: prevents double-tap before React state update
+    if (publishingRef.current) return;
+    publishingRef.current = true;
+
     // TODO: check for duplicate articles (similar title/photos) before publishing
 
     // ── Pre-publication validation (C5) ──
