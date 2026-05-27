@@ -363,7 +363,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `home.ts` | Données feed |
 | `moments.ts` | Stories/moments |
 | `onboarding.ts` | Préférences onboarding |
-| `payments.ts` | Paiement Stripe Connect Custom (checkout, account creation, addBankAccount, requestWithdrawal via Stripe Payout, status) |
+| `payments.ts` | Paiement Stripe Connect Custom (checkout, full in-app account onboarding with identity+bank, addBankAccount for updates, requestWithdrawal via Stripe Payout, status) |
 | `products.ts` | CRUD articles server-side (createArticle, updateArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed) |
 | `reviews.ts` | Avis vendeurs |
 | `search.ts` | Recherche avancée |
