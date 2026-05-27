@@ -212,6 +212,7 @@ Zustand 5 + `subscribeWithSelector`. Tous ont `reset()` appelé dans `store/rese
 | `useBottomSheetBackHandler` | `useBottomSheetBackHandler.ts` | UI — Android back + bottom sheet |
 | `useColorScheme` | `useColorScheme.ts` | UI — dark/light mode |
 | `useThemeColor` | `useThemeColor.ts` | UI — couleur thème |
+| `useWallet` | `useWallet.ts` | Wallet — RQ hook (info, activate, withdraw, pay) |
 | `useDebounce` | `useDebounce.ts` | Util — debounce valeur |
 | `useDeepLinking` | `useDeepLinking.ts` | Nav — deep links |
 | `useFonts` | `useFonts.ts` | UI — chargement fonts |
