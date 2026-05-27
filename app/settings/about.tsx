@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
-import { Text, Caption } from '@/components/ui';
+import { Text, Caption, ScreenHeader } from '@/components/ui';
 
 interface LinkItemProps {
   icon: keyof typeof Ionicons.glyphMap;
