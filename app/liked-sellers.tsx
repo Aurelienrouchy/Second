@@ -15,6 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import Animated, {
   FadeInDown,
