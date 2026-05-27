@@ -94,8 +94,8 @@ export default function MySwapsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: 'Mes échanges' }} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <ScreenHeader title="Mes échanges" onBack={() => router.back()} />
         {/* Filter tabs skeleton */}
         <View style={styles.filterContainer}>
           {Array.from({ length: 4 }).map((_, i) => (
