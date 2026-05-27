@@ -36,7 +36,21 @@ export const PayButton = React.memo(function PayButton({
   submitting,
   onPress,
   bottomInset,
+  walletCoversAll = false,
+  useWallet = false,
 }: PayButtonProps) {
+  let label: string;
+  let iconName: keyof typeof Ionicons.glyphMap = 'lock-closed-outline';
+
+  if (walletCoversAll) {
+    label = 'PAYER AVEC LE PORTE-MONNAIE';
+    iconName = 'wallet-outline';
+  } else if (useWallet) {
+    label = `PAYER ${formatPrice(totalAmount)} PAR CARTE`;
+  } else {
+    label = `PAYER ${formatPrice(totalAmount)}`;
+  }
+
   return (
     <View style={[styles.footer, { paddingBottom: bottomInset + 16 }]}>
       <Pressable
@@ -51,10 +65,8 @@ export const PayButton = React.memo(function PayButton({
           <ActivityIndicator size="small" color={colors.cream} />
         ) : (
           <>
-            <Ionicons name="lock-closed-outline" size={16} color={colors.cream} />
-            <Text style={styles.ctaButtonText}>
-              PAYER {formatPrice(totalAmount)}
-            </Text>
+            <Ionicons name={iconName} size={16} color={colors.cream} />
+            <Text style={styles.ctaButtonText}>{label}</Text>
           </>
         )}
       </Pressable>
