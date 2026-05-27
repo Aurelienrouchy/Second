@@ -706,7 +706,7 @@ export const createStripeConnectAccount = onCall(
         },
         tos_acceptance: {
           date: Math.floor(Date.now() / 1000),
-          ip: data.ip.trim(),
+          ip: callerIp,
         },
         external_account: {
           object: 'bank_account' as const,
