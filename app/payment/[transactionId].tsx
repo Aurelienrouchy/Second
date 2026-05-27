@@ -275,6 +275,37 @@ export default function PaymentScreen() {
           </>
         )}
 
+        {/* Wallet section */}
+        {wallet?.hasWallet && wallet.balance > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>PORTE-MONNAIE</Text>
+            <View style={styles.walletCard}>
+              <View style={styles.walletRow}>
+                <View style={styles.walletRowLeft}>
+                  <Ionicons name="wallet-outline" size={20} color={colors.primary} />
+                  <View>
+                    <Text style={styles.walletLabel}>Utiliser mon porte-monnaie</Text>
+                    <Text style={styles.walletBalance}>
+                      Solde : {(wallet.balance / 100).toFixed(2).replace('.', ',')} $
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={useWalletBalance}
+                  onValueChange={setUseWalletBalance}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={colors.white}
+                />
+              </View>
+              {useWalletBalance && !walletCoversAll && (
+                <Text style={styles.walletRemainder}>
+                  Reste a payer par carte : {cardAmountDollars.toFixed(2).replace('.', ',')} $
+                </Text>
+              )}
+            </View>
+          </>
+        )}
+
         {/* Security info */}
         <View style={styles.securityBox}>
           <Ionicons name="shield-checkmark" size={18} color={colors.success} />
@@ -298,9 +329,17 @@ export default function PaymentScreen() {
             <ActivityIndicator size="small" color={colors.cream} />
           ) : (
             <>
-              <Ionicons name="lock-closed-outline" size={16} color={colors.cream} />
+              <Ionicons
+                name={walletCoversAll ? 'wallet-outline' : 'lock-closed-outline'}
+                size={16}
+                color={colors.cream}
+              />
               <Text style={styles.payButtonText}>
-                PAYER {formatPrice(totalAmount)}
+                {walletCoversAll
+                  ? 'PAYER AVEC LE PORTE-MONNAIE'
+                  : useWalletBalance
+                    ? `PAYER ${formatPrice(cardAmountDollars)} PAR CARTE`
+                    : `PAYER ${formatPrice(totalAmount)}`}
               </Text>
             </>
           )}
