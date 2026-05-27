@@ -370,6 +370,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `style.ts` | Profil style |
 | `swaps.ts` | Échanges |
 | `users.ts` | Suppression compte (GDPR Art. 17 / Loi 25) |
+| `wallet.ts` | Porte-monnaie virtuel (activateWallet, getWalletInfo, walletWithdraw, payWithWallet) |
 
 ### Triggers — `functions/src/triggers/`
 | Fichier | Événement |
