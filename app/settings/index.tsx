@@ -79,7 +79,8 @@ export default function SettingsScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
+      <ScreenHeader title="Paramètres" onBack={() => router.back()} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
