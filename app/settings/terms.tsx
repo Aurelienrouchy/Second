@@ -176,7 +176,7 @@ export default function TermsScreen() {
           </Caption>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
