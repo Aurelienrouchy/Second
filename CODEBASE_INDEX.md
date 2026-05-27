@@ -42,6 +42,7 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/payment/[txId]` | `payment/[transactionId].tsx` | Paiement Stripe |
 | `/review/[txId]` | `review/[transactionId].tsx` | Laisser un avis (post-transaction) |
 | `/visual-search-results` | `visual-search-results.tsx` | Résultats recherche visuelle |
+| `/wallet` | `wallet.tsx` | Porte-monnaie (activation, solde, historique, retrait) |
 
 ### Checkout — `app/checkout/`
 | Route | Fichier |
