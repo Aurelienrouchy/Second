@@ -127,12 +127,13 @@ export default function PrivacySettingsScreen() {
             ))}
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
+      <ScreenHeader title="Confidentialité" onBack={() => router.back()} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
