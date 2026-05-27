@@ -134,19 +134,20 @@ export default function EmailSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{
-        headerBackTitle: ' ',
-        headerRight: () => (
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Adresse e-mail"
+        onBack={() => router.back()}
+        rightContent={
           <Pressable onPress={handleSave} disabled={isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text variant="body" style={styles.headerButton}>Valider</Text>
+              <Text variant="body" style={styles.saveButton}>Enregistrer</Text>
             )}
           </Pressable>
-        ),
-      }} />
+        }
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
