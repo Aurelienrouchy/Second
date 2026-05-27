@@ -327,7 +327,7 @@ export default function PreferencesScreen() {
           selectedBrands={selectedBrands}
           onConfirm={handleBrandConfirm}
         />
-      </SafeAreaView>
+      </View>
     </GestureHandlerRootView>
   );
 }
