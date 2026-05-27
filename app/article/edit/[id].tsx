@@ -45,7 +45,7 @@ import { useAuthStore } from '@/store/authStore';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
 import { Article, ArticleImage, MeetupNeighborhood } from '@/types';
-import { colors } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
