@@ -121,7 +121,9 @@ export default function ProfileScreen() {
         title: 'Porte-monnaie',
         subtitle: wallet?.hasWallet
           ? `${(wallet.balance / 100).toFixed(2).replace('.', ',')} $`
-          : undefined,
+          : wallet?.hasWallet === false
+            ? 'Non activé'
+            : undefined,
         icon: 'wallet-outline',
         iconColor: colors.primary,
         iconBg: colors.primaryLight,
