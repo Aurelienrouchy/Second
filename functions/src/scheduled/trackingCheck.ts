@@ -29,7 +29,7 @@ export const checkShippedTracking = onSchedule(
     schedule: 'every 6 hours',
     region: 'northamerica-northeast1',
     memory: '512MiB',
-    secrets: ['SHIPENGINE_API_KEY'],
+    secrets: ['SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'],
   },
   async () => {
     const shipEngine = getShipEngine();
