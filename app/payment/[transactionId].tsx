@@ -545,4 +545,43 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     lineHeight: 14,
   },
+
+  // Wallet
+  walletCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  walletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  walletRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  walletLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
+  },
+  walletBalance: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  walletRemainder: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
 });
