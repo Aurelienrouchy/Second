@@ -213,8 +213,8 @@ export default function EditArticleScreen() {
     if (!article || !id) return;
 
     // Validate required fields
-    if (!fields.title.trim()) {
-      Alert.alert('Erreur', 'Le titre est requis');
+    if (fields.title.trim().length < 3) {
+      Alert.alert('Erreur', 'Le titre doit faire au moins 3 caractères');
       return;
     }
 
@@ -223,8 +223,28 @@ export default function EditArticleScreen() {
       return;
     }
 
-    if (fields.price <= 0) {
+    if (fields.price < 0.01) {
       Alert.alert('Erreur', 'Le prix doit être supérieur à 0');
+      return;
+    }
+
+    if (fields.price > 10000) {
+      Alert.alert('Erreur', 'Le prix maximum est de 10 000 $');
+      return;
+    }
+
+    if (!fields.isHandDelivery && !fields.isShipping) {
+      Alert.alert('Erreur', 'Sélectionnez au moins une option de livraison');
+      return;
+    }
+
+    if (fields.isHandDelivery && fields.neighborhoods.length === 0) {
+      Alert.alert('Erreur', 'Sélectionnez au moins un quartier pour la remise en main propre');
+      return;
+    }
+
+    if (fields.isShipping && !fields.packageSize) {
+      Alert.alert('Erreur', 'Sélectionnez une taille de colis pour l\'expédition');
       return;
     }
 
