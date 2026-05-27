@@ -1173,7 +1173,7 @@ export const findPickupPoints = onCall({ region: 'northamerica-northeast1', memo
 // CHECK TRACKING STATUS — Via ShipEngine
 // =============================================================================
 
-export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
+export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
