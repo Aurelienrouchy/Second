@@ -55,6 +55,8 @@ export default function ProfileScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { wallet } = useWallet(!!user);
+
   const handleSignOut = useCallback(() => {
     Alert.alert(
       'Déconnexion',
