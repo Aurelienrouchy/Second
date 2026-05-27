@@ -558,4 +558,55 @@ const styles = StyleSheet.create({
   },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 },
+
+  // ── Wallet section ─────────────────────────────────────────────────────────
+
+  walletSection: {
+    marginTop: spacing.lg,
+  },
+  walletSectionTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    letterSpacing: 1.8,
+    color: colors.muted,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  walletCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  walletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  walletRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  walletLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
+  },
+  walletBalance: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  walletRemainder: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
 });
