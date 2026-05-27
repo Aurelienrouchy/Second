@@ -459,14 +459,47 @@ export default function ShippingCheckoutScreen() {
           serviceFee={serviceFee}
           totalAmount={totalAmount}
         />
+
+        {/* Wallet section */}
+        {wallet?.hasWallet && wallet.balance > 0 && (
+          <View style={styles.walletSection}>
+            <Text style={styles.walletSectionTitle}>PORTE-MONNAIE</Text>
+            <View style={styles.walletCard}>
+              <View style={styles.walletRow}>
+                <View style={styles.walletRowLeft}>
+                  <Ionicons name="wallet-outline" size={20} color={colors.primary} />
+                  <View>
+                    <Text style={styles.walletLabel}>Utiliser mon porte-monnaie</Text>
+                    <Text style={styles.walletBalance}>
+                      Solde : {(wallet.balance / 100).toFixed(2).replace('.', ',')} $
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={useWalletBalance}
+                  onValueChange={setUseWalletBalance}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={colors.white}
+                />
+              </View>
+              {useWalletBalance && !walletCoversAll && (
+                <Text style={styles.walletRemainder}>
+                  Reste a payer par carte : {cardAmountDollars.toFixed(2).replace('.', ',')} $
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       <PayButton
-        totalAmount={totalAmount}
+        totalAmount={walletCoversAll ? 0 : cardAmountDollars}
         canPay={canPay}
         submitting={submitting}
         onPress={handlePay}
         bottomInset={insets.bottom}
+        walletCoversAll={walletCoversAll}
+        useWallet={useWalletBalance}
       />
 
       {clientSecret && (
