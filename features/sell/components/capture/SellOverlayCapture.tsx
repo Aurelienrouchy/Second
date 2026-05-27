@@ -306,6 +306,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           />
         </View>
       </BlurView>
+      </Animated.View>
     </View>
   );
 }
