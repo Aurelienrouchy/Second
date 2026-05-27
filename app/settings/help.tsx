@@ -169,7 +169,7 @@ export default function HelpSettingsScreen() {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
