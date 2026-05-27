@@ -113,8 +113,8 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
 
     const renderFooter = useCallback(
       (props: any) => (
-        <BottomSheetFooter {...props} bottomInset={insets.bottom}>
-          <View style={styles.confirmContainer}>
+        <BottomSheetFooter {...props}>
+          <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
             <TouchableOpacity
               style={[
                 styles.confirmButton,
