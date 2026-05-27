@@ -151,14 +151,14 @@ export default function PreferencesScreen() {
             <Skeleton width="100%" height={48} borderRadius={radius.sm} style={{ marginTop: spacing.md }} />
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: 'Préférences' }} />
+      <View style={styles.container}>
+        <ScreenHeader title="Préférences" onBack={() => router.back()} />
 
         {/* Content */}
         <ScrollView
