@@ -374,8 +374,8 @@ export default function DeleteAccountScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Supprimer le compte' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Supprimer mon compte" onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
