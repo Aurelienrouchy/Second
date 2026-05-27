@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
+import { formatPrice } from '@/utils/formatPrice';
 import type { ChatHeaderProps } from '../types';
 
 export const ChatHeader = React.memo(function ChatHeader({
