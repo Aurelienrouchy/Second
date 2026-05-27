@@ -146,19 +146,20 @@ export default function SwapPartiesScreen() {
             </View>
           ))}
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={handleBackPress}>
-          <Ionicons name="chevron-back" size={24} color={colors.cream} />
-        </Pressable>
-        <RNText style={styles.headerTitle}>Swap Zones</RNText>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Swap Parties"
+        onBack={handleBackPress}
+        backgroundColor="#131510"
+        titleColor={colors.cream}
+        backButtonColor={colors.cream}
+        showBorder={false}
+      />
 
       {/* Filter Tabs */}
       <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
