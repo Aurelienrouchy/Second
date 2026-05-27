@@ -153,6 +153,7 @@ export const expireOrphanedTransactions = onSchedule(
 
     // =========================================================================
     // 3. Expire paid but not shipped transactions older than 7 days
+    //    F3: Now includes Stripe refund (card portion) + wallet refund
     // =========================================================================
 
     try {
@@ -164,54 +165,135 @@ export const expireOrphanedTransactions = onSchedule(
         .get();
 
       if (!paidSnap.empty) {
-        let batch = db.batch();
-        let count = 0;
+        const stripe = getStripe();
 
         for (const doc of paidSnap.docs) {
           const data = doc.data();
+          const transactionId = doc.id;
 
-          // Cancel the transaction
-          batch.update(doc.ref, {
-            status: 'cancelled',
-            cancelledAt: FieldValue.serverTimestamp(),
-            cancelReason: 'seller_did_not_ship_7d',
-          });
+          try {
+            // --- Stripe refund (card portion) ---
+            if (data.stripePaymentIntentId && stripe) {
+              try {
+                await stripe.refunds.create({
+                  payment_intent: data.stripePaymentIntentId,
+                });
+                logger.info('[expireOrphanedTransactions] Stripe refund created', {
+                  transactionId,
+                  paymentIntentId: data.stripePaymentIntentId,
+                });
+              } catch (refundErr) {
+                // Log but continue — the transaction should still be cancelled
+                // and wallet refunded even if the Stripe refund fails.
+                // Manual reconciliation may be needed.
+                logger.error('[expireOrphanedTransactions] Stripe refund failed', {
+                  transactionId,
+                  paymentIntentId: data.stripePaymentIntentId,
+                  error: refundErr instanceof Error ? refundErr.message : refundErr,
+                });
+              }
+            }
 
-          // Release the article
-          if (data.articleId) {
-            const articleRef = db.collection('articles').doc(data.articleId);
-            batch.update(articleRef, { isSold: false });
-          }
+            // --- Wallet refund (if applicable) + cancel + release article ---
+            const paidVia = data.paidVia;
+            const walletAmountUsed = data.walletAmountUsed || 0; // in cents
+            const hasWalletPortion =
+              walletAmountUsed > 0 &&
+              (paidVia === 'wallet' || paidVia === 'wallet_and_card' || paidVia === 'mixed');
 
-          count++;
-          totalExpired++;
+            await db.runTransaction(async (tx) => {
+              const txSnap = await tx.get(doc.ref);
+              const txData = txSnap.data();
 
-          if (count >= BATCH_SIZE) {
-            await batch.commit();
-            batch = db.batch();
-            count = 0;
-          }
+              // Idempotence: skip if already cancelled or in a terminal state
+              if (!txData || txData.status !== 'paid') {
+                return;
+              }
 
-          // Notify buyer that the order was cancelled (non-blocking)
-          if (data.buyerId) {
-            const articleTitle = data.articleTitle || 'votre article';
-            sendPushNotification(
-              data.buyerId,
-              'Commande annulee',
-              `Votre commande ${articleTitle} a ete annulee car le vendeur n'a pas expedie dans les delais.`,
-              { transactionId: doc.id, articleId: data.articleId || '' },
-              'order_cancelled'
-            ).catch((err) => {
-              logger.warn('[expireOrphanedTransactions] Failed to notify buyer of paid expiry', {
-                transactionId: doc.id,
-                error: err instanceof Error ? err.message : err,
+              // Read buyer wallet if wallet was used (reads before writes)
+              let buyerWalletSnap = null;
+              const buyerWalletRef = hasWalletPortion
+                ? db.collection('wallets').doc(data.buyerId)
+                : null;
+              if (buyerWalletRef) {
+                buyerWalletSnap = await tx.get(buyerWalletRef);
+              }
+
+              // Read article if exists
+              let articleSnap = null;
+              const articleRef = data.articleId
+                ? db.collection('articles').doc(data.articleId)
+                : null;
+              if (articleRef) {
+                articleSnap = await tx.get(articleRef);
+              }
+
+              // --- Writes ---
+
+              // 1. Cancel the transaction
+              tx.update(doc.ref, {
+                status: 'cancelled',
+                cancelledAt: FieldValue.serverTimestamp(),
+                cancelReason: 'seller_did_not_ship_7d',
+                refundedAt: data.stripePaymentIntentId ? FieldValue.serverTimestamp() : null,
               });
+
+              // 2. Release the article
+              if (articleRef && articleSnap && articleSnap.exists) {
+                tx.update(articleRef, { isSold: false });
+              }
+
+              // 3. Refund wallet portion to buyer
+              if (hasWalletPortion && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+                const walletData = buyerWalletSnap.data()!;
+                tx.update(buyerWalletRef, {
+                  balance: FieldValue.increment(walletAmountUsed),
+                  updatedAt: FieldValue.serverTimestamp(),
+                });
+
+                const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+                tx.set(buyerLedgerRef, {
+                  type: 'refund_credit',
+                  amount: walletAmountUsed,
+                  balanceAfter: (walletData.balance || 0) + walletAmountUsed,
+                  description: 'Remboursement — vendeur n\'a pas expedie',
+                  transactionId,
+                  createdAt: FieldValue.serverTimestamp(),
+                });
+
+                logger.info('[expireOrphanedTransactions] Wallet portion refunded', {
+                  transactionId,
+                  buyerId: data.buyerId,
+                  walletAmountRefunded: walletAmountUsed,
+                });
+              }
+            });
+
+            totalExpired++;
+
+            // Notify buyer that the order was cancelled and refunded (non-blocking)
+            if (data.buyerId) {
+              const articleTitle = data.articleTitle || 'votre article';
+              sendPushNotification(
+                data.buyerId,
+                'Commande annulee et remboursee',
+                `Votre commande ${articleTitle} a ete annulee car le vendeur n'a pas expedie dans les delais. Le remboursement est en cours.`,
+                { transactionId, articleId: data.articleId || '' },
+                'order_cancelled'
+              ).catch((err) => {
+                logger.warn('[expireOrphanedTransactions] Failed to notify buyer of paid expiry', {
+                  transactionId,
+                  error: err instanceof Error ? err.message : err,
+                });
+              });
+            }
+          } catch (txError) {
+            // Log per-transaction error and continue with the rest
+            logger.error('[expireOrphanedTransactions] Error processing paid-not-shipped transaction', {
+              transactionId,
+              error: txError instanceof Error ? txError.message : txError,
             });
           }
-        }
-
-        if (count > 0) {
-          await batch.commit();
         }
 
         logger.info(`[expireOrphanedTransactions] Expired ${paidSnap.size} paid-not-shipped transactions (7d)`);
