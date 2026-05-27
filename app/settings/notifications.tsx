@@ -184,12 +184,13 @@ export default function NotificationsSettingsScreen() {
             ))}
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
+      <ScreenHeader title="Notifications" onBack={() => router.back()} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
