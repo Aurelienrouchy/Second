@@ -25,9 +25,11 @@ const RightBox = ({ title, description }: RightBoxProps) => (
 );
 
 export default function PrivacyPolicyScreen() {
+  const router = useRouter();
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Confidentialité' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Politique de confidentialité" onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
