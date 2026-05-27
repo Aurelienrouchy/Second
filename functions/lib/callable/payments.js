@@ -316,24 +316,33 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
 // CREATE STRIPE CHECKOUT — Initialize Stripe PaymentIntent (destination charge)
 // =============================================================================
 /**
- * Creates a Stripe PaymentIntent with destination charge to the seller's
- * Stripe Connect account. The platform takes an application_fee_amount
- * equal to the buyer protection fee (serviceFee).
+ * Creates a Stripe PaymentIntent for the transaction.
  *
- * Returns the PaymentIntent clientSecret for the client to confirm payment
- * using Stripe's React Native SDK or web Elements.
+ * Two modes:
+ * 1. **No wallet** (walletAmount === 0 or absent): Standard destination charge
+ *    to seller's Connect account with application_fee_amount.
+ * 2. **Mixed wallet+card** (0 < walletAmount < totalCharge): Platform receives
+ *    the card portion (no transfer_data). Wallet portion is debited from buyer's
+ *    wallet atomically. Seller is credited after delivery.
+ *
+ * Returns the PaymentIntent clientSecret for the client to confirm payment.
  *
  * Idempotent: if a PaymentIntent already exists for this transaction,
  * returns the existing clientSecret without creating a new one.
  */
 exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+    var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
-    const { transactionId } = request.data;
+    const { transactionId, walletAmount: rawWalletAmount } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     if (!transactionId || typeof transactionId !== 'string') {
         throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
     }
+    // walletAmount is optional, in cents, must be a non-negative integer
+    const walletAmount = typeof rawWalletAmount === 'number' && Number.isInteger(rawWalletAmount) && rawWalletAmount > 0
+        ? rawWalletAmount
+        : 0;
     const stripe = (0, stripe_1.getStripe)();
     if (!stripe) {
         throw new https_1.HttpsError('failed-precondition', 'Stripe API not configured');
@@ -367,22 +376,67 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                     fees: existingFees,
                     existingPaymentIntentId: transaction.stripePaymentIntentId,
                     sellerId: transaction.sellerId,
+                    walletDebited: false,
                 };
             }
             // Always recalculate fees server-side for correctness
             const calculatedFees = (0, fees_1.calculateFees)(transaction.amount, transaction.shippingCost || 0);
-            // Update fee fields atomically
-            tx.update(txRef, {
+            // --- Wallet debit (if applicable) ---
+            let walletDebited = false;
+            const totalChargeCents = Math.round(calculatedFees.buyerTotal * 100);
+            if (walletAmount > 0) {
+                if (walletAmount >= totalChargeCents) {
+                    throw new https_1.HttpsError('invalid-argument', 'walletAmount must be less than totalCharge for mixed payment. Use payWithWallet for 100% wallet payments.');
+                }
+                // Verify buyer has wallet with sufficient balance
+                const buyerWalletRef = firebase_1.db.collection('wallets').doc(request.auth.uid);
+                const buyerWalletSnap = await tx.get(buyerWalletRef);
+                if (!buyerWalletSnap.exists) {
+                    throw new https_1.HttpsError('failed-precondition', 'Aucun porte-monnaie trouve');
+                }
+                const buyerWallet = buyerWalletSnap.data();
+                if (buyerWallet.status !== 'active') {
+                    throw new https_1.HttpsError('failed-precondition', 'Le porte-monnaie n\'est pas actif');
+                }
+                if (buyerWallet.balance < walletAmount) {
+                    throw new https_1.HttpsError('failed-precondition', 'Solde insuffisant dans le porte-monnaie');
+                }
+                // Debit buyer wallet
+                const newBalance = buyerWallet.balance - walletAmount;
+                tx.update(buyerWalletRef, {
+                    balance: firebase_1.FieldValue.increment(-walletAmount),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                // Create buyer ledger entry
+                const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+                tx.set(buyerLedgerRef, {
+                    type: 'purchase_debit',
+                    amount: walletAmount,
+                    balanceAfter: newBalance,
+                    description: 'Paiement partiel (porte-monnaie)',
+                    transactionId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                walletDebited = true;
+            }
+            // Update fee fields atomically + wallet info
+            const updateData = {
                 serviceFee: calculatedFees.serviceFee,
                 serviceFeePercent: calculatedFees.serviceFeePercent,
                 totalAmount: calculatedFees.buyerTotal,
                 sellerPayout: calculatedFees.sellerPayout,
-            });
+            };
+            if (walletDebited) {
+                updateData.walletAmountUsed = walletAmount;
+                updateData.paidVia = 'wallet_and_card';
+            }
+            tx.update(txRef, updateData);
             return {
                 existingCheckout: false,
                 fees: calculatedFees,
                 existingPaymentIntentId: null,
                 sellerId: transaction.sellerId,
+                walletDebited,
             };
         });
         // Idempotent return: PaymentIntent already existed — retrieve clientSecret from Stripe
@@ -415,46 +469,98 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
             throw new https_1.HttpsError('failed-precondition', 'Le vendeur n\'a pas encore configuré son compte de paiement');
         }
         // Convert dollars to cents for Stripe (all Stripe amounts are in smallest currency unit)
-        const amountInCents = Math.round(txResult.fees.buyerTotal * 100);
+        const totalChargeCents = Math.round(txResult.fees.buyerTotal * 100);
         const applicationFeeInCents = Math.round(txResult.fees.serviceFee * 100);
-        // Create Stripe PaymentIntent with destination charge
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: amountInCents,
-            currency: 'cad',
-            application_fee_amount: applicationFeeInCents,
-            transfer_data: {
-                destination: sellerStripeAccountId,
-            },
-            metadata: {
+        if (txResult.walletDebited && walletAmount > 0) {
+            // --- MIXED WALLET + CARD PAYMENT ---
+            // Platform receives the card portion (no destination charge).
+            // The wallet portion was already debited. Seller will be credited
+            // after delivery via explicit transfer.
+            const stripeChargeCents = totalChargeCents - walletAmount;
+            // The application fee applies to the full purchase, but since the
+            // wallet portion was already collected, the Stripe portion just needs
+            // to cover the remaining charge. The platform fee is effectively
+            // collected from the combined wallet+card amount.
+            // We do NOT set application_fee_amount here because the platform
+            // receives the entire card payment (no transfer_data), so the fee
+            // is implicitly captured.
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: stripeChargeCents,
+                currency: 'cad',
+                metadata: {
+                    transactionId,
+                    sellerId: txResult.sellerId,
+                    buyerId: request.auth.uid,
+                    walletAmountUsed: String(walletAmount),
+                    paymentType: 'wallet_and_card',
+                },
+            });
+            // Store PaymentIntent ID in the transaction doc
+            await txRef.update({
+                stripePaymentIntentId: paymentIntent.id,
+                stripeCheckoutCreatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            logger.info('Stripe PaymentIntent created (mixed wallet+card)', {
                 transactionId,
-                sellerId: txResult.sellerId,
-                buyerId: request.auth.uid,
-            },
-            // Defer payouts until delivery confirmed (escrow simulation)
-            // The actual payout hold is managed via the connected account's schedule
-        });
-        // Store PaymentIntent ID in the transaction doc (never store client_secret)
-        await txRef.update({
-            stripePaymentIntentId: paymentIntent.id,
-            stripeCheckoutCreatedAt: firebase_1.FieldValue.serverTimestamp(),
-        });
-        logger.info('Stripe PaymentIntent created', {
-            transactionId,
-            paymentIntentId: paymentIntent.id,
-            amountCents: amountInCents,
-            feeCents: applicationFeeInCents,
-        });
-        return {
-            success: true,
-            clientSecret: paymentIntent.client_secret,
-            feeBreakdown: {
-                articlePrice: txResult.fees.articlePrice,
-                shippingCost: txResult.fees.shippingCost,
-                serviceFee: txResult.fees.serviceFee,
-                serviceFeePercent: txResult.fees.serviceFeePercent,
-                buyerTotal: txResult.fees.buyerTotal,
-            },
-        };
+                paymentIntentId: paymentIntent.id,
+                totalCents: totalChargeCents,
+                walletCents: walletAmount,
+                stripeCents: stripeChargeCents,
+            });
+            return {
+                success: true,
+                clientSecret: paymentIntent.client_secret,
+                feeBreakdown: {
+                    articlePrice: txResult.fees.articlePrice,
+                    shippingCost: txResult.fees.shippingCost,
+                    serviceFee: txResult.fees.serviceFee,
+                    serviceFeePercent: txResult.fees.serviceFeePercent,
+                    buyerTotal: txResult.fees.buyerTotal,
+                    walletAmountUsed: walletAmount,
+                    stripeAmount: stripeChargeCents,
+                },
+            };
+        }
+        else {
+            // --- STANDARD DESTINATION CHARGE (no wallet) ---
+            const amountInCents = totalChargeCents;
+            // Create Stripe PaymentIntent with destination charge
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amountInCents,
+                currency: 'cad',
+                application_fee_amount: applicationFeeInCents,
+                transfer_data: {
+                    destination: sellerStripeAccountId,
+                },
+                metadata: {
+                    transactionId,
+                    sellerId: txResult.sellerId,
+                    buyerId: request.auth.uid,
+                },
+            });
+            // Store PaymentIntent ID in the transaction doc (never store client_secret)
+            await txRef.update({
+                stripePaymentIntentId: paymentIntent.id,
+                stripeCheckoutCreatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            logger.info('Stripe PaymentIntent created (destination charge)', {
+                transactionId,
+                paymentIntentId: paymentIntent.id,
+                amountCents: amountInCents,
+                feeCents: applicationFeeInCents,
+            });
+            return {
+                success: true,
+                clientSecret: paymentIntent.client_secret,
+                feeBreakdown: {
+                    articlePrice: txResult.fees.articlePrice,
+                    shippingCost: txResult.fees.shippingCost,
+                    serviceFee: txResult.fees.serviceFee,
+                    serviceFeePercent: txResult.fees.serviceFeePercent,
+                    buyerTotal: txResult.fees.buyerTotal,
+                },
+            };
+        }
     }
     catch (error) {
         if (error instanceof https_1.HttpsError)
@@ -485,7 +591,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
  * along with current charges_enabled / requirements status.
  */
 exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -550,10 +656,11 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
     if (!/^\d{7,12}$/.test(accountNumber)) {
         throw new https_1.HttpsError('invalid-argument', 'Le numero de compte doit contenir entre 7 et 12 chiffres');
     }
-    // ToS acceptance IP
-    if (typeof data.ip !== 'string' || data.ip.trim().length < 7) {
-        throw new https_1.HttpsError('invalid-argument', 'L\'adresse IP est requise pour l\'acceptation des conditions');
-    }
+    // ToS acceptance IP — extracted from request context (more secure than client-provided)
+    const callerIp = ((_b = request.rawRequest) === null || _b === void 0 ? void 0 : _b.ip)
+        || ((_f = (_e = (_d = (_c = request.rawRequest) === null || _c === void 0 ? void 0 : _c.headers) === null || _d === void 0 ? void 0 : _d['x-forwarded-for']) === null || _e === void 0 ? void 0 : _e.split(',')[0]) === null || _f === void 0 ? void 0 : _f.trim())
+        || data.ip
+        || '0.0.0.0';
     // ── Fetch user doc ──────────────────────────────────────────────────────
     try {
         const userRef = firebase_1.db.collection('users').doc(userId);
@@ -586,7 +693,7 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
                 chargesEnabled: existingAccount.charges_enabled,
                 payoutsEnabled: existingAccount.payouts_enabled,
                 detailsSubmitted: existingAccount.details_submitted,
-                requirements: ((_b = existingAccount.requirements) === null || _b === void 0 ? void 0 : _b.currently_due) || [],
+                requirements: ((_g = existingAccount.requirements) === null || _g === void 0 ? void 0 : _g.currently_due) || [],
                 status,
             };
         }
@@ -618,7 +725,7 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
             },
             tos_acceptance: {
                 date: Math.floor(Date.now() / 1000),
-                ip: data.ip.trim(),
+                ip: callerIp,
             },
             external_account: {
                 object: 'bank_account',
@@ -649,7 +756,7 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
         const chargesEnabled = account.charges_enabled === true;
         const payoutsEnabled = account.payouts_enabled === true;
         const detailsSubmitted = account.details_submitted === true;
-        const pendingRequirements = ((_c = account.requirements) === null || _c === void 0 ? void 0 : _c.currently_due) || [];
+        const pendingRequirements = ((_h = account.requirements) === null || _h === void 0 ? void 0 : _h.currently_due) || [];
         let status;
         if (chargesEnabled && payoutsEnabled) {
             status = 'active';
@@ -913,8 +1020,8 @@ exports.findPickupPoints = (0, https_1.onCall)({ region: 'northamerica-northeast
 // =============================================================================
 // CHECK TRACKING STATUS — Via ShipEngine
 // =============================================================================
-exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
-    var _a;
+exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'] }, async (request) => {
+    var _a, _b;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -953,11 +1060,13 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
             const sellerId = transaction.sellerId;
             const sellerPayout = transaction.sellerPayout || transaction.amount;
             const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
+            const paidVia = transaction.paidVia;
+            const isWalletPayment = paidVia === 'wallet' || paidVia === 'wallet_and_card';
             await firebase_1.db.runTransaction(async (t) => {
-                const [txSnap, sellerBalanceDoc] = await Promise.all([
-                    t.get(txRef),
-                    t.get(sellerBalanceRef),
-                ]);
+                const txSnap = await t.get(txRef);
+                const sellerBalanceDoc = await t.get(sellerBalanceRef);
+                const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
+                const sellerWalletSnap = await t.get(sellerWalletRef);
                 // Guard: if already delivered, skip (idempotent)
                 if (txSnap.exists && txSnap.data().status === 'delivered') {
                     return;
@@ -968,32 +1077,118 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
                     status: 'delivered',
                     deliveredAt: firebase_1.FieldValue.serverTimestamp(),
                 });
-                // 2. Credit seller balance: pending → available
-                if (sellerBalanceDoc.exists) {
-                    const balanceData = sellerBalanceDoc.data();
-                    const txns = balanceData.transactions || [];
-                    // H7: Guard against negative pendingBalance
-                    const currentPending = balanceData.pendingBalance || 0;
-                    let actualPayout = sellerPayout;
-                    if (currentPending < sellerPayout) {
-                        logger.warn(`[checkTrackingStatus] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
-                        actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
-                    }
-                    const updatedTransactions = txns.map((txn) => {
-                        if (txn.id === transactionId) {
-                            return Object.assign(Object.assign({}, txn), { status: 'completed' });
-                        }
-                        return txn;
-                    });
-                    t.update(sellerBalanceRef, {
-                        pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
-                        availableBalance: firebase_1.FieldValue.increment(actualPayout),
-                        totalEarnings: firebase_1.FieldValue.increment(actualPayout),
-                        transactions: updatedTransactions,
+                // 2. Credit seller — wallet-first, fallback to seller_balances
+                const sellerPayoutCents = Math.round(sellerPayout * 100);
+                if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
+                    // Seller has wallet: move pendingBalance -> balance
+                    t.update(sellerWalletRef, {
+                        pendingBalance: firebase_1.FieldValue.increment(-sellerPayoutCents),
+                        balance: firebase_1.FieldValue.increment(sellerPayoutCents),
                         updatedAt: firebase_1.FieldValue.serverTimestamp(),
                     });
+                    // Create ledger entry
+                    const ledgerRef = sellerWalletRef.collection('ledger').doc();
+                    const currentWallet = sellerWalletSnap.data();
+                    t.set(ledgerRef, {
+                        type: 'sale_credit',
+                        amount: sellerPayoutCents,
+                        balanceAfter: (currentWallet.balance || 0) + sellerPayoutCents,
+                        description: 'Vente livree — fonds disponibles',
+                        transactionId,
+                        createdAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                }
+                else if (isWalletPayment) {
+                    // Wallet/mixed payment but seller has no wallet:
+                    // For wallet payments, money is on the platform. We need to transfer
+                    // to seller's Connect account via Stripe.
+                    // This is done outside the transaction (Stripe call) — see below.
+                    // For now, just credit seller_balances as pending marker.
+                    if (sellerBalanceDoc.exists) {
+                        const balanceData = sellerBalanceDoc.data();
+                        const txns = balanceData.transactions || [];
+                        const currentPending = balanceData.pendingBalance || 0;
+                        let actualPayout = sellerPayout;
+                        if (currentPending < sellerPayout) {
+                            logger.warn(`[checkTrackingStatus] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
+                            actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
+                        }
+                        const updatedTransactions = txns.map((txn) => {
+                            if (txn.id === transactionId)
+                                return Object.assign(Object.assign({}, txn), { status: 'completed' });
+                            return txn;
+                        });
+                        t.update(sellerBalanceRef, {
+                            pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
+                            availableBalance: firebase_1.FieldValue.increment(actualPayout),
+                            totalEarnings: firebase_1.FieldValue.increment(actualPayout),
+                            transactions: updatedTransactions,
+                            updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                        });
+                    }
+                }
+                else {
+                    // Standard destination charge — money already on seller's Connect account.
+                    // Just move pending -> available in seller_balances.
+                    if (sellerBalanceDoc.exists) {
+                        const balanceData = sellerBalanceDoc.data();
+                        const txns = balanceData.transactions || [];
+                        const currentPending = balanceData.pendingBalance || 0;
+                        let actualPayout = sellerPayout;
+                        if (currentPending < sellerPayout) {
+                            logger.warn(`[checkTrackingStatus] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
+                            actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
+                        }
+                        const updatedTransactions = txns.map((txn) => {
+                            if (txn.id === transactionId)
+                                return Object.assign(Object.assign({}, txn), { status: 'completed' });
+                            return txn;
+                        });
+                        t.update(sellerBalanceRef, {
+                            pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
+                            availableBalance: firebase_1.FieldValue.increment(actualPayout),
+                            totalEarnings: firebase_1.FieldValue.increment(actualPayout),
+                            transactions: updatedTransactions,
+                            updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                        });
+                    }
                 }
             });
+            // For wallet/mixed payments where seller has no wallet:
+            // Transfer from platform to seller's Connect account via Stripe
+            if (isWalletPayment) {
+                const sellerWalletSnap = await firebase_1.db.collection('wallets').doc(sellerId).get();
+                if (!sellerWalletSnap.exists || ((_a = sellerWalletSnap.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'active') {
+                    const sellerDoc = await firebase_1.db.collection('users').doc(sellerId).get();
+                    const sellerData = sellerDoc.data();
+                    if ((sellerData === null || sellerData === void 0 ? void 0 : sellerData.stripeAccountId) && (sellerData === null || sellerData === void 0 ? void 0 : sellerData.stripeChargesEnabled)) {
+                        try {
+                            const stripe = (0, stripe_1.getStripe)();
+                            if (stripe) {
+                                const sellerPayoutCents = Math.round(sellerPayout * 100);
+                                await stripe.transfers.create({
+                                    amount: sellerPayoutCents,
+                                    currency: 'cad',
+                                    destination: sellerData.stripeAccountId,
+                                    metadata: {
+                                        transactionId,
+                                        reason: 'wallet_payment_delivery',
+                                    },
+                                });
+                                logger.info('[checkTrackingStatus] Stripe transfer created for wallet payment delivery', {
+                                    transactionId, sellerId, amount: sellerPayoutCents,
+                                });
+                            }
+                        }
+                        catch (transferErr) {
+                            logger.error('[checkTrackingStatus] Failed to create Stripe transfer for wallet payment', {
+                                transactionId, sellerId,
+                                error: transferErr instanceof Error ? transferErr.message : transferErr,
+                            });
+                        }
+                    }
+                }
+            }
             // Send system message (non-critical, outside transaction)
             if (transaction.chatId) {
                 // Look up chat participants so the message is visible to listeners
@@ -1002,7 +1197,7 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
                 try {
                     const chatSnap = await firebase_1.db.collection('chats').doc(transaction.chatId).get();
                     if (chatSnap.exists) {
-                        participants = ((_a = chatSnap.data()) === null || _a === void 0 ? void 0 : _a.participants) || [];
+                        participants = ((_b = chatSnap.data()) === null || _b === void 0 ? void 0 : _b.participants) || [];
                     }
                 }
                 catch (lookupErr) {
@@ -1263,14 +1458,38 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
             const sellerId = data.sellerId;
             const sellerPayout = data.sellerPayout || data.amount;
             const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-            const sellerBalanceDoc = await tx.get(sellerBalanceRef);
+            const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
+            const [sellerBalanceDoc, sellerWalletSnap] = await Promise.all([
+                tx.get(sellerBalanceRef),
+                tx.get(sellerWalletRef),
+            ]);
             // 1. Update transaction status
             tx.update(txRef, {
                 status: 'meetup_completed',
                 completedAt: firebase_1.FieldValue.serverTimestamp(),
             });
-            // 2. Credit seller balance: pending → available
-            if (sellerBalanceDoc.exists) {
+            // 2. Credit seller — wallet-first, fallback to seller_balances
+            const sellerPayoutCents = Math.round(sellerPayout * 100);
+            if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
+                // Seller has wallet: credit directly to wallet balance (meetup = immediate)
+                tx.update(sellerWalletRef, {
+                    balance: firebase_1.FieldValue.increment(sellerPayoutCents),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                // Create ledger entry
+                const ledgerRef = sellerWalletRef.collection('ledger').doc();
+                const currentWallet = sellerWalletSnap.data();
+                tx.set(ledgerRef, {
+                    type: 'sale_credit',
+                    amount: sellerPayoutCents,
+                    balanceAfter: (currentWallet.balance || 0) + sellerPayoutCents,
+                    description: 'Vente meetup — fonds disponibles',
+                    transactionId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+            else if (sellerBalanceDoc.exists) {
+                // Fallback to seller_balances
                 const balanceData = sellerBalanceDoc.data();
                 const txns = balanceData.transactions || [];
                 // Guard against negative pendingBalance (same as H7)

@@ -171,7 +171,7 @@ exports.stripeWebhook = (0, https_1.onRequest)({
 // HANDLER: payment_intent.succeeded
 // =============================================================================
 async function handlePaymentIntentSucceeded(paymentIntent) {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const transactionId = (_a = paymentIntent.metadata) === null || _a === void 0 ? void 0 : _a.transactionId;
     if (!transactionId) {
         logger.error('Stripe webhook: PaymentIntent missing transactionId in metadata', {
@@ -190,6 +190,11 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
     // Amount received (in cents) — convert to dollars for verification
     const amountReceivedCents = paymentIntent.amount_received || paymentIntent.amount;
     const amountReceivedDollars = amountReceivedCents / 100;
+    // Check if this is a mixed wallet+card payment
+    const isMixedPayment = ((_b = paymentIntent.metadata) === null || _b === void 0 ? void 0 : _b.paymentType) === 'wallet_and_card';
+    const walletAmountUsedCents = isMixedPayment
+        ? parseInt(((_c = paymentIntent.metadata) === null || _c === void 0 ? void 0 : _c.walletAmountUsed) || '0', 10)
+        : 0;
     const transactionRef = firebase_1.db.collection('transactions').doc(transactionId);
     // =====================================================================
     // ATOMIC TRANSACTION: idempotence + mark paid + mark sold + credit seller
@@ -202,14 +207,34 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
             return { processed: false, reason: 'transaction_not_found' };
         }
         // SECURITY: Verify the paid amount matches what we expect.
+        // For mixed wallet+card payments, the Stripe charge is only for the
+        // card portion (totalAmount - walletAmountUsed).
         const expectedAmount = txData.totalAmount;
-        if (expectedAmount != null && Math.abs(amountReceivedDollars - expectedAmount) > 0.01) {
-            logger.error('Stripe webhook: amount mismatch', {
-                transactionId,
-                received: amountReceivedDollars,
-                expected: expectedAmount,
-            });
-            throw new Error('Payment amount does not match transaction total');
+        if (expectedAmount != null) {
+            if (isMixedPayment) {
+                // Card portion = total - wallet portion
+                const expectedStripeDollars = expectedAmount - (walletAmountUsedCents / 100);
+                if (Math.abs(amountReceivedDollars - expectedStripeDollars) > 0.01) {
+                    logger.error('Stripe webhook: amount mismatch (mixed payment)', {
+                        transactionId,
+                        received: amountReceivedDollars,
+                        expectedStripe: expectedStripeDollars,
+                        expectedTotal: expectedAmount,
+                        walletCents: walletAmountUsedCents,
+                    });
+                    throw new Error('Payment amount does not match expected card portion');
+                }
+            }
+            else {
+                if (Math.abs(amountReceivedDollars - expectedAmount) > 0.01) {
+                    logger.error('Stripe webhook: amount mismatch', {
+                        transactionId,
+                        received: amountReceivedDollars,
+                        expected: expectedAmount,
+                    });
+                    throw new Error('Payment amount does not match transaction total');
+                }
+            }
         }
         // IDEMPOTENCE: If already paid/shipped/delivered, do nothing (replay protection).
         // Also reject cancelled transactions.
@@ -242,35 +267,84 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         // --- Credit seller's pending balance ---
         const sellerId = txData.sellerId;
         const sellerPayout = txData.sellerPayout || txData.amount;
-        const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-        const sellerBalanceSnap = await tx.get(sellerBalanceRef);
-        const saleTransaction = {
-            id: transactionId,
-            type: 'sale',
-            amount: sellerPayout,
-            description: `Vente de l'article`,
-            createdAt: firebase_1.FieldValue.serverTimestamp(),
-            status: 'pending',
-        };
-        if (!sellerBalanceSnap.exists) {
-            // Initialize totalEarnings to sellerPayout (not 0) because this IS
-            // a sale — the amount is pending delivery confirmation but it still
-            // counts as an earning for the seller's dashboard display.
-            tx.set(sellerBalanceRef, {
-                userId: sellerId,
-                availableBalance: 0,
-                pendingBalance: sellerPayout,
-                totalEarnings: sellerPayout,
-                transactions: [saleTransaction],
-                updatedAt: firebase_1.FieldValue.serverTimestamp(),
-            });
+        // Determine if the transaction was paid via mixed wallet+card
+        const txPaidVia = txData.paidVia || (isMixedPayment ? 'wallet_and_card' : null);
+        const isWalletOrMixed = txPaidVia === 'wallet_and_card' || txPaidVia === 'wallet';
+        if (isWalletOrMixed) {
+            // MIXED WALLET+CARD: Money is on the platform (no destination charge).
+            // Credit seller's wallet pendingBalance if they have one, otherwise
+            // credit seller_balances.
+            const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
+            const sellerWalletSnap = await tx.get(sellerWalletRef);
+            if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
+                // Seller has wallet: add to pendingBalance (cents)
+                const sellerPayoutCents = Math.round(sellerPayout * 100);
+                tx.update(sellerWalletRef, {
+                    pendingBalance: firebase_1.FieldValue.increment(sellerPayoutCents),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+            else {
+                // Seller has no wallet: use seller_balances (backward compat)
+                const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
+                const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+                const saleTransaction = {
+                    id: transactionId,
+                    type: 'sale',
+                    amount: sellerPayout,
+                    description: "Vente de l'article (paiement mixte)",
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                    status: 'pending',
+                };
+                if (!sellerBalanceSnap.exists) {
+                    tx.set(sellerBalanceRef, {
+                        userId: sellerId,
+                        availableBalance: 0,
+                        pendingBalance: sellerPayout,
+                        totalEarnings: sellerPayout,
+                        transactions: [saleTransaction],
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                }
+                else {
+                    tx.update(sellerBalanceRef, {
+                        pendingBalance: firebase_1.FieldValue.increment(sellerPayout),
+                        transactions: firebase_1.FieldValue.arrayUnion(saleTransaction),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                }
+            }
         }
         else {
-            tx.update(sellerBalanceRef, {
-                pendingBalance: firebase_1.FieldValue.increment(sellerPayout),
-                transactions: firebase_1.FieldValue.arrayUnion(saleTransaction),
-                updatedAt: firebase_1.FieldValue.serverTimestamp(),
-            });
+            // STANDARD DESTINATION CHARGE: Money goes directly to seller's Connect account.
+            // Credit seller_balances as before.
+            const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
+            const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+            const saleTransaction = {
+                id: transactionId,
+                type: 'sale',
+                amount: sellerPayout,
+                description: `Vente de l'article`,
+                createdAt: firebase_1.FieldValue.serverTimestamp(),
+                status: 'pending',
+            };
+            if (!sellerBalanceSnap.exists) {
+                tx.set(sellerBalanceRef, {
+                    userId: sellerId,
+                    availableBalance: 0,
+                    pendingBalance: sellerPayout,
+                    totalEarnings: sellerPayout,
+                    transactions: [saleTransaction],
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+            else {
+                tx.update(sellerBalanceRef, {
+                    pendingBalance: firebase_1.FieldValue.increment(sellerPayout),
+                    transactions: firebase_1.FieldValue.arrayUnion(saleTransaction),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
         }
         return {
             processed: true,
@@ -374,7 +448,7 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         try {
             const chatSnap = await firebase_1.db.collection('chats').doc(chatId).get();
             if (chatSnap.exists) {
-                participants = ((_b = chatSnap.data()) === null || _b === void 0 ? void 0 : _b.participants) || [];
+                participants = ((_d = chatSnap.data()) === null || _d === void 0 ? void 0 : _d.participants) || [];
             }
         }
         catch (lookupErr) {
@@ -566,35 +640,87 @@ async function handleChargeRefunded(charge) {
             refundedAt: firebase_1.FieldValue.serverTimestamp(),
             stripeRefundId: ((_c = (_b = (_a = charge.refunds) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.id) || null,
         });
-        // Decrement seller balance
         const sellerId = txData.sellerId;
         const sellerPayout = txData.sellerPayout || txData.amount;
-        const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-        const sellerBalanceSnap = await tx.get(sellerBalanceRef);
-        if (sellerBalanceSnap.exists) {
-            const balanceData = sellerBalanceSnap.data();
-            // Determine which balance to decrement based on transaction status
-            // If the funds were already available (delivered), decrement availableBalance.
-            // If still pending (paid but not delivered), decrement pendingBalance.
-            const previousStatus = txData.status;
-            const wasDelivered = previousStatus === 'delivered' || previousStatus === 'meetup_completed';
+        const paidVia = txData.paidVia;
+        const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
+        const previousStatus = txData.status;
+        const wasDelivered = previousStatus === 'delivered' || previousStatus === 'meetup_completed';
+        // --- Handle wallet refund for buyer ---
+        if (paidVia === 'wallet' || paidVia === 'wallet_and_card') {
+            const buyerId = txData.buyerId;
+            const buyerWalletRef = firebase_1.db.collection('wallets').doc(buyerId);
+            const buyerWalletSnap = await tx.get(buyerWalletRef);
+            if (buyerWalletSnap.exists) {
+                const walletData = buyerWalletSnap.data();
+                // Refund the wallet portion back to buyer's wallet
+                const walletRefundAmount = paidVia === 'wallet'
+                    ? Math.round((txData.totalAmount || 0) * 100) // Full amount for 100% wallet
+                    : walletAmountUsed; // Wallet portion for mixed payments
+                if (walletRefundAmount > 0) {
+                    tx.update(buyerWalletRef, {
+                        balance: firebase_1.FieldValue.increment(walletRefundAmount),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                    // Create refund ledger entry
+                    const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+                    tx.set(buyerLedgerRef, {
+                        type: 'refund_credit',
+                        amount: walletRefundAmount,
+                        balanceAfter: (walletData.balance || 0) + walletRefundAmount,
+                        description: 'Remboursement — retour au porte-monnaie',
+                        transactionId,
+                        createdAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                }
+            }
+        }
+        // --- Debit seller (wallet or seller_balances) ---
+        const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
+        const sellerWalletSnap = await tx.get(sellerWalletRef);
+        if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
+            // Seller has wallet: debit from wallet
+            const sellerPayoutCents = Math.round(sellerPayout * 100);
+            const sellerWalletData = sellerWalletSnap.data();
             if (wasDelivered) {
-                // Guard against going negative
-                const currentAvailable = balanceData.availableBalance || 0;
-                const deduction = Math.min(sellerPayout, currentAvailable);
-                tx.update(sellerBalanceRef, {
-                    availableBalance: firebase_1.FieldValue.increment(-deduction),
+                // Funds were in balance (available)
+                const deduction = Math.min(sellerPayoutCents, sellerWalletData.balance || 0);
+                tx.update(sellerWalletRef, {
+                    balance: firebase_1.FieldValue.increment(-deduction),
                     updatedAt: firebase_1.FieldValue.serverTimestamp(),
                 });
             }
             else {
-                // Funds still in pending
-                const currentPending = balanceData.pendingBalance || 0;
-                const deduction = Math.min(sellerPayout, currentPending);
-                tx.update(sellerBalanceRef, {
+                // Funds were in pendingBalance
+                const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
+                tx.update(sellerWalletRef, {
                     pendingBalance: firebase_1.FieldValue.increment(-deduction),
                     updatedAt: firebase_1.FieldValue.serverTimestamp(),
                 });
+            }
+        }
+        else {
+            // Seller has no wallet: use seller_balances
+            const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
+            const sellerBalanceSnap = await tx.get(sellerBalanceRef);
+            if (sellerBalanceSnap.exists) {
+                const balanceData = sellerBalanceSnap.data();
+                if (wasDelivered) {
+                    const currentAvailable = balanceData.availableBalance || 0;
+                    const deduction = Math.min(sellerPayout, currentAvailable);
+                    tx.update(sellerBalanceRef, {
+                        availableBalance: firebase_1.FieldValue.increment(-deduction),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                }
+                else {
+                    const currentPending = balanceData.pendingBalance || 0;
+                    const deduction = Math.min(sellerPayout, currentPending);
+                    tx.update(sellerBalanceRef, {
+                        pendingBalance: firebase_1.FieldValue.increment(-deduction),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                }
             }
         }
         // Release the article
@@ -606,7 +732,7 @@ async function handleChargeRefunded(charge) {
             }
         }
     });
-    logger.warn('Stripe webhook: charge refunded — transaction marked refunded, seller balance decremented', {
+    logger.warn('Stripe webhook: charge refunded — transaction marked refunded, balances adjusted', {
         transactionId,
         chargeId: charge.id,
         paymentIntentId,
