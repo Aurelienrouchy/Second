@@ -36,6 +36,7 @@ import {
 } from '@/features/profile';
 import type { MenuItem } from '@/features/profile';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useWallet } from '@/hooks/useWallet';
 import { UserStatsService } from '@/services/userStatsService';
 
 // =============================================================================
