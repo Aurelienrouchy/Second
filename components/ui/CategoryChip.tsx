@@ -20,12 +20,13 @@ import {
   ViewStyle,
 } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, animations, fonts } from '@/constants/theme';
+import { colors, radius, spacing, fonts } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
