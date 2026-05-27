@@ -187,6 +187,25 @@ export default function ShippingCheckoutScreen() {
     ? finalPrice + (selectedEstimate?.amount || 0) + serviceFee
     : 0;
 
+  /** Total in cents for wallet comparison (backend amounts are in cents). */
+  const totalAmountCents = Math.round(totalAmount * 100);
+
+  /** Wallet balance available (in cents). */
+  const walletBalanceCents = wallet?.hasWallet ? wallet.balance : 0;
+
+  /** Whether wallet can cover the full amount. */
+  const walletCoversAll = useWalletBalance && walletBalanceCents >= totalAmountCents;
+
+  /** Amount (in dollars) that must be paid by card when using partial wallet. */
+  const cardAmountDollars = useWalletBalance
+    ? Math.max(0, (totalAmountCents - walletBalanceCents) / 100)
+    : totalAmount;
+
+  /** Wallet amount that will be used (in cents), capped at total. */
+  const walletAmountCents = useWalletBalance
+    ? Math.min(walletBalanceCents, totalAmountCents)
+    : 0;
+
   const canPay = !!(
     addressForm.fullName && addressForm.address && addressForm.city
     && addressForm.postalCode && selectedEstimate
