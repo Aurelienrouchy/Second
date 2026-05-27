@@ -20,6 +20,7 @@ import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { fixStorageUrl } from '@/utils/fixStorageUrl';
 import { formatDisplayName } from '@/utils/formatName';
 
 type ConversationType = 'achats' | 'ventes';
