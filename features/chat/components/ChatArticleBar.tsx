@@ -4,6 +4,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import type { ChatArticleBarProps } from '../types';
 
 export const ChatArticleBar = React.memo(function ChatArticleBar({
@@ -15,6 +16,7 @@ export const ChatArticleBar = React.memo(function ChatArticleBar({
 }: ChatArticleBarProps) {
   const router = useRouter();
   const isUnavailable = article === null;
+  const isSold = article?.isSold === true;
   const imageUrl = article?.images?.[0]?.url ?? snapshotImage;
   const displayPrice = articlePrice ?? snapshotPrice;
 
@@ -30,9 +32,14 @@ export const ChatArticleBar = React.memo(function ChatArticleBar({
       <View style={styles.imageWrapper}>
         <Image
           source={imageUrl ? { uri: imageUrl } : undefined}
-          style={[styles.image, isUnavailable && styles.imageUnavailable]}
+          style={[styles.image, (isUnavailable || isSold) && styles.imageUnavailable]}
           contentFit="cover"
         />
+        {isSold && (
+          <View style={styles.soldOverlay}>
+            <Text style={styles.soldOverlayText}>VENDU</Text>
+          </View>
+        )}
       </View>
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={1}>
@@ -44,21 +51,22 @@ export const ChatArticleBar = React.memo(function ChatArticleBar({
           <View style={styles.priceRow}>
             {priceChanged && (
               <Text style={styles.oldPrice}>
-                ${snapshotPrice.toFixed(2)}
+                {formatPrice(snapshotPrice)}
               </Text>
             )}
             <Text style={styles.price}>
-              ${displayPrice?.toFixed(2)}
+              {displayPrice != null ? formatPrice(displayPrice) : ''}
             </Text>
           </View>
         )}
       </View>
       {!isUnavailable && (
         <Pressable
-          style={styles.viewButton}
+          style={[styles.viewButton, isSold && styles.viewButtonDisabled]}
           onPress={() => router.push(`/article/${article.id}`)}
+          disabled={isSold}
         >
-          <Text style={styles.viewButtonText}>VOIR</Text>
+          <Text style={[styles.viewButtonText, isSold && styles.viewButtonTextDisabled]}>VOIR</Text>
         </Pressable>
       )}
     </View>
