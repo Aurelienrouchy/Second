@@ -334,6 +334,7 @@ export default function StripeOnboardingScreen() {
   if (!isLoggedIn) {
     return (
       <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
         <ScreenHeader title="Compte de paiement" onBack={() => router.back()} />
         <View style={styles.centerState}>
           <Ionicons name="lock-closed-outline" size={48} color={colors.muted} />
