@@ -78,7 +78,8 @@ export default function ShippingOptionsScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
+      <ScreenHeader title="Options de livraison" onBack={() => router.back()} />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
