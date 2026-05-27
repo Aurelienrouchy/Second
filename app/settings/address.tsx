@@ -9,7 +9,6 @@ import {
   View
 } from 'react-native';
 import { GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
