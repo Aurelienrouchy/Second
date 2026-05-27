@@ -234,7 +234,7 @@ export default function NotificationsSettingsScreen() {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
