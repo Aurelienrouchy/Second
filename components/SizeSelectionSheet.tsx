@@ -218,7 +218,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: 80 },
+            { paddingBottom: 80 + insets.bottom },
           ]}
           showsVerticalScrollIndicator={false}
         >
