@@ -96,7 +96,7 @@ export {
 } from './callable/home';
 
 // Wallet Functions
-export { activateWallet, getWalletInfo, walletWithdraw, payWithWallet } from './callable/wallet';
+export { activateWallet, getWalletInfo, walletWithdraw, payWithWallet, refundWalletPayment } from './callable/wallet';
 
 // Review Functions
 export { createReview, getUserReviews, getUserPublicProfile } from './callable/reviews';
