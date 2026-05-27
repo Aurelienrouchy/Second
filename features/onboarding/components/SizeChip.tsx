@@ -6,12 +6,13 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
-import { animations, colors, fonts } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
