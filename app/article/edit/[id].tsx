@@ -40,10 +40,11 @@ import { getCategoryInfoFromIds } from '@/data/categories-v2';
 
 // Services & Types
 import { ArticlesService } from '@/services/articlesService';
+import { isStorageUrl } from '@/utils/fixStorageUrl';
 import { useAuthStore } from '@/store/authStore';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
-import { Article, MeetupNeighborhood } from '@/types';
+import { Article, ArticleImage, MeetupNeighborhood } from '@/types';
 import { colors } from '@/constants/theme';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
