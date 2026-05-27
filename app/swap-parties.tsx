@@ -119,12 +119,15 @@ export default function SwapPartiesScreen() {
 
   if (isLoading || (activeFilter === 'ended' && isEndedLoading)) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Header skeleton */}
-        <View style={styles.header}>
-          <Skeleton width={36} height={36} borderRadius={50} style={styles.skeletonDark} />
-          <Skeleton width={140} height={24} borderRadius={radius.sm} style={styles.skeletonDark} />
-        </View>
+      <View style={styles.container}>
+        <ScreenHeader
+          title="Swap Parties"
+          onBack={handleBackPress}
+          backgroundColor="#131510"
+          titleColor={colors.cream}
+          backButtonColor={colors.cream}
+          showBorder={false}
+        />
 
         {/* Filter tabs skeleton */}
         <View style={styles.skeletonFilterRow}>
