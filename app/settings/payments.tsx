@@ -44,7 +44,7 @@ export default function PaymentsSettingsScreen() {
           <Text variant="body" style={styles.addButtonText}>Ajouter une carte</Text>
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
