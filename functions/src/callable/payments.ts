@@ -350,12 +350,16 @@ export const createTransaction = onCall(
 // =============================================================================
 
 /**
- * Creates a Stripe PaymentIntent with destination charge to the seller's
- * Stripe Connect account. The platform takes an application_fee_amount
- * equal to the buyer protection fee (serviceFee).
+ * Creates a Stripe PaymentIntent for the transaction.
  *
- * Returns the PaymentIntent clientSecret for the client to confirm payment
- * using Stripe's React Native SDK or web Elements.
+ * Two modes:
+ * 1. **No wallet** (walletAmount === 0 or absent): Standard destination charge
+ *    to seller's Connect account with application_fee_amount.
+ * 2. **Mixed wallet+card** (0 < walletAmount < totalCharge): Platform receives
+ *    the card portion (no transfer_data). Wallet portion is debited from buyer's
+ *    wallet atomically. Seller is credited after delivery.
+ *
+ * Returns the PaymentIntent clientSecret for the client to confirm payment.
  *
  * Idempotent: if a PaymentIntent already exists for this transaction,
  * returns the existing clientSecret without creating a new one.
@@ -367,11 +371,16 @@ export const createStripeCheckout = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
-    const { transactionId } = request.data;
+    const { transactionId, walletAmount: rawWalletAmount } = request.data ?? {};
 
     if (!transactionId || typeof transactionId !== 'string') {
       throw new HttpsError('invalid-argument', 'Transaction ID is required');
     }
+
+    // walletAmount is optional, in cents, must be a non-negative integer
+    const walletAmount = typeof rawWalletAmount === 'number' && Number.isInteger(rawWalletAmount) && rawWalletAmount > 0
+      ? rawWalletAmount
+      : 0;
 
     const stripe = getStripe();
     if (!stripe) {
@@ -416,25 +425,82 @@ export const createStripeCheckout = onCall(
             fees: existingFees,
             existingPaymentIntentId: transaction.stripePaymentIntentId as string,
             sellerId: transaction.sellerId as string,
+            walletDebited: false,
           };
         }
 
         // Always recalculate fees server-side for correctness
         const calculatedFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
 
-        // Update fee fields atomically
-        tx.update(txRef, {
+        // --- Wallet debit (if applicable) ---
+        let walletDebited = false;
+        const totalChargeCents = Math.round(calculatedFees.buyerTotal * 100);
+
+        if (walletAmount > 0) {
+          if (walletAmount >= totalChargeCents) {
+            throw new HttpsError(
+              'invalid-argument',
+              'walletAmount must be less than totalCharge for mixed payment. Use payWithWallet for 100% wallet payments.'
+            );
+          }
+
+          // Verify buyer has wallet with sufficient balance
+          const buyerWalletRef = db.collection('wallets').doc(request.auth!.uid);
+          const buyerWalletSnap = await tx.get(buyerWalletRef);
+
+          if (!buyerWalletSnap.exists) {
+            throw new HttpsError('failed-precondition', 'Aucun porte-monnaie trouve');
+          }
+          const buyerWallet = buyerWalletSnap.data()!;
+          if (buyerWallet.status !== 'active') {
+            throw new HttpsError('failed-precondition', 'Le porte-monnaie n\'est pas actif');
+          }
+          if (buyerWallet.balance < walletAmount) {
+            throw new HttpsError('failed-precondition', 'Solde insuffisant dans le porte-monnaie');
+          }
+
+          // Debit buyer wallet
+          const newBalance = buyerWallet.balance - walletAmount;
+          tx.update(buyerWalletRef, {
+            balance: FieldValue.increment(-walletAmount),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          // Create buyer ledger entry
+          const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+          tx.set(buyerLedgerRef, {
+            type: 'purchase_debit',
+            amount: walletAmount,
+            balanceAfter: newBalance,
+            description: 'Paiement partiel (porte-monnaie)',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+
+          walletDebited = true;
+        }
+
+        // Update fee fields atomically + wallet info
+        const updateData: Record<string, any> = {
           serviceFee: calculatedFees.serviceFee,
           serviceFeePercent: calculatedFees.serviceFeePercent,
           totalAmount: calculatedFees.buyerTotal,
           sellerPayout: calculatedFees.sellerPayout,
-        });
+        };
+
+        if (walletDebited) {
+          updateData.walletAmountUsed = walletAmount;
+          updateData.paidVia = 'wallet_and_card';
+        }
+
+        tx.update(txRef, updateData);
 
         return {
           existingCheckout: false,
           fees: calculatedFees,
           existingPaymentIntentId: null as string | null,
           sellerId: transaction.sellerId as string,
+          walletDebited,
         };
       });
 
@@ -473,50 +539,106 @@ export const createStripeCheckout = onCall(
       }
 
       // Convert dollars to cents for Stripe (all Stripe amounts are in smallest currency unit)
-      const amountInCents = Math.round(txResult.fees.buyerTotal * 100);
+      const totalChargeCents = Math.round(txResult.fees.buyerTotal * 100);
       const applicationFeeInCents = Math.round(txResult.fees.serviceFee * 100);
 
-      // Create Stripe PaymentIntent with destination charge
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amountInCents,
-        currency: 'cad',
-        application_fee_amount: applicationFeeInCents,
-        transfer_data: {
-          destination: sellerStripeAccountId,
-        },
-        metadata: {
+      if (txResult.walletDebited && walletAmount > 0) {
+        // --- MIXED WALLET + CARD PAYMENT ---
+        // Platform receives the card portion (no destination charge).
+        // The wallet portion was already debited. Seller will be credited
+        // after delivery via explicit transfer.
+        const stripeChargeCents = totalChargeCents - walletAmount;
+
+        // The application fee applies to the full purchase, but since the
+        // wallet portion was already collected, the Stripe portion just needs
+        // to cover the remaining charge. The platform fee is effectively
+        // collected from the combined wallet+card amount.
+        // We do NOT set application_fee_amount here because the platform
+        // receives the entire card payment (no transfer_data), so the fee
+        // is implicitly captured.
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: stripeChargeCents,
+          currency: 'cad',
+          metadata: {
+            transactionId,
+            sellerId: txResult.sellerId,
+            buyerId: request.auth!.uid,
+            walletAmountUsed: String(walletAmount),
+            paymentType: 'wallet_and_card',
+          },
+        });
+
+        // Store PaymentIntent ID in the transaction doc
+        await txRef.update({
+          stripePaymentIntentId: paymentIntent.id,
+          stripeCheckoutCreatedAt: FieldValue.serverTimestamp(),
+        });
+
+        logger.info('Stripe PaymentIntent created (mixed wallet+card)', {
           transactionId,
-          sellerId: txResult.sellerId,
-          buyerId: request.auth!.uid,
-        },
-        // Defer payouts until delivery confirmed (escrow simulation)
-        // The actual payout hold is managed via the connected account's schedule
-      });
+          paymentIntentId: paymentIntent.id,
+          totalCents: totalChargeCents,
+          walletCents: walletAmount,
+          stripeCents: stripeChargeCents,
+        });
 
-      // Store PaymentIntent ID in the transaction doc (never store client_secret)
-      await txRef.update({
-        stripePaymentIntentId: paymentIntent.id,
-        stripeCheckoutCreatedAt: FieldValue.serverTimestamp(),
-      });
+        return {
+          success: true,
+          clientSecret: paymentIntent.client_secret,
+          feeBreakdown: {
+            articlePrice: txResult.fees.articlePrice,
+            shippingCost: txResult.fees.shippingCost,
+            serviceFee: txResult.fees.serviceFee,
+            serviceFeePercent: txResult.fees.serviceFeePercent,
+            buyerTotal: txResult.fees.buyerTotal,
+            walletAmountUsed: walletAmount,
+            stripeAmount: stripeChargeCents,
+          },
+        };
+      } else {
+        // --- STANDARD DESTINATION CHARGE (no wallet) ---
+        const amountInCents = totalChargeCents;
 
-      logger.info('Stripe PaymentIntent created', {
-        transactionId,
-        paymentIntentId: paymentIntent.id,
-        amountCents: amountInCents,
-        feeCents: applicationFeeInCents,
-      });
+        // Create Stripe PaymentIntent with destination charge
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amountInCents,
+          currency: 'cad',
+          application_fee_amount: applicationFeeInCents,
+          transfer_data: {
+            destination: sellerStripeAccountId,
+          },
+          metadata: {
+            transactionId,
+            sellerId: txResult.sellerId,
+            buyerId: request.auth!.uid,
+          },
+        });
 
-      return {
-        success: true,
-        clientSecret: paymentIntent.client_secret,
-        feeBreakdown: {
-          articlePrice: txResult.fees.articlePrice,
-          shippingCost: txResult.fees.shippingCost,
-          serviceFee: txResult.fees.serviceFee,
-          serviceFeePercent: txResult.fees.serviceFeePercent,
-          buyerTotal: txResult.fees.buyerTotal,
-        },
-      };
+        // Store PaymentIntent ID in the transaction doc (never store client_secret)
+        await txRef.update({
+          stripePaymentIntentId: paymentIntent.id,
+          stripeCheckoutCreatedAt: FieldValue.serverTimestamp(),
+        });
+
+        logger.info('Stripe PaymentIntent created (destination charge)', {
+          transactionId,
+          paymentIntentId: paymentIntent.id,
+          amountCents: amountInCents,
+          feeCents: applicationFeeInCents,
+        });
+
+        return {
+          success: true,
+          clientSecret: paymentIntent.client_secret,
+          feeBreakdown: {
+            articlePrice: txResult.fees.articlePrice,
+            shippingCost: txResult.fees.shippingCost,
+            serviceFee: txResult.fees.serviceFee,
+            serviceFeePercent: txResult.fees.serviceFeePercent,
+            buyerTotal: txResult.fees.buyerTotal,
+          },
+        };
+      }
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
