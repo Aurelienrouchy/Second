@@ -118,51 +118,11 @@ export class ChatService {
       }
 
       const participantIds = [user1Id, user2Id].sort();
-      const chatId = this.chatIdForPair(user1Id, user2Id);
+      const chatId = this.chatIdForPair(user1Id, user2Id, articleId);
       const chatRef = doc(firestore, 'chats', chatId);
 
-      // Fast path: deterministic-ID lookup. Same pair → same doc, every
-      // time. Race-free: two concurrent calls converge on the same docRef
-      // and runTransaction below decides who actually creates.
-      const existing = await getDoc(chatRef);
-      if (existing.exists()) {
-        const chatData = existing.data();
-        return {
-          id: existing.id,
-          ...chatData,
-          createdAt: chatData.createdAt?.toDate() || new Date(),
-          updatedAt: chatData.updatedAt?.toDate() || new Date(),
-          lastMessageTimestamp: chatData.lastMessageTimestamp?.toDate(),
-        } as Chat;
-      }
-
-      // Legacy path: this pair may already have ONE OR MORE chats with
-      // auto-generated IDs from before this fix. Migrate to the
-      // deterministic doc by picking the most recently updated and
-      // copying its data into the canonical doc.
-      const chatsRef = collection(firestore, 'chats');
-      const legacySnap = await getDocs(
-        query(chatsRef, where('participants', '==', participantIds))
-      );
-      if (!legacySnap.empty) {
-        const sortedLegacy = [...legacySnap.docs].sort((a, b) => {
-          const at = a.data().updatedAt?.toMillis?.() ?? 0;
-          const bt = b.data().updatedAt?.toMillis?.() ?? 0;
-          return bt - at;
-        });
-        const newest = sortedLegacy[0];
-        const newestData = newest.data();
-        return {
-          id: newest.id,
-          ...newestData,
-          createdAt: newestData.createdAt?.toDate() || new Date(),
-          updatedAt: newestData.updatedAt?.toDate() || new Date(),
-          lastMessageTimestamp: newestData.lastMessageTimestamp?.toDate(),
-        } as Chat;
-      }
-
-      // Brand-new chat path. Article + user lookup, then runTransaction
-      // so two concurrent callers can't both win the create.
+      // Fetch article data up front (needed for both existing-update and
+      // new-chat paths).
       let articleTitle: string | undefined;
       let articleImage: string | undefined;
       let articlePrice: number | undefined;
@@ -179,6 +139,78 @@ export class ChatService {
           }
         }
       }
+
+      // Fast path: deterministic-ID lookup. Same pair → same doc, every
+      // time. Race-free: two concurrent calls converge on the same docRef
+      // and runTransaction below decides who actually creates.
+      const existing = await getDoc(chatRef);
+      if (existing.exists()) {
+        const chatData = existing.data();
+
+        // If this is an article-scoped chat, refresh denormalized article
+        // data if it has changed since the chat was created.
+        if (articleId && articleTitle !== undefined) {
+          const needsUpdate =
+            chatData.articleTitle !== articleTitle ||
+            chatData.articleImage !== articleImage ||
+            chatData.articlePrice !== articlePrice;
+          if (needsUpdate) {
+            const updatePayload: Record<string, unknown> = {};
+            if (chatData.articleTitle !== articleTitle) updatePayload.articleTitle = articleTitle;
+            if (chatData.articleImage !== articleImage) updatePayload.articleImage = articleImage ?? null;
+            if (chatData.articlePrice !== articlePrice) updatePayload.articlePrice = articlePrice ?? null;
+            try {
+              await updateDoc(chatRef, updatePayload);
+            } catch {
+              // Non-critical: the trigger onArticleInfoUpdated will also
+              // propagate these changes. Best-effort here.
+            }
+          }
+        }
+
+        return {
+          id: existing.id,
+          ...chatData,
+          // Apply local overrides so the returned object is fresh
+          ...(articleTitle !== undefined ? { articleTitle } : {}),
+          ...(articleImage !== undefined ? { articleImage } : {}),
+          ...(articlePrice !== undefined ? { articlePrice } : {}),
+          createdAt: chatData.createdAt?.toDate() || new Date(),
+          updatedAt: chatData.updatedAt?.toDate() || new Date(),
+          lastMessageTimestamp: chatData.lastMessageTimestamp?.toDate(),
+        } as Chat;
+      }
+
+      // Legacy path: for general chats (no articleId), this pair may
+      // already have ONE OR MORE chats with auto-generated IDs from
+      // before the deterministic-ID fix. Return the most recent one.
+      // Note: article-scoped chats (with articleId) skip this path
+      // because their deterministic ID is different from old-format IDs.
+      if (!articleId) {
+        const chatsRef = collection(firestore, 'chats');
+        const legacySnap = await getDocs(
+          query(chatsRef, where('participants', '==', participantIds))
+        );
+        if (!legacySnap.empty) {
+          const sortedLegacy = [...legacySnap.docs].sort((a, b) => {
+            const at = a.data().updatedAt?.toMillis?.() ?? 0;
+            const bt = b.data().updatedAt?.toMillis?.() ?? 0;
+            return bt - at;
+          });
+          const newest = sortedLegacy[0];
+          const newestData = newest.data();
+          return {
+            id: newest.id,
+            ...newestData,
+            createdAt: newestData.createdAt?.toDate() || new Date(),
+            updatedAt: newestData.updatedAt?.toDate() || new Date(),
+            lastMessageTimestamp: newestData.lastMessageTimestamp?.toDate(),
+          } as Chat;
+        }
+      }
+
+      // Brand-new chat path. User lookup, then runTransaction
+      // so two concurrent callers can't both win the create.
 
       // Determine which user is the current (authenticated) user.
       // Security rules restrict user doc reads to isOwner, so we can only
