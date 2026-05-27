@@ -20,7 +20,6 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { auth } from '@/config/firebaseConfig';
 import { useUser, useAuthActions } from '@/contexts/AuthContext';
