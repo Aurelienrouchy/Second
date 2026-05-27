@@ -54,6 +54,8 @@ function ScreenHeaderComponent({
   backgroundColor = colors.cream,
   showBorder = true,
   titleStyle,
+  titleColor,
+  backButtonColor,
 }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
   const shouldShowBack = showBack ?? !!onBack;
@@ -73,19 +75,22 @@ function ScreenHeaderComponent({
         {shouldShowBack ? (
           <Pressable
             onPress={onBack}
-            style={styles.backButton}
+            style={[
+              styles.backButton,
+              backButtonColor ? { borderColor: backButtonColor } : undefined,
+            ]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityLabel="Retour"
             accessibilityRole="button"
           >
-            <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
+            <Ionicons name="chevron-back" size={20} color={backButtonColor ?? colors.charcoal} />
           </Pressable>
         ) : (
           <View style={styles.backSpacer} />
         )}
 
         {/* Center: Title */}
-        <Text style={[styles.title, titleStyle]} numberOfLines={1}>
+        <Text style={[styles.title, titleColor ? { color: titleColor } : undefined, titleStyle]} numberOfLines={1}>
           {title}
         </Text>
 
