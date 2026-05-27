@@ -17,12 +17,15 @@ export interface ChatHeaderProps {
 }
 
 export interface ChatArticleBarProps {
-  article: Article;
+  /** Live article data (null when article has been deleted) */
+  article: Article | null;
   articleTitle: string | undefined;
   /** Current (live) price of the article */
   articlePrice: number | undefined;
   /** Original price snapshot stored in the chat document (may differ from current) */
   snapshotPrice?: number | undefined;
+  /** Snapshot image URL from the chat document (fallback when article is null) */
+  snapshotImage?: string | undefined;
 }
 
 export interface ChatInputBarProps {
