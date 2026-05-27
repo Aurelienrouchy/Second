@@ -223,7 +223,7 @@ export default function ProfileDetailsScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -232,8 +232,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerButton: {
+  saveButton: {
     color: colors.primary,
+    fontSize: 16,
     fontFamily: fonts.sansMedium,
   },
   keyboardView: {
