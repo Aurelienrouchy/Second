@@ -138,13 +138,14 @@ export default function ShopDetailScreen() {
             <Skeleton width="100%" height={44} borderRadius={0} style={{ flex: 1 }} />
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!shop) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.container}>
+        <ScreenHeader title="Boutique" onBack={() => router.back()} />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
           <Text style={styles.errorText}>Boutique introuvable</Text>
