@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
+import { BlurView } from 'expo-blur';
 import { colors, fonts } from '@/constants/theme';
 import draftService, { createEmptyDraft, ArticleDraft } from '@/services/draftService';
 import CameraGuides from '@/components/sell/CameraGuides';
