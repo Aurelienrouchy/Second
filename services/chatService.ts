@@ -147,31 +147,15 @@ export class ChatService {
       if (existing.exists()) {
         const chatData = existing.data();
 
-        // If this is an article-scoped chat, refresh denormalized article
-        // data if it has changed since the chat was created.
-        if (articleId && articleTitle !== undefined) {
-          const needsUpdate =
-            chatData.articleTitle !== articleTitle ||
-            chatData.articleImage !== articleImage ||
-            chatData.articlePrice !== articlePrice;
-          if (needsUpdate) {
-            const updatePayload: Record<string, unknown> = {};
-            if (chatData.articleTitle !== articleTitle) updatePayload.articleTitle = articleTitle;
-            if (chatData.articleImage !== articleImage) updatePayload.articleImage = articleImage ?? null;
-            if (chatData.articlePrice !== articlePrice) updatePayload.articlePrice = articlePrice ?? null;
-            try {
-              await updateDoc(chatRef, updatePayload);
-            } catch {
-              // Non-critical: the trigger onArticleInfoUpdated will also
-              // propagate these changes. Best-effort here.
-            }
-          }
-        }
-
+        // Return the persisted chat data but overlay the latest article
+        // snapshot locally so the caller sees fresh info immediately.
+        // Persisting the update is NOT done client-side because Firestore
+        // rules restrict chat updates to unreadCount/lastMessage fields.
+        // The onArticleInfoUpdated trigger propagates title/image/price
+        // changes server-side instead.
         return {
           id: existing.id,
           ...chatData,
-          // Apply local overrides so the returned object is fresh
           ...(articleTitle !== undefined ? { articleTitle } : {}),
           ...(articleImage !== undefined ? { articleImage } : {}),
           ...(articlePrice !== undefined ? { articlePrice } : {}),
