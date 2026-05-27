@@ -32,6 +32,7 @@ const formatDate = (date: Date) => {
 };
 
 export default function BlockedUsersScreen() {
+  const router = useRouter();
   const user = useUser();
   const queryClient = useQueryClient();
   const [unblocking, setUnblocking] = useState<string | null>(null);
