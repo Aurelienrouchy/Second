@@ -249,6 +249,7 @@ Couche data Firestore + API. Fonctions pures, pas de hooks.
 | `addressService` | `addressService.ts` | Adresses livraison |
 | `aiService` | `aiService.ts` | Appels IA (analyse photo) |
 | `visualSearchService` | `visualSearchService.ts` | Recherche visuelle |
+| `walletService` | `walletService.ts` | Porte-monnaie (callables: activate, info, withdraw, pay) |
 
 ---
 
