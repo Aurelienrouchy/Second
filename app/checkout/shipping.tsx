@@ -71,6 +71,10 @@ export default function ShippingCheckoutScreen() {
   const [pendingChatId, setPendingChatId] = useState<string | null>(null);
   const [serviceFee, setServiceFee] = useState(0);
 
+  // ── Wallet ──────────────────────────────────────────────────────────────────
+  const { wallet } = useWallet(!!auth.currentUser);
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
+
   // --- Auth guard -------------------------------------------------------------
 
   useEffect(() => {
