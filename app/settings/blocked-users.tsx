@@ -116,8 +116,8 @@ export default function BlockedUsersScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Utilisateurs bloqués' }} />
+    <View style={styles.container}>
+      <ScreenHeader title="Utilisateurs bloqués" onBack={() => router.back()} />
 
       {loading ? (
         <View style={styles.skeletonContainer}>
