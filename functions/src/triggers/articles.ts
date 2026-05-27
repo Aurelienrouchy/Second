@@ -183,3 +183,89 @@ export const onArticleSold = onDocumentUpdated(
     logger.info(`[onArticleSold] Expired ${totalExpired} pending offers across ${chatIds.length} chats for article ${articleId}`);
   }
 );
+
+/**
+ * When an article's title, first image URL, or price changes,
+ * propagate the new values to all chats referencing that article.
+ *
+ * Denormalized fields in chats:
+ *   articleTitle  <- article.title
+ *   articleImage  <- article.images[0].url
+ *   articlePrice  <- article.price
+ *
+ * Uses batch writes (max 500 ops per batch).
+ */
+export const onArticleInfoUpdated = onDocumentUpdated(
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' },
+  async (event) => {
+    const articleId = event.params.articleId;
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+
+    if (!before || !after) return;
+
+    // Detect changes in the three denormalized fields
+    const titleChanged = before.title !== after.title;
+    const priceChanged = before.price !== after.price;
+
+    const beforeImage =
+      Array.isArray(before.images) && before.images.length > 0
+        ? before.images[0].url
+        : null;
+    const afterImage =
+      Array.isArray(after.images) && after.images.length > 0
+        ? after.images[0].url
+        : null;
+    const imageChanged = beforeImage !== afterImage;
+
+    if (!titleChanged && !priceChanged && !imageChanged) return;
+
+    // Build the update payload (only changed fields)
+    const chatUpdate: Record<string, unknown> = {
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (titleChanged) chatUpdate.articleTitle = after.title || null;
+    if (imageChanged) chatUpdate.articleImage = afterImage;
+    if (priceChanged) chatUpdate.articlePrice = after.price ?? null;
+
+    logger.info('[onArticleInfoUpdated] Propagating article changes to chats', {
+      articleId,
+      titleChanged,
+      imageChanged,
+      priceChanged,
+    });
+
+    // Find all chats related to this article
+    const chatsSnap = await db.collection('chats')
+      .where('articleId', '==', articleId)
+      .get();
+
+    if (chatsSnap.empty) {
+      logger.info('[onArticleInfoUpdated] No chats found for article', { articleId });
+      return;
+    }
+
+    let batch = db.batch();
+    let batchCount = 0;
+    let chatsUpdated = 0;
+
+    for (const chatDoc of chatsSnap.docs) {
+      batch.update(chatDoc.ref, chatUpdate);
+      batchCount++;
+      chatsUpdated++;
+
+      if (batchCount >= 499) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) await batch.commit();
+
+    logger.info('[onArticleInfoUpdated] Propagation complete', {
+      articleId,
+      chatsUpdated,
+    });
+  }
+);
