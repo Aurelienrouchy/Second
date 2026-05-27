@@ -7,6 +7,7 @@ import type { Ionicons } from '@expo/vector-icons';
 export interface MenuItem {
   id: string;
   title: string;
+  subtitle?: string;
   icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
   iconBg: string;
