@@ -94,8 +94,9 @@ export default function EditArticleScreen() {
     size: null,
     brand: '',
     price: 0,
-    isHandDelivery: false,
-    isShipping: true,
+    // Quand le shipping est désactivé, on force le main-à-main par défaut.
+    isHandDelivery: !SHIPPING_ENABLED,
+    isShipping: SHIPPING_ENABLED,
     neighborhoods: [],
     packageSize: null,
   });
