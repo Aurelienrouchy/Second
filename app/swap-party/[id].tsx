@@ -340,7 +340,6 @@ export default function SwapPartyDetailScreen() {
     );
   }
 
-  const countdownDays = getCountdownDays(party.endDate);
   const otherItems = filteredItems.filter((item) => item.sellerId !== user?.id);
 
   return (
