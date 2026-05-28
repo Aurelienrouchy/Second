@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,7 +30,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Pressable } from 'react-native';
 
 import { colors, spacing, typography, radius, sizing, fonts, shadows } from '@/constants/theme';
 import { SwapPartyItem } from '@/types';
