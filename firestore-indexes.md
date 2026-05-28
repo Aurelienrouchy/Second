@@ -222,11 +222,11 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
       ]
     },
     {
-      "collectionGroup": "swapParties",
+      "collectionGroup": "swaps",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "startDate", "order": "ASCENDING" }
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
     },
     {
