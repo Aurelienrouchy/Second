@@ -1,12 +1,15 @@
 /**
  * SwapZoneSection — Feature Component
- * Self-contained: fetches data via useSwapParties(), includes header + link.
- * Re-uses the original SwapZoneSection component from components/home/
- * but wires it up internally.
+ * Self-contained: fetches data via useSwapParties(), includes header.
+ * Wraps the UI SwapZoneSection from components/home/.
+ *
+ * The Swap Zone is now a single, always-active generalist zone (no time
+ * window, no theme, no countdown). This wrapper renders a single permanent
+ * card that routes directly to the zone detail.
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 
 import { colors, spacing, fonts } from '@/constants/theme';
@@ -20,20 +23,14 @@ import { useSwapParties } from './useSwapParties';
 const SwapZoneWrapperComponent: React.FC = () => {
   const { data, isLoading } = useSwapParties();
 
-  // Cloud Function returns: { hasActiveParty, party, nextParty }
-  const hasActive = data?.hasActiveParty ?? false;
-  const activeParty = data?.party ?? null;
-  const nextParty = data?.nextParty ?? null;
+  // Cloud Function returns the single generalist zone in `party`.
+  const zone = data?.party ?? null;
 
-  const handleActivePress = useCallback(() => {
-    if (activeParty) {
-      router.push(`/swap-party/${activeParty.id}` as any);
+  const handlePress = useCallback(() => {
+    if (zone) {
+      router.push(`/swap-party/${zone.id}` as any);
     }
-  }, [activeParty]);
-
-  const handleUpcomingPress = useCallback(() => {
-    router.push('/swap-parties');
-  }, []);
+  }, [zone]);
 
   return (
     <View style={styles.swapZoneContainer}>
@@ -42,37 +39,11 @@ const SwapZoneWrapperComponent: React.FC = () => {
           Swap <Text style={styles.swapZoneTitleAccent}>Zone</Text>
         </Text>
       </View>
-      {hasActive || nextParty || isLoading ? (
-        <SwapZoneSectionUI
-          hasActiveParty={hasActive}
-          activeParty={activeParty || undefined}
-          nextParty={nextParty || undefined}
-          isLoading={isLoading}
-          onActivePress={handleActivePress}
-          onUpcomingPress={handleUpcomingPress}
-          onNotifyPress={undefined}
-        />
-      ) : (
-        <Pressable
-          style={styles.emptyCard}
-          onPress={() => router.push('/swap-parties')}
-        >
-          <Text style={styles.emptyCardTitle}>
-            Pas de Swap Zone active
-          </Text>
-          <Text style={styles.emptyCardSubtitle}>
-            Les Swap Zones permettent d'échanger tes articles avec d'autres membres. Reviens bientôt !
-          </Text>
-        </Pressable>
-      )}
-      <Pressable
-        style={styles.swapZoneLink}
-        onPress={() => router.push('/swap-parties')}
-      >
-        <Text style={styles.swapZoneLinkText}>
-          Voir toutes les Swap Zones →
-        </Text>
-      </Pressable>
+      <SwapZoneSectionUI
+        zone={zone || undefined}
+        isLoading={isLoading}
+        onPress={handlePress}
+      />
     </View>
   );
 };
@@ -103,41 +74,6 @@ const styles = StyleSheet.create({
   swapZoneTitleAccent: {
     fontStyle: 'italic',
     color: colors.rust,
-  },
-  swapZoneLink: {
-    marginTop: spacing.sm,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  swapZoneLinkText: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.rust,
-  },
-  emptyCard: {
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 240, 232, 0.2)',
-    borderStyle: 'dashed',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyCardTitle: {
-    fontFamily: fonts.displayMedium,
-    fontSize: 16,
-    color: colors.cream,
-    marginBottom: spacing.sm,
-  },
-  emptyCardSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    color: 'rgba(245, 240, 232, 0.6)',
-    textAlign: 'center',
-    lineHeight: 18,
   },
 });
 
