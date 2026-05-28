@@ -142,7 +142,11 @@ export { cleanupSearchIndex } from './scheduled/cleanup';
 export { updatePopularityScores } from './scheduled/popularity';
 
 // Swaps
-export { updateSwapPartyStatuses, sendSwapZoneReminders } from './scheduled/swaps';
+// updateSwapPartyStatuses + sendSwapZoneReminders are OBSOLETE with the single
+// permanent generalist Swap Zone (no time window) and are no longer exported.
+// expireStaleProposedSwaps replaces cleanupEndedParty: it frees items locked by
+// proposed swaps that were never accepted/declined (7-day expiry).
+export { expireStaleProposedSwaps } from './scheduled/swaps';
 
 // Saved Searches
 export { checkSavedSearchNotifications } from './scheduled/savedSearches';
