@@ -385,6 +385,11 @@ export default function ShippingCheckoutScreen() {
 
   // --- Render ----------------------------------------------------------------
 
+  // Shipping désactivé : ne rien rendre (la redirection est gérée plus haut).
+  if (!SHIPPING_ENABLED) {
+    return null;
+  }
+
   if (loading) {
     return (
       <View style={styles.container}>
