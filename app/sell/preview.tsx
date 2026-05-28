@@ -329,7 +329,7 @@ export default function PreviewScreen() {
                     <Text style={styles.deliveryBadgeText}>{pricing.neighborhood.name}</Text>
                   </View>
                 ) : null}
-            {pricing.isShipping && (
+            {SHIPPING_ENABLED && pricing.isShipping && (
               <View style={styles.deliveryBadge}>
                 <Ionicons name="cube-outline" size={14} color={colors.charcoal} />
                 <Text style={styles.deliveryBadgeText}>Expédition</Text>
