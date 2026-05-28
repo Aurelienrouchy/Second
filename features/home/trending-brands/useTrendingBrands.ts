@@ -13,11 +13,14 @@ export interface TrendingBrand {
   articleCount: number;
 }
 
-async function fetchTrendingBrands(): Promise<TrendingBrand[]> {
+export async function fetchTrendingBrands(): Promise<TrendingBrand[]> {
   const fn = httpsCallable<void, TrendingBrand[]>(functions, 'getTrendingBrands');
   const result = await fn();
   return result.data;
 }
+
+/** staleTime shared between the hook and the startup prefetch. */
+export const TRENDING_BRANDS_STALE_TIME = 60 * 60 * 1000; // 1 h
 
 export function useTrendingBrands() {
   return useQuery({
