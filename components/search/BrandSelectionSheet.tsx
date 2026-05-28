@@ -278,9 +278,12 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
       setIsAddingBrand(true);
       try {
+        // searchKey / value remain lowercase — they are the dedup doc ID.
         const searchKey = brandName.toLowerCase();
+        // label is normalized to a clean display form (Title Case + brand exceptions).
+        const displayLabel = brandDisplay(brandName);
         const brandDoc = {
-          label: brandName,
+          label: displayLabel,
           value: searchKey,
           searchKey: searchKey,
           isCustom: true,
@@ -289,18 +292,18 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
         await setDoc(doc(firestore, 'brands', searchKey), brandDoc);
 
-        const newBrand: Brand = { value: searchKey, label: brandName };
+        const newBrand: Brand = { value: searchKey, label: displayLabel };
         setBrands(prev => [...prev, newBrand].sort((a, b) => a.label.localeCompare(b.label)));
         setFilteredBrands(prev => [...prev, newBrand].sort((a, b) => a.label.localeCompare(b.label)));
 
         if (singleSelect) {
           if (onSelectSingle) {
-            onSelectSingle(brandName);
+            onSelectSingle(displayLabel);
           }
           setSearchQuery('');
           bottomSheetRef.current?.close();
         } else {
-          setSelectedBrands(prev => [...prev, brandName]);
+          setSelectedBrands(prev => [...prev, displayLabel]);
           setSearchQuery('');
         }
       } catch (error) {
