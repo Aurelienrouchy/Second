@@ -1,6 +1,10 @@
 /**
  * Script to create swap parties for Seconde
  * Run with: node scripts/seed-swap-parties.js
+ *
+ * ⚠️  DESTRUCTIF : supprime TOUTES les swapParties existantes avant de réinjecter.
+ * ⚠️  Cible le projet pointé par le service account (prod seconde-b47a6 si la clé prod est utilisée).
+ * Place ta clé service account dans functions/serviceAccountKey.json (non commitée).
  */
 
 const admin = require('firebase-admin');
@@ -52,21 +56,23 @@ function addHours(date, hours) {
 
 // ============================================================
 // SWAP PARTIES CALENDAR - Seconde
-// Style: Mode française, seconde main chic, éco-responsable
+// Style: Mode seconde main chic — marché canadien (CAD)
+// minValue exprimé en CAD ($). Marques crédibles au Canada
+// (disponibles chez Simons / Holt Renfrew / Aritzia + créateurs d'ici).
 // ============================================================
 const SWAP_PARTY_CALENDAR = [
   // Active party (starts now, ends in 2 days)
   {
     name: 'Capsule Hivernale',
     emoji: '🧥',
-    description: 'Manteaux iconiques, cachemire, laine vierge. Les pièces maîtresses de votre garde-robe d\'hiver.',
+    description: 'Parkas, doudounes et laine vierge pour affronter l\'hiver canadien. Les pièces qui tiennent vraiment chaud.',
     theme: 'hiver',
     isGeneralist: false,
     status: 'active',
     startDate: addHours(new Date(), -12),
     endDate: addHours(new Date(), 36),
-    minValue: 30,
-    featuredBrands: ['Sandro', 'Maje', 'Isabel Marant', 'Acne Studios'],
+    minValue: 50,
+    featuredBrands: ['Canada Goose', 'Mackage', 'Moose Knuckles', 'Aritzia'],
   },
   // Upcoming parties
   {
@@ -90,7 +96,7 @@ const SWAP_PARTY_CALENDAR = [
     status: 'upcoming',
     startDate: addDays(new Date(), 12),
     endDate: addDays(new Date(), 14),
-    minValue: 100,
+    minValue: 150,
     featuredBrands: ['Céline', 'Chanel', 'Saint Laurent', 'Loewe', 'The Row'],
   },
   {
@@ -118,16 +124,16 @@ const SWAP_PARTY_CALENDAR = [
     featuredBrands: [],
   },
   {
-    name: 'Printemps des Créateurs',
-    emoji: '🌷',
-    description: 'Pièces légères, imprimés floraux, couleurs pastels. Préparez les beaux jours.',
-    theme: 'printemps',
+    name: 'Mode d\'Ici',
+    emoji: '🍁',
+    description: 'Créateurs et marques d\'ici. Du denim québécois au cachemire éthique, le meilleur de la mode canadienne.',
+    theme: 'local',
     isGeneralist: false,
     status: 'upcoming',
     startDate: addDays(new Date(), 33),
     endDate: addDays(new Date(), 35),
     minValue: null,
-    featuredBrands: ['Rouje', 'Sézane', 'Jacquemus', 'Ganni'],
+    featuredBrands: ['Aritzia', 'Frank And Oak', 'Roots', 'Kotn', 'Simons'],
   },
   {
     name: 'Accessoires & Sacs',
@@ -138,8 +144,8 @@ const SWAP_PARTY_CALENDAR = [
     status: 'upcoming',
     startDate: addDays(new Date(), 40),
     endDate: addDays(new Date(), 42),
-    minValue: 50,
-    featuredBrands: ['Hermès', 'Longchamp', 'Polène', 'A.P.C.'],
+    minValue: 75,
+    featuredBrands: ['Hermès', 'Longchamp', 'Polène', 'Marc Jacobs'],
   },
   {
     name: 'Denim Forever',
@@ -151,12 +157,12 @@ const SWAP_PARTY_CALENDAR = [
     startDate: addDays(new Date(), 47),
     endDate: addDays(new Date(), 49),
     minValue: null,
-    featuredBrands: ['Levi\'s Vintage', 'Closed', 'Agolde', 'Citizens of Humanity'],
+    featuredBrands: ['Levi\'s Vintage', 'Frank And Oak', 'Citizens of Humanity', 'Agolde'],
   },
 ];
 
 async function seedSwapParties() {
-  console.log('\n🎉 SECONDE - Seed Swap Parties');
+  console.log('\n🎉 SECONDE - Seed Swap Parties (Canada / CAD)');
   console.log('================================\n');
 
   // First, clear existing swap parties
@@ -190,9 +196,9 @@ async function seedSwapParties() {
       const statusIcon = party.status === 'active' ? '🟢' : '🔵';
       console.log(`${statusIcon} ${party.emoji} ${party.name}`);
       console.log(`   ${party.description.substring(0, 60)}...`);
-      console.log(`   📅 ${party.startDate.toLocaleDateString('fr-FR')} → ${party.endDate.toLocaleDateString('fr-FR')}`);
+      console.log(`   📅 ${party.startDate.toLocaleDateString('fr-CA')} → ${party.endDate.toLocaleDateString('fr-CA')}`);
       if (party.minValue) {
-        console.log(`   💰 Valeur min: ${party.minValue}€`);
+        console.log(`   💰 Valeur min: ${party.minValue} $ CAD`);
       }
       console.log('');
     } catch (error) {
