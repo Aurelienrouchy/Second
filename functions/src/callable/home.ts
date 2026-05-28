@@ -92,14 +92,17 @@ async function _getTrendingBrands(): Promise<TrendingBrand[]> {
     .limit(500)
     .get();
 
+  // Group case-insensitively so "SELECTED" / "selected" / "Selected" merge
+  // into a single bucket. Articles without a brand are skipped entirely.
   const brandCounts = new Map<string, number>();
   snapshot.docs.forEach((doc) => {
-    const brand = doc.data().brand || 'Unknown';
-    brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1);
+    const key = brandKey(doc.data().brand);
+    if (!key) return; // skip empty / missing brands (no more "Unknown")
+    brandCounts.set(key, (brandCounts.get(key) || 0) + 1);
   });
 
   return Array.from(brandCounts.entries())
-    .map(([name, count]) => ({ name, articleCount: count }))
+    .map(([key, count]) => ({ name: brandDisplay(key), articleCount: count }))
     .sort((a, b) => b.articleCount - a.articleCount)
     .slice(0, 10);
 }
