@@ -20,6 +20,9 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { BlurView } from 'expo-blur';
 import { colors, fonts } from '@/constants/theme';
+
+// CameraView wrapped for Reanimated so we can fade in the feed once it is ready.
+const AnimatedCameraView = Animated.createAnimatedComponent(CameraView);
 import draftService, { createEmptyDraft, ArticleDraft } from '@/services/draftService';
 import CameraGuides from '@/components/sell/CameraGuides';
 import { PermissionDenied } from './PermissionDenied';
