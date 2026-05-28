@@ -49,6 +49,24 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   const [isCapturing, setIsCapturing] = useState(false);
   const draftRef = useRef<ArticleDraft | null>(null);
 
+  // ── Camera fade-in ──
+  // The native camera surface renders as a black rectangle until it is ready.
+  // We keep the feed at opacity 0 over the DS-colored backdrop and fade it in
+  // only once `onCameraReady` fires, so the black rectangle never animates in
+  // with the overlay opening transition.
+  const cameraOpacity = useSharedValue(0);
+
+  const handleCameraReady = useCallback(() => {
+    cameraOpacity.value = withTiming(1, {
+      duration: CAMERA_FADE_DURATION,
+      easing: Easing.out(Easing.ease),
+    });
+  }, [cameraOpacity]);
+
+  const cameraStyle = useAnimatedStyle(() => ({
+    opacity: cameraOpacity.value,
+  }));
+
   const canTakeMore = photos.length < MAX_PHOTOS;
   const hasPhotos = photos.length > 0;
   const showThumbStrip = hasPhotos || canTakeMore;
