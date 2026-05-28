@@ -216,8 +216,10 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   }, [photos, onContinue]);
 
   const toggleCameraFacing = useCallback(() => {
+    // Re-fade on flip: the surface briefly goes black while the lens switches.
+    cameraOpacity.value = 0;
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
-  }, []);
+  }, [cameraOpacity]);
 
   // ── Overlay heights ──
 
