@@ -74,6 +74,8 @@ export default function CameraCapture({
         quality: 0.8,
         exif: false,
         selectionLimit: remainingSlots,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
       });
 
       if (!result.canceled && result.assets.length > 0) {

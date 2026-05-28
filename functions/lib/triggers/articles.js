@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onArticleSold = exports.onArticleSoftDeleted = void 0;
+exports.onArticleInfoUpdated = exports.onArticleSold = exports.onArticleSoftDeleted = void 0;
 /**
  * Article Firestore triggers
  * Firebase Functions v7 - using onDocumentUpdated
@@ -197,5 +197,79 @@ exports.onArticleSold = (0, firestore_1.onDocumentUpdated)({ document: 'articles
         }
     }
     logger.info(`[onArticleSold] Expired ${totalExpired} pending offers across ${chatIds.length} chats for article ${articleId}`);
+});
+/**
+ * When an article's title, first image URL, or price changes,
+ * propagate the new values to all chats referencing that article.
+ *
+ * Denormalized fields in chats:
+ *   articleTitle  <- article.title
+ *   articleImage  <- article.images[0].url
+ *   articlePrice  <- article.price
+ *
+ * Uses batch writes (max 500 ops per batch).
+ */
+exports.onArticleInfoUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
+    var _a, _b, _c;
+    const articleId = event.params.articleId;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!before || !after)
+        return;
+    // Detect changes in the three denormalized fields
+    const titleChanged = before.title !== after.title;
+    const priceChanged = before.price !== after.price;
+    const beforeImage = Array.isArray(before.images) && before.images.length > 0
+        ? before.images[0].url
+        : null;
+    const afterImage = Array.isArray(after.images) && after.images.length > 0
+        ? after.images[0].url
+        : null;
+    const imageChanged = beforeImage !== afterImage;
+    if (!titleChanged && !priceChanged && !imageChanged)
+        return;
+    // Build the update payload (only changed fields)
+    const chatUpdate = {
+        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+    };
+    if (titleChanged)
+        chatUpdate.articleTitle = after.title || null;
+    if (imageChanged)
+        chatUpdate.articleImage = afterImage;
+    if (priceChanged)
+        chatUpdate.articlePrice = (_c = after.price) !== null && _c !== void 0 ? _c : null;
+    logger.info('[onArticleInfoUpdated] Propagating article changes to chats', {
+        articleId,
+        titleChanged,
+        imageChanged,
+        priceChanged,
+    });
+    // Find all chats related to this article
+    const chatsSnap = await firebase_1.db.collection('chats')
+        .where('articleId', '==', articleId)
+        .get();
+    if (chatsSnap.empty) {
+        logger.info('[onArticleInfoUpdated] No chats found for article', { articleId });
+        return;
+    }
+    let batch = firebase_1.db.batch();
+    let batchCount = 0;
+    let chatsUpdated = 0;
+    for (const chatDoc of chatsSnap.docs) {
+        batch.update(chatDoc.ref, chatUpdate);
+        batchCount++;
+        chatsUpdated++;
+        if (batchCount >= 499) {
+            await batch.commit();
+            batch = firebase_1.db.batch();
+            batchCount = 0;
+        }
+    }
+    if (batchCount > 0)
+        await batch.commit();
+    logger.info('[onArticleInfoUpdated] Propagation complete', {
+        articleId,
+        chatsUpdated,
+    });
 });
 //# sourceMappingURL=articles.js.map

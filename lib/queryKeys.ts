@@ -8,6 +8,7 @@ export const queryKeys = {
       categoryPath: string[];
       filters: Record<string, unknown>;
       excludeUserId?: string;
+      sellerId?: string;
     }) => ['articles', 'search', params] as const,
   },
   notifications: {
@@ -55,7 +56,6 @@ export const queryKeys = {
     all: ['sellers'] as const,
     liked: (userId: string) => ['sellers', 'liked', userId] as const,
     likedIds: (userId: string) => ['sellers', 'likedIds', userId] as const,
-    balance: (userId: string) => ['sellers', 'balance', userId] as const,
   },
   wallet: {
     all: ['wallet'] as const,

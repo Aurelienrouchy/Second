@@ -22,6 +22,7 @@ interface UseArticleSearchArgs {
   initialCategoryPath?: string[];
   center?: GeolocationCenter;
   excludeUserId?: string;
+  sellerId?: string;
 }
 
 interface SearchPage {
@@ -123,6 +124,7 @@ export function useArticleSearch({
   initialCategoryPath,
   center,
   excludeUserId,
+  sellerId,
 }: UseArticleSearchArgs = {}) {
   const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
   const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
@@ -150,8 +152,9 @@ export function useArticleSearch({
       patterns: filters.patterns ?? [],
       sortBy: filters.sortBy as SortBy | undefined,
       excludeUserId,
+      sellerId,
     }),
-    [filters, selectedCategoryPath, excludeUserId]
+    [filters, selectedCategoryPath, excludeUserId, sellerId]
   );
 
   const queryKey = useMemo(
@@ -161,8 +164,9 @@ export function useArticleSearch({
         categoryPath: selectedCategoryPath,
         filters: searchFilters as unknown as Record<string, unknown>,
         excludeUserId,
+        sellerId,
       }),
-    [debouncedSearchQuery, selectedCategoryPath, searchFilters, excludeUserId]
+    [debouncedSearchQuery, selectedCategoryPath, searchFilters, excludeUserId, sellerId]
   );
 
   const hasNonDefaultFilters = useMemo(
@@ -185,6 +189,7 @@ export function useArticleSearch({
     fetchNextPage,
     hasNextPage,
     error: queryError,
+    refetch,
   } = useInfiniteQuery<SearchPage, Error>({
     queryKey,
     queryFn: async ({ pageParam }) => {
@@ -208,7 +213,8 @@ export function useArticleSearch({
     enabled: Boolean(
       debouncedSearchQuery.trim() ||
       selectedCategoryPath.length > 0 ||
-      hasNonDefaultFilters
+      hasNonDefaultFilters ||
+      sellerId
     ),
   });
 
@@ -308,8 +314,11 @@ export function useArticleSearch({
     selectedCategoryPath,
     isLoading,
     isPaginating: isFetchingNextPage,
+    hasNextPage: !!hasNextPage,
     hasActiveFilters,
     error: queryError ? queryError.message : null,
+    isError: !!queryError,
+    refetch,
     setFilters: setFiltersSafe,
     setSearchQuery,
     setSelectedCategoryPath,

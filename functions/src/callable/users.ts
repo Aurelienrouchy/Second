@@ -31,22 +31,7 @@ export const deleteUserAccount = onCall(
 
     logger.info('[deleteUserAccount] Starting cleanup', { uid });
 
-    // 0. Pre-check: reject if the seller has a remaining balance
-    const balanceDoc = await db.collection('seller_balances').doc(uid).get();
-    if (balanceDoc.exists) {
-      const balData = balanceDoc.data();
-      const available = balData?.availableBalance ?? 0;
-      const pending = balData?.pendingBalance ?? 0;
-      if (available > 0 || pending > 0) {
-        const total = (available + pending).toFixed(2);
-        throw new HttpsError(
-          'failed-precondition',
-          `Vous avez un solde de ${total} $. Veuillez effectuer un retrait avant de supprimer votre compte.`,
-        );
-      }
-    }
-
-    // 0a. Pre-check: reject if the wallet has a remaining balance (W3 — Loi 25 compliance)
+    // 0. Pre-check: reject if the wallet has a remaining balance (W3 — Loi 25 compliance)
     const walletDoc = await db.collection('wallets').doc(uid).get();
     if (walletDoc.exists) {
       const walletData = walletDoc.data();
@@ -257,7 +242,7 @@ export const deleteUserAccount = onCall(
       bulkWriter.update(d.ref, { sellerName: DELETED_NAME, updatedAt: FieldValue.serverTimestamp() });
     }
 
-    // 13. Delete seller_balances/{uid}
+    // 13. Delete seller_balances/{uid} (legacy cleanup — collection removed)
     const balRef = db.collection('seller_balances').doc(uid);
     const balSnap = await balRef.get();
     if (balSnap.exists) bulkWriter.delete(balRef);

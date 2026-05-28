@@ -33,19 +33,21 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSimilarProducts = exports.visualSearch = void 0;
+exports.backfillEmbeddings = exports.getSimilarProducts = exports.visualSearch = void 0;
 /**
  * Visual Search & Similar Products callable functions
  * Firebase Functions v7 - using onCall
  *
  * - visualSearch: Search by image using Vertex AI multimodal embeddings
  * - getSimilarProducts: Find similar articles by articleId embedding
+ * - backfillEmbeddings: Admin-only batch generation of missing embeddings
  */
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const aiplatform_1 = require("@google-cloud/aiplatform");
 const firebase_1 = require("../config/firebase");
 const rateLimit_1 = require("../utils/rateLimit");
+const embeddings_1 = require("../triggers/embeddings");
 // Vertex AI configuration (same as triggers/embeddings.ts)
 const VERTEX_PROJECT = process.env.GCLOUD_PROJECT || 'seconde-b47a6';
 const VERTEX_LOCATION = 'us-central1';
@@ -199,8 +201,8 @@ exports.visualSearch = (0, https_1.onCall)({
             title: article.title,
             price: article.price,
             imageUrl: (_c = (_b = article.images) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.url,
-            brand: article.brand || undefined,
-            size: article.size || undefined,
+            brand: article.brand || null,
+            size: article.size || null,
             condition: article.condition,
         });
     }
@@ -291,8 +293,8 @@ exports.getSimilarProducts = (0, https_1.onCall)({ region: 'northamerica-northea
             title: article.title,
             price: article.price,
             imageUrl: (_b = (_a = article.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.url,
-            brand: article.brand || undefined,
-            size: article.size || undefined,
+            brand: article.brand || null,
+            size: article.size || null,
             condition: article.condition,
         };
         if (includeScore) {
@@ -302,5 +304,125 @@ exports.getSimilarProducts = (0, https_1.onCall)({ region: 'northamerica-northea
     }
     logger.info('[getSimilarProducts] Complete', { resultCount: results.length, articleId });
     return { results };
+});
+// ============================================================
+// BACKFILL EMBEDDINGS (Admin-only)
+// ============================================================
+// Delay between Vertex AI calls to respect quotas (600 req/min for multimodal)
+const BACKFILL_DELAY_MS = 200;
+// Max articles per invocation to avoid Cloud Function timeout
+const BACKFILL_BATCH_SIZE = 200;
+/**
+ * Sleep helper for rate limiting between Vertex AI calls
+ */
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+/**
+ * Backfill Embeddings - Generate embeddings for articles that don't have one yet.
+ *
+ * Admin-only callable. Processes up to BACKFILL_BATCH_SIZE articles per invocation.
+ * Uses GCS URI via the shared generateAndStoreEmbedding function.
+ *
+ * Input: { batchSize?: number } (optional, defaults to BACKFILL_BATCH_SIZE)
+ * Output: { processed: number, succeeded: number, failed: number, errors: Array<{ articleId, error }> }
+ */
+exports.backfillEmbeddings = (0, https_1.onCall)({
+    region: 'northamerica-northeast1',
+    timeoutSeconds: 540, // 9 minutes max (Cloud Functions v2 limit is 540s for callable)
+    memory: '1GiB',
+}, async (request) => {
+    var _a, _b, _c;
+    // Auth check: must be authenticated
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentication required');
+    }
+    // Admin check: verify custom claim or isAdmin field in Firestore
+    const uid = request.auth.uid;
+    const isAdminClaim = request.auth.token.admin === true;
+    if (!isAdminClaim) {
+        // Fallback: check Firestore user doc for isAdmin field
+        const userDoc = await firebase_1.db.collection('users').doc(uid).get();
+        const userData = userDoc.data();
+        if (!(userData === null || userData === void 0 ? void 0 : userData.isAdmin)) {
+            throw new https_1.HttpsError('permission-denied', 'Admin access required');
+        }
+    }
+    const batchSize = Math.min(Math.max(((_a = request.data) === null || _a === void 0 ? void 0 : _a.batchSize) || BACKFILL_BATCH_SIZE, 1), BACKFILL_BATCH_SIZE);
+    logger.info('[backfillEmbeddings] Starting backfill', { uid, batchSize });
+    // 1. Get all active, unsold articles
+    const articlesSnapshot = await firebase_1.db.collection('articles')
+        .where('isActive', '==', true)
+        .where('isSold', '==', false)
+        .select('images', 'categoryIds', 'category', 'brand', 'price', 'isActive')
+        .get();
+    if (articlesSnapshot.empty) {
+        logger.info('[backfillEmbeddings] No active articles found');
+        return { processed: 0, succeeded: 0, failed: 0, errors: [] };
+    }
+    logger.info('[backfillEmbeddings] Found active articles', { total: articlesSnapshot.size });
+    // 2. Get all existing embeddings to find which articles are missing
+    const existingEmbeddingIds = new Set();
+    const embeddingsSnapshot = await firebase_1.db.collection('embeddings')
+        .select() // only need doc IDs, no fields
+        .get();
+    for (const doc of embeddingsSnapshot.docs) {
+        existingEmbeddingIds.add(doc.id);
+    }
+    logger.info('[backfillEmbeddings] Existing embeddings count', { count: existingEmbeddingIds.size });
+    // 3. Filter to articles missing embeddings
+    const missingArticles = [];
+    for (const doc of articlesSnapshot.docs) {
+        if (!existingEmbeddingIds.has(doc.id)) {
+            const data = doc.data();
+            // Only include articles with at least one image
+            if ((_c = (_b = data.images) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.url) {
+                missingArticles.push({ id: doc.id, data });
+            }
+        }
+    }
+    logger.info('[backfillEmbeddings] Articles missing embeddings', { count: missingArticles.length });
+    if (missingArticles.length === 0) {
+        return { processed: 0, succeeded: 0, failed: 0, errors: [], message: 'All articles already have embeddings' };
+    }
+    // 4. Process in batches with rate limiting
+    const toProcess = missingArticles.slice(0, batchSize);
+    let succeeded = 0;
+    let failed = 0;
+    const errors = [];
+    for (let i = 0; i < toProcess.length; i++) {
+        const { id, data } = toProcess[i];
+        try {
+            await (0, embeddings_1.generateAndStoreEmbedding)(id, data);
+            // Verify the embedding was actually stored
+            const embDoc = await firebase_1.db.collection('embeddings').doc(id).get();
+            if (embDoc.exists) {
+                succeeded++;
+            }
+            else {
+                failed++;
+                errors.push({ articleId: id, error: 'Embedding generation returned no error but doc was not stored' });
+            }
+        }
+        catch (error) {
+            failed++;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            errors.push({ articleId: id, error: errorMessage });
+            logger.error('[backfillEmbeddings] Error processing article', { articleId: id, error: errorMessage });
+        }
+        // Rate limit: wait between calls (skip after last item)
+        if (i < toProcess.length - 1) {
+            await sleep(BACKFILL_DELAY_MS);
+        }
+    }
+    const result = {
+        processed: toProcess.length,
+        succeeded,
+        failed,
+        remaining: missingArticles.length - toProcess.length,
+        errors: errors.slice(0, 50), // Cap error list to avoid huge responses
+    };
+    logger.info('[backfillEmbeddings] Backfill complete', result);
+    return result;
 });
 //# sourceMappingURL=search.js.map

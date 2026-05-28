@@ -302,6 +302,41 @@ export class ArticlesService {
     }
   }
 
+  /**
+   * Map a search_index document to an Article.
+   * search_index has a subset of Article fields with slightly different shapes
+   * (e.g. firstImage instead of images[], no categoryIds).
+   */
+  private static mapSearchIndexToArticle(
+    docId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: Record<string, any>,
+  ): Article {
+    return {
+      id: docId,
+      title: data.title ?? '',
+      description: data.description ?? '',
+      price: data.price ?? 0,
+      images: data.firstImage ? [{ url: this.fixStorageUrl(data.firstImage) }] : [],
+      category: data.category ?? '',
+      categoryIds: data.categoryIds ?? [],
+      size: data.size ?? undefined,
+      brand: data.brand ?? undefined,
+      color: data.color ?? undefined,
+      colors: data.colors ?? undefined,
+      material: data.material ?? undefined,
+      materials: data.materials ?? undefined,
+      condition: data.condition ?? 'bon etat',
+      sellerId: data.sellerId ?? '',
+      sellerName: data.sellerName ?? '',
+      createdAt: data.createdAt?.toDate?.() ?? new Date(),
+      isActive: data.isActive ?? true,
+      isSold: data.isSold ?? false,
+      likes: data.likes ?? 0,
+      views: data.views ?? 0,
+    } as Article;
+  }
+
   static async searchArticles(
     searchTerm?: string,
     filters?: {
@@ -317,6 +352,7 @@ export class ArticlesService {
       patterns?: string[];
       sortBy?: 'recent' | 'price_asc' | 'price_desc' | 'popular';
       excludeUserId?: string;
+      sellerId?: string;
     },
     limitCount: number = 20,
     lastVisible?: QueryDocumentSnapshot
@@ -325,161 +361,342 @@ export class ArticlesService {
       if (__DEV__) {
         console.log('searchArticles called with:', { searchTerm, filters, limitCount });
       }
-      const articlesRef = collection(firestore, 'articles');
-      let constraints: any[] = [
-        where('isActive', '==', true),
-        where('isSold', '==', false)
-      ];
 
-      if (filters?.categoryIds && filters.categoryIds.length > 0) {
-        const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
-        constraints.push(where('categoryIds', 'array-contains', targetCategoryId));
-      } else if (filters?.category) {
-        constraints.push(where('category', '==', filters.category));
+      const trimmedSearch = searchTerm?.trim() ?? '';
+      const sortBy = filters?.sortBy ?? 'recent';
+
+      // Decide which collection to query:
+      // - searchTerm present -> search_index (has keywords index)
+      // - sortBy=popular -> search_index (has popularityScore)
+      // - otherwise -> articles (has all fields + more indexes)
+      const useSearchIndex = trimmedSearch.length > 0 || sortBy === 'popular';
+
+      if (useSearchIndex) {
+        return this.searchViaSearchIndex(trimmedSearch, filters, limitCount, lastVisible, sortBy);
       }
 
+      return this.searchViaArticles(filters, limitCount, lastVisible, sortBy);
+    } catch (error: any) {
+      if (__DEV__) console.error('searchArticles error:', error);
+      throw new Error(`Erreur lors de la recherche: ${error.message}`);
+    }
+  }
+
+  /**
+   * Query the search_index collection.
+   * Used when a searchTerm is present (keywords array-contains) or sortBy=popular.
+   */
+  private static async searchViaSearchIndex(
+    trimmedSearch: string,
+    filters: Parameters<typeof ArticlesService.searchArticles>[1],
+    limitCount: number,
+    lastVisible: QueryDocumentSnapshot | undefined,
+    sortBy: 'recent' | 'price_asc' | 'price_desc' | 'popular',
+  ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
+    const searchIndexRef = collection(firestore, 'search_index');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const constraints: any[] = [];
+
+    if (trimmedSearch.length > 0) {
+      // Tokenize and use first keyword for array-contains (Firestore limit: 1 per query)
+      const keywords = trimmedSearch.toLowerCase().split(/\s+/);
+      const firstKeyword = keywords[0];
+      constraints.push(where('keywords', 'array-contains', firstKeyword));
+      // The only composite index with keywords is: keywords CONTAINS + popularityScore DESC
+      // So we always sort by popularityScore for keyword queries at the Firestore level,
+      // then re-sort client-side if a different sort was requested.
+      constraints.push(orderBy('popularityScore', 'desc'));
+    } else {
+      // No search term but sortBy=popular -> use isActive+isSold+popularityScore index
+      constraints.push(where('isActive', '==', true));
+      constraints.push(where('isSold', '==', false));
+
+      if (filters?.category) {
+        constraints.push(where('category', '==', filters.category));
+      }
       if (filters?.condition) {
         constraints.push(where('condition', '==', filters.condition));
       }
 
-      if (filters?.minPrice !== undefined) {
-        constraints.push(where('price', '>=', filters.minPrice));
-      }
-      if (filters?.maxPrice !== undefined) {
-        constraints.push(where('price', '<=', filters.maxPrice));
+      constraints.push(orderBy('popularityScore', 'desc'));
+    }
+
+    // Client-side filters that search_index doesn't have composite indexes for:
+    // categoryIds, colors, sizes, materials, brands, patterns, remaining keywords, sellerId, price range
+    const hasClientSideFilter = !!(
+      trimmedSearch.length > 0 ||
+      (filters?.categoryIds && filters.categoryIds.length > 0) ||
+      (filters?.colors && filters.colors.length > 0) ||
+      (filters?.sizes && filters.sizes.length > 0) ||
+      (filters?.materials && filters.materials.length > 0) ||
+      (filters?.brands && filters.brands.length > 0) ||
+      (filters?.patterns && filters.patterns.length > 0) ||
+      filters?.sellerId ||
+      filters?.minPrice !== undefined ||
+      filters?.maxPrice !== undefined
+    );
+    const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount;
+    constraints.push(firestoreLimit(fetchLimit));
+
+    if (lastVisible) {
+      constraints.push(startAfter(lastVisible));
+    }
+
+    const q = query(searchIndexRef, ...constraints);
+    const querySnapshot = await getDocs(q);
+
+    if (__DEV__) {
+      console.log('search_index docs fetched:', querySnapshot.docs.length);
+    }
+
+    const remainingKeywords = trimmedSearch.length > 0
+      ? trimmedSearch.toLowerCase().split(/\s+/).slice(1)
+      : [];
+
+    const articles: Article[] = [];
+
+    querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
+      const data = docSnap.data();
+
+      // search_index keywords query doesn't filter isActive/isSold when using array-contains
+      if (trimmedSearch.length > 0) {
+        if (!data.isActive || data.isSold) return;
       }
 
-      const hasClientSideFilter = !!(
-        (searchTerm && searchTerm.trim()) ||
-        (filters?.colors && filters.colors.length > 0) ||
-        (filters?.sizes && filters.sizes.length > 0) ||
-        (filters?.materials && filters.materials.length > 0) ||
-        (filters?.brands && filters.brands.length > 0) ||
-        (filters?.patterns && filters.patterns.length > 0)
+      if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return;
+      if (filters?.sellerId && data.sellerId !== filters.sellerId) return;
+
+      // Remaining keyword matching on titleLowercase and brand
+      if (remainingKeywords.length > 0) {
+        const title = (data.titleLowercase || '') as string;
+        const brand = ((data.brand || '') as string).toLowerCase();
+        const allMatch = remainingKeywords.every(
+          kw => title.includes(kw) || brand.includes(kw),
+        );
+        if (!allMatch) return;
+      }
+
+      if (filters?.categoryIds && filters.categoryIds.length > 0) {
+        const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
+        const docCategoryIds: string[] = data.categoryIds || [];
+        if (!docCategoryIds.includes(targetCategoryId)) {
+          if (data.category !== targetCategoryId) return;
+        }
+      } else if (trimmedSearch.length > 0 && filters?.category) {
+        if (data.category !== filters.category) return;
+      }
+
+      if (trimmedSearch.length > 0 && filters?.condition) {
+        if (data.condition !== filters.condition) return;
+      }
+
+      if (filters?.minPrice !== undefined && data.price < filters.minPrice) return;
+      if (filters?.maxPrice !== undefined && data.price > filters.maxPrice) return;
+
+      if (!this.matchesClientSideFilters(data, filters)) return;
+
+      articles.push(this.mapSearchIndexToArticle(docSnap.id, data));
+    });
+
+    // Re-sort client-side when sort differs from Firestore orderBy (popularityScore)
+    if (sortBy !== 'popular') {
+      this.sortArticles(articles, sortBy);
+    }
+
+    const limitedArticles = articles.slice(0, limitCount);
+
+    const lastFilteredArticle = limitedArticles[limitedArticles.length - 1];
+    const lastVisibleDoc = lastFilteredArticle
+      ? (querySnapshot.docs.find(d => d.id === lastFilteredArticle.id) as QueryDocumentSnapshot) ?? null
+      : null;
+
+    if (__DEV__) {
+      console.log('search_index results:', limitedArticles.length, 'articles');
+    }
+
+    return { articles: limitedArticles, lastVisible: lastVisibleDoc };
+  }
+
+  /**
+   * Query the articles collection directly.
+   * Used when no searchTerm and sortBy != popular.
+   */
+  private static async searchViaArticles(
+    filters: Parameters<typeof ArticlesService.searchArticles>[1],
+    limitCount: number,
+    lastVisible: QueryDocumentSnapshot | undefined,
+    sortBy: 'recent' | 'price_asc' | 'price_desc' | 'popular',
+  ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
+    const articlesRef = collection(firestore, 'articles');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const constraints: any[] = [
+      where('isActive', '==', true),
+      where('isSold', '==', false),
+    ];
+
+    if (filters?.sellerId) {
+      constraints.push(where('sellerId', '==', filters.sellerId));
+    }
+
+    if (filters?.categoryIds && filters.categoryIds.length > 0) {
+      const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
+      constraints.push(where('categoryIds', 'array-contains', targetCategoryId));
+    } else if (filters?.category) {
+      constraints.push(where('category', '==', filters.category));
+    }
+
+    if (filters?.condition) {
+      constraints.push(where('condition', '==', filters.condition));
+    }
+
+    if (filters?.minPrice !== undefined) {
+      constraints.push(where('price', '>=', filters.minPrice));
+    }
+    if (filters?.maxPrice !== undefined) {
+      constraints.push(where('price', '<=', filters.maxPrice));
+    }
+
+    switch (sortBy) {
+      case 'price_asc':
+        constraints.push(orderBy('price', 'asc'));
+        break;
+      case 'price_desc':
+        constraints.push(orderBy('price', 'desc'));
+        break;
+      case 'recent':
+      default:
+        constraints.push(orderBy('createdAt', 'desc'));
+        break;
+    }
+
+    const hasClientSideFilter = !!(
+      (filters?.colors && filters.colors.length > 0) ||
+      (filters?.sizes && filters.sizes.length > 0) ||
+      (filters?.materials && filters.materials.length > 0) ||
+      (filters?.brands && filters.brands.length > 0) ||
+      (filters?.patterns && filters.patterns.length > 0)
+    );
+    const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount;
+
+    constraints.push(firestoreLimit(fetchLimit));
+
+    if (lastVisible) {
+      constraints.push(startAfter(lastVisible));
+    }
+
+    const q = query(articlesRef, ...constraints);
+    const querySnapshot = await getDocs(q);
+
+    if (__DEV__) {
+      console.log('articles docs fetched:', querySnapshot.docs.length);
+    }
+
+    const articles: Article[] = [];
+
+    querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
+      const data = docSnap.data();
+      if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return;
+
+      if (!this.matchesClientSideFilters(data, filters)) return;
+
+      articles.push({
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt.toDate(),
+        images: this.fixArticleImageUrls(data.images),
+      } as Article);
+    });
+
+    const limitedArticles = articles.slice(0, limitCount);
+
+    const lastFilteredArticle = limitedArticles[limitedArticles.length - 1];
+    const lastVisibleDoc = lastFilteredArticle
+      ? (querySnapshot.docs.find(d => d.id === lastFilteredArticle.id) as QueryDocumentSnapshot) ?? null
+      : null;
+
+    if (__DEV__) {
+      console.log('articles results:', limitedArticles.length, 'articles');
+    }
+
+    return { articles: limitedArticles, lastVisible: lastVisibleDoc };
+  }
+
+  /**
+   * Apply client-side attribute filters (colors, sizes, materials, brands, patterns).
+   * Works with both articles and search_index documents.
+   */
+  private static matchesClientSideFilters(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: Record<string, any>,
+    filters?: {
+      colors?: string[];
+      sizes?: string[];
+      materials?: string[];
+      brands?: string[];
+      patterns?: string[];
+    },
+  ): boolean {
+    if (filters?.colors && filters.colors.length > 0) {
+      const articleColors: string[] = data.colors || (data.color ? [data.color] : []);
+      if (articleColors.length === 0) return false;
+      const matches = filters.colors.some((color: string) =>
+        articleColors.some((ac: string) => ac.toLowerCase().includes(color.toLowerCase())),
       );
-      const fetchLimit = hasClientSideFilter ? limitCount * 3 : limitCount;
-      constraints.push(orderBy('createdAt', 'desc'));
-      constraints.push(firestoreLimit(fetchLimit));
+      if (!matches) return false;
+    }
 
-      if (lastVisible) {
-        constraints.push(startAfter(lastVisible));
-      }
+    if (filters?.sizes && filters.sizes.length > 0) {
+      if (!data.size) return false;
+      if (!filters.sizes.includes(data.size)) return false;
+    }
 
-      const q = query(articlesRef, ...constraints);
-      const querySnapshot = await getDocs(q);
-      if (__DEV__) {
-        console.log('Documents fetched:', querySnapshot.docs.length);
-      }
-      const articles: Article[] = [];
+    if (filters?.materials && filters.materials.length > 0) {
+      const articleMaterials: string[] = data.materials || (data.material ? [data.material] : []);
+      if (articleMaterials.length === 0) return false;
+      const matches = filters.materials.some((material: string) =>
+        articleMaterials.some((am: string) => am.toLowerCase().includes(material.toLowerCase())),
+      );
+      if (!matches) return false;
+    }
 
-      querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
-        const data = docSnap.data();
-        const article = {
-          id: docSnap.id,
-          ...data,
-          createdAt: data.createdAt.toDate(),
-          images: this.fixArticleImageUrls(data.images),
-        } as Article;
+    if (filters?.brands && filters.brands.length > 0) {
+      if (!data.brand) return false;
+      const brandLower = (data.brand as string).toLowerCase();
+      const matches = filters.brands.some((brand: string) =>
+        brandLower.includes(brand.toLowerCase()),
+      );
+      if (!matches) return false;
+    }
 
-        if (filters?.excludeUserId && article.sellerId === filters.excludeUserId) {
-          return;
-        }
+    if (filters?.patterns && filters.patterns.length > 0) {
+      if (!data.pattern) return false;
+      const patternLower = (data.pattern as string).toLowerCase();
+      const matches = filters.patterns.some((pattern: string) =>
+        patternLower.includes(pattern.toLowerCase()),
+      );
+      if (!matches) return false;
+    }
 
-        let matches = true;
+    return true;
+  }
 
-        if (searchTerm && searchTerm.trim()) {
-          const searchLower = searchTerm.toLowerCase();
-          const titleMatch = (article.title || '').toLowerCase().includes(searchLower);
-          const descMatch = (article.description || '').toLowerCase().includes(searchLower);
-          const brandMatch = (article.brand || '').toLowerCase().includes(searchLower);
-          matches = matches && (titleMatch || descMatch || brandMatch);
-        }
-
-        if (filters?.colors && filters.colors.length > 0) {
-          const articleColors = (article as any).colors || (article.color ? [article.color] : []);
-          if (articleColors.length === 0) {
-            matches = false;
-          } else {
-            matches = matches && filters.colors.some((color: string) =>
-              articleColors.some((ac: string) => ac.toLowerCase().includes(color.toLowerCase()))
-            );
-          }
-        }
-
-        if (filters?.sizes && filters.sizes.length > 0) {
-          if (!article.size) {
-            matches = false;
-          } else {
-            matches = matches && filters.sizes.includes(article.size);
-          }
-        }
-
-        if (filters?.materials && filters.materials.length > 0) {
-          const articleMaterials = (article as any).materials || (article.material ? [article.material] : []);
-          if (articleMaterials.length === 0) {
-            matches = false;
-          } else {
-            matches = matches && filters.materials.some((material: string) =>
-              articleMaterials.some((am: string) => am.toLowerCase().includes(material.toLowerCase()))
-            );
-          }
-        }
-
-        if (filters?.brands && filters.brands.length > 0) {
-          if (!article.brand) {
-            matches = false;
-          } else {
-            matches = matches && filters.brands.some((brand: string) =>
-              article.brand!.toLowerCase().includes(brand.toLowerCase())
-            );
-          }
-        }
-
-        if (filters?.patterns && filters.patterns.length > 0) {
-          if (!article.pattern) {
-            matches = false;
-          } else {
-            matches = matches && filters.patterns.some((pattern: string) =>
-              article.pattern!.toLowerCase().includes(pattern.toLowerCase())
-            );
-          }
-        }
-
-        if (matches) {
-          articles.push(article);
-        }
-      });
-
-      if (filters?.sortBy) {
-        switch (filters.sortBy) {
-          case 'price_asc':
-            articles.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-            break;
-          case 'price_desc':
-            articles.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-            break;
-          case 'popular':
-            articles.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
-            break;
-          case 'recent':
-          default:
-            articles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-            break;
-        }
-      }
-
-      const limitedArticles = articles.slice(0, limitCount);
-      const lastVisibleDoc = querySnapshot.docs.length > 0
-        ? querySnapshot.docs[querySnapshot.docs.length - 1] as QueryDocumentSnapshot
-        : null;
-
-      if (__DEV__) {
-        console.log('Final results:', limitedArticles.length, 'articles');
-      }
-      return { articles: limitedArticles, lastVisible: lastVisibleDoc };
-    } catch (error: any) {
-      if (__DEV__) console.error('searchArticles error:', error);
-      throw new Error(`Erreur lors de la recherche: ${error.message}`);
+  private static sortArticles(
+    articles: Article[],
+    sortBy: 'recent' | 'price_asc' | 'price_desc' | 'popular',
+  ): void {
+    switch (sortBy) {
+      case 'price_asc':
+        articles.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+        break;
+      case 'price_desc':
+        articles.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
+        break;
+      case 'recent':
+        articles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        break;
+      case 'popular':
+        articles.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+        break;
     }
   }
 
@@ -494,6 +711,7 @@ export class ArticlesService {
       const q = query(
         articlesRef,
         where('sellerId', '==', userId),
+        where('isActive', '==', true),
         orderBy('createdAt', 'desc')
       );
 
@@ -502,7 +720,6 @@ export class ArticlesService {
 
       querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
-        if (data.isActive === false) return;
 
         articles.push({
           id: docSnap.id,

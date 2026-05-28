@@ -91,6 +91,7 @@ export interface ProcessedImage {
   wasCompressed: boolean;
   originalSize: number;
   finalSize: number;
+  processedUri: string;
   quality?: ImageQualityScore;
 }
 

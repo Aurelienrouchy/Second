@@ -49,6 +49,7 @@ interface RecentSearchesProps {
   onSearchTap: (item: SearchHistoryItem) => void;
   onSearchDelete: (item: SearchHistoryItem) => void;
   onTrendingTap?: (query: string) => void;
+  isGuest?: boolean;
 }
 
 // =============================================================================
@@ -61,6 +62,7 @@ export default function RecentSearches({
   onSearchTap,
   onSearchDelete,
   onTrendingTap,
+  isGuest,
 }: RecentSearchesProps) {
   const handleTrendingPress = useCallback((query: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -103,6 +105,11 @@ export default function RecentSearches({
         <Animated.View entering={FadeInDown.duration(300).delay(150)} style={styles.emptyHint}>
           <Ionicons name="search-outline" size={28} color={colors.borderStrong} />
           <Text style={styles.emptyText}>Vos recherches apparaîtront ici</Text>
+          {isGuest && (
+            <Text style={styles.guestHint}>
+              Connectez-vous pour sauvegarder votre historique de recherche
+            </Text>
+          )}
         </Animated.View>
       </ScrollView>
     );
@@ -260,5 +267,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     color: colors.muted,
     textAlign: 'center',
+  },
+  guestHint: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    fontStyle: 'italic',
+    letterSpacing: 0.1,
+    color: colors.borderStrong,
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

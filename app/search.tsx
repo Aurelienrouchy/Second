@@ -9,10 +9,13 @@
  * The route file is the orchestrator: refs (for bottom sheets) + JSX composition.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useRef } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
+
+import { colors } from '@/constants/theme';
 
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import ProductGrid from '@/components/ProductGrid';
@@ -44,6 +47,10 @@ export default function SearchScreen() {
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['articles', 'search'] });
   }, [queryClient]);
+
+  const handleRetry = useCallback(() => {
+    screen.refetch();
+  }, [screen.refetch]);
 
   // ─── Refs (sheets stay here so JSX can imperatively show them) ──
   const categorySheetRef = useRef<CategoryBottomSheetRef>(null);
@@ -99,7 +106,9 @@ export default function SearchScreen() {
           <View style={styles.resultsInfoBar}>
             {!screen.isLoading && screen.articles.length > 0 && (
               <Text style={styles.resultsCountInline}>
-                {screen.articles.length} article{screen.articles.length > 1 ? 's' : ''} trouvé{screen.articles.length > 1 ? 's' : ''}
+                {screen.hasNextPage
+                  ? `${screen.articles.length}+ articles trouvés`
+                  : `${screen.articles.length} article${screen.articles.length > 1 ? 's' : ''} trouvé${screen.articles.length > 1 ? 's' : ''}`}
               </Text>
             )}
             {screen.anyFilterActive && (
@@ -115,35 +124,49 @@ export default function SearchScreen() {
           <RecentSearches
             searches={screen.recentSearches}
             isLoading={screen.isLoadingHistory}
+            isGuest={screen.isGuest}
             onSearchTap={screen.handleRecentSearchTap}
             onSearchDelete={screen.handleRecentSearchDelete}
             onTrendingTap={screen.handleTrendingTap}
           />
         )}
 
-        {/* Product grid (shown when searching) */}
+        {/* Product grid or error state (shown when searching) */}
         {screen.isSearching && (
           <>
-            {!screen.isLoading && screen.articles.length > 0 && (
+            {!screen.isLoading && !screen.isError && screen.articles.length > 0 && (
               <SaveSearchButton
                 query={screen.activeSearchQuery}
                 filters={{ ...screen.filters, categoryIds: screen.selectedCategoryPath }}
               />
             )}
-            <ProductGrid
-              articles={screen.articles || []}
-              isLoading={screen.isLoading}
-              isPaginating={screen.isPaginating}
-              onLoadMore={screen.loadMore}
-              onProductPress={screen.handleProductPress}
-              onRefresh={handleRefresh}
-              emptyMessage={
-                screen.activeSearchQuery
-                  ? `Aucun résultat pour "${screen.activeSearchQuery}"`
-                  : 'Aucun article trouvé avec ces filtres'
-              }
-              testID="search-results-grid"
-            />
+            {screen.isError ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="cloud-offline-outline" size={48} color={colors.muted} />
+                <Text style={styles.errorTitle}>Une erreur est survenue</Text>
+                <Text style={styles.errorSubtitle}>
+                  Vérifiez votre connexion et réessayez
+                </Text>
+                <Pressable style={styles.retryButton} onPress={handleRetry}>
+                  <Text style={styles.retryButtonText}>Réessayer</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <ProductGrid
+                articles={screen.articles || []}
+                isLoading={screen.isLoading}
+                isPaginating={screen.isPaginating}
+                onLoadMore={screen.loadMore}
+                onProductPress={screen.handleProductPress}
+                onRefresh={handleRefresh}
+                emptyMessage={
+                  screen.activeSearchQuery
+                    ? `Aucun résultat pour "${screen.activeSearchQuery}"`
+                    : 'Aucun article trouvé avec ces filtres'
+                }
+                testID="search-results-grid"
+              />
+            )}
           </>
         )}
       </View>

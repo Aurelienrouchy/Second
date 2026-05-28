@@ -30,7 +30,7 @@ export { analyzeProductImage } from './callable/ai';
 export { consolidateChatDuplicates } from './callable/chats';
 
 // Visual Search & Similar Products
-export { visualSearch, getSimilarProducts } from './callable/search';
+export { visualSearch, getSimilarProducts, backfillEmbeddings } from './callable/search';
 
 // Product Functions
 export { createArticle, updateArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed } from './callable/products';
@@ -66,7 +66,6 @@ export {
   getStripeAccountStatus,
   findPickupPoints,
   checkTrackingStatus,
-  requestWithdrawal,
   cancelPendingTransaction,
   completeMeetupTransaction,
 } from './callable/payments';

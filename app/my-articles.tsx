@@ -37,6 +37,8 @@ export default function MyArticlesScreen() {
     data: articles = [],
     isLoading,
     isRefetching,
+    isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: queryKeys.articles.userList(user?.id ?? ''),
@@ -300,6 +302,31 @@ export default function MyArticlesScreen() {
               </View>
             </View>
           ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (isError) {
+    if (__DEV__) console.error('[MyArticles] Query error:', error);
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Mes articles" onBack={() => router.back()} />
+        <View style={styles.emptyContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.danger} style={styles.emptyIcon} />
+          <Text style={styles.emptyTitle}>Erreur de chargement</Text>
+          <Text style={styles.emptyText}>
+            {'Impossible de charger vos articles.\nVeuillez réessayer.'}
+          </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.ctaButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => refetch()}
+          >
+            <Text style={styles.ctaButtonText}>Réessayer</Text>
+          </Pressable>
         </View>
       </View>
     );

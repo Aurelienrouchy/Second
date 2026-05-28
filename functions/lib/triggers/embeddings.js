@@ -1,6 +1,42 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = void 0;
+exports.parseFirebaseStorageUrl = parseFirebaseStorageUrl;
+exports.generateMultimodalEmbedding = generateMultimodalEmbedding;
+exports.generateAndStoreEmbedding = generateAndStoreEmbedding;
 /**
  * Article embedding triggers
  * Firebase Functions v7 - Generates Vertex AI multimodal embeddings
@@ -8,9 +44,13 @@ exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = void 0;
  *
  * Model: multimodalembedding@001 (1408-dimension vectors)
  * Collection: embeddings/{articleId}
+ *
+ * Uses GCS URI (gs://bucket/path) to pass images to Vertex AI,
+ * which avoids base64 encoding issues with HEIC and other non-JPEG formats.
  */
 const firestore_1 = require("firebase-functions/v2/firestore");
 const aiplatform_1 = require("@google-cloud/aiplatform");
+const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 // Vertex AI configuration
 const VERTEX_PROJECT = process.env.GCLOUD_PROJECT || 'seconde-b47a6';
@@ -50,10 +90,20 @@ function parseFirebaseStorageUrl(url) {
     return null;
 }
 /**
- * Download image from Firebase Storage and return as base64
+ * Build a GCS URI from a Firebase Storage URL.
+ * Returns gs://bucket/path or null if URL is not a valid Firebase Storage URL.
+ */
+function buildGcsUri(imageUrl) {
+    const parsed = parseFirebaseStorageUrl(imageUrl);
+    if (!parsed)
+        return null;
+    return `gs://${parsed.bucketName}/${parsed.filePath}`;
+}
+/**
+ * Download image from Firebase Storage and return as base64 (fallback)
+ * Used only when GCS URI approach fails.
  */
 async function downloadImageAsBase64(imageUrl) {
-    // Try Firebase Storage URL first
     const parsed = parseFirebaseStorageUrl(imageUrl);
     if (parsed) {
         try {
@@ -61,45 +111,46 @@ async function downloadImageAsBase64(imageUrl) {
             const file = bucket.file(parsed.filePath);
             const [exists] = await file.exists();
             if (!exists) {
-                console.error(`[embeddings] File does not exist: ${parsed.filePath}`);
+                logger.error('[embeddings] File does not exist', { filePath: parsed.filePath });
                 return null;
             }
             const [buffer] = await file.download();
             return buffer.toString('base64');
         }
         catch (error) {
-            console.error('[embeddings] Error downloading from Storage:', error);
+            logger.error('[embeddings] Error downloading from Storage', { error });
         }
     }
     // Fallback: HTTP fetch
     try {
         const response = await fetch(imageUrl);
         if (!response.ok) {
-            console.error(`[embeddings] HTTP download failed: ${response.status}`);
+            logger.error('[embeddings] HTTP download failed', { status: response.status });
             return null;
         }
         const arrayBuffer = await response.arrayBuffer();
         return Buffer.from(arrayBuffer).toString('base64');
     }
     catch (error) {
-        console.error('[embeddings] Error downloading via HTTP:', error);
+        logger.error('[embeddings] Error downloading via HTTP', { error });
         return null;
     }
 }
 /**
- * Generate multimodal image embedding using Vertex AI
- * Returns a 1408-dimension vector from image pixels
+ * Generate multimodal image embedding using Vertex AI.
+ * Accepts either a GCS URI or base64-encoded image data.
+ * Returns a 1408-dimension vector from image pixels.
  */
-async function generateMultimodalEmbedding(imageBase64) {
+async function generateMultimodalEmbedding(imageInput) {
     var _a, _b, _c, _d;
     try {
         const client = getVertexClient();
         const endpoint = `projects/${VERTEX_PROJECT}/locations/${VERTEX_LOCATION}/publishers/google/models/${EMBEDDING_MODEL}`;
         const instanceValue = aiplatform_1.helpers.toValue({
-            image: { bytesBase64Encoded: imageBase64 },
+            image: imageInput,
         });
         if (!instanceValue) {
-            console.error('[embeddings] Failed to create instance value');
+            logger.error('[embeddings] Failed to create instance value');
             return null;
         }
         const [response] = await client.predict({
@@ -107,48 +158,58 @@ async function generateMultimodalEmbedding(imageBase64) {
             instances: [instanceValue],
         });
         if (!response.predictions || response.predictions.length === 0) {
-            console.error('[embeddings] No predictions returned');
+            logger.error('[embeddings] No predictions returned');
             return null;
         }
         const prediction = response.predictions[0];
         const values = (_d = (_c = (_b = (_a = prediction === null || prediction === void 0 ? void 0 : prediction.structValue) === null || _a === void 0 ? void 0 : _a.fields) === null || _b === void 0 ? void 0 : _b.imageEmbedding) === null || _c === void 0 ? void 0 : _c.listValue) === null || _d === void 0 ? void 0 : _d.values;
         if (!values || values.length === 0) {
-            console.error('[embeddings] No embedding values in response');
+            logger.error('[embeddings] No embedding values in response');
             return null;
         }
         const embedding = values.map((v) => v.numberValue || 0);
         if (embedding.length !== EMBEDDING_DIMENSIONS) {
-            console.warn(`[embeddings] Unexpected dimension: ${embedding.length}, expected ${EMBEDDING_DIMENSIONS}`);
+            logger.warn('[embeddings] Unexpected dimension', { got: embedding.length, expected: EMBEDDING_DIMENSIONS });
         }
         return embedding;
     }
     catch (error) {
-        console.error('[embeddings] Vertex AI error:', error);
+        logger.error('[embeddings] Vertex AI error', { error });
         return null;
     }
 }
 /**
- * Generate embedding and store in embeddings collection
+ * Generate embedding and store in embeddings collection.
+ * Uses GCS URI (preferred) with base64 fallback for non-Storage URLs.
  */
 async function generateAndStoreEmbedding(articleId, article) {
     var _a, _b, _c;
     const imageUrl = (_b = (_a = article.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.url;
     if (!imageUrl) {
-        console.log(`[embeddings] No image for article ${articleId}, skipping`);
+        logger.info('[embeddings] No image for article, skipping', { articleId });
         return;
     }
     try {
-        // Download image
-        const imageBase64 = await downloadImageAsBase64(imageUrl);
-        if (!imageBase64) {
-            console.error(`[embeddings] Failed to download image for ${articleId}`);
-            return;
+        // Try GCS URI first (handles HEIC and all formats natively)
+        const gcsUri = buildGcsUri(imageUrl);
+        let embedding = null;
+        if (gcsUri) {
+            logger.info('[embeddings] Generating embedding via GCS URI', { articleId, gcsUri });
+            embedding = await generateMultimodalEmbedding({ gcsUri });
         }
-        console.log(`[embeddings] Generating embedding for ${articleId} (${Math.round(imageBase64.length / 1024)}KB)`);
-        // Generate embedding via Vertex AI
-        const embedding = await generateMultimodalEmbedding(imageBase64);
+        // Fallback to base64 if GCS URI failed or URL is not a Storage URL
         if (!embedding) {
-            console.error(`[embeddings] Failed to generate embedding for ${articleId}`);
+            logger.info('[embeddings] GCS URI failed or unavailable, falling back to base64', { articleId });
+            const imageBase64 = await downloadImageAsBase64(imageUrl);
+            if (!imageBase64) {
+                logger.error('[embeddings] Failed to download image', { articleId });
+                return;
+            }
+            logger.info('[embeddings] Generating embedding via base64', { articleId, sizeKB: Math.round(imageBase64.length / 1024) });
+            embedding = await generateMultimodalEmbedding({ bytesBase64Encoded: imageBase64 });
+        }
+        if (!embedding) {
+            logger.error('[embeddings] Failed to generate embedding', { articleId });
             return;
         }
         // Store in embeddings collection
@@ -163,10 +224,10 @@ async function generateAndStoreEmbedding(articleId, article) {
             createdAt: firebase_1.FieldValue.serverTimestamp(),
             updatedAt: firebase_1.FieldValue.serverTimestamp(),
         });
-        console.log(`[embeddings] Stored embedding for ${articleId} (${embedding.length} dims)`);
+        logger.info('[embeddings] Stored embedding', { articleId, dims: embedding.length });
     }
     catch (error) {
-        console.error(`[embeddings] Error for ${articleId}:`, error);
+        logger.error('[embeddings] Error generating/storing embedding', { articleId, error });
     }
 }
 /**
@@ -188,7 +249,7 @@ async function updateEmbeddingMetadata(articleId, article) {
         isActive: (_a = article.isActive) !== null && _a !== void 0 ? _a : true,
         updatedAt: firebase_1.FieldValue.serverTimestamp(),
     });
-    console.log(`[embeddings] Updated metadata for ${articleId}`);
+    logger.info('[embeddings] Updated metadata', { articleId });
 }
 /**
  * Generate embedding when article is created
@@ -201,7 +262,7 @@ exports.generateEmbeddingOnCreate = (0, firestore_1.onDocumentCreated)({ documen
         return;
     // Only process active articles with images
     if (!((_c = (_b = article.images) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.url)) {
-        console.log(`[embeddings] No image for new article ${articleId}, skipping`);
+        logger.info('[embeddings] No image for new article, skipping', { articleId });
         return;
     }
     await generateAndStoreEmbedding(articleId, article);
@@ -222,7 +283,7 @@ exports.generateEmbeddingOnUpdate = (0, firestore_1.onDocumentUpdated)({ documen
         const doc = await embeddingRef.get();
         if (doc.exists) {
             await embeddingRef.update({ isActive: false, updatedAt: firebase_1.FieldValue.serverTimestamp() });
-            console.log(`[embeddings] Deactivated embedding for ${articleId}`);
+            logger.info('[embeddings] Deactivated embedding', { articleId });
         }
         return;
     }

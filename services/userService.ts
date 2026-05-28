@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { prepareImageForUpload } from '@/utils/imageUtils';
 
 interface ExportedUserData {
   exportedAt: string;
@@ -225,7 +226,8 @@ export class UserService {
    */
   static async uploadProfileImage(userId: string, localUri: string): Promise<string> {
     try {
-      const response = await fetch(localUri);
+      const compressedUri = await prepareImageForUpload(localUri, { maxDimension: 800 });
+      const response = await fetch(compressedUri);
       const blob = await response.blob();
       const imageRef = ref(storage, `users/${userId}/profile.jpg`);
       await uploadBytes(imageRef, blob);
@@ -544,7 +546,7 @@ export class UserService {
       });
 
       // TODO: add swaps export (requires queries on both initiatorId and receiverId)
-      // TODO: add seller_balances export (requires composite queries)
+      // TODO: add wallet export (requires composite queries)
 
       return exportData;
     } catch (error) {

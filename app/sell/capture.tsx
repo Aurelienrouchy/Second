@@ -146,6 +146,8 @@ export default function CaptureScreen() {
         quality: 0.8,
         exif: false,
         selectionLimit: remainingSlots,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
       });
       if (!result.canceled && result.assets.length > 0) {
         const uris = result.assets.map((asset) => asset.uri);

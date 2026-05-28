@@ -61,6 +61,8 @@ export default function ProfileDetailsScreen() {
         aspect: [1, 1],
         quality: 0.8,
         exif: false,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
       });
 
       if (!result.canceled && result.assets[0]) {

@@ -13,6 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+import { prepareImageForUpload } from '@/utils/imageUtils';
 import { useUser } from '@/contexts/AuthContext';
 import { storage } from '@/config/firebaseConfig';
 import {
@@ -190,15 +191,17 @@ export default function SwapDetailScreen() {
         quality: 0.8,
         exif: false,
         selectionLimit: 4,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
       });
       if (result.canceled) return;
 
       setIsProcessing(true);
 
-      // Upload each image to Firebase Storage and get download URLs
       const uploadedUrls = await Promise.all(
         result.assets.map(async (asset, i) => {
-          const response = await fetch(asset.uri);
+          const compressedUri = await prepareImageForUpload(asset.uri);
+          const response = await fetch(compressedUri);
           const blob = await response.blob();
           const storageRef = ref(
             storage,

@@ -3,7 +3,7 @@
  * Client service for searching products by image using Vertex AI embeddings
  */
 
-import { functions } from '@/config/firebaseConfig';
+import { auth, functions } from '@/config/firebaseConfig';
 import { httpsCallable } from 'firebase/functions';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -109,6 +109,16 @@ export async function searchByImage(
   filters?: VisualSearchFilters,
   limit: number = 20
 ): Promise<VisualSearchResult[]> {
+  // Ensure fresh auth token — if refresh fails, continue without auth
+  // (the Cloud Function supports unauthenticated calls at a lower rate limit)
+  if (auth.currentUser) {
+    try {
+      await auth.currentUser.getIdToken(true);
+    } catch {
+      if (__DEV__) console.warn('[visualSearch] Token refresh failed, continuing without auth');
+    }
+  }
+
   // Process image to base64
   const { base64, mimeType } = await processImageForSearch(imageUri);
 

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#FAF8F4"/>
+  <!--
+    Geometric S: Two mirrored half-circles connected.
+    Top semicircle opens right, bottom semicircle opens left.
+    Built as a single thick-stroke path for clean geometry.
+
+    Structure:
+    - Top cap: horizontal line left to right
+    - Top semicircle: arc curving left (opening right)
+    - Diagonal connector: from bottom of top arc to top of bottom arc
+    - Bottom semicircle: arc curving right (opening left)
+    - Bottom cap: horizontal line right to left
+  -->
+  <path
+    d="
+      M 582,212
+      L 392,212
+      A 180,180 0 0,0 392,572
+      L 512,572
+      L 512,452
+      L 632,452
+      A 180,180 0 0,0 632,812
+      L 442,812
+    "
+    fill="none"
+    stroke="#1A1814"
+    stroke-width="76"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

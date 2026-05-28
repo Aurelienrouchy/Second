@@ -31,7 +31,6 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/my-sales` | `my-sales.tsx` | Mes ventes (vendeur) |
 | `/my-swaps` | `my-swaps.tsx` | Mes échanges |
 | `/liked-sellers` | `liked-sellers.tsx` | Vendeurs suivis |
-| `/seller-balance` | `seller-balance.tsx` | Solde vendeur |
 | `/propose-swap` | `propose-swap.tsx` | Proposer un échange |
 | `/swap/[id]` | `swap/[id].tsx` | Détail échange |
 | `/swap-parties` | `swap-parties.tsx` | Liste swap parties |
@@ -41,6 +40,7 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/payment/[txId]` | `payment/[transactionId].tsx` | Paiement Stripe |
 | `/review/[txId]` | `review/[transactionId].tsx` | Laisser un avis (post-transaction) |
 | `/visual-search-results` | `visual-search-results.tsx` | Résultats recherche visuelle |
+| `/saved-searches` | `saved-searches.tsx` | Recherches sauvegardées (liste, suppression, toggle notifs) |
 | `/wallet` | `wallet.tsx` | Porte-monnaie (activation, solde, historique, retrait) |
 
 ### Checkout — `app/checkout/`
@@ -232,7 +232,6 @@ Couche data Firestore + API. Fonctions pures, pas de hooks.
 | `chatService` | `chatService.ts` | Messages + conversations |
 | `favoritesService` | `favoritesService.ts` | Favoris Firestore |
 | `transactionService` | `transactionService.ts` | Transactions (Stripe) |
-| `sellerBalanceService` | `sellerBalanceService.ts` | Solde vendeur |
 | `shopService` | `shopService.ts` | Boutiques |
 | `draftService` | `draftService.ts` | Brouillons articles |
 | `searchHistoryService` | `searchHistoryService.ts` | Historique recherche |
@@ -365,14 +364,14 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `home.ts` | Données feed |
 | `moments.ts` | Stories/moments |
 | `onboarding.ts` | Préférences onboarding |
-| `payments.ts` | Paiement Stripe Connect Custom (checkout, full in-app account onboarding with identity+bank, addBankAccount for updates, requestWithdrawal via Stripe Payout, status) |
+| `payments.ts` | Paiement Stripe Connect Custom (checkout, full in-app account onboarding with identity+bank, addBankAccount for updates, tracking, meetup completion, status) |
 | `products.ts` | CRUD articles server-side (createArticle, updateArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed) |
 | `reviews.ts` | Avis vendeurs |
-| `search.ts` | Recherche avancée |
+| `search.ts` | Recherche visuelle (visualSearch, getSimilarProducts, backfillEmbeddings) |
 | `style.ts` | Profil style |
 | `swaps.ts` | Échanges |
 | `users.ts` | Suppression compte (GDPR Art. 17 / Loi 25) |
-| `wallet.ts` | Porte-monnaie virtuel (activateWallet, getWalletInfo, walletWithdraw, payWithWallet) |
+| `wallet.ts` | Porte-monnaie virtuel (activateWallet, getWalletInfo, walletWithdraw, payWithWallet, refundWalletPayment, getOrCreateSellerWallet helper) |
 
 ### Triggers — `functions/src/triggers/`
 | Fichier | Événement |

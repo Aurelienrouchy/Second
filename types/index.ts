@@ -478,22 +478,6 @@ export interface Notification {
   createdAt: Date;
 }
 
-export interface SellerBalance {
-  userId: string;
-  availableBalance: number; // Argent disponible pour retrait
-  pendingBalance: number; // Argent en attente (livraisons en cours)
-  totalEarnings: number; // Total des gains
-  transactions: {
-    id: string;
-    type: 'sale' | 'withdrawal';
-    amount: number;
-    description: string;
-    createdAt: Date;
-    status: 'completed' | 'pending' | 'failed';
-  }[];
-  updatedAt: Date;
-}
-
 // ============================================
 // MEETUP SYSTEM TYPES
 // ============================================

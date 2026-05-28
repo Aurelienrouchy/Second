@@ -86,6 +86,8 @@ function VisualSearchCameraComponent({
         allowsMultipleSelection: false,
         quality: 0.8,
         exif: false,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
       });
 
       if (!result.canceled && result.assets.length > 0) {

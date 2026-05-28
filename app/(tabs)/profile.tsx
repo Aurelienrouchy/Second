@@ -146,6 +146,14 @@ export default function ProfileScreen() {
         action: () => router.push('/(tabs)/favorites'),
       },
       {
+        id: 'saved-searches',
+        title: 'Recherches sauvegardées',
+        icon: 'bookmark-outline',
+        iconColor: colors.sand,
+        iconBg: colors.sandLight,
+        action: () => router.push('/saved-searches'),
+      },
+      {
         id: 'settings',
         title: 'Paramètres',
         icon: 'settings-outline',

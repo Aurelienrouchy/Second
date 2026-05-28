@@ -13,23 +13,22 @@
 | 7 | `chats` | Root | Chat threads between two users |
 | 8 | `messages` | Root | Individual chat messages |
 | 9 | `transactions` | Root | Purchase transactions (Stripe Connect payments) |
-| 10 | `seller_balances` | Root | Seller payout balances |
-| 11 | `withdrawal_requests` | Root | Seller withdrawal requests |
-| 12 | `avis` | Root | User reviews / ratings |
-| 13 | `swaps` | Root | Swap proposals between users |
-| 14 | `swapParties` | Root | Swap party (zone) events |
-| 15 | `swapPartyParticipants` | Root | Users enrolled in a swap party |
-| 16 | `swapPartyItems` | Root | Articles submitted to a swap party |
-| 17 | `notifications` | Root | Push notification records |
-| 18 | `drafts` | Root | Unsaved article drafts |
-| 19 | `guest_preferences` | Root | Onboarding preferences for unauthenticated users |
-| 20 | `moments` | Root | Seasonal/event moments for curated feeds |
-| 21 | `embeddings` | Root | Vertex AI multimodal embeddings per article |
-| 22 | `search_index` | Root | Denormalized search documents |
-| 23 | `stats` | Root | Aggregated platform statistics |
-| 24 | `rate_limits` | Root | Rate limiting counters for Cloud Functions |
-| 25 | `wallets` | Root | Virtual wallet balances (all amounts in cents) |
-| 26 | `wallets/{uid}/ledger` | Sub-collection | Wallet transaction ledger entries |
+| 10 | `withdrawal_requests` | Root | Seller withdrawal requests |
+| 11 | `avis` | Root | User reviews / ratings |
+| 12 | `swaps` | Root | Swap proposals between users |
+| 13 | `swapParties` | Root | Swap party (zone) events |
+| 14 | `swapPartyParticipants` | Root | Users enrolled in a swap party |
+| 15 | `swapPartyItems` | Root | Articles submitted to a swap party |
+| 16 | `notifications` | Root | Push notification records |
+| 17 | `drafts` | Root | Unsaved article drafts |
+| 18 | `guest_preferences` | Root | Onboarding preferences for unauthenticated users |
+| 19 | `moments` | Root | Seasonal/event moments for curated feeds |
+| 20 | `embeddings` | Root | Vertex AI multimodal embeddings per article |
+| 21 | `search_index` | Root | Denormalized search documents |
+| 22 | `stats` | Root | Aggregated platform statistics |
+| 23 | `rate_limits` | Root | Rate limiting counters for Cloud Functions |
+| 24 | `wallets` | Root | Virtual wallet balances (all amounts in cents) |
+| 25 | `wallets/{uid}/ledger` | Sub-collection | Wallet transaction ledger entries |
 
 ---
 
@@ -507,32 +506,6 @@ interface TransactionDocument {
   cancelledAt?: Timestamp;
   completedAt?: Timestamp;        // When meetup was completed
   updatedAt?: Timestamp;
-}
-```
-
-### `seller_balances/{userId}`
-
-Tracks a seller's financial balance. Mutations are always server-side via `runTransaction`.
-
-```typescript
-interface SellerBalanceDocument {
-  userId: string;
-  availableBalance: number;      // Funds ready for withdrawal
-  pendingBalance: number;        // Funds held until delivery confirmed
-  totalEarnings: number;         // Lifetime earnings (shipping + meetup combined)
-  totalMeetupEarnings?: number;  // Meetup-only earnings (in-person, not platform-processed)
-
-  // Embedded transaction log
-  transactions: {
-    id: string;                  // Transaction or withdrawal ID
-    type: 'sale' | 'withdrawal';
-    amount: number;              // Positive for sales, negative for withdrawals
-    description: string;
-    createdAt: Timestamp | Date;
-    status: 'pending' | 'completed';
-  }[];
-
-  updatedAt: Timestamp;
 }
 ```
 

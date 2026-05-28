@@ -165,7 +165,7 @@ export default function SettingsScreen() {
           <SettingItem
             icon="wallet-outline"
             title="Mon porte-monnaie"
-            onPress={() => router.push('/seller-balance')}
+            onPress={() => router.push('/wallet')}
           />
         </SettingSection>
 

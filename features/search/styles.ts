@@ -229,4 +229,40 @@ export const searchStyles = StyleSheet.create({
   content: {
     flex: 1,
   },
+
+  // ── Error state ──
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: 12,
+  },
+  errorTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 16,
+    color: colors.foreground,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  errorSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.white,
+    letterSpacing: 0.3,
+  },
 });

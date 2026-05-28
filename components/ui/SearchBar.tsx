@@ -20,12 +20,13 @@ import {
   ViewStyle,
 } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, typography, animations, fonts, shadows } from '@/constants/theme';
+import { colors, radius, spacing, typography, fonts, shadows } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -70,11 +71,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.98, animations.spring.snappy);
+    scale.value = withTiming(0.98, { duration: 150, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.gentle);
+    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   }, [scale]);
 
   const handlePress = useCallback(() => {
@@ -88,11 +89,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }, [onCameraPress]);
 
   const handleFilterPressIn = useCallback(() => {
-    filterScale.value = withSpring(0.9, animations.spring.snappy);
+    filterScale.value = withTiming(0.9, { duration: 150, easing: Easing.out(Easing.ease) });
   }, [filterScale]);
 
   const handleFilterPressOut = useCallback(() => {
-    filterScale.value = withSpring(1, animations.spring.bouncy);
+    filterScale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   }, [filterScale]);
 
   const handleFilterPress = useCallback(() => {

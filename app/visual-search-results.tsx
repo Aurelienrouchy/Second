@@ -26,6 +26,21 @@ import { searchByImage, VisualSearchResult } from '@/services/visualSearchServic
 import ProductCard from '@/components/ProductCard';
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
+function mapErrorToUserMessage(err: any): string {
+  const code = err?.code || err?.message || '';
+  if (code.includes('unauthenticated'))
+    return 'Session expirée. Veuillez vous reconnecter et réessayer.';
+  if (code.includes('resource-exhausted'))
+    return 'Vous avez atteint la limite de recherches. Réessayez dans quelques instants.';
+  if (code.includes('invalid-argument'))
+    return "L'image n'a pas pu être traitée. Essayez avec une autre photo.";
+  if (code.includes('internal'))
+    return "L'analyse de l'image a échoué. Essayez avec une autre photo.";
+  if (code.includes('unavailable') || code.includes('network'))
+    return 'Connexion impossible. Vérifiez votre connexion internet.';
+  return 'Une erreur est survenue. Veuillez réessayer.';
+}
+
 // ============================================================
 // Constants
 // ============================================================
@@ -62,7 +77,7 @@ export default function VisualSearchResultsScreen() {
       setResults(searchResults);
     } catch (err: any) {
       if (__DEV__) console.error('[VisualSearchResults] Search failed:', err);
-      setError(err.message || "Impossible d'analyser l'image");
+      setError(mapErrorToUserMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -219,7 +234,8 @@ export default function VisualSearchResultsScreen() {
             numColumns={2}
             ListHeaderComponent={renderHeader}
             showsVerticalScrollIndicator={false}
-
+            // @ts-expect-error estimatedItemSize valid at runtime
+            estimatedItemSize={280}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
@@ -338,14 +354,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     left: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: colors.overlay,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radius.xs,
     zIndex: 10,
   },
   similarityText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 11,
     fontFamily: typography.label.fontFamily,
     fontWeight: '600',
@@ -374,7 +390,7 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: colors.whiteTranslucent,
   },
   loadingTitle: {
     fontFamily: typography.label.fontFamily,

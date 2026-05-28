@@ -136,6 +136,8 @@ export default function ChatScreen() {
         aspect: [4, 3],
         quality: 0.8,
         exif: false,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
       });
       if (!result.canceled && result.assets[0]) {
         setIsSendingImage(true);

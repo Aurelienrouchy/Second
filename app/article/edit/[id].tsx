@@ -421,6 +421,8 @@ export default function EditArticleScreen() {
         quality: 0.8,
         exif: false,
         selectionLimit: remainingSlots,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
       });
       if (!result.canceled && result.assets.length > 0) {
         const newImages = result.assets.map((asset) => ({ url: asset.uri }));

@@ -165,6 +165,7 @@ async function processImage(uri: string): Promise<ProcessedImage> {
     wasCompressed,
     originalSize: fileInfo.size,
     finalSize: finalInfo.size,
+    processedUri,
   };
 }
 
@@ -373,10 +374,7 @@ export async function analyzeProductImage(
       try {
         const processed = await processImage(uri);
         processedImages.push(processed);
-
-        // Get the processed URI for Storage upload
-        // We need to reconstruct it from the original or use a temp file
-        processedUris.push(uri); // For now use original, compression is done in processImage
+        processedUris.push(processed.processedUri);
       } catch (error: any) {
         const errorCode = error.message as AIErrorCode;
         if (['IMAGE_TOO_LARGE', 'UNSUPPORTED_FORMAT', 'INVALID_IMAGE'].includes(errorCode)) {
@@ -402,7 +400,7 @@ export async function analyzeProductImage(
     if (__DEV__) console.log(`[aiService] Uploading ${imageUris.length} image(s) to Storage... (user: ${auth.currentUser.uid})`);
     try {
       uploadedStorageUrls = await uploadImagesToStorage(
-        imageUris, // Use original URIs (fetched as blobs for upload)
+        processedUris,
         effectiveDraftId,
         (uploaded, total) => {
           // Update progress during upload phase (0-30%)

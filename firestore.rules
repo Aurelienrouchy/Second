@@ -560,23 +560,8 @@ service cloud.firestore {
       }
     }
 
-    // Seller Balances Collection Rules
-    //
-    // SECURITY: balance mutations are server-side ONLY. All writes go
-    // through Cloud Functions (stripeWebhook, checkTrackingStatus,
-    // requestWithdrawal) which use the Admin SDK and bypass these rules.
-    // Letting clients write was the vector for double-spend / forged
-    // crediting.
-    match /seller_balances/{userId} {
-      // Allow read only by owner
-      allow read: if isOwner(userId);
-
-      // No client writes — Cloud Functions only (Admin SDK bypasses rules)
-      allow create, update, delete: if false;
-    }
-
     // Withdrawal Requests Collection — read-only client view of pending
-    // / processed withdrawals. Created by requestWithdrawal CF.
+    // / processed withdrawals. Created by walletWithdraw CF.
     match /withdrawal_requests/{withdrawalId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid ||

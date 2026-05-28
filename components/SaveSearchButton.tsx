@@ -9,13 +9,13 @@ import {
   Switch,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/contexts/AuthRequiredContext';
+import { getLeafCategoryLabel } from '@/data/categories-v2';
 import { SavedSearchService } from '@/services/savedSearchService';
 import { SearchFilters } from '@/types';
 import { colors } from '@/constants/theme';
@@ -87,7 +87,7 @@ function SaveSearchButtonComponent({
 
       onSaved?.();
     } catch (error) {
-      console.error('Error saving search:', error);
+      if (__DEV__) console.error('Error saving search:', error);
       Alert.alert(
         'Erreur',
         'Impossible de sauvegarder la recherche. Veuillez réessayer.',
@@ -106,7 +106,8 @@ function SaveSearchButtonComponent({
     }
 
     if (f.categoryIds && f.categoryIds.length > 0) {
-      parts.push(f.categoryIds[f.categoryIds.length - 1]);
+      const categoryLabel = getLeafCategoryLabel(f.categoryIds);
+      parts.push(categoryLabel || f.categoryIds[f.categoryIds.length - 1]);
     }
 
     if (f.brands && f.brands.length > 0) {
@@ -122,14 +123,13 @@ function SaveSearchButtonComponent({
 
   return (
     <>
-      <TouchableOpacity
-        style={[styles.button, style]}
+      <Pressable
+        style={({ pressed }) => [styles.button, style, pressed && { opacity: 0.7 }]}
         onPress={handleOpenModal}
-        activeOpacity={0.7}
       >
         <Ionicons name="bookmark-outline" size={20} color={colors.primary} />
         <Text style={styles.buttonText}>Sauvegarder</Text>
-      </TouchableOpacity>
+      </Pressable>
 
       <Modal
         visible={isModalVisible}
@@ -195,7 +195,7 @@ function SaveSearchButtonComponent({
                 <View style={styles.summaryRow}>
                   <Ionicons name="folder-outline" size={16} color={colors.muted} />
                   <Text style={styles.summaryText}>
-                    Catégorie: {filters.categoryIds[filters.categoryIds.length - 1]}
+                    Catégorie: {getLeafCategoryLabel(filters.categoryIds) || filters.categoryIds[filters.categoryIds.length - 1]}
                   </Text>
                 </View>
               )}
@@ -220,11 +220,14 @@ function SaveSearchButtonComponent({
 
           {/* Save Button */}
           <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.saveButton,
+                isSaving && styles.saveButtonDisabled,
+                pressed && { opacity: 0.8 },
+              ]}
               onPress={handleSave}
               disabled={isSaving || !searchName.trim()}
-              activeOpacity={0.8}
             >
               {isSaving ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -234,7 +237,7 @@ function SaveSearchButtonComponent({
                   <Text style={styles.saveButtonText}>Sauvegarder</Text>
                 </>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Modal>

@@ -88,7 +88,11 @@ export function useSearchScreen() {
     selectedCategoryPath,
     isLoading,
     isPaginating,
+    hasNextPage,
     hasActiveFilters,
+    error: searchError,
+    isError,
+    refetch,
     setFilters,
     setSearchQuery: setActiveSearchQuery,
     setSelectedCategoryPath,
@@ -99,6 +103,7 @@ export function useSearchScreen() {
     initialFilters,
     initialQuery: params.query,
     initialCategoryPath,
+    sellerId: params.shopId,
   });
 
   // ─── Category navigation (used by CategoryBottomSheet) ──────────
@@ -178,6 +183,7 @@ export function useSearchScreen() {
     if (item.filters.categoryIds) {
       setSelectedCategoryPath(item.filters.categoryIds);
     }
+    setSelectedSort((item.filters?.sortBy as SortBy) || 'recent');
     setIsSearching(true);
     setActiveSearchQuery(item.query || '');
   }, [setActiveSearchQuery, setFilters, setSelectedCategoryPath]);
@@ -203,6 +209,7 @@ export function useSearchScreen() {
 
   const handleClearAll = useCallback(() => {
     setSearchQueryLocal('');
+    setActiveSearchQuery('');
     clearAllFilters();
     setSelectedCategoryPath([]);
     categoryNav.goToRoot();
@@ -211,7 +218,7 @@ export function useSearchScreen() {
     setMinPriceText('');
     setMaxPriceText('');
     setShowPriceInputs(false);
-  }, [clearAllFilters, categoryNav, setSelectedCategoryPath]);
+  }, [clearAllFilters, categoryNav, setSelectedCategoryPath, setActiveSearchQuery]);
 
   // ─── Visual search ──────────────────────────────────────────────
   const handleOpenVisualSearch = useCallback(() => {
@@ -392,7 +399,7 @@ export function useSearchScreen() {
 
   const anyFilterActive =
     isCategoryActive || isColorActive || isSizeActive || isMaterialActive ||
-    isBrandActive || isConditionActive || isPriceActive;
+    isBrandActive || isConditionActive || isPriceActive || isSortActive;
 
   // ─── Page title ─────────────────────────────────────────────────
   const getPageTitle = (): string => {
@@ -434,8 +441,13 @@ export function useSearchScreen() {
     selectedCategoryPath,
     isLoading,
     isPaginating,
+    hasNextPage,
     hasActiveFilters,
+    searchError,
+    isError,
+    refetch,
     isSearching,
+    isGuest: !user,
     setIsSearching,
     loadMore,
     handleFilterRemove,

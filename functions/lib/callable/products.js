@@ -539,7 +539,24 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     if (Object.keys(sanitized).length === 0) {
         throw new https_1.HttpsError('invalid-argument', 'Aucun champ valide a mettre a jour');
     }
-    // ── 4. Transaction: ownership + sold check + price drop + write ──
+    // ── 4. Transaction lock: reject if an active transaction exists (P-LOCK) ──
+    // Query BEFORE the Firestore transaction (queries not allowed inside tx).
+    const activeTransactions = await firebase_1.db
+        .collection('transactions')
+        .where('articleId', '==', articleId)
+        .where('status', 'in', [
+        'pending',
+        'meetup_pending',
+        'meetup_confirmed',
+        'shipping_pending',
+        'shipping_in_transit',
+    ])
+        .limit(1)
+        .get();
+    if (!activeTransactions.empty) {
+        throw new https_1.HttpsError('failed-precondition', 'Une transaction est en cours sur cet article. Modification impossible.');
+    }
+    // ── 5. Transaction: ownership + sold/active check + price drop + write ──
     const articleRef = firebase_1.db.collection('articles').doc(articleId);
     await firebase_1.db.runTransaction(async (tx) => {
         const snap = await tx.get(articleRef);
@@ -554,6 +571,10 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         // Block editing sold articles
         if (existing.isSold === true) {
             throw new https_1.HttpsError('failed-precondition', 'Impossible de modifier un article vendu');
+        }
+        // Block editing deactivated articles (task #14)
+        if (existing.isActive === false) {
+            throw new https_1.HttpsError('failed-precondition', 'Impossible de modifier un article desactive');
         }
         // Price drop tracking: if price has decreased, record it
         if (sanitized.price !== undefined &&

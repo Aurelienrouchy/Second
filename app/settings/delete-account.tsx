@@ -4,8 +4,8 @@
 
 import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
-import { SellerBalanceService } from '@/services/sellerBalanceService';
 import { TransactionService } from '@/services/transactionService';
+import { WalletService } from '@/services/walletService';
 import { resetAllStores } from '@/store/resetAllStores';
 import { formatPrice } from '@/utils/formatPrice';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
@@ -99,32 +99,32 @@ export default function DeleteAccountScreen() {
         return;
       }
 
-      // Vérifier le solde vendeur avant suppression
+      // Vérifier le solde du porte-monnaie avant suppression
       try {
-        const balance = await SellerBalanceService.getBalance(user.id);
-        if (balance.availableBalance > 0) {
+        const walletInfo = await WalletService.getWalletInfo();
+        if (walletInfo.hasWallet && walletInfo.balance > 0) {
           Alert.alert(
             'Solde en attente',
-            `Vous avez ${formatPrice(balance.availableBalance)} disponible sur votre porte-monnaie. Veuillez effectuer un retrait avant de supprimer votre compte.`,
+            `Vous avez ${formatPrice(walletInfo.balance / 100)} disponible sur votre porte-monnaie. Veuillez effectuer un retrait avant de supprimer votre compte.`,
             [{ text: 'OK' }]
           );
           setLoading(false);
           return;
         }
-        if (balance.pendingBalance > 0) {
+        if (walletInfo.hasWallet && walletInfo.pendingBalance > 0) {
           Alert.alert(
             'Transactions en cours',
-            `Vous avez ${formatPrice(balance.pendingBalance)} en attente de traitement. Veuillez attendre que toutes les transactions soient terminées avant de supprimer votre compte.`,
+            `Vous avez ${formatPrice(walletInfo.pendingBalance / 100)} en attente de traitement. Veuillez attendre que toutes les transactions soient terminées avant de supprimer votre compte.`,
             [{ text: 'OK' }]
           );
           setLoading(false);
           return;
         }
-      } catch (balanceError) {
-        if (__DEV__) console.error('Error checking seller balance:', balanceError);
+      } catch (walletError) {
+        if (__DEV__) console.error('Error checking wallet balance:', walletError);
         Alert.alert(
           'Erreur',
-          'Impossible de vérifier votre solde vendeur. Vérifiez votre connexion et réessayez.'
+          'Impossible de vérifier votre solde. Vérifiez votre connexion et réessayez.'
         );
         setLoading(false);
         return;
