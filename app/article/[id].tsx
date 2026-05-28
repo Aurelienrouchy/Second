@@ -203,7 +203,7 @@ export default function ArticleDetailScreen() {
         articleId={article.id}
         articleTitle={article.title}
         currentPrice={article.price}
-        defaultMode={article.isShipping && !article.isHandDelivery ? 'shipping' : 'meetup'}
+        defaultMode={SHIPPING_ENABLED && article.isShipping && !article.isHandDelivery ? 'shipping' : 'meetup'}
         sellerNeighborhood={article.neighborhood}
         sellerPreferredSpots={article.preferredMeetupSpots}
         onMeetupOfferSubmit={handleMeetupOfferSubmit}
