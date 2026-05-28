@@ -186,8 +186,9 @@ export default function EditArticleScreen() {
         size: articleData.size || null,
         brand: articleData.brand || '',
         price: articleData.price || 0,
-        isHandDelivery: articleData.isHandDelivery ?? false,
-        isShipping: articleData.isShipping ?? true,
+        // Shipping désactivé : un article legacy en shipping est ramené au main-à-main.
+        isHandDelivery: SHIPPING_ENABLED ? (articleData.isHandDelivery ?? false) : true,
+        isShipping: SHIPPING_ENABLED ? (articleData.isShipping ?? true) : false,
         neighborhoods: articleData.neighborhoods || (articleData.neighborhood ? [articleData.neighborhood] : []),
         packageSize: (articleData.packageSize as PackageSize) || null,
       };
