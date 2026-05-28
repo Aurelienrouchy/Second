@@ -1,6 +1,7 @@
 /**
  * PartyHeader Component
- * Sticky header with back button, party name/status, and countdown badge
+ * Sticky header with back button and zone name.
+ * The Swap Zone is always active — no status label, no countdown badge.
  */
 
 import React from 'react';
@@ -13,7 +14,6 @@ import type { PartyHeaderProps } from '../types';
 
 export const PartyHeader = React.memo(function PartyHeader({
   party,
-  countdownDays,
   onBack,
 }: PartyHeaderProps) {
   return (
@@ -26,17 +26,9 @@ export const PartyHeader = React.memo(function PartyHeader({
       </Pressable>
 
       <View style={styles.headerTitleSection}>
-        <Text style={styles.headerLabel}>
-          Swap Zone · {party.status === 'active' ? 'En cours' : party.status === 'ended' ? 'Terminée' : 'À venir'}
-        </Text>
+        <Text style={styles.headerLabel}>Swap Zone</Text>
         <Text style={styles.headerTitle}>{party.name}</Text>
       </View>
-
-      {countdownDays !== null && (
-        <View style={styles.countdownBadge}>
-          <Text style={styles.badgeText}>J-{countdownDays}</Text>
-        </View>
-      )}
     </View>
   );
 });
