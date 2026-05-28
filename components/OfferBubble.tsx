@@ -327,7 +327,9 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const canRespondToOffer = !isOwnMessage && status === 'pending';
   // Buyer can pay when offer is accepted and it's not a meetup. For shipping
   // offers the transaction may not exist yet — the checkout flow creates it.
-  const canPay = isOwnMessage && status === 'accepted' && !isMeetupOffer;
+  // Shipping désactivé : on ne propose pas de payer une offre shipping legacy.
+  const canPay =
+    isOwnMessage && status === 'accepted' && !isMeetupOffer && (SHIPPING_ENABLED || isMeetupOffer);
   const isSeller = !!sellerId && currentUserId === sellerId;
   const isBuyer = !!sellerId && currentUserId !== sellerId;
   // Seller confirms meetup ("J'ai rencontre l'acheteur") — before confirmedAt is set
