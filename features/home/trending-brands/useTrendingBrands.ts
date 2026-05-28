@@ -29,7 +29,7 @@ export function useTrendingBrands() {
     // Trending brands change at most once a day server-side. Long
     // staleTime so revisiting the home tab doesn't hit the CF every
     // time. gcTime keeps the cached payload alive between sessions.
-    staleTime: 60 * 60 * 1000, // 1 h
+    staleTime: TRENDING_BRANDS_STALE_TIME,
     gcTime: 24 * 60 * 60 * 1000, // 24 h
   });
 }
