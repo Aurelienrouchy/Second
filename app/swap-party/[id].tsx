@@ -178,8 +178,8 @@ export default function SwapPartyDetailScreen() {
     if (!user || !party) return;
 
     Alert.alert(
-      'Quitter la party',
-      'Es-tu sûr de vouloir quitter cette Swap Zone ? Tes articles seront retirés.',
+      'Quitter la Swap Zone',
+      'Es-tu sûr de vouloir quitter la Swap Zone ? Tes articles seront retirés.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -192,7 +192,7 @@ export default function SwapPartyDetailScreen() {
               invalidatePartyData();
             } catch (error) {
               if (__DEV__) console.error('Error leaving party:', error);
-              Alert.alert('Erreur', 'Impossible de quitter la party');
+              Alert.alert('Erreur', 'Impossible de quitter la Swap Zone');
             }
           },
         },
