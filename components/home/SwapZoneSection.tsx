@@ -59,8 +59,6 @@ interface SwapZoneSectionProps {
 // CONSTANTS
 // =============================================================================
 
-// Deep sage gradient for the card surface (Editorial Luxe, dark hero).
-const CARD_GRADIENT = [colors.dark, colors.secondary] as const;
 // Bottom scrim so overlaid copy stays legible over the image collage.
 const SCRIM_GRADIENT = ['transparent', 'rgba(26, 24, 20, 0.85)'] as const;
 
