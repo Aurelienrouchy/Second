@@ -37,6 +37,7 @@ import type { ShippingEstimate, AddressFormValues } from '@/features/checkout-sh
 import { homeKeys } from '@/features/home/query-keys';
 import { useAuthStore } from '@/store/authStore';
 import { useWallet } from '@/hooks/useWallet';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
 /** Default postal code used when seller location is unavailable */
 const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
