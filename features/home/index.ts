@@ -13,6 +13,7 @@ export { PriceDropsSection } from './price-drops/PriceDropsSection';
 export { SectionErrorBoundary } from './SectionErrorBoundary';
 export { SwapZoneWrapper } from './swap-zone/SwapZoneSection';
 export { useSwapParties } from './swap-zone/useSwapParties';
+export { useSwapZoneItems } from './swap-zone/useSwapZoneItems';
 export { TrendingBrandsSection } from './trending-brands/TrendingBrandsSection';
 export { homeKeys } from './query-keys';
 export { prefetchHome } from './prefetchHome';
