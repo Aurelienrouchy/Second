@@ -79,6 +79,11 @@ export default function ShippingCheckoutScreen() {
   // --- Auth guard -------------------------------------------------------------
 
   useEffect(() => {
+    // Garde-fou deep link : le shipping est désactivé, on renvoie au checkout.
+    if (!SHIPPING_ENABLED) {
+      router.replace('/checkout');
+      return;
+    }
     if (!auth.currentUser) {
       router.replace('/(tabs)');
     }
