@@ -1,8 +1,12 @@
 /**
- * Script to create swap parties for Seconde
+ * Script to (re)create the single permanent generalist Swap Zone for Seconde.
  * Run with: node scripts/seed-swap-parties.js
  *
- * ⚠️  DESTRUCTIF : supprime TOUTES les swapParties existantes avant de réinjecter.
+ * Modèle actuel : UNE seule Swap Zone généraliste, toujours active, SANS fenêtre
+ * de temps (pas d'endDate). On repart à zéro : suppression de toutes les
+ * swapParties existantes puis création d'UN SEUL document zone permanente.
+ *
+ * ⚠️  DESTRUCTIF : supprime TOUTES les swapParties existantes avant de recréer.
  * ⚠️  Cible le projet pointé par le service account (prod seconde-b47a6 si la clé prod est utilisée).
  * Place ta clé service account dans functions/serviceAccountKey.json (non commitée).
  */
