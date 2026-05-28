@@ -445,7 +445,7 @@ export default function ChatScreen() {
           articleId={chat?.articleId || ''}
           articleTitle={chat?.articleTitle || ''}
           currentPrice={article?.price ?? chat?.articlePrice ?? 0}
-          defaultMode={article?.isShipping && !article?.isHandDelivery ? 'shipping' : 'meetup'}
+          defaultMode={SHIPPING_ENABLED && article?.isShipping && !article?.isHandDelivery ? 'shipping' : 'meetup'}
           sellerNeighborhood={article?.neighborhood}
           sellerPreferredSpots={article?.preferredMeetupSpots}
           onMeetupOfferSubmit={handleMeetupOfferSubmit}
