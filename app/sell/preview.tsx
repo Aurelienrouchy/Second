@@ -23,6 +23,7 @@ import { ArticlesService } from '@/services/articlesService';
 import { auth } from '@/config/firebaseConfig';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const HERO_HEIGHT = 340;
