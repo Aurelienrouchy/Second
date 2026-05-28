@@ -81,13 +81,10 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
     icon: 'heart-outline',
     iconColor: colors.danger,
   },
-  {
-    id: 'swapZoneReminder',
-    title: 'Rappels Swap Zone',
-    description: 'Rappel 3 jours avant l\'événement',
-    icon: 'calendar-outline',
-    iconColor: colors.warning,
-  },
+  // 'swapZoneReminder' toggle intentionally hidden: the Swap Zone is now a
+  // permanent zone (no time window), so the 3-day reminder cron is disabled
+  // backend-side. The preference key is kept in NotificationType/DEFAULT_SETTINGS
+  // for data-shape stability and reversibility.
   {
     id: 'offerReceived',
     title: 'Propositions d\'achat',
