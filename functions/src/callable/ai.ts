@@ -11,6 +11,7 @@ import {
   estimateTokens,
 } from '../services/ai';
 import { loadBrands } from '../services/brands';
+import { brandDisplay } from '../utils/normalizeBrand';
 import { db, FieldValue } from '../config/firebase';
 
 interface ImageData {
