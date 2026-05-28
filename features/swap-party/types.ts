@@ -13,7 +13,8 @@ export interface PartyHeaderProps {
 
 export interface MyArticlesSectionProps {
   userItems: SwapPartyItemExtended[];
-  partyStatus: SwapParty['status'];
+  /** @deprecated Swap Zone is always active — status no longer gates add/remove. */
+  partyStatus?: SwapParty['status'];
   onAddPress: () => void;
   onRemoveItem: (articleId: string) => void;
 }
