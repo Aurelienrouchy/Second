@@ -168,7 +168,7 @@ export default function SwapPartyDetailScreen() {
       invalidatePartyData();
     } catch (error) {
       if (__DEV__) console.error('Error joining party:', error);
-      Alert.alert('Erreur', 'Impossible de rejoindre la party');
+      Alert.alert('Erreur', 'Impossible de rejoindre la Swap Zone');
     } finally {
       setIsJoining(false);
     }
