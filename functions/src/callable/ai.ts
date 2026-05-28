@@ -213,6 +213,14 @@ export const analyzeProductImage = onCall(
         throw new HttpsError('internal', 'Failed to parse AI response');
       }
 
+      // Best-effort casing normalization of the detected brand before any
+      // downstream matching (matchBrand) — Gemini returns inconsistent casing
+      // (e.g. "SELECTED"/"selected"/"Selected"). The canonical normalization at
+      // storage (products.ts) remains the primary guard.
+      if (jsonResponse.brand && typeof jsonResponse.brand === 'string') {
+        jsonResponse.brand = brandDisplay(jsonResponse.brand);
+      }
+
       // Map genre to topLevelCategory for compatibility
       const genreMap: Record<string, string> = {
         femmes: 'women',
