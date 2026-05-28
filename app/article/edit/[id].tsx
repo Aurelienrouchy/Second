@@ -748,22 +748,24 @@ export default function EditArticleScreen() {
           )}
 
           {/* Shipping toggle */}
-          <Pressable
-            style={styles.deliveryToggle}
-            onPress={() => updateField('isShipping', !fields.isShipping)}
-          >
-            <View style={styles.deliveryToggleLeft}>
-              <Ionicons name="cube-outline" size={20} color={colors.foreground} />
-              <Text style={styles.deliveryToggleLabel}>Expédition</Text>
-            </View>
-            <Ionicons
-              name={fields.isShipping ? 'checkbox' : 'square-outline'}
-              size={22}
-              color={fields.isShipping ? colors.primary : colors.muted}
-            />
-          </Pressable>
+          {SHIPPING_ENABLED && (
+            <Pressable
+              style={styles.deliveryToggle}
+              onPress={() => updateField('isShipping', !fields.isShipping)}
+            >
+              <View style={styles.deliveryToggleLeft}>
+                <Ionicons name="cube-outline" size={20} color={colors.foreground} />
+                <Text style={styles.deliveryToggleLabel}>Expédition</Text>
+              </View>
+              <Ionicons
+                name={fields.isShipping ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={fields.isShipping ? colors.primary : colors.muted}
+              />
+            </Pressable>
+          )}
 
-          {fields.isShipping && (
+          {SHIPPING_ENABLED && fields.isShipping && (
             <View style={styles.packageSizeRow}>
               {(['small', 'medium', 'large'] as const).map((size) => {
                 const labels: Record<PackageSize, string> = {
