@@ -443,8 +443,11 @@ export const joinSwapPartySecure = onCall(
           throw new HttpsError('not-found', 'Swap party introuvable');
         }
         const partyData = partySnap.data()!;
-        if (!['upcoming', 'active'].includes(partyData.status)) {
-          throw new HttpsError('failed-precondition', 'Cette swap party n\'est plus ouverte');
+        // Kill-switch guard only: the Swap Zone is a single permanent zone with
+        // no time window. We keep requiring status === 'active' so the zone can
+        // be manually closed if needed, but there is no date/upcoming logic.
+        if (partyData.status !== 'active') {
+          throw new HttpsError('failed-precondition', 'La Swap Zone est actuellement fermée');
         }
 
         // Check maxParticipants limit
