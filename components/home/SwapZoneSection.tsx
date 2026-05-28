@@ -151,6 +151,18 @@ const CtaRow: React.FC<CtaRowProps> = ({ light = false }) => (
 );
 
 // =============================================================================
+// SHARED — "coming soon" label (non-interactive, replaces the CTA when there
+// is no active zone so the card never shows a dead button)
+// =============================================================================
+
+const ComingSoonLabel: React.FC = () => (
+  <View style={styles.comingSoonRow}>
+    <Ionicons name="time-outline" size={sizing.iconSM} color={colors.secondary} />
+    <Text style={styles.comingSoonText}>Bientôt disponible</Text>
+  </View>
+);
+
+// =============================================================================
 // FULL STATE — image-driven hero
 // =============================================================================
 
