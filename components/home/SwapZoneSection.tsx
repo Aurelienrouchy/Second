@@ -8,10 +8,16 @@
  * a prominent available-items counter, an optional freshness signal, and a
  * clear CTA.
  *
- * States:
- * - full   : collage of up to 6 item images + counter + CTA
- * - empty  : inviting teaser (icon + hook + CTA) — never a sad flat rectangle
- * - loading: light skeleton (collage tiles + text lines)
+ * States (driven by `zone` presence + `items` + `onPress`):
+ * - full    : zone has items → collage of up to 6 images + counter + tappable CTA
+ * - empty   : zone exists but has no items → inviting teaser, tappable CTA (enter the empty zone)
+ * - teaser  : no zone active (onPress absent) → same visual teaser but NON-interactive,
+ *             no dead CTA — shows a "Bientôt disponible" label instead
+ * - loading : light skeleton (collage tiles + text lines)
+ *
+ * Interactivity is keyed off `onPress`: when the wrapper passes no handler
+ * (no active zone) the card never renders a Pressable, so there is never a
+ * button that does nothing.
  *
  * This component is purely presentational: data is fetched by the feature
  * wrapper (features/home/swap-zone) and passed down as props.
