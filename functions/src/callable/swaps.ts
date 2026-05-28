@@ -349,71 +349,53 @@ export const acceptSwap = onCall(
 );
 
 /**
- * Get active swap party info for homepage
+ * Get the single, always-on generalist Swap Zone for the homepage.
+ *
+ * The Swap Zone is now ONE permanent, generalist, always-active zone with no
+ * time window. There is no "upcoming" / countdown / theme concept anymore.
+ * This resolver returns the generalist party directly (fallback: first active
+ * party) and exposes only the live counters — no startDate/endDate/theme.
  */
 export const getActiveSwapPartyInfo = onCall(
   { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async () => {
   try {
-    // Get currently active party
-    const activeSnapshot = await db
+    // Prefer the single generalist zone; fall back to the first active party.
+    let snapshot = await db
       .collection('swapParties')
-      .where('status', '==', 'active')
+      .where('isGeneralist', '==', true)
       .limit(1)
       .get();
 
-    if (!activeSnapshot.empty) {
-      const party = activeSnapshot.docs[0];
-      const partyData = party.data();
-      return {
-        hasActiveParty: true,
-        party: {
-          id: party.id,
-          name: partyData.name,
-          emoji: partyData.emoji,
-          description: partyData.description,
-          theme: partyData.theme,
-          isGeneralist: partyData.isGeneralist,
-          endDate: partyData.endDate?.toDate().toISOString(),
-          participantsCount: partyData.participantsCount || 0,
-          itemsCount: partyData.itemsCount || 0,
-          swapsCount: partyData.swapsCount || 0,
-        },
-        nextParty: null,
-      };
+    if (snapshot.empty) {
+      snapshot = await db
+        .collection('swapParties')
+        .where('status', '==', 'active')
+        .limit(1)
+        .get();
     }
 
-    // No active party, get next upcoming
-    const upcomingSnapshot = await db
-      .collection('swapParties')
-      .where('status', '==', 'upcoming')
-      .orderBy('startDate', 'asc')
-      .limit(1)
-      .get();
-
-    if (!upcomingSnapshot.empty) {
-      const party = upcomingSnapshot.docs[0];
-      const partyData = party.data();
+    if (snapshot.empty) {
       return {
         hasActiveParty: false,
         party: null,
-        nextParty: {
-          id: party.id,
-          name: partyData.name,
-          emoji: partyData.emoji,
-          description: partyData.description,
-          theme: partyData.theme,
-          isGeneralist: partyData.isGeneralist,
-          startDate: partyData.startDate?.toDate().toISOString(),
-          endDate: partyData.endDate?.toDate().toISOString(),
-        },
       };
     }
 
+    const party = snapshot.docs[0];
+    const partyData = party.data();
     return {
-      hasActiveParty: false,
-      party: null,
-      nextParty: null,
+      hasActiveParty: true,
+      party: {
+        id: party.id,
+        name: partyData.name,
+        emoji: partyData.emoji,
+        description: partyData.description,
+        isGeneralist: partyData.isGeneralist,
+        participantsCount: partyData.participantsCount || 0,
+        itemsCount: partyData.itemsCount || 0,
+        swapsCount: partyData.swapsCount || 0,
+      },
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
