@@ -14,3 +14,4 @@ export { SectionErrorBoundary } from './SectionErrorBoundary';
 export { SwapZoneWrapper } from './swap-zone/SwapZoneSection';
 export { TrendingBrandsSection } from './trending-brands/TrendingBrandsSection';
 export { homeKeys } from './query-keys';
+export { prefetchHome } from './prefetchHome';
