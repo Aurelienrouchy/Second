@@ -8,6 +8,7 @@ exports.analyzeProductImage = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const ai_1 = require("../services/ai");
 const brands_1 = require("../services/brands");
+const normalizeBrand_1 = require("../utils/normalizeBrand");
 const firebase_1 = require("../config/firebase");
 // Rate limiting constants
 const RATE_LIMIT_MAX_CALLS = 10;
@@ -170,6 +171,13 @@ exports.analyzeProductImage = (0, https_1.onCall)({
         catch (_e) {
             console.error('   ❌ Failed to parse response:', responseText);
             throw new https_1.HttpsError('internal', 'Failed to parse AI response');
+        }
+        // Best-effort casing normalization of the detected brand before any
+        // downstream matching (matchBrand) — Gemini returns inconsistent casing
+        // (e.g. "SELECTED"/"selected"/"Selected"). The canonical normalization at
+        // storage (products.ts) remains the primary guard.
+        if (jsonResponse.brand && typeof jsonResponse.brand === 'string') {
+            jsonResponse.brand = (0, normalizeBrand_1.brandDisplay)(jsonResponse.brand);
         }
         // Map genre to topLevelCategory for compatibility
         const genreMap = {

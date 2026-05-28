@@ -53,7 +53,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     memory: '512MiB',
     timeoutSeconds: 120,
 }, async (request) => {
-    var _a, _b, _c, _d;
+    var _a, _b;
     // 1. Auth check — only the authenticated user can delete their own account
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
@@ -61,23 +61,12 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     const uid = request.auth.uid;
     const DELETED_NAME = 'Utilisateur supprime';
     logger.info('[deleteUserAccount] Starting cleanup', { uid });
-    // 0. Pre-check: reject if the seller has a remaining balance
-    const balanceDoc = await firebase_1.db.collection('seller_balances').doc(uid).get();
-    if (balanceDoc.exists) {
-        const balData = balanceDoc.data();
-        const available = (_a = balData === null || balData === void 0 ? void 0 : balData.availableBalance) !== null && _a !== void 0 ? _a : 0;
-        const pending = (_b = balData === null || balData === void 0 ? void 0 : balData.pendingBalance) !== null && _b !== void 0 ? _b : 0;
-        if (available > 0 || pending > 0) {
-            const total = (available + pending).toFixed(2);
-            throw new https_1.HttpsError('failed-precondition', `Vous avez un solde de ${total} $. Veuillez effectuer un retrait avant de supprimer votre compte.`);
-        }
-    }
-    // 0a. Pre-check: reject if the wallet has a remaining balance (W3 — Loi 25 compliance)
+    // 0. Pre-check: reject if the wallet has a remaining balance (W3 — Loi 25 compliance)
     const walletDoc = await firebase_1.db.collection('wallets').doc(uid).get();
     if (walletDoc.exists) {
         const walletData = walletDoc.data();
-        const walletBalance = (_c = walletData === null || walletData === void 0 ? void 0 : walletData.balance) !== null && _c !== void 0 ? _c : 0;
-        const walletPending = (_d = walletData === null || walletData === void 0 ? void 0 : walletData.pendingBalance) !== null && _d !== void 0 ? _d : 0;
+        const walletBalance = (_a = walletData === null || walletData === void 0 ? void 0 : walletData.balance) !== null && _a !== void 0 ? _a : 0;
+        const walletPending = (_b = walletData === null || walletData === void 0 ? void 0 : walletData.pendingBalance) !== null && _b !== void 0 ? _b : 0;
         if (walletBalance > 0 || walletPending > 0) {
             // Wallet amounts are in cents — convert to dollars for the message
             const walletTotal = ((walletBalance + walletPending) / 100).toFixed(2);
@@ -270,7 +259,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     for (const d of txSeller.docs) {
         bulkWriter.update(d.ref, { sellerName: DELETED_NAME, updatedAt: firebase_1.FieldValue.serverTimestamp() });
     }
-    // 13. Delete seller_balances/{uid}
+    // 13. Delete seller_balances/{uid} (legacy cleanup — collection removed)
     const balRef = firebase_1.db.collection('seller_balances').doc(uid);
     const balSnap = await balRef.get();
     if (balSnap.exists)
@@ -314,7 +303,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
             try {
                 await bucket.deleteFiles({ prefix: `articles/${articleId}/` });
             }
-            catch ( /* ignore individual article cleanup errors */_e) { /* ignore individual article cleanup errors */ }
+            catch ( /* ignore individual article cleanup errors */_c) { /* ignore individual article cleanup errors */ }
         }
     }
     catch (e) {

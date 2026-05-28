@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelPendingTransaction = exports.completeMeetupTransaction = exports.requestWithdrawal = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
+exports.cancelPendingTransaction = exports.completeMeetupTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
 /**
  * Payment callable functions
  * Firebase Functions v7 - using onCall
@@ -49,6 +49,7 @@ const shipEngine_1 = require("../config/shipEngine");
 const stripe_1 = require("../config/stripe");
 const fees_1 = require("../utils/fees");
 const notifications_1 = require("../utils/notifications");
+const wallet_1 = require("./wallet");
 // =============================================================================
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
 // =============================================================================
@@ -929,7 +930,6 @@ exports.addBankAccount = (0, https_1.onCall)({ region: 'northamerica-northeast1'
         await userRef.update({
             stripeBankAccountAdded: true,
             stripeBankAccountLast4: accountNumber.slice(-4),
-            stripePayoutsEnabled: true,
         });
         logger.info('Bank account added to Stripe Custom account', {
             userId,
@@ -1058,7 +1058,7 @@ exports.findPickupPoints = (0, https_1.onCall)({ region: 'northamerica-northeast
 // CHECK TRACKING STATUS — Via ShipEngine
 // =============================================================================
 exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'] }, async (request) => {
-    var _a, _b;
+    var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -1096,136 +1096,38 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
             const txRef = firebase_1.db.collection('transactions').doc(transactionId);
             const sellerId = transaction.sellerId;
             const sellerPayout = transaction.sellerPayout || transaction.amount;
-            const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-            const paidVia = transaction.paidVia;
-            const isWalletPayment = paidVia === 'wallet' || paidVia === 'wallet_and_card';
             await firebase_1.db.runTransaction(async (t) => {
                 const txSnap = await t.get(txRef);
-                const sellerBalanceDoc = await t.get(sellerBalanceRef);
-                const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
-                const sellerWalletSnap = await t.get(sellerWalletRef);
                 // Guard: if already delivered, skip (idempotent)
                 if (txSnap.exists && txSnap.data().status === 'delivered') {
                     return;
                 }
+                // Get or create seller wallet
+                const { walletRef: sellerWalletRef, walletData: sellerWalletData } = await (0, wallet_1.getOrCreateSellerWallet)(t, sellerId);
                 // 1. Update transaction: trackingStatus + status + deliveredAt
                 t.update(txRef, {
                     trackingStatus,
                     status: 'delivered',
                     deliveredAt: firebase_1.FieldValue.serverTimestamp(),
                 });
-                // 2. Credit seller — wallet-first, fallback to seller_balances
+                // 2. Credit seller wallet: move pendingBalance -> balance
                 const sellerPayoutCents = Math.round(sellerPayout * 100);
-                if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
-                    // Seller has wallet: move pendingBalance -> balance
-                    t.update(sellerWalletRef, {
-                        pendingBalance: firebase_1.FieldValue.increment(-sellerPayoutCents),
-                        balance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                    // Create ledger entry
-                    const ledgerRef = sellerWalletRef.collection('ledger').doc();
-                    const currentWallet = sellerWalletSnap.data();
-                    t.set(ledgerRef, {
-                        type: 'sale_credit',
-                        amount: sellerPayoutCents,
-                        balanceAfter: (currentWallet.balance || 0) + sellerPayoutCents,
-                        description: 'Vente livree — fonds disponibles',
-                        transactionId,
-                        createdAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                }
-                else if (isWalletPayment) {
-                    // Wallet/mixed payment but seller has no wallet:
-                    // For wallet payments, money is on the platform. We need to transfer
-                    // to seller's Connect account via Stripe.
-                    // This is done outside the transaction (Stripe call) — see below.
-                    // For now, just credit seller_balances as pending marker.
-                    if (sellerBalanceDoc.exists) {
-                        const balanceData = sellerBalanceDoc.data();
-                        const txns = balanceData.transactions || [];
-                        const currentPending = balanceData.pendingBalance || 0;
-                        let actualPayout = sellerPayout;
-                        if (currentPending < sellerPayout) {
-                            logger.warn(`[checkTrackingStatus] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
-                            actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
-                        }
-                        const updatedTransactions = txns.map((txn) => {
-                            if (txn.id === transactionId)
-                                return Object.assign(Object.assign({}, txn), { status: 'completed' });
-                            return txn;
-                        });
-                        t.update(sellerBalanceRef, {
-                            pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
-                            availableBalance: firebase_1.FieldValue.increment(actualPayout),
-                            totalEarnings: firebase_1.FieldValue.increment(actualPayout),
-                            transactions: updatedTransactions,
-                            updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                        });
-                    }
-                }
-                else {
-                    // Standard destination charge — money already on seller's Connect account.
-                    // Just move pending -> available in seller_balances.
-                    if (sellerBalanceDoc.exists) {
-                        const balanceData = sellerBalanceDoc.data();
-                        const txns = balanceData.transactions || [];
-                        const currentPending = balanceData.pendingBalance || 0;
-                        let actualPayout = sellerPayout;
-                        if (currentPending < sellerPayout) {
-                            logger.warn(`[checkTrackingStatus] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
-                            actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
-                        }
-                        const updatedTransactions = txns.map((txn) => {
-                            if (txn.id === transactionId)
-                                return Object.assign(Object.assign({}, txn), { status: 'completed' });
-                            return txn;
-                        });
-                        t.update(sellerBalanceRef, {
-                            pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
-                            availableBalance: firebase_1.FieldValue.increment(actualPayout),
-                            totalEarnings: firebase_1.FieldValue.increment(actualPayout),
-                            transactions: updatedTransactions,
-                            updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                        });
-                    }
-                }
+                t.update(sellerWalletRef, {
+                    pendingBalance: firebase_1.FieldValue.increment(-sellerPayoutCents),
+                    balance: firebase_1.FieldValue.increment(sellerPayoutCents),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                // Create ledger entry
+                const ledgerRef = sellerWalletRef.collection('ledger').doc();
+                t.set(ledgerRef, {
+                    type: 'sale_available',
+                    amount: sellerPayoutCents,
+                    balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
+                    description: 'Vente livrée — fonds disponibles',
+                    transactionId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
             });
-            // For wallet/mixed payments where seller has no wallet:
-            // Transfer from platform to seller's Connect account via Stripe
-            if (isWalletPayment) {
-                const sellerWalletSnap = await firebase_1.db.collection('wallets').doc(sellerId).get();
-                if (!sellerWalletSnap.exists || ((_a = sellerWalletSnap.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'active') {
-                    const sellerDoc = await firebase_1.db.collection('users').doc(sellerId).get();
-                    const sellerData = sellerDoc.data();
-                    if ((sellerData === null || sellerData === void 0 ? void 0 : sellerData.stripeAccountId) && (sellerData === null || sellerData === void 0 ? void 0 : sellerData.stripeChargesEnabled)) {
-                        try {
-                            const stripe = (0, stripe_1.getStripe)();
-                            if (stripe) {
-                                const sellerPayoutCents = Math.round(sellerPayout * 100);
-                                await stripe.transfers.create({
-                                    amount: sellerPayoutCents,
-                                    currency: 'cad',
-                                    destination: sellerData.stripeAccountId,
-                                    metadata: {
-                                        transactionId,
-                                        reason: 'wallet_payment_delivery',
-                                    },
-                                });
-                                logger.info('[checkTrackingStatus] Stripe transfer created for wallet payment delivery', {
-                                    transactionId, sellerId, amount: sellerPayoutCents,
-                                });
-                            }
-                        }
-                        catch (transferErr) {
-                            logger.error('[checkTrackingStatus] Failed to create Stripe transfer for wallet payment', {
-                                transactionId, sellerId,
-                                error: transferErr instanceof Error ? transferErr.message : transferErr,
-                            });
-                        }
-                    }
-                }
-            }
             // Send system message (non-critical, outside transaction)
             if (transaction.chatId) {
                 // Look up chat participants so the message is visible to listeners
@@ -1234,7 +1136,7 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
                 try {
                     const chatSnap = await firebase_1.db.collection('chats').doc(transaction.chatId).get();
                     if (chatSnap.exists) {
-                        participants = ((_b = chatSnap.data()) === null || _b === void 0 ? void 0 : _b.participants) || [];
+                        participants = ((_a = chatSnap.data()) === null || _a === void 0 ? void 0 : _a.participants) || [];
                     }
                 }
                 catch (lookupErr) {
@@ -1288,174 +1190,6 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
     }
 });
 // =============================================================================
-// REQUEST WITHDRAWAL — Stripe Payout + atomic balance debit
-// =============================================================================
-/**
- * Caller (the seller) requests a withdrawal of `amount` from their
- * available balance. The function creates a real Stripe Payout on the
- * seller's Custom connected account, debits the seller_balance atomically,
- * and stores the payoutId for tracking.
- *
- * Prerequisites:
- * - Seller must have a stripeAccountId (Custom account)
- * - Seller must have a bank account attached (via addBankAccount)
- * - Minimum withdrawal: 10 CAD
- *
- * Why this is a CF, not a client mutation:
- * - The previous client implementation read the balance, then issued an
- *   updateDoc with `increment(-amount)`. Two concurrent requests could both
- *   pass the read-side check and double-spend.
- * - Validation (min amount, balance check, Stripe account check) must run on
- *   a server we trust.
- *
- * Authorization: caller must be the balance owner (request.auth.uid).
- */
-exports.requestWithdrawal = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
-    var _a;
-    if (!request.auth) {
-        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
-    }
-    const { amount } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
-    const userId = request.auth.uid;
-    if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
-        throw new https_1.HttpsError('invalid-argument', 'Invalid amount');
-    }
-    if (amount < 10) {
-        throw new https_1.HttpsError('invalid-argument', 'Le retrait minimum est de 10 $');
-    }
-    const stripe = (0, stripe_1.getStripe)();
-    if (!stripe) {
-        throw new https_1.HttpsError('failed-precondition', 'Stripe API not configured');
-    }
-    // Verify seller has a Stripe Custom account with bank account attached
-    const userRef = firebase_1.db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
-    if (!userDoc.exists) {
-        throw new https_1.HttpsError('not-found', 'User not found');
-    }
-    const userData = userDoc.data();
-    const stripeAccountId = userData.stripeAccountId;
-    if (!stripeAccountId) {
-        throw new https_1.HttpsError('failed-precondition', 'Aucun compte de paiement configure. Publiez un article d\'abord.');
-    }
-    if (!userData.stripeBankAccountAdded) {
-        throw new https_1.HttpsError('failed-precondition', 'Veuillez ajouter un compte bancaire avant de demander un retrait.');
-    }
-    const balanceRef = firebase_1.db.collection('seller_balances').doc(userId);
-    try {
-        // Use Firestore auto-generated ID to avoid collision from Date.now()
-        const withdrawalRef = firebase_1.db.collection('withdrawal_requests').doc();
-        const withdrawalId = withdrawalRef.id;
-        // Step 1: Atomically debit the balance and create the withdrawal record
-        const bankLast4 = userData.stripeBankAccountLast4 || '****';
-        await firebase_1.db.runTransaction(async (tx) => {
-            const snap = await tx.get(balanceRef);
-            if (!snap.exists) {
-                throw new https_1.HttpsError('not-found', 'Balance not found');
-            }
-            const data = snap.data();
-            const available = typeof data.availableBalance === 'number' ? data.availableBalance : 0;
-            if (available < amount) {
-                throw new https_1.HttpsError('failed-precondition', 'Solde insuffisant');
-            }
-            const transactions = Array.isArray(data.transactions) ? data.transactions : [];
-            const withdrawalEntry = {
-                id: withdrawalId,
-                type: 'withdrawal',
-                amount: -amount,
-                description: `Retrait vers ****${bankLast4}`,
-                // serverTimestamp() can't be used inside an array element; use Date instead.
-                createdAt: new Date(),
-                status: 'processing',
-            };
-            tx.update(balanceRef, {
-                availableBalance: firebase_1.FieldValue.increment(-amount),
-                transactions: [...transactions, withdrawalEntry],
-                updatedAt: firebase_1.FieldValue.serverTimestamp(),
-            });
-            // Persist the withdrawal request as a separate doc INSIDE the
-            // transaction so balance deduction and record creation are atomic.
-            tx.set(withdrawalRef, {
-                withdrawalId,
-                userId,
-                amount,
-                bankAccountLast4: bankLast4,
-                stripeAccountId,
-                status: 'processing',
-                createdAt: firebase_1.FieldValue.serverTimestamp(),
-            });
-        });
-        // Step 2: Create the Stripe Payout on the connected account
-        // This is outside the Firestore transaction because it's an external
-        // API call. If it fails, we have the withdrawal_request doc with status
-        // 'processing' that can be retried.
-        try {
-            const amountInCents = Math.round(amount * 100);
-            const payout = await stripe.payouts.create({
-                amount: amountInCents,
-                currency: 'cad',
-                metadata: {
-                    withdrawalId,
-                    firebaseUserId: userId,
-                },
-            }, { stripeAccount: stripeAccountId });
-            // Update the withdrawal request with the Stripe payout ID
-            await withdrawalRef.update({
-                stripePayoutId: payout.id,
-                status: 'processing',
-            });
-            logger.info('Stripe payout created', {
-                userId,
-                withdrawalId,
-                payoutId: payout.id,
-                amount,
-            });
-            return { success: true, withdrawalId, payoutId: payout.id };
-        }
-        catch (payoutError) {
-            // Stripe payout failed — revert the balance deduction
-            logger.error('Stripe payout failed — reverting balance', {
-                userId,
-                withdrawalId,
-                error: payoutError instanceof Error ? payoutError.message : payoutError,
-            });
-            await firebase_1.db.runTransaction(async (tx) => {
-                const snap = await tx.get(balanceRef);
-                if (!snap.exists)
-                    return;
-                const data = snap.data();
-                const transactions = Array.isArray(data.transactions) ? data.transactions : [];
-                const updatedTransactions = transactions.map((txn) => {
-                    if (txn.id === withdrawalId) {
-                        return Object.assign(Object.assign({}, txn), { status: 'failed' });
-                    }
-                    return txn;
-                });
-                tx.update(balanceRef, {
-                    availableBalance: firebase_1.FieldValue.increment(amount),
-                    transactions: updatedTransactions,
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            });
-            // Mark withdrawal request as failed
-            await withdrawalRef.update({
-                status: 'failed',
-                failureReason: payoutError instanceof Error ? payoutError.message : 'Unknown Stripe error',
-                failedAt: firebase_1.FieldValue.serverTimestamp(),
-            });
-            const message = payoutError instanceof Error ? payoutError.message : 'Unknown error';
-            throw new https_1.HttpsError('internal', `Echec du retrait: ${message}`);
-        }
-    }
-    catch (error) {
-        if (error instanceof https_1.HttpsError)
-            throw error;
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        logger.error('[requestWithdrawal] Error', { userId, error: message });
-        throw new https_1.HttpsError('internal', `Failed to request withdrawal: ${message}`);
-    }
-});
-// =============================================================================
 // COMPLETE MEETUP TRANSACTION — Buyer confirms receipt, credits seller
 // =============================================================================
 /**
@@ -1494,86 +1228,29 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
             }
             const sellerId = data.sellerId;
             const sellerPayout = data.sellerPayout || data.amount;
-            const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-            const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
-            const [sellerBalanceDoc, sellerWalletSnap] = await Promise.all([
-                tx.get(sellerBalanceRef),
-                tx.get(sellerWalletRef),
-            ]);
+            // Get or create seller wallet
+            const { walletRef: sellerWalletRef, walletData: sellerWalletData } = await (0, wallet_1.getOrCreateSellerWallet)(tx, sellerId);
             // 1. Update transaction status
             tx.update(txRef, {
                 status: 'meetup_completed',
                 completedAt: firebase_1.FieldValue.serverTimestamp(),
             });
-            // 2. Credit seller — wallet-first, fallback to seller_balances
+            // 2. Credit seller wallet — meetup = immediate availability
             const sellerPayoutCents = Math.round(sellerPayout * 100);
-            if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
-                // Seller has wallet: credit directly to wallet balance (meetup = immediate)
-                tx.update(sellerWalletRef, {
-                    balance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-                // Create ledger entry
-                const ledgerRef = sellerWalletRef.collection('ledger').doc();
-                const currentWallet = sellerWalletSnap.data();
-                tx.set(ledgerRef, {
-                    type: 'sale_credit',
-                    amount: sellerPayoutCents,
-                    balanceAfter: (currentWallet.balance || 0) + sellerPayoutCents,
-                    description: 'Vente meetup — fonds disponibles',
-                    transactionId,
-                    createdAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-            else if (sellerBalanceDoc.exists) {
-                // Fallback to seller_balances
-                const balanceData = sellerBalanceDoc.data();
-                const txns = balanceData.transactions || [];
-                // Guard against negative pendingBalance (same as H7)
-                const currentPending = balanceData.pendingBalance || 0;
-                let actualPayout = sellerPayout;
-                if (currentPending < sellerPayout) {
-                    logger.warn(`[completeMeetupTransaction] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
-                    actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
-                }
-                const updatedTransactions = txns.map((txn) => {
-                    if (txn.id === transactionId) {
-                        return Object.assign(Object.assign({}, txn), { status: 'completed' });
-                    }
-                    return txn;
-                });
-                // NOTE: totalEarnings includes ALL completed sales (shipping + meetup)
-                // as a comprehensive reference. totalMeetupEarnings tracks meetup-only
-                // amounts separately so the seller balance screen can distinguish
-                // platform-processed funds from in-person exchanges.
-                tx.update(sellerBalanceRef, {
-                    pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
-                    availableBalance: firebase_1.FieldValue.increment(actualPayout),
-                    totalEarnings: firebase_1.FieldValue.increment(actualPayout),
-                    totalMeetupEarnings: firebase_1.FieldValue.increment(actualPayout),
-                    transactions: updatedTransactions,
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-            else {
-                // Seller balance doc doesn't exist yet (meetup has no webhook to create it).
-                // Create it with the payout directly as available.
-                tx.set(sellerBalanceRef, {
-                    pendingBalance: 0,
-                    availableBalance: sellerPayout,
-                    totalEarnings: sellerPayout,
-                    totalMeetupEarnings: sellerPayout,
-                    transactions: [{
-                            id: transactionId,
-                            type: 'sale',
-                            amount: sellerPayout,
-                            description: 'Vente meetup',
-                            createdAt: new Date(),
-                            status: 'completed',
-                        }],
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                }, { merge: true });
-            }
+            tx.update(sellerWalletRef, {
+                balance: firebase_1.FieldValue.increment(sellerPayoutCents),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            // Create ledger entry
+            const ledgerRef = sellerWalletRef.collection('ledger').doc();
+            tx.set(ledgerRef, {
+                type: 'sale_available',
+                amount: sellerPayoutCents,
+                balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
+                description: 'Vente meetup — fonds disponibles',
+                transactionId,
+                createdAt: firebase_1.FieldValue.serverTimestamp(),
+            });
             return { chatId: data.chatId, sellerId };
         });
         // Send system message (non-critical, outside transaction)

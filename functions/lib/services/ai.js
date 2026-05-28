@@ -93,7 +93,7 @@ RÈGLES IMPORTANTES pour title et description:
   "color": "Couleur principale",
   "material": "Matière principale",
   "size": "Taille lue sur étiquette ou null",
-  "brand": "Marque détectée ou null",
+  "brand": "Marque avec sa casse officielle (ex: Nike, Zara, COS, Sézane) ou null",
   "packageSize": "small|medium|large",
   "labelFound": true/false,
   "confidence": 0.0-1.0

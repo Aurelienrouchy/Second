@@ -41,6 +41,46 @@ exports.markSavedSearchViewed = exports.updateArticle = exports.toggleArticleSol
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+const brands_1 = require("../services/brands");
+const normalizeBrand_1 = require("../utils/normalizeBrand");
+/**
+ * Normalise a raw brand string for storage.
+ *
+ * Strategy: canonical-otherwise-Title-Case.
+ *  - If the brand matches a known entry in the `brands` collection (exact, or
+ *    fuzzy with confidence >= strongThreshold), store the canonical name.
+ *  - Otherwise store a clean Title Case version (handling DS exceptions like
+ *    COS, A.P.C.).
+ * Result is trimmed and truncated to 100 chars, as before.
+ */
+async function resolveBrand(rawBrand) {
+    const trimmed = rawBrand.trim();
+    if (trimmed.length === 0)
+        return '';
+    let resolved;
+    try {
+        const brandMatch = await (0, brands_1.matchBrand)(trimmed);
+        if (brandMatch.brandName &&
+            (brandMatch.matchType === 'exact' ||
+                brandMatch.confidence >= brands_1.BRAND_MATCHING.strongThreshold)) {
+            // Use the canonical name from the brands collection.
+            resolved = brandMatch.brandName;
+        }
+        else {
+            // No confident match → clean Title Case.
+            resolved = (0, normalizeBrand_1.brandDisplay)(trimmed);
+        }
+    }
+    catch (error) {
+        // Never block article create/update on brand matching failures.
+        logger.warn('resolveBrand: matchBrand failed, falling back to Title Case', {
+            rawBrand: trimmed,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        resolved = (0, normalizeBrand_1.brandDisplay)(trimmed);
+    }
+    return resolved.substring(0, 100);
+}
 /**
  * Increment article view count
  */
@@ -282,7 +322,7 @@ exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         article.size = data.size.trim().substring(0, 50);
     }
     if (typeof data.brand === 'string' && data.brand.trim()) {
-        article.brand = data.brand.trim().substring(0, 100);
+        article.brand = await resolveBrand(data.brand);
     }
     if (typeof data.pattern === 'string' && data.pattern.trim()) {
         article.pattern = data.pattern.trim().substring(0, 100);
@@ -487,7 +527,7 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         sanitized.size = updates.size.trim().substring(0, 50);
     }
     if ('brand' in updates && typeof updates.brand === 'string') {
-        sanitized.brand = updates.brand.trim().substring(0, 100);
+        sanitized.brand = await resolveBrand(updates.brand);
     }
     if ('pattern' in updates && typeof updates.pattern === 'string') {
         sanitized.pattern = updates.pattern.trim().substring(0, 100);

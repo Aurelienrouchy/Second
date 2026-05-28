@@ -220,6 +220,14 @@ exports.expireOrphanedTransactions = (0, scheduler_1.onSchedule)({
                         if (buyerWalletRef) {
                             buyerWalletSnap = await tx.get(buyerWalletRef);
                         }
+                        // Read seller wallet to debit pendingBalance
+                        const sellerWalletRef = data.sellerId
+                            ? firebase_1.db.collection('wallets').doc(data.sellerId)
+                            : null;
+                        let sellerWalletSnap = null;
+                        if (sellerWalletRef) {
+                            sellerWalletSnap = await tx.get(sellerWalletRef);
+                        }
                         // Read article if exists
                         let articleSnap = null;
                         const articleRef = data.articleId
@@ -234,13 +242,35 @@ exports.expireOrphanedTransactions = (0, scheduler_1.onSchedule)({
                             status: 'cancelled',
                             cancelledAt: firebase_1.FieldValue.serverTimestamp(),
                             cancelReason: 'seller_did_not_ship_7d',
-                            refundedAt: data.stripePaymentIntentId ? firebase_1.FieldValue.serverTimestamp() : null,
+                            refundedAt: firebase_1.FieldValue.serverTimestamp(),
                         });
                         // 2. Release the article
                         if (articleRef && articleSnap && articleSnap.exists) {
                             tx.update(articleRef, { isSold: false });
                         }
-                        // 3. Refund wallet portion to buyer
+                        // 3. Debit seller pendingBalance
+                        if (sellerWalletRef && sellerWalletSnap && sellerWalletSnap.exists) {
+                            const sellerWalletData = sellerWalletSnap.data();
+                            const sellerPayout = data.sellerPayout || data.amount || 0;
+                            const sellerPayoutCents = Math.round(sellerPayout * 100);
+                            const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
+                            if (deduction > 0) {
+                                tx.update(sellerWalletRef, {
+                                    pendingBalance: firebase_1.FieldValue.increment(-deduction),
+                                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                                });
+                                const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
+                                tx.set(sellerLedgerRef, {
+                                    type: 'refund_debit',
+                                    amount: deduction,
+                                    balanceAfter: (sellerWalletData.pendingBalance || 0) - deduction,
+                                    description: 'Annulation — vendeur n\'a pas expédié',
+                                    transactionId,
+                                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                                });
+                            }
+                        }
+                        // 4. Refund wallet portion to buyer
                         if (hasWalletPortion && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
                             const walletData = buyerWalletSnap.data();
                             tx.update(buyerWalletRef, {

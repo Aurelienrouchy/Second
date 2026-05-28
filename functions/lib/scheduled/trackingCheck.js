@@ -54,8 +54,8 @@ const scheduler_1 = require("firebase-functions/v2/scheduler");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const shipEngine_1 = require("../config/shipEngine");
-const stripe_1 = require("../config/stripe");
 const notifications_1 = require("../utils/notifications");
+const wallet_1 = require("../callable/wallet");
 /** Process at most this many transactions per run to avoid timeouts */
 const MAX_TRANSACTIONS_PER_RUN = 200;
 exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
@@ -64,7 +64,7 @@ exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
     memory: '512MiB',
     secrets: ['SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'],
 }, async () => {
-    var _a, _b;
+    var _a;
     const shipEngine = (0, shipEngine_1.getShipEngine)();
     if (!shipEngine) {
         logger.warn('[checkShippedTracking] ShipEngine not configured, skipping');
@@ -98,106 +98,38 @@ exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
                 // Atomically mark delivered + transfer seller funds
                 const sellerId = data.sellerId;
                 const sellerPayout = data.sellerPayout || data.amount;
-                const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-                const paidVia = data.paidVia;
-                const isWalletPayment = paidVia === 'wallet' || paidVia === 'wallet_and_card';
                 await firebase_1.db.runTransaction(async (tx) => {
                     const txSnap = await tx.get(doc.ref);
-                    const sellerBalanceDoc = await tx.get(sellerBalanceRef);
-                    const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
-                    const sellerWalletSnap = await tx.get(sellerWalletRef);
                     // Guard: if already delivered, skip (idempotent)
                     if (txSnap.exists && txSnap.data().status === 'delivered') {
                         return;
                     }
+                    // Get or create seller wallet
+                    const { walletRef: sellerWalletRef, walletData: sellerWalletData } = await (0, wallet_1.getOrCreateSellerWallet)(tx, sellerId);
                     // 1. Update transaction
                     tx.update(doc.ref, {
                         trackingStatus,
                         status: 'delivered',
                         deliveredAt: firebase_1.FieldValue.serverTimestamp(),
                     });
-                    // 2. Credit seller — wallet-first, fallback to seller_balances
+                    // 2. Credit seller wallet: move pendingBalance -> balance
                     const sellerPayoutCents = Math.round(sellerPayout * 100);
-                    if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
-                        // Seller has wallet: move pendingBalance -> balance
-                        tx.update(sellerWalletRef, {
-                            pendingBalance: firebase_1.FieldValue.increment(-sellerPayoutCents),
-                            balance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                            updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                        });
-                        // Create ledger entry
-                        const ledgerRef = sellerWalletRef.collection('ledger').doc();
-                        const currentWallet = sellerWalletSnap.data();
-                        tx.set(ledgerRef, {
-                            type: 'sale_credit',
-                            amount: sellerPayoutCents,
-                            balanceAfter: (currentWallet.balance || 0) + sellerPayoutCents,
-                            description: 'Vente livree — fonds disponibles',
-                            transactionId,
-                            createdAt: firebase_1.FieldValue.serverTimestamp(),
-                        });
-                    }
-                    else if (sellerBalanceDoc.exists) {
-                        // Fallback to seller_balances
-                        const balanceData = sellerBalanceDoc.data();
-                        const txns = balanceData.transactions || [];
-                        // Guard against negative pendingBalance
-                        const currentPending = balanceData.pendingBalance || 0;
-                        let actualPayout = sellerPayout;
-                        if (currentPending < sellerPayout) {
-                            logger.warn(`[checkShippedTracking] pendingBalance (${currentPending}) < sellerPayout (${sellerPayout}) for seller ${sellerId}`);
-                            actualPayout = Math.min(sellerPayout, Math.max(0, currentPending));
-                        }
-                        const updatedTransactions = txns.map((txn) => {
-                            if (txn.id === transactionId) {
-                                return Object.assign(Object.assign({}, txn), { status: 'completed' });
-                            }
-                            return txn;
-                        });
-                        tx.update(sellerBalanceRef, {
-                            pendingBalance: firebase_1.FieldValue.increment(-actualPayout),
-                            availableBalance: firebase_1.FieldValue.increment(actualPayout),
-                            totalEarnings: firebase_1.FieldValue.increment(actualPayout),
-                            transactions: updatedTransactions,
-                            updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                        });
-                    }
+                    tx.update(sellerWalletRef, {
+                        pendingBalance: firebase_1.FieldValue.increment(-sellerPayoutCents),
+                        balance: firebase_1.FieldValue.increment(sellerPayoutCents),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                    // Create ledger entry
+                    const ledgerRef = sellerWalletRef.collection('ledger').doc();
+                    tx.set(ledgerRef, {
+                        type: 'sale_available',
+                        amount: sellerPayoutCents,
+                        balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
+                        description: 'Vente livrée — fonds disponibles',
+                        transactionId,
+                        createdAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
                 });
-                // For wallet/mixed payments where seller has no wallet:
-                // Transfer from platform to seller's Connect account
-                if (isWalletPayment) {
-                    const sellerWalletSnap = await firebase_1.db.collection('wallets').doc(sellerId).get();
-                    if (!sellerWalletSnap.exists || ((_a = sellerWalletSnap.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'active') {
-                        const sellerDoc = await firebase_1.db.collection('users').doc(sellerId).get();
-                        const sellerData = sellerDoc.data();
-                        if ((sellerData === null || sellerData === void 0 ? void 0 : sellerData.stripeAccountId) && (sellerData === null || sellerData === void 0 ? void 0 : sellerData.stripeChargesEnabled)) {
-                            try {
-                                const stripe = (0, stripe_1.getStripe)();
-                                if (stripe) {
-                                    const sellerPayoutCents = Math.round(sellerPayout * 100);
-                                    await stripe.transfers.create({
-                                        amount: sellerPayoutCents,
-                                        currency: 'cad',
-                                        destination: sellerData.stripeAccountId,
-                                        metadata: {
-                                            transactionId,
-                                            reason: 'wallet_payment_delivery',
-                                        },
-                                    });
-                                    logger.info('[checkShippedTracking] Stripe transfer for wallet delivery', {
-                                        transactionId, sellerId, amount: sellerPayoutCents,
-                                    });
-                                }
-                            }
-                            catch (transferErr) {
-                                logger.error('[checkShippedTracking] Failed Stripe transfer for wallet payment', {
-                                    transactionId, sellerId,
-                                    error: transferErr instanceof Error ? transferErr.message : transferErr,
-                                });
-                            }
-                        }
-                    }
-                }
                 deliveredCount++;
                 // Send system message to chat (non-critical)
                 if (data.chatId) {
@@ -205,7 +137,7 @@ exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
                         let participants = [];
                         const chatSnap = await firebase_1.db.collection('chats').doc(data.chatId).get();
                         if (chatSnap.exists) {
-                            participants = ((_b = chatSnap.data()) === null || _b === void 0 ? void 0 : _b.participants) || [];
+                            participants = ((_a = chatSnap.data()) === null || _a === void 0 ? void 0 : _a.participants) || [];
                         }
                         await firebase_1.db.collection('messages').add({
                             chatId: data.chatId,

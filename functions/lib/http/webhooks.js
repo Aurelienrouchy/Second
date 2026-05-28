@@ -42,7 +42,7 @@ exports.stripeWebhook = void 0;
  * Stripe Connect account status updates
  *
  * CRITICAL: All Firestore mutations (transaction status, article sold,
- * seller_balance credit) are wrapped in a single runTransaction for
+ * seller wallet credit) are wrapped in a single runTransaction for
  * atomicity. The idempotence check is INSIDE the transaction to prevent
  * race conditions from concurrent webhook replays.
  *
@@ -56,6 +56,7 @@ const firebase_1 = require("../config/firebase");
 const shipEngine_1 = require("../config/shipEngine");
 const stripe_1 = require("../config/stripe");
 const notifications_1 = require("../utils/notifications");
+const wallet_1 = require("../callable/wallet");
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
 // =============================================================================
@@ -110,11 +111,9 @@ exports.stripeWebhook = (0, https_1.onRequest)({
         }
     }
     else if (!endpointSecret) {
-        // Webhook secret not yet configured — accept but log warning
-        // This path exists only during initial setup; once STRIPE_WEBHOOK_SECRET
-        // is set in Secret Manager, this branch is never taken.
-        logger.warn('Stripe webhook: STRIPE_WEBHOOK_SECRET not configured, accepting without signature verification');
-        event = req.body;
+        logger.error('Stripe webhook: STRIPE_WEBHOOK_SECRET not configured — rejecting request');
+        res.status(500).send('Webhook secret not configured');
+        return;
     }
     else {
         logger.error('Stripe webhook: missing stripe-signature header');
@@ -264,88 +263,34 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
                 soldAt: firebase_1.FieldValue.serverTimestamp(),
             });
         }
-        // --- Credit seller's pending balance ---
+        // --- Credit seller's wallet pendingBalance (auto-create if absent) ---
         const sellerId = txData.sellerId;
         const sellerPayout = txData.sellerPayout || txData.amount;
-        // Determine if the transaction was paid via mixed wallet+card
-        const txPaidVia = txData.paidVia || (isMixedPayment ? 'wallet_and_card' : null);
-        const isWalletOrMixed = txPaidVia === 'wallet_and_card' || txPaidVia === 'wallet';
-        if (isWalletOrMixed) {
-            // MIXED WALLET+CARD: Money is on the platform (no destination charge).
-            // Credit seller's wallet pendingBalance if they have one, otherwise
-            // credit seller_balances.
-            const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
-            const sellerWalletSnap = await tx.get(sellerWalletRef);
-            if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
-                // Seller has wallet: add to pendingBalance (cents)
-                const sellerPayoutCents = Math.round(sellerPayout * 100);
-                tx.update(sellerWalletRef, {
-                    pendingBalance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-            else {
-                // Seller has no wallet: use seller_balances (backward compat)
-                const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-                const sellerBalanceSnap = await tx.get(sellerBalanceRef);
-                const saleTransaction = {
-                    id: transactionId,
-                    type: 'sale',
-                    amount: sellerPayout,
-                    description: "Vente de l'article (paiement mixte)",
-                    createdAt: firebase_1.FieldValue.serverTimestamp(),
-                    status: 'pending',
-                };
-                if (!sellerBalanceSnap.exists) {
-                    tx.set(sellerBalanceRef, {
-                        userId: sellerId,
-                        availableBalance: 0,
-                        pendingBalance: sellerPayout,
-                        totalEarnings: sellerPayout,
-                        transactions: [saleTransaction],
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                }
-                else {
-                    tx.update(sellerBalanceRef, {
-                        pendingBalance: firebase_1.FieldValue.increment(sellerPayout),
-                        transactions: firebase_1.FieldValue.arrayUnion(saleTransaction),
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                }
-            }
+        const sellerPayoutCents = Math.round(sellerPayout * 100);
+        const { walletRef: sellerWalletRef, walletData: sellerWalletData, isNew: sellerWalletIsNew } = await (0, wallet_1.getOrCreateSellerWallet)(tx, sellerId);
+        if (!sellerWalletIsNew) {
+            tx.update(sellerWalletRef, {
+                pendingBalance: firebase_1.FieldValue.increment(sellerPayoutCents),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
         }
         else {
-            // STANDARD DESTINATION CHARGE: Money goes directly to seller's Connect account.
-            // Credit seller_balances as before.
-            const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-            const sellerBalanceSnap = await tx.get(sellerBalanceRef);
-            const saleTransaction = {
-                id: transactionId,
-                type: 'sale',
-                amount: sellerPayout,
-                description: `Vente de l'article`,
-                createdAt: firebase_1.FieldValue.serverTimestamp(),
-                status: 'pending',
-            };
-            if (!sellerBalanceSnap.exists) {
-                tx.set(sellerBalanceRef, {
-                    userId: sellerId,
-                    availableBalance: 0,
-                    pendingBalance: sellerPayout,
-                    totalEarnings: sellerPayout,
-                    transactions: [saleTransaction],
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-            else {
-                tx.update(sellerBalanceRef, {
-                    pendingBalance: firebase_1.FieldValue.increment(sellerPayout),
-                    transactions: firebase_1.FieldValue.arrayUnion(saleTransaction),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
+            tx.update(sellerWalletRef, {
+                pendingBalance: sellerPayoutCents,
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
         }
+        // Create seller ledger entry
+        const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
+        tx.set(sellerLedgerRef, {
+            type: 'sale_credit',
+            amount: sellerPayoutCents,
+            balanceAfter: (sellerWalletData.pendingBalance || 0) + sellerPayoutCents,
+            description: 'Vente — fonds en attente de livraison',
+            transactionId,
+            createdAt: firebase_1.FieldValue.serverTimestamp(),
+            status: 'pending',
+        });
         return {
             processed: true,
             sellerId,
@@ -703,53 +648,49 @@ async function handleChargeRefunded(charge) {
                 }
             }
         }
-        // --- Debit seller (wallet or seller_balances) ---
+        // --- Debit seller wallet ---
         const sellerWalletRef = firebase_1.db.collection('wallets').doc(sellerId);
         const sellerWalletSnap = await tx.get(sellerWalletRef);
-        if (sellerWalletSnap.exists && sellerWalletSnap.data().status === 'active') {
-            // Seller has wallet: debit from wallet
-            const sellerPayoutCents = Math.round(sellerPayout * 100);
+        const sellerPayoutCents = Math.round(sellerPayout * 100);
+        if (sellerWalletSnap.exists) {
             const sellerWalletData = sellerWalletSnap.data();
             if (wasDelivered) {
-                // Funds were in balance (available)
                 const deduction = Math.min(sellerPayoutCents, sellerWalletData.balance || 0);
                 tx.update(sellerWalletRef, {
                     balance: firebase_1.FieldValue.increment(-deduction),
                     updatedAt: firebase_1.FieldValue.serverTimestamp(),
                 });
+                const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
+                tx.set(sellerLedgerRef, {
+                    type: 'refund_debit',
+                    amount: deduction,
+                    balanceAfter: (sellerWalletData.balance || 0) - deduction,
+                    description: 'Remboursement Stripe — débit vendeur',
+                    transactionId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
             }
             else {
-                // Funds were in pendingBalance
                 const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
                 tx.update(sellerWalletRef, {
                     pendingBalance: firebase_1.FieldValue.increment(-deduction),
                     updatedAt: firebase_1.FieldValue.serverTimestamp(),
                 });
+                const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
+                tx.set(sellerLedgerRef, {
+                    type: 'refund_debit',
+                    amount: deduction,
+                    balanceAfter: (sellerWalletData.pendingBalance || 0) - deduction,
+                    description: 'Remboursement Stripe — débit vendeur (fonds en attente)',
+                    transactionId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
             }
         }
         else {
-            // Seller has no wallet: use seller_balances
-            const sellerBalanceRef = firebase_1.db.collection('seller_balances').doc(sellerId);
-            const sellerBalanceSnap = await tx.get(sellerBalanceRef);
-            if (sellerBalanceSnap.exists) {
-                const balanceData = sellerBalanceSnap.data();
-                if (wasDelivered) {
-                    const currentAvailable = balanceData.availableBalance || 0;
-                    const deduction = Math.min(sellerPayout, currentAvailable);
-                    tx.update(sellerBalanceRef, {
-                        availableBalance: firebase_1.FieldValue.increment(-deduction),
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                }
-                else {
-                    const currentPending = balanceData.pendingBalance || 0;
-                    const deduction = Math.min(sellerPayout, currentPending);
-                    tx.update(sellerBalanceRef, {
-                        pendingBalance: firebase_1.FieldValue.increment(-deduction),
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                }
-            }
+            logger.warn('Stripe webhook: refund — seller wallet not found, cannot debit', {
+                transactionId, sellerId,
+            });
         }
         // Release the article
         if (txData.articleId) {

@@ -10,6 +10,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = exports.getHomeFeed = exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firebase_1 = require("../config/firebase");
+const normalizeBrand_1 = require("../utils/normalizeBrand");
 // =============================================================================
 // BATCH SELLER FETCH — eliminates N+1
 // =============================================================================
@@ -42,13 +43,17 @@ async function _getTrendingBrands() {
         .where('isSold', '==', false)
         .limit(500)
         .get();
+    // Group case-insensitively so "SELECTED" / "selected" / "Selected" merge
+    // into a single bucket. Articles without a brand are skipped entirely.
     const brandCounts = new Map();
     snapshot.docs.forEach((doc) => {
-        const brand = doc.data().brand || 'Unknown';
-        brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1);
+        const key = (0, normalizeBrand_1.brandKey)(doc.data().brand);
+        if (!key)
+            return; // skip empty / missing brands (no more "Unknown")
+        brandCounts.set(key, (brandCounts.get(key) || 0) + 1);
     });
     return Array.from(brandCounts.entries())
-        .map(([name, count]) => ({ name, articleCount: count }))
+        .map(([key, count]) => ({ name: (0, normalizeBrand_1.brandDisplay)(key), articleCount: count }))
         .sort((a, b) => b.articleCount - a.articleCount)
         .slice(0, 10);
 }

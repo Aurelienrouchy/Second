@@ -282,66 +282,48 @@ exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
     }
 });
 /**
- * Get active swap party info for homepage
+ * Get the single, always-on generalist Swap Zone for the homepage.
+ *
+ * The Swap Zone is now ONE permanent, generalist, always-active zone with no
+ * time window. There is no "upcoming" / countdown / theme concept anymore.
+ * This resolver returns the generalist party directly (fallback: first active
+ * party) and exposes only the live counters — no startDate/endDate/theme.
  */
 exports.getActiveSwapPartyInfo = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async () => {
-    var _a, _b, _c;
     try {
-        // Get currently active party
-        const activeSnapshot = await firebase_1.db
+        // Prefer the single generalist zone; fall back to the first active party.
+        let snapshot = await firebase_1.db
             .collection('swapParties')
-            .where('status', '==', 'active')
+            .where('isGeneralist', '==', true)
             .limit(1)
             .get();
-        if (!activeSnapshot.empty) {
-            const party = activeSnapshot.docs[0];
-            const partyData = party.data();
-            return {
-                hasActiveParty: true,
-                party: {
-                    id: party.id,
-                    name: partyData.name,
-                    emoji: partyData.emoji,
-                    description: partyData.description,
-                    theme: partyData.theme,
-                    isGeneralist: partyData.isGeneralist,
-                    endDate: (_a = partyData.endDate) === null || _a === void 0 ? void 0 : _a.toDate().toISOString(),
-                    participantsCount: partyData.participantsCount || 0,
-                    itemsCount: partyData.itemsCount || 0,
-                    swapsCount: partyData.swapsCount || 0,
-                },
-                nextParty: null,
-            };
+        if (snapshot.empty) {
+            snapshot = await firebase_1.db
+                .collection('swapParties')
+                .where('status', '==', 'active')
+                .limit(1)
+                .get();
         }
-        // No active party, get next upcoming
-        const upcomingSnapshot = await firebase_1.db
-            .collection('swapParties')
-            .where('status', '==', 'upcoming')
-            .orderBy('startDate', 'asc')
-            .limit(1)
-            .get();
-        if (!upcomingSnapshot.empty) {
-            const party = upcomingSnapshot.docs[0];
-            const partyData = party.data();
+        if (snapshot.empty) {
             return {
                 hasActiveParty: false,
                 party: null,
-                nextParty: {
-                    id: party.id,
-                    name: partyData.name,
-                    emoji: partyData.emoji,
-                    description: partyData.description,
-                    theme: partyData.theme,
-                    isGeneralist: partyData.isGeneralist,
-                    startDate: (_b = partyData.startDate) === null || _b === void 0 ? void 0 : _b.toDate().toISOString(),
-                    endDate: (_c = partyData.endDate) === null || _c === void 0 ? void 0 : _c.toDate().toISOString(),
-                },
             };
         }
+        const party = snapshot.docs[0];
+        const partyData = party.data();
         return {
-            hasActiveParty: false,
-            party: null,
-            nextParty: null,
+            hasActiveParty: true,
+            party: {
+                id: party.id,
+                name: partyData.name,
+                emoji: partyData.emoji,
+                description: partyData.description,
+                isGeneralist: partyData.isGeneralist,
+                participantsCount: partyData.participantsCount || 0,
+                itemsCount: partyData.itemsCount || 0,
+                swapsCount: partyData.swapsCount || 0,
+            },
         };
     }
     catch (error) {
@@ -382,8 +364,11 @@ exports.joinSwapPartySecure = (0, https_1.onCall)({ region: 'northamerica-northe
                 throw new https_1.HttpsError('not-found', 'Swap party introuvable');
             }
             const partyData = partySnap.data();
-            if (!['upcoming', 'active'].includes(partyData.status)) {
-                throw new https_1.HttpsError('failed-precondition', 'Cette swap party n\'est plus ouverte');
+            // Kill-switch guard only: the Swap Zone is a single permanent zone with
+            // no time window. We keep requiring status === 'active' so the zone can
+            // be manually closed if needed, but there is no date/upcoming logic.
+            if (partyData.status !== 'active') {
+                throw new https_1.HttpsError('failed-precondition', 'La Swap Zone est actuellement fermée');
             }
             // Check maxParticipants limit
             if (partyData.maxParticipants != null &&
@@ -545,8 +530,11 @@ exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-north
                 throw new https_1.HttpsError('not-found', 'Swap party introuvable');
             }
             const partyData = partySnap.data();
-            if (!['upcoming', 'active'].includes(partyData.status)) {
-                throw new https_1.HttpsError('failed-precondition', 'Cette swap party n\'est plus ouverte');
+            // Kill-switch guard only: the Swap Zone is a single permanent zone with
+            // no time window. We keep requiring status === 'active' so the zone can
+            // be manually closed if needed, but there is no date/upcoming logic.
+            if (partyData.status !== 'active') {
+                throw new https_1.HttpsError('failed-precondition', 'La Swap Zone est actuellement fermée');
             }
             // Verify user is a participant
             const participantQuery = await firebase_1.db
