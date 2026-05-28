@@ -25,7 +25,7 @@ interface NewArrivalsResponse {
   lastDocId: string | null;
 }
 
-async function fetchNewArrivals(): Promise<HomeArticle[]> {
+export async function fetchNewArrivals(): Promise<HomeArticle[]> {
   const fn = httpsCallable<{ lastDocId: null; limit: number }, NewArrivalsResponse>(
     functions,
     'getNewArrivals'
@@ -34,10 +34,13 @@ async function fetchNewArrivals(): Promise<HomeArticle[]> {
   return result.data.articles;
 }
 
+/** staleTime shared between the hook and the startup prefetch. */
+export const NEW_ARRIVALS_STALE_TIME = 10 * 60 * 1000; // 10 min
+
 export function useNewArrivals() {
   return useQuery({
     queryKey: homeKeys.newArrivals(),
     queryFn: fetchNewArrivals,
-    staleTime: 10 * 60 * 1000,
+    staleTime: NEW_ARRIVALS_STALE_TIME,
   });
 }
