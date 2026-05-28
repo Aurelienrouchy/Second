@@ -12,6 +12,7 @@ import {
 } from '@/types';
 import { colors } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
 import { CounterLocationInput } from './offer-bubble/CounterLocationInput';
 import { CounterPriceInput } from './offer-bubble/CounterPriceInput';
