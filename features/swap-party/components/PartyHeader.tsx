@@ -71,22 +71,4 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     color: colors.charcoal,
   },
-  countdownBadge: {
-    backgroundColor: 'rgba(122, 140, 110, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(122, 140, 110, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontFamily: fonts.sansMedium,
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
-    color: colors.sage,
-  },
 });
