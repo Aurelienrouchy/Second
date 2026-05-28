@@ -50,8 +50,9 @@ export default function PricingScreen() {
 
   // State
   const [price, setPrice] = useState('');
-  const [isHandDelivery, setIsHandDelivery] = useState(false);
-  const [isShipping, setIsShipping] = useState(true);
+  // Quand le shipping est désactivé, on force le main-à-main par défaut.
+  const [isHandDelivery, setIsHandDelivery] = useState(!SHIPPING_ENABLED);
+  const [isShipping, setIsShipping] = useState(SHIPPING_ENABLED);
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<MeetupNeighborhood[]>([]);
   const [packageSize, setPackageSize] = useState<PackageSize | null>(
     aiResult?.packageSize?.suggested || null,
