@@ -105,9 +105,9 @@ function ArticleDetailsComponent({
       ) : null}
 
       {/* Delivery options cards */}
-      {(article.isShipping || article.isHandDelivery) && (
+      {((SHIPPING_ENABLED && article.isShipping) || article.isHandDelivery) && (
         <Animated.View entering={FadeInDown.duration(350).delay(320)} style={styles.deliveryRow}>
-          {article.isShipping && (
+          {SHIPPING_ENABLED && article.isShipping && (
             <View style={styles.deliveryCardShipping}>
               <Ionicons name="cube-outline" size={16} color={colors.sage} />
               <View style={styles.deliveryCardContent}>
