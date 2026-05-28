@@ -3,7 +3,8 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import 'react-native-reanimated';
 
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -15,7 +16,9 @@ import { useAuthListener } from '@/hooks/useAuthListener';
 import { useChatListener } from '@/hooks/useChatListener';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
+import { useSplashScreen } from '@/hooks/useSplashScreen';
 import { useAuthStore } from '@/store/authStore';
+import { prefetchHome } from '@/features/home';
 import { colors } from '@/constants/theme';
 import { queryClient } from '@/lib/queryClient';
 import { STRIPE_PUBLISHABLE_KEY } from '@/config/stripeConfig';
@@ -24,7 +27,9 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// Prevent splash screen from auto-hiding
+// Prevent the splash screen from auto-hiding. It stays up until the app
+// is fully ready (fonts + auth hydration + critical home prefetch) so no
+// in-app spinner ever flashes during startup.
 SplashScreen.preventAutoHideAsync();
 
 
@@ -80,16 +85,7 @@ export default function RootLayout() {
     'Satoshi-Bold': require('../assets/fonts/Satoshi-Bold.otf'),
   });
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
-  // Show nothing while fonts load (splash screen visible)
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
+  const fontsReady = fontsLoaded || !!fontError;
 
   return (
     <AppErrorBoundary>
@@ -98,7 +94,7 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
             <ThemeProvider value={CustomNavigationTheme}>
               <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
-                <AppContent />
+                <AppContent fontsReady={fontsReady} />
               </StripeProvider>
             </ThemeProvider>
           </GestureHandlerRootView>
@@ -111,6 +107,11 @@ export default function RootLayout() {
 /**
  * GlobalListeners — side-effect hooks that subscribe to external state
  * (auth, chat, notifications, deep links).
+ *
+ * Mounted unconditionally (even while the splash gate is still showing
+ * `null`) so that `useAuthListener` starts Firebase hydration immediately
+ * at startup — the auth hydration flag is part of the readiness gate, so
+ * the listener must run while the splash is still up.
  *
  * Isolated in its own component so that store-driven re-renders do NOT
  * propagate to the NavigationContainer (Stack).  The warning
@@ -140,56 +141,98 @@ const GlobalListeners = React.memo(function GlobalListeners() {
 /**
  * AppContent — navigator tree + global overlays.
  *
- * This component owns ONLY the navigator and the overlays rendered
- * alongside it.  All side-effect hooks live in <GlobalListeners> above
- * so that their state changes never re-render the Stack/NavigationContainer.
+ * Owns the startup readiness gate: while the app is not ready
+ * (fonts not loaded, auth not hydrated, or the critical home queries not
+ * yet prefetched) it renders an empty background view and keeps the
+ * native splash screen visible. Once ready, the splash is hidden via the
+ * root view's `onLayout` (single, guarded call) and the navigator
+ * appears with data already warm in cache.
+ *
+ * All side-effect hooks live in <GlobalListeners> so that their state
+ * changes never re-render the Stack/NavigationContainer.
  */
-function AppContent() {
+function AppContent({ fontsReady }: { fontsReady: boolean }) {
+  // Auth hydration flag — flipped to false once onAuthStateChanged
+  // resolves (single source of truth, see authStore).
+  const authHydrated = useAuthStore((s) => !s.isLoading);
+
+  // Critical home data prefetched behind the splash so the Home tab's
+  // first paint has data in cache (no spinner flash). Kicked off once
+  // and never gates startup on failure (prefetchHome swallows errors).
+  const [homePrefetched, setHomePrefetched] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    prefetchHome(queryClient).finally(() => {
+      if (!cancelled) setHomePrefetched(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const appReady = fontsReady && authHydrated && homePrefetched;
+
+  const { onLayoutRootView } = useSplashScreen(appReady);
+
   return (
     <BottomSheetModalProvider>
-            <GlobalListeners />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.background },
-                animation: 'slide_from_right',
-              }}
-            >
-              <Stack.Screen name="index" />
-              <Stack.Screen
-                name="onboarding"
-                options={{ animation: 'fade', gestureEnabled: false }}
-              />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="article/[id]" />
-              <Stack.Screen name="chat/[id]" />
-              <Stack.Screen
-                name="my-articles"
-                options={{ presentation: 'card' }}
-              />
-              <Stack.Screen
-                name="my-orders"
-                options={{ presentation: 'card' }}
-              />
-              <Stack.Screen name="shop/[id]" />
-              <Stack.Screen name="settings" />
-              <Stack.Screen
-                name="sell"
-                options={{ animation: 'fade_from_bottom' }}
-              />
-              {/* admin/* routes live under app/admin/_layout.tsx (centralised guard) */}
-              <Stack.Screen name="admin" />
-              <Stack.Screen name="payment/[transactionId]" />
-              <Stack.Screen name="review/[transactionId]" />
-              <Stack.Screen name="visual-search-results" />
-              <Stack.Screen name="search" />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="dark" />
-            {/* Global auth bottom sheet — driven by authSheetStore. */}
-            <AuthBottomSheet />
-            {/* Global offline indicator — slides down when connectivity is lost. */}
-            <OfflineBanner />
+      {/* GlobalListeners mounts unconditionally so auth hydration runs
+          while the splash is still up. */}
+      <GlobalListeners />
+
+      {!appReady ? (
+        // Splash screen is still visible; render only a background-colored
+        // view so the first frame matches the app background.
+        <View style={{ flex: 1, backgroundColor: colors.background }} />
+      ) : (
+        <View
+          style={{ flex: 1, backgroundColor: colors.background }}
+          onLayout={onLayoutRootView}
+        >
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+              animation: 'slide_from_right',
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen
+              name="onboarding"
+              options={{ animation: 'fade', gestureEnabled: false }}
+            />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="article/[id]" />
+            <Stack.Screen name="chat/[id]" />
+            <Stack.Screen
+              name="my-articles"
+              options={{ presentation: 'card' }}
+            />
+            <Stack.Screen
+              name="my-orders"
+              options={{ presentation: 'card' }}
+            />
+            <Stack.Screen name="shop/[id]" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen
+              name="sell"
+              options={{ animation: 'fade_from_bottom' }}
+            />
+            {/* admin/* routes live under app/admin/_layout.tsx (centralised guard) */}
+            <Stack.Screen name="admin" />
+            <Stack.Screen name="payment/[transactionId]" />
+            <Stack.Screen name="review/[transactionId]" />
+            <Stack.Screen name="visual-search-results" />
+            <Stack.Screen name="search" />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="dark" />
+          {/* Global auth bottom sheet — driven by authSheetStore. */}
+          <AuthBottomSheet />
+          {/* Global offline indicator — slides down when connectivity is lost. */}
+          <OfflineBanner />
+        </View>
+      )}
     </BottomSheetModalProvider>
   );
 }
