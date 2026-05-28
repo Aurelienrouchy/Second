@@ -5,6 +5,48 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { matchBrand, BRAND_MATCHING } from '../services/brands';
+import { brandDisplay } from '../utils/normalizeBrand';
+
+/**
+ * Normalise a raw brand string for storage.
+ *
+ * Strategy: canonical-otherwise-Title-Case.
+ *  - If the brand matches a known entry in the `brands` collection (exact, or
+ *    fuzzy with confidence >= strongThreshold), store the canonical name.
+ *  - Otherwise store a clean Title Case version (handling DS exceptions like
+ *    COS, A.P.C.).
+ * Result is trimmed and truncated to 100 chars, as before.
+ */
+async function resolveBrand(rawBrand: string): Promise<string> {
+  const trimmed = rawBrand.trim();
+  if (trimmed.length === 0) return '';
+
+  let resolved: string;
+  try {
+    const brandMatch = await matchBrand(trimmed);
+    if (
+      brandMatch.brandName &&
+      (brandMatch.matchType === 'exact' ||
+        brandMatch.confidence >= BRAND_MATCHING.strongThreshold)
+    ) {
+      // Use the canonical name from the brands collection.
+      resolved = brandMatch.brandName;
+    } else {
+      // No confident match → clean Title Case.
+      resolved = brandDisplay(trimmed);
+    }
+  } catch (error) {
+    // Never block article create/update on brand matching failures.
+    logger.warn('resolveBrand: matchBrand failed, falling back to Title Case', {
+      rawBrand: trimmed,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    resolved = brandDisplay(trimmed);
+  }
+
+  return resolved.substring(0, 100);
+}
 
 /**
  * Increment article view count
