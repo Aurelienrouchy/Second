@@ -311,6 +311,32 @@ export async function getPartyItems(partyId: string): Promise<SwapPartyItem[]> {
 }
 
 /**
+ * Get the most recent available items in a party (limited).
+ * Reuses the composite index swapPartyItems(partyId + isSwapped + addedAt desc).
+ * Used by the home Swap Zone card to preview real stock.
+ */
+export async function getRecentPartyItems(
+  partyId: string,
+  max: number = 6
+): Promise<SwapPartyItem[]> {
+  const itemsRef = collection(firestore, 'swapPartyItems');
+  const q = query(
+    itemsRef,
+    where('partyId', '==', partyId),
+    where('isSwapped', '==', false),
+    orderBy('addedAt', 'desc'),
+    limit(max)
+  );
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+    addedAt: doc.data().addedAt?.toDate(),
+  })) as SwapPartyItem[];
+}
+
+/**
  * Get party items enriched with full Article metadata for filtering
  */
 export async function getPartyItemsExtended(partyId: string): Promise<SwapPartyItemExtended[]> {
