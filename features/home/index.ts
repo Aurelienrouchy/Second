@@ -12,6 +12,7 @@ export { PourToiSection } from './pour-toi/PourToiSection';
 export { PriceDropsSection } from './price-drops/PriceDropsSection';
 export { SectionErrorBoundary } from './SectionErrorBoundary';
 export { SwapZoneWrapper } from './swap-zone/SwapZoneSection';
+export { useSwapParties } from './swap-zone/useSwapParties';
 export { TrendingBrandsSection } from './trending-brands/TrendingBrandsSection';
 export { homeKeys } from './query-keys';
 export { prefetchHome } from './prefetchHome';
