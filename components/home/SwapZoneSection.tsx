@@ -301,10 +301,15 @@ export const SwapZoneSection: React.FC<SwapZoneSectionProps> = ({
   itemsCount = 0,
   newThisWeek = 0,
   isLoading = false,
-  onPress = () => {},
+  onPress,
   testID,
 }) => {
+  const hasZone = !!zone;
   const hasItems = items.length > 0;
+
+  // A zone exists but has no items yet → still tappable (enter the empty zone).
+  // No zone at all → strip the handler so the teaser stays non-interactive.
+  const emptyOnPress = hasZone ? onPress : undefined;
 
   return (
     <View style={styles.container} testID={testID}>
@@ -315,11 +320,12 @@ export const SwapZoneSection: React.FC<SwapZoneSectionProps> = ({
           items={items}
           itemsCount={itemsCount}
           newThisWeek={newThisWeek}
-          onPress={onPress}
+          onPress={onPress ?? (() => {})}
         />
       ) : (
-        // No items (or error fallback): inviting teaser, never a sad rectangle.
-        <EmptyCard onPress={onPress} />
+        // (b) zone without items → inviting teaser, tappable.
+        // (c) no active zone   → same teaser, non-interactive (no dead CTA).
+        <EmptyCard onPress={emptyOnPress} />
       )}
     </View>
   );
