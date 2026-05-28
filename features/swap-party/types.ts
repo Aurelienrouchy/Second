@@ -20,7 +20,8 @@ export interface MyArticlesSectionProps {
 
 export interface PartyActionsProps {
   isJoined: boolean;
-  partyStatus: SwapParty['status'];
+  /** @deprecated Swap Zone is always active — status no longer gates actions. */
+  partyStatus?: SwapParty['status'];
   isJoining: boolean;
   onJoin: () => void;
   onLeave: () => void;
