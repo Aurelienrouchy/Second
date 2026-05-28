@@ -26,6 +26,7 @@ import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
 import draftService, { ArticleDraft, DraftPricing } from '@/services/draftService';
 import { colors, spacing } from '@/constants/theme';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
 type PackageSize = 'small' | 'medium' | 'large';
 
