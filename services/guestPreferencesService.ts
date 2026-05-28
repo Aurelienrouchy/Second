@@ -226,17 +226,21 @@ class GuestPreferencesService {
         return null; // Not enough data
       }
 
-      // Calculate top brands
+      // Calculate top brands (count case-insensitively to avoid splitting
+      // "SELECTED" / "selected" / "Selected" into separate buckets)
       const brandCounts: Record<string, number> = {};
       allArticles.forEach((a) => {
-        if (a.brand) {
-          brandCounts[a.brand] = (brandCounts[a.brand] || 0) + 1;
+        const key = brandKey(a.brand);
+        if (!key) {
+          return;
         }
+        brandCounts[key] = (brandCounts[key] || 0) + 1;
       });
+      // topBrands is display-facing only, so emit clean-cased labels.
       const topBrands = Object.entries(brandCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(([brand]) => brand);
+        .map(([brand]) => brandDisplay(brand));
 
       // Calculate probable sizes
       const sizeCounts: Record<string, number> = {};
