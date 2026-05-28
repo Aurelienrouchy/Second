@@ -348,7 +348,6 @@ export default function SwapPartyDetailScreen() {
 
       <PartyHeader
         party={party}
-        countdownDays={countdownDays}
         onBack={handleBack}
       />
 
