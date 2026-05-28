@@ -59,14 +59,12 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
                   {formatPrice(item.price)}
                 </Text>
               </View>
-              {partyStatus !== 'ended' && (
-                <Pressable
-                  style={({ pressed }) => [styles.removeItemButton, pressed && { opacity: 0.7 }]}
-                  onPress={() => onRemoveItem(item.articleId)}
-                >
-                  <Ionicons name="close-circle" size={20} color={colors.muted} />
-                </Pressable>
-              )}
+              <Pressable
+                style={({ pressed }) => [styles.removeItemButton, pressed && { opacity: 0.7 }]}
+                onPress={() => onRemoveItem(item.articleId)}
+              >
+                <Ionicons name="close-circle" size={20} color={colors.muted} />
+              </Pressable>
             </View>
           ))}
         </View>
