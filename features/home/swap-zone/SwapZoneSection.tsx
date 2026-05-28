@@ -34,6 +34,9 @@ const SwapZoneWrapperComponent: React.FC = () => {
     isLoading: isItemsLoading,
   } = useSwapZoneItems(zone?.id);
 
+  // Only build a navigation handler when a zone actually exists. When no zone
+  // is active we pass `onPress={undefined}` so the card renders a non-interactive
+  // teaser instead of a dead CTA (see presentational SwapZoneSection).
   const handlePress = useCallback(() => {
     if (zone) {
       router.push(`/swap-party/${zone.id}` as any);
@@ -53,7 +56,7 @@ const SwapZoneWrapperComponent: React.FC = () => {
         itemsCount={zone?.itemsCount ?? 0}
         newThisWeek={newThisWeek}
         isLoading={isPartyLoading || isItemsLoading}
-        onPress={handlePress}
+        onPress={zone ? handlePress : undefined}
       />
     </View>
   );
