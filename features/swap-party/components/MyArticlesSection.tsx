@@ -15,25 +15,23 @@ import type { MyArticlesSectionProps } from '../types';
 
 export const MyArticlesSection = React.memo(function MyArticlesSection({
   userItems,
-  partyStatus,
   onAddPress,
   onRemoveItem,
 }: MyArticlesSectionProps) {
+  // Swap Zone is always active — articles can always be added/removed.
   return (
     <View style={styles.myArticleSection}>
       <View style={styles.myArticleLabelRow}>
         <Text style={styles.myArticleLabel}>
           {"Mes articles à l'échange · "}{userItems.length}
         </Text>
-        {partyStatus !== 'ended' && (
-          <Pressable
-            style={({ pressed }) => [styles.addArticleButton, pressed && { opacity: 0.7 }]}
-            onPress={onAddPress}
-          >
-            <Ionicons name="add" size={16} color={colors.sage} />
-            <Text style={styles.addArticleButtonText}>Ajouter</Text>
-          </Pressable>
-        )}
+        <Pressable
+          style={({ pressed }) => [styles.addArticleButton, pressed && { opacity: 0.7 }]}
+          onPress={onAddPress}
+        >
+          <Ionicons name="add" size={16} color={colors.sage} />
+          <Text style={styles.addArticleButtonText}>Ajouter</Text>
+        </Pressable>
       </View>
 
       {userItems.length > 0 ? (
