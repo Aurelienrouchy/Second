@@ -40,7 +40,7 @@ export const PartyActions = React.memo(function PartyActions({
       style={({ pressed }) => [styles.leaveButton, pressed && { opacity: 0.7 }]}
       onPress={onLeave}
     >
-      <Text style={styles.leaveButtonText}>Quitter la party</Text>
+      <Text style={styles.leaveButtonText}>Quitter la Swap Zone</Text>
     </Pressable>
   );
 });
