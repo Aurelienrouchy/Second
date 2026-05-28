@@ -53,6 +53,8 @@ export default function CheckoutScreen() {
 
   // Auto-select delivery when only one option exists
   const autoDelivery: TransactionDeliveryType | null = (() => {
+    // Shipping désactivé : tout passe par le main-à-main (articles legacy inclus).
+    if (!SHIPPING_ENABLED) return 'meetup';
     if (!article) return null;
     const meetup = article.isHandDelivery !== false;
     const shipping = article.isShipping === true;
