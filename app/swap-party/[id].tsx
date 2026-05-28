@@ -119,15 +119,6 @@ export default function SwapPartyDetailScreen() {
     clearFilters,
   } = useSwapFilters(items);
 
-  // Calculate countdown days
-  const getCountdownDays = useCallback((endDate?: Date) => {
-    if (!endDate) return null;
-    const now = new Date();
-    const diffMs = endDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
-  }, []);
-
   // Toggle item selection
   const toggleItemSelection = useCallback((itemId: string) => {
     setSelectedItemIds((prev) => {
