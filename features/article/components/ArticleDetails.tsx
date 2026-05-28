@@ -12,6 +12,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import SimilarProducts from '@/components/SimilarProducts';
 import { Avatar } from '@/components/ui';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { colors } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
 import { formatPrice } from '@/utils/formatPrice';
