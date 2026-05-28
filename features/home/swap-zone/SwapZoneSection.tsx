@@ -1,11 +1,11 @@
 /**
  * SwapZoneSection — Feature Component
- * Self-contained: fetches data via useSwapParties(), includes header.
- * Wraps the UI SwapZoneSection from components/home/.
+ * Self-contained: fetches data via useSwapParties() + useSwapZoneItems(),
+ * includes header. Wraps the presentational SwapZoneSection from components/home/.
  *
  * The Swap Zone is now a single, always-active generalist zone (no time
  * window, no theme, no countdown). This wrapper renders a single permanent
- * card that routes directly to the zone detail.
+ * card driven by a preview of the zone's real stock, routing to the zone detail.
  */
 
 import React, { useCallback } from 'react';
@@ -15,16 +15,24 @@ import { router } from 'expo-router';
 import { colors, spacing, fonts } from '@/constants/theme';
 import { SwapZoneSection as SwapZoneSectionUI } from '@/components/home/SwapZoneSection';
 import { useSwapParties } from './useSwapParties';
+import { useSwapZoneItems } from './useSwapZoneItems';
 
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
 
 const SwapZoneWrapperComponent: React.FC = () => {
-  const { data, isLoading } = useSwapParties();
+  const { data, isLoading: isPartyLoading } = useSwapParties();
 
   // Cloud Function returns the single generalist zone in `party`.
   const zone = data?.party ?? null;
+
+  // Preview of real stock (drives the card's attractiveness).
+  const {
+    items,
+    newThisWeek,
+    isLoading: isItemsLoading,
+  } = useSwapZoneItems(zone?.id);
 
   const handlePress = useCallback(() => {
     if (zone) {
@@ -40,8 +48,11 @@ const SwapZoneWrapperComponent: React.FC = () => {
         </Text>
       </View>
       <SwapZoneSectionUI
-        zone={zone || undefined}
-        isLoading={isLoading}
+        zone={zone ?? undefined}
+        items={items}
+        itemsCount={zone?.itemsCount ?? 0}
+        newThisWeek={newThisWeek}
+        isLoading={isPartyLoading || isItemsLoading}
         onPress={handlePress}
       />
     </View>
