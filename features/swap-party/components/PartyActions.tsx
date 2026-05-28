@@ -12,13 +12,11 @@ import type { PartyActionsProps } from '../types';
 
 export const PartyActions = React.memo(function PartyActions({
   isJoined,
-  partyStatus,
   isJoining,
   onJoin,
   onLeave,
 }: PartyActionsProps) {
-  if (partyStatus === 'ended') return null;
-
+  // Swap Zone is always active — no 'ended' state to guard against.
   if (!isJoined) {
     return (
       <View style={styles.actionSection}>
