@@ -245,20 +245,22 @@ export async function addItemToParty(
   userName: string,
   userImage?: string
 ): Promise<string> {
-  const addFn = httpsCallable<
-    {
-      partyId: string;
-      articleId: string;
-      title: string;
-      price: number;
-      imageUrl?: string;
-      userName: string;
-      userImage?: string;
-    },
-    { itemId: string; success: boolean }
-  >(functions, 'addItemToPartySecure');
+  type AddItemPayload = {
+    partyId: string;
+    articleId: string;
+    title: string;
+    price: number;
+    imageUrl?: string;
+    userName: string;
+    userImage?: string;
+  };
 
-  const payload: Record<string, any> = {
+  const addFn = httpsCallable<AddItemPayload, { itemId: string; success: boolean }>(
+    functions,
+    'addItemToPartySecure'
+  );
+
+  const payload: AddItemPayload = {
     partyId,
     articleId: article.id,
     title: article.title,
