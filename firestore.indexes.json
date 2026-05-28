@@ -771,7 +771,7 @@
       ]
     },
     {
-      "collectionGroup": "swapParties",
+      "collectionGroup": "swaps",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -779,7 +779,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "startDate",
+          "fieldPath": "createdAt",
           "order": "ASCENDING"
         }
       ]
