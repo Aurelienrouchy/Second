@@ -235,16 +235,22 @@ const FullCard: React.FC<FullCardProps> = ({ items, itemsCount, newThisWeek, onP
           </View>
         </View>
       </View>
-    </PressCard>
+    </CardShell>
   );
 };
 
 // =============================================================================
-// EMPTY STATE — inviting teaser
+// EMPTY / TEASER STATE — inviting teaser
+//
+// Two sub-cases, distinguished by `onPress`:
+// - onPress present  : a zone exists but has no items yet → tappable, enters
+//                      the (empty) zone, shows the normal CTA.
+// - onPress absent   : no active zone at all → non-interactive teaser, shows a
+//                      "Bientôt disponible" label instead of a dead CTA.
 // =============================================================================
 
-const EmptyCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <PressCard onPress={onPress}>
+const EmptyCard: React.FC<{ onPress?: () => void }> = ({ onPress }) => (
+  <CardShell onPress={onPress}>
     <LinearGradient
       colors={[colors.cream, colors.sandLight]}
       start={{ x: 0, y: 0 }}
@@ -262,9 +268,9 @@ const EmptyCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
       <Text style={styles.emptySubtitle}>
         Dépose un article et trouve la pièce parfaite à troquer.
       </Text>
-      <CtaRow />
+      {onPress ? <CtaRow /> : <ComingSoonLabel />}
     </LinearGradient>
-  </PressCard>
+  </CardShell>
 );
 
 // =============================================================================
