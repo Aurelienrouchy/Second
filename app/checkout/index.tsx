@@ -93,7 +93,7 @@ export default function CheckoutScreen() {
   // =============================================================================
 
   const hasMeetup = article?.isHandDelivery !== false;
-  const hasShipping = article?.isShipping === true;
+  const hasShipping = SHIPPING_ENABLED && article?.isShipping === true;
 
   // =============================================================================
   // RENDER
