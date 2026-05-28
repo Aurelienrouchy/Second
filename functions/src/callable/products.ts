@@ -641,7 +641,7 @@ export const updateArticle = onCall(
       sanitized.size = updates.size.trim().substring(0, 50);
     }
     if ('brand' in updates && typeof updates.brand === 'string') {
-      sanitized.brand = updates.brand.trim().substring(0, 100);
+      sanitized.brand = await resolveBrand(updates.brand);
     }
     if ('pattern' in updates && typeof updates.pattern === 'string') {
       sanitized.pattern = updates.pattern.trim().substring(0, 100);
