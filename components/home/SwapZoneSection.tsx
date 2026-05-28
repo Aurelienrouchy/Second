@@ -500,6 +500,25 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
 
+  // --- "Coming soon" label (non-interactive teaser) ---
+  comingSoonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.secondaryLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+  },
+  comingSoonText: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: typography.label.fontSize,
+    lineHeight: typography.label.lineHeight,
+    letterSpacing: typography.label.letterSpacing,
+    color: colors.secondary,
+    textTransform: 'uppercase',
+  },
+
   // --- Loading skeleton ---
   skeletonCard: {
     backgroundColor: colors.surfaceWarm,
