@@ -8,6 +8,7 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db, FieldValue } from '../config/firebase';
+import { brandKey, brandDisplay } from '../utils/normalizeBrand';
 
 // =============================================================================
 // SHARED TYPES
