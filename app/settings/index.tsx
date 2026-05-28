@@ -7,6 +7,7 @@ import { AuthService } from '@/services/authService';
 import { UserService } from '@/services/userService';
 import { useUser } from '@/contexts/AuthContext';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
