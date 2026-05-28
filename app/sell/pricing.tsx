@@ -241,13 +241,15 @@ export default function PricingScreen() {
           onViewMore={() => neighborhoodSheetRef.current?.show()}
         />
 
-        <ShippingCard
-          isActive={isShipping}
-          onToggle={() => setIsShipping((prev) => !prev)}
-          packageSize={packageSize}
-          onPackageSizeSelect={setPackageSize}
-          aiSuggestedSize={aiResult?.packageSize?.suggested}
-        />
+        {SHIPPING_ENABLED && (
+          <ShippingCard
+            isActive={isShipping}
+            onToggle={() => setIsShipping((prev) => !prev)}
+            packageSize={packageSize}
+            onPackageSizeSelect={setPackageSize}
+            aiSuggestedSize={aiResult?.packageSize?.suggested}
+          />
+        )}
 
         <FormErrors errors={errors} />
       </ScrollView>
