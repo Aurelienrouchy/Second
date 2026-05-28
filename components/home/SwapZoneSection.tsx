@@ -70,15 +70,18 @@ const SCRIM_GRADIENT = ['transparent', 'rgba(26, 24, 20, 0.85)'] as const;
 const MAX_TILES = 6;
 
 // =============================================================================
-// PRESS WRAPPER (shared press-scale + haptic)
+// CARD SHELL (layout animation + optional press-scale/haptic)
 // =============================================================================
 
-interface PressCardProps {
-  onPress: () => void;
+interface CardShellProps {
+  // When omitted, the shell is rendered non-interactive (no Pressable, no
+  // press-scale, no haptic) — used for the "no active zone" teaser so we
+  // never present a button that does nothing.
+  onPress?: () => void;
   children: React.ReactNode;
 }
 
-const PressCard: React.FC<PressCardProps> = ({ onPress, children }) => {
+const CardShell: React.FC<CardShellProps> = ({ onPress, children }) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -95,13 +98,21 @@ const PressCard: React.FC<PressCardProps> = ({ onPress, children }) => {
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
+    onPress?.();
   };
 
+  // Outer wrapper owns the layout animation (FadeInDown).
+  // Inner Animated.View owns the press-scale transform — splitting
+  // them avoids 'transform may be overwritten by a layout animation'.
+  if (!onPress) {
+    return (
+      <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+        <Animated.View style={styles.cardShadow}>{children}</Animated.View>
+      </Animated.View>
+    );
+  }
+
   return (
-    // Outer wrapper owns the layout animation (FadeInDown).
-    // Inner Animated.View owns the press-scale transform — splitting
-    // them avoids 'transform may be overwritten by a layout animation'.
     <Animated.View entering={FadeInDown.duration(400).delay(100)}>
       <Animated.View style={[styles.cardShadow, animatedStyle]}>
         <Pressable
