@@ -371,7 +371,7 @@ export const createArticle = onCall(
       article.size = data.size.trim().substring(0, 50);
     }
     if (typeof data.brand === 'string' && data.brand.trim()) {
-      article.brand = data.brand.trim().substring(0, 100);
+      article.brand = await resolveBrand(data.brand);
     }
     if (typeof data.pattern === 'string' && data.pattern.trim()) {
       article.pattern = data.pattern.trim().substring(0, 100);
