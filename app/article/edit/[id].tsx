@@ -48,6 +48,7 @@ import { functions } from '@/config/firebaseConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import { Article, ArticleImage, MeetupNeighborhood } from '@/types';
 import { colors, fonts } from '@/constants/theme';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
