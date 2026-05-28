@@ -232,7 +232,7 @@ export default function CheckoutScreen() {
           </Pressable>
         )}
 
-        {hasShipping && (
+        {SHIPPING_ENABLED && hasShipping && (
           <Pressable
             style={[
               styles.deliveryOption,
