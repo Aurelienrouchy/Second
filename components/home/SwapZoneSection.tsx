@@ -177,7 +177,7 @@ const FullCard: React.FC<FullCardProps> = ({ items, itemsCount, newThisWeek, onP
   const tiles = items.slice(0, MAX_TILES);
 
   return (
-    <PressCard onPress={onPress}>
+    <CardShell onPress={onPress}>
       <View style={styles.card}>
         {/* Image collage — the real stock preview */}
         <View style={styles.collage}>
