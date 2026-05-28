@@ -12,6 +12,7 @@ export const homeKeys = {
   priceDrops:      () => [...homeKeys.all, 'price-drops'] as const,
   featuredSellers: () => [...homeKeys.all, 'featured-sellers'] as const,
   swapParties:     () => [...homeKeys.all, 'swap-parties'] as const,
+  swapZoneItems:   (partyId: string) => [...homeKeys.all, 'swap-zone-items', partyId] as const,
   discover:        () => [...homeKeys.all, 'discover'] as const,
   likedSellers:    () => [...homeKeys.all, 'liked-sellers'] as const,
 };
