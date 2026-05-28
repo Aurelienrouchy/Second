@@ -71,8 +71,14 @@ export default function PricingScreen() {
           if (existingDraft.pricing.price !== null) {
             setPrice(existingDraft.pricing.price.toString());
           }
-          setIsHandDelivery(!!existingDraft.pricing.isHandDelivery);
-          setIsShipping(!!existingDraft.pricing.isShipping);
+          if (SHIPPING_ENABLED) {
+            setIsHandDelivery(!!existingDraft.pricing.isHandDelivery);
+            setIsShipping(!!existingDraft.pricing.isShipping);
+          } else {
+            // Shipping désactivé : un brouillon legacy en shipping est ramené au main-à-main.
+            setIsHandDelivery(true);
+            setIsShipping(false);
+          }
           if (existingDraft.pricing.neighborhoods?.length) {
             setSelectedNeighborhoods(existingDraft.pricing.neighborhoods);
           } else if (existingDraft.pricing.neighborhood) {
