@@ -343,7 +343,7 @@ export const SellOverlayCapture = React.memo(SellOverlayCaptureInner);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0E0C',
+    backgroundColor: colors.deep,
   },
   blurTop: {
     position: 'absolute',
