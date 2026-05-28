@@ -32,6 +32,7 @@ import { CameraControlsRow } from './CameraControlsRow';
 
 const MAX_PHOTOS = 5;
 const THUMB_CONTAINER_HEIGHT = 92;
+const CAMERA_FADE_DURATION = 260;
 
 interface SellOverlayCaptureProps {
   onClose: () => void;
