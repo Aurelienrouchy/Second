@@ -138,11 +138,13 @@ export default function SettingsScreen() {
             subtitle="Gérer l'adresse de livraison"
             onPress={() => router.push('/settings/address')}
           />
-          <SettingItem
-            icon="cube-outline"
-            title="Options de livraison"
-            onPress={() => router.push('/settings/shipping-options')}
-          />
+          {SHIPPING_ENABLED && (
+            <SettingItem
+              icon="cube-outline"
+              title="Options de livraison"
+              onPress={() => router.push('/settings/shipping-options')}
+            />
+          )}
         </SettingSection>
 
         {/* Personnalisation */}
