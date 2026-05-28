@@ -1,237 +1,224 @@
 /**
  * Scheduled swap functions
  * Firebase Functions v7 - using onSchedule
+ *
+ * ============================================================
+ * SWAP ZONE MODEL CHANGE (single permanent generalist zone)
+ * ============================================================
+ * The Swap Zone moved from time-windowed thematic parties to ONE permanent,
+ * generalist, always-active zone with NO endDate.
+ *
+ * As a result:
+ *  - `updateSwapPartyStatuses` (upcoming -> active -> ended transitions) is
+ *    OBSOLETE and disabled. It is NO LONGER exported from index.ts. The body
+ *    is kept commented for reversibility, with a hard `isGeneralist` exclusion
+ *    as double-safety so a permanent zone can never be flipped to `ended`.
+ *  - `sendSwapZoneReminders` (3-days-before-start reminders) is OBSOLETE and
+ *    disabled (no startDate window anymore). Kept commented for reversibility.
+ *  - `cleanupEndedParty` was the ONLY mechanism freeing `isPending` items of
+ *    stale `proposed` swaps. It is replaced by `expireStaleProposedSwaps`
+ *    (time-window-agnostic, runs hourly) — see below.
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { sendPushNotification } from '../utils/notifications';
 
+/** Resolve items arrays with backward compat for legacy single-item swaps */
+function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
+  if (side === 'initiator') {
+    return swap.initiatorItems || (swap.initiatorItem ? [swap.initiatorItem] : []);
+  }
+  return swap.receiverItems || (swap.receiverItem ? [swap.receiverItem] : []);
+}
+
 /**
- * Cleanup pending swaps and items when a swap party ends.
- * - Cancels all swaps in status 'proposed' linked to this party
- * - Resets isPending on swapPartyItems that were pending
- * - Notifies affected participants whose swaps were cancelled
+ * Release all `swapPartyItems` linked to a swap (isPending -> false) for both
+ * sides. Mirrors the item-release logic that used to live in cleanupEndedParty
+ * and in the callable `releasePartyItems` helper.
  */
-async function cleanupEndedParty(partyId: string, partyName: string): Promise<void> {
-  // 1. Cancel all 'proposed' swaps linked to this party
-  const proposedSwapsSnapshot = await db
-    .collection('swaps')
-    .where('partyId', '==', partyId)
-    .where('status', '==', 'proposed')
-    .get();
+async function releaseSwapPartyItems(swap: FirebaseFirestore.DocumentData): Promise<void> {
+  if (!swap.partyId) return;
 
-  if (proposedSwapsSnapshot.empty) {
-    logger.info('[swapPartyCleanup] No proposed swaps to cancel', { partyId });
-  } else {
-    logger.info('[swapPartyCleanup] Cancelling proposed swaps', {
-      partyId,
-      count: proposedSwapsSnapshot.docs.length,
-    });
+  const partyItemsRef = db.collection('swapPartyItems');
 
-    // Collect unique user IDs to notify
-    const usersToNotify = new Set<string>();
-
-    const batch = db.batch();
-    for (const swapDoc of proposedSwapsSnapshot.docs) {
-      const swap = swapDoc.data();
-      batch.update(swapDoc.ref, {
-        status: 'cancelled',
-        cancelReason: 'party_ended',
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      if (swap.initiatorId) usersToNotify.add(swap.initiatorId);
-      if (swap.receiverId) usersToNotify.add(swap.receiverId);
-    }
-    await batch.commit();
-
-    // Notify affected users
-    for (const userId of usersToNotify) {
-      try {
-        await sendPushNotification(
-          userId,
-          'Swap Zone terminée',
-          `La Swap Zone "${partyName}" est terminée. Tes propositions en attente ont été annulées.`,
-          { partyId, partyName },
-          'swap_update'
-        );
-      } catch (notifError) {
-        logger.error('[swapPartyCleanup] Failed to notify user', { userId, error: notifError });
-      }
+  const initiatorItems = getSwapItems(swap, 'initiator');
+  for (const item of initiatorItems) {
+    if (!item?.articleId) continue;
+    const q = await partyItemsRef
+      .where('partyId', '==', swap.partyId)
+      .where('articleId', '==', item.articleId)
+      .where('sellerId', '==', swap.initiatorId)
+      .get();
+    for (const d of q.docs) {
+      await d.ref.update({ isPending: false });
     }
   }
 
-  // 2. Reset isPending on all pending items in this party
-  const pendingItemsSnapshot = await db
-    .collection('swapPartyItems')
-    .where('partyId', '==', partyId)
-    .where('isPending', '==', true)
-    .get();
-
-  if (!pendingItemsSnapshot.empty) {
-    logger.info('[swapPartyCleanup] Resetting pending items', {
-      partyId,
-      count: pendingItemsSnapshot.docs.length,
-    });
-
-    const itemsBatch = db.batch();
-    for (const itemDoc of pendingItemsSnapshot.docs) {
-      itemsBatch.update(itemDoc.ref, { isPending: false });
+  const receiverItems = getSwapItems(swap, 'receiver');
+  for (const item of receiverItems) {
+    if (!item?.articleId) continue;
+    const q = await partyItemsRef
+      .where('partyId', '==', swap.partyId)
+      .where('articleId', '==', item.articleId)
+      .where('sellerId', '==', swap.receiverId)
+      .get();
+    for (const d of q.docs) {
+      await d.ref.update({ isPending: false });
     }
-    await itemsBatch.commit();
   }
 }
 
 /**
- * Update swap party statuses automatically
- * Runs every 5 minutes to transition parties: upcoming -> active -> ended
- * When a party transitions to 'ended', cleanup pending swaps and items.
+ * Stale `proposed` swaps expire after this delay. A proposed swap that was
+ * never accepted/declined within this window is cancelled and its party items
+ * are freed. Easy to tune.
  */
-export const updateSwapPartyStatuses = onSchedule({ schedule: 'every 5 minutes', region: 'northamerica-northeast1', memory: '512MiB' }, async () => {
-  logger.info('Checking swap party statuses...');
-  const now = new Date();
+const PROPOSED_SWAP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-  try {
-    // Get all non-ended parties
-    const partiesSnapshot = await db
-      .collection('swapParties')
-      .where('status', 'in', ['upcoming', 'active'])
-      .get();
-
-    let updatedCount = 0;
-
-    for (const partyDoc of partiesSnapshot.docs) {
-      const party = partyDoc.data();
-      const startDate = party.startDate?.toDate();
-      const endDate = party.endDate?.toDate();
-      let newStatus: string | null = null;
-
-      if (party.status === 'upcoming' && startDate && now >= startDate) {
-        newStatus = 'active';
-      } else if (party.status === 'active' && endDate && now >= endDate) {
-        newStatus = 'ended';
-      }
-
-      if (newStatus) {
-        await db.collection('swapParties').doc(partyDoc.id).update({
-          status: newStatus,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        updatedCount++;
-        logger.info(`Updated party ${partyDoc.id} status to ${newStatus}`);
-
-        // Cleanup when a party ends: cancel proposed swaps, reset pending items
-        if (newStatus === 'ended') {
-          await cleanupEndedParty(partyDoc.id, party.name || 'Swap Zone');
-        }
-      }
-    }
-
-    logger.info('Swap party status check complete', { updatedCount });
-  } catch (error) {
-    logger.error('Error updating swap party statuses', { error });
-  }
-});
+/** Firestore batch limit is 500; use 450 for safety margin */
+const BATCH_SIZE = 450;
 
 /**
- * Send swap zone reminders 3 days before start
- * Runs daily at 10:00 AM Montreal time
+ * Expire stale proposed swaps (REPLACEMENT for cleanupEndedParty).
+ *
+ * Time-window-agnostic safety net for the permanent Swap Zone: without the old
+ * party-ended cleanup, items locked by a `proposed` swap that is never accepted
+ * or declined would stay `isPending: true` forever. This job:
+ *   1. Finds every swap still in status 'proposed' older than the expiry delay
+ *   2. Flips it to 'cancelled' (cancelReason: 'proposed_expired_7d')
+ *   3. Releases its swapPartyItems (isPending -> false)
+ *   4. Notifies the initiator (the receiver is notified by the existing
+ *      onSwapStatusUpdated trigger on the 'cancelled' transition)
+ *
+ * Runs every hour. Works for swaps with or without a partyId.
+ *
+ * Requires composite index: swaps (status ASC, createdAt ASC).
  */
-export const sendSwapZoneReminders = onSchedule(
+export const expireStaleProposedSwaps = onSchedule(
   {
-    schedule: '0 10 * * *',
+    schedule: 'every 1 hours',
     region: 'northamerica-northeast1',
-    timeZone: 'America/Montreal',
     memory: '512MiB',
   },
   async () => {
+    const cutoff = new Date(Date.now() - PROPOSED_SWAP_EXPIRY_MS);
+
     try {
-      // Calculate the target date (3 days from now)
-      const now = new Date();
-      const targetDate = new Date(now);
-      targetDate.setDate(targetDate.getDate() + 3);
-
-      // Set to start of day
-      const startOfDay = new Date(targetDate);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      // Set to end of day
-      const endOfDay = new Date(targetDate);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      logger.info('Looking for swap parties starting soon', {
-        startOfDay: startOfDay.toISOString(),
-        endOfDay: endOfDay.toISOString(),
-      });
-
-      // Find swap parties starting in 3 days
-      const partiesSnapshot = await db
-        .collection('swapParties')
-        .where('startDate', '>=', startOfDay)
-        .where('startDate', '<=', endOfDay)
-        .where('status', '==', 'upcoming')
+      const staleSnap = await db
+        .collection('swaps')
+        .where('status', '==', 'proposed')
+        .where('createdAt', '<', cutoff)
         .get();
 
-      if (partiesSnapshot.empty) {
-        logger.info('No swap parties starting in 3 days');
+      if (staleSnap.empty) {
+        logger.info('[expireStaleProposedSwaps] No stale proposed swaps found');
         return;
       }
 
-      logger.info('Found swap parties to notify about', { count: partiesSnapshot.docs.length });
+      logger.info('[expireStaleProposedSwaps] Cancelling stale proposed swaps', {
+        count: staleSnap.size,
+      });
 
-      // Process each party
-      for (const partyDoc of partiesSnapshot.docs) {
-        const partyData = partyDoc.data();
-        const partyId = partyDoc.id;
-        const partyName = partyData.name || 'Swap Zone';
+      // 1. Cancel the swaps in batches.
+      let batch = db.batch();
+      let count = 0;
+      for (const doc of staleSnap.docs) {
+        batch.update(doc.ref, {
+          status: 'cancelled',
+          cancelReason: 'proposed_expired_7d',
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        count++;
+        if (count >= BATCH_SIZE) {
+          await batch.commit();
+          batch = db.batch();
+          count = 0;
+        }
+      }
+      if (count > 0) {
+        await batch.commit();
+      }
 
-        // Get all participants
-        const participantsSnapshot = await db
-          .collection('swapPartyParticipants')
-          .where('partyId', '==', partyId)
-          .get();
-
-        if (participantsSnapshot.empty) {
-          logger.info('No participants for party', { partyId });
-          continue;
+      // 2. Release items + notify initiators (non-critical side-effects).
+      for (const doc of staleSnap.docs) {
+        const swap = doc.data();
+        try {
+          await releaseSwapPartyItems(swap);
+        } catch (releaseErr) {
+          logger.error('[expireStaleProposedSwaps] Failed to release party items', {
+            swapId: doc.id,
+            error: releaseErr instanceof Error ? releaseErr.message : releaseErr,
+          });
         }
 
-        const userIds = participantsSnapshot.docs.map(
-          (doc) => doc.data().userId
-        );
-        logger.info('Notifying participants for party', { partyName, participantCount: userIds.length });
-
-        // Send notifications to all participants
-        await Promise.all(
-          userIds.map(async (userId) => {
-            // Check user's notification preferences
-            const userDoc = await db.collection('users').doc(userId).get();
-            if (userDoc.exists) {
-              const userPrefs = userDoc.data()?.preferences?.notifications;
-              if (userPrefs?.swapZoneReminder === false) {
-                logger.info('User has swap zone reminder notifications disabled', { userId });
-                return;
-              }
-            }
-
+        if (swap.initiatorId) {
+          try {
             await sendPushNotification(
-              userId,
-              'Swap Zone dans 3 jours !',
-              `N'oubliez pas d'ajouter vos articles à "${partyName}"`,
-              {
-                partyId,
-                partyName,
-                daysUntil: '3',
-              },
-              'swap_zone_reminder'
+              swap.initiatorId,
+              'Proposition d\'échange expirée',
+              'Ta proposition d\'échange est restée sans réponse et a été annulée.',
+              { swapId: doc.id },
+              'swap_update'
             );
-          })
-        );
-
-        logger.info('Sent reminders for party', { partyName });
+          } catch (notifErr) {
+            logger.warn('[expireStaleProposedSwaps] Failed to notify initiator', {
+              swapId: doc.id,
+              error: notifErr instanceof Error ? notifErr.message : notifErr,
+            });
+          }
+        }
       }
+
+      logger.info(`[expireStaleProposedSwaps] Expired ${staleSnap.size} stale proposed swaps`);
     } catch (error) {
-      logger.error('Error in sendSwapZoneReminders', { error });
+      logger.error('[expireStaleProposedSwaps] Error expiring stale proposed swaps', {
+        error: error instanceof Error ? error.message : error,
+      });
     }
   }
 );
+
+// ============================================================
+// OBSOLETE — disabled with the single permanent Swap Zone model.
+// Kept (commented) for reversibility. Not exported from index.ts.
+// ============================================================
+//
+// `updateSwapPartyStatuses` transitioned parties upcoming -> active -> ended
+// based on startDate/endDate and ran cleanupEndedParty on `ended`. The
+// permanent generalist zone has no endDate, so there is nothing to transition.
+// Double-safety: were this ever re-enabled, it MUST exclude isGeneralist zones
+// from any transition to `ended` (a permanent zone must never end).
+//
+// export const updateSwapPartyStatuses = onSchedule(
+//   { schedule: 'every 5 minutes', region: 'northamerica-northeast1', memory: '512MiB' },
+//   async () => {
+//     const now = new Date();
+//     const partiesSnapshot = await db
+//       .collection('swapParties')
+//       .where('status', 'in', ['upcoming', 'active'])
+//       .get();
+//     for (const partyDoc of partiesSnapshot.docs) {
+//       const party = partyDoc.data();
+//       // DOUBLE-SAFETY: never transition the permanent generalist zone.
+//       if (party.isGeneralist === true) continue;
+//       const startDate = party.startDate?.toDate();
+//       const endDate = party.endDate?.toDate();
+//       let newStatus: string | null = null;
+//       if (party.status === 'upcoming' && startDate && now >= startDate) newStatus = 'active';
+//       else if (party.status === 'active' && endDate && now >= endDate) newStatus = 'ended';
+//       if (newStatus) {
+//         await partyDoc.ref.update({ status: newStatus, updatedAt: FieldValue.serverTimestamp() });
+//         // if (newStatus === 'ended') await cleanupEndedParty(partyDoc.id, party.name || 'Swap Zone');
+//       }
+//     }
+//   }
+// );
+//
+// `sendSwapZoneReminders` sent a push 3 days before a party's startDate. The
+// permanent zone has no startDate window, so reminders no longer make sense.
+//
+// export const sendSwapZoneReminders = onSchedule(
+//   { schedule: '0 10 * * *', region: 'northamerica-northeast1', timeZone: 'America/Montreal', memory: '512MiB' },
+//   async () => { /* obsolete: no startDate window in the permanent Swap Zone */ }
+// );
