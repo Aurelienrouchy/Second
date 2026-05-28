@@ -6,7 +6,8 @@ import { SwapParty, SwapPartyItemExtended, Article } from '@/types';
 
 export interface PartyHeaderProps {
   party: SwapParty;
-  countdownDays: number | null;
+  /** @deprecated Swap Zone is always active — countdown removed. Kept optional for reversibility. */
+  countdownDays?: number | null;
   onBack: () => void;
 }
 
