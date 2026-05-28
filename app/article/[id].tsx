@@ -23,6 +23,7 @@ import type { MakeOfferModalRef } from '@/components/MakeOfferModal';
 import ReportBottomSheet from '@/components/ReportBottomSheet';
 import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
