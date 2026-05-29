@@ -397,6 +397,8 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `transactionExpiration.ts` | Expiration meetup_pending (48h), pending_payment (1h), paid-not-shipped (7j) orphelins |
 | `releaseHeldFunds.ts` | Toutes les heures : libère heldBalance → balance après la fenêtre de litige 7j (delivered → completed). Expose `applyDeliveredHeldFunds` (contrat pending→held à la livraison) |
 | `sweepPendingLabels.ts` | Toutes les heures : re-tarife (getRates) + retente createLabel pour les transactions `paid` + `labelCreationPending`. Succès → crédite le vendeur (pendingBalance) + réconcilie le coût réel + status `label_created`. Après 4 échecs → refund acheteur (reverse_transfer idempotent) + release article + cancel + notif. Dead-letter `failed_operations` si le refund échoue |
+| `retryFailedOperations.ts` | Toutes les 30 min : rejoue la dead-letter `failed_operations` (status `pending`) avec backoff exponentiel. Dispatch par `type` (stripe_refund/transfer_reversal/payout_reversal/amount_mismatch), idempotent (mêmes clés Stripe que les call sites). `resolved` au succès, `exhausted` après 6 tentatives (log CRITICAL → alerte). Tolère le shape legacy (transactionId/reason) |
+| `reconcile.ts` (`reconcileFinances`) | Toutes les 6h, filet de sécurité (détection seule, pas de mutation d'argent) : reconcilePayments (PI succeeded mais tx `pending_payment` = webhook perdu), reconcileWithdrawals (withdrawal_requests `processing` bloqués vs payout Stripe → `completed` ou dead-letter), reconcileBalances (invariants wallet : aucun bucket négatif). Log CRITICAL + dead-letter sur divergence |
 
 ### HTTP — `functions/src/http/`
 | Fichier | Route |
