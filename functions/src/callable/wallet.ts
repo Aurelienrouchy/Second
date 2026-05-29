@@ -291,9 +291,28 @@ export const walletWithdraw = onCall(
     const stripeAccountId = userData.stripeAccountId;
     const walletRef = db.collection('wallets').doc(userId);
 
+    // --- Dispute guard: refuse withdrawal while a dispute is active ---
+    // A seller with any transaction currently in 'disputed' status (chargeback
+    // open) cannot cash out: the funds may need to be clawed back. Funds in
+    // heldBalance/pendingBalance are already non-withdrawable; this guard also
+    // freezes the rest of the balance for the duration of the dispute.
+    const disputedSnap = await db
+      .collection('transactions')
+      .where('sellerId', '==', userId)
+      .where('disputed', '==', true)
+      .limit(1)
+      .get();
+    if (!disputedSnap.empty) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Un litige est en cours sur l\'une de vos ventes. Les retraits sont suspendus jusqu\'à sa résolution.'
+      );
+    }
+
     try {
-      // Step 1: Atomically debit wallet
+      // Step 1: Atomically debit wallet + create withdrawal_requests doc
       const ledgerEntryRef = walletRef.collection('ledger').doc();
+      const withdrawalRequestRef = db.collection('withdrawal_requests').doc();
       let newBalance: number;
 
       await db.runTransaction(async (tx) => {
@@ -305,6 +324,15 @@ export const walletWithdraw = onCall(
 
         if (walletData.status !== 'active') {
           throw new HttpsError('failed-precondition', 'Le porte-monnaie n\'est pas actif');
+        }
+        // Block withdrawals while the seller carries a debt (e.g. lost dispute
+        // where funds were already withdrawn). Only `balance` is withdrawable;
+        // heldBalance/pendingBalance are never touched here.
+        if ((walletData.sellerDebt || 0) > 0) {
+          throw new HttpsError(
+            'failed-precondition',
+            'Votre compte présente un solde dû. Les retraits sont suspendus.'
+          );
         }
         if (walletData.balance < amount) {
           throw new HttpsError('failed-precondition', 'Solde insuffisant');
@@ -322,7 +350,20 @@ export const walletWithdraw = onCall(
           amount,
           balanceAfter: newBalance,
           description: `Retrait vers compte bancaire ****${userData.stripeBankAccountLast4 || '****'}`,
+          withdrawalRequestId: withdrawalRequestRef.id,
           createdAt: FieldValue.serverTimestamp(),
+        });
+
+        // Audit/tracking doc for the payout lifecycle (payout.paid/failed).
+        tx.set(withdrawalRequestRef, {
+          userId,
+          amount,
+          currency: 'cad',
+          status: 'processing',
+          ledgerEntryId: ledgerEntryRef.id,
+          stripeAccountId,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         });
       });
 
@@ -337,6 +378,7 @@ export const walletWithdraw = onCall(
             metadata: {
               firebaseUserId: userId,
               walletWithdrawal: 'true',
+              withdrawalRequestId: withdrawalRequestRef.id,
             },
           },
           // Deterministic key tied to the (stable) ledger entry id so a retry
@@ -351,6 +393,9 @@ export const walletWithdraw = onCall(
             metadata: {
               firebaseUserId: userId,
               walletWithdrawal: 'true',
+              // Matched by handlePayoutFailed/handlePayoutPaid to close out the
+              // withdrawal_requests doc asynchronously.
+              withdrawalRequestId: withdrawalRequestRef.id,
             },
           },
           // stripe-node v22 takes a SINGLE RequestOptions object: both the
@@ -360,11 +405,12 @@ export const walletWithdraw = onCall(
           { stripeAccount: stripeAccountId, idempotencyKey: `po_${ledgerEntryRef.id}` }
         );
 
-        logger.info('Wallet withdrawal completed', {
+        logger.info('Wallet withdrawal initiated', {
           userId,
           amount,
           transferId: transfer.id,
           payoutId: payout.id,
+          withdrawalRequestId: withdrawalRequestRef.id,
         });
 
         return {
@@ -372,6 +418,7 @@ export const walletWithdraw = onCall(
           newBalance: newBalance!,
           transferId: transfer.id,
           payoutId: payout.id,
+          withdrawalRequestId: withdrawalRequestRef.id,
         };
       } catch (stripeError) {
         // Stripe failed — revert wallet debit
