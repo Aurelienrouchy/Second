@@ -182,7 +182,9 @@ export const ensureGeneralistZone = onCall(
  * items themselves.
  */
 export const getActiveSwapPartyInfo = onCall(
-  { region: 'northamerica-northeast1', invoker: 'public', memory: '256MiB' },
+  // 512MiB: the shared functions bundle grew (Stripe/ShipEngine/scheduled), so a
+  // 256MiB instance now OOMs (~312MiB) on cold start → readiness fails → 500.
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async () => {
     try {
       const zoneRef = db.collection('swapParties').doc(GENERALIST_ZONE_ID);
