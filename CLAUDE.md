@@ -17,7 +17,7 @@
 
 **Second** — marketplace seconde main (style Vinted), mono-langue FR, déployée sur Firebase `seconde-b47a6` (sprints 1-5 livrés).
 
-**Stack** : Expo Router v4 file-based · React Native 0.83 · React 19 · Zustand 5 · React Query 5 · Firebase Web SDK v12 modular · Stripe Connect Standard (paiement) · ShipEngine (shipping) · TypeScript strict.
+**Stack** : Expo Router v4 file-based · React Native 0.83 · React 19 · Zustand 5 · React Query 5 · Firebase Web SDK v12 modular · Stripe Connect **Custom** (paiement, white-label) · ShipEngine (shipping) · TypeScript strict.
 
 ---
 
