@@ -173,6 +173,14 @@ export { releaseHeldFunds } from './scheduled/releaseHeldFunds';
 // seller on success, refund buyer after N failed attempts)
 export { sweepPendingLabels } from './scheduled/sweepPendingLabels';
 
+// Dead-letter replay (every 30min: re-drive failed_operations with backoff;
+// mark resolved/exhausted — covers refunds, transfer/payout reversals, mismatch)
+export { retryFailedOperations } from './scheduled/retryFailedOperations';
+
+// Reconciliation (every 6h: lost PI/payout webhooks + wallet invariant checks;
+// CRITICAL log + dead-letter on divergence)
+export { reconcileFinances } from './scheduled/reconcile';
+
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
