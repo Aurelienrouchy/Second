@@ -355,10 +355,11 @@ export const walletWithdraw = onCall(
               ledgerEntryId: ledgerEntryRef.id,
             },
           },
-          // idempotencyKey goes in the request options (2nd arg), Connect
-          // account selection (stripeAccount) in the per-request options (3rd arg).
-          { idempotencyKey: `po_${ledgerEntryRef.id}` },
-          { stripeAccount: stripeAccountId }
+          // stripe-node v22 takes a SINGLE RequestOptions object: both the
+          // Connect account selection (stripeAccount) and the deterministic
+          // idempotencyKey live here. Tied to the stable ledger entry id so a
+          // retry never pays out the same withdrawal twice.
+          { stripeAccount: stripeAccountId, idempotencyKey: `po_${ledgerEntryRef.id}` }
         );
 
         logger.info('Wallet withdrawal completed', {
