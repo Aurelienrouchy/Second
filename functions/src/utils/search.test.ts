@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { generateSearchKeywords, calculatePopularityScore } from './search';
+import {
+  generateSearchKeywords,
+  calculatePopularityScore,
+  normalizeSearchText,
+} from './search';
+
+describe('normalizeSearchText', () => {
+  it('strips diacritics (accents)', () => {
+    expect(normalizeSearchText('été')).toBe('ete');
+    expect(normalizeSearchText('décontracté')).toBe('decontracte');
+    expect(normalizeSearchText('Robe À Manches')).toBe('robe a manches');
+  });
+
+  it('strips punctuation', () => {
+    expect(normalizeSearchText("c'est")).toBe('c est');
+    expect(normalizeSearchText('nike,')).toBe('nike');
+  });
+
+  it('collapses whitespace and trims', () => {
+    expect(normalizeSearchText('  robe   bleue  ')).toBe('robe bleue');
+  });
+
+  it('handles null/undefined-like input', () => {
+    expect(normalizeSearchText(null as unknown as string)).toBe('');
+    expect(normalizeSearchText(undefined as unknown as string)).toBe('');
+  });
+});
 
 describe('generateSearchKeywords', () => {
   it('returns empty array for empty string', () => {
