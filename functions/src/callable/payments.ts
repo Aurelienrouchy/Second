@@ -40,7 +40,7 @@ const CA_POSTAL_RE = /^[A-Z]\d[A-Z]\d[A-Z]\d$/;
  * can be found — the caller must then reject the transaction. There is NO
  * Montreal fallback: a label must ship from the seller's real address.
  */
-function resolveSellerOriginAddress(
+export function resolveSellerOriginAddress(
   sellerData: Record<string, any>,
   articleData: Record<string, any>
 ): ShipEngineAddress | null {
