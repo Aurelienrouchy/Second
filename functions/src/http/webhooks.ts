@@ -160,6 +160,26 @@ export const stripeWebhook = onRequest(
       }
 
       // =======================================================================
+      // CHARGE.DISPUTE.CLOSED — Dispute resolved (won / lost)
+      // =======================================================================
+
+      else if (eventType === 'charge.dispute.closed') {
+        await handleDisputeClosed(event.data.object);
+      }
+
+      // =======================================================================
+      // PAYOUT.FAILED / PAYOUT.PAID — Withdrawal payout lifecycle
+      // =======================================================================
+
+      else if (eventType === 'payout.failed') {
+        await handlePayoutFailed(event.data.object);
+      }
+
+      else if (eventType === 'payout.paid') {
+        await handlePayoutPaid(event.data.object);
+      }
+
+      // =======================================================================
       // CHARGE.REFUNDED — Full or partial refund processed
       // =======================================================================
 
