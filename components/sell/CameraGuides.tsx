@@ -35,7 +35,7 @@ export default function CameraGuides({
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 3,
   },
   centerTextContainer: {
