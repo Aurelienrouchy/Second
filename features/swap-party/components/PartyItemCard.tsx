@@ -34,6 +34,11 @@ export const PartyItemCard = React.memo(function PartyItemCard({
   const isDark = tone === 'dark';
 
   return (
+    <Animated.View
+      style={styles.cardWrapper}
+      entering={FadeIn.duration(220)}
+      layout={LinearTransition.duration(220)}
+    >
     <Pressable
       style={({ pressed }) => [
         styles.productCard,
