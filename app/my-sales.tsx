@@ -292,18 +292,7 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    lineHeight: 15,
+    marginBottom: spacing.xs,
   },
   cardDate: {
     fontFamily: fonts.sans,
