@@ -532,7 +532,6 @@ export class ArticlesService {
     let cursor = lastVisible;
     let lastFetchedDoc: QueryDocumentSnapshot | null = null;
     let lastBatchFull = false;
-    let exhausted = false;
 
     for (let batch = 0; batch < MAX_REFILL_BATCHES; batch++) {
       const q = query(searchIndexRef, ...buildConstraints(cursor, fetchLimit));
@@ -542,6 +541,8 @@ export class ArticlesService {
         console.log('search_index docs fetched:', snap.docs.length, 'batch', batch);
       }
 
+      // A batch that returns fewer docs than requested means the collection is
+      // exhausted under this query (no more pages).
       lastBatchFull = snap.docs.length === fetchLimit;
       if (snap.docs.length > 0) {
         lastFetchedDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot;
@@ -555,21 +556,16 @@ export class ArticlesService {
         }
       });
 
-      if (!lastBatchFull) {
-        exhausted = true;
-        break;
-      }
-      if (matches.length >= limitCount) break;
+      // Stop refilling once the collection is exhausted or the page is full.
+      if (!lastBatchFull || matches.length >= limitCount) break;
     }
 
     const limitedArticles = matches.slice(0, limitCount);
 
-    // hasMore: we still believe there are more results to page through.
-    // True when the page is full AND the last Firestore batch was full (more docs
-    // exist) AND we did not stop because the collection was exhausted.
-    const hasMore = matches.length >= limitCount && lastBatchFull && !exhausted
-      ? true
-      : matches.length >= limitCount && lastBatchFull;
+    // hasMore: page is full AND the last Firestore batch was full (more docs may
+    // exist). If the cap (MAX_REFILL_BATCHES) was hit on a full batch we still
+    // report true so the UI can keep paging from lastFetchedDoc.
+    const hasMore = matches.length >= limitCount && lastBatchFull;
 
     if (__DEV__) {
       console.log('search_index results:', limitedArticles.length, 'articles, hasMore', hasMore);
