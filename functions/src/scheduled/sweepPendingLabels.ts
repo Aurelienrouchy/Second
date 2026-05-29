@@ -32,8 +32,8 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
-import { getShipEngine } from '../config/shipEngine';
 import {
+  getShipEngine,
   ShipEngineAddress,
   ShipEngineRate,
 } from '../config/shipEngine';
