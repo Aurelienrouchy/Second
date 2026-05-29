@@ -17,6 +17,7 @@ import { SwapItemInfo, SwapStatus } from '@/types';
 
 const STATUS_LABELS: Record<SwapStatus, string> = {
   proposed: 'Swap reçu',
+  payment_pending: 'Paiement en attente',
   accepted: 'Accepté',
   declined: 'Refusé',
   cancelled: 'Annulé',
@@ -27,6 +28,7 @@ const STATUS_LABELS: Record<SwapStatus, string> = {
 };
 
 const SHOW_SUMMARY_STATUSES: ReadonlySet<SwapStatus> = new Set([
+  'payment_pending',
   'accepted',
   'photos_pending',
   'shipping',
