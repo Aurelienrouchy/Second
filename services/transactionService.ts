@@ -339,9 +339,12 @@ export class TransactionService {
    * dispute, or delivered funds still inside the 7-day held window.
    *
    * Active statuses (P1):
-   *   - pending_payment, meetup_pending, meetup_confirmed, paid, shipped
-   *   - disputed           → a litige in progress must never be abandoned by
-   *                          deleting an account.
+   *   - pending_payment, meetup_pending, meetup_confirmed, paid, label_created,
+   *     shipped
+   *   - disputed, delivery_failed, lost, refund_in_progress
+   *                        → a litige / failed delivery / lost parcel / pending
+   *                          refund must never be abandoned by deleting an
+   *                          account (matches delete-account's blocking copy).
    *   - delivered          → funds are held for a 7-day dispute window
    *                          (heldBalance, transaction.fundsReleaseAt). A
    *                          delivered transaction is only FINALIZED once funds
