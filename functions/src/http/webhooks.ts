@@ -440,6 +440,71 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       return;
     }
 
+    // P1 (amount mismatch — deterministic): the captured amount does not match
+    // what we expected. This cannot self-heal on a Stripe retry, so we MUST NOT
+    // 500. Persist a dead-letter for manual reconciliation BEFORE returning. If
+    // the buyer OVERPAID, we additionally auto-refund the difference idempotently
+    // (a defensive, buyer-favourable action); an UNDERPAYMENT is left for a human
+    // (refunding the full charge or chasing the balance is a business decision).
+    if (result.reason === 'amount_mismatch') {
+      const mismatch = 'mismatch' in result ? result.mismatch : undefined;
+      const buyerOverpaid = mismatch?.buyerOverpaid === true;
+      const isMixedMismatch = mismatch?.isMixedPayment === true;
+
+      await writeFailedOperation({
+        type: 'amount_mismatch',
+        refId: transactionId,
+        payload: {
+          paymentIntentId: paymentIntent.id,
+          received: mismatch?.received ?? amountReceivedDollars,
+          expected: mismatch?.expected ?? null,
+          expectedTotal: mismatch?.expectedTotal ?? null,
+          walletCents: mismatch?.walletCents ?? walletAmountUsedCents,
+          isMixedCharge: isMixedMismatch,
+          // Drive retryFailedOperations: only auto-refund the buyer-overpaid case.
+          autoRefund: buyerOverpaid,
+        },
+        error: 'PaymentIntent amount does not match expected transaction amount',
+      });
+
+      if (buyerOverpaid) {
+        const stripe = getStripe();
+        if (stripe) {
+          try {
+            const refund = await stripe.refunds.create(
+              {
+                payment_intent: paymentIntent.id,
+                ...(isMixedMismatch
+                  ? {}
+                  : { reverse_transfer: true, refund_application_fee: true }),
+              },
+              { idempotencyKey: `rf_mismatch_${transactionId}` }
+            );
+            logger.warn('Stripe webhook: amount mismatch (buyer overpaid) — auto-refunded', {
+              transactionId,
+              paymentIntentId: paymentIntent.id,
+              stripeRefundId: refund.id,
+            });
+          } catch (refundErr) {
+            // The dead-letter above + the deterministic idempotency key make a
+            // later replay (retryFailedOperations) safe.
+            logger.error('CRITICAL Stripe webhook: amount mismatch auto-refund FAILED', {
+              transactionId,
+              paymentIntentId: paymentIntent.id,
+              error: refundErr instanceof Error ? refundErr.message : refundErr,
+            });
+          }
+        }
+      } else {
+        logger.error('CRITICAL Stripe webhook: amount underpaid — dead-lettered for manual reconciliation', {
+          transactionId,
+          paymentIntentId: paymentIntent.id,
+        });
+      }
+      // ACK 200 (return normally): the outer handler responds received:true.
+      return;
+    }
+
     logger.info('Stripe webhook: skipping post-processing', {
       transactionId,
       reason: result.reason,
