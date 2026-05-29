@@ -924,46 +924,84 @@ export const refundWalletPayment = onCall(
           });
         }
 
-        // 2. Debit seller wallet
-        if (sellerWalletSnap.exists) {
-          const sellerWalletData = sellerWalletSnap.data()!;
-          if (fundsInBalance) {
-            const deduction = Math.min(sellerPayoutCents, sellerWalletData.balance || 0);
-            tx.update(sellerWalletRef, {
-              balance: FieldValue.increment(-deduction),
-              updatedAt: FieldValue.serverTimestamp(),
-            });
+        // 2. Debit seller wallet of EXACTLY what was credited.
+        // P1: cascade across the three buckets in escrow order
+        // pendingBalance -> heldBalance -> balance. Any remainder the seller no
+        // longer holds (already withdrawn) becomes sellerDebt and blocks future
+        // withdrawals until recovered — NEVER masked with min().
+        if (sellerDebitTarget > 0) {
+          if (sellerWalletSnap.exists) {
+            const sellerWalletData = sellerWalletSnap.data()!;
+            const pendingNow = sellerWalletData.pendingBalance || 0;
+            const heldNow = sellerWalletData.heldBalance || 0;
+            const balanceNow = sellerWalletData.balance || 0;
 
+            const fromPending = Math.min(sellerDebitTarget, pendingNow);
+            let remaining = sellerDebitTarget - fromPending;
+            const fromHeld = Math.min(remaining, heldNow);
+            remaining -= fromHeld;
+            const fromBalance = Math.min(remaining, balanceNow);
+            const shortfall = remaining - fromBalance;
+
+            const walletUpdate: Record<string, any> = {
+              updatedAt: FieldValue.serverTimestamp(),
+            };
+            if (fromPending > 0) walletUpdate.pendingBalance = FieldValue.increment(-fromPending);
+            if (fromHeld > 0) walletUpdate.heldBalance = FieldValue.increment(-fromHeld);
+            if (fromBalance > 0) walletUpdate.balance = FieldValue.increment(-fromBalance);
+            if (shortfall > 0) walletUpdate.sellerDebt = FieldValue.increment(shortfall);
+            tx.update(sellerWalletRef, walletUpdate);
+
+            const debited = fromPending + fromHeld + fromBalance;
             const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
             tx.set(sellerLedgerRef, {
               type: 'refund_debit',
-              amount: deduction,
-              balanceAfter: (sellerWalletData.balance || 0) - deduction,
-              description: 'Remboursement — débit vendeur',
+              amount: debited,
+              balanceAfter: balanceNow - fromBalance,
+              description:
+                shortfall > 0
+                  ? 'Remboursement — débit vendeur (dette enregistrée pour le solde manquant)'
+                  : 'Remboursement — débit vendeur',
               transactionId,
               createdAt: FieldValue.serverTimestamp(),
+              ...(shortfall > 0 && { debtRecorded: shortfall }),
             });
+
+            if (shortfall > 0) {
+              logger.warn('[refundWalletPayment] Seller balance insufficient — debt recorded', {
+                transactionId,
+                sellerId,
+                debitTarget: sellerDebitTarget,
+                debited,
+                shortfall,
+              });
+            }
           } else {
-            const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
-            tx.update(sellerWalletRef, {
-              pendingBalance: FieldValue.increment(-deduction),
-              updatedAt: FieldValue.serverTimestamp(),
+            logger.warn('[refundWalletPayment] Seller wallet not found — recording full debt', {
+              transactionId,
+              sellerId,
+              debitTarget: sellerDebitTarget,
             });
+            tx.set(
+              sellerWalletRef,
+              {
+                sellerDebt: FieldValue.increment(sellerDebitTarget),
+                updatedAt: FieldValue.serverTimestamp(),
+              },
+              { merge: true }
+            );
 
             const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
             tx.set(sellerLedgerRef, {
               type: 'refund_debit',
-              amount: deduction,
-              balanceAfter: (sellerWalletData.pendingBalance || 0) - deduction,
-              description: 'Remboursement — débit vendeur (fonds en attente)',
+              amount: 0,
+              balanceAfter: 0,
+              description: 'Remboursement — porte-monnaie absent, dette enregistrée',
               transactionId,
               createdAt: FieldValue.serverTimestamp(),
+              debtRecorded: sellerDebitTarget,
             });
           }
-        } else {
-          logger.warn('[refundWalletPayment] Seller wallet not found — cannot debit', {
-            transactionId, sellerId,
-          });
         }
 
         // 3. Mark transaction as refunded
