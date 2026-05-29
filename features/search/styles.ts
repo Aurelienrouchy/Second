@@ -117,6 +117,27 @@ export const searchStyles = StyleSheet.create({
     color: colors.white,
   },
 
+  // ── Filter chips — DARK tone (Swap Zone identity, additive) ──
+  filterChipsContainerDark: {
+    backgroundColor: colors.deep,
+    borderBottomColor: colors.dark,
+  },
+  filterChipDark: {
+    backgroundColor: colors.dark,
+    borderColor: colors.dark,
+    borderRadius: radius.full,
+  },
+  filterChipActiveDark: {
+    backgroundColor: colors.rust,
+    borderColor: colors.rust,
+  },
+  filterChipTextDark: {
+    color: colors.cream,
+  },
+  filterChipTextActiveDark: {
+    color: colors.cream,
+  },
+
   // ── Price section ──
   priceSection: {
     paddingHorizontal: spacing.md,
