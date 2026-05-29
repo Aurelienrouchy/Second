@@ -401,7 +401,8 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 ### HTTP — `functions/src/http/`
 | Fichier | Route |
 |---------|-------|
-| `webhooks.ts` | Webhook Stripe (signature, payment_intent.succeeded/failed, charge.dispute.created/closed, payout.failed/paid, charge.refunded, account.updated) |
+| `webhooks.ts` | Webhook Stripe (signature, payment_intent.succeeded/failed, charge.dispute.created/closed, payout.failed/paid, charge.refunded, account.updated). Achat label → status `label_created` (PAS `shipped`) |
+| `shipEngineWebhook.ts` | Webhook tracking ShipEngine (chemin principal). Secret partagé (header `X-ShipEngine-Webhook-Secret` ou `?secret=`, timing-safe, 401 sinon, 500 si non configuré). Map le code + délègue à `utils/trackingTransition` (label_created→shipped, DELIVERED, FAILURE). Le poller reste le filet de sécurité |
 
 ### Services backend — `functions/src/services/`
 | Fichier | Rôle |
