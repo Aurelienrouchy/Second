@@ -5,7 +5,7 @@
  * (no join/leave, no status, no countdown).
  */
 
-import { SwapParty, SwapPartyItemExtended, Article } from '@/types';
+import { SwapParty, SwapPartyItemExtended } from '@/types';
 
 export interface PartyHeaderProps {
   party: SwapParty;
