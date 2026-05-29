@@ -17,7 +17,6 @@ export type {
   PartyHeaderProps,
   MyArticlesSectionProps,
   PartyItemCardProps,
-  AddItemModalProps,
   MultiSelectBarProps,
   PartyEmptyGridProps,
 } from './types';
