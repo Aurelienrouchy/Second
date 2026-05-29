@@ -444,6 +444,14 @@ export class ArticlesService {
     const firstKeyword = keywords[0];
     const remainingKeywords = keywords.slice(1);
 
+    // A non-empty term that normalizes to no usable keyword (pure punctuation,
+    // accents only, etc.) has nothing to match — return an empty page rather
+    // than falling through to the popular-browse branch (which would ignore the
+    // text term and return the full popular feed).
+    if (hasTerm && !firstKeyword) {
+      return { articles: [], lastVisible: null, hasMore: false };
+    }
+
     // Build the immutable part of the query (everything except the cursor).
     const buildConstraints = (
       cursor: QueryDocumentSnapshot | undefined,
