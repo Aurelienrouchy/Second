@@ -477,6 +477,10 @@ describe('walletWithdraw', () => {
     setDoc('users/user1', {
       stripeAccountId: 'acct_123',
       stripeChargesEnabled: true,
+      // Required by the payouts-enabled guard (wallet.ts ~300) — without it the
+      // function throws failed-precondition BEFORE reaching the not-found check
+      // this test targets.
+      stripePayoutsEnabled: true,
     });
 
     await expect(
