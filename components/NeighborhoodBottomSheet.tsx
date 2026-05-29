@@ -1,4 +1,4 @@
-import BottomSheet, { BottomSheetSectionList } from '@expo/ui/community/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetSectionList } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
 import {
@@ -8,17 +8,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NEIGHBORHOODS_BY_BOROUGH, searchNeighborhoods } from '@/data/neighborhoods';
 import { MeetupNeighborhood } from '@/types';
 import { colors } from '@/constants/theme';
-import { SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
-
-// Bornage sur le plus grand détent : le contenu remplit la hauteur max possible,
-// la SectionList (flex:1) scrolle dans le détent courant quel qu'il soit.
-const SNAP_POINTS = ['75%', '90%'];
-const MAX_SNAP = '90%';
 
 interface NeighborhoodBottomSheetProps {
   selectedNeighborhood?: MeetupNeighborhood | null;
