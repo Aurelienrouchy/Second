@@ -538,6 +538,14 @@ service cloud.firestore {
             'disputed', 'disputeId', 'disputedAt', 'disputeReason',
             'statusBeforeDispute', 'disputeOutcome', 'disputeClosedAt',
             'buyerReport', 'refundInitiatedAt',
+            // Buyer-return leg (B2) — written exclusively by requestReturn /
+            // processReturnDelivered (Admin SDK). A buyer is a party to the tx,
+            // so without this guard they could forge returnLabelCost (inflate
+            // their refund), returnTrackingNumber / returnDeliveredAt (fake the
+            // return-delivered refund trigger), or returnReason. All CF-only.
+            'returnLabelId', 'returnTrackingNumber', 'returnLabelUrl',
+            'returnCarrierCode', 'returnLabelCost', 'returnReason',
+            'returnTrackingStatus', 'returnRequestedAt', 'returnDeliveredAt',
             'labelCreationPending', 'labelCreationNote', 'labelAttempts',
             'lastLabelAttemptAt', 'labelStaleNudgedAt',
             'shipEngineRateId', 'shipEngineLabelId', 'trackingNumber',
