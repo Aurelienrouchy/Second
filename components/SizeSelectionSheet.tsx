@@ -31,6 +31,7 @@ import {
   SizeDemographic,
   SizeSection,
 } from '@/data/sizes';
+import type { ArticleSize } from '@/types';
 
 export interface SizeSelectionSheetRef {
   show: () => void;
@@ -38,8 +39,8 @@ export interface SizeSelectionSheetRef {
 }
 
 interface SizeSelectionSheetProps {
-  selectedSizes: string[];
-  onConfirm: (sizes: string[]) => void;
+  selectedSizes: ArticleSize[];
+  onConfirm: (sizes: ArticleSize[]) => void;
   /** When provided, restricts available sizes to this category */
   categoryPath?: string[];
 }
