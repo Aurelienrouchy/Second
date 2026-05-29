@@ -1,7 +1,8 @@
 /**
  * SwapZoneSection — Feature Component
  * Self-contained: fetches data via useSwapParties() + useSwapZoneItems(),
- * includes header. Wraps the presentational SwapZoneSection from components/home/.
+ * then renders the presentational SwapZoneSection from components/home/ on a
+ * charcoal band. The card carries its own "Swap Zone" title (no duplicate header).
  *
  * The Swap Zone is now a single, always-active generalist zone (no time
  * window, no theme, no countdown). This wrapper renders a single permanent
