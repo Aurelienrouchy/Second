@@ -185,7 +185,6 @@ const Content: React.FC<ContentProps> = ({ itemsCount, newThisWeek, interactive 
 
 const LoadingContent: React.FC = () => (
   <View style={styles.shell}>
-    <View style={[styles.skeletonLine, styles.skeletonEyebrow]} />
     <View style={styles.textBlock}>
       <View style={[styles.skeletonLine, styles.skeletonTitle]} />
       <View style={[styles.skeletonLine, styles.skeletonTagline]} />
