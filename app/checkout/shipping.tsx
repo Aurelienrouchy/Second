@@ -392,12 +392,23 @@ export default function ShippingCheckoutScreen() {
       setShowStripePayment(true);
     } catch (error: unknown) {
       if (__DEV__) console.error('Error retrying payment:', error);
+      if (isRateExpiredError(error)) {
+        Alert.alert(
+          CHECKOUT_COPY.rateExpiredTitle,
+          CHECKOUT_COPY.rateExpiredBody,
+          [
+            { text: CHECKOUT_COPY.rateExpiredCtaSecondary, style: 'cancel' },
+            { text: CHECKOUT_COPY.rateExpiredCtaPrimary, onPress: fetchShippingEstimates },
+          ],
+        );
+        return;
+      }
       const msg = error instanceof Error ? error.message : 'Impossible de relancer le paiement.';
       Alert.alert('Erreur', msg);
     } finally {
       setSubmitting(false);
     }
-  }, [pendingTransactionId]);
+  }, [pendingTransactionId, fetchShippingEstimates]);
 
   const cancelPendingTransaction = useCallback(async () => {
     if (pendingTransactionId) {
