@@ -7,9 +7,10 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, fonts, radius } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { ShippingEstimate } from '../types';
+import { CHECKOUT_COPY } from '../types';
 
 // =============================================================================
 // TYPES
