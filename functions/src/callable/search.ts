@@ -133,6 +133,9 @@ export const visualSearch = onCall(
       queryVector: FieldValue.vector(queryEmbedding),
       limit: Math.min(limit + 1, 50), // +1 to filter out self if needed
       distanceMeasure: 'COSINE',
+      // Materialize the computed distance so doc.get('__distance__') is real.
+      // Without this the field is never written and similarity is always 100%.
+      distanceResultField: '__distance__',
     });
 
     const snapshot = await vectorQuery.get();
