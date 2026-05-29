@@ -319,9 +319,8 @@ const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: colors.surface,
   },
-  flex: {
-    flex: 1,
-  },
+  // height fixe appliqué inline (bornage au détent) — pas de flex:1 ici.
+  container: {},
 
   // ── Header ──
   header: {
