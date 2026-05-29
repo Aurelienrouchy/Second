@@ -7,6 +7,7 @@ import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MeetupNeighborhood, MeetupSpot } from '@/types';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { SHEET_BOTTOM_INSET } from '@/components/ui';
 import { useSheetHeight } from '@/hooks/useSheetHeight';
 import ConfirmStep from './ConfirmStep';
 import LocationStep from './LocationStep';
