@@ -380,6 +380,14 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     // against the expiry job's own refund, so this can never double-refund. The
     // resulting charge.refunded webhook applies any wallet reconciliation.
     if (result.reason === 'cancelled_needs_refund') {
+      const stripe = getStripe();
+      if (!stripe) {
+        logger.error('Stripe webhook: cannot auto-refund cancelled transaction — Stripe not configured', {
+          transactionId,
+          paymentIntentId: paymentIntent.id,
+        });
+        return;
+      }
       try {
         const isMixedRefund = isMixedPayment;
         const refund = await stripe.refunds.create(
