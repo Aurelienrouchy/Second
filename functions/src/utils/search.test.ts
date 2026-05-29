@@ -82,6 +82,13 @@ describe('generateSearchKeywords', () => {
     expect(keywords.some(k => k.includes(','))).toBe(false);
   });
 
+  it('strips accents so keywords are searchable without diacritics', () => {
+    const keywords = generateSearchKeywords("robe d'été décontractée");
+    expect(keywords).toContain('ete');
+    expect(keywords).toContain('decontractee');
+    expect(keywords.some(k => /[éèàâêîôûäëïöü]/.test(k))).toBe(false);
+  });
+
   it('deduplicates keywords', () => {
     const keywords = generateSearchKeywords('robe robe robe');
     const robeCount = keywords.filter(k => k === 'robe').length;
