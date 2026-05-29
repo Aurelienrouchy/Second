@@ -330,11 +330,19 @@ class ShipEngineClient {
       // Real cost ShipEngine billed for the label (used for reconciliation).
       shipment_cost?: { amount: number; currency: string };
       insurance_cost?: { amount: number; currency: string };
-    }>('POST', '/v1/labels', {
-      rate_id: rateId,
-      label_format: 'pdf',
-      label_layout: '4x6',
-    });
+    }>(
+      'POST',
+      '/v1/labels',
+      {
+        rate_id: rateId,
+        label_format: 'pdf',
+        label_layout: '4x6',
+      },
+      // allowRetry = false: label creation is NOT idempotent (no idempotency
+      // key supported here). A retry after a timeout could buy a 2nd paid
+      // label. Stuck labels are recovered by the sweepPendingLabels job.
+      false
+    );
 
     return {
       labelId: response.label_id,
