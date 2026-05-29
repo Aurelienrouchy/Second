@@ -211,7 +211,9 @@ async function _getNewArrivals(
       images: data.images || [],
       sellerId: data.sellerId,
       sellerName: sellerMap.get(data.sellerId) || 'Unknown',
-      size: data.size,
+      // data.size is now an ArticleSize object { value, system }; the DTO
+      // exposes a plain string to the client.
+      size: data.size?.value ?? null,
       condition: data.condition,
     };
   });
