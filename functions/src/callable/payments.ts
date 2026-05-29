@@ -253,6 +253,14 @@ export const createTransaction = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'createTransaction',
+      maxCallsAuthenticated: 20,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const {
       articleId,
       deliveryType,
