@@ -154,18 +154,26 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
     expect(fs.getDoc('transactions/txp')!.status).toBe('refunded');
   });
 
-  it('resumes a refund_in_progress without issuing a 2nd Stripe refund', async () => {
-    // Crash recovery: tx already flagged refund_in_progress + stripeRefundId set.
+  it('resumes a refund_in_progress and never double-debits (Stripe key dedups)', async () => {
+    // Crash recovery: tx already flagged refund_in_progress on a prior run.
+    // The durci refund core (issueTransactionRefund) does NOT rely on a persisted
+    // stripeRefundId to decide whether to call Stripe — it ALWAYS calls
+    // refunds.create with the deterministic idempotency key `rf_<txId>`, so a
+    // real Stripe dedups a replay to a no-op (covering even the crash window
+    // BETWEEN the refund and persisting its id). The invariant that matters is:
+    // the wallet is debited EXACTLY once (no double-debit), the refund call is
+    // keyed deterministically, and the tx finalizes to 'refunded'.
     fs.setDoc('transactions/txr', {
       buyerId: 'buyer1',
       sellerId: 'seller1',
       status: 'refund_in_progress',
       sellerPayout: 45,
+      sellerCreditedCents: 4500,
       paidVia: 'card',
       deliveryType: 'shipping',
       articleId: 'a',
       stripePaymentIntentId: 'pi_resume',
-      stripeRefundId: 'rf_already', // already refunded on a prior crashed run
+      stripeRefundId: 'rf_already', // persisted on the prior crashed run
       createdAt: new Date(Date.now() - EIGHT_DAYS_MS),
     });
     fs.setDoc('articles/a', { isSold: true });
@@ -179,10 +187,15 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
 
     await runScheduler();
 
-    // No new Stripe refund (existing stripeRefundId reused).
-    expect(refundCount).toBe(0);
+    // The core re-issues the Stripe refund under the SAME deterministic key
+    // (a real Stripe returns the original refund — no double money movement).
+    expect(refundCount).toBe(1);
+    const refundOpts = stripeMock.calls.refundsCreate[0][1] as Record<string, unknown>;
+    expect(refundOpts.idempotencyKey).toBe('rf_txr');
     expect(fs.getDoc('transactions/txr')!.status).toBe('refunded');
+    // Seller debited EXACTLY once across the run — no double-debit.
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
+    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(-4500);
   });
 
   it('passes NO reverse_transfer for a mixed wallet+card charge', async () => {
