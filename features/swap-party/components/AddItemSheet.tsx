@@ -90,57 +90,27 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
       bottomSheetRef.current?.dismiss();
     }, [availableArticles, selected, onAddItems]);
 
-    const renderBackdrop = useCallback(
-      (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
-      [],
-    );
-
     const hasList = !loading && availableArticles.length > 0;
 
-    const renderFooter = useCallback(
-      (props: any) => {
-        if (!hasList) return null;
-        const count = selected.size;
-        return (
-          <BottomSheetFooter {...props}>
-            <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-              <TouchableOpacity
-                style={[styles.addButton, count === 0 && styles.addButtonDisabled]}
-                onPress={handleConfirm}
-                disabled={count === 0}
-              >
-                <Text style={styles.addButtonText}>
-                  {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </BottomSheetFooter>
-        );
-      },
-      [hasList, selected.size, insets.bottom, handleConfirm],
-    );
+    const count = selected.size;
 
     const hasInventory = articles.length > 0;
     const emptyText = !hasInventory
       ? "Tu n'as aucun article à déposer.\nMets d'abord un article en vente."
       : 'Tous tes articles sont déjà dans la Swap Zone.';
 
-    // Leave room for the fixed footer above the scroll content.
-    const scrollPaddingBottom = (hasList ? spacing['4xl'] : spacing.lg) + insets.bottom;
+    const scrollPaddingBottom = spacing.lg + insets.bottom;
 
     return (
       <BottomSheetModal
         ref={bottomSheetRef}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        footerComponent={renderFooter}
         enablePanDownToClose
-        topInset={insets.top}
-        handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
         onDismiss={onClose}
       >
+        <BottomSheetView style={styles.flex}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerText}>
