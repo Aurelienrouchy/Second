@@ -55,12 +55,10 @@ const DEMOGRAPHIC_OPTIONS: { id: SizeDemographic; label: string }[] = [
   { id: 'kids', label: 'Enfant' },
 ];
 
-const SNAP = '85%';
-
 const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetProps>(
   ({ selectedSizes, onConfirm, categoryPath }, ref) => {
-    const snapPoints = useMemo(() => [SNAP], []);
-    const sheetStyle = useSheetHeight(SNAP);
+    const insets = useSafeAreaInsets();
+    const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     // Internal selection is value-only and always scoped to the active system —
     // the sheet wraps each value into { value, system } at confirm time.
