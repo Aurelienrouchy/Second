@@ -462,6 +462,19 @@ export const walletWithdraw = onCall(
               transferId: transfer.id,
               error: reversalError instanceof Error ? reversalError.message : reversalError,
             });
+            // P1: dead-letter so retryFailedOperations re-drives the reversal
+            // idempotently (key rev_${transferId}). Best-effort; never throws.
+            await writeFailedOperation({
+              type: 'transfer_reversal_failed',
+              refId: withdrawalRequestRef.id,
+              payload: {
+                transferId: transfer.id,
+                userId,
+                amount,
+                stripeAccountId,
+              },
+              error: reversalError,
+            });
           }
         }
 
