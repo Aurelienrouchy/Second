@@ -13,14 +13,25 @@ import {
 import { firestore, functions } from '@/config/firebaseConfig';
 import {
   SwapParty,
-  SwapPartyParticipant,
   SwapPartyItem,
   SwapPartyItemExtended,
   Swap,
+  SwapStatus,
   SwapExchangeMode,
   Article,
   SwapItemInfo,
 } from '@/types';
+
+// ============================================
+// CONSTANTS
+// ============================================
+
+/**
+ * Deterministic id of the single, always-active generalist Swap Zone.
+ * Mirrors GENERALIST_ZONE_ID on the backend (swapParties/generalist).
+ * Use this everywhere a partyId is required on the client.
+ */
+export const GENERALIST_ZONE_ID = 'generalist';
 
 // ============================================
 // HELPERS
@@ -35,33 +46,13 @@ export function getSwapItems(swap: Swap, side: 'initiator' | 'receiver'): SwapIt
 }
 
 // ============================================
-// SWAP PARTIES
+// SWAP ZONE
 // ============================================
 
 /**
- * Get all swap parties (upcoming and active)
- */
-export async function getSwapParties(): Promise<SwapParty[]> {
-  const partiesRef = collection(firestore, 'swapParties');
-  const q = query(
-    partiesRef,
-    where('status', 'in', ['upcoming', 'active']),
-    orderBy('startDate', 'asc')
-  );
-
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    startDate: doc.data().startDate?.toDate(),
-    endDate: doc.data().endDate?.toDate(),
-    createdAt: doc.data().createdAt?.toDate(),
-    updatedAt: doc.data().updatedAt?.toDate(),
-  })) as SwapParty[];
-}
-
-/**
- * Get a single swap party by ID
+ * Get the (single) generalist Swap Zone by ID.
+ * The backend self-heals the doc via ensureGeneralistZone, so this should
+ * always resolve once the zone has been displayed at least once.
  */
 export async function getSwapParty(partyId: string): Promise<SwapParty | null> {
   const docRef = doc(firestore, 'swapParties', partyId);
@@ -73,162 +64,19 @@ export async function getSwapParty(partyId: string): Promise<SwapParty | null> {
   return {
     id: docSnap.id,
     ...data,
-    startDate: data?.startDate?.toDate(),
-    endDate: data?.endDate?.toDate(),
     createdAt: data?.createdAt?.toDate(),
     updatedAt: data?.updatedAt?.toDate(),
   } as SwapParty;
 }
 
 /**
- * Get active swap party (currently running)
+ * Ensure the generalist zone exists (idempotent, self-healing).
+ * Returns the zone id ('generalist').
  */
-export async function getActiveSwapParty(): Promise<SwapParty | null> {
-  const partiesRef = collection(firestore, 'swapParties');
-  const q = query(
-    partiesRef,
-    where('status', '==', 'active'),
-    limit(1)
-  );
-
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-
-  const doc = snapshot.docs[0];
-  const data = doc.data();
-  return {
-    id: doc.id,
-    ...data,
-    startDate: data?.startDate?.toDate(),
-    endDate: data?.endDate?.toDate(),
-    createdAt: data?.createdAt?.toDate(),
-    updatedAt: data?.updatedAt?.toDate(),
-  } as SwapParty;
-}
-
-/**
- * Get ended swap parties
- */
-export async function getEndedSwapParties(count: number = 10): Promise<SwapParty[]> {
-  const partiesRef = collection(firestore, 'swapParties');
-  const q = query(
-    partiesRef,
-    where('status', '==', 'ended'),
-    orderBy('endDate', 'desc'),
-    limit(count)
-  );
-
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-    startDate: d.data().startDate?.toDate(),
-    endDate: d.data().endDate?.toDate(),
-    createdAt: d.data().createdAt?.toDate(),
-    updatedAt: d.data().updatedAt?.toDate(),
-  })) as SwapParty[];
-}
-
-/**
- * Get upcoming swap parties
- */
-export async function getUpcomingSwapParties(count: number = 5): Promise<SwapParty[]> {
-  const partiesRef = collection(firestore, 'swapParties');
-  const q = query(
-    partiesRef,
-    where('status', '==', 'upcoming'),
-    orderBy('startDate', 'asc'),
-    limit(count)
-  );
-
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    startDate: doc.data().startDate?.toDate(),
-    endDate: doc.data().endDate?.toDate(),
-    createdAt: doc.data().createdAt?.toDate(),
-    updatedAt: doc.data().updatedAt?.toDate(),
-  })) as SwapParty[];
-}
-
-// ============================================
-// PARTY PARTICIPATION
-// ============================================
-
-/**
- * Join a swap party (delegates to Cloud Function for atomic counter update)
- */
-export async function joinSwapParty(
-  partyId: string,
-  userId: string,
-  userName: string,
-  userImage?: string
-): Promise<string> {
-  const joinFn = httpsCallable<
-    { partyId: string; userName: string; userImage?: string },
-    { participantId: string; success: boolean }
-  >(functions, 'joinSwapPartySecure');
-
-  const result = await joinFn({
-    partyId,
-    userName,
-    ...(userImage ? { userImage } : {}),
-  });
-  return result.data.participantId;
-}
-
-/**
- * Leave a swap party (delegates to Cloud Function for atomic counter update)
- */
-export async function leaveSwapParty(partyId: string, _userId: string): Promise<void> {
-  const leaveFn = httpsCallable<{ partyId: string }, { success: boolean }>(
-    functions,
-    'leaveSwapPartySecure'
-  );
-  await leaveFn({ partyId });
-}
-
-/**
- * Check if user is participant in a party
- */
-export async function isParticipant(partyId: string, userId: string): Promise<boolean> {
-  const participantsRef = collection(firestore, 'swapPartyParticipants');
-  const q = query(
-    participantsRef,
-    where('partyId', '==', partyId),
-    where('userId', '==', userId)
-  );
-  const snapshot = await getDocs(q);
-  return !snapshot.empty;
-}
-
-/**
- * Get all party IDs a user participates in (batch query, avoids N+1)
- */
-export async function getUserParticipatingPartyIds(userId: string): Promise<Set<string>> {
-  const participantsRef = collection(firestore, 'swapPartyParticipants');
-  const q = query(
-    participantsRef,
-    where('userId', '==', userId)
-  );
-  const snapshot = await getDocs(q);
-  return new Set(snapshot.docs.map((d) => d.data().partyId as string));
-}
-
-/**
- * Get participants of a party
- */
-export async function getPartyParticipants(partyId: string): Promise<SwapPartyParticipant[]> {
-  const participantsRef = collection(firestore, 'swapPartyParticipants');
-  const q = query(participantsRef, where('partyId', '==', partyId));
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    joinedAt: doc.data().joinedAt?.toDate(),
-  })) as SwapPartyParticipant[];
+export async function ensureGeneralistZone(): Promise<{ id: string }> {
+  const ensureFn = httpsCallable<void, { id: string }>(functions, 'ensureGeneralistZone');
+  const result = await ensureFn();
+  return result.data;
 }
 
 // ============================================
@@ -236,12 +84,14 @@ export async function getPartyParticipants(partyId: string): Promise<SwapPartyPa
 // ============================================
 
 /**
- * Add an article to a swap party (delegates to Cloud Function for atomic counter update)
+ * Add an article to the Swap Zone — delegates to the secured Cloud Function
+ * (atomic counter update). NEVER writes the item doc directly client-side to
+ * avoid counter drift.
  */
 export async function addItemToParty(
   partyId: string,
   article: Article,
-  userId: string,
+  _userId: string,
   userName: string,
   userImage?: string
 ): Promise<string> {
@@ -279,9 +129,14 @@ export async function addItemToParty(
 }
 
 /**
- * Remove an article from a swap party (delegates to Cloud Function for atomic counter update)
+ * Remove an article from the Swap Zone — delegates to the secured Cloud
+ * Function (atomic counter update).
  */
-export async function removeItemFromParty(partyId: string, articleId: string, _userId: string): Promise<void> {
+export async function removeItemFromParty(
+  partyId: string,
+  articleId: string,
+  _userId: string
+): Promise<void> {
   const removeFn = httpsCallable<
     { partyId: string; articleId: string },
     { success: boolean }
@@ -291,7 +146,7 @@ export async function removeItemFromParty(partyId: string, articleId: string, _u
 }
 
 /**
- * Get all items in a party
+ * Get all available (not swapped) items in a party.
  */
 export async function getPartyItems(partyId: string): Promise<SwapPartyItem[]> {
   const itemsRef = collection(firestore, 'swapPartyItems');
@@ -303,10 +158,10 @@ export async function getPartyItems(partyId: string): Promise<SwapPartyItem[]> {
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    addedAt: doc.data().addedAt?.toDate(),
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+    addedAt: d.data().addedAt?.toDate(),
   })) as SwapPartyItem[];
 }
 
@@ -329,30 +184,30 @@ export async function getRecentPartyItems(
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    addedAt: doc.data().addedAt?.toDate(),
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+    addedAt: d.data().addedAt?.toDate(),
   })) as SwapPartyItem[];
 }
 
 /**
- * Get party items enriched with full Article metadata for filtering
+ * Get party items enriched with full Article metadata for filtering.
  */
 export async function getPartyItemsExtended(partyId: string): Promise<SwapPartyItemExtended[]> {
   const items = await getPartyItems(partyId);
-  
+
   // Fetch full article data for each item
   const enrichedItems = await Promise.all(
     items.map(async (item) => {
       try {
         const articleRef = doc(firestore, 'articles', item.articleId);
         const articleSnap = await getDoc(articleRef);
-        
+
         if (!articleSnap.exists()) {
           return item as SwapPartyItemExtended;
         }
-        
+
         const articleData = articleSnap.data();
         return {
           ...item,
@@ -365,34 +220,13 @@ export async function getPartyItemsExtended(partyId: string): Promise<SwapPartyI
           condition: articleData.condition,
         } as SwapPartyItemExtended;
       } catch (error) {
-        console.error(`Error enriching item ${item.id}:`, error);
+        if (__DEV__) console.error(`Error enriching item ${item.id}:`, error);
         return item as SwapPartyItemExtended;
       }
     })
   );
-  
+
   return enrichedItems;
-}
-
-/**
- * Get items that match for swap (within ±20% value)
- */
-export async function getMatchingItems(
-  partyId: string,
-  targetPrice: number,
-  excludeSellerId: string
-): Promise<SwapPartyItem[]> {
-  const items = await getPartyItems(partyId);
-  const minPrice = targetPrice * 0.8;
-  const maxPrice = targetPrice * 1.2;
-
-  return items.filter(
-    (item) =>
-      item.sellerId !== excludeSellerId &&
-      item.price >= minPrice &&
-      item.price <= maxPrice &&
-      !item.isSwapped
-  );
 }
 
 // ============================================
@@ -400,9 +234,12 @@ export async function getMatchingItems(
 // ============================================
 
 /**
- * Propose a swap (supports both single article and multi-article)
- * Delegates to Cloud Function `proposeMultiSwap` which validates article availability
- * and user blocking atomically via runTransaction.
+ * Propose a swap (supports multi-article + optional cash top-up paid via Stripe).
+ * Delegates to Cloud Function `proposeMultiSwap` which validates article
+ * availability and user blocking atomically via runTransaction.
+ *
+ * `cashTopUp.amount` is expected IN CENTS (>0, max 500000).
+ * `partyId` defaults to the generalist zone.
  */
 export async function proposeSwap(params: {
   initiatorId: string;
@@ -417,25 +254,74 @@ export async function proposeSwap(params: {
   cashTopUp?: { amount: number; payerId: string };
   partyId?: string;
 }): Promise<string> {
-  const proposeMultiSwapFn = httpsCallable<typeof params, { swapId: string; success: boolean }>(
+  const payload = {
+    ...params,
+    partyId: params.partyId ?? GENERALIST_ZONE_ID,
+  };
+  const proposeMultiSwapFn = httpsCallable<typeof payload, { swapId: string; success: boolean }>(
     functions,
     'proposeMultiSwap'
   );
-  const result = await proposeMultiSwapFn(params);
+  const result = await proposeMultiSwapFn(payload);
   return result.data.swapId;
 }
 
 /**
  * Accept a swap — delegates to Cloud Function `acceptSwap` which validates
  * article availability atomically via runTransaction before accepting.
- * Rejects if any article has been sold, deleted, or deactivated since the proposal.
+ *
+ * If the swap carries a cash top-up, the swap moves to `payment_pending` and
+ * `requiresPayment` is true: the payer must then settle via Stripe before the
+ * swap can advance (the webhook flips it to `accepted`).
  */
-export async function acceptSwap(swapId: string): Promise<void> {
-  const acceptSwapFn = httpsCallable<{ swapId: string }, { success: boolean }>(
-    functions,
-    'acceptSwap'
-  );
-  await acceptSwapFn({ swapId });
+export async function acceptSwap(
+  swapId: string
+): Promise<{ status: 'accepted' | 'payment_pending'; requiresPayment: boolean }> {
+  const acceptSwapFn = httpsCallable<
+    { swapId: string },
+    { success: boolean; status: 'accepted' | 'payment_pending'; requiresPayment: boolean }
+  >(functions, 'acceptSwap');
+  const result = await acceptSwapFn({ swapId });
+  return { status: result.data.status, requiresPayment: result.data.requiresPayment };
+}
+
+/**
+ * Fee breakdown returned by createSwapTopUpCheckout (amounts in cents).
+ */
+export interface SwapTopUpFeeBreakdown {
+  topUpAmount: number;
+  serviceFee: number;
+  serviceFeePercent: number;
+  buyerTotal: number;
+}
+
+/**
+ * Create the Stripe checkout for a swap cash top-up. Callable ONLY by the
+ * payer (cashTopUp.payerId). Returns the PaymentIntent client secret + the
+ * fee breakdown for display.
+ */
+export async function createSwapTopUpCheckout(
+  swapId: string
+): Promise<{
+  clientSecret: string;
+  paymentIntentId: string;
+  feeBreakdown: SwapTopUpFeeBreakdown;
+}> {
+  const checkoutFn = httpsCallable<
+    { swapId: string },
+    {
+      success: boolean;
+      clientSecret: string;
+      paymentIntentId: string;
+      feeBreakdown: SwapTopUpFeeBreakdown;
+    }
+  >(functions, 'createSwapTopUpCheckout');
+  const result = await checkoutFn({ swapId });
+  return {
+    clientSecret: result.data.clientSecret,
+    paymentIntentId: result.data.paymentIntentId,
+    feeBreakdown: result.data.feeBreakdown,
+  };
 }
 
 /**
@@ -547,6 +433,7 @@ export async function getSwap(swapId: string): Promise<Swap | null> {
     updatedAt: data?.updatedAt?.toDate(),
     acceptedAt: data?.acceptedAt?.toDate(),
     completedAt: data?.completedAt?.toDate(),
+    paidAt: data?.paidAt?.toDate(),
   } as Swap;
 }
 
@@ -574,29 +461,31 @@ export async function getUserSwaps(userId: string): Promise<Swap[]> {
 
   const swaps: Swap[] = [];
 
-  initiatorSnapshot.docs.forEach((doc) => {
-    const data = doc.data();
+  initiatorSnapshot.docs.forEach((d) => {
+    const data = d.data();
     swaps.push({
-      id: doc.id,
+      id: d.id,
       ...data,
       createdAt: data?.createdAt?.toDate(),
       updatedAt: data?.updatedAt?.toDate(),
       acceptedAt: data?.acceptedAt?.toDate(),
       completedAt: data?.completedAt?.toDate(),
+      paidAt: data?.paidAt?.toDate(),
     } as Swap);
   });
 
-  receiverSnapshot.docs.forEach((doc) => {
+  receiverSnapshot.docs.forEach((d) => {
     // Avoid duplicates (shouldn't happen but just in case)
-    if (!swaps.find((s) => s.id === doc.id)) {
-      const data = doc.data();
+    if (!swaps.find((s) => s.id === d.id)) {
+      const data = d.data();
       swaps.push({
-        id: doc.id,
+        id: d.id,
         ...data,
         createdAt: data?.createdAt?.toDate(),
         updatedAt: data?.updatedAt?.toDate(),
         acceptedAt: data?.acceptedAt?.toDate(),
         completedAt: data?.completedAt?.toDate(),
+        paidAt: data?.paidAt?.toDate(),
       } as Swap);
     }
   });
@@ -620,10 +509,10 @@ export async function getPendingSwaps(userId: string): Promise<Swap[]> {
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
+  return snapshot.docs.map((d) => {
+    const data = d.data();
     return {
-      id: doc.id,
+      id: d.id,
       ...data,
       createdAt: data?.createdAt?.toDate(),
       updatedAt: data?.updatedAt?.toDate(),
@@ -631,14 +520,19 @@ export async function getPendingSwaps(userId: string): Promise<Swap[]> {
   });
 }
 
+const ACTIVE_SWAP_STATUSES: SwapStatus[] = [
+  'payment_pending',
+  'accepted',
+  'photos_pending',
+  'shipping',
+];
+
 /**
  * Get active swaps (in progress) for a user
  */
 export async function getActiveSwaps(userId: string): Promise<Swap[]> {
   const allSwaps = await getUserSwaps(userId);
-  return allSwaps.filter((swap) =>
-    ['accepted', 'photos_pending', 'shipping'].includes(swap.status)
-  );
+  return allSwaps.filter((swap) => ACTIVE_SWAP_STATUSES.includes(swap.status));
 }
 
 /**
@@ -654,10 +548,10 @@ export async function getUserAvailablePartyItems(partyId: string, userId: string
   );
   const snapshot = await getDocs(q);
 
-  const items = snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    addedAt: doc.data().addedAt?.toDate(),
+  const items = snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+    addedAt: d.data().addedAt?.toDate(),
   })) as SwapPartyItem[];
 
   // Filter out pending items (those in an active pending swap)
@@ -673,20 +567,21 @@ export function subscribeToSwap(
 ): () => void {
   const swapRef = doc(firestore, 'swaps', swapId);
 
-  return onSnapshot(swapRef, (doc) => {
-    if (!doc.exists()) {
+  return onSnapshot(swapRef, (snap) => {
+    if (!snap.exists()) {
       callback(null);
       return;
     }
 
-    const data = doc.data();
+    const data = snap.data();
     callback({
-      id: doc.id,
+      id: snap.id,
       ...data,
       createdAt: data?.createdAt?.toDate(),
       updatedAt: data?.updatedAt?.toDate(),
       acceptedAt: data?.acceptedAt?.toDate(),
       completedAt: data?.completedAt?.toDate(),
+      paidAt: data?.paidAt?.toDate(),
     } as Swap);
   });
 }
