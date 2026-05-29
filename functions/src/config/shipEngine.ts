@@ -99,6 +99,34 @@ export interface PUDOLocation {
 // CLIENT
 // =============================================================================
 
+// Per-attempt network timeout. ShipEngine rate/label calls are normally well
+// under a second; 15s is a generous ceiling that still lets the webhook handler
+// respond before Stripe's retry window — a hung fetch would otherwise block the
+// 200 response and trigger duplicate Stripe webhook deliveries (P1-17/P1-27).
+const REQUEST_TIMEOUT_MS = 15_000;
+
+// Exponential backoff schedule (ms) for transient failures. The number of
+// entries also caps the number of RETRIES (so 3 here => up to 4 attempts).
+const RETRY_BACKOFF_MS = [500, 1000, 2000];
+
+// HTTP statuses worth retrying: 429 (rate limited) + 5xx (server-side).
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Error carrying the HTTP status so callers / the retry loop can branch on it.
+ */
+class ShipEngineHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'ShipEngineHttpError';
+    this.status = status;
+  }
+}
+
 class ShipEngineClient {
   private config: ShipEngineConfig;
 
@@ -106,30 +134,118 @@ class ShipEngineClient {
     this.config = config;
   }
 
-  private async request<T>(
+  /**
+   * Performs a single HTTP attempt with an AbortController timeout. Throws
+   * `ShipEngineHttpError` on a non-OK response (carrying the status) and a
+   * generic timeout/network Error otherwise.
+   */
+  private async requestOnce<T>(
     method: string,
-    endpoint: string,
-    body?: unknown
-  ): Promise<T> {
-    const url = `${this.config.baseUrl}${endpoint}`;
+    url: string,
+    body: unknown
+  ): Promise<{ result: T; retryAfterMs: number | null }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'API-Key': this.config.apiKey,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'API-Key': this.config.apiKey,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      // AbortError (timeout) or network failure — both transient/retryable.
+      const message =
+        err instanceof Error && err.name === 'AbortError'
+          ? `ShipEngine request timed out after ${REQUEST_TIMEOUT_MS}ms`
+          : `ShipEngine network error: ${err instanceof Error ? err.message : String(err)}`;
+      throw new Error(message);
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(
-        `ShipEngine API error (${response.status}): ${errorBody}`
+      // Honour Retry-After when ShipEngine throttles us (429/503). The header
+      // is either delta-seconds or an HTTP-date; we only parse delta-seconds.
+      const retryAfterHeader = response.headers.get('retry-after');
+      const retryAfterSeconds = retryAfterHeader
+        ? Number.parseInt(retryAfterHeader, 10)
+        : NaN;
+      const retryAfterMs = Number.isFinite(retryAfterSeconds)
+        ? retryAfterSeconds * 1000
+        : null;
+      throw Object.assign(
+        new ShipEngineHttpError(
+          response.status,
+          `ShipEngine API error (${response.status}): ${errorBody}`
+        ),
+        { retryAfterMs }
       );
     }
 
-    return response.json() as Promise<T>;
+    return { result: (await response.json()) as T, retryAfterMs: null };
+  }
+
+  /**
+   * Issues a request with bounded timeout and exponential backoff.
+   *
+   * Retries ONLY on transient failures (429, 5xx, network/timeout) and honours
+   * the `Retry-After` header. Non-retryable failures (4xx other than 429)
+   * bubble up immediately.
+   *
+   * `allowRetry` defaults to true. `createLabel` MUST pass `false`: ShipEngine
+   * label creation is NOT idempotent here (no client-supplied idempotency key),
+   * so a retry after a timeout could purchase a second paid label. Stuck labels
+   * are instead recovered by the `sweepPendingLabels` job.
+   */
+  private async request<T>(
+    method: string,
+    endpoint: string,
+    body?: unknown,
+    allowRetry = true
+  ): Promise<T> {
+    const url = `${this.config.baseUrl}${endpoint}`;
+    const maxRetries = allowRetry ? RETRY_BACKOFF_MS.length : 0;
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const { result } = await this.requestOnce<T>(method, url, body);
+        return result;
+      } catch (err) {
+        lastError = err;
+
+        const isHttp = err instanceof ShipEngineHttpError;
+        const status = isHttp ? err.status : null;
+        // Network/timeout errors have no status → treated as retryable.
+        const isRetryable = status === null || RETRYABLE_STATUSES.has(status);
+
+        if (!allowRetry || attempt === maxRetries || !isRetryable) {
+          throw err;
+        }
+
+        const retryAfterMs = (err as { retryAfterMs?: number | null })?.retryAfterMs;
+        const delayMs =
+          typeof retryAfterMs === 'number' && retryAfterMs > 0
+            ? retryAfterMs
+            : RETRY_BACKOFF_MS[attempt];
+
+        // Intentionally not using functions/logger here to avoid a circular
+        // import; this is a config-layer module. Callers log domain context.
+        await sleep(delayMs);
+      }
+    }
+
+    // Unreachable in practice (loop either returns or throws), but satisfies TS.
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('ShipEngine request failed');
   }
 
   // ===========================================================================
