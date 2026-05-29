@@ -549,12 +549,22 @@ interface TransactionDocument {
 
   // Dispute / cancellation
   disputeId?: string;              // Stripe dispute ID
-  disputed?: boolean;              // True while a Stripe dispute is open (blocks seller withdrawals)
+  disputed?: boolean;              // True while a dispute is open (Stripe chargeback OR buyer report).
+                                   // Blocks seller withdrawals AND held-funds release (releaseHeldFunds
+                                   // no-ops while disputed === true).
   disputedAt?: Timestamp;
   disputeReason?: string;
-  statusBeforeDispute?: string;    // Status captured at dispute.created, restored if won
+  statusBeforeDispute?: string;    // Status captured at dispute.created (or buyer report), restored if won
   disputeOutcome?: 'won' | 'lost' | string; // Set by charge.dispute.closed
   disputeClosedAt?: Timestamp;
+  buyerReport?: {                  // Set by reportTransactionProblem (buyer "delivered but problem").
+    reason: 'not_received_despite_delivered' | 'not_as_described' | 'damaged' | 'other';
+    details?: string;              // Optional free text (<= 1000 chars; omitted when empty)
+    reportedAt: Timestamp;
+  };
+  refundInitiatedAt?: Timestamp;   // Stamped by requestRefund when status -> refund_in_progress
+                                   // (buyer auto-refund on carrier-confirmed delivery_failed/lost).
+                                   // Cleared on rollback if the refund core throws.
   cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, pending_payment_expired_1h, seller_did_not_ship_7d, label_creation_failed, etc.)
   cancelledBy?: string;            // UID of user who cancelled (manual cancel only)
   refundedAt?: Timestamp;
