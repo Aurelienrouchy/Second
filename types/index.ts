@@ -655,14 +655,15 @@ export interface SwapPartyItemExtended extends SwapPartyItem {
 
 // Swap status
 export type SwapStatus =
-  | 'proposed'      // Proposition envoyée
-  | 'accepted'      // Acceptée, en attente d'échange
-  | 'declined'      // Refusée
-  | 'cancelled'     // Annulée par l'initiateur
-  | 'photos_pending' // En attente des photos
-  | 'shipping'      // En cours d'envoi
-  | 'completed'     // Échange terminé
-  | 'disputed';     // Litige ouvert
+  | 'proposed'         // Proposition envoyée
+  | 'payment_pending'  // Acceptée avec complément — en attente du paiement Stripe
+  | 'accepted'         // Acceptée (sans complément, OU après paiement du complément)
+  | 'declined'         // Refusée
+  | 'cancelled'        // Annulée par l'initiateur
+  | 'photos_pending'   // En attente des photos
+  | 'shipping'         // En cours d'envoi
+  | 'completed'        // Échange terminé
+  | 'disputed';        // Litige ouvert
 
 // Swap exchange mode
 export type SwapExchangeMode = 'hand_delivery' | 'shipping';
