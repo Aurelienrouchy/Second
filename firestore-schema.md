@@ -481,7 +481,7 @@ interface TransactionDocument {
   statusBeforeDispute?: string;    // Status captured at dispute.created, restored if won
   disputeOutcome?: 'won' | 'lost' | string; // Set by charge.dispute.closed
   disputeClosedAt?: Timestamp;
-  cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, pending_payment_expired_1h, seller_did_not_ship_7d, etc.)
+  cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, pending_payment_expired_1h, seller_did_not_ship_7d, label_creation_failed, etc.)
   cancelledBy?: string;            // UID of user who cancelled (manual cancel only)
   refundedAt?: Timestamp;
 
