@@ -45,11 +45,7 @@ const SwapZoneWrapperComponent: React.FC = () => {
 
   return (
     <View style={styles.swapZoneContainer}>
-      <View style={styles.swapZoneHeader}>
-        <Text style={styles.swapZoneTitle}>
-          Swap <Text style={styles.swapZoneTitleAccent}>Zone</Text>
-        </Text>
-      </View>
+      {/* Title is now carried by the card itself (presentational SwapZoneSection). */}
       <SwapZoneSectionUI
         zone={zone ?? undefined}
         items={items}
