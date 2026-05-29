@@ -353,13 +353,26 @@ export const createTransaction = onCall(
       throw new HttpsError('invalid-argument', 'amount must be a positive number');
     }
 
+    // Holds the strictly-validated buyer shipping address (shipping mode only).
+    let validatedShippingAddress: {
+      street: string;
+      city: string;
+      province: string;
+      postalCode: string;
+    } | null = null;
+
     if (deliveryType === 'shipping') {
       // NOTE: the client-supplied `shippingCost` is intentionally NOT trusted.
       // It is re-priced server-side below via ShipEngine. We only require the
       // address and a valid (non-fallback) ShipEngine rateId to re-tarify.
-      if (!shippingAddress || typeof shippingAddress !== 'object') {
-        throw new HttpsError('invalid-argument', 'shippingAddress is required for shipping');
-      }
+      //
+      // Strict server-side address validation (P1-18): a Canadian shipping
+      // label needs a deliverable destination (valid CA postal code, province
+      // in the 13 codes, non-empty street/city, country=CA) or createLabel
+      // would fail AFTER the buyer is charged. We reject BEFORE locking the
+      // article / capturing payment.
+      validatedShippingAddress = validateBuyerShippingAddress(shippingAddress);
+
       if (typeof shipEngineRateId !== 'string' || shipEngineRateId.length === 0) {
         throw new HttpsError(
           'invalid-argument',
