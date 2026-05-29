@@ -190,6 +190,7 @@ export const checkShippedTracking = onSchedule(
       delivered: deliveredCount,
       failed: failedCount,
       staleNudged,
+      returnRefunded: returnRefundedCount,
       errors: errorCount,
     });
   }
