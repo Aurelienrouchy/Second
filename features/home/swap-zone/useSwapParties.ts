@@ -1,6 +1,9 @@
 /**
  * useSwapParties Hook
- * Calls getActiveSwapPartyInfo Cloud Function
+ * Calls getActiveSwapPartyInfo Cloud Function.
+ *
+ * The Swap Zone is a single, always-active generalist zone, so the response
+ * only carries { hasActiveParty, party } — no theme, dates, status or nextParty.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -15,32 +18,13 @@ import { homeKeys } from '@/features/home/query-keys';
 export interface SwapPartyInfo {
   id: string;
   name: string;
-  emoji?: string;
-  description?: string;
-  theme?: string;
-  isGeneralist?: boolean;
-  participantsCount?: number;
   itemsCount?: number;
   swapsCount?: number;
-  endDate?: string;
-  status?: string;
-}
-
-export interface UpcomingPartyInfo {
-  id: string;
-  name: string;
-  emoji?: string;
-  description?: string;
-  theme?: string;
-  isGeneralist?: boolean;
-  startDate?: string;
-  endDate?: string;
 }
 
 interface SwapPartyResponse {
   hasActiveParty: boolean;
   party: SwapPartyInfo | null;
-  nextParty: UpcomingPartyInfo | null;
 }
 
 // =============================================================================
