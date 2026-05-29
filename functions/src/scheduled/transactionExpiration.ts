@@ -133,43 +133,32 @@ export const expireOrphanedTransactions = onSchedule(
         .collection('transactions')
         .where('status', '==', 'pending_payment')
         .where('createdAt', '<', paymentCutoff)
+        .limit(MAX_PER_RUN)
         .get();
 
       if (!paymentSnap.empty) {
-        let batch = db.batch();
-        let count = 0;
+        const stripe = getStripe();
+        let pendingExpired = 0;
 
-        for (const doc of paymentSnap.docs) {
-          const data = doc.data();
-
-          // Cancel the transaction
-          batch.update(doc.ref, {
-            status: 'cancelled',
-            cancelledAt: FieldValue.serverTimestamp(),
-            cancelReason: 'pending_payment_expired_1h',
-          });
-
-          // Release the article
-          if (data.articleId) {
-            const articleRef = db.collection('articles').doc(data.articleId);
-            batch.update(articleRef, { isSold: false });
-          }
-
-          count++;
-          totalExpired++;
-
-          if (count >= BATCH_SIZE) {
-            await batch.commit();
-            batch = db.batch();
-            count = 0;
+        // Process in small concurrent lots: each doc may require a Stripe
+        // PaymentIntent retrieve/cancel network call. Promise.allSettled keeps
+        // one slow/failing PI from aborting the whole batch.
+        for (let i = 0; i < paymentSnap.docs.length; i += STRIPE_LOT_SIZE) {
+          const lot = paymentSnap.docs.slice(i, i + STRIPE_LOT_SIZE);
+          const results = await Promise.allSettled(
+            lot.map((doc) => expirePendingPayment(doc, stripe))
+          );
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) {
+              pendingExpired++;
+              totalExpired++;
+            }
           }
         }
 
-        if (count > 0) {
-          await batch.commit();
-        }
-
-        logger.info(`[expireOrphanedTransactions] Expired ${paymentSnap.size} pending_payment transactions`);
+        logger.info(
+          `[expireOrphanedTransactions] Expired ${pendingExpired}/${paymentSnap.size} pending_payment transactions (rest had in-flight PaymentIntents)`
+        );
       }
     } catch (error) {
       logger.error('[expireOrphanedTransactions] Error expiring pending_payment transactions', {
