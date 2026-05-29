@@ -583,14 +583,35 @@ interface SwapDocument {
   }[];
   receiverTotalValue: number;
 
-  status: 'proposed' | 'accepted' | 'declined' | 'cancelled'
-        | 'photos_pending' | 'shipping' | 'completed';
+  // Full lifecycle (ordered). 'payment_pending' only occurs when cashTopUp is set:
+  //   proposed -> accepted -> photos_pending -> shipping -> completed
+  //   proposed -> payment_pending -> accepted -> ... (cash top-up swaps)
+  //   proposed -> declined | cancelled
+  //   payment_pending -> cancelled (initiator) | expired by cron
+  //   shipping | completed -> disputed
+  status: 'proposed' | 'payment_pending' | 'accepted' | 'declined' | 'cancelled'
+        | 'photos_pending' | 'shipping' | 'completed' | 'disputed';
   message?: string;
+
+  // Optional cash adjustment, paid for real via Stripe with the SAME buyer
+  // protection fee as a purchase (platform keeps the fee; payee receives the
+  // base amount). The payer is one of the two participants.
   cashTopUp?: {
-    amount: number;
-    payerId: string;
-  };
-  partyId?: string;              // Linked swap party
+    amount: number;              // BASE amount in CENTS (> 0), fee excluded
+    payerId: string;             // == initiatorId | receiverId
+  } | null;
+
+  // Top-up payment fields (set by createSwapTopUpCheckout + stripeWebhook).
+  topUpPaymentIntentId?: string; // Stripe PaymentIntent id
+  topUpChargeId?: string | null; // Stripe charge id (latest_charge)
+  topUpFee?: number;             // application_fee_amount in CENTS
+  topUpPaidAt?: Timestamp;       // set on payment_intent.succeeded (swap_topup)
+  topUpReleasedAt?: Timestamp;   // set at confirmSwapReception (pending -> available)
+  topUpRefundId?: string;        // Stripe refund id (cancel/dispute)
+  topUpRefundedAt?: Timestamp;
+  topUpRefundReconciledAt?: Timestamp; // wallet debit reconciled via charge.refunded
+
+  partyId?: string;              // Linked Swap Zone (id 'generalist')
 
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -599,44 +620,31 @@ interface SwapDocument {
 
 ### `swapParties/{partyId}`
 
-Swap party / zone events with time windows.
+Single permanent **generalist** Swap Zone. Lives at the deterministic document
+id `swapParties/generalist`, bootstrapped idempotently by `ensureGeneralistZone`
+(and self-healed by `getActiveSwapPartyInfo`). No themes, no time window, no
+participants, no status. Open to all authenticated users.
 
 ```typescript
 interface SwapPartyDocument {
-  name: string;
-  emoji?: string;
-  description?: string;
-  theme?: string;
-  isGeneralist?: boolean;
-  status: 'upcoming' | 'active' | 'ended';
-  startDate: Timestamp;
-  endDate: Timestamp;
-  participantsCount?: number;
-  itemsCount?: number;
-  swapsCount?: number;
+  name: string;                  // 'Swap Zone'
+  isGeneralist: true;
+  itemsCount: number;            // live count of deposited items (CF-managed)
+  swapsCount: number;            // completed swaps in the zone (CF-managed)
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 ```
 
-### `swapPartyParticipants/{docId}`
-
-```typescript
-interface SwapPartyParticipantDocument {
-  partyId: string;
-  userId: string;
-  userName: string;              // Display name (written by joinSwapPartySecure)
-  userImage?: string;            // Profile image URL (optional)
-  itemIds: string[];             // Article IDs added to the party by this user
-  joinedAt: Timestamp;
-}
-```
+> Removed in the generalist refactor: `theme`, `emoji`, `description`,
+> `status`, `startDate`, `endDate`, `participantsCount`, and the entire
+> `swapPartyParticipants` collection (no join/leave model anymore).
 
 ### `swapPartyItems/{docId}`
 
 ```typescript
 interface SwapPartyItemDocument {
-  partyId: string;
+  partyId: string;               // == 'generalist'
   articleId: string;
   sellerId: string;
   sellerName: string;            // Seller display name
@@ -644,8 +652,8 @@ interface SwapPartyItemDocument {
   title: string;                 // Article title
   price: number;                 // Article price
   imageUrl?: string;             // Article image URL
-  isSwapped: boolean;            // Whether this item has been swapped (managed by Cloud Functions)
-  isPending?: boolean;           // Item is in an active swap proposal (managed by Cloud Functions)
+  isSwapped: boolean;            // Whether this item has been swapped (CF-managed)
+  isPending?: boolean;           // Item is in an active swap proposal (CF-managed)
   addedAt: Timestamp;
 }
 ```
