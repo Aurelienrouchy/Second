@@ -414,7 +414,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 firebase.ts, gemini.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, stripe.ts
 
 ### Utils backend — `functions/src/utils/`
-debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, search.ts (`normalizeSearchText` + `generateSearchKeywords` + `calculatePopularityScore`), labelFulfillment.ts (P1 : `creditSellerForSale` crédit vendeur après label réussi + `reconcileShippingCost` coût réel vs estimé, partagé webhook/wallet/sweep)
+debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, search.ts (`normalizeSearchText` + `generateSearchKeywords` + `calculatePopularityScore`), labelFulfillment.ts (P1 : `creditSellerForSale` crédit vendeur après label réussi + `reconcileShippingCost` coût réel vs estimé, partagé webhook/wallet/sweep), trackingTransition.ts (P1 : `applyTrackingOutcome` machine à états tracking partagée poller/webhook/callable — label_created→shipped au 1er scan, DELIVERED→heldBalance, FAILURE→delivery_failed ; `DELIVERABLE_STATUSES` garde de statut)
 
 ### Scripts admin — `functions/src/scripts/` (RUN MANUEL, NON DÉPLOYÉS)
 | Fichier | Rôle |
