@@ -102,9 +102,7 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
         enablePanDownToClose
-        topInset={insets.top}
         enableDynamicSizing={false}
       >
         <View style={styles.container}>
