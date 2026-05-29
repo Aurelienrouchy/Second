@@ -217,7 +217,9 @@ export const requestRefund = onCall(
  * adminRefundTransaction — this function never decides the outcome.
  */
 export const reportTransactionProblem = onCall(
-  { region: 'northamerica-northeast1', memory: '256MiB' },
+  // 512MiB (aligné sur requestRefund/requestReturn): tout le bundle functions
+  // est chargé au cold-start ; 256MiB faisait échouer le healthcheck Cloud Run.
+  { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');

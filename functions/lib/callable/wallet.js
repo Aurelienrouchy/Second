@@ -184,7 +184,7 @@ exports.activateWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1'
  * If no wallet exists, returns { hasWallet: false }.
  */
 exports.getWalletInfo = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -219,10 +219,15 @@ exports.getWalletInfo = (0, https_1.onCall)({ region: 'northamerica-northeast1',
             hasWallet: true,
             balance: walletData.balance,
             pendingBalance: walletData.pendingBalance,
+            // 3-bucket model: heldBalance = livré, dans la fenêtre de protection 7j
+            // (non retirable) ; sellerDebt = dû après litige perdu/refund insuffisant
+            // (bloque les retraits). Exposés pour l'UI porte-monnaie.
+            heldBalance: (_a = walletData.heldBalance) !== null && _a !== void 0 ? _a : 0,
+            sellerDebt: (_b = walletData.sellerDebt) !== null && _b !== void 0 ? _b : 0,
             currency: walletData.currency,
             status: walletData.status,
-            activatedAt: ((_c = (_b = (_a = walletData.activatedAt) === null || _a === void 0 ? void 0 : _a.toDate) === null || _b === void 0 ? void 0 : _b.call(_a)) === null || _c === void 0 ? void 0 : _c.toISOString()) || null,
-            updatedAt: ((_f = (_e = (_d = walletData.updatedAt) === null || _d === void 0 ? void 0 : _d.toDate) === null || _e === void 0 ? void 0 : _e.call(_d)) === null || _f === void 0 ? void 0 : _f.toISOString()) || null,
+            activatedAt: ((_e = (_d = (_c = walletData.activatedAt) === null || _c === void 0 ? void 0 : _c.toDate) === null || _d === void 0 ? void 0 : _d.call(_c)) === null || _e === void 0 ? void 0 : _e.toISOString()) || null,
+            updatedAt: ((_h = (_g = (_f = walletData.updatedAt) === null || _f === void 0 ? void 0 : _f.toDate) === null || _g === void 0 ? void 0 : _g.call(_f)) === null || _h === void 0 ? void 0 : _h.toISOString()) || null,
             ledger: ledgerEntries,
         };
     }

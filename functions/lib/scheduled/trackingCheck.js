@@ -65,6 +65,7 @@ const firestore_1 = require("firebase-admin/firestore");
 const shipEngine_1 = require("../config/shipEngine");
 const notifications_1 = require("../utils/notifications");
 const trackingTransition_1 = require("../utils/trackingTransition");
+const returnRefund_1 = require("../utils/returnRefund");
 /** Page size per Firestore query. */
 const PAGE_SIZE = 200;
 /** Hard cap on parcels processed per run (across both statuses) to bound time. */
@@ -74,8 +75,13 @@ const SHIPENGINE_THROTTLE_MS = 150;
 /** A label_created parcel with no carrier scan after this many days nudges the seller. */
 const LABEL_STALE_DAYS = 3;
 const LABEL_STALE_MS = LABEL_STALE_DAYS * 24 * 60 * 60 * 1000;
-/** Statuses whose parcels we poll. */
-const TRACKED_STATUSES = ['label_created', 'shipped'];
+/**
+ * Statuses whose parcels we poll.
+ *   - label_created / shipped: forward leg (buyer-bound), polled via trackingNumber.
+ *   - return_requested: reverse leg (seller-bound), polled via returnTrackingNumber.
+ * All three reuse the SAME composite index (status ASC, createdAt ASC).
+ */
+const TRACKED_STATUSES = ['label_created', 'shipped', 'return_requested'];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
     schedule: 'every 12 hours',
@@ -93,6 +99,7 @@ exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
     let shippedCount = 0;
     let failedCount = 0;
     let staleNudged = 0;
+    let returnRefundedCount = 0;
     let errorCount = 0;
     let processed = 0;
     const now = Date.now();
@@ -119,6 +126,38 @@ exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
                 const transactionId = doc.id;
                 lastCreatedAt = (_a = data.createdAt) !== null && _a !== void 0 ? _a : lastCreatedAt;
                 processed++;
+                // ---- RETURN leg: poll returnTrackingNumber; DELIVERED -> refund ----
+                if (status === 'return_requested') {
+                    if (!data.returnTrackingNumber) {
+                        continue;
+                    }
+                    try {
+                        await sleep(SHIPENGINE_THROTTLE_MS);
+                        const returnCarrier = data.returnCarrierCode || 'intelcom_ca';
+                        const tracking = await shipEngine.getTracking(returnCarrier, data.returnTrackingNumber);
+                        const mappedReturn = shipEngine_1.ShipEngineClient.mapStatus(tracking.statusCode);
+                        if (mappedReturn === 'DELIVERED') {
+                            const r = await (0, returnRefund_1.processReturnDelivered)(transactionId, 'poller');
+                            if (r.refunded)
+                                returnRefundedCount++;
+                        }
+                        else if (data.returnTrackingStatus !== mappedReturn) {
+                            // Best-effort visibility refresh; no money movement.
+                            await doc.ref
+                                .update({ returnTrackingStatus: mappedReturn })
+                                .catch(() => undefined);
+                        }
+                    }
+                    catch (err) {
+                        errorCount++;
+                        logger.error('[checkShippedTracking] error checking return tracking', {
+                            transactionId,
+                            returnTrackingNumber: data.returnTrackingNumber,
+                            error: err instanceof Error ? err.message : err,
+                        });
+                    }
+                    continue;
+                }
                 // No tracking number yet (label_created may have one already).
                 if (!data.trackingNumber) {
                     // Nudge sellers who printed a label but never got a carrier scan.
@@ -167,6 +206,7 @@ exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
         delivered: deliveredCount,
         failed: failedCount,
         staleNudged,
+        returnRefunded: returnRefundedCount,
         errors: errorCount,
     });
 });

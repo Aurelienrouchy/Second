@@ -68,10 +68,10 @@ exports.sweepPendingLabels = void 0;
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
-const stripe_1 = require("../config/stripe");
 const shipEngine_1 = require("../config/shipEngine");
 const payments_1 = require("../callable/payments");
 const labelFulfillment_1 = require("../utils/labelFulfillment");
+const refund_1 = require("../utils/refund");
 const notifications_1 = require("../utils/notifications");
 /** Process at most this many transactions per run to bound execution time. */
 const MAX_TRANSACTIONS_PER_RUN = 50;
@@ -169,165 +169,69 @@ async function refreshRateForTransaction(txData, transactionId) {
 }
 /**
  * Definitive failure path: refund the buyer (idempotent), release the article,
- * debit the seller IF they were credited, cancel the transaction, notify the
- * buyer. Writes a `failed_operations` doc if the Stripe refund itself fails.
+ * debit the seller IF they were credited, mark the transaction refunded, notify
+ * the buyer.
+ *
+ * REUSES the shared issueTransactionRefund core (single source of truth for the
+ * reverse_transfer / sellerDebt reconciliation + dead-lettering on Stripe
+ * failure with the deterministic key). The article IS re-listed (the parcel was
+ * never shipped, the item still exists). After the core succeeds we additionally
+ * clear the label-pending bookkeeping (cancelReason / labelCreationPending) that
+ * is specific to this flow and not owned by the generic refund core.
  */
 async function refundPendingLabelTransaction(txRef, txData, transactionId) {
-    const stripe = (0, stripe_1.getStripe)();
-    const paidVia = txData.paidVia;
-    const walletAmountUsed = txData.walletAmountUsed || 0; // cents
-    const hasWalletPortion = walletAmountUsed > 0 &&
-        (paidVia === 'wallet' || paidVia === 'wallet_and_card' || paidVia === 'mixed');
-    // --- Stripe refund (card portion) — OUTSIDE the Firestore transaction ---
-    let stripeRefundFailed = false;
-    if (txData.stripePaymentIntentId && stripe) {
-        try {
-            // Mixed wallet+card charges are direct platform charges (no transfer_data),
-            // so reverse_transfer/refund_application_fee must be omitted there.
-            const isMixedCharge = paidVia === 'wallet_and_card' || paidVia === 'mixed';
-            await stripe.refunds.create(Object.assign({ payment_intent: txData.stripePaymentIntentId }, (isMixedCharge
-                ? {}
-                : { reverse_transfer: true, refund_application_fee: true })), 
-            // Deterministic key tied to the transaction so re-runs never double-refund.
-            { idempotencyKey: `rf_label_${transactionId}` });
-            logger.info('[sweepPendingLabels] Stripe refund created (label give-up)', {
-                transactionId,
-                paymentIntentId: txData.stripePaymentIntentId,
-                reverseTransfer: !isMixedCharge,
-            });
-        }
-        catch (refundErr) {
-            stripeRefundFailed = true;
-            logger.error('CRITICAL [sweepPendingLabels] Stripe refund failed (label give-up)', {
-                transactionId,
-                paymentIntentId: txData.stripePaymentIntentId,
-                error: refundErr instanceof Error ? refundErr.message : refundErr,
-            });
-            // Dead-letter for the retry chantier. Best-effort; never throws.
-            await firebase_1.db
-                .collection('failed_operations')
-                .add({
-                type: 'label_refund_failed',
-                transactionId,
-                paymentIntentId: txData.stripePaymentIntentId,
-                reason: refundErr instanceof Error ? refundErr.message : 'stripe_refund_error',
-                createdAt: firebase_1.FieldValue.serverTimestamp(),
-                status: 'pending',
-            })
-                .catch((dlErr) => {
-                logger.error('[sweepPendingLabels] failed to write failed_operations doc', {
-                    transactionId,
-                    error: dlErr instanceof Error ? dlErr.message : dlErr,
-                });
-            });
-            // Do NOT proceed to cancel/release if the card refund failed: leaving the
-            // transaction 'paid' + labelCreationPending lets a later run retry the
-            // refund idempotently rather than cancelling without refunding the buyer.
-            return;
-        }
-    }
-    // --- Atomic Firestore reconciliation: cancel + release + wallet movements ---
-    await firebase_1.db.runTransaction(async (tx) => {
-        const snap = await tx.get(txRef);
-        const data = snap.data();
-        if (!data)
-            return;
-        // Idempotence: only act on a still-pending paid transaction.
-        if (data.status !== 'paid' || data.labelCreationPending !== true) {
-            return;
-        }
-        // Reads first.
-        let buyerWalletSnap = null;
-        const buyerWalletRef = hasWalletPortion && data.buyerId
-            ? firebase_1.db.collection('wallets').doc(data.buyerId)
-            : null;
-        if (buyerWalletRef) {
-            buyerWalletSnap = await tx.get(buyerWalletRef);
-        }
-        // Seller debit only if they were actually credited (deferred model => normally
-        // NOT credited for a pending-label tx, so sellerCreditedCents is absent).
-        const sellerDebitTarget = typeof data.sellerCreditedCents === 'number' ? data.sellerCreditedCents : 0;
-        let sellerWalletSnap = null;
-        const sellerWalletRef = sellerDebitTarget > 0 && data.sellerId
-            ? firebase_1.db.collection('wallets').doc(data.sellerId)
-            : null;
-        if (sellerWalletRef) {
-            sellerWalletSnap = await tx.get(sellerWalletRef);
-        }
-        let articleSnap = null;
-        const articleRef = data.articleId
-            ? firebase_1.db.collection('articles').doc(data.articleId)
-            : null;
-        if (articleRef) {
-            articleSnap = await tx.get(articleRef);
-        }
-        // Writes.
-        tx.update(txRef, {
-            status: 'cancelled',
-            cancelledAt: firebase_1.FieldValue.serverTimestamp(),
-            cancelReason: 'label_creation_failed',
-            labelCreationPending: false,
-            refundedAt: firebase_1.FieldValue.serverTimestamp(),
+    // Pre-check the precondition before touching Stripe: only a still-paid,
+    // still-pending-label transaction should be given up. A concurrent run may
+    // have advanced it (label created -> label_created/shipped) in the meantime.
+    const preSnap = await txRef.get();
+    const preData = preSnap.exists ? preSnap.data() : null;
+    if (!preData || preData.status !== 'paid' || preData.labelCreationPending !== true) {
+        logger.info('[sweepPendingLabels] label give-up skipped — tx no longer paid+pending', {
+            transactionId,
+            status: preData === null || preData === void 0 ? void 0 : preData.status,
         });
-        if (articleRef && articleSnap && articleSnap.exists) {
-            tx.update(articleRef, { isSold: false });
-        }
-        // Re-credit buyer wallet portion (card portion goes back via Stripe refund).
-        if (buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
-            const refundCents = paidVia === 'wallet'
-                ? Math.round((data.totalAmount || 0) * 100)
-                : walletAmountUsed;
-            if (refundCents > 0) {
-                const wd = buyerWalletSnap.data();
-                tx.update(buyerWalletRef, {
-                    balance: firebase_1.FieldValue.increment(refundCents),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-                const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
-                tx.set(buyerLedgerRef, {
-                    type: 'refund_credit',
-                    amount: refundCents,
-                    balanceAfter: (wd.balance || 0) + refundCents,
-                    description: 'Remboursement — etiquette d\'expedition introuvable',
-                    transactionId,
-                    createdAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-        }
-        // Debit seller pendingBalance/heldBalance/balance only if they were credited.
-        if (sellerDebitTarget > 0 && sellerWalletRef && sellerWalletSnap && sellerWalletSnap.exists) {
-            const swd = sellerWalletSnap.data();
-            const pendingNow = swd.pendingBalance || 0;
-            const heldNow = swd.heldBalance || 0;
-            const balanceNow = swd.balance || 0;
-            const fromPending = Math.min(sellerDebitTarget, pendingNow);
-            let remaining = sellerDebitTarget - fromPending;
-            const fromHeld = Math.min(remaining, heldNow);
-            remaining -= fromHeld;
-            const fromBalance = Math.min(remaining, balanceNow);
-            const shortfall = remaining - fromBalance;
-            const walletUpdate = {
-                updatedAt: firebase_1.FieldValue.serverTimestamp(),
-            };
-            if (fromPending > 0)
-                walletUpdate.pendingBalance = firebase_1.FieldValue.increment(-fromPending);
-            if (fromHeld > 0)
-                walletUpdate.heldBalance = firebase_1.FieldValue.increment(-fromHeld);
-            if (fromBalance > 0)
-                walletUpdate.balance = firebase_1.FieldValue.increment(-fromBalance);
-            if (shortfall > 0)
-                walletUpdate.sellerDebt = firebase_1.FieldValue.increment(shortfall);
-            tx.update(sellerWalletRef, walletUpdate);
-            const debited = fromPending + fromHeld + fromBalance;
-            const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-            tx.set(sellerLedgerRef, Object.assign({ type: 'refund_debit', amount: debited, balanceAfter: balanceNow - fromBalance, description: shortfall > 0
-                    ? 'Annulation etiquette — debit vendeur (dette enregistree pour le solde manquant)'
-                    : 'Annulation etiquette — debit vendeur', transactionId, createdAt: firebase_1.FieldValue.serverTimestamp() }, (shortfall > 0 && { debtRecorded: shortfall })));
-        }
-    });
-    if (stripeRefundFailed)
-        return; // unreachable (early return above) — defensive
-    logger.warn('[sweepPendingLabels] transaction refunded + cancelled after max label attempts', {
+        return;
+    }
+    try {
+        // Shared core: idempotent Stripe refund (reverse_transfer for destination
+        // charges) keyed rf_label_${txId}, then atomic wallet reconciliation
+        // (re-credit buyer wallet portion, debit seller exactly sellerCreditedCents
+        // — normally 0 for a never-credited pending-label tx — shortfall -> debt),
+        // re-list the article, set status -> 'refunded'. On Stripe failure the core
+        // dead-letters (type stripe_refund_failed) and throws.
+        await (0, refund_1.issueTransactionRefund)(transactionId, preData, {
+            reason: 'label_creation_failed',
+            idempotencyKey: `rf_label_${transactionId}`,
+            // Parcel never shipped — the item still exists, so re-list it (default).
+            relistArticle: true,
+            source: 'sweepPendingLabels_giveup',
+        });
+    }
+    catch (refundErr) {
+        // The core already dead-lettered the Stripe failure with the same
+        // deterministic key; leave the tx 'paid' + labelCreationPending so a later
+        // run / retryFailedOperations re-drives the refund idempotently rather than
+        // cancelling without refunding the buyer. Just log domain context.
+        logger.error('CRITICAL [sweepPendingLabels] Stripe refund failed (label give-up)', {
+            transactionId,
+            paymentIntentId: preData.stripePaymentIntentId,
+            error: refundErr instanceof Error ? refundErr.message : refundErr,
+        });
+        return;
+    }
+    // Stamp the label-pending bookkeeping the generic core does not own. Best-effort
+    // merge — the core already set status='refunded' atomically; this only clears
+    // the pending flag and records the give-up reason for the audit trail.
+    await txRef
+        .update({
+        cancelReason: 'label_creation_failed',
+        labelCreationPending: false,
+    })
+        .catch((err) => logger.warn('[sweepPendingLabels] failed to clear labelCreationPending after refund', {
+        transactionId,
+        error: err instanceof Error ? err.message : err,
+    }));
+    logger.warn('[sweepPendingLabels] transaction refunded after max label attempts', {
         transactionId,
     });
     // Notify buyer (best-effort).

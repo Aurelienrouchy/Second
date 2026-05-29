@@ -69,6 +69,7 @@ const crypto_1 = require("crypto");
 const firebase_1 = require("../config/firebase");
 const shipEngine_1 = require("../config/shipEngine");
 const trackingTransition_1 = require("../utils/trackingTransition");
+const returnRefund_1 = require("../utils/returnRefund");
 /** Timing-safe equality for two short secret strings. */
 function secretsMatch(a, b) {
     const bufA = Buffer.from(a);
@@ -86,7 +87,7 @@ exports.shipEngineWebhook = (0, https_1.onRequest)({
     memory: '512MiB',
     secrets: ['SHIPENGINE_WEBHOOK_SECRET'],
 }, async (req, res) => {
-    var _a, _b;
+    var _a, _b, _c;
     if (req.method !== 'POST') {
         res.status(405).send('Method not allowed');
         return;
@@ -120,33 +121,70 @@ exports.shipEngineWebhook = (0, https_1.onRequest)({
         return;
     }
     try {
-        // Find the transaction by tracking number. trackingNumber is effectively
-        // unique per parcel; auto-index on equality is sufficient here.
+        const mapped = shipEngine_1.ShipEngineClient.mapStatus(statusCode);
+        // Find the transaction by FORWARD-leg tracking number. trackingNumber is
+        // effectively unique per parcel; auto-index on equality is sufficient.
         const snap = await firebase_1.db
             .collection('transactions')
             .where('trackingNumber', '==', trackingNumber)
             .limit(1)
             .get();
-        if (snap.empty) {
+        if (!snap.empty) {
+            const doc = snap.docs[0];
+            const transactionId = doc.id;
+            const result = await (0, trackingTransition_1.applyTrackingOutcome)(transactionId, mapped, 'webhook');
+            logger.info('[shipEngineWebhook] tracking applied', {
+                transactionId,
+                trackingNumber,
+                statusCode,
+                mapped,
+                outcome: result.kind,
+                changed: 'changed' in result ? result.changed : false,
+            });
+            res.json({ received: true, transactionId, outcome: result.kind });
+            return;
+        }
+        // No forward-leg match: this may be a RETURN parcel. Match by the
+        // returnTrackingNumber stored at requestReturn time.
+        const returnSnap = await firebase_1.db
+            .collection('transactions')
+            .where('returnTrackingNumber', '==', trackingNumber)
+            .limit(1)
+            .get();
+        if (returnSnap.empty) {
             logger.info('[shipEngineWebhook] no transaction for tracking number', {
                 trackingNumber,
             });
             res.json({ received: true, matched: false });
             return;
         }
-        const doc = snap.docs[0];
-        const transactionId = doc.id;
-        const mapped = shipEngine_1.ShipEngineClient.mapStatus(statusCode);
-        const result = await (0, trackingTransition_1.applyTrackingOutcome)(transactionId, mapped, 'webhook');
-        logger.info('[shipEngineWebhook] tracking applied', {
+        const returnDoc = returnSnap.docs[0];
+        const transactionId = returnDoc.id;
+        // DELIVERED on the return leg = seller received the item back -> refund the
+        // buyer (total - returnLabelCost), debit the seller. Idempotent.
+        if (mapped === 'DELIVERED') {
+            const returnResult = await (0, returnRefund_1.processReturnDelivered)(transactionId, 'webhook');
+            logger.info('[shipEngineWebhook] return delivered processed', {
+                transactionId,
+                trackingNumber,
+                refunded: returnResult.refunded,
+                alreadyRefunded: (_c = returnResult.alreadyRefunded) !== null && _c !== void 0 ? _c : false,
+            });
+            res.json({ received: true, transactionId, outcome: 'return_refunded' });
+            return;
+        }
+        // Non-DELIVERED return scan: best-effort refresh of the return tracking
+        // status for visibility. No money movement, no state change.
+        await returnDoc.ref
+            .update({ returnTrackingStatus: mapped })
+            .catch(() => undefined);
+        logger.info('[shipEngineWebhook] return tracking refreshed', {
             transactionId,
             trackingNumber,
             statusCode,
             mapped,
-            outcome: result.kind,
-            changed: 'changed' in result ? result.changed : false,
         });
-        res.json({ received: true, transactionId, outcome: result.kind });
+        res.json({ received: true, transactionId, outcome: 'return_tracking_updated' });
     }
     catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';

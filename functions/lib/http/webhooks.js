@@ -59,6 +59,7 @@ const notifications_1 = require("../utils/notifications");
 const wallet_1 = require("../callable/wallet");
 const labelFulfillment_1 = require("../utils/labelFulfillment");
 const failedOperations_1 = require("../utils/failedOperations");
+const refund_1 = require("../utils/refund");
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
 // =============================================================================
@@ -291,6 +292,9 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
                 return {
                     processed: false,
                     reason: 'amount_mismatch',
+                    // Carry the tx data so the buyer-overpaid auto-refund can reuse the
+                    // shared refund core (atomic Stripe refund + wallet reconciliation).
+                    txData,
                     mismatch: {
                         received: amountReceivedDollars,
                         expected: expectedComparable,
@@ -334,6 +338,10 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
             return {
                 processed: false,
                 reason: currentStatus === 'cancelled' ? 'cancelled_needs_refund' : 'already_refunded',
+                // Carry the tx data so the post-transaction refund (issueTransactionRefund)
+                // can re-credit the buyer wallet portion and debit the seller exactly what
+                // was credited, in one atomic operation (no two-phase charge.refunded).
+                txData,
             };
         }
         // --- Mark transaction as paid ---
@@ -380,6 +388,13 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         // against the expiry job's own refund, so this can never double-refund. The
         // resulting charge.refunded webhook applies any wallet reconciliation.
         if (result.reason === 'cancelled_needs_refund') {
+            // Reuse the shared refund core: ONE atomic operation does the idempotent
+            // Stripe refund (deterministic key rf_${txId} — dedups against the expiry
+            // job) AND the wallet reconciliation (re-credit buyer wallet portion, debit
+            // seller exactly what was credited — 0 here since a cancelled tx was never
+            // paid). No longer two-phase (no dependency on a follow-up charge.refunded).
+            // The stored stripePaymentIntentId may be absent on the tx (the PI.succeeded
+            // landing here might predate persistence), so pass the live id from the event.
             const stripe = (0, stripe_1.getStripe)();
             if (!stripe) {
                 logger.error('Stripe webhook: cannot auto-refund cancelled transaction — Stripe not configured', {
@@ -389,24 +404,22 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
                 return;
             }
             try {
-                const isMixedRefund = isMixedPayment;
-                const refund = await stripe.refunds.create(Object.assign({ payment_intent: paymentIntent.id }, (isMixedRefund
-                    ? {}
-                    : { reverse_transfer: true, refund_application_fee: true })), { idempotencyKey: `rf_${transactionId}` });
-                await transactionRef.update({
-                    stripeRefundId: refund.id,
-                    stripeRefundIssuedAt: firebase_1.FieldValue.serverTimestamp(),
+                const cancelledTxData = 'txData' in result ? result.txData : {};
+                await (0, refund_1.issueTransactionRefund)(transactionId, Object.assign(Object.assign({}, cancelledTxData), { stripePaymentIntentId: paymentIntent.id }), {
+                    reason: 'cancelled_payment_succeeded_late',
+                    idempotencyKey: `rf_${transactionId}`,
+                    // Cancel already relisted the article; relisting again is a harmless
+                    // no-op (isSold=false). Keep default true to stay consistent.
+                    source: 'webhook_cancelled_needs_refund',
                 });
                 logger.warn('Stripe webhook: auto-refunded payment on cancelled transaction', {
                     transactionId,
                     paymentIntentId: paymentIntent.id,
-                    stripeRefundId: refund.id,
-                    reverseTransfer: !isMixedRefund,
                 });
             }
             catch (refundErr) {
-                // Leave it for manual reconciliation — the deterministic idempotency key
-                // means a future retry (e.g. a webhook replay) is safe.
+                // issueTransactionRefund already dead-lettered the Stripe failure with the
+                // same deterministic key, so a future retry is safe. Just log domain ctx.
                 logger.error('Stripe webhook: auto-refund on cancelled transaction FAILED', {
                     transactionId,
                     paymentIntentId: paymentIntent.id,
@@ -443,19 +456,29 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
             if (buyerOverpaid) {
                 const stripe = (0, stripe_1.getStripe)();
                 if (stripe) {
+                    // Reuse the shared refund core: ONE atomic op refunds the full card
+                    // charge (deterministic key rf_mismatch_${txId}) AND reconciles the
+                    // wallet (re-credit buyer wallet portion, debit seller exactly what was
+                    // credited — 0 here since the tx was never marked paid). The tx never
+                    // persisted stripePaymentIntentId (never reached 'paid'), so we inject
+                    // the live id from the event. isMixedMismatch is derived inside the core
+                    // from paidVia, so the reverse_transfer decision stays consistent.
+                    const mismatchTxData = 'txData' in result ? result.txData : {};
                     try {
-                        const refund = await stripe.refunds.create(Object.assign({ payment_intent: paymentIntent.id }, (isMixedMismatch
-                            ? {}
-                            : { reverse_transfer: true, refund_application_fee: true })), { idempotencyKey: `rf_mismatch_${transactionId}` });
+                        await (0, refund_1.issueTransactionRefund)(transactionId, Object.assign(Object.assign({}, mismatchTxData), { stripePaymentIntentId: paymentIntent.id }), {
+                            reason: 'amount_mismatch_buyer_overpaid',
+                            idempotencyKey: `rf_mismatch_${transactionId}`,
+                            source: 'webhook_amount_mismatch',
+                        });
                         logger.warn('Stripe webhook: amount mismatch (buyer overpaid) — auto-refunded', {
                             transactionId,
                             paymentIntentId: paymentIntent.id,
-                            stripeRefundId: refund.id,
                         });
                     }
                     catch (refundErr) {
-                        // The dead-letter above + the deterministic idempotency key make a
-                        // later replay (retryFailedOperations) safe.
+                        // issueTransactionRefund already dead-lettered the Stripe failure with
+                        // the same deterministic key, in addition to the amount_mismatch
+                        // dead-letter above; a later replay (retryFailedOperations) is safe.
                         logger.error('CRITICAL Stripe webhook: amount mismatch auto-refund FAILED', {
                             transactionId,
                             paymentIntentId: paymentIntent.id,
