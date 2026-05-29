@@ -175,12 +175,30 @@ export const expireOrphanedTransactions = onSchedule(
             // --- Stripe refund (card portion) ---
             if (data.stripePaymentIntentId && stripe) {
               try {
-                await stripe.refunds.create({
+                // Destination charges (card-only purchases) were created with
+                // transfer_data + application_fee_amount, so the seller's Connect
+                // account already received the funds. A plain refund would leave
+                // that money with the seller while the wallet ledger is debited =>
+                // platform absorbs the loss. We MUST reverse the transfer and the
+                // application fee.
+                //
+                // Mixed wallet+card charges are direct platform charges (NO
+                // transfer_data / application_fee_amount), so there is nothing to
+                // reverse — passing reverse_transfer would error.
+                const isMixedCharge =
+                  data.paidVia === 'wallet_and_card' || data.paidVia === 'mixed';
+                const refundParams: import('stripe').Stripe.RefundCreateParams = {
                   payment_intent: data.stripePaymentIntentId,
-                });
+                };
+                if (!isMixedCharge) {
+                  refundParams.reverse_transfer = true;
+                  refundParams.refund_application_fee = true;
+                }
+                await stripe.refunds.create(refundParams);
                 logger.info('[expireOrphanedTransactions] Stripe refund created', {
                   transactionId,
                   paymentIntentId: data.stripePaymentIntentId,
+                  reverseTransfer: !isMixedCharge,
                 });
               } catch (refundErr) {
                 // Log but continue — the transaction should still be cancelled
