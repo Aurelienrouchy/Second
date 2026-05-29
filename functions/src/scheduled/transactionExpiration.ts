@@ -171,6 +171,18 @@ export const expireOrphanedTransactions = onSchedule(
           const data = doc.data();
           const transactionId = doc.id;
 
+          // P1 (atomicity payment<->label): a transaction still awaiting its
+          // shipping label is owned by sweepPendingLabels (re-rate + retry, then
+          // refund after N attempts). Do NOT expire/refund it here — the seller
+          // was never credited and the sweep handles the eventual refund itself.
+          // Excluded until the sweep resolves the flag (sets shipped or refunds).
+          if (data.labelCreationPending === true) {
+            logger.info('[expireOrphanedTransactions] skipping labelCreationPending tx (owned by sweepPendingLabels)', {
+              transactionId,
+            });
+            continue;
+          }
+
           try {
             // --- Stripe refund (card portion) ---
             if (data.stripePaymentIntentId && stripe) {
