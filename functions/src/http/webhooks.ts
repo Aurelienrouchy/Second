@@ -780,10 +780,25 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     .get();
 
   if (txQuery.empty) {
-    logger.error('Stripe webhook: refund — no transaction found for PaymentIntent', {
-      chargeId: charge.id,
-      paymentIntentId,
-    });
+    // Not a purchase — could be a swap cash top-up refund. Reconcile the payee
+    // wallet pendingBalance (the funds were never released to balance because a
+    // top-up is only released to balance at confirmSwapReception, and refunds
+    // only occur on cancel/dispute BEFORE release).
+    const swapQuery = await db
+      .collection('swaps')
+      .where('topUpPaymentIntentId', '==', paymentIntentId)
+      .limit(1)
+      .get();
+
+    if (swapQuery.empty) {
+      logger.error('Stripe webhook: refund — no transaction or swap found for PaymentIntent', {
+        chargeId: charge.id,
+        paymentIntentId,
+      });
+      return;
+    }
+
+    await handleSwapTopUpRefund(swapQuery.docs[0]);
     return;
   }
 
