@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
-import { Article, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
+import { Article, ArticleSize, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
 
 const SEARCH_DEBOUNCE_MS = 350;
 const PAGE_SIZE = 20;
