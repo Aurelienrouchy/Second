@@ -294,20 +294,42 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     }
 
     // IDEMPOTENCE: If already paid/label_created/shipped/delivered, do nothing
-    // (replay protection). Also reject cancelled transactions.
+    // (replay protection).
     const currentStatus = txData.status;
     if (
       currentStatus === 'paid' ||
       currentStatus === 'label_created' ||
       currentStatus === 'shipped' ||
-      currentStatus === 'delivered' ||
-      currentStatus === 'cancelled'
+      currentStatus === 'delivered'
     ) {
       logger.info('Stripe webhook: transaction already processed', {
         transactionId,
         currentStatus,
       });
       return { processed: false, reason: 'already_processed' };
+    }
+
+    // P1 (expiration vs payment in flight): the order was cancelled/expired
+    // BEFORE this success landed (e.g. the 1h expiry raced a late capture, or
+    // the buyer paid right after the order was cancelled). We must NOT mark it
+    // paid — the article may already be relisted/sold. Instead, trigger an
+    // idempotent Stripe refund AFTER the transaction so the buyer is made whole.
+    // Already-refunded / in-progress states need no new refund (the refund key
+    // is deterministic, so even a duplicate request would be a no-op, but we
+    // skip to avoid noise).
+    if (
+      currentStatus === 'cancelled' ||
+      currentStatus === 'refund_in_progress' ||
+      currentStatus === 'refunded'
+    ) {
+      logger.warn('Stripe webhook: PI.succeeded on a non-payable transaction — will refund', {
+        transactionId,
+        currentStatus,
+      });
+      return {
+        processed: false,
+        reason: currentStatus === 'cancelled' ? 'cancelled_needs_refund' : 'already_refunded',
+      };
     }
 
     // --- Mark transaction as paid ---
