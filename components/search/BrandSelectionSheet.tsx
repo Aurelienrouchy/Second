@@ -476,7 +476,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
               styles.listContent,
               {
                 paddingBottom:
-                  24 + (singleSelect ? insets.bottom : SHEET_FOOTER_HEIGHT),
+                  24 + (singleSelect ? SHEET_BOTTOM_INSET : SHEET_FOOTER_HEIGHT),
               },
             ]}
             showsVerticalScrollIndicator={false}
