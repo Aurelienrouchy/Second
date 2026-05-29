@@ -143,6 +143,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
           </View>
         ) : (
           <BottomSheetScrollView
+            style={styles.flex}
             contentContainerStyle={[styles.listContent, { paddingBottom: scrollPaddingBottom }]}
             showsVerticalScrollIndicator={false}
           >
