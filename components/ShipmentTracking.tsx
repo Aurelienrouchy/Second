@@ -1,7 +1,17 @@
+/**
+ * ShipmentTracking — shipping timeline + buyer recourse entry points.
+ * Design System: Editorial Luxe — all tokens from constants/theme.
+ *
+ * Distinguishes `label_created` (label bought, before first carrier scan) from
+ * `shipped` (in transit). Surfaces buyer recourse on `delivery_failed` / `lost`
+ * and a return-request entry once delivered.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { httpsCallable } from 'firebase/functions';
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,102 +25,231 @@ import {
 import { functions } from '@/config/firebaseConfig';
 import { Transaction } from '@/types';
 import { APP_LOCALE } from '@/constants/locale';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { useAuthStore, selectUser } from '@/store/authStore';
+import { getStatusDescription, fillFundsReleaseAt } from '@/lib/transactionStatusMeta';
 
 interface ShipmentTrackingProps {
   transaction: Transaction;
   onStatusUpdate?: () => void;
 }
 
+interface CarrierStatusInfo {
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  label: string;
+  description: string;
+}
+
+/** Maps the ShipEngine carrier tracking code to a DS-tokenized presentation. */
+function getCarrierStatusInfo(
+  transaction: Transaction,
+): CarrierStatusInfo {
+  switch (transaction.trackingStatus) {
+    case 'TRANSIT':
+    case 'IN_TRANSIT':
+      return {
+        icon: 'airplane',
+        color: colors.primary,
+        label: 'En transit',
+        description: transaction.carrierCode
+          ? `Votre colis est en cours d'acheminement via ${transaction.carrierCode}`
+          : "Votre colis est en cours d'acheminement",
+      };
+    case 'OUT_FOR_DELIVERY':
+      return {
+        icon: 'car',
+        color: colors.warning,
+        label: 'En cours de livraison',
+        description: "Votre colis est en livraison aujourd'hui",
+      };
+    case 'DELIVERED':
+      return {
+        icon: 'checkmark-circle',
+        color: colors.success,
+        label: 'Livré',
+        description: 'Votre colis a été livré avec succès',
+      };
+    case 'FAILURE':
+    case 'RETURNED':
+      return {
+        icon: 'alert-circle',
+        color: colors.danger,
+        label: 'Problème de livraison',
+        description: 'Un problème est survenu avec la livraison',
+      };
+    default:
+      // No carrier scan yet — distinguish "label created" from "preparing".
+      if (transaction.status === 'label_created') {
+        return {
+          icon: 'pricetag',
+          color: colors.primary,
+          label: 'Étiquette créée',
+          description: "L'étiquette est prête, le colis va être déposé chez le transporteur",
+        };
+      }
+      return {
+        icon: 'cube',
+        color: colors.muted,
+        label: 'En préparation',
+        description: 'Le vendeur prépare votre colis',
+      };
+  }
+}
+
+const REPORT_REASONS = [
+  'Colis non reçu',
+  'Article non conforme à l’annonce',
+  'Article endommagé',
+  'Autre',
+] as const;
+
 const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   transaction,
   onStatusUpdate,
 }) => {
+  const router = useRouter();
+  const user = useAuthStore(selectUser);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'TRANSIT':
-      case 'IN_TRANSIT':
-        return {
-          icon: 'airplane' as const,
-          color: colors.primary,
-          label: 'En transit',
-          description: transaction.carrierCode
-            ? `Votre colis est en cours d'acheminement via ${transaction.carrierCode}`
-            : 'Votre colis est en cours d\'acheminement',
-        };
-      case 'OUT_FOR_DELIVERY':
-        return {
-          icon: 'car' as const,
-          color: '#FF9500',
-          label: 'En cours de livraison',
-          description: 'Votre colis est en livraison aujourd\'hui',
-        };
-      case 'DELIVERED':
-        return {
-          icon: 'checkmark-circle' as const,
-          color: '#34C759',
-          label: 'Livré',
-          description: 'Votre colis a été livré avec succès',
-        };
-      case 'FAILURE':
-      case 'RETURNED':
-        return {
-          icon: 'alert-circle' as const,
-          color: '#FF3B30',
-          label: 'Problème de livraison',
-          description: 'Un problème est survenu avec la livraison',
-        };
-      default:
-        return {
-          icon: 'cube' as const,
-          color: colors.muted,
-          label: 'En préparation',
-          description: 'Le vendeur prépare votre colis',
-        };
-    }
-  };
+  const isBuyer = !!user && user.id === transaction.buyerId;
+  const isDelivered = transaction.status === 'delivered';
+  const isRecourse =
+    transaction.status === 'delivery_failed' || transaction.status === 'lost';
 
-  const handleRefresh = async () => {
+  const releaseDate = transaction.fundsReleaseAt
+    ? transaction.fundsReleaseAt.toLocaleDateString(APP_LOCALE, {
+        day: 'numeric',
+        month: 'long',
+      })
+    : undefined;
+
+  const perspectiveDescription = fillFundsReleaseAt(
+    getStatusDescription(transaction.status, isBuyer ? 'buyer' : 'seller'),
+    releaseDate,
+  );
+
+  const handleRefresh = useCallback(async () => {
     try {
       setIsRefreshing(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      const checkTracking = httpsCallable(functions, 'checkTrackingStatus');
+      const checkTracking = httpsCallable<{ transactionId: string }, { success: boolean }>(
+        functions,
+        'checkTrackingStatus',
+      );
       const result = await checkTracking({ transactionId: transaction.id });
 
-      const data = result.data as any;
-      if (data.success) {
+      if (result.data?.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (onStatusUpdate) {
-          onStatusUpdate();
-        }
+        onStatusUpdate?.();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error refreshing tracking:', error);
       Alert.alert('Erreur', 'Impossible de mettre à jour le suivi');
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [transaction.id, onStatusUpdate]);
 
-  const handleOpenTracking = () => {
+  const handleOpenTracking = useCallback(() => {
     if (transaction.trackingUrl) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       Linking.openURL(transaction.trackingUrl);
     }
-  };
+  }, [transaction.trackingUrl]);
 
-  const handleDownloadLabel = () => {
+  const handleDownloadLabel = useCallback(() => {
     if (transaction.shippingLabelUrl) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       Linking.openURL(transaction.shippingLabelUrl);
     }
-  };
+  }, [transaction.shippingLabelUrl]);
 
-  const statusInfo = getStatusInfo(transaction.trackingStatus || '');
-  const isDelivered = transaction.status === 'delivered';
+  // ---------------------------------------------------------------------------
+  // BUYER RECOURSE
+  //
+  // TODO(backend): no buyer-facing callable exists yet for problem reports /
+  // refund requests / return requests (`adminRefundTransaction` is admin-only).
+  // Until a `reportTransactionProblem` / `requestRefund` / `requestReturn`
+  // callable is exposed, these flows confirm intent with the spec copy and route
+  // the buyer to the transaction chat — the real channel to reach the team /
+  // seller — instead of inventing a server call. Wire the callable here when
+  // available (see followUps).
+  // ---------------------------------------------------------------------------
+
+  const goToTransactionChat = useCallback(() => {
+    if (transaction.chatId) {
+      router.push(`/chat/${transaction.chatId}`);
+    }
+  }, [router, transaction.chatId]);
+
+  const showReportConfirmation = useCallback(() => {
+    Alert.alert(
+      'Signalement envoyé',
+      'Nous avons bien reçu votre signalement. Notre équipe revient vers vous sous 48 h. Vos fonds restent protégés.',
+      [{ text: 'Compris' }],
+    );
+  }, []);
+
+  const handleReportProblem = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      'Signaler un problème',
+      'Sélectionnez ce qui s’est passé. Notre équipe examine chaque signalement sous 48 h.',
+      [
+        ...REPORT_REASONS.map((reason) => ({
+          text: reason,
+          onPress: showReportConfirmation,
+        })),
+        { text: 'Annuler', style: 'cancel' as const },
+      ],
+    );
+  }, [showReportConfirmation]);
+
+  const handleRequestRefund = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      'Demander un remboursement',
+      'Vous pouvez demander le remboursement de cette commande. Une fois validé, le montant sera recrédité sur votre moyen de paiement d’origine. Le remboursement est traité après vérification par notre équipe.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer la demande',
+          onPress: () => {
+            Alert.alert(
+              'Demande envoyée',
+              'Votre demande de remboursement a été transmise. Nous vous tiendrons informé·e de son avancement.',
+              [{ text: 'Compris', onPress: goToTransactionChat }],
+            );
+          },
+        },
+      ],
+    );
+  }, [goToTransactionChat]);
+
+  const handleRequestReturn = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      'Demander un retour',
+      'Vous souhaitez renvoyer cet article ? Les frais d’expédition du retour sont à votre charge et seront déduits du remboursement. Le montant de l’article vous sera remboursé une fois le retour réceptionné par le vendeur·euse.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Demander le retour',
+          onPress: () => {
+            Alert.alert(
+              'Demande de retour envoyée',
+              'Votre demande est en cours de validation. Vous recevrez l’étiquette de retour et les instructions ici même.',
+              [{ text: 'Compris', onPress: goToTransactionChat }],
+            );
+          },
+        },
+      ],
+    );
+  }, [goToTransactionChat]);
+
+  const carrierInfo = getCarrierStatusInfo(transaction);
 
   return (
     <View style={styles.container}>
@@ -137,23 +276,26 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         </Pressable>
       </View>
 
-      {/* Status Card */}
-      <View style={[styles.statusCard, { borderLeftColor: statusInfo.color }]}>
+      {/* Perspective-aware status line (buyer/seller) */}
+      <Text style={styles.statusDescriptionLine}>{perspectiveDescription}</Text>
+
+      {/* Carrier status card */}
+      <View style={[styles.statusCard, { borderLeftColor: carrierInfo.color }]}>
         <View style={styles.statusIconContainer}>
-          <View style={[styles.statusIconBg, { backgroundColor: statusInfo.color + '20' }]}>
-            <Ionicons name={statusInfo.icon} size={28} color={statusInfo.color} />
+          <View style={[styles.statusIconBg, { backgroundColor: colors.surfaceWarm }]}>
+            <Ionicons name={carrierInfo.icon} size={28} color={carrierInfo.color} />
           </View>
         </View>
 
         <View style={styles.statusContent}>
-          <Text style={[styles.statusLabel, { color: statusInfo.color }]}>
-            {statusInfo.label}
+          <Text style={[styles.statusLabel, { color: carrierInfo.color }]}>
+            {carrierInfo.label}
           </Text>
-          <Text style={styles.statusDescription}>{statusInfo.description}</Text>
+          <Text style={styles.statusDescription}>{carrierInfo.description}</Text>
 
           {transaction.trackingNumber && (
             <View style={styles.trackingNumberContainer}>
-              <Text style={styles.trackingNumberLabel}>Numéro de suivi:</Text>
+              <Text style={styles.trackingNumberLabel}>Numéro de suivi :</Text>
               <Text style={styles.trackingNumber}>{transaction.trackingNumber}</Text>
             </View>
           )}
@@ -166,24 +308,60 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
           <View style={[styles.timelineDot, styles.timelineDotCompleted]} />
           <View style={styles.timelineContent}>
             <Text style={styles.timelineTitle}>Paiement confirmé</Text>
-            <Text style={styles.timelineDate}>
-              {transaction.paidAt?.toLocaleDateString(APP_LOCALE)}
-            </Text>
+            {transaction.paidAt && (
+              <Text style={styles.timelineDate}>
+                {transaction.paidAt.toLocaleDateString(APP_LOCALE)}
+              </Text>
+            )}
           </View>
         </View>
 
-        {transaction.shippedAt && (
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, styles.timelineDotCompleted]} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Colis expédié</Text>
+        {/* Label created — distinct from shipping (before first carrier scan) */}
+        <View style={styles.timelineItem}>
+          <View
+            style={[
+              styles.timelineDot,
+              transaction.labelCreatedAt || transaction.shippedAt
+                ? styles.timelineDotCompleted
+                : transaction.status === 'label_created'
+                  ? styles.timelineDotActive
+                  : styles.timelineDotPending,
+            ]}
+          />
+          <View style={styles.timelineContent}>
+            <Text style={styles.timelineTitle}>Étiquette créée</Text>
+            {transaction.labelCreatedAt && (
+              <Text style={styles.timelineDate}>
+                {transaction.labelCreatedAt.toLocaleDateString(APP_LOCALE)}
+              </Text>
+            )}
+            {!transaction.labelCreatedAt && transaction.status === 'label_created' && (
+              <Text style={styles.timelineActive}>Bientôt en route</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Shipped — first carrier scan */}
+        <View style={styles.timelineItem}>
+          <View
+            style={[
+              styles.timelineDot,
+              transaction.shippedAt
+                ? styles.timelineDotCompleted
+                : styles.timelineDotPending,
+            ]}
+          />
+          <View style={styles.timelineContent}>
+            <Text style={styles.timelineTitle}>Colis expédié</Text>
+            {transaction.shippedAt && (
               <Text style={styles.timelineDate}>
                 {transaction.shippedAt.toLocaleDateString(APP_LOCALE)}
               </Text>
-            </View>
+            )}
           </View>
-        )}
+        </View>
 
+        {/* In transit */}
         <View style={styles.timelineItem}>
           <View
             style={[
@@ -192,18 +370,20 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
               transaction.trackingStatus === 'TRANSIT'
                 ? styles.timelineDotActive
                 : transaction.deliveredAt
-                ? styles.timelineDotCompleted
-                : styles.timelineDotPending,
+                  ? styles.timelineDotCompleted
+                  : styles.timelineDotPending,
             ]}
           />
           <View style={styles.timelineContent}>
             <Text style={styles.timelineTitle}>En transit</Text>
-            {transaction.trackingStatus === 'IN_TRANSIT' && (
+            {(transaction.trackingStatus === 'IN_TRANSIT' ||
+              transaction.trackingStatus === 'TRANSIT') && (
               <Text style={styles.timelineActive}>En cours</Text>
             )}
           </View>
         </View>
 
+        {/* Delivered */}
         <View style={styles.timelineItem}>
           <View
             style={[
@@ -211,8 +391,8 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
               transaction.deliveredAt
                 ? styles.timelineDotCompleted
                 : transaction.trackingStatus === 'OUT_FOR_DELIVERY'
-                ? styles.timelineDotActive
-                : styles.timelineDotPending,
+                  ? styles.timelineDotActive
+                  : styles.timelineDotPending,
             ]}
           />
           <View style={styles.timelineContent}>
@@ -238,17 +418,63 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         {transaction.shippingLabelUrl && (
           <Pressable style={styles.actionButton} onPress={handleDownloadLabel}>
             <Ionicons name="download-outline" size={18} color={colors.primary} />
-            <Text style={styles.actionButtonText}>Télécharger l'étiquette</Text>
+            <Text style={styles.actionButtonText}>Télécharger l&apos;étiquette</Text>
           </Pressable>
         )}
       </View>
 
+      {/* Delivered — funds-protection note (held 7 days) */}
       {isDelivered && (
-        <View style={styles.deliveryNote}>
-          <Ionicons name="checkmark-circle" size={20} color="#34C759" />
-          <Text style={styles.deliveryNoteText}>
-            Transaction terminée. Les fonds ont été transférés au vendeur.
+        <View style={styles.protectionNote}>
+          <Ionicons name="shield-checkmark" size={20} color={colors.success} />
+          <Text style={styles.protectionNoteText}>
+            {isBuyer
+              ? releaseDate
+                ? `Colis livré. Vos fonds sont protégés jusqu'au ${releaseDate}.`
+                : 'Colis livré. Vos fonds restent protégés durant la fenêtre de réclamation.'
+              : releaseDate
+                ? `Colis livré. Vos fonds seront disponibles le ${releaseDate}.`
+                : 'Colis livré. Vos fonds seront disponibles après la fenêtre de protection.'}
           </Text>
+        </View>
+      )}
+
+      {/* Delivered + buyer — return-request entry (return fees on buyer) */}
+      {isDelivered && isBuyer && (
+        <Pressable style={styles.returnButton} onPress={handleRequestReturn}>
+          <Ionicons name="arrow-undo-outline" size={16} color={colors.foreground} />
+          <Text style={styles.returnButtonText}>Demander un retour</Text>
+        </Pressable>
+      )}
+
+      {/* delivery_failed / lost — buyer recourse encart */}
+      {isRecourse && isBuyer && (
+        <View style={styles.recourseBox}>
+          <View style={styles.recourseHeader}>
+            <Ionicons name="alert-circle" size={20} color={colors.danger} />
+            <Text style={styles.recourseTitle}>
+              {transaction.status === 'lost'
+                ? 'Votre colis semble égaré'
+                : "La livraison n'a pas abouti"}
+            </Text>
+          </View>
+          <Text style={styles.recourseBody}>
+            {transaction.status === 'lost'
+              ? 'Le suivi de votre colis est interrompu. Vos fonds sont gelés et restent protégés. Signalez-nous le problème pour être remboursé·e.'
+              : "Le transporteur n'a pas pu livrer votre colis. Vos fonds sont gelés et restent protégés. Dites-nous comment vous souhaitez procéder."}
+          </Text>
+          <Pressable
+            style={[styles.recourseButton, styles.recourseButtonPrimary]}
+            onPress={handleReportProblem}
+          >
+            <Text style={styles.recourseButtonPrimaryText}>Signaler un problème</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.recourseButton, styles.recourseButtonSecondary]}
+            onPress={handleRequestRefund}
+          >
+            <Text style={styles.recourseButtonSecondaryText}>Demander un remboursement</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -258,20 +484,20 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surfaceWarm,
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 12,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    marginVertical: spacing.sm,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   headerTitle: {
     fontSize: 16,
@@ -279,23 +505,30 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   refreshButton: {
-    padding: 4,
+    padding: spacing.xs,
+  },
+  statusDescriptionLine: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.foregroundSecondary,
+    marginBottom: spacing.md,
   },
   statusCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
     borderLeftWidth: 4,
   },
   statusIconContainer: {
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   statusIconBg: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -305,22 +538,22 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontSize: 18,
     fontFamily: fonts.sansBold,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   statusDescription: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
+    color: colors.foregroundSecondary,
+    marginBottom: spacing.sm,
   },
   trackingNumberContainer: {
     backgroundColor: colors.surfaceWarm,
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: radius.md,
+    padding: spacing.sm,
   },
   trackingNumberLabel: {
     fontSize: 12,
     color: colors.muted,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   trackingNumber: {
     fontSize: 14,
@@ -328,22 +561,22 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   timeline: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   timelineDot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
-    marginTop: 4,
-    marginRight: 12,
+    borderRadius: radius.full,
+    marginTop: spacing.xs,
+    marginRight: spacing.md,
   },
   timelineDotCompleted: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.success,
   },
   timelineDotActive: {
     backgroundColor: colors.primary,
@@ -371,18 +604,18 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingVertical: 12,
-    gap: 6,
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 4,
+    gap: spacing.xs + 2,
     borderWidth: 1,
     borderColor: colors.primary,
   },
@@ -391,21 +624,87 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     color: colors.primary,
   },
-  deliveryNote: {
+  protectionNote: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FFF4',
-    borderRadius: 10,
-    padding: 12,
-    gap: 8,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    gap: spacing.sm,
   },
-  deliveryNoteText: {
+  protectionNoteText: {
     flex: 1,
     fontSize: 13,
-    color: '#34C759',
+    color: colors.success,
     fontFamily: fonts.sansMedium,
+    lineHeight: 18,
+  },
+  returnButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs + 2,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.white,
+  },
+  returnButtonText: {
+    fontSize: 13,
+    fontFamily: fonts.sansMedium,
+    color: colors.foreground,
+  },
+  recourseBox: {
+    backgroundColor: colors.dangerLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  recourseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  recourseTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: fonts.sansBold,
+    color: colors.foreground,
+  },
+  recourseBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.foregroundSecondary,
+    fontFamily: fonts.sans,
+  },
+  recourseButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm + 4,
+    borderRadius: radius.md,
+  },
+  recourseButtonPrimary: {
+    backgroundColor: colors.danger,
+  },
+  recourseButtonPrimaryText: {
+    fontSize: 13,
+    fontFamily: fonts.sansMedium,
+    color: colors.white,
+    letterSpacing: 0.3,
+  },
+  recourseButtonSecondary: {
+    backgroundColor: colors.transparent,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  recourseButtonSecondaryText: {
+    fontSize: 13,
+    fontFamily: fonts.sansMedium,
+    color: colors.danger,
+    letterSpacing: 0.3,
   },
 });
 
 export default ShipmentTracking;
-
