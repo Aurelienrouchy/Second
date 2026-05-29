@@ -643,11 +643,15 @@ export const payWithWallet = onCall(
         });
 
         // 4. Mark transaction as paid
+        // P1: Persist the EXACT amount credited to the seller so a later refund
+        // debits precisely this figure (and records any shortfall as sellerDebt
+        // rather than masking it with min()).
         tx.update(txRef, {
           status: 'paid',
           paidAt: FieldValue.serverTimestamp(),
           paidVia: 'wallet',
           walletAmountUsed: totalAmountCents,
+          sellerCreditedCents: sellerPayoutCents,
         });
 
         // 5. Mark article as sold
