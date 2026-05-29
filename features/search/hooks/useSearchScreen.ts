@@ -370,7 +370,7 @@ export function useSearchScreen() {
   const getSizeLabel = (): string => {
     const sel = filters.sizes || [];
     if (sel.length === 0) return 'Taille';
-    if (sel.length === 1) return sel[0];
+    if (sel.length === 1) return sel[0].value;
     return `${sel.length} tailles`;
   };
 
