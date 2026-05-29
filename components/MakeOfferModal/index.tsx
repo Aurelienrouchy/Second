@@ -237,9 +237,13 @@ const styles = StyleSheet.create({
   bottomSheetContainer: {
     zIndex: 100,
   },
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
+    width: 36,
+    height: 4,
+  },
   container: {
-    // height fixe appliqué inline (bornage au plus grand détent) — pas de flex:1
-    // (sinon le flexGrow s'étire contre la hauteur infinie proposée par @expo/ui).
+    flex: 1,
     backgroundColor: colors.white,
   },
   header: {
