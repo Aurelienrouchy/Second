@@ -93,7 +93,7 @@ export const PartyItemCard = React.memo(function PartyItemCard({
             {formatPrice(item.price)}
           </Text>
           <Text style={[styles.productSize, isDark && styles.productSizeDark]}>
-            {item.size || 'U'}
+            {item.size?.value || 'U'}
           </Text>
         </View>
       </View>
