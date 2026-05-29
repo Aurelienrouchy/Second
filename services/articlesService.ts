@@ -716,58 +716,55 @@ export class ArticlesService {
   }
 
   /**
-   * Apply client-side attribute filters (colors, sizes, materials, brands, patterns).
+   * Apply client-side attribute filters (colors, sizes, materials, brands).
    * Works with both articles and search_index documents.
+   *
+   * All matching is strict equality on canonical IDs (no substring), so e.g.
+   * `bleu` no longer matches `bleu-marine`, `or` no longer matches `bordeaux`,
+   * `cuir` no longer matches `cuir-synthetique`, and `Gap` no longer matches
+   * `Gap Kids`. Sizes match exactly on both value AND system so US/EU never
+   * collide. Articles missing the filtered attribute are excluded.
    */
   private static matchesClientSideFilters(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: Record<string, any>,
     filters?: {
       colors?: string[];
-      sizes?: string[];
+      sizes?: ArticleSize[];
       materials?: string[];
       brands?: string[];
-      patterns?: string[];
     },
   ): boolean {
     if (filters?.colors && filters.colors.length > 0) {
       const articleColors: string[] = data.colors || (data.color ? [data.color] : []);
       if (articleColors.length === 0) return false;
-      const matches = filters.colors.some((color: string) =>
-        articleColors.some((ac: string) => ac.toLowerCase().includes(color.toLowerCase())),
-      );
+      const matches = filters.colors.some((color) => articleColors.includes(color));
       if (!matches) return false;
     }
 
     if (filters?.sizes && filters.sizes.length > 0) {
-      if (!data.size) return false;
-      if (!filters.sizes.includes(data.size)) return false;
+      const articleSize = data.size;
+      // Size is an ArticleSize object { value, system }; require exact match
+      // on both fields. Articles without a size are excluded.
+      if (!articleSize || typeof articleSize !== 'object') return false;
+      const matches = filters.sizes.some(
+        (f) => f.value === articleSize.value && f.system === articleSize.system,
+      );
+      if (!matches) return false;
     }
 
     if (filters?.materials && filters.materials.length > 0) {
       const articleMaterials: string[] = data.materials || (data.material ? [data.material] : []);
       if (articleMaterials.length === 0) return false;
-      const matches = filters.materials.some((material: string) =>
-        articleMaterials.some((am: string) => am.toLowerCase().includes(material.toLowerCase())),
-      );
+      const matches = filters.materials.some((material) => articleMaterials.includes(material));
       if (!matches) return false;
     }
 
     if (filters?.brands && filters.brands.length > 0) {
       if (!data.brand) return false;
-      const brandLower = (data.brand as string).toLowerCase();
-      const matches = filters.brands.some((brand: string) =>
-        brandLower.includes(brand.toLowerCase()),
-      );
-      if (!matches) return false;
-    }
-
-    if (filters?.patterns && filters.patterns.length > 0) {
-      if (!data.pattern) return false;
-      const patternLower = (data.pattern as string).toLowerCase();
-      const matches = filters.patterns.some((pattern: string) =>
-        patternLower.includes(pattern.toLowerCase()),
-      );
+      // Normalize both sides (lowercase + trim via brandKey) then compare exactly.
+      const docBrandKey = brandKey(data.brand as string);
+      const matches = filters.brands.some((brand) => brandKey(brand) === docBrandKey);
       if (!matches) return false;
     }
 
