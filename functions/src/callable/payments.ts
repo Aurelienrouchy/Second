@@ -1912,7 +1912,6 @@ export const adminRefundTransaction = onCall(
       throw new HttpsError('invalid-argument', 'Transaction ID is required');
     }
 
-    const stripe = getStripe();
     const txRef = db.collection('transactions').doc(transactionId);
 
     // Pre-read for the Stripe call (outside the transaction).
@@ -1936,6 +1935,7 @@ export const adminRefundTransaction = onCall(
       'delivery_failed',
       'lost',
       'disputed',
+      'return_requested',
     ]);
     if (!refundableStatuses.has(preData.status)) {
       throw new HttpsError(
@@ -1944,188 +1944,26 @@ export const adminRefundTransaction = onCall(
       );
     }
 
-    const paidVia = preData.paidVia;
-    const isMixedCharge = paidVia === 'wallet_and_card' || paidVia === 'mixed';
-
-    // --- Stripe refund (card portion) OUTSIDE the Firestore transaction ---
-    if (preData.stripePaymentIntentId && stripe) {
-      try {
-        await stripe.refunds.create(
-          {
-            payment_intent: preData.stripePaymentIntentId,
-            // Direct platform (mixed) charges have no transfer to reverse.
-            ...(isMixedCharge
-              ? {}
-              : { reverse_transfer: true, refund_application_fee: true }),
-          },
-          { idempotencyKey: `rf_admin_${transactionId}` }
-        );
-        logger.info('[adminRefundTransaction] Stripe refund created', {
-          transactionId,
-          paymentIntentId: preData.stripePaymentIntentId,
-          reverseTransfer: !isMixedCharge,
-        });
-      } catch (refundErr) {
-        logger.error('CRITICAL [adminRefundTransaction] Stripe refund failed', {
-          transactionId,
-          paymentIntentId: preData.stripePaymentIntentId,
-          error: refundErr instanceof Error ? refundErr.message : refundErr,
-        });
-        // Dead-letter for the retry chantier; never throw silently.
-        await db
-          .collection('failed_operations')
-          .add({
-            type: 'admin_refund_failed',
-            transactionId,
-            paymentIntentId: preData.stripePaymentIntentId,
-            reason: refundErr instanceof Error ? refundErr.message : 'stripe_refund_error',
-            createdAt: FieldValue.serverTimestamp(),
-            status: 'pending',
-          })
-          .catch(() => undefined);
-        throw new HttpsError(
-          'internal',
-          'Stripe refund failed — operation recorded for retry, transaction not modified'
-        );
-      }
-    }
-
-    // --- Atomic Firestore reconciliation ---
+    // Shared refund core (Stripe reverse_transfer + atomic wallet/seller-debt
+    // reconciliation). Admin disputes re-list the article by default.
     try {
-      await db.runTransaction(async (tx) => {
-        const snap = await tx.get(txRef);
-        if (!snap.exists) throw new HttpsError('not-found', 'Transaction not found');
-        const data = snap.data()!;
-
-        // Idempotence inside the transaction.
-        if (data.status === 'refunded') return;
-
-        const buyerId = data.buyerId;
-        const sellerId = data.sellerId;
-        const walletAmountUsed = data.walletAmountUsed || 0; // cents
-        const hasWalletPortion =
-          walletAmountUsed > 0 &&
-          (paidVia === 'wallet' || paidVia === 'wallet_and_card' || paidVia === 'mixed');
-
-        // Debit the EXACT amount credited to the seller (0 if never credited).
-        const sellerDebitTarget =
-          typeof data.sellerCreditedCents === 'number' ? data.sellerCreditedCents : 0;
-
-        // Reads first.
-        const buyerWalletRef =
-          hasWalletPortion && buyerId ? db.collection('wallets').doc(buyerId) : null;
-        const buyerWalletSnap = buyerWalletRef ? await tx.get(buyerWalletRef) : null;
-
-        const sellerWalletRef =
-          sellerDebitTarget > 0 && sellerId ? db.collection('wallets').doc(sellerId) : null;
-        const sellerWalletSnap = sellerWalletRef ? await tx.get(sellerWalletRef) : null;
-
-        const articleRef = data.articleId
-          ? db.collection('articles').doc(data.articleId)
-          : null;
-        const articleSnap = articleRef ? await tx.get(articleRef) : null;
-
-        // Writes.
-        tx.update(txRef, {
-          status: 'refunded',
-          refundedAt: FieldValue.serverTimestamp(),
-          refundedVia: preData.stripePaymentIntentId ? 'stripe' : 'wallet',
-          refundReason: typeof reason === 'string' ? reason.substring(0, 300) : 'admin_refund',
-          disputed: false,
-        });
-
-        if (articleRef && articleSnap && articleSnap.exists) {
-          tx.update(articleRef, { isSold: false });
-        }
-
-        // Re-credit buyer wallet portion (card portion goes back via Stripe).
-        if (buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
-          const refundCents =
-            paidVia === 'wallet'
-              ? Math.round((data.totalAmount || 0) * 100)
-              : walletAmountUsed;
-          if (refundCents > 0) {
-            const wd = buyerWalletSnap.data()!;
-            tx.update(buyerWalletRef, {
-              balance: FieldValue.increment(refundCents),
-              updatedAt: FieldValue.serverTimestamp(),
-            });
-            const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
-            tx.set(buyerLedgerRef, {
-              type: 'refund_credit',
-              amount: refundCents,
-              balanceAfter: (wd.balance || 0) + refundCents,
-              description: 'Remboursement administrateur — retour au porte-monnaie',
-              transactionId,
-              createdAt: FieldValue.serverTimestamp(),
-            });
-          }
-        }
-
-        // Debit seller across the three buckets in escrow order; shortfall = debt.
-        if (sellerDebitTarget > 0 && sellerWalletRef) {
-          if (sellerWalletSnap && sellerWalletSnap.exists) {
-            const swd = sellerWalletSnap.data()!;
-            const pendingNow = swd.pendingBalance || 0;
-            const heldNow = swd.heldBalance || 0;
-            const balanceNow = swd.balance || 0;
-
-            const fromPending = Math.min(sellerDebitTarget, pendingNow);
-            let remaining = sellerDebitTarget - fromPending;
-            const fromHeld = Math.min(remaining, heldNow);
-            remaining -= fromHeld;
-            const fromBalance = Math.min(remaining, balanceNow);
-            const shortfall = remaining - fromBalance;
-
-            const walletUpdate: Record<string, any> = {
-              updatedAt: FieldValue.serverTimestamp(),
-            };
-            if (fromPending > 0) walletUpdate.pendingBalance = FieldValue.increment(-fromPending);
-            if (fromHeld > 0) walletUpdate.heldBalance = FieldValue.increment(-fromHeld);
-            if (fromBalance > 0) walletUpdate.balance = FieldValue.increment(-fromBalance);
-            if (shortfall > 0) walletUpdate.sellerDebt = FieldValue.increment(shortfall);
-            tx.update(sellerWalletRef, walletUpdate);
-
-            const debited = fromPending + fromHeld + fromBalance;
-            const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-            tx.set(sellerLedgerRef, {
-              type: 'refund_debit',
-              amount: debited,
-              balanceAfter: balanceNow - fromBalance,
-              description:
-                shortfall > 0
-                  ? 'Remboursement administrateur — débit vendeur (dette enregistrée)'
-                  : 'Remboursement administrateur — débit vendeur',
-              transactionId,
-              createdAt: FieldValue.serverTimestamp(),
-              ...(shortfall > 0 && { debtRecorded: shortfall }),
-            });
-          } else {
-            // No wallet at all: record full target as debt.
-            tx.set(
-              sellerWalletRef,
-              {
-                sellerDebt: FieldValue.increment(sellerDebitTarget),
-                updatedAt: FieldValue.serverTimestamp(),
-              },
-              { merge: true }
-            );
-          }
-        }
+      const result = await issueTransactionRefund(transactionId, preData, {
+        reason: typeof reason === 'string' ? reason : 'admin_refund',
+        idempotencyKey: `rf_admin_${transactionId}`,
+        relistArticle: true,
+        source: 'adminRefundTransaction',
       });
+      logger.warn('[adminRefundTransaction] transaction refunded by admin', {
+        transactionId,
+        adminUid: request.auth.uid,
+      });
+      return result;
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('[adminRefundTransaction] reconciliation failed', { transactionId, error: message });
-      throw new HttpsError('internal', `Refund reconciliation failed: ${message}`);
+      logger.error('[adminRefundTransaction] refund failed', { transactionId, error: message });
+      throw new HttpsError('internal', `Refund failed: ${message}`);
     }
-
-    logger.warn('[adminRefundTransaction] transaction refunded by admin', {
-      transactionId,
-      adminUid: request.auth.uid,
-    });
-
-    return { success: true };
   }
 );
 
