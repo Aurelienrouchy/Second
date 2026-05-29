@@ -119,34 +119,6 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
       setLocalSelectedSizes([]);
     }, []);
 
-    const renderBackdrop = useCallback(
-      (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
-      []
-    );
-
-    const renderFooter = useCallback(
-      (props: any) => (
-        <BottomSheetFooter {...props}>
-          <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
-            <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                localSelectedSizes.length === 0 && styles.confirmButtonDisabled,
-              ]}
-              onPress={handleConfirm}
-            >
-              <Text style={styles.confirmButtonText}>
-                {localSelectedSizes.length > 0
-                  ? `VALIDER (${localSelectedSizes.length})`
-                  : 'VALIDER'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </BottomSheetFooter>
-      ),
-      [insets.bottom, localSelectedSizes, handleConfirm]
-    );
-
     const renderSizeSection = useCallback((section: SizeSection) => {
       const sizes = getSizes(section, sizeSystem, demographic);
       const label = SIZE_SECTION_LABELS[section];
