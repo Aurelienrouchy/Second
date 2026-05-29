@@ -6,10 +6,11 @@
  */
 
 import React from 'react';
+import { ColorValue } from 'react-native';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 
 interface TabIconProps {
-  color: string;
+  color: ColorValue;
   size?: number;
 }
 
