@@ -601,7 +601,7 @@ service cloud.firestore {
     // by the stripeWebhook handler (Admin SDK). No owner concept; never read or
     // written by a client. Fully server-only.
     match /stripe_events/{eventId} {
-      allow read: if request.auth.token.admin == true;
+      allow read: if isAdmin();
       allow create, update, delete: if false;
     }
 
