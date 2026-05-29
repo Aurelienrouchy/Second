@@ -594,10 +594,8 @@ export const payWithWallet = onCall(
           throw new HttpsError('failed-precondition', 'Solde insuffisant dans le porte-monnaie');
         }
 
-        // --- Get or create seller wallet ---
         const sellerId = txData.sellerId;
-        const { walletRef: sellerWalletRef, walletData: sellerWalletData, isNew: sellerWalletIsNew } =
-          await getOrCreateSellerWallet(tx, sellerId);
+        const isShipping = txData.deliveryType === 'shipping';
 
         // --- Read article to mark as sold ---
         let articleRef = null;
@@ -605,8 +603,6 @@ export const payWithWallet = onCall(
           articleRef = db.collection('articles').doc(txData.articleId);
         }
 
-        // Calculate seller payout in cents
-        const sellerPayoutCents = Math.round((txData.sellerPayout || txData.amount || 0) * 100);
         const newBuyerBalance = buyerWallet.balance - totalAmountCents;
 
         // --- Writes ---
@@ -617,45 +613,26 @@ export const payWithWallet = onCall(
           updatedAt: FieldValue.serverTimestamp(),
         });
 
-        // 2. Credit seller wallet pendingBalance (auto-created if absent)
-        if (!sellerWalletIsNew) {
-          tx.update(sellerWalletRef, {
-            pendingBalance: FieldValue.increment(sellerPayoutCents),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-        } else {
-          // Wallet was just created with pendingBalance: 0 — update it
-          tx.update(sellerWalletRef, {
-            pendingBalance: sellerPayoutCents,
-            updatedAt: FieldValue.serverTimestamp(),
-          });
+        // 2. Credit seller wallet pendingBalance.
+        // P1 (atomicity payment<->label): for SHIPPING transactions defer the
+        // seller credit until the shipping label is created (label step /
+        // sweepPendingLabels). Crediting then failing the label would pay the
+        // seller for a parcel that never ships. For non-shipping there is no
+        // label, so credit immediately. creditSellerForSale also persists
+        // sellerCreditedCents (the exact amount for an accurate refund debit).
+        if (!isShipping) {
+          await creditSellerForSale(tx, txRef, txData, transactionId);
         }
 
-        // 3. Create seller ledger entry
-        const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-        tx.set(sellerLedgerRef, {
-          type: 'sale_credit',
-          amount: sellerPayoutCents,
-          balanceAfter: (sellerWalletData.pendingBalance || 0) + sellerPayoutCents,
-          description: 'Vente — fonds en attente de livraison',
-          transactionId,
-          createdAt: FieldValue.serverTimestamp(),
-          status: 'pending',
-        });
-
-        // 4. Mark transaction as paid
-        // P1: Persist the EXACT amount credited to the seller so a later refund
-        // debits precisely this figure (and records any shortfall as sellerDebt
-        // rather than masking it with min()).
+        // 3. Mark transaction as paid
         tx.update(txRef, {
           status: 'paid',
           paidAt: FieldValue.serverTimestamp(),
           paidVia: 'wallet',
           walletAmountUsed: totalAmountCents,
-          sellerCreditedCents: sellerPayoutCents,
         });
 
-        // 5. Mark article as sold
+        // 4. Mark article as sold
         if (articleRef) {
           tx.update(articleRef, {
             isSold: true,
@@ -663,7 +640,7 @@ export const payWithWallet = onCall(
           });
         }
 
-        // 6. Create buyer ledger entry
+        // 5. Create buyer ledger entry
         const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
         tx.set(buyerLedgerRef, {
           type: 'purchase_debit',
@@ -680,6 +657,7 @@ export const payWithWallet = onCall(
           chatId: txData.chatId,
           deliveryType: txData.deliveryType,
           shipEngineRateId: txData.shipEngineRateId || null,
+          shippingCost: typeof txData.shippingCost === 'number' ? txData.shippingCost : 0,
           articleId: txData.articleId || null,
           articleTitle: txData.articleTitle || null,
         };
