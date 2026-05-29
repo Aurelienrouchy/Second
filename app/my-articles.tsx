@@ -218,7 +218,7 @@ export default function MyArticlesScreen() {
                   {item.title}
                 </Text>
                 <Text style={styles.articlePrice}>{formatPrice(item.price)}</Text>
-                <Text style={styles.articleSize}>{item.size || 'Taille non spécifiée'}</Text>
+                <Text style={styles.articleSize}>{item.size?.value || 'Taille non spécifiée'}</Text>
                 <View style={styles.articleStats}>
                   <View style={styles.articleStatRow}>
                     <Ionicons name="eye-outline" size={14} color={colors.muted} />
