@@ -87,6 +87,11 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
       sellerId: 'seller1',
       status: 'paid',
       sellerPayout: 45, // dollars
+      // Durci ledger model: the seller credit persists the EXACT amount credited
+      // as sellerCreditedCents (creditSellerForSale). The refund core debits this
+      // precise figure (not the legacy derived sellerPayout) — matching the
+      // hardened charge.refunded / dispute.closed handlers.
+      sellerCreditedCents: 4500,
       totalAmount: 50,
       paidVia: 'card',
       deliveryType: 'shipping',
