@@ -239,7 +239,6 @@ export function useArticleSearch({
       (filters.sizes?.length ?? 0) > 0 ||
       (filters.materials?.length ?? 0) > 0 ||
       (filters.brands?.length ?? 0) > 0 ||
-      (filters.patterns?.length ?? 0) > 0 ||
       !!filters.condition ||
       filters.minPrice !== undefined ||
       filters.maxPrice !== undefined ||
@@ -257,7 +256,6 @@ export function useArticleSearch({
       minPrice: partial.minPrice,
       maxPrice: partial.maxPrice,
       brands: partial.brands ?? [],
-      patterns: partial.patterns ?? [],
       sortBy: partial.sortBy ?? 'recent',
     });
   }, []);
