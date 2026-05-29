@@ -59,11 +59,6 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
       }
     };
 
-    const renderBackdrop = useCallback(
-      (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
-      []
-    );
-
     // Build breadcrumb from navigation path
     const breadcrumb = categoryNav.navigationPath?.length > 0
       ? categoryNav.navigationPath.map((p: any) => p.label || p.name).join(' > ')
