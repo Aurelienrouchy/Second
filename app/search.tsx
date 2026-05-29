@@ -238,7 +238,7 @@ export default function SearchScreen() {
       <SelectionBottomSheet
         ref={sortSheetRef}
         title="Trier par"
-        items={SORT_ITEMS}
+        items={screen.availableSortItems}
         selectedValue={screen.selectedSort}
         onSelect={screen.handleSortSelect}
       />
