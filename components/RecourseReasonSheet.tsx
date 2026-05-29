@@ -36,6 +36,7 @@ import {
 } from 'react-native';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { SHEET_BOTTOM_INSET } from '@/components/ui';
 import { useSheetHeight } from '@/hooks/useSheetHeight';
 
 export interface RecourseReasonOption<Code extends string = string> {
