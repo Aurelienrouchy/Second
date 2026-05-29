@@ -181,19 +181,19 @@ export default function MySwapsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="swap-horizontal-outline" size={60} color={colors.muted} />
-            <Text variant="h3" style={styles.emptyTitle}>Aucun échange</Text>
+            <Text variant="h3" style={styles.emptyTitle}>Aucun échange pour le moment</Text>
             <Caption style={styles.emptyText}>
               {filter === 'all'
-                ? "Tu n'as pas encore d'échanges. Participe à une Swap Party pour commencer !"
+                ? 'Déposez un article dans la Swap Zone et trouvez la pièce parfaite à troquer, sans frais.'
                 : 'Aucun échange dans cette catégorie.'}
             </Caption>
             {filter === 'all' && (
               <Button
                 variant="primary"
-                onPress={() => router.push('/swap-parties')}
+                onPress={() => router.push('/swap-zone')}
                 style={styles.ctaButton}
               >
-                Voir les Swap Parties
+                Découvrir la Swap Zone
               </Button>
             )}
           </View>
