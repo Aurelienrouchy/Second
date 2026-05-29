@@ -1,6 +1,6 @@
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
-import BottomSheet, { BottomSheetScrollView, BottomSheetView } from '@expo/ui/community/bottom-sheet';
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
 import {
     StyleSheet,
     Text,
@@ -8,10 +8,8 @@ import {
     View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '@/constants/theme';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
-
-const SNAP = '85%';
 
 interface CategoryBottomSheetProps {
   onSelect: (categoryIds: string[]) => void;
