@@ -125,7 +125,9 @@ async function areUsersBlocked(userId1: string, userId2: string): Promise<boolea
  * Returns { id } so the client can route to the zone without a query.
  */
 export const ensureGeneralistZone = onCall(
-  { region: 'northamerica-northeast1', invoker: 'public', memory: '256MiB' },
+  // 512MiB: same reason as getActiveSwapPartyInfo — 256MiB OOMs on cold start
+  // with the grown shared bundle (this is why its first deploy failed readiness).
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async () => {
     const zoneRef = db.collection('swapParties').doc(GENERALIST_ZONE_ID);
 
