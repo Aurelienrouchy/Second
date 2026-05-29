@@ -29,6 +29,7 @@
 | 24 | `wallets` | Root | Virtual wallet balances (all amounts in cents) |
 | 25 | `wallets/{uid}/ledger` | Sub-collection | Wallet transaction ledger entries |
 | 26 | `platform_ledger` | Root | Platform accounting ledger (shipping cost variance, server-only) |
+| 27 | `failed_operations` | Root | Dead-letter queue for failed money/shipping side-effects (server-only, replayed by `retryFailedOperations`) |
 
 ---
 
