@@ -4,9 +4,17 @@
  *
  * Two states:
  * A) Wallet not activated — activation CTA
- * B) Wallet active — balance card, action buttons, transaction history
+ * B) Wallet active — three balance buckets (disponible / en attente / bientôt
+ *    disponible), withdrawal flow, protection note, transaction history.
  *
- * Withdrawal flow is inline below the balance card.
+ * Funds lifecycle (buyer-protection window):
+ *   pendingBalance  → vente en cours (avant livraison)
+ *   heldBalance     → livrée, gelée 7 j, "Disponible le {date}"
+ *   balance         → retirable
+ *
+ * Withdrawals are blocked server-side while a dispute is active OR while a
+ * sellerDebt remains. The UI surfaces both with the dedicated copy instead of
+ * a raw error.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +46,39 @@ import { useWallet } from '@/hooks/useWallet';
 import type { WalletLedgerEntry } from '@/types';
 
 // =============================================================================
+// COPY (spec UX_PAIEMENT_LIVRAISON — telle quelle)
+// =============================================================================
+
+const WALLET_COPY = {
+  availableLabel: 'Solde disponible',
+  availableHint: 'Retirable à tout moment',
+  pendingLabel: 'en attente',
+  pendingHint:
+    'Vente en cours. Le montant arrivera dans votre solde une fois la commande finalisée.',
+  heldLabel: 'bientôt disponible',
+  heldDatePrefix: 'Disponible le',
+  heldHint:
+    'Vos ventes livrées sont libérées 7 jours après la livraison, le temps de la fenêtre de protection acheteur.',
+  protectionTitle: 'Protection Seconde',
+  protectionBody:
+    "Après une livraison, le montant de la vente est conservé 7 jours avant d'arriver dans votre solde. Cette fenêtre permet à l'acheteur·euse de signaler un éventuel problème. Passé ce délai, les fonds deviennent retirables.",
+  blockDisputeTitle: 'Retrait momentanément indisponible',
+  blockDisputeBody:
+    "Un litige est en cours sur l'une de vos transactions. Les retraits sont suspendus le temps de sa résolution. Nous reviendrons vers vous dès que possible.",
+  blockDisputeCta: 'Compris',
+  blockDebtBannerTitle: 'Régularisation nécessaire',
+  blockDebtBannerBody:
+    'Un montant de {montant} reste à régulariser sur votre compte. Les retraits sont suspendus tant que ce solde n’est pas réglé. Vos prochaines ventes seront affectées à cette régularisation en priorité.',
+  blockDebtAlertTitle: 'Retrait indisponible',
+  blockDebtAlertBody:
+    'Vous avez un montant à régulariser ({montant}). Les retraits reprendront automatiquement une fois ce solde réglé.',
+  blockDebtCta: 'Compris',
+  withdrawSuccessTitle: 'Retrait envoyé',
+  withdrawSuccessBody:
+    'Votre demande de retrait a été enregistrée. Le transfert vers votre compte bancaire sera traité sous 2 à 3 jours ouvrés.',
+} as const;
+
+// =============================================================================
 // HELPERS
 // =============================================================================
 
@@ -45,6 +86,22 @@ import type { WalletLedgerEntry } from '@/types';
 function formatCents(cents: number): string {
   const dollars = cents / 100;
   return `${dollars.toFixed(2).replace('.', ',')} $`;
+}
+
+/** Substitute {montant} placeholder in copy strings. */
+function withMontant(template: string, cents: number): string {
+  return template.replace('{montant}', formatCents(cents));
+}
+
+/** Long date label for the held-funds release line: "12 mai 2026". */
+function formatReleaseDate(isoString: string): string {
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(APP_LOCALE, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 /** Relative date label: Aujourd'hui, Hier, or "12 mai" */
@@ -57,6 +114,24 @@ function formatRelativeDate(isoString: string): string {
   if (diffDays === 0) return "Aujourd'hui";
   if (diffDays === 1) return 'Hier';
   return date.toLocaleDateString(APP_LOCALE, { day: 'numeric', month: 'short' });
+}
+
+/**
+ * Resolve a Firebase callable error into a stable code suffix.
+ * httpsCallable wraps server HttpsError into FirebaseError with
+ * code = "functions/<code>" (e.g. "functions/failed-precondition").
+ */
+function getCallableErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+  }
+  return null;
+}
+
+function getCallableErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return 'Impossible de traiter le retrait.';
 }
 
 /** Icon config per ledger entry type */
@@ -119,6 +194,13 @@ export default function WalletScreen() {
   const [showWithdrawal, setShowWithdrawal] = useState(false);
   const [withdrawalInput, setWithdrawalInput] = useState('');
 
+  // ── Derived buckets ──────────────────────────────────────────────────────
+  const pendingBalance = wallet?.pendingBalance ?? 0;
+  const heldBalance = wallet?.heldBalance ?? 0;
+  const sellerDebt = wallet?.sellerDebt ?? 0;
+  const heldReleaseAt = wallet?.heldReleaseAt ?? null;
+  const hasDebt = sellerDebt > 0;
+
   const handleActivate = useCallback(async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -136,6 +218,16 @@ export default function WalletScreen() {
 
   const handleWithdrawPress = useCallback(() => {
     if (!user) return;
+
+    // Seller debt blocks withdrawals — surface the dedicated copy upfront.
+    if (hasDebt) {
+      Alert.alert(
+        WALLET_COPY.blockDebtAlertTitle,
+        withMontant(WALLET_COPY.blockDebtAlertBody, sellerDebt),
+        [{ text: WALLET_COPY.blockDebtCta, style: 'default' }],
+      );
+      return;
+    }
 
     // Check that user has Stripe Connect set up
     if (!user.stripeAccountId || !user.stripePayoutsEnabled) {
@@ -159,7 +251,43 @@ export default function WalletScreen() {
       setWithdrawalInput(dollars);
     }
     setShowWithdrawal(true);
-  }, [user, wallet, router]);
+  }, [user, wallet, router, hasDebt, sellerDebt]);
+
+  /**
+   * Map a failed withdrawal into the right user-facing copy.
+   * The backend returns `functions/failed-precondition` for both the active
+   * dispute and the seller-debt guards; the message text disambiguates them.
+   */
+  const presentWithdrawError = useCallback(
+    (error: unknown) => {
+      if (__DEV__) console.error('Wallet withdrawal error:', error);
+      const code = getCallableErrorCode(error);
+      const message = getCallableErrorMessage(error);
+
+      if (code === 'functions/failed-precondition') {
+        const lower = message.toLowerCase();
+        if (lower.includes('litige')) {
+          Alert.alert(
+            WALLET_COPY.blockDisputeTitle,
+            WALLET_COPY.blockDisputeBody,
+            [{ text: WALLET_COPY.blockDisputeCta, style: 'default' }],
+          );
+          return;
+        }
+        if (lower.includes('dû') || lower.includes('régularis') || lower.includes('debt')) {
+          Alert.alert(
+            WALLET_COPY.blockDebtAlertTitle,
+            withMontant(WALLET_COPY.blockDebtAlertBody, sellerDebt),
+            [{ text: WALLET_COPY.blockDebtCta, style: 'default' }],
+          );
+          return;
+        }
+      }
+
+      Alert.alert('Erreur', message);
+    },
+    [sellerDebt],
+  );
 
   const handleWithdrawConfirm = useCallback(async () => {
     if (!wallet || isWithdrawing) return;
@@ -197,28 +325,29 @@ export default function WalletScreen() {
                 Haptics.NotificationFeedbackType.Success,
               );
               Alert.alert(
-                'Retrait effectue',
-                'Votre demande de retrait a ete envoyee. Le transfert sera traite sous 2-3 jours ouvres.',
+                WALLET_COPY.withdrawSuccessTitle,
+                WALLET_COPY.withdrawSuccessBody,
               );
               setShowWithdrawal(false);
               setWithdrawalInput('');
             } catch (error: unknown) {
-              if (__DEV__) console.error('Wallet withdrawal error:', error);
-              const msg =
-                error instanceof Error
-                  ? error.message
-                  : 'Impossible de traiter le retrait.';
-              Alert.alert('Erreur', msg);
+              presentWithdrawError(error);
             }
           },
         },
       ],
     );
-  }, [wallet, withdrawalInput, isWithdrawing, withdraw]);
+  }, [wallet, withdrawalInput, isWithdrawing, withdraw, presentWithdrawError]);
 
   const handleRefresh = useCallback(async () => {
     await refetch();
   }, [refetch]);
+
+  const handleProtectionInfo = useCallback(() => {
+    Alert.alert(WALLET_COPY.protectionTitle, WALLET_COPY.protectionBody, [
+      { text: 'Compris', style: 'default' },
+    ]);
+  }, []);
 
   // ── Ledger list ────────────────────────────────────────────────────────────
 
@@ -273,26 +402,22 @@ export default function WalletScreen() {
             width="100%"
             height={140}
             borderRadius={radius.lg}
-            style={{ marginTop: spacing.lg }}
+            style={styles.skeletonBalance}
           />
           <View style={styles.skeletonActions}>
             <Skeleton width="48%" height={48} borderRadius={radius.md} />
             <Skeleton width="48%" height={48} borderRadius={radius.md} />
           </View>
-          <Skeleton
-            width={100}
-            height={18}
-            style={{ marginTop: spacing.xl }}
-          />
+          <Skeleton width={100} height={18} style={styles.skeletonTitle} />
           {Array.from({ length: 3 }).map((_, i) => (
             <View key={i} style={styles.skeletonLedger}>
-              <Skeleton width={40} height={40} borderRadius={9999} />
-              <View style={{ flex: 1, marginLeft: spacing.sm }}>
+              <Skeleton width={40} height={40} borderRadius={radius.full} />
+              <View style={styles.skeletonLedgerContent}>
                 <Skeleton width="60%" height={14} />
                 <Skeleton
                   width="30%"
                   height={12}
-                  style={{ marginTop: spacing.xs }}
+                  style={styles.skeletonLedgerDate}
                 />
               </View>
               <Skeleton width={60} height={18} />
@@ -354,23 +479,87 @@ export default function WalletScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />
         }
       >
-        {/* Balance card */}
+        {/* Available balance card */}
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Solde disponible</Text>
+          <Text style={styles.balanceLabel}>{WALLET_COPY.availableLabel}</Text>
           <Text style={styles.balanceAmount}>
             {formatCents(wallet.balance)}
           </Text>
-          {wallet.pendingBalance > 0 && (
-            <Text style={styles.balancePending}>
-              {formatCents(wallet.pendingBalance)} en attente
-            </Text>
-          )}
+          <Text style={styles.balanceHint}>{WALLET_COPY.availableHint}</Text>
         </View>
+
+        {/* Pending bucket — vente en cours */}
+        {pendingBalance > 0 && (
+          <View style={styles.bucketCard}>
+            <View style={styles.bucketRow}>
+              <View style={styles.bucketIconNeutral}>
+                <Ionicons
+                  name="time-outline"
+                  size={18}
+                  color={colors.muted}
+                />
+              </View>
+              <View style={styles.bucketTextBlock}>
+                <Text style={styles.bucketAmount}>
+                  {`${formatCents(pendingBalance)} ${WALLET_COPY.pendingLabel}`}
+                </Text>
+                <Text style={styles.bucketHint}>{WALLET_COPY.pendingHint}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Held bucket — bientôt disponible (fenêtre de protection 7j) */}
+        {heldBalance > 0 && (
+          <View style={styles.bucketCard}>
+            <View style={styles.bucketRow}>
+              <View style={styles.bucketIconHeld}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={18}
+                  color={colors.warning}
+                />
+              </View>
+              <View style={styles.bucketTextBlock}>
+                <Text style={styles.bucketAmount}>
+                  {`${formatCents(heldBalance)} ${WALLET_COPY.heldLabel}`}
+                </Text>
+                {heldReleaseAt ? (
+                  <Text style={styles.bucketReleaseLine}>
+                    {`${WALLET_COPY.heldDatePrefix} ${formatReleaseDate(heldReleaseAt)}`}
+                  </Text>
+                ) : null}
+                <Text style={styles.bucketHint}>{WALLET_COPY.heldHint}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Seller debt banner — blocks withdrawals */}
+        {hasDebt && (
+          <View style={styles.debtBanner}>
+            <View style={styles.debtIcon}>
+              <Ionicons
+                name="alert-circle"
+                size={18}
+                color={colors.danger}
+              />
+            </View>
+            <View style={styles.bucketTextBlock}>
+              <Text style={styles.debtTitle}>
+                {WALLET_COPY.blockDebtBannerTitle}
+              </Text>
+              <Text style={styles.debtBody}>
+                {withMontant(WALLET_COPY.blockDebtBannerBody, sellerDebt)}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Action buttons */}
         <View style={styles.actionRow}>
           <Pressable
-            style={styles.actionButton}
+            style={[styles.actionButton, hasDebt && styles.actionButtonDisabled]}
             onPress={handleWithdrawPress}
           >
             <View style={styles.actionIconCircle}>
@@ -383,6 +572,23 @@ export default function WalletScreen() {
             <Text style={styles.actionLabel}>Retirer</Text>
           </Pressable>
         </View>
+
+        {/* Protection note (7-day window) */}
+        <Pressable style={styles.protectionNote} onPress={handleProtectionInfo}>
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={18}
+            color={colors.sage}
+          />
+          <View style={styles.protectionTextBlock}>
+            <Text style={styles.protectionTitle}>
+              {WALLET_COPY.protectionTitle}
+            </Text>
+            <Text style={styles.protectionBody}>
+              {WALLET_COPY.protectionBody}
+            </Text>
+          </View>
+        </Pressable>
 
         {/* Withdrawal form (inline) */}
         {showWithdrawal && (
@@ -484,6 +690,12 @@ const styles = StyleSheet.create({
 
   // ── Skeleton ───────────────────────────────────────────────────────────────
 
+  skeletonBalance: {
+    marginTop: spacing.lg,
+  },
+  skeletonTitle: {
+    marginTop: spacing.xl,
+  },
   skeletonActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -497,6 +709,13 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.sm,
   },
+  skeletonLedgerContent: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  skeletonLedgerDate: {
+    marginTop: spacing.xs,
+  },
 
   // ── Activation (State A) ───────────────────────────────────────────────────
 
@@ -507,9 +726,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   activationIconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: sizing.avatarXL,
+    height: sizing.avatarXL,
+    borderRadius: radius.full,
     backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
@@ -548,15 +767,94 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     fontFamily: fonts.displaySemiBold,
-    fontSize: 38,
-    lineHeight: 42,
-    letterSpacing: -1,
+    fontSize: typography.hero.fontSize,
+    lineHeight: typography.hero.lineHeight,
+    letterSpacing: typography.hero.letterSpacing,
     color: colors.white,
   },
-  balancePending: {
+  balanceHint: {
     ...typography.caption,
     color: colors.whiteTranslucent,
     marginTop: spacing.xs,
+  },
+
+  // ── Buckets (pending / held) ───────────────────────────────────────────────
+
+  bucketCard: {
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  bucketRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  bucketIconNeutral: {
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  bucketIconHeld: {
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
+    backgroundColor: colors.warningLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  bucketTextBlock: {
+    flex: 1,
+  },
+  bucketAmount: {
+    ...typography.label,
+    color: colors.foreground,
+  },
+  bucketReleaseLine: {
+    ...typography.caption,
+    color: colors.warning,
+    marginTop: spacing.xs,
+  },
+  bucketHint: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: spacing.xs,
+    lineHeight: 18,
+  },
+
+  // ── Seller debt banner ─────────────────────────────────────────────────────
+
+  debtBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.dangerLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  debtIcon: {
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  debtTitle: {
+    ...typography.label,
+    color: colors.danger,
+    marginBottom: spacing.xs,
+  },
+  debtBody: {
+    ...typography.caption,
+    color: colors.foreground,
+    lineHeight: 18,
   },
 
   // ── Action buttons ─────────────────────────────────────────────────────────
@@ -575,13 +873,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    paddingVertical: 14,
+    paddingVertical: spacing.md,
     gap: spacing.sm,
   },
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
   actionIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
     backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
@@ -589,6 +890,31 @@ const styles = StyleSheet.create({
   actionLabel: {
     ...typography.label,
     color: colors.charcoal,
+  },
+
+  // ── Protection note ────────────────────────────────────────────────────────
+
+  protectionNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.sageLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  protectionTextBlock: {
+    flex: 1,
+  },
+  protectionTitle: {
+    ...typography.label,
+    color: colors.sage,
+    marginBottom: spacing.xs,
+  },
+  protectionBody: {
+    ...typography.caption,
+    color: colors.foregroundSecondary,
+    lineHeight: 18,
   },
 
   // ── Withdrawal form ────────────────────────────────────────────────────────
@@ -652,8 +978,8 @@ const styles = StyleSheet.create({
   },
   historySectionTitle: {
     fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.8,
+    fontSize: typography.overline.fontSize,
+    letterSpacing: typography.overline.letterSpacing,
     color: colors.muted,
     marginBottom: spacing.md,
     textTransform: 'uppercase',
