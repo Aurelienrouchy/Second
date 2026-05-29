@@ -390,7 +390,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
-        <BottomSheetView style={[styles.container, { height: sheetHeight }]}>
+        <BottomSheetView style={[styles.container, sheetStyle]}>
         {/* ── Header ── */}
         <View style={styles.headerContainer}>
           <View style={styles.header}>
