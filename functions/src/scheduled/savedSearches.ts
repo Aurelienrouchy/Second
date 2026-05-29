@@ -165,11 +165,17 @@ export const checkSavedSearchNotifications = onSchedule(
           );
         }
 
-        // Filter by sizes
+        // Filter by sizes (ArticleSize objects { value, system } — exact match
+        // on both value and system so US/EU sizes never collide).
         if (filters.sizes && filters.sizes.length > 0) {
-          matchingArticles = matchingArticles.filter((article: any) =>
-            filters.sizes!.includes(article.size)
-          );
+          matchingArticles = matchingArticles.filter((article: any) => {
+            const articleSize = article.size;
+            if (!articleSize || typeof articleSize !== 'object') return false;
+            return filters.sizes!.some(
+              (f) =>
+                f.value === articleSize.value && f.system === articleSize.system
+            );
+          });
         }
 
         // Filter by colors
