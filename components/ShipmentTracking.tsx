@@ -513,12 +513,56 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         </View>
       )}
 
+      {/* shipped / delivered + buyer — report a problem ("le scan livré fait foi") */}
+      {isReportable && isBuyer && (
+        <Pressable
+          style={[styles.outlineButton, isReporting && styles.buttonDisabled]}
+          onPress={openReportSheet}
+          disabled={isReporting}
+        >
+          <Ionicons name="flag-outline" size={16} color={colors.foreground} />
+          <Text style={styles.outlineButtonText}>Signaler un problème</Text>
+        </Pressable>
+      )}
+
       {/* Delivered + buyer — return-request entry (return fees on buyer) */}
       {isDelivered && isBuyer && (
-        <Pressable style={styles.returnButton} onPress={handleRequestReturn}>
+        <Pressable
+          style={[styles.returnButton, isReturning && styles.buttonDisabled]}
+          onPress={openReturnSheet}
+          disabled={isReturning}
+        >
           <Ionicons name="arrow-undo-outline" size={16} color={colors.foreground} />
           <Text style={styles.returnButtonText}>Demander un retour</Text>
         </Pressable>
+      )}
+
+      {/* return_requested — return state + label + return tracking */}
+      {isReturnRequested && isBuyer && (
+        <View style={styles.returnStateBox}>
+          <View style={styles.recourseHeader}>
+            <Ionicons name="arrow-undo" size={20} color={colors.warning} />
+            <Text style={styles.recourseTitle}>Étiquette de retour disponible</Text>
+          </View>
+          <Text style={styles.recourseBody}>
+            Imprimez votre étiquette et déposez le colis chez le transporteur. Vous
+            serez remboursé·e une fois le retour réceptionné par le vendeur·euse.
+          </Text>
+
+          {transaction.returnTrackingNumber && (
+            <View style={styles.trackingNumberContainer}>
+              <Text style={styles.trackingNumberLabel}>Suivi du retour :</Text>
+              <Text style={styles.trackingNumber}>{transaction.returnTrackingNumber}</Text>
+            </View>
+          )}
+
+          {transaction.returnLabelUrl && (
+            <Pressable style={styles.returnLabelButton} onPress={handleOpenReturnLabel}>
+              <Ionicons name="download-outline" size={18} color={colors.cream} />
+              <Text style={styles.returnLabelButtonText}>Voir l’étiquette de retour</Text>
+            </Pressable>
+          )}
+        </View>
       )}
 
       {/* delivery_failed / lost — buyer recourse encart */}
@@ -538,19 +582,50 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
               : "Le transporteur n'a pas pu livrer votre colis. Vos fonds sont gelés et restent protégés. Dites-nous comment vous souhaitez procéder."}
           </Text>
           <Pressable
-            style={[styles.recourseButton, styles.recourseButtonPrimary]}
-            onPress={handleReportProblem}
+            style={[styles.recourseButton, styles.recourseButtonPrimary, isReporting && styles.buttonDisabled]}
+            onPress={openReportSheet}
+            disabled={isReporting}
           >
             <Text style={styles.recourseButtonPrimaryText}>Signaler un problème</Text>
           </Pressable>
           <Pressable
-            style={[styles.recourseButton, styles.recourseButtonSecondary]}
+            style={[styles.recourseButton, styles.recourseButtonSecondary, isRefunding && styles.buttonDisabled]}
             onPress={handleRequestRefund}
+            disabled={isRefunding}
           >
-            <Text style={styles.recourseButtonSecondaryText}>Demander un remboursement</Text>
+            {isRefunding ? (
+              <ActivityIndicator size="small" color={colors.danger} />
+            ) : (
+              <Text style={styles.recourseButtonSecondaryText}>Demander un remboursement</Text>
+            )}
           </Pressable>
         </View>
       )}
+
+      {/* Reason sheets — mounted only while open (handled internally) */}
+      <RecourseReasonSheet<ReportReasonCode>
+        ref={reportSheetRef}
+        title="Signaler un problème"
+        intro="Sélectionnez ce qui s’est passé. Le scan livré fait foi : notre équipe examine chaque signalement sous 48 h. Vos fonds restent protégés."
+        reasons={REPORT_REASON_OPTIONS}
+        showDetailsField
+        submitLabel="Envoyer le signalement"
+        isSubmitting={isReporting}
+        onSubmit={handleSubmitReport}
+      />
+      <RecourseReasonSheet<ReturnReasonCode>
+        ref={returnSheetRef}
+        title="Demander un retour"
+        intro="Vous souhaitez renvoyer cet article ? Expliquez-nous le motif. Une étiquette de retour vous sera fournie après validation."
+        reasons={RETURN_REASON_OPTIONS}
+        footerNote={{
+          title: 'Frais de retour à votre charge',
+          body: 'Les frais d’expédition du retour sont à votre charge et seront déduits du remboursement. Le montant de l’article vous sera remboursé une fois le retour réceptionné par le vendeur·euse.',
+        }}
+        submitLabel="Demander le retour"
+        isSubmitting={isReturning}
+        onSubmit={handleSubmitReturn}
+      />
     </View>
   );
 };
