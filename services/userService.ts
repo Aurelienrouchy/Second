@@ -541,7 +541,8 @@ export class UserService {
         exportData.searchHistory.push({
           id: docSnap.id,
           ...data,
-          searchedAt: data.searchedAt?.toDate?.()?.toISOString(),
+          // The service writes `timestamp`, not `searchedAt` (L8).
+          timestamp: data.timestamp?.toDate?.()?.toISOString(),
         });
       });
 
