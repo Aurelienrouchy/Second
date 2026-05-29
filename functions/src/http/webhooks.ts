@@ -326,45 +326,17 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       });
     }
 
-    // --- Credit seller's wallet pendingBalance (auto-create if absent) ---
+    // --- Credit seller's wallet pendingBalance ---
+    // P1 (atomicity payment<->label): for SHIPPING transactions the seller is
+    // credited ONLY after the shipping label is successfully created (deferred
+    // to the label step / sweepPendingLabels). Crediting here then failing the
+    // label would leave the seller paid for a parcel that never ships. For
+    // non-shipping (meetup is handled elsewhere; this guards anything that is
+    // not 'shipping') there is no label, so we credit immediately.
     const sellerId = txData.sellerId;
-    const sellerPayout = txData.sellerPayout || txData.amount;
-    const sellerPayoutCents = Math.round(sellerPayout * 100);
-
-    const { walletRef: sellerWalletRef, walletData: sellerWalletData, isNew: sellerWalletIsNew } =
-      await getOrCreateSellerWallet(tx, sellerId);
-
-    if (!sellerWalletIsNew) {
-      tx.update(sellerWalletRef, {
-        pendingBalance: FieldValue.increment(sellerPayoutCents),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    } else {
-      tx.update(sellerWalletRef, {
-        pendingBalance: sellerPayoutCents,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+    if (txData.deliveryType !== 'shipping') {
+      await creditSellerForSale(tx, transactionRef, txData, transactionId);
     }
-
-    // Create seller ledger entry
-    const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-    tx.set(sellerLedgerRef, {
-      type: 'sale_credit',
-      amount: sellerPayoutCents,
-      balanceAfter: (sellerWalletData.pendingBalance || 0) + sellerPayoutCents,
-      description: 'Vente — fonds en attente de livraison',
-      transactionId,
-      createdAt: FieldValue.serverTimestamp(),
-      status: 'pending',
-    });
-
-    // P1: Persist the EXACT amount credited to the seller. On a refund/dispute
-    // the seller must be debited of precisely this figure (not a freshly-derived
-    // sellerPayout, which could drift). This is the anchor for an exact,
-    // loss-free ledger; any shortfall is then recorded as sellerDebt.
-    tx.update(transactionRef, {
-      sellerCreditedCents: sellerPayoutCents,
-    });
 
     return {
       processed: true,
@@ -372,6 +344,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       chatId: txData.chatId,
       shipEngineRateId: txData.shipEngineRateId,
       deliveryType: txData.deliveryType,
+      shippingCost: typeof txData.shippingCost === 'number' ? txData.shippingCost : 0,
       articleId: txData.articleId,
       articleTitle: txData.articleTitle || null,
     };
