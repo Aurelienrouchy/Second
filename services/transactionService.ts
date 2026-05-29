@@ -28,10 +28,16 @@ export class TransactionService {
     amount: number,
     shippingCost: number,
     shippingAddress: ShippingAddress,
+    shipEngineRateId: string,
     chatId?: string,
-    serviceFee?: number,
-    shipEngineRateId?: string
+    serviceFee?: number
   ): Promise<string> {
+    // shipEngineRateId is mandatory: the backend buys the real label from this
+    // rate. Never send null — a missing rate would block label generation.
+    if (!shipEngineRateId) {
+      throw new Error("Le tarif de livraison est manquant. Actualisez l'estimation.");
+    }
+
     const callable = httpsCallable<
       Record<string, any>,
       { success: boolean; transactionId: string }
@@ -45,7 +51,7 @@ export class TransactionService {
       serviceFee: serviceFee || 0,
       shippingAddress,
       chatId: chatId || null,
-      shipEngineRateId: shipEngineRateId || null,
+      shipEngineRateId,
     });
 
     if (!result.data.success || !result.data.transactionId) {
