@@ -28,10 +28,13 @@ import { Image } from 'expo-image';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Text, Caption } from '@/components/ui';
+import { Text, Caption, SheetFooter, SHEET_FOOTER_HEIGHT } from '@/components/ui';
+import { useSheetHeight } from '@/hooks/useSheetHeight';
 import { colors, fonts, spacing, typography, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { Article, SwapPartyItemExtended } from '@/types';
+
+const SNAP = '75%';
 
 export interface AddItemSheetProps {
   articles: Article[];
