@@ -20,32 +20,57 @@ export interface FilterChip {
 
 export interface FilterChipsRowProps {
   chips: FilterChip[];
+  /**
+   * Visual tone. 'light' (default) = standard cream/charcoal search row.
+   * 'dark' = Swap Zone identity (chips on a deep surface). Dark variants are
+   * additive and never touch the shared light styles.
+   */
+  tone?: 'light' | 'dark';
 }
 
-function FilterChipsRowComponent({ chips }: FilterChipsRowProps) {
+function FilterChipsRowComponent({ chips, tone = 'light' }: FilterChipsRowProps) {
+  const isDark = tone === 'dark';
+  // Chevron color follows the chip text color per tone.
+  const inactiveChevron = isDark ? colors.sand : colors.muted;
+  const activeChevron = isDark ? colors.cream : colors.white;
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={styles.filterChipsContainer}
+      style={[styles.filterChipsContainer, isDark && styles.filterChipsContainerDark]}
       contentContainerStyle={styles.filterChipsContent}
     >
       {chips.map(({ key, label, active, onPress }) => (
         <Pressable
           key={key}
-          style={[styles.filterChip, active && styles.filterChipActive]}
+          style={[
+            styles.filterChip,
+            active && styles.filterChipActive,
+            isDark && styles.filterChipDark,
+            isDark && active && styles.filterChipActiveDark,
+          ]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             onPress();
           }}
         >
           <Text
-            style={[styles.filterChipText, active && styles.filterChipTextActive]}
+            style={[
+              styles.filterChipText,
+              active && styles.filterChipTextActive,
+              isDark && styles.filterChipTextDark,
+              isDark && active && styles.filterChipTextActiveDark,
+            ]}
             numberOfLines={1}
           >
             {label}
           </Text>
-          <Ionicons name="chevron-down" size={14} color={active ? colors.white : colors.muted} />
+          <Ionicons
+            name="chevron-down"
+            size={14}
+            color={active ? activeChevron : inactiveChevron}
+          />
         </Pressable>
       ))}
     </ScrollView>
