@@ -1,7 +1,7 @@
 /**
- * PartyHeader Component
- * Sticky header with back button and zone name.
- * The Swap Zone is always active — no status label, no countdown badge.
+ * PartyHeader Component — Swap Zone (DARK identity)
+ * Sticky header with back button and zone name. The Swap Zone is always active
+ * and open to everyone — no status label, no countdown badge.
  */
 
 import React from 'react';
@@ -9,7 +9,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import type { PartyHeaderProps } from '../types';
 
 export const PartyHeader = React.memo(function PartyHeader({
@@ -19,10 +19,10 @@ export const PartyHeader = React.memo(function PartyHeader({
   return (
     <View style={styles.header}>
       <Pressable
-        style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         onPress={onBack}
       >
-        <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
+        <Ionicons name="chevron-back" size={20} color={colors.cream} />
       </Pressable>
 
       <View style={styles.headerTitleSection}>
@@ -37,19 +37,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    backgroundColor: 'rgba(245, 240, 232, 0.95)',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md - 2,
+    backgroundColor: colors.deep,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 12,
+    borderBottomColor: colors.dark,
+    gap: spacing.md - 4,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.whiteTranslucent,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
@@ -62,13 +65,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     letterSpacing: 1.35,
     textTransform: 'uppercase',
-    color: colors.sage,
+    color: colors.rust,
     marginBottom: 1,
   },
   headerTitle: {
     fontFamily: fonts.display,
     fontSize: 18,
-    fontWeight: '300',
-    color: colors.charcoal,
+    color: colors.cream,
   },
 });
