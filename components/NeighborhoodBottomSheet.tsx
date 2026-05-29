@@ -151,17 +151,13 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
             </View>
           ) : (
             <BottomSheetSectionList
-              style={styles.list}
               sections={sections}
               keyExtractor={(item) => item.id}
               renderItem={renderItem}
               renderSectionHeader={renderSectionHeader}
               stickySectionHeadersEnabled
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={[
-                styles.listContent,
-                { paddingBottom: SHEET_BOTTOM_INSET + 40 },
-              ]}
+              contentContainerStyle={styles.listContent}
             />
           )}
         </View>
