@@ -78,6 +78,7 @@ export const expireOrphanedTransactions = onSchedule(
         .collection('transactions')
         .where('status', '==', 'meetup_pending')
         .where('createdAt', '<', meetupCutoff)
+        .limit(MAX_PER_RUN)
         .get();
 
       if (!meetupSnap.empty) {
