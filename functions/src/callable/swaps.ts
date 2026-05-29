@@ -1087,8 +1087,11 @@ export const confirmSwapReception = onCall(
         let payeeWalletData: FirebaseFirestore.DocumentData | null = null;
         let payeeId: string | null = null;
         if (bothReceived && topUpPaid) {
-          payeeId = topUp.payerId === swap.initiatorId ? swap.receiverId : swap.initiatorId;
-          const { walletRef, walletData } = await getOrCreateSellerWallet(tx, payeeId);
+          const resolvedPayeeId: string = topUp.payerId === swap.initiatorId
+            ? swap.receiverId
+            : swap.initiatorId;
+          payeeId = resolvedPayeeId;
+          const { walletRef, walletData } = await getOrCreateSellerWallet(tx, resolvedPayeeId);
           payeeWalletRef = walletRef;
           payeeWalletData = walletData;
         }
