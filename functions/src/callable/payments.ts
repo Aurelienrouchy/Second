@@ -410,7 +410,8 @@ export const createTransaction = onCall(
         // Meetup transactions have NO platform fee (aligned with frontend
         // messaging "Aucun frais de plateforme") and no shipping cost.
         const fee = deliveryType === 'meetup' ? 0 : calculateServiceFee(amount);
-        const shipping = deliveryType === 'shipping' ? (shippingCost || 0) : 0;
+        // Shipping cost is the SERVER re-priced value, never the client input.
+        const shipping = deliveryType === 'shipping' ? serverShippingCost : 0;
         const totalAmount = amount + shipping + fee;
 
         const transactionData: Record<string, any> = {
