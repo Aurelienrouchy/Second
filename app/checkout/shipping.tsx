@@ -301,7 +301,7 @@ export default function ShippingCheckoutScreen() {
       const chat = await ChatService.createOrGetChat(currentUser.uid, article.sellerId, article.id);
       const transactionId = await TransactionService.createShippingTransaction(
         article.id, currentUser.uid, article.sellerId, finalPrice,
-        selectedEstimate.amount, shippingAddress, chat.id, serviceFee, selectedEstimate.rateId,
+        selectedEstimate.amount, shippingAddress, selectedEstimate.rateId, chat.id, serviceFee,
       );
       createdTransactionId = transactionId;
 
