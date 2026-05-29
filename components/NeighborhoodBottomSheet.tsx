@@ -12,6 +12,7 @@ import {
 import { NEIGHBORHOODS_BY_BOROUGH, searchNeighborhoods } from '@/data/neighborhoods';
 import { MeetupNeighborhood } from '@/types';
 import { colors } from '@/constants/theme';
+import { SHEET_BOTTOM_INSET } from '@/components/ui';
 import { useSheetHeight } from '@/hooks/useSheetHeight';
 
 // Bornage sur le plus grand détent : le contenu remplit la hauteur max possible,
