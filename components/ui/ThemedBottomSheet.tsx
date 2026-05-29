@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.lg,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 
   // Handle
