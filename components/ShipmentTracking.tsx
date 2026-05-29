@@ -137,6 +137,10 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   const isDelivered = transaction.status === 'delivered';
   const isRecourse =
     transaction.status === 'delivery_failed' || transaction.status === 'lost';
+  // "shipped" / "delivered" → buyer can report a problem ("le scan livré fait foi").
+  const isReportable =
+    transaction.status === 'shipped' || transaction.status === 'delivered';
+  const isReturnRequested = transaction.status === 'return_requested';
 
   const releaseDate = transaction.fundsReleaseAt
     ? transaction.fundsReleaseAt.toLocaleDateString(APP_LOCALE, {
