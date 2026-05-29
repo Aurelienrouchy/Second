@@ -56,7 +56,6 @@ export { OfflineBanner } from './OfflineBanner';
 export {
   ThemedBottomSheet,
   ThemedBottomSheetModal,
-  BottomSheetModalProvider,
 } from './ThemedBottomSheet';
 export type { ThemedBottomSheetRef } from './ThemedBottomSheet';
 
