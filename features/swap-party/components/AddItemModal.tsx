@@ -1,12 +1,15 @@
 /**
  * AddItemModal Component
- * Bottom sheet modal for adding user's articles to the swap party
+ * Bottom sheet modal for depositing the user's own articles into the Swap Zone.
+ *
+ * Uses a ScrollView (not FlashList): the list is the user's OWN inventory
+ * (bounded, small) and the sheet is content-sized (maxHeight), where a FlashList
+ * would measure a 0px height and render nothing.
  */
 
-import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text, Caption } from '@/components/ui';
@@ -19,6 +22,7 @@ export const AddItemModal = React.memo(function AddItemModal({
   visible,
   articles,
   userItems,
+  loading = false,
   onAddItem,
   onClose,
 }: AddItemModalProps) {
@@ -29,8 +33,9 @@ export const AddItemModal = React.memo(function AddItemModal({
     [articles, userItems],
   );
 
-  const renderItem = useCallback(({ item }: { item: Article }) => (
+  const renderRow = (item: Article) => (
     <Pressable
+      key={item.id}
       style={({ pressed }) => [styles.articleListItem, pressed && { opacity: 0.7 }]}
       onPress={() => onAddItem(item)}
     >
@@ -53,11 +58,14 @@ export const AddItemModal = React.memo(function AddItemModal({
         <Ionicons name="add-circle" size={24} color={colors.sage} />
       </View>
     </Pressable>
-  ), [onAddItem]);
-
-  const keyExtractor = useCallback((item: Article) => item.id, []);
+  );
 
   if (!visible) return null;
+
+  const hasInventory = articles.length > 0;
+  const emptyText = !hasInventory
+    ? "Tu n'as aucun article à déposer.\nMets d'abord un article en vente."
+    : 'Tous tes articles sont déjà dans la Swap Zone.';
 
   return (
     <View style={styles.modal}>
@@ -82,23 +90,29 @@ export const AddItemModal = React.memo(function AddItemModal({
           <View style={styles.modalAddedCount}>
             <Ionicons name="checkmark-circle" size={14} color={colors.sage} />
             <Text style={styles.modalAddedCountText}>
-              {userItems.length} article{userItems.length > 1 ? 's' : ''} dans la party
+              {userItems.length} article{userItems.length > 1 ? 's' : ''} dans la Swap Zone
             </Text>
           </View>
         )}
 
-        <FlashList
-          data={availableArticles}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          ListEmptyComponent={
-            <View style={styles.emptyModal}>
-              <Caption style={styles.emptyModalText}>
-                Tous vos articles sont déjà dans la party
-              </Caption>
-            </View>
-          }
-        />
+        {loading ? (
+          <View style={styles.stateBox}>
+            <ActivityIndicator color={colors.sage} />
+            <Caption style={styles.stateText}>Chargement de tes articles…</Caption>
+          </View>
+        ) : availableArticles.length === 0 ? (
+          <View style={styles.stateBox}>
+            <Caption style={styles.stateText}>{emptyText}</Caption>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {availableArticles.map(renderRow)}
+          </ScrollView>
+        )}
       </View>
     </View>
   );
@@ -174,6 +188,25 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     color: colors.sage,
   },
+  // List area: flexShrink lets it scroll WITHIN the content-sized sheet.
+  list: {
+    flexShrink: 1,
+  },
+  listContent: {
+    paddingBottom: spacing.md,
+  },
+  stateBox: {
+    paddingVertical: spacing['2xl'],
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  stateText: {
+    fontSize: 12,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+    textAlign: 'center',
+  },
   addItemIcon: {
     marginLeft: 4,
   },
@@ -206,15 +239,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     color: colors.rust,
     fontWeight: '500',
-  },
-  emptyModal: {
-    paddingVertical: spacing['2xl'],
-    alignItems: 'center',
-  },
-  emptyModalText: {
-    fontSize: 11,
-    fontFamily: fonts.sans,
-    color: colors.muted,
-    textAlign: 'center',
   },
 });
