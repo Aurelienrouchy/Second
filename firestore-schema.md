@@ -28,6 +28,7 @@
 | 23 | `rate_limits` | Root | Rate limiting counters for Cloud Functions |
 | 24 | `wallets` | Root | Virtual wallet balances (all amounts in cents) |
 | 25 | `wallets/{uid}/ledger` | Sub-collection | Wallet transaction ledger entries |
+| 26 | `platform_ledger` | Root | Platform accounting ledger (shipping cost variance, server-only) |
 
 ---
 
