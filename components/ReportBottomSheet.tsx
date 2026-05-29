@@ -254,9 +254,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
+  handleIndicator: {
+    backgroundColor: '#ddd',
+    width: 40,
+  },
   content: {
     padding: 20,
-    // paddingBottom appliqué inline (inset fiable + marge).
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
