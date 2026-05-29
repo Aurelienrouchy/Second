@@ -381,7 +381,6 @@ export class TransactionService {
         }
       }
 
-      seen.add(d.id);
       transactions.push({
         id: d.id,
         ...data,
