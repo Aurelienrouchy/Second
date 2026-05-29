@@ -21,7 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useUser } from '@/contexts/AuthContext';
 import { ArticlesService } from '@/services/articlesService';
-import { proposeSwap } from '@/services/swapService';
+import { proposeSwap, getPartyItemsExtended, GENERALIST_ZONE_ID } from '@/services/swapService';
 import { ModerationService } from '@/services/moderationService';
 import { queryKeys } from '@/lib/queryKeys';
 import { SwapItemInfo } from '@/types';
