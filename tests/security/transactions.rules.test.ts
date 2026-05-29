@@ -145,4 +145,39 @@ describe('transactions rules', () => {
       updateDoc(doc(db, 'transactions', TX_ID), { amount: 1 }),
     );
   });
+
+  // B2/B3 buyer-return leg: a buyer is a party to the tx, so without the
+  // sensitive-field guard they could forge these and inflate / fake-trigger the
+  // return refund. All are CF-only (requestReturn / processReturnDelivered).
+  it('denies buyer forging returnLabelCost (refund-inflation)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { returnLabelCost: 0 }),
+    );
+  });
+
+  it('denies buyer forging returnTrackingNumber (CF-only)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { returnTrackingNumber: 'fake-RZ' }),
+    );
+  });
+
+  it('denies buyer forging returnDeliveredAt (fake return-refund trigger)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { returnDeliveredAt: new Date() }),
+    );
+  });
+
+  it('denies seller forging returnReason (CF-only sensitive field)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { returnReason: 'damaged' }),
+    );
+  });
 });
