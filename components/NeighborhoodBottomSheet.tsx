@@ -12,6 +12,12 @@ import {
 import { NEIGHBORHOODS_BY_BOROUGH, searchNeighborhoods } from '@/data/neighborhoods';
 import { MeetupNeighborhood } from '@/types';
 import { colors } from '@/constants/theme';
+import { useSheetHeight } from '@/hooks/useSheetHeight';
+
+// Bornage sur le plus grand détent : le contenu remplit la hauteur max possible,
+// la SectionList (flex:1) scrolle dans le détent courant quel qu'il soit.
+const SNAP_POINTS = ['75%', '90%'];
+const MAX_SNAP = '90%';
 
 interface NeighborhoodBottomSheetProps {
   selectedNeighborhood?: MeetupNeighborhood | null;
