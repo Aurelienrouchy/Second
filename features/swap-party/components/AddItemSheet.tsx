@@ -41,9 +41,9 @@ export interface AddItemSheetProps {
   /** Deposit the selected articles in one batch. */
   onAddItems: (articles: Article[]) => void;
   /**
-   * Called when the modal is fully dismissed. Lets the parent unmount this
-   * sheet so the @gorhom portal hosting container (StyleSheet.absoluteFill) is
-   * removed and never lingers as a full-screen touch-capturing layer (Android).
+   * Called when the modal is fully dismissed. The native sheet manages its own
+   * presentation container, but the parent may still unmount this sheet on
+   * dismiss for cleanliness.
    */
   onClose?: () => void;
 }
