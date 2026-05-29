@@ -93,6 +93,9 @@ export const updateSearchIndex = onDocumentWritten(
 
         // Filterable fields
         category: articleData.category,
+        // Hierarchical category IDs — mirrored so the search_index path can
+        // filter by category when a text term is present (C1).
+        categoryIds: articleData.categoryIds || [],
         subcategory: articleData.subcategory || null,
         brands: brands,
         colors: colors,
@@ -100,7 +103,8 @@ export const updateSearchIndex = onDocumentWritten(
         brand: brands[0] || null,
         color: colors[0] || null,
         material: materials[0] || null,
-        size: articleData.size || null,
+        // ArticleSize is an object { value, system }; mirror verbatim (or null).
+        size: articleData.size ?? null,
         condition: articleData.condition,
         price: articleData.price,
 
