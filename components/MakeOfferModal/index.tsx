@@ -168,7 +168,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
         containerStyle={styles.bottomSheetContainer}
         enableDynamicSizing={false}
       >
-        <BottomSheetScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+        <BottomSheetScrollView style={[styles.container, { height: sheetHeight }]} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             {state.step !== 'offer' && (
               <Pressable onPress={handleBack} style={styles.backButton}>
