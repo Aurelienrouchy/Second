@@ -329,15 +329,21 @@ export const walletWithdraw = onCall(
       // Step 2: Create Stripe transfer + payout
       let transfer: { id: string } | undefined;
       try {
-        transfer = await stripe.transfers.create({
-          amount,
-          currency: 'cad',
-          destination: stripeAccountId,
-          metadata: {
-            firebaseUserId: userId,
-            walletWithdrawal: 'true',
+        transfer = await stripe.transfers.create(
+          {
+            amount,
+            currency: 'cad',
+            destination: stripeAccountId,
+            metadata: {
+              firebaseUserId: userId,
+              walletWithdrawal: 'true',
+              ledgerEntryId: ledgerEntryRef.id,
+            },
           },
-        });
+          // Deterministic key tied to the (stable) ledger entry id so a retry
+          // never moves the same withdrawal twice.
+          { idempotencyKey: `tr_${ledgerEntryRef.id}` }
+        );
 
         const payout = await stripe.payouts.create(
           {
@@ -346,8 +352,12 @@ export const walletWithdraw = onCall(
             metadata: {
               firebaseUserId: userId,
               walletWithdrawal: 'true',
+              ledgerEntryId: ledgerEntryRef.id,
             },
           },
+          // idempotencyKey goes in the request options (2nd arg), Connect
+          // account selection (stripeAccount) in the per-request options (3rd arg).
+          { idempotencyKey: `po_${ledgerEntryRef.id}` },
           { stripeAccount: stripeAccountId }
         );
 
