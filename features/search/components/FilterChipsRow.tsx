@@ -16,6 +16,11 @@ export interface FilterChip {
   label: string;
   active: boolean;
   onPress: () => void;
+  /**
+   * When provided and the chip is active, a small X is rendered that clears
+   * this filter dimension (L3). Tapping the X never opens the sheet.
+   */
+  onRemove?: () => void;
 }
 
 export interface FilterChipsRowProps {
