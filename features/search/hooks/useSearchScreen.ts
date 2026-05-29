@@ -531,5 +531,7 @@ export function useSearchScreen() {
     handleBrandsConfirm,
     handlePriceApply,
     handlePriceClear,
+    handleSortRemove,
+    handleCategoryRemove,
   };
 }
