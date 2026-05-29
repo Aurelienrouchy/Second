@@ -79,7 +79,7 @@ const Overlay: React.FC<OverlayProps> = React.memo(function Overlay({
 
       {isActive && contentComponent != null && (
         <Animated.View
-          style={[StyleSheet.absoluteFillObject, styles.contentLayer]}
+          style={[StyleSheet.absoluteFill, styles.contentLayer]}
         >
           <Content progress={progress} contentComponent={contentComponent} />
         </Animated.View>
@@ -92,7 +92,7 @@ const Overlay: React.FC<OverlayProps> = React.memo(function Overlay({
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
   },
   contentLayer: {
