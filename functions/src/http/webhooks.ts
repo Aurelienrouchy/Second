@@ -103,7 +103,13 @@ export const stripeWebhook = onRequest(
       // =======================================================================
 
       if (eventType === 'payment_intent.succeeded') {
-        await handlePaymentIntentSucceeded(event.data.object);
+        // Swap cash top-up payments are tagged with metadata.type === 'swap_topup'
+        // and handled separately (advance swap + credit payee wallet pending).
+        if (event.data.object?.metadata?.type === 'swap_topup') {
+          await handleSwapTopUpSucceeded(event.data.object);
+        } else {
+          await handlePaymentIntentSucceeded(event.data.object);
+        }
       }
 
       // =======================================================================
