@@ -183,7 +183,7 @@ export default function EditArticleScreen() {
         condition: (articleData.condition as ConditionValue) || 'très bon état',
         colors: loadedColors,
         materials: loadedMaterials,
-        size: articleData.size || null,
+        size: articleData.size?.value || null,
         brand: articleData.brand || '',
         price: articleData.price || 0,
         // Shipping désactivé : un article legacy en shipping est ramené au main-à-main.
