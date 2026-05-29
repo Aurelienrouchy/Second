@@ -471,6 +471,17 @@ export default function SwapDetailScreen() {
           isProcessing={isProcessing}
         />
       )}
+
+      {/* Stripe Payment Sheet — cash top-up settlement */}
+      {clientSecret && (
+        <StripePayment
+          clientSecret={clientSecret}
+          visible={showStripePayment}
+          onResult={handlePaymentResult}
+          onClose={handleClosePayment}
+          totalAmount={topUpTotal}
+        />
+      )}
     </SafeAreaView>
   );
 }
