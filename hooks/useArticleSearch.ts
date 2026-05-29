@@ -114,7 +114,6 @@ const DEFAULT_FILTERS: SearchFilters = {
   minPrice: undefined,
   maxPrice: undefined,
   brands: [],
-  patterns: [],
   sortBy: 'recent',
 };
 
