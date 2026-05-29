@@ -238,6 +238,15 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
       ]
     },
     {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "labelCreationPending", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "swaps",
       "queryScope": "COLLECTION",
       "fields": [
