@@ -202,8 +202,6 @@ Zustand 5 + `subscribeWithSelector`. Tous ont `reset()` appelé dans `store/rese
 | `useNearbyArticles` | `useNearbyArticles.ts` | Recherche — géoloc |
 | `usePersonalizedFeed` | `usePersonalizedFeed.ts` | Feed — algo personnalisé |
 | `useDraft` | `useDraft.ts` | Vente — brouillon article |
-| `useSwapFilters` | `useSwapFilters.ts` | Swap — filtres swap zone |
-| `useSwapZone` | `useSwapZone.ts` | Swap — zone d'échange |
 | `useMoments` | `useMoments.ts` | Social — moments/stories |
 | `useFcmToken` | `useFcmToken.ts` | Notif — token FCM |
 | `useNotificationSetup` | `useNotificationSetup.ts` | Notif — permissions + setup |
