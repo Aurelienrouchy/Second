@@ -413,7 +413,15 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 firebase.ts, gemini.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, stripe.ts
 
 ### Utils backend — `functions/src/utils/`
-debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, search.ts, labelFulfillment.ts (P1 : `creditSellerForSale` crédit vendeur après label réussi + `reconcileShippingCost` coût réel vs estimé, partagé webhook/wallet/sweep)
+debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, search.ts (`normalizeSearchText` + `generateSearchKeywords` + `calculatePopularityScore`), labelFulfillment.ts (P1 : `creditSellerForSale` crédit vendeur après label réussi + `reconcileShippingCost` coût réel vs estimé, partagé webhook/wallet/sweep)
+
+### Scripts admin — `functions/src/scripts/` (RUN MANUEL, NON DÉPLOYÉS)
+| Fichier | Rôle |
+|---------|------|
+| `backfillSearchIndexCategoryIds.ts` | Backfill `search_index.categoryIds` depuis l'article source (fix C1). `--dry-run` d'abord. |
+| `migrateArticleSize.ts` | Migration `articles.size` + `search_index.size` : string → `{ value, system: 'EU' }`. `--dry-run` d'abord. |
+
+> Scripts standalone admin SDK, NON exportés depuis `index.ts` → aucun orphelin déployé. Lancer via `node lib/scripts/<file>.js` après `npm run build`.
 
 ---
 
