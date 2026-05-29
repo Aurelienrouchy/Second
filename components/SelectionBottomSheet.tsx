@@ -49,9 +49,8 @@ export interface SelectionBottomSheetRef {
 
 const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottomSheetProps>(
   ({ title, items, selectedValue, selectedValues = [], onSelect, onSelectMultiple, type = 'default', multiSelect = false, maxSelections }, ref) => {
-    const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => [SNAP], []);
-    const sheetHeight = useSheetHeight(SNAP);
+    const sheetStyle = useSheetHeight(SNAP);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     const [localSelectedValues, setLocalSelectedValues] = React.useState<string[]>(selectedValues);
 
