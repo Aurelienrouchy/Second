@@ -139,11 +139,6 @@ const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: colors.surface,
   },
-  handleIndicator: {
-    backgroundColor: colors.borderStrong,
-    width: 40,
-    height: 4,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
