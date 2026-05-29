@@ -24,6 +24,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
+import { SheetFooter, SHEET_FOOTER_HEIGHT } from '@/components/ui';
+import { useSheetHeight } from '@/hooks/useSheetHeight';
 import { brandDisplay } from '@/utils/normalizeBrand';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
