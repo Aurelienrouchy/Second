@@ -33,6 +33,8 @@ export interface AddItemModalProps {
   visible: boolean;
   articles: Article[];
   userItems: SwapPartyItemExtended[];
+  /** True while the user's articles are being fetched. */
+  loading?: boolean;
   onAddItem: (article: Article) => void;
   onClose: () => void;
 }
