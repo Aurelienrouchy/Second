@@ -401,13 +401,22 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
 
           // ATOMIC: credit the seller (now that the label exists), reconcile the
           // real label cost vs the estimated shippingCost, persist label fields,
-          // clear the pending flag, and mark 'shipped' — all in one transaction.
+          // clear the pending flag, and mark 'label_created' — all in one tx.
+          // NOTE: status is 'label_created', NOT 'shipped'. A label existing does
+          // not mean the parcel was handed to the carrier. The first real carrier
+          // scan (tracking poller / ShipEngine webhook) advances label_created ->
+          // shipped, which lets the stale-label sweep nudge non-shipping sellers.
           await db.runTransaction(async (tx) => {
             const txSnap = await tx.get(transactionRef);
             const tdata = txSnap.data();
             if (!tdata) return;
-            // Idempotence: don't re-credit / re-ship if already shipped.
-            if (tdata.status === 'shipped' || tdata.status === 'delivered') return;
+            // Idempotence: don't re-credit / re-label if already advanced.
+            if (
+              tdata.status === 'label_created' ||
+              tdata.status === 'shipped' ||
+              tdata.status === 'delivered'
+            )
+              return;
 
             await creditSellerForSale(tx, transactionRef, tdata, transactionId);
 
@@ -416,10 +425,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
               shippingLabelUrl: labelUrl,
               trackingUrl,
               carrierCode,
-              trackingStatus: 'TRANSIT',
+              trackingStatus: 'LABEL_CREATED',
               shipEngineLabelId: label.labelId,
-              status: 'shipped',
-              shippedAt: FieldValue.serverTimestamp(),
+              status: 'label_created',
+              labelCreatedAt: FieldValue.serverTimestamp(),
               labelCreationPending: false,
             };
             reconcileShippingCost(label, result.shippingCost ?? 0, transactionId, update);
