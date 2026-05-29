@@ -12,7 +12,6 @@ import { db, FieldValue } from '../config/firebase';
 import { getShipEngine, ShipEngineClient, ShipEngineAddress } from '../config/shipEngine';
 import { getStripe } from '../config/stripe';
 import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../utils/fees';
-import { sendPushNotification } from '../utils/notifications';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { applyTrackingOutcome, DELIVERABLE_STATUSES } from '../utils/trackingTransition';
 
