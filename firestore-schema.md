@@ -30,6 +30,49 @@
 | 25 | `wallets/{uid}/ledger` | Sub-collection | Wallet transaction ledger entries |
 | 26 | `platform_ledger` | Root | Platform accounting ledger (shipping cost variance, server-only) |
 | 27 | `failed_operations` | Root | Dead-letter queue for failed money/shipping side-effects (server-only, replayed by `retryFailedOperations`) |
+| 28 | `stripe_events` | Root | Stripe webhook idempotency markers keyed by `event.id` (server-only) |
+
+---
+
+## Security Rules — server-only enforcement (P1/P2 hardening)
+
+The following are CF-only (Admin SDK) and **rejected on any client write**
+(`firestore.rules`). Audit any future feature against this list before touching
+the rules.
+
+**Server-only collections** (no client write; read restricted as noted):
+
+| Collection | Client read | Client write |
+| --- | --- | --- |
+| `wallets/{uid}` (+ `ledger`) | owner only | denied |
+| `withdrawal_requests` | owner / admin | denied |
+| `stripe_events` | admin only | denied |
+| `failed_operations` | admin only | denied |
+| `platform_ledger` | admin only | denied |
+| `rate_limits` | denied | denied |
+
+**`transactions` — client-immutable fields** (a client may only confirm a
+meetup: `status: meetup_pending -> meetup_confirmed` by the seller, optionally
+with `meetupConfirmedAt`/`updatedAt`). Every field below is blocked by
+`diff().affectedKeys().hasAny([...])` and may change **only** via Cloud
+Functions: `status`, `amount`, `totalAmount`, `sellerPayout`, `serviceFee`,
+`serviceFeePercent`, `sellerCreditedCents`, `walletAmountUsed`, `paidVia`,
+`shippingCost`, `actualShippingCost`, `shippingCostDelta`, `insuranceCost`,
+`shippingReconciledAt`, `fundsReleaseAt`, `fundsReleasedAt`, `disputed`,
+`disputeId`, `disputedAt`, `disputeReason`, `statusBeforeDispute`,
+`disputeOutcome`, `disputeClosedAt`, `labelCreationPending`, `labelCreationNote`,
+`labelAttempts`, `lastLabelAttemptAt`, `labelStaleNudgedAt`, `shipEngineRateId`,
+`shipEngineLabelId`, `trackingNumber`, `trackingUrl`, `trackingStatus`,
+`shippingLabelUrl`, `carrierCode`, `stripePaymentIntentId`, `stripeChargeId`,
+`stripeRefundId`, `stripeRefundIssuedAt`, `refundReason`, `refundStartedAt`,
+`refundedAt`, `cancelReason`, `cancelledBy`, `cancelledAt`, `meetupSpot`
+(immutable after creation), `deliveryType`, and all server timestamps
+(`paidAt`, `labelCreatedAt`, `shippedAt`, `deliveredAt`, `deliveryFailedAt`,
+`completedAt`, `createdAt`).
+
+The `wallets` balance buckets (`balance`, `pendingBalance`, `heldBalance`,
+`sellerDebt`) are protected by the blanket `wallets` write-deny (this collection
+replaced the removed legacy `seller_balances`).
 
 ---
 
