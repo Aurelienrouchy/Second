@@ -1378,9 +1378,11 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 
 /**
  * Buyer confirms the meetup exchange was completed. This transitions the
- * transaction from `meetup_confirmed` → `meetup_completed` and credits the
- * seller balance (pending → available), mirroring what checkTrackingStatus
- * does for shipping transactions on DELIVERED.
+ * transaction from `meetup_confirmed` → `meetup_completed`, sets
+ * `meetupCompletedAt`, and thereby unlocks review eligibility.
+ *
+ * Meetup is a pure cash-in-hand exchange: NO money flows through the platform,
+ * so this NEVER credits the seller wallet and writes NO ledger entry.
  *
  * Only the buyer can call this (the buyer confirms receipt).
  */
