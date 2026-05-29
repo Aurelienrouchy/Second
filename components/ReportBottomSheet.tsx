@@ -19,9 +19,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SHEET_BOTTOM_INSET } from '@/components/ui';
 import { useSheetHeight } from '@/hooks/useSheetHeight';
 
-// Bornage au plus grand détent : le ScrollView (height fixe) scrolle dans le détent.
+// iOS : bornage au plus grand détent (height fixe). Android : flex:1 (detente native).
 const MAX_SNAP = '80%';
 
 export interface ReportBottomSheetRef {
