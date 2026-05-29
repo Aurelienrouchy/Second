@@ -821,6 +821,7 @@ interface SearchIndexDocument {
 
   // Filterable
   category: string;
+  categoryIds: string[];         // Mirrored from articles (C1) — enables category filter in text search
   subcategory?: string;
   brand?: string;
   brands?: string[];
@@ -828,7 +829,7 @@ interface SearchIndexDocument {
   colors?: string[];
   material?: string;
   materials?: string[];
-  size?: string;
+  size?: { value: string; system: 'US' | 'EU' } | null;  // ArticleSize object, mirrored verbatim
   condition: string;
   price: number;
 
