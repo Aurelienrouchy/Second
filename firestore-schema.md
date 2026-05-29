@@ -430,12 +430,18 @@ interface TransactionDocument {
   sellerPayout?: number;         // What the seller receives
 
   // Status flow:
-  //   Shipping: pending_payment -> paid -> shipped -> delivered | cancelled | disputed | refunded
+  //   Shipping: pending_payment -> paid -> shipped -> delivered -> completed
+  //             | cancelled | disputed | refunded
+  //   Delivered funds enter a 7-day dispute window (heldBalance). At J+7 without
+  //   dispute, releaseHeldFunds moves delivered -> completed (heldBalance -> balance).
   //   Meetup:   meetup_pending -> meetup_confirmed -> meetup_completed | cancelled
   //   Failed:   pending_payment -> cancelled (via payment_failed webhook)
+  //   Dispute:  paid|shipped|delivered -> disputed -> (won: restore prev status)
+  //                                                  | (lost: refunded)
   status: 'pending_payment' | 'meetup_pending' | 'meetup_confirmed'
-        | 'meetup_completed' | 'paid' | 'shipped' | 'delivered'
-        | 'cancelled' | 'disputed' | 'refunded';
+        | 'meetup_completed' | 'paid' | 'shipped' | 'delivered' | 'completed'
+        | 'cancelled' | 'disputed' | 'refunded'
+        | 'delivery_failed' | 'lost';
 
   // Payment method
   paidVia?: 'wallet' | 'wallet_and_card';  // Set when wallet is used (absent = card-only destination charge)
