@@ -420,9 +420,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
         return;
       }
       try {
+        const cancelledTxData = 'txData' in result ? result.txData : {};
         await issueTransactionRefund(
           transactionId,
-          { ...result.txData, stripePaymentIntentId: paymentIntent.id },
+          { ...cancelledTxData, stripePaymentIntentId: paymentIntent.id },
           {
             reason: 'cancelled_payment_succeeded_late',
             idempotencyKey: `rf_${transactionId}`,
