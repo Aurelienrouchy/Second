@@ -179,3 +179,6 @@ export { sweepPendingLabels } from './scheduled/sweepPendingLabels';
 
 // Stripe Webhook (payment confirmation + Connect account updates)
 export { stripeWebhook } from './http/webhooks';
+
+// ShipEngine tracking webhook (primary tracking path; poller is the safety net)
+export { shipEngineWebhook } from './http/shipEngineWebhook';
