@@ -290,7 +290,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
         </BottomSheetScrollView>
 
         {/* ── Confirm footer ── */}
-        <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
+        <SheetFooter>
           <TouchableOpacity
             style={[
               styles.confirmButton,
@@ -304,7 +304,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
                 : 'VALIDER'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </SheetFooter>
         </BottomSheetView>
       </BottomSheet>
     );
