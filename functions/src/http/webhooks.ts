@@ -22,6 +22,7 @@ import { getStripe } from '../config/stripe';
 import { sendPushNotification } from '../utils/notifications';
 import { getOrCreateSellerWallet } from '../callable/wallet';
 import { creditSellerForSale, reconcileShippingCost } from '../utils/labelFulfillment';
+import { writeFailedOperation } from '../utils/failedOperations';
 
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
