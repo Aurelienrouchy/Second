@@ -2,19 +2,19 @@
  * ThemedBottomSheet Component
  * Design System: Luxe Français + Street
  *
- * Features:
- * - Glassmorphism backdrop (Revolut-style)
- * - Spring animations
- * - Haptic feedback on open
+ * Native bottom sheet (@expo/ui) — the scrim/backdrop, drag handle and
+ * open/close animations are provided by the platform (SwiftUI / Material3).
+ * Haptic feedback on open is preserved.
+ *
+ * Note: the previous glassmorphism BlurView backdrop and custom handle are
+ * not reproducible on native sheets (the system owns the backdrop and the
+ * drag indicator). `backgroundStyle.backgroundColor` is still honored.
  */
 
 import BottomSheet, {
-  BottomSheetBackdrop,
   BottomSheetView,
   BottomSheetModal,
-  BottomSheetModalProvider,
-} from '@gorhom/bottom-sheet';
-import { BlurView } from 'expo-blur';
+} from '@expo/ui/community/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import {
@@ -22,15 +22,9 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Platform,
 } from 'react-native';
-import Animated, {
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
 
-import { colors, radius, spacing, sizing, typography, shadows } from '@/constants/theme';
+import { colors, radius, spacing, typography, shadows } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -52,40 +46,6 @@ export interface ThemedBottomSheetRef {
   hide: () => void;
   snapToIndex: (index: number) => void;
 }
-
-// =============================================================================
-// CUSTOM BACKDROP WITH BLUR
-// =============================================================================
-
-const CustomBackdrop: React.FC<any> = ({ animatedIndex, style }) => {
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(animatedIndex.value, [-1, 0], [0, 1]),
-  }));
-
-  return (
-    <Animated.View style={[style, styles.backdrop, animatedStyle]}>
-      {Platform.OS === 'ios' ? (
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          intensity={20}
-          tint="dark"
-        />
-      ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]} />
-      )}
-    </Animated.View>
-  );
-};
-
-// =============================================================================
-// CUSTOM HANDLE
-// =============================================================================
-
-const CustomHandle: React.FC = () => (
-  <View style={styles.handleContainer}>
-    <View style={styles.handle} />
-  </View>
-);
 
 // =============================================================================
 // MAIN COMPONENT
@@ -146,27 +106,28 @@ export const ThemedBottomSheet = forwardRef<ThemedBottomSheetRef, ThemedBottomSh
         snapPoints={snapPoints}
         onChange={handleSheetChanges}
         enablePanDownToClose={enablePanDownToClose}
-        backdropComponent={CustomBackdrop}
-        handleComponent={showHandle ? CustomHandle : null}
+        handleComponent={showHandle ? undefined : null}
         backgroundStyle={styles.background}
         style={styles.sheet}
         enableDynamicSizing={false}
       >
-        {/* Header */}
-        {showHeader && title && (
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Pressable onPress={handleClose} hitSlop={8}>
-                <Text style={styles.closeButton}>Fermer</Text>
-              </Pressable>
+        <BottomSheetView style={styles.flex}>
+          {/* Header */}
+          {showHeader && title && (
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                <Pressable onPress={handleClose} hitSlop={8}>
+                  <Text style={styles.closeButton}>Fermer</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.title}>{title}</Text>
+              <View style={styles.headerRight}>{headerRight}</View>
             </View>
-            <Text style={styles.title}>{title}</Text>
-            <View style={styles.headerRight}>{headerRight}</View>
-          </View>
-        )}
+          )}
 
-        {/* Content */}
-        <BottomSheetView style={styles.content}>{children}</BottomSheetView>
+          {/* Content */}
+          <View style={styles.content}>{children}</View>
+        </BottomSheetView>
       </BottomSheet>
     );
   }
@@ -175,7 +136,7 @@ export const ThemedBottomSheet = forwardRef<ThemedBottomSheetRef, ThemedBottomSh
 ThemedBottomSheet.displayName = 'ThemedBottomSheet';
 
 // =============================================================================
-// MODAL VERSION (for use with BottomSheetModalProvider)
+// MODAL VERSION (opened imperatively via present() / dismiss())
 // =============================================================================
 
 export const ThemedBottomSheetModal = forwardRef<BottomSheetModal, ThemedBottomSheetProps>(
@@ -207,32 +168,30 @@ export const ThemedBottomSheetModal = forwardRef<BottomSheetModal, ThemedBottomS
         snapPoints={snapPoints}
         onDismiss={handleDismiss}
         enablePanDownToClose={enablePanDownToClose}
-        backdropComponent={CustomBackdrop}
-        handleComponent={showHandle ? CustomHandle : null}
+        handleComponent={showHandle ? undefined : null}
         backgroundStyle={styles.background}
         style={styles.sheet}
         enableDynamicSizing={false}
       >
-        {/* Header */}
-        {showHeader && title && (
-          <View style={styles.header}>
-            <View style={styles.headerLeft} />
-            <Text style={styles.title}>{title}</Text>
-            <View style={styles.headerRight}>{headerRight}</View>
-          </View>
-        )}
+        <BottomSheetView style={styles.flex}>
+          {/* Header */}
+          {showHeader && title && (
+            <View style={styles.header}>
+              <View style={styles.headerLeft} />
+              <Text style={styles.title}>{title}</Text>
+              <View style={styles.headerRight}>{headerRight}</View>
+            </View>
+          )}
 
-        {/* Content */}
-        <BottomSheetView style={styles.content}>{children}</BottomSheetView>
+          {/* Content */}
+          <View style={styles.content}>{children}</View>
+        </BottomSheetView>
       </BottomSheetModal>
     );
   }
 );
 
 ThemedBottomSheetModal.displayName = 'ThemedBottomSheetModal';
-
-// Re-export provider for convenience
-export { BottomSheetModalProvider };
 
 // =============================================================================
 // STYLES
@@ -242,26 +201,13 @@ const styles = StyleSheet.create({
   sheet: {
     ...shadows.elevated,
   },
+  flex: {
+    flex: 1,
+  },
   background: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-  },
-
-  // Handle
-  handleContainer: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    alignItems: 'center',
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
   },
 
   // Header
