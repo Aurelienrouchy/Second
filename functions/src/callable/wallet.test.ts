@@ -682,6 +682,8 @@ describe('walletWithdraw', () => {
     setDoc('users/user1', {
       stripeAccountId: 'acct_123',
       stripeChargesEnabled: true,
+      // Required by the payouts-enabled guard for a withdrawal that must SUCCEED.
+      stripePayoutsEnabled: true,
       stripeBankAccountLast4: '9876',
     });
     setDoc('wallets/user1', { balance: 1000, pendingBalance: 0, status: 'active' });
