@@ -9,20 +9,16 @@
  * Rust accent on confirm button.
  */
 
-import BottomSheet, { BottomSheetScrollView, BottomSheetView } from '@expo/ui/community/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFooter, BottomSheetScrollView, TouchableOpacity } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, fonts, spacing, typography } from '@/constants/theme';
-import { SheetFooter, SHEET_FOOTER_HEIGHT, SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
-
-const SNAP = '85%';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, fonts } from '@/constants/theme';
 
 export interface SelectionItem {
   value: string;
@@ -49,8 +45,8 @@ export interface SelectionBottomSheetRef {
 
 const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottomSheetProps>(
   ({ title, items, selectedValue, selectedValues = [], onSelect, onSelectMultiple, type = 'default', multiSelect = false, maxSelections }, ref) => {
-    const snapPoints = useMemo(() => [SNAP], []);
-    const sheetStyle = useSheetHeight(SNAP);
+    const insets = useSafeAreaInsets();
+    const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     const [localSelectedValues, setLocalSelectedValues] = React.useState<string[]>(selectedValues);
 
@@ -95,16 +91,50 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
       return selectedValue === value;
     }, [multiSelect, localSelectedValues, selectedValue]);
 
+    const renderBackdrop = useCallback(
+      (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
+      []
+    );
+
+    const renderFooter = useCallback(
+      (props: any) => {
+        if (!multiSelect) return null;
+        return (
+          <BottomSheetFooter {...props}>
+            <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  localSelectedValues.length === 0 && styles.confirmButtonDisabled,
+                ]}
+                onPress={handleConfirm}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {localSelectedValues.length > 0
+                    ? `VALIDER (${localSelectedValues.length})`
+                    : 'VALIDER'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </BottomSheetFooter>
+        );
+      },
+      [multiSelect, insets.bottom, localSelectedValues, handleConfirm]
+    );
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
+        footerComponent={renderFooter}
         enablePanDownToClose
+        topInset={insets.top}
+        handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
-        <BottomSheetView style={[styles.container, sheetStyle]}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -132,10 +162,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            {
-              paddingBottom:
-                SHEET_BOTTOM_INSET + 20 + (multiSelect ? SHEET_FOOTER_HEIGHT : 0),
-            },
+            { paddingBottom: multiSelect ? (80 + insets.bottom) : insets.bottom + 20 }
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -217,26 +244,6 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
             </View>
           )}
         </BottomSheetScrollView>
-
-        {/* ── Confirm footer (multi-select) ── */}
-        {multiSelect && (
-          <SheetFooter>
-            <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                localSelectedValues.length === 0 && styles.confirmButtonDisabled,
-              ]}
-              onPress={handleConfirm}
-            >
-              <Text style={styles.confirmButtonText}>
-                {localSelectedValues.length > 0
-                  ? `VALIDER (${localSelectedValues.length})`
-                  : 'VALIDER'}
-              </Text>
-            </TouchableOpacity>
-          </SheetFooter>
-        )}
-        </BottomSheetView>
       </BottomSheet>
     );
   }
@@ -250,8 +257,11 @@ const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: colors.surface,
   },
-  // height fixe appliqué inline (bornage au détent) — pas de flex:1 ici.
-  container: {},
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
+    width: 40,
+    height: 4,
+  },
 
   // ── Header ──
   header: {
@@ -393,6 +403,14 @@ const styles = StyleSheet.create({
   },
 
   // ── Confirm button ──
+  confirmContainer: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   confirmButton: {
     backgroundColor: colors.charcoal,
     paddingVertical: 16,
