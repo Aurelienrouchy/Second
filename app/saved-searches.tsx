@@ -65,7 +65,7 @@ function buildFilterTags(
   }
 
   if (filters.sizes && filters.sizes.length > 0) {
-    tags.push(filters.sizes.slice(0, 2).join(', '));
+    tags.push(filters.sizes.slice(0, 2).map((s) => s.value).join(', '));
     if (filters.sizes.length > 2) {
       tags.push(`+${filters.sizes.length - 2}`);
     }
