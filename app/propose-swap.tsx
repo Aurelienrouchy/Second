@@ -217,6 +217,10 @@ export default function ProposeSwapScreen() {
         return;
       }
 
+      // The UI captures the complement in DOLLARS; the backend expects CENTS.
+      const complementDollars = Number(complementAmount);
+      const complementCents = Math.round(complementDollars * 100);
+
       await proposeSwap({
         initiatorId: user.id,
         initiatorName: user.displayName || 'Utilisateur',
@@ -228,14 +232,13 @@ export default function ProposeSwapScreen() {
         receiverItems,
         message: message || undefined,
         cashTopUp:
-          Number(complementAmount) > 0
+          complementCents > 0
             ? {
-                amount: Number(complementAmount),
-                payerId:
-                  complementPayer === 'initiator' ? user.id : receiverId || '',
+                amount: complementCents,
+                payerId: complementPayer === 'initiator' ? user.id : receiverId || '',
               }
             : undefined,
-        partyId,
+        partyId: effectivePartyId,
       });
 
       Alert.alert(
