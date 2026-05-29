@@ -222,6 +222,22 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
       ]
     },
     {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "fundsReleaseAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sellerId", "order": "ASCENDING" },
+        { "fieldPath": "disputed", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "swaps",
       "queryScope": "COLLECTION",
       "fields": [
