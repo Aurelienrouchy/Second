@@ -551,8 +551,11 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
+        ledgerEntryId: expect.any(String),
       },
     });
+    // Deterministic idempotency key derived from the ledger entry id
+    expect(transferArgs[1]).toEqual({ idempotencyKey: expect.stringMatching(/^tr_/) });
 
     expect(payoutArgs[0]).toEqual({
       amount: 2000,
@@ -560,9 +563,15 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
+        ledgerEntryId: expect.any(String),
       },
     });
-    expect(payoutArgs[1]).toEqual({ stripeAccount: 'acct_123' });
+    // stripe-node v22: single RequestOptions object carries both the Connect
+    // account selection and the deterministic idempotency key.
+    expect(payoutArgs[1]).toEqual({
+      stripeAccount: 'acct_123',
+      idempotencyKey: expect.stringMatching(/^po_/),
+    });
   });
 
   it('reverts wallet debit when Stripe transfer fails', async () => {
