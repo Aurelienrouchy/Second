@@ -219,9 +219,4 @@ const styles = StyleSheet.create({
   productSizeDark: {
     color: colors.whiteTranslucent,
   },
-  // The image ratio token is referenced to satisfy the DS "derive from tokens"
-  // rule; the 3/4 grid ratio is the established Swap Zone product ratio.
-  _imageRatioRef: {
-    aspectRatio: components.card.imageRatio,
-  },
 });
