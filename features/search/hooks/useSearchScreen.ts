@@ -193,7 +193,15 @@ export function useSearchScreen() {
     if (item.filters.categoryIds) {
       setSelectedCategoryPath(item.filters.categoryIds);
     }
+    // M6 — keep the sort chip in sync with the restored sort.
     setSelectedSort((item.filters?.sortBy as SortBy) || 'recent');
+    // M7 — keep the price inputs in sync with the restored range.
+    setMinPriceText(
+      item.filters?.minPrice !== undefined ? String(item.filters.minPrice) : ''
+    );
+    setMaxPriceText(
+      item.filters?.maxPrice !== undefined ? String(item.filters.maxPrice) : ''
+    );
     setIsSearching(true);
     setActiveSearchQuery(item.query || '');
   }, [setActiveSearchQuery, setFilters, setSelectedCategoryPath]);
