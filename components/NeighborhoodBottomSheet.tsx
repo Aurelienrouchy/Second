@@ -1,4 +1,4 @@
-import BottomSheet, { BottomSheetBackdrop, BottomSheetSectionList } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetSectionList } from '@expo/ui/community/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
 import {
@@ -8,7 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NEIGHBORHOODS_BY_BOROUGH, searchNeighborhoods } from '@/data/neighborhoods';
 import { MeetupNeighborhood } from '@/types';
