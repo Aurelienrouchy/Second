@@ -222,7 +222,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
 
         {/* ── Confirm footer (multi-select) ── */}
         {multiSelect && (
-          <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <SheetFooter>
             <TouchableOpacity
               style={[
                 styles.confirmButton,
@@ -236,7 +236,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
                   : 'VALIDER'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </SheetFooter>
         )}
         </BottomSheetView>
       </BottomSheet>
