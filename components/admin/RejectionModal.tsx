@@ -64,8 +64,12 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
         enablePanDownToClose
         enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="none"
+        android_keyboardInputMode="adjustResize"
       >
         <BottomSheetView style={styles.container}>
           {/* Header */}
