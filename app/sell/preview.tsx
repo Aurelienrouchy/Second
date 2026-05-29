@@ -168,7 +168,9 @@ export default function PreviewScreen() {
         isShipping: pricing.isShipping,
       };
 
-      if (fields.size) articleData.size = fields.size;
+      // Vendor input stays on the EU grid (no system toggle this lot), so we
+      // tag the system explicitly. Omit when empty (never undefined in Firestore).
+      if (fields.size) articleData.size = { value: fields.size, system: 'EU' as const };
       if (fields.brand) articleData.brand = fields.brand;
 
       // Colors — multi-select with backward compat (C2)
