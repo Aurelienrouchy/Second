@@ -177,212 +177,32 @@ export const expireOrphanedTransactions = onSchedule(
         .collection('transactions')
         .where('status', '==', 'paid')
         .where('createdAt', '<', paidCutoff)
+        .limit(MAX_PER_RUN)
         .get();
 
       if (!paidSnap.empty) {
         const stripe = getStripe();
+        let paidExpired = 0;
 
-        for (const doc of paidSnap.docs) {
-          const data = doc.data();
-          const transactionId = doc.id;
-
-          // P1 (atomicity payment<->label): a transaction still awaiting its
-          // shipping label is owned by sweepPendingLabels (re-rate + retry, then
-          // refund after N attempts). Do NOT expire/refund it here — the seller
-          // was never credited and the sweep handles the eventual refund itself.
-          // Excluded until the sweep resolves the flag (sets shipped or refunds).
-          if (data.labelCreationPending === true) {
-            logger.info('[expireOrphanedTransactions] skipping labelCreationPending tx (owned by sweepPendingLabels)', {
-              transactionId,
-            });
-            continue;
-          }
-
-          try {
-            // --- Stripe refund (card portion) ---
-            if (data.stripePaymentIntentId && stripe) {
-              try {
-                // Destination charges (card-only purchases) were created with
-                // transfer_data + application_fee_amount, so the seller's Connect
-                // account already received the funds. A plain refund would leave
-                // that money with the seller while the wallet ledger is debited =>
-                // platform absorbs the loss. We MUST reverse the transfer and the
-                // application fee.
-                //
-                // Mixed wallet+card charges are direct platform charges (NO
-                // transfer_data / application_fee_amount), so there is nothing to
-                // reverse — passing reverse_transfer would error.
-                const isMixedCharge =
-                  data.paidVia === 'wallet_and_card' || data.paidVia === 'mixed';
-                await stripe.refunds.create(
-                  {
-                    payment_intent: data.stripePaymentIntentId,
-                    // Destination-charge (card-only) refunds must claw the funds
-                    // back from the seller's Connect account and the application
-                    // fee. Mixed wallet+card charges are direct platform charges
-                    // with no transfer, so these flags are omitted there.
-                    ...(isMixedCharge
-                      ? {}
-                      : { reverse_transfer: true, refund_application_fee: true }),
-                  },
-                  // Deterministic key tied to the transaction so a re-run of the
-                  // scheduler never issues a second refund for the same purchase.
-                  { idempotencyKey: `rf_${transactionId}` }
-                );
-                logger.info('[expireOrphanedTransactions] Stripe refund created', {
-                  transactionId,
-                  paymentIntentId: data.stripePaymentIntentId,
-                  reverseTransfer: !isMixedCharge,
-                });
-              } catch (refundErr) {
-                // Log but continue — the transaction should still be cancelled
-                // and wallet refunded even if the Stripe refund fails.
-                // Manual reconciliation may be needed.
-                logger.error('[expireOrphanedTransactions] Stripe refund failed', {
-                  transactionId,
-                  paymentIntentId: data.stripePaymentIntentId,
-                  error: refundErr instanceof Error ? refundErr.message : refundErr,
-                });
-              }
+        // Each doc issues a Stripe refund (network) + runTransactions, so we
+        // process in small concurrent lots and isolate failures with
+        // Promise.allSettled (one bad refund never aborts the rest).
+        for (let i = 0; i < paidSnap.docs.length; i += STRIPE_LOT_SIZE) {
+          const lot = paidSnap.docs.slice(i, i + STRIPE_LOT_SIZE);
+          const results = await Promise.allSettled(
+            lot.map((doc) => refundPaidNotShipped(doc, stripe))
+          );
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) {
+              paidExpired++;
+              totalExpired++;
             }
-
-            // --- Wallet refund (if applicable) + cancel + release article ---
-            const paidVia = data.paidVia;
-            const walletAmountUsed = data.walletAmountUsed || 0; // in cents
-            const hasWalletPortion =
-              walletAmountUsed > 0 &&
-              (paidVia === 'wallet' || paidVia === 'wallet_and_card' || paidVia === 'mixed');
-
-            await db.runTransaction(async (tx) => {
-              const txSnap = await tx.get(doc.ref);
-              const txData = txSnap.data();
-
-              // Idempotence: skip if already cancelled or in a terminal state
-              if (!txData || txData.status !== 'paid') {
-                return;
-              }
-
-              // Read buyer wallet if wallet was used (reads before writes)
-              let buyerWalletSnap = null;
-              const buyerWalletRef = hasWalletPortion
-                ? db.collection('wallets').doc(data.buyerId)
-                : null;
-              if (buyerWalletRef) {
-                buyerWalletSnap = await tx.get(buyerWalletRef);
-              }
-
-              // Read seller wallet to debit pendingBalance
-              const sellerWalletRef = data.sellerId
-                ? db.collection('wallets').doc(data.sellerId)
-                : null;
-              let sellerWalletSnap = null;
-              if (sellerWalletRef) {
-                sellerWalletSnap = await tx.get(sellerWalletRef);
-              }
-
-              // Read article if exists
-              let articleSnap = null;
-              const articleRef = data.articleId
-                ? db.collection('articles').doc(data.articleId)
-                : null;
-              if (articleRef) {
-                articleSnap = await tx.get(articleRef);
-              }
-
-              // --- Writes ---
-
-              // 1. Cancel the transaction
-              tx.update(doc.ref, {
-                status: 'cancelled',
-                cancelledAt: FieldValue.serverTimestamp(),
-                cancelReason: 'seller_did_not_ship_7d',
-                refundedAt: FieldValue.serverTimestamp(),
-              });
-
-              // 2. Release the article
-              if (articleRef && articleSnap && articleSnap.exists) {
-                tx.update(articleRef, { isSold: false });
-              }
-
-              // 3. Debit seller pendingBalance
-              if (sellerWalletRef && sellerWalletSnap && sellerWalletSnap.exists) {
-                const sellerWalletData = sellerWalletSnap.data()!;
-                const sellerPayout = data.sellerPayout || data.amount || 0;
-                const sellerPayoutCents = Math.round(sellerPayout * 100);
-                const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
-
-                if (deduction > 0) {
-                  tx.update(sellerWalletRef, {
-                    pendingBalance: FieldValue.increment(-deduction),
-                    updatedAt: FieldValue.serverTimestamp(),
-                  });
-
-                  const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-                  tx.set(sellerLedgerRef, {
-                    type: 'refund_debit',
-                    amount: deduction,
-                    balanceAfter: (sellerWalletData.pendingBalance || 0) - deduction,
-                    description: 'Annulation — vendeur n\'a pas expédié',
-                    transactionId,
-                    createdAt: FieldValue.serverTimestamp(),
-                  });
-                }
-              }
-
-              // 4. Refund wallet portion to buyer
-              if (hasWalletPortion && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
-                const walletData = buyerWalletSnap.data()!;
-                tx.update(buyerWalletRef, {
-                  balance: FieldValue.increment(walletAmountUsed),
-                  updatedAt: FieldValue.serverTimestamp(),
-                });
-
-                const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
-                tx.set(buyerLedgerRef, {
-                  type: 'refund_credit',
-                  amount: walletAmountUsed,
-                  balanceAfter: (walletData.balance || 0) + walletAmountUsed,
-                  description: 'Remboursement — vendeur n\'a pas expedie',
-                  transactionId,
-                  createdAt: FieldValue.serverTimestamp(),
-                });
-
-                logger.info('[expireOrphanedTransactions] Wallet portion refunded', {
-                  transactionId,
-                  buyerId: data.buyerId,
-                  walletAmountRefunded: walletAmountUsed,
-                });
-              }
-            });
-
-            totalExpired++;
-
-            // Notify buyer that the order was cancelled and refunded (non-blocking)
-            if (data.buyerId) {
-              const articleTitle = data.articleTitle || 'votre article';
-              sendPushNotification(
-                data.buyerId,
-                'Commande annulee et remboursee',
-                `Votre commande ${articleTitle} a ete annulee car le vendeur n'a pas expedie dans les delais. Le remboursement est en cours.`,
-                { transactionId, articleId: data.articleId || '' },
-                'order_cancelled'
-              ).catch((err) => {
-                logger.warn('[expireOrphanedTransactions] Failed to notify buyer of paid expiry', {
-                  transactionId,
-                  error: err instanceof Error ? err.message : err,
-                });
-              });
-            }
-          } catch (txError) {
-            // Log per-transaction error and continue with the rest
-            logger.error('[expireOrphanedTransactions] Error processing paid-not-shipped transaction', {
-              transactionId,
-              error: txError instanceof Error ? txError.message : txError,
-            });
           }
         }
 
-        logger.info(`[expireOrphanedTransactions] Expired ${paidSnap.size} paid-not-shipped transactions (7d)`);
+        logger.info(
+          `[expireOrphanedTransactions] Expired ${paidExpired}/${paidSnap.size} paid-not-shipped transactions (7d)`
+        );
       }
     } catch (error) {
       logger.error('[expireOrphanedTransactions] Error expiring paid-not-shipped transactions', {
