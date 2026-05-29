@@ -123,16 +123,21 @@ function RecourseReasonSheetInner<Code extends string = string>(
       ref={bottomSheetRef}
       index={0}
       snapPoints={snapPoints}
+      backdropComponent={renderBackdrop}
       enablePanDownToClose
       enableDynamicSizing={false}
+      topInset={insets.top}
+      handleIndicatorStyle={styles.handleIndicator}
       backgroundStyle={styles.background}
       onChange={handleChange}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="none"
+      android_keyboardInputMode="adjustResize"
     >
       <BottomSheetScrollView
-        style={sheetStyle}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: SHEET_BOTTOM_INSET + spacing.xl },
+          { paddingBottom: insets.bottom + spacing.xl },
         ]}
       >
         <Text style={styles.title}>{title}</Text>
