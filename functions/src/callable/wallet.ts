@@ -214,6 +214,11 @@ export const getWalletInfo = onCall(
         hasWallet: true,
         balance: walletData.balance,
         pendingBalance: walletData.pendingBalance,
+        // 3-bucket model: heldBalance = livré, dans la fenêtre de protection 7j
+        // (non retirable) ; sellerDebt = dû après litige perdu/refund insuffisant
+        // (bloque les retraits). Exposés pour l'UI porte-monnaie.
+        heldBalance: walletData.heldBalance ?? 0,
+        sellerDebt: walletData.sellerDebt ?? 0,
         currency: walletData.currency,
         status: walletData.status,
         activatedAt: walletData.activatedAt?.toDate?.()?.toISOString() || null,
