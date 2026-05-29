@@ -26,6 +26,73 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 const CA_POSTAL_RE = /^[A-Z]\d[A-Z]\d[A-Z]\d$/;
 
+// The 13 Canadian province / territory codes (Stripe + Canada Post standard).
+const CA_PROVINCE_CODES = new Set([
+  'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT',
+]);
+
+/**
+ * Validates a buyer shipping address server-side for a Canadian shipping label.
+ *
+ * Mirrors the strictness of the seller onboarding postal-code check
+ * (createStripeConnectAccount): a label must carry a real, deliverable
+ * destination or `createLabel` will fail AFTER the buyer has been charged.
+ *
+ * Returns the normalized fields on success, or throws HttpsError
+ * 'invalid-argument' (the caller validates BEFORE locking the article /
+ * capturing payment).
+ *
+ * NOTE: never trust the client `country` — we force CA and reject anything else.
+ */
+function validateBuyerShippingAddress(raw: unknown): {
+  street: string;
+  city: string;
+  province: string;
+  postalCode: string;
+} {
+  if (!raw || typeof raw !== 'object') {
+    throw new HttpsError('invalid-argument', 'L\'adresse de livraison est requise');
+  }
+  const addr = raw as Record<string, unknown>;
+
+  // Country must be Canada (default + only supported destination).
+  const country = (addr.country ?? 'CA').toString().trim().toUpperCase();
+  if (country !== 'CA') {
+    throw new HttpsError(
+      'invalid-argument',
+      'Seules les adresses de livraison canadiennes sont prises en charge'
+    );
+  }
+
+  const street = (addr.street ?? '').toString().trim();
+  if (street.length === 0) {
+    throw new HttpsError('invalid-argument', 'La rue de livraison est requise');
+  }
+
+  const city = (addr.city ?? '').toString().trim();
+  if (city.length === 0) {
+    throw new HttpsError('invalid-argument', 'La ville de livraison est requise');
+  }
+
+  const province = (addr.province ?? '').toString().trim().toUpperCase();
+  if (!CA_PROVINCE_CODES.has(province)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'La province de livraison est invalide (code a 2 lettres requis, ex: QC)'
+    );
+  }
+
+  const postalCode = (addr.postalCode ?? '').toString().replace(/\s/g, '').toUpperCase();
+  if (!CA_POSTAL_RE.test(postalCode)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Le code postal de livraison est invalide (format A1A 1A1)'
+    );
+  }
+
+  return { street, city, province, postalCode };
+}
+
 /**
  * Resolves the seller's real shipping origin address from their profile,
  * with a last-resort fallback to the article's denormalized `location`.
