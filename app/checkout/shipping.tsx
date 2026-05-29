@@ -149,6 +149,16 @@ export default function ShippingCheckoutScreen() {
     [],
   );
 
+  // --- Navigate to hand-delivery (meetup) checkout ---------------------------
+
+  const goToMeetup = useCallback(() => {
+    if (!article) return;
+    router.replace({
+      pathname: '/checkout/meetup' as any,
+      params: { articleId: article.id },
+    });
+  }, [article, router]);
+
   // --- Load article ----------------------------------------------------------
 
   useEffect(() => {
