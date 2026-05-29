@@ -154,17 +154,16 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
         index={0}
         snapPoints={snapPoints}
         enablePanDownToClose
+        backdropComponent={renderBackdrop}
         backgroundStyle={styles.bottomSheetBackground}
+        handleIndicatorStyle={styles.handleIndicator}
         enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="none"
+        android_keyboardInputMode="adjustResize"
         onChange={(index) => { if (index === -1) setIsOpen(false); }}
       >
-        <BottomSheetScrollView
-          style={sheetStyle}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: SHEET_BOTTOM_INSET + 40 },
-          ]}
-        >
+        <BottomSheetScrollView contentContainerStyle={styles.content}>
             <View style={styles.header}>
               <Ionicons name="flag" size={24} color="#ff4757" />
               <Text style={styles.title}>{getTitle()}</Text>
