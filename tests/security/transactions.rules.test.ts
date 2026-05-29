@@ -75,4 +75,74 @@ describe('transactions rules', () => {
       updateDoc(doc(db, 'transactions', TX_ID), { status: 'cancelled' }),
     );
   });
+
+  it('allows seller meetup confirmation with meetupConfirmedAt + updatedAt', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'transactions', TX_ID), {
+        status: 'meetup_confirmed',
+        meetupConfirmedAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  it('denies buyer self-confirming a meetup (seller-only)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { status: 'meetup_confirmed' }),
+    );
+  });
+
+  it('denies client setting disputed=true (CF-only sensitive field)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { disputed: true }),
+    );
+  });
+
+  it('denies client setting fundsReleaseAt (escrow release is CF-only)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { fundsReleaseAt: new Date() }),
+    );
+  });
+
+  it('denies client writing trackingNumber (shipping is CF-only)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { trackingNumber: 'fake-1Z' }),
+    );
+  });
+
+  it('denies client clearing labelCreationPending (CF-only sensitive field)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { labelCreationPending: false }),
+    );
+  });
+
+  it('denies client mutating meetupSpot (immutable after creation)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), {
+        meetupSpot: { name: 'X', address: 'Y', category: 'cafe' },
+      }),
+    );
+  });
+
+  it('denies client lowering the transaction amount', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { amount: 1 }),
+    );
+  });
 });
