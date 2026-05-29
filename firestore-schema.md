@@ -467,7 +467,10 @@ interface TransactionDocument {
   status: 'pending_payment' | 'meetup_pending' | 'meetup_confirmed'
         | 'meetup_completed' | 'paid' | 'label_created' | 'shipped'
         | 'delivered' | 'completed' | 'cancelled' | 'disputed' | 'refunded'
-        | 'delivery_failed' | 'lost';
+        | 'refund_in_progress' | 'delivery_failed' | 'lost';
+        // 'refund_in_progress' (P1): transient state during the seller-no-ship
+        // 3-phase refund (Stripe refund issued, wallet movements pending). Always
+        // resolves to 'refunded' within the same or a subsequent scheduled run.
 
   // Payment method
   paidVia?: 'wallet' | 'wallet_and_card';  // Set when wallet is used (absent = card-only destination charge)
