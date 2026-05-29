@@ -656,7 +656,7 @@ export interface SwapPartyItem {
 // Extended SwapPartyItem with full Article metadata for filtering
 export interface SwapPartyItemExtended extends SwapPartyItem {
   categoryIds?: string[];
-  size?: string;
+  size?: ArticleSize | null;
   brand?: string;
   color?: string;
   material?: string;
