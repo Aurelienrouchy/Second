@@ -141,9 +141,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
         index={0}
         snapPoints={snapPoints}
         enablePanDownToClose
-        backdropComponent={renderBackdrop}
         backgroundStyle={styles.bottomSheetBackground}
-        handleIndicatorStyle={styles.handleIndicator}
         enableDynamicSizing={false}
         onChange={(index) => { if (index === -1) setIsOpen(false); }}
       >
