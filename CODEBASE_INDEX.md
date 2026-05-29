@@ -31,10 +31,11 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/my-sales` | `my-sales.tsx` | Mes ventes (vendeur) |
 | `/my-swaps` | `my-swaps.tsx` | Mes échanges |
 | `/liked-sellers` | `liked-sellers.tsx` | Vendeurs suivis |
-| `/propose-swap` | `propose-swap.tsx` | Proposer un échange |
-| `/swap/[id]` | `swap/[id].tsx` | Détail échange |
-| `/swap-parties` | `swap-parties.tsx` | Liste swap parties |
-| `/swap-party/[id]` | `swap-party/[id].tsx` | Détail swap party |
+| `/propose-swap` | `propose-swap.tsx` | Proposer un échange (multi-articles 1 vendeur + complément $ Stripe) |
+| `/swap/[id]` | `swap/[id].tsx` | Détail échange (+ paiement complément Stripe si payment_pending) |
+| `/swap-zone` | `swap-zone.tsx` | Swap Zone généraliste (dark, filtres canoniques, dépôt + troc) |
+| `/swap-parties` | `swap-parties.tsx` | Legacy → Redirect `/swap-zone` |
+| `/swap-party/[id]` | `swap-party/[id].tsx` | Legacy → Redirect `/swap-zone` |
 | `/shop/[id]` | `shop/[id].tsx` | Boutique vendeur |
 | `/user/[id]` | `user/[id].tsx` | Profil public |
 | `/payment/[txId]` | `payment/[transactionId].tsx` | Paiement Stripe |
