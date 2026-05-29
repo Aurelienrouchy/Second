@@ -424,130 +424,160 @@ export class ArticlesService {
     filters: Parameters<typeof ArticlesService.searchArticles>[1],
     limitCount: number,
     lastVisible: QueryDocumentSnapshot | undefined,
-    sortBy: 'recent' | 'price_asc' | 'price_desc' | 'popular',
-  ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
+    // sortBy is intentionally unused on the text-search path: the only usable
+    // server order with `keywords array-contains` is popularityScore DESC, and
+    // the UI hides price/date sort while a text term is present. Re-sorting only
+    // the current page client-side would corrupt the global order and skip docs.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _sortBy: 'recent' | 'price_asc' | 'price_desc' | 'popular',
+  ): Promise<SearchPage> {
     const searchIndexRef = collection(firestore, 'search_index');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const constraints: any[] = [];
 
-    if (trimmedSearch.length > 0) {
-      // Tokenize and use first keyword for array-contains (Firestore limit: 1 per query)
-      const keywords = trimmedSearch.toLowerCase().split(/\s+/);
-      const firstKeyword = keywords[0];
-      constraints.push(where('keywords', 'array-contains', firstKeyword));
-      // The only composite index with keywords is: keywords CONTAINS + popularityScore DESC
-      // So we always sort by popularityScore for keyword queries at the Firestore level,
-      // then re-sort client-side if a different sort was requested.
-      constraints.push(orderBy('popularityScore', 'desc'));
-    } else {
-      // No search term but sortBy=popular -> use isActive+isSold+popularityScore index
-      constraints.push(where('isActive', '==', true));
-      constraints.push(where('isSold', '==', false));
+    const hasTerm = trimmedSearch.length > 0;
 
-      if (filters?.category) {
-        constraints.push(where('category', '==', filters.category));
+    // Normalize the search term exactly like the indexer (NFD + strip accents
+    // + strip punctuation). The first normalized keyword drives the Firestore
+    // `array-contains`; the remaining ones are matched client-side against the
+    // doc's `keywords` (which already contains the description tokens).
+    const normalized = hasTerm ? normalizeSearchText(trimmedSearch) : '';
+    const keywords = normalized.split(' ').filter(Boolean);
+    const firstKeyword = keywords[0];
+    const remainingKeywords = keywords.slice(1);
+
+    // Build the immutable part of the query (everything except the cursor).
+    const buildConstraints = (
+      cursor: QueryDocumentSnapshot | undefined,
+      fetchLimit: number,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ): any[] => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const constraints: any[] = [];
+
+      if (hasTerm && firstKeyword) {
+        constraints.push(where('keywords', 'array-contains', firstKeyword));
+        // Only usable composite index: keywords CONTAINS + popularityScore DESC.
+        constraints.push(orderBy('popularityScore', 'desc'));
+      } else {
+        // No search term but sortBy=popular -> isActive+isSold(+condition)+popularityScore
+        constraints.push(where('isActive', '==', true));
+        constraints.push(where('isSold', '==', false));
+
+        if (filters?.category) {
+          constraints.push(where('category', '==', filters.category));
+        }
+        if (filters?.condition) {
+          constraints.push(where('condition', '==', filters.condition));
+        }
+
+        constraints.push(orderBy('popularityScore', 'desc'));
       }
-      if (filters?.condition) {
-        constraints.push(where('condition', '==', filters.condition));
+
+      constraints.push(firestoreLimit(fetchLimit));
+      if (cursor) {
+        constraints.push(startAfter(cursor));
       }
+      return constraints;
+    };
 
-      constraints.push(orderBy('popularityScore', 'desc'));
-    }
-
-    // Client-side filters that search_index doesn't have composite indexes for:
-    // categoryIds, colors, sizes, materials, brands, patterns, remaining keywords, sellerId, price range
+    // Client-side filters that search_index has no composite index for.
     const hasClientSideFilter = !!(
-      trimmedSearch.length > 0 ||
+      hasTerm ||
       (filters?.categoryIds && filters.categoryIds.length > 0) ||
       (filters?.colors && filters.colors.length > 0) ||
       (filters?.sizes && filters.sizes.length > 0) ||
       (filters?.materials && filters.materials.length > 0) ||
       (filters?.brands && filters.brands.length > 0) ||
-      (filters?.patterns && filters.patterns.length > 0) ||
       filters?.sellerId ||
       filters?.minPrice !== undefined ||
       filters?.maxPrice !== undefined
     );
     const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount;
-    constraints.push(firestoreLimit(fetchLimit));
 
-    if (lastVisible) {
-      constraints.push(startAfter(lastVisible));
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const matchDoc = (data: Record<string, any>): boolean => {
+      // The keywords array-contains query doesn't constrain isActive/isSold.
+      if (hasTerm && (!data.isActive || data.isSold)) return false;
 
-    const q = query(searchIndexRef, ...constraints);
-    const querySnapshot = await getDocs(q);
+      if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return false;
+      if (filters?.sellerId && data.sellerId !== filters.sellerId) return false;
 
-    if (__DEV__) {
-      console.log('search_index docs fetched:', querySnapshot.docs.length);
-    }
-
-    const remainingKeywords = trimmedSearch.length > 0
-      ? trimmedSearch.toLowerCase().split(/\s+/).slice(1)
-      : [];
-
-    const articles: Article[] = [];
-
-    querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
-      const data = docSnap.data();
-
-      // search_index keywords query doesn't filter isActive/isSold when using array-contains
-      if (trimmedSearch.length > 0) {
-        if (!data.isActive || data.isSold) return;
-      }
-
-      if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return;
-      if (filters?.sellerId && data.sellerId !== filters.sellerId) return;
-
-      // Remaining keyword matching on titleLowercase and brand
+      // M2: every remaining word must be present in the doc's keywords
+      // (keywords already include description tokens), not just title/brand.
       if (remainingKeywords.length > 0) {
-        const title = (data.titleLowercase || '') as string;
-        const brand = ((data.brand || '') as string).toLowerCase();
-        const allMatch = remainingKeywords.every(
-          kw => title.includes(kw) || brand.includes(kw),
-        );
-        if (!allMatch) return;
+        const docKeywords: string[] = Array.isArray(data.keywords) ? data.keywords : [];
+        const allMatch = remainingKeywords.every((kw) => docKeywords.includes(kw));
+        if (!allMatch) return false;
       }
 
+      // Category filter via canonical hierarchical IDs only (no legacy fallback).
       if (filters?.categoryIds && filters.categoryIds.length > 0) {
         const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
         const docCategoryIds: string[] = data.categoryIds || [];
-        if (!docCategoryIds.includes(targetCategoryId)) {
-          if (data.category !== targetCategoryId) return;
+        if (!docCategoryIds.includes(targetCategoryId)) return false;
+      } else if (hasTerm && filters?.category) {
+        if (data.category !== filters.category) return false;
+      }
+
+      if (hasTerm && filters?.condition) {
+        if (data.condition !== filters.condition) return false;
+      }
+
+      if (filters?.minPrice !== undefined && data.price < filters.minPrice) return false;
+      if (filters?.maxPrice !== undefined && data.price > filters.maxPrice) return false;
+
+      return this.matchesClientSideFilters(data, filters);
+    };
+
+    const matches: Article[] = [];
+    let cursor = lastVisible;
+    let lastFetchedDoc: QueryDocumentSnapshot | null = null;
+    let lastBatchFull = false;
+    let exhausted = false;
+
+    for (let batch = 0; batch < MAX_REFILL_BATCHES; batch++) {
+      const q = query(searchIndexRef, ...buildConstraints(cursor, fetchLimit));
+      const snap = await getDocs(q);
+
+      if (__DEV__) {
+        console.log('search_index docs fetched:', snap.docs.length, 'batch', batch);
+      }
+
+      lastBatchFull = snap.docs.length === fetchLimit;
+      if (snap.docs.length > 0) {
+        lastFetchedDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot;
+        cursor = lastFetchedDoc;
+      }
+
+      snap.forEach((docSnap: QueryDocumentSnapshot) => {
+        const data = docSnap.data();
+        if (matchDoc(data)) {
+          matches.push(this.mapSearchIndexToArticle(docSnap.id, data));
         }
-      } else if (trimmedSearch.length > 0 && filters?.category) {
-        if (data.category !== filters.category) return;
+      });
+
+      if (!lastBatchFull) {
+        exhausted = true;
+        break;
       }
-
-      if (trimmedSearch.length > 0 && filters?.condition) {
-        if (data.condition !== filters.condition) return;
-      }
-
-      if (filters?.minPrice !== undefined && data.price < filters.minPrice) return;
-      if (filters?.maxPrice !== undefined && data.price > filters.maxPrice) return;
-
-      if (!this.matchesClientSideFilters(data, filters)) return;
-
-      articles.push(this.mapSearchIndexToArticle(docSnap.id, data));
-    });
-
-    // Re-sort client-side when sort differs from Firestore orderBy (popularityScore)
-    if (sortBy !== 'popular') {
-      this.sortArticles(articles, sortBy);
+      if (matches.length >= limitCount) break;
     }
 
-    const limitedArticles = articles.slice(0, limitCount);
+    const limitedArticles = matches.slice(0, limitCount);
 
-    const lastFilteredArticle = limitedArticles[limitedArticles.length - 1];
-    const lastVisibleDoc = lastFilteredArticle
-      ? (querySnapshot.docs.find(d => d.id === lastFilteredArticle.id) as QueryDocumentSnapshot) ?? null
-      : null;
+    // hasMore: we still believe there are more results to page through.
+    // True when the page is full AND the last Firestore batch was full (more docs
+    // exist) AND we did not stop because the collection was exhausted.
+    const hasMore = matches.length >= limitCount && lastBatchFull && !exhausted
+      ? true
+      : matches.length >= limitCount && lastBatchFull;
 
     if (__DEV__) {
-      console.log('search_index results:', limitedArticles.length, 'articles');
+      console.log('search_index results:', limitedArticles.length, 'articles, hasMore', hasMore);
     }
 
-    return { articles: limitedArticles, lastVisible: lastVisibleDoc };
+    // Cursor is the last document FETCHED from Firestore (server order), never
+    // the last retained article, so pagination resumes correctly.
+    return { articles: limitedArticles, lastVisible: lastFetchedDoc, hasMore };
   }
 
   /**
