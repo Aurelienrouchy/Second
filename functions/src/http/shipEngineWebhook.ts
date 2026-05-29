@@ -98,15 +98,43 @@ export const shipEngineWebhook = onRequest(
     }
 
     try {
-      // Find the transaction by tracking number. trackingNumber is effectively
-      // unique per parcel; auto-index on equality is sufficient here.
+      const mapped = ShipEngineClient.mapStatus(statusCode);
+
+      // Find the transaction by FORWARD-leg tracking number. trackingNumber is
+      // effectively unique per parcel; auto-index on equality is sufficient.
       const snap = await db
         .collection('transactions')
         .where('trackingNumber', '==', trackingNumber)
         .limit(1)
         .get();
 
-      if (snap.empty) {
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        const transactionId = doc.id;
+        const result = await applyTrackingOutcome(transactionId, mapped, 'webhook');
+
+        logger.info('[shipEngineWebhook] tracking applied', {
+          transactionId,
+          trackingNumber,
+          statusCode,
+          mapped,
+          outcome: result.kind,
+          changed: 'changed' in result ? result.changed : false,
+        });
+
+        res.json({ received: true, transactionId, outcome: result.kind });
+        return;
+      }
+
+      // No forward-leg match: this may be a RETURN parcel. Match by the
+      // returnTrackingNumber stored at requestReturn time.
+      const returnSnap = await db
+        .collection('transactions')
+        .where('returnTrackingNumber', '==', trackingNumber)
+        .limit(1)
+        .get();
+
+      if (returnSnap.empty) {
         logger.info('[shipEngineWebhook] no transaction for tracking number', {
           trackingNumber,
         });
@@ -114,22 +142,35 @@ export const shipEngineWebhook = onRequest(
         return;
       }
 
-      const doc = snap.docs[0];
-      const transactionId = doc.id;
-      const mapped = ShipEngineClient.mapStatus(statusCode);
+      const returnDoc = returnSnap.docs[0];
+      const transactionId = returnDoc.id;
 
-      const result = await applyTrackingOutcome(transactionId, mapped, 'webhook');
+      // DELIVERED on the return leg = seller received the item back -> refund the
+      // buyer (total - returnLabelCost), debit the seller. Idempotent.
+      if (mapped === 'DELIVERED') {
+        const returnResult = await processReturnDelivered(transactionId, 'webhook');
+        logger.info('[shipEngineWebhook] return delivered processed', {
+          transactionId,
+          trackingNumber,
+          refunded: returnResult.refunded,
+          alreadyRefunded: returnResult.alreadyRefunded ?? false,
+        });
+        res.json({ received: true, transactionId, outcome: 'return_refunded' });
+        return;
+      }
 
-      logger.info('[shipEngineWebhook] tracking applied', {
+      // Non-DELIVERED return scan: best-effort refresh of the return tracking
+      // status for visibility. No money movement, no state change.
+      await returnDoc.ref
+        .update({ returnTrackingStatus: mapped })
+        .catch(() => undefined);
+      logger.info('[shipEngineWebhook] return tracking refreshed', {
         transactionId,
         trackingNumber,
         statusCode,
         mapped,
-        outcome: result.kind,
-        changed: 'changed' in result ? result.changed : false,
       });
-
-      res.json({ received: true, transactionId, outcome: result.kind });
+      res.json({ received: true, transactionId, outcome: 'return_tracking_updated' });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       logger.error('[shipEngineWebhook] processing error', { trackingNumber, error: message });
