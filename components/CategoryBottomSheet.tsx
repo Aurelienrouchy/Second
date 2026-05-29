@@ -24,7 +24,6 @@ export interface CategoryBottomSheetRef {
 const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomSheetProps>(
   ({ onSelect, selectedCategoryIds, suggestedCategoryId }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
-    const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['85%'], []);
 
     // Use shared category navigation hook
