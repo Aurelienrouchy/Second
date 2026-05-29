@@ -9,6 +9,7 @@ import {
   query,
   serverTimestamp,
   Timestamp,
+  updateDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { firestore } from '../config/firebaseConfig';
