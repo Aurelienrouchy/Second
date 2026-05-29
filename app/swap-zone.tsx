@@ -141,13 +141,13 @@ export default function SwapZoneScreen() {
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
 
-  // ── Filter sheet conditional-mount ──
-  // The 7 filter sheets are native @expo/ui BottomSheets (the scrim is owned by
-  // the platform, so the historical Android JS touch-veil from @gorhom is gone).
-  // We still mount AT MOST ONE filter sheet at a time and only while it should
-  // be open: the effect below shows it right after mount, and the nonce makes
-  // re-tapping the SAME chip re-open the sheet (dep changes each tap). At rest
-  // (openSheet === null) no filter sheet is in the tree.
+  // ── Filter sheet conditional-mount (Android touch-veil fix #701) ──
+  // The 7 filter sheets are @gorhom BottomSheets. We mount AT MOST ONE filter
+  // sheet at a time and ONLY while it should be open: the effect below shows it
+  // right after mount, and the nonce makes re-tapping the SAME chip re-open the
+  // sheet (dep changes each tap). At rest (openSheet === null) no filter sheet
+  // is in the tree — this removes the gorhom portal container so no full-screen
+  // overlay lingers to capture touches on the FlashList (the Android #701 veil).
   const [openSheet, setOpenSheet] = useState<{ name: string; nonce: number } | null>(null);
   const openFilterSheet = useCallback(
     (name: string) => setOpenSheet((p) => ({ name, nonce: (p?.nonce ?? 0) + 1 })),
