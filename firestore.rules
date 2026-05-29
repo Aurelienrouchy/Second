@@ -596,6 +596,37 @@ service cloud.firestore {
                       request.auth.token.admin == true);
       allow create, update, delete: if false;
     }
+
+    // Stripe Event Markers — idempotency keys keyed by Stripe event.id, written
+    // by the stripeWebhook handler (Admin SDK). No owner concept; never read or
+    // written by a client. Fully server-only.
+    match /stripe_events/{eventId} {
+      allow read: if request.auth.token.admin == true;
+      allow create, update, delete: if false;
+    }
+
+    // Failed Operations dead-letter queue — written by the writeFailedOperation
+    // helper / sweepPendingLabels / reconcileFinances and replayed by
+    // retryFailedOperations (all Admin SDK). These docs reference entities via
+    // refId but have no per-user owner, and they may carry sensitive payloads
+    // (paymentIntentId, amounts). Server-only; admins may inspect.
+    match /failed_operations/{opId} {
+      allow read: if request.auth.token.admin == true;
+      allow create, update, delete: if false;
+    }
+
+    // Platform Ledger — append-only platform accounting (shipping cost variance,
+    // etc.). Server-only; admins may read for tax/audit. No client writes ever.
+    match /platform_ledger/{entryId} {
+      allow read: if request.auth.token.admin == true;
+      allow create, update, delete: if false;
+    }
+
+    // Rate Limit counters — written by the rate-limiter helper (Admin SDK).
+    // Internal infrastructure; no client access of any kind.
+    match /rate_limits/{limitId} {
+      allow read, write: if false;
+    }
     
     // Chats Collection Rules
     match /chats/{chatId} {
