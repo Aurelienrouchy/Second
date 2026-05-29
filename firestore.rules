@@ -506,28 +506,66 @@ service cloud.firestore {
       allow delete: if false;
 
       function isValidTransactionUpdate(oldData, newData) {
-        // SECURITY: payment / shipping / delivery / cancellation transitions
-        // are owned by Cloud Functions (stripeWebhook, checkTrackingStatus,
-        // cancelPendingTransaction). Clients can only adjust meetup-related
-        // statuses (the meetup flow is peer-to-peer) and must follow the
-        // correct transition order with role enforcement.
+        // SECURITY: payment / shipping / delivery / dispute / fund-release /
+        // cancellation transitions are owned by Cloud Functions (stripeWebhook,
+        // checkShippedTracking, shipEngineWebhook, releaseHeldFunds,
+        // sweepPendingLabels, reconcileFinances, cancelPendingTransaction,
+        // adminRefundTransaction). The ONLY client-allowed write is the seller
+        // confirming a meetup (peer-to-peer, no money side-effect). Everything
+        // else MUST go through a callable so invariants (Stripe, escrow ledger,
+        // shipping labels) are enforced atomically.
 
-        // Cannot change core transaction data
+        // Cannot change core transaction data.
         let coreFieldsUnchanged = newData.articleId == oldData.articleId &&
           newData.buyerId == oldData.buyerId &&
           newData.sellerId == oldData.sellerId &&
           newData.amount == oldData.amount;
 
-        // Meetup status transitions: only seller can confirm a meetup.
-        // The meetup_confirmed -> meetup_completed transition is handled
-        // exclusively by the completeMeetupTransaction Cloud Function,
-        // which atomically credits the seller's balance. Allowing this
-        // transition client-side would skip the payment crediting step.
-        let validMeetupTransition =
-          (oldData.status == 'meetup_pending' && newData.status == 'meetup_confirmed' && request.auth.uid == oldData.sellerId);
+        // SECURITY: server-only sensitive fields. A client must never be able to
+        // create, mutate, or remove any of these — they drive money movement,
+        // escrow release, shipping, and dispute resolution (all CF-owned via the
+        // Admin SDK, which bypasses these rules). diff().affectedKeys() catches
+        // adds, edits AND deletes, so listing them in the whitelist below is the
+        // primary guard; this is a belt-and-suspenders explicit assertion.
+        let sensitiveFieldsUntouched =
+          !newData.diff(oldData).affectedKeys().hasAny([
+            'status', 'amount', 'totalAmount', 'sellerPayout', 'serviceFee',
+            'serviceFeePercent', 'sellerCreditedCents', 'walletAmountUsed',
+            'paidVia',
+            'shippingCost', 'actualShippingCost', 'shippingCostDelta',
+            'insuranceCost', 'shippingReconciledAt',
+            'fundsReleaseAt', 'fundsReleasedAt',
+            'disputed', 'disputeId', 'disputedAt', 'disputeReason',
+            'statusBeforeDispute', 'disputeOutcome', 'disputeClosedAt',
+            'labelCreationPending', 'labelCreationNote', 'labelAttempts',
+            'lastLabelAttemptAt', 'labelStaleNudgedAt',
+            'shipEngineRateId', 'shipEngineLabelId', 'trackingNumber',
+            'trackingUrl', 'trackingStatus', 'shippingLabelUrl', 'carrierCode',
+            'stripePaymentIntentId', 'stripeChargeId', 'stripeRefundId',
+            'stripeRefundIssuedAt', 'refundReason', 'refundStartedAt',
+            'refundedAt', 'cancelReason', 'cancelledBy', 'cancelledAt',
+            'meetupSpot', 'deliveryType',
+            'paidAt', 'labelCreatedAt', 'shippedAt', 'deliveredAt',
+            'deliveryFailedAt', 'completedAt', 'createdAt'
+          ]);
 
+        // Meetup status transition: ONLY the seller can confirm a meetup
+        // (meetup_pending -> meetup_confirmed). The meetup_confirmed ->
+        // meetup_completed transition is CF-only (completeMeetupTransaction),
+        // which unlocks the review. The status field is in the sensitive list
+        // above, so when a meetup confirmation happens we permit ONLY the exact
+        // key set {status, meetupConfirmedAt, updatedAt} and re-validate it.
+        let isMeetupConfirmation =
+          oldData.status == 'meetup_pending' &&
+          newData.status == 'meetup_confirmed' &&
+          request.auth.uid == oldData.sellerId &&
+          newData.diff(oldData).affectedKeys()
+            .hasOnly(['status', 'meetupConfirmedAt', 'updatedAt']);
+
+        // Path A: no sensitive field touched (e.g. updatedAt-only writes).
+        // Path B: the single legitimate meetup confirmation by the seller.
         return coreFieldsUnchanged &&
-          (newData.status == oldData.status || validMeetupTransition);
+          (sensitiveFieldsUntouched || isMeetupConfirmation);
       }
     }
     
