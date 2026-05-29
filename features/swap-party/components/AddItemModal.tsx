@@ -135,6 +135,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.charcoal,
   },
+  modalSubtextRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  modalSubtext: {
+    fontSize: 12,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+    lineHeight: 17,
+  },
   modalDoneButton: {
     paddingVertical: 6,
     paddingHorizontal: 14,
