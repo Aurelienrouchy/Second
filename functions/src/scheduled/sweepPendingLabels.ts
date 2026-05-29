@@ -32,14 +32,14 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
-import { getStripe } from '../config/stripe';
+import { getShipEngine } from '../config/shipEngine';
 import {
-  getShipEngine,
   ShipEngineAddress,
   ShipEngineRate,
 } from '../config/shipEngine';
 import { resolveSellerOriginAddress } from '../callable/payments';
 import { creditSellerForSale, reconcileShippingCost } from '../utils/labelFulfillment';
+import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
 
 /** Process at most this many transactions per run to bound execution time. */
