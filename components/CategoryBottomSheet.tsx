@@ -149,10 +149,10 @@ const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: colors.surface,
   },
-  // height fixe appliqué inline (bornage au détent).
-  container: {},
-  scroll: {
-    flex: 1,
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
+    width: 40,
+    height: 4,
   },
   header: {
     flexDirection: 'row',
