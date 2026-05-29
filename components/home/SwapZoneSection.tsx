@@ -15,9 +15,9 @@
  *   - CTA      "Entrer dans la zone →"
  *
  * States (driven by `zone` presence + `itemsCount` + `onPress`):
- * - full    : zone with stock → eyebrow + title + stats + tappable CTA
+ * - full    : zone with stock → title + stats + tappable CTA
  * - empty   : zone exists but no stock yet → inviting hint, tappable CTA
- * - teaser  : no active zone (onPress absent) → NON-interactive, no eyebrow,
+ * - teaser  : no active zone (onPress absent) → NON-interactive,
  *             "Bientôt disponible" label instead of a dead CTA
  * - loading : dark skeleton
  *
