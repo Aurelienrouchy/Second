@@ -53,11 +53,31 @@ export class SearchHistoryService {
       }
 
       const historyRef = collection(firestore, 'users', userId, 'searchHistory');
+      const trimmedQuery = searchQuery.trim();
+      const sanitizedFilters = this.sanitizeFilters(filters);
+
+      // M8: dedupe — if an entry already exists for the same query + filters,
+      // refresh its timestamp/resultCount instead of creating a duplicate.
+      const existingId = await this.findDuplicate(
+        userId,
+        trimmedQuery,
+        sanitizedFilters
+      );
+      if (existingId) {
+        await updateDoc(
+          doc(firestore, 'users', userId, 'searchHistory', existingId),
+          {
+            timestamp: serverTimestamp(),
+            resultCount: resultCount ?? null,
+          }
+        );
+        return existingId;
+      }
 
       // Add new search
       const docRef = await addDoc(historyRef, {
-        query: searchQuery.trim(),
-        filters: this.sanitizeFilters(filters),
+        query: trimmedQuery,
+        filters: sanitizedFilters,
         timestamp: serverTimestamp(),
         resultCount: resultCount ?? null,
       });
@@ -69,6 +89,42 @@ export class SearchHistoryService {
     } catch (error: any) {
       console.error('Error adding search to history:', error);
       throw new Error(`Erreur lors de l'ajout à l'historique: ${error.message}`);
+    }
+  }
+
+  /**
+   * Find an existing history entry matching the same query + filters.
+   * Returns the doc ID if found, otherwise null.
+   */
+  private static async findDuplicate(
+    userId: string,
+    trimmedQuery: string,
+    sanitizedFilters: Partial<SearchFilters>
+  ): Promise<string | null> {
+    try {
+      const historyRef = collection(firestore, 'users', userId, 'searchHistory');
+      // Scope by timestamp DESC + cap to the same window we keep, then match
+      // query + filters in memory (filters are not individually indexable).
+      const q = query(historyRef, orderBy('timestamp', 'desc'), limit(MAX_HISTORY_ITEMS));
+      const snapshot = await getDocs(q);
+
+      const targetFilters = JSON.stringify(sanitizedFilters);
+      let foundId: string | null = null;
+
+      snapshot.forEach((docSnap: any) => {
+        if (foundId) return;
+        const data = docSnap.data() as SearchHistoryDocument;
+        const sameQuery = (data.query || '') === trimmedQuery;
+        const sameFilters = JSON.stringify(data.filters || {}) === targetFilters;
+        if (sameQuery && sameFilters) {
+          foundId = docSnap.id;
+        }
+      });
+
+      return foundId;
+    } catch {
+      // Non-critical: fall back to creating a new entry.
+      return null;
     }
   }
 
