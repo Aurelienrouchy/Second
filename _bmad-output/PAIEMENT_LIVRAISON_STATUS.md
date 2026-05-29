@@ -36,8 +36,14 @@ Idempotency keys Stripe · dédup `stripe_events/{event.id}` · cycle dispute (`
 - `app/settings/delete-account.tsx` : message clair de blocage en litige.
 - Spec copy FR : `_bmad-output/UX_PAIEMENT_LIVRAISON_spec.md`.
 
-## ⏳ DERNIER trou fonctionnel — recours acheteur (décision produit requise)
-UI posée (signaler/rembourser/retour) mais **aucune callable backend acheteur** : `adminRefundTransaction` est admin-only. Sur `delivery_failed`/`lost`, le backend gèle déjà les fonds (`disputed=true`) → l'acheteur est protégé, mais ne peut pas encore **déclencher** la résolution lui-même. À trancher : recours manuel (signalement → admin rembourse) vs automatisé (auto-refund carrier-confirmé + flux retour avec label).
+## ✅ Recours acheteur (workflow 4) — FAIT, anti-fraude, vérifié
+Décision : **hybride anti-fraude** (auto-refund seulement sur signal transporteur, jamais sur la parole).
+- `requestRefund` (acheteur) : autorisé **uniquement** si `status ∈ {delivery_failed, lost}` (confirmé carrier), refusé sur `delivered` → auto-refund idempotent.
+- `reportTransactionProblem` (acheteur) : « livré mais problème » → **zéro mouvement d'argent**, `disputed=true` + doc `disputes` + notif admin (scan « livré » = preuve).
+- `requestReturn` (acheteur) : crée l'étiquette retour, gèle ; refund **seulement au scan de réception du retour** (`returnTrackingNumber` → DELIVERED), montant = total − `returnLabelCost` (acheteur paie le retour).
+- Cœur refund factorisé dans `utils/refund.ts` (`issueTransactionRefund`) — **tous** les chemins d'auto-refund (admin, expiration, sweep, webhook cancelled/mismatch, recours) y passent (consolidé par la revue).
+- Tests anti-fraude (`recourse.test.ts`) + rules `disputes` server-only.
+- Vérifié : functions `tsc` clean · **172/172** vitest · **38/38** rules · app `tsc` +0 erreur · `lint:boundaries` 0 violation.
 
 ## ⏳ (Référence) Contrat backend branché côté APP
 Nouveaux **statuts** transaction : `label_created`, `delivery_failed`, `lost`, `completed` (+ `refund_in_progress` transitoire).
