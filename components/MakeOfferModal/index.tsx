@@ -65,7 +65,9 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     });
 
     const [isOpen, setIsOpen] = useState(false);
+    // Bornage au plus grand détent : le ScrollView (height fixe) scrolle dans le détent.
     const snapPoints = useMemo(() => ['85%', '95%'], []);
+    const sheetHeight = useSheetHeight('95%');
 
     const resetState = useCallback(() => {
       setState({ ...initialState, mode: defaultMode });
