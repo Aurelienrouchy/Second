@@ -745,7 +745,7 @@ interface DraftDocument {
   images?: { url: string; order: number }[];
   category?: string;
   brand?: string;
-  size?: string;
+  size?: { value: string; system: 'US' | 'EU' } | null;  // ArticleSize object
   condition?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
