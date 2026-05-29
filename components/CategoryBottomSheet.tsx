@@ -27,6 +27,9 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
     const bottomSheetRef = useRef<BottomSheet>(null);
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['85%'], []);
+    // Mount-on-open: the sheet is only rendered while open, so its backdrop can
+    // never leak a residual veil when closed (gorhom #701 on New Architecture).
+    const [mounted, setMounted] = React.useState(false);
 
     // Use shared category navigation hook
     const categoryNav = useCategoryNavigation({
