@@ -7,13 +7,17 @@ import * as logger from 'firebase-functions/logger';
 import * as admin from 'firebase-admin';
 import { db, FieldValue } from '../config/firebase';
 
+interface SavedSearchSize {
+  value: string;
+  system: 'US' | 'EU';
+}
+
 interface SavedSearchFilters {
   categoryIds?: string[];
   brands?: string[];
-  sizes?: string[];
+  sizes?: SavedSearchSize[];
   colors?: string[];
   materials?: string[];
-  patterns?: string[];
   condition?: string;
   minPrice?: number;
   maxPrice?: number;
