@@ -8,7 +8,7 @@ import type { Article } from '@/types';
 /** Build tags from real Article fields: size, condition, color, material, pattern */
 export const buildTags = (article: Article) => {
   const tags: string[] = [];
-  if (article.size) tags.push(`Taille ${article.size}`);
+  if (article.size?.value) tags.push(`Taille ${article.size.value}`);
   if (article.condition) tags.push(article.condition);
   if (article.colors && article.colors.length > 0) {
     article.colors.forEach((c) => tags.push(c));
