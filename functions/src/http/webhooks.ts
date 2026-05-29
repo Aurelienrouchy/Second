@@ -1260,7 +1260,6 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     });
 
     const sellerId = txData.sellerId;
-    const sellerPayout = txData.sellerPayout || txData.amount;
     const paidVia = txData.paidVia;
     const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
 
