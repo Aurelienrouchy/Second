@@ -211,6 +211,9 @@ class ShipEngineClient {
       tracking_number: string;
       label_download: { href: string };
       carrier_code: string;
+      // Real cost ShipEngine billed for the label (used for reconciliation).
+      shipment_cost?: { amount: number; currency: string };
+      insurance_cost?: { amount: number; currency: string };
     }>('POST', '/v1/labels', {
       rate_id: rateId,
       label_format: 'pdf',
@@ -226,6 +229,14 @@ class ShipEngineClient {
         response.tracking_number
       ),
       carrierCode: response.carrier_code,
+      shipmentCost:
+        typeof response.shipment_cost?.amount === 'number'
+          ? response.shipment_cost.amount
+          : 0,
+      insuranceCost:
+        typeof response.insurance_cost?.amount === 'number'
+          ? response.insurance_cost.amount
+          : 0,
     };
   }
 
