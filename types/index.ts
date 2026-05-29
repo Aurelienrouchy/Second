@@ -312,13 +312,12 @@ export interface SearchFilters {
   category?: string; // Legacy
   categoryIds?: string[]; // Nouvelle recherche par IDs
   colors: string[];
-  sizes: string[];
+  sizes: ArticleSize[];
   materials: string[];
   condition?: string;
   minPrice?: number;
   maxPrice?: number;
   brands?: string[];
-  patterns?: string[];
   sortBy?: SortBy;
 }
 
