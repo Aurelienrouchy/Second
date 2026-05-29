@@ -463,6 +463,15 @@ export const walletWithdraw = onCall(
             description: `Retrait echoue — fonds restitues`,
             type: 'withdrawal_failed',
           });
+
+          // Mark the withdrawal request as failed (synchronous failure — the
+          // async payout.failed handler will be a no-op since status != processing).
+          tx.update(withdrawalRequestRef, {
+            status: 'failed',
+            failedAt: FieldValue.serverTimestamp(),
+            failureReason: stripeError instanceof Error ? stripeError.message : 'stripe_error',
+            updatedAt: FieldValue.serverTimestamp(),
+          });
         });
 
         const message = stripeError instanceof Error ? stripeError.message : 'Unknown error';
