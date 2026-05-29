@@ -313,6 +313,16 @@ export interface Transaction {
   statusBeforeDispute?: TransactionStatus; // Status snapshot before dispute opened
   disputeOutcome?: string;      // Resolution outcome (free-form / enum server-side)
   disputeClosedAt?: Date;
+  // Buyer report (raised from a delivery_failed / lost / return recourse flow)
+  buyerReport?: BuyerReport;
+  // Return flow (article received but returned — return fees charged to the buyer)
+  returnLabelId?: string;       // ShipEngine return label id
+  returnTrackingNumber?: string;
+  returnLabelUrl?: string;      // Printable return label PDF url
+  returnLabelCost?: number;     // Return shipping cost (cents) — deducted from refund
+  returnReason?: string;        // Buyer-provided reason for the return
+  returnRequestedAt?: Date;     // When the buyer requested the return
+  returnDeliveredAt?: Date;     // When the return parcel was received by the seller
   // Shipping reconciliation (actual cost vs estimate)
   actualShippingCost?: number;  // Real shipping cost charged by carrier (currency units)
   shippingCostDelta?: number;   // Difference vs estimated shippingCost
