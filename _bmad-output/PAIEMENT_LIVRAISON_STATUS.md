@@ -26,7 +26,20 @@ Idempotency keys Stripe · dédup `stripe_events/{event.id}` · cycle dispute (`
 - **Webhook ShipEngine** : configurer l'URL de tracking côté tableau de bord ShipEngine vers `shipEngineWebhook`.
 - **CI** : exporter `JAVA_HOME=openjdk@21` pour `test:security`.
 
-## ⏳ Contrat à brancher côté APP (workflow app+design)
+## ✅ App — FAIT (workflow 3) et vérifié
+- `npx tsc --noEmit` (racine) : seules 2 erreurs **préexistantes** (orphelins `components/AuthTester.tsx`, `components/ExternalLink.tsx`) — le câblage paiement/livraison ajoute **0 erreur**.
+- `npm run lint:boundaries` : **0 violation**.
+- types/index.ts : 5 nouveaux statuts + champs + `heldBalance`/`sellerDebt`/`withdrawal_requests`.
+- `lib/transactionStatusMeta.ts` : module unique (labels acheteur/vendeur + Tag variant + ton), consommé par my-orders/my-sales/ShipmentTracking.
+- `app/wallet.tsx` : 3 buckets (Disponible/En attente/Bientôt dispo `heldBalance`) + blocage retrait litige/`sellerDebt` + note protection 7j. `getWalletInfo` expose désormais `heldBalance`/`sellerDebt` (fix appliqué).
+- `app/checkout/shipping.tsx` + features/checkout-shipping : rateId obligatoire, gestion « tarif expiré → actualiser », blocage fallback → meetup, note protection 7j, copy meetup sans promesse de crédit.
+- `app/settings/delete-account.tsx` : message clair de blocage en litige.
+- Spec copy FR : `_bmad-output/UX_PAIEMENT_LIVRAISON_spec.md`.
+
+## ⏳ DERNIER trou fonctionnel — recours acheteur (décision produit requise)
+UI posée (signaler/rembourser/retour) mais **aucune callable backend acheteur** : `adminRefundTransaction` est admin-only. Sur `delivery_failed`/`lost`, le backend gèle déjà les fonds (`disputed=true`) → l'acheteur est protégé, mais ne peut pas encore **déclencher** la résolution lui-même. À trancher : recours manuel (signalement → admin rembourse) vs automatisé (auto-refund carrier-confirmé + flux retour avec label).
+
+## ⏳ (Référence) Contrat backend branché côté APP
 Nouveaux **statuts** transaction : `label_created`, `delivery_failed`, `lost`, `completed` (+ `refund_in_progress` transitoire).
 Nouveaux **champs** :
 - wallet : `heldBalance`, `sellerDebt` (afficher « fonds dispo dans X j », bloquer retrait si dette/litige).
