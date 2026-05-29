@@ -10,7 +10,7 @@
  */
 
 import { firestore } from '@/config/firebaseConfig';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetFooter, BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetFlatList, BottomSheetTextInput, BottomSheetView } from '@expo/ui/community/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, limit, query, where, doc, setDoc, orderBy, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
