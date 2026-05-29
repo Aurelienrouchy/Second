@@ -501,7 +501,9 @@ interface TransactionDocument {
   shipEngineRateId?: string;
   trackingNumber?: string;
   trackingUrl?: string;
-  trackingStatus?: string;       // e.g. 'TRANSIT', 'DELIVERED'
+  trackingStatus?: string;       // 'LABEL_CREATED' (label bought, no carrier scan yet),
+                                 // 'TRANSIT' | 'IN_TRANSIT' (carrier scanned -> status 'shipped'),
+                                 // 'DELIVERED', 'FAILURE' (-> status 'delivery_failed'), 'UNKNOWN'
   shippingLabelUrl?: string;
   shipEngineLabelId?: string;
   carrierCode?: string;
