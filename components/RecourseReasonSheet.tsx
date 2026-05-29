@@ -78,17 +78,15 @@ function RecourseReasonSheetInner<Code extends string = string>(
   ref: React.Ref<RecourseReasonSheetRef>,
 ) {
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<Code | null>(null);
   const [details, setDetails] = useState('');
 
-  // iOS : bornage au plus grand détent (height fixe). Android : flex:1 (detente native).
-  const maxSnap = showDetailsField ? '90%' : '85%';
   const snapPoints = useMemo(
     () => (showDetailsField ? ['70%', '90%'] : ['55%', '85%']),
     [showDetailsField],
   );
-  const sheetStyle = useSheetHeight(maxSnap);
 
   useImperativeHandle(ref, () => ({
     present: () => {
