@@ -713,11 +713,15 @@ export interface Swap {
   receiverName: string;
   receiverImage?: string;
 
-  // Cash top-up (if any)
+  // Cash top-up (if any). amount is IN CENTS.
   cashTopUp?: {
     amount: number;
     payerId: string; // Who pays the difference
   };
+  // Stripe payment for the cash top-up
+  paymentIntentId?: string;
+  topUpFee?: number; // Service fee charged on top of the top-up (cents)
+  paidAt?: Date;
 
   // Exchange details
   exchangeMode?: SwapExchangeMode;
