@@ -57,9 +57,8 @@ export interface AddItemSheetRef {
 
 const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
   ({ articles, userItems, loading = false, onAddItems, onClose }, ref) => {
-    const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => [SNAP], []);
-    const sheetHeight = useSheetHeight(SNAP);
+    const sheetStyle = useSheetHeight(SNAP);
     const bottomSheetRef = React.useRef<BottomSheetModal>(null);
     const [selected, setSelected] = useState<Set<string>>(new Set());
 
