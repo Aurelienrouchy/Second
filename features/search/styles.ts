@@ -116,6 +116,11 @@ export const searchStyles = StyleSheet.create({
   filterChipTextActive: {
     color: colors.white,
   },
+  filterChipRemove: {
+    marginLeft: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // ── Filter chips — DARK tone (Swap Zone identity, additive) ──
   filterChipsContainerDark: {
