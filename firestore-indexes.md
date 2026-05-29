@@ -403,6 +403,13 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
   sous-collection mono-champ → index auto-créé, pas de composite requis.
 - `withdrawal_requests userId ==` (`callable/users.ts`, suppression de compte) :
   égalité mono-champ → index auto-créé.
+- **Recours acheteur (B2/B3)** : `requestReturn` / `reportTransactionProblem` /
+  `requestRefund` (`callable/recourse.ts`) et `processReturnDelivered`
+  (`utils/returnRefund.ts`) ne font que des accès `doc(id)` directs — aucune
+  requête `where`/`orderBy`. La collection `disputes` est uniquement écrite en
+  `.doc()` (création server-only), jamais listée → aucun index `disputes` requis.
+  Le poller `return_requested` réutilise l'index existant `transactions` (`status
+  ASC, createdAt ASC`) — **aucun nouvel index n'est ajouté** par ce chantier.
 
 ## Single Field Indexes (Auto-created)
 
