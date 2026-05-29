@@ -986,8 +986,13 @@ describe('payWithWallet', () => {
       data: { transactionId: 'tx1' },
     });
 
+    // Two updates to transactions/tx1 (creditSellerForSale + status update);
+    // walletAmountUsed lives on the status update, in CENTS (25$ -> 2500).
     const txUpdate = writeOps.find(
-      (w) => w.path === 'transactions/tx1' && w.method === 'update'
+      (w) =>
+        w.path === 'transactions/tx1' &&
+        w.method === 'update' &&
+        w.data.walletAmountUsed !== undefined
     );
     expect(txUpdate).toBeDefined();
     expect(txUpdate!.data.walletAmountUsed).toBe(2500);
