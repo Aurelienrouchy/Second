@@ -453,10 +453,18 @@ interface TransactionDocument {
   stripeChargeId?: string;         // Latest charge ID from webhook
   stripeRefundId?: string;         // Stripe refund ID (if refunded)
 
+  // Dispute window (7-day held funds)
+  fundsReleaseAt?: Timestamp;      // deliveredAt + 7d; when heldBalance becomes withdrawable
+  fundsReleasedAt?: Timestamp;     // Set by releaseHeldFunds when heldBalance -> balance
+
   // Dispute / cancellation
   disputeId?: string;              // Stripe dispute ID
+  disputed?: boolean;              // True while a Stripe dispute is open (blocks seller withdrawals)
   disputedAt?: Timestamp;
   disputeReason?: string;
+  statusBeforeDispute?: string;    // Status captured at dispute.created, restored if won
+  disputeOutcome?: 'won' | 'lost' | string; // Set by charge.dispute.closed
+  disputeClosedAt?: Timestamp;
   cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, pending_payment_expired_1h, seller_did_not_ship_7d, etc.)
   cancelledBy?: string;            // UID of user who cancelled (manual cancel only)
   refundedAt?: Timestamp;
