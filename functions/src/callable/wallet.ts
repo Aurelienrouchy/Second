@@ -24,6 +24,11 @@ import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { getShipEngine } from '../config/shipEngine';
+import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
+
+// Rate limiting: financial callables share a 1-minute sliding window.
+// maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 // =============================================================================
 // HELPER — Get or auto-create seller wallet inside a transaction
