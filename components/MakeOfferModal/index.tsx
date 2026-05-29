@@ -59,15 +59,14 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     ref
   ) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
+    const insets = useSafeAreaInsets();
     const [state, setState] = useState<MakeOfferState>({
       ...initialState,
       mode: defaultMode,
     });
 
     const [isOpen, setIsOpen] = useState(false);
-    // iOS : bornage au plus grand détent (height fixe). Android : flex:1 (detente native).
     const snapPoints = useMemo(() => ['85%', '95%'], []);
-    const sheetStyle = useSheetHeight('95%');
 
     const resetState = useCallback(() => {
       setState({ ...initialState, mode: defaultMode });
