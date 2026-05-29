@@ -396,6 +396,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `trackingCheck.ts` | Poll ShipEngine toutes les 6h pour les transactions shipped, marque delivered si livré |
 | `transactionExpiration.ts` | Expiration meetup_pending (48h), pending_payment (1h), paid-not-shipped (7j) orphelins |
 | `releaseHeldFunds.ts` | Toutes les heures : libère heldBalance → balance après la fenêtre de litige 7j (delivered → completed). Expose `applyDeliveredHeldFunds` (contrat pending→held à la livraison) |
+| `sweepPendingLabels.ts` | Toutes les heures : re-tarife (getRates) + retente createLabel pour les transactions `paid` + `labelCreationPending`. Succès → crédite le vendeur (pendingBalance) + réconcilie le coût réel + status `shipped`. Après 4 échecs → refund acheteur (reverse_transfer idempotent) + release article + cancel + notif. Dead-letter `failed_operations` si le refund échoue |
 
 ### HTTP — `functions/src/http/`
 | Fichier | Route |
