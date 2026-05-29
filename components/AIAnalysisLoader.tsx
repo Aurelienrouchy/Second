@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
   content: {
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(139, 92, 246, 0.3)',
   },
   imageOverlayError: {
