@@ -342,6 +342,42 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
       setSelectedBrands([]);
     }, []);
 
+    const renderBackdrop = useCallback(
+      (props: any) => (
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+      ),
+      []
+    );
+
+    const renderFooter = useCallback(
+      (props: any) => {
+        if (singleSelect) return null;
+
+        return (
+          <BottomSheetFooter {...props}>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  selectedBrands.length === 0 && styles.confirmButtonDisabled,
+                ]}
+                onPress={handleConfirm}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {selectedBrands.length === 0
+                    ? 'VALIDER'
+                    : `VALIDER (${selectedBrands.length})`
+                  }
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </BottomSheetFooter>
+        );
+      },
+      [selectedBrands, insets.bottom, handleConfirm, singleSelect]
+    );
+
     const handleLoadMore = useCallback(() => {
       // Only paginate when not searching (search uses Firestore queries with different pagination)
       if (!searchQuery.trim() && hasMoreBrands && !isLoadingMore) {
