@@ -936,16 +936,12 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
     }
 
     const sellerId = txData.sellerId;
-    const sellerPayout = txData.sellerPayout ?? txData.amount;
     // P1: debit the EXACT amount credited to the seller (persisted at credit
-    // time; legacy txs fall back to the derived payout) so the lost-dispute
-    // debit and the original credit can never drift.
+    // time) so the lost-dispute debit and the original credit can never drift.
+    // Under the deferred-credit model an uncredited tx has no sellerCreditedCents
+    // and therefore a debit target of 0 (no false debt).
     const sellerPayoutCents =
-      typeof txData.sellerCreditedCents === 'number'
-        ? txData.sellerCreditedCents
-        : typeof sellerPayout === 'number'
-          ? Math.round(sellerPayout * 100)
-          : 0;
+      typeof txData.sellerCreditedCents === 'number' ? txData.sellerCreditedCents : 0;
 
     if (outcome === 'won') {
       // Seller keeps the funds. Restore the pre-dispute status so the normal
