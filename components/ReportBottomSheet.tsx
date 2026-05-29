@@ -236,10 +236,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
-  handleIndicator: {
-    backgroundColor: '#ddd',
-    width: 40,
-  },
   content: {
     padding: 20,
     paddingBottom: 40,
