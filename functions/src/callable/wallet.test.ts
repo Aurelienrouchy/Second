@@ -82,19 +82,33 @@ const {
   }
 
   function mockCollectionRef(path: string): Record<string, unknown> {
+    // Chainable query stub: supports any sequence of where/orderBy/limit
+    // terminated by get(). Results come from state.queryResults[path]
+    // (default empty — e.g. the walletWithdraw dispute guard finds no
+    // disputed transactions unless a test explicitly seeds them).
+    const makeQuery = (): Record<string, unknown> => {
+      const q: Record<string, unknown> = {
+        where: () => makeQuery(),
+        orderBy: () => makeQuery(),
+        limit: () => makeQuery(),
+        startAfter: () => makeQuery(),
+        get: async () => {
+          const docs = state.queryResults[path] ?? [];
+          return { docs, empty: docs.length === 0, size: docs.length };
+        },
+      };
+      return q;
+    };
+
     return {
       path,
       doc: (id?: string) => {
         const docId = id ?? `auto_${++state.autoDocCounter.value}`;
         return mockDocRef(`${path}/${docId}`);
       },
-      orderBy: () => ({
-        limit: () => ({
-          get: async () => ({
-            docs: state.queryResults[path] ?? [],
-          }),
-        }),
-      }),
+      where: () => makeQuery(),
+      orderBy: () => makeQuery(),
+      limit: () => makeQuery(),
     };
   }
 
