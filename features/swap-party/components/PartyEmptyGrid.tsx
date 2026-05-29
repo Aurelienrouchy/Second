@@ -1,14 +1,15 @@
 /**
- * PartyEmptyGrid Component
- * Empty state when no items match in the swap party grid
+ * PartyEmptyGrid Component — Swap Zone (DARK identity)
+ * Empty state when no items match the active filters, or when the zone has no
+ * items yet. Textes cream/sand/whiteTranslucent sur fond deep.
  */
 
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Text, Caption } from '@/components/ui';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { Text } from '@/components/ui';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import type { PartyEmptyGridProps } from '../types';
 
 export const PartyEmptyGrid = React.memo(function PartyEmptyGrid({
@@ -19,23 +20,23 @@ export const PartyEmptyGrid = React.memo(function PartyEmptyGrid({
     <View style={styles.emptyGrid}>
       <Ionicons
         name={hasActiveFilters ? 'funnel-outline' : 'swap-horizontal'}
-        size={48}
-        color={colors.sage}
+        size={sizing.iconLG + sizing.iconMD}
+        color={colors.sand}
       />
       <Text style={styles.emptyGridTitle}>
         {hasActiveFilters
           ? 'Aucun article ne correspond aux filtres'
-          : 'Aucun article disponible'}
+          : 'Aucun article dans la Swap Zone pour l’instant.'}
       </Text>
-      <Caption style={styles.emptyGridText}>
+      <Text style={styles.emptyGridText}>
         {hasActiveFilters
           ? 'Essayez de modifier vos critères de recherche'
-          : 'Revenez plus tard'}
-      </Caption>
+          : 'Soyez la première personne à en déposer un.'}
+      </Text>
       {hasActiveFilters && (
         <Pressable
           onPress={onClearFilters}
-          style={({ pressed }) => [styles.clearFiltersButton, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.clearFiltersButton, pressed && styles.pressed]}
         >
           <Text style={styles.clearFiltersText}>Réinitialiser</Text>
         </Pressable>
@@ -50,30 +51,36 @@ const styles = StyleSheet.create({
     paddingVertical: spacing['2xl'],
     alignItems: 'center',
   },
+  pressed: {
+    opacity: 0.7,
+  },
   emptyGridTitle: {
     marginTop: spacing.lg,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: fonts.sans,
-    color: colors.charcoal,
+    color: colors.cream,
     textAlign: 'center',
   },
   emptyGridText: {
     marginTop: spacing.sm,
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: colors.whiteTranslucent,
     textAlign: 'center',
   },
   clearFiltersButton: {
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.none,
     borderWidth: 1,
-    borderColor: colors.sage,
+    borderColor: colors.rust,
   },
   clearFiltersText: {
     fontSize: 12,
     fontFamily: fonts.sansMedium,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: colors.sage,
+    color: colors.rust,
   },
 });
