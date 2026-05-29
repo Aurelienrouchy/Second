@@ -337,7 +337,6 @@ export const walletWithdraw = onCall(
             metadata: {
               firebaseUserId: userId,
               walletWithdrawal: 'true',
-              ledgerEntryId: ledgerEntryRef.id,
             },
           },
           // Deterministic key tied to the (stable) ledger entry id so a retry
