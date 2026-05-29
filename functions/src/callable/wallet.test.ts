@@ -382,6 +382,9 @@ describe('walletWithdraw', () => {
     setDoc('users/user1', {
       stripeAccountId: 'acct_123',
       stripeChargesEnabled: true,
+      // Required by the payouts-enabled guard in wallet.ts (added by a prior
+      // chantier); without it every withdrawal test throws failed-precondition.
+      stripePayoutsEnabled: true,
       stripeBankAccountLast4: '4242',
     });
     setDoc('wallets/user1', {
