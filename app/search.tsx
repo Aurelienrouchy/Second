@@ -62,14 +62,14 @@ export default function SearchScreen() {
   const sortSheetRef = useRef<SelectionBottomSheetRef>(null);
 
   const filterChips: FilterChip[] = [
-    { key: 'sort', label: screen.getSortLabel(), active: screen.isSortActive, onPress: () => sortSheetRef.current?.show() },
-    { key: 'category', label: screen.getCategoryLabel(), active: screen.isCategoryActive, onPress: () => categorySheetRef.current?.show() },
-    { key: 'colors', label: screen.getColorLabel(), active: screen.isColorActive, onPress: () => colorSheetRef.current?.show() },
-    { key: 'sizes', label: screen.getSizeLabel(), active: screen.isSizeActive, onPress: () => sizeSheetRef.current?.show() },
-    { key: 'materials', label: screen.getMaterialLabel(), active: screen.isMaterialActive, onPress: () => materialSheetRef.current?.show() },
-    { key: 'brands', label: screen.getBrandLabel(), active: screen.isBrandActive, onPress: () => brandSheetRef.current?.show() },
-    { key: 'condition', label: screen.getConditionLabel(), active: screen.isConditionActive, onPress: () => conditionSheetRef.current?.show() },
-    { key: 'price', label: screen.getPriceLabel(), active: screen.isPriceActive, onPress: () => screen.setShowPriceInputs(!screen.showPriceInputs) },
+    { key: 'sort', label: screen.getSortLabel(), active: screen.isSortActive, onPress: () => sortSheetRef.current?.show(), onRemove: screen.handleSortRemove },
+    { key: 'category', label: screen.getCategoryLabel(), active: screen.isCategoryActive, onPress: () => categorySheetRef.current?.show(), onRemove: screen.handleCategoryRemove },
+    { key: 'colors', label: screen.getColorLabel(), active: screen.isColorActive, onPress: () => colorSheetRef.current?.show(), onRemove: () => screen.handleFilterRemove('colors') },
+    { key: 'sizes', label: screen.getSizeLabel(), active: screen.isSizeActive, onPress: () => sizeSheetRef.current?.show(), onRemove: () => screen.handleFilterRemove('sizes') },
+    { key: 'materials', label: screen.getMaterialLabel(), active: screen.isMaterialActive, onPress: () => materialSheetRef.current?.show(), onRemove: () => screen.handleFilterRemove('materials') },
+    { key: 'brands', label: screen.getBrandLabel(), active: screen.isBrandActive, onPress: () => brandSheetRef.current?.show(), onRemove: () => screen.handleFilterRemove('brands') },
+    { key: 'condition', label: screen.getConditionLabel(), active: screen.isConditionActive, onPress: () => conditionSheetRef.current?.show(), onRemove: () => screen.handleFilterRemove('condition') },
+    { key: 'price', label: screen.getPriceLabel(), active: screen.isPriceActive, onPress: () => screen.setShowPriceInputs(!screen.showPriceInputs), onRemove: screen.handlePriceClear },
   ];
 
   return (
