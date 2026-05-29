@@ -85,6 +85,18 @@ export interface ArticleDimensions {
   height: number; // cm
 }
 
+/** Sizing system. Single source of truth — data/sizes.ts re-exports this. */
+export type SizeSystem = 'US' | 'EU';
+
+/**
+ * Article size, carrying its sizing system so US/EU values never collide.
+ * Stored on the article and copied verbatim into swaps.
+ */
+export interface ArticleSize {
+  value: string;
+  system: SizeSystem;
+}
+
 export interface Article {
   id: string;
   title: string;
