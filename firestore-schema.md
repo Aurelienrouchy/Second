@@ -255,10 +255,9 @@ interface SavedSearchDocument {
   filters?: {
     categoryIds?: string[];
     brands?: string[];
-    sizes?: string[];
+    sizes?: { value: string; system: 'US' | 'EU' }[];  // ArticleSize objects (patterns removed)
     colors?: string[];
     materials?: string[];
-    patterns?: string[];
     condition?: string;
     minPrice?: number;
     maxPrice?: number;
