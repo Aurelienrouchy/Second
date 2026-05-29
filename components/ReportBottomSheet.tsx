@@ -60,18 +60,6 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
       },
     }));
 
-    const renderBackdrop = useCallback(
-      (props: any) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      []
-    );
-
     const handleSelectReason = (reason: ReportReason) => {
       setSelectedReason(reason);
       setStep('description');
