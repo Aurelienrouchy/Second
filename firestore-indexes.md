@@ -338,6 +338,31 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
 }
 ```
 
+## Search + Filters fix (audit AUDIT_SEARCH_FILTERS.md — H2/H3/C2)
+
+> Source de vérité = `firestore.indexes.json`. À déployer manuellement :
+> `firebase deploy --only firestore:indexes` (JAMAIS `--force` : la prod a des
+> orphelins absents du local).
+
+Index ajoutés par le fix recherche+filtres :
+
+`articles` (tri Prix décroissant + secondaire `createdAt DESC`, requis par le
+chemin `searchViaArticles` corrigé) :
+- `isActive + isSold + price DESC + createdAt DESC`
+- `isActive + isSold + condition + price DESC + createdAt DESC`
+- `isActive + isSold + categoryIds CONTAINS + price DESC + createdAt DESC`
+- `isActive + isSold + categoryIds CONTAINS + condition + price DESC + createdAt DESC`
+
+Les variantes `price ASC + createdAt DESC` (utilisées par C2 quand une fourchette
+de prix est présente, et par les tris recent/price_asc) existaient déjà.
+
+`search_index` (tri Populaire + filtre État, sans terme texte) :
+- `isActive + isSold + condition + popularityScore DESC`
+
+Sur le chemin recherche TEXTE, le seul index serveur utilisé reste
+`keywords CONTAINS + popularityScore DESC` (déjà présent) : l'ordre est toujours
+`popularityScore DESC` et tous les autres filtres sont appliqués client-side.
+
 ## Single Field Indexes (Auto-created)
 
 These are automatically created by Firestore:
