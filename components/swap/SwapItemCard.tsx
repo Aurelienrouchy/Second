@@ -56,9 +56,9 @@ const SwapItemCard: React.FC<SwapItemCardProps> = ({
         </Text>
 
         {/* Size and condition - muted small */}
-        {item.size && (
+        {item.size?.value && (
           <Text style={styles.metadata}>
-            Taille {item.size} · Bon état
+            Taille {item.size.value} · Bon état
           </Text>
         )}
       </View>
