@@ -164,7 +164,8 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // height fixe appliqué inline (bornage au plus grand détent) — pas de flex:1
+    // (sinon le flexGrow s'étire contre la hauteur infinie proposée par @expo/ui).
     backgroundColor: '#FFFFFF',
   },
   header: {
