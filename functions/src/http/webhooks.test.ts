@@ -351,8 +351,13 @@ describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () =>
     const res = await deliverEvent(event);
     expect(res.statusCode).toBe(200);
 
-    // Still not paid, seller not credited.
-    expect(fs.getDoc('transactions/tx1')!.status).toBe('pending_payment');
+    // The overpaid auto-refund now reuses the shared issueTransactionRefund core,
+    // which finalizes the transaction to a clean terminal 'refunded' state (the
+    // buyer's money was returned, the tx is closed) instead of leaving it dangling
+    // in 'pending_payment' to later expire. The seller was never credited
+    // (no sellerCreditedCents), so the core's debit target is 0 — pendingBalance
+    // stays 0 (no false debit).
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('refunded');
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
 
     // Auto-refund issued with a deterministic idempotency key.
