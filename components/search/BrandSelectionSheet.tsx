@@ -495,7 +495,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
         {/* ── Confirm footer (multi-select) ── */}
         {!singleSelect && (
-          <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <SheetFooter>
             <TouchableOpacity
               style={[
                 styles.confirmButton,
@@ -511,7 +511,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
                 }
               </Text>
             </TouchableOpacity>
-          </View>
+          </SheetFooter>
         )}
         </BottomSheetView>
       </BottomSheet>
