@@ -270,6 +270,21 @@ export type TransactionStatus =
   | 'refund_in_progress' // Transient — resolves to 'refunded'
   | 'refunded';          // Refund completed
 
+/** Reason categories for a buyer report / return request (UX spec §4b, §4d). */
+export type BuyerReportReason =
+  | 'not_received'      // Colis non reçu
+  | 'not_as_described'  // Article non conforme à l'annonce
+  | 'damaged'           // Article endommagé
+  | 'changed_mind'      // Changement d'avis (return flow only)
+  | 'other';            // Autre
+
+/** Buyer-submitted problem report attached to a transaction. */
+export interface BuyerReport {
+  reason: BuyerReportReason;
+  details?: string;     // Free-form description
+  reportedAt: Date;
+}
+
 export interface Transaction {
   id: string;
   articleId: string;
