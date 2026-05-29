@@ -10,7 +10,10 @@
  * to ensure consistency between AI suggestions and the app's selectors.
  */
 
-export type SizeSystem = 'US' | 'EU';
+// Single source of truth lives in types/index.ts. data must never be imported
+// by types — this one-way re-export keeps SizeSystem identical on both sides.
+import type { SizeSystem } from '@/types';
+export type { SizeSystem };
 export type SizeDemographic = 'adult' | 'kids';
 export type SizeSection = 'tops' | 'bottoms' | 'shoes';
 
