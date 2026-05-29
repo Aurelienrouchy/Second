@@ -9,12 +9,13 @@
  * Rust accent on confirm button.
  */
 
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFooter, BottomSheetScrollView, TouchableOpacity } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetView } from '@expo/ui/community/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
