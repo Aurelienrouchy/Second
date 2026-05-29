@@ -123,7 +123,13 @@ function RecourseReasonSheetInner<Code extends string = string>(
       backgroundStyle={styles.background}
       onChange={handleChange}
     >
-      <BottomSheetScrollView style={{ height: sheetHeight }} contentContainerStyle={styles.content}>
+      <BottomSheetScrollView
+        style={sheetStyle}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: SHEET_BOTTOM_INSET + spacing.xl },
+        ]}
+      >
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.intro}>{intro}</Text>
 
