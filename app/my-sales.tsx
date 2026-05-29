@@ -75,8 +75,9 @@ function SaleCard({
         </Text>
         <Text style={styles.cardPrice}>{formatPrice(transaction.totalAmount)}</Text>
         <View style={styles.statusRow}>
-          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-          <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
+          <Badge variant={getStatusVariant(transaction.status)}>
+            {getStatusLabel(transaction.status, 'seller')}
+          </Badge>
         </View>
         <Text style={styles.cardDate}>{dateLabel}</Text>
         {isReviewable && (
