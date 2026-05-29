@@ -1,49 +1,43 @@
 /**
- * SwapZoneSection Component (presentational) — Split éditorial, univers SOMBRE
+ * SwapZoneSection Component (presentational) — DARK editorial HERO (no photos)
  *
- * The Swap Zone is a permanent generalist zone (no time window, no theme,
- * no countdown). It is the app's editorial counterpoint: while the rest of
- * the app is warm white / cream, the Swap Zone lives on dark surfaces.
+ * Restores the previous hero composition (eyebrow at top, editorial content,
+ * stats + CTA at the bottom) that lived on dark surfaces — but WITHOUT the
+ * photo collage. The depth the photos used to provide is now carried by a
+ * subtle dark gradient background (imageGradients.dark, a DS token), so the
+ * card keeps its premium "hero" feel as a solid dark block.
  *
- * Visual: a DARK card (colors.deep) sitting on the wrapper's charcoal band
- * (colors.dark). The tonal step between the two DS dark tones (band = dark,
- * card = deep) is what visually separates the card from the band — no beige
- * clash, no arbitrary hairline. Title + tagline in cream; the word "Zone" is
- * accented with colors.rust + the display serif (no italic — the loaded
- * Cormorant has no true italic variant, so the accent is carried by COLOR,
- * not fontStyle). Flat, sharp corners per the DS card signature.
+ * The Swap Zone is the app's editorial counterpoint: while the rest of the app
+ * is warm white / cream, the Swap Zone lives on dark surfaces — a distinct
+ * universe. The wrapper band is charcoal (colors.dark); this card sits a notch
+ * deeper via the dark gradient + soft shadow.
  *
- *   ┌──────────────────────────────┐  ← card (colors.deep)
- *   │ Swap Zone            ┌─────┐  │
- *   │ Échange tes pièces,  │ ▣   │  │
- *   │ sans frais.          │ ▣   │  │
- *   │                      │ ▣   │  │
- *   │ 234 articles · 12 n… └─────┘  │
- *   │  ( Entrer dans la zone → )    │
- *   └──────────────────────────────┘
+ * Copy (kept from the latest iteration):
+ *   - Title    "Swap Zone"  ("Zone" accented in rust — color, not italic,
+ *               since the loaded Cormorant has no real italic variant)
+ *   - Tagline  "Échange tes pièces, sans frais."
+ *   - Stats    "{itemsCount} articles" (rust pill) + "{newThisWeek} nouveautés
+ *               cette semaine" (each hidden when 0)
+ *   - CTA      "Entrer dans la zone →"
  *
- * States (driven by `zone` presence + `items` + `onPress`):
- * - full    : zone has items → text block + vertical collage + tappable CTA
- * - empty   : zone exists but has no items → inviting teaser, tappable CTA
- * - teaser  : no zone active (onPress absent) → same teaser but NON-interactive,
- *             no dead CTA — shows a "Bientôt disponible" label instead
- * - loading : dark skeleton matching the split layout
+ * States (driven by `zone` presence + `itemsCount` + `onPress`):
+ * - full    : zone with stock → eyebrow + title + stats + tappable CTA
+ * - empty   : zone exists but no stock yet → inviting hint, tappable CTA
+ * - teaser  : no active zone (onPress absent) → NON-interactive, no eyebrow,
+ *             "Bientôt disponible" label instead of a dead CTA
+ * - loading : dark skeleton
  *
- * Interactivity is keyed off `onPress`: when the wrapper passes no handler
- * (no active zone) the card never renders a Pressable, so there is never a
- * button that does nothing.
+ * Interactivity is keyed off `onPress`: when the wrapper passes no handler the
+ * card never renders a Pressable, so there is never a button that does nothing.
  *
- * This component is purely presentational: data is fetched by the feature
- * wrapper (features/home/swap-zone) and passed down as props.
- *
- * DS DISCIPLINE: every color / size / radius / spacing comes from
- * constants/theme. No magic numbers. Tile size is derived from tokens
- * (sizing.avatarXL + components.card.imageRatio), never hardcoded.
+ * DS DISCIPLINE: every color / size / radius / spacing / gradient comes from
+ * constants/theme. No magic numbers, no hardcoded colors. The only fixed
+ * heights are token sums (e.g. sizing.avatarXXL + sizing.avatarXL).
  */
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -63,7 +57,7 @@ import {
   fonts,
   shadows,
   animations,
-  components,
+  imageGradients,
 } from '@/constants/theme';
 import { SwapPartyItem } from '@/types';
 
@@ -79,41 +73,14 @@ interface SwapZoneInfo {
 
 interface SwapZoneSectionProps {
   zone?: SwapZoneInfo;
+  // Kept for API compatibility with the feature wrapper; the card no longer
+  // renders thumbnails, so the list itself is unused here.
   items?: SwapPartyItem[];
   itemsCount?: number;
   newThisWeek?: number;
   isLoading?: boolean;
   onPress?: () => void;
   testID?: string;
-}
-
-// =============================================================================
-// CONSTANTS — count of thumbnails only (semantic, not a dimension)
-// =============================================================================
-
-// Vertical collage shows exactly 3 thumbnails.
-const TILE_COUNT = 3;
-
-// =============================================================================
-// HELPERS — inline stats copy (FR, singular/plural, hide zero)
-// =============================================================================
-
-/**
- * Builds the inline stats line. Each stat is hidden when 0 (never "0 articles"
- * / "0 nouveautés"). When both are present they are joined by " · ".
- * Returns [] when nothing to show.
- */
-function buildStatsParts(itemsCount: number, newThisWeek: number): string[] {
-  const parts: string[] = [];
-  if (itemsCount > 0) {
-    parts.push(`${itemsCount} ${itemsCount > 1 ? 'articles' : 'article'}`);
-  }
-  if (newThisWeek > 0) {
-    parts.push(
-      `${newThisWeek} ${newThisWeek > 1 ? 'nouveautés' : 'nouveauté'} cette semaine`,
-    );
-  }
-  return parts;
 }
 
 // =============================================================================
@@ -181,9 +148,20 @@ const CardShell: React.FC<CardShellProps> = ({ onPress, children }) => {
 };
 
 // =============================================================================
+// SHARED — Eyebrow ("· ÉCHANGE OUVERT" with a live dot) — only when the zone
+// is actually open (interactive).
+// =============================================================================
+
+const OpenEyebrow: React.FC = () => (
+  <View style={styles.eyebrowRow}>
+    <View style={styles.statusDot} />
+    <Text style={styles.eyebrow}>Échange ouvert</Text>
+  </View>
+);
+
+// =============================================================================
 // SHARED — Editorial title ("Swap" cream + "Zone" rust accent)
-// Accent is carried by COLOR (rust) + the display serif, never by italic
-// (the loaded Cormorant has no real italic variant).
+// Accent is carried by COLOR (rust) + the display serif, never by italic.
 // =============================================================================
 
 const ZoneTitle: React.FC = () => (
@@ -193,13 +171,15 @@ const ZoneTitle: React.FC = () => (
 );
 
 // =============================================================================
-// SHARED — CTA row ("Entrer dans la zone →")
+// SHARED — CTA row ("Entrer dans la zone →") — cream pill on the dark hero
 // =============================================================================
 
 const CtaRow: React.FC = () => (
   <View style={styles.ctaRow}>
     <Text style={styles.ctaText}>Entrer dans la zone</Text>
-    <Ionicons name="arrow-forward" size={sizing.iconSM} color={colors.cream} />
+    <View style={styles.ctaChevron}>
+      <Ionicons name="arrow-forward" size={sizing.iconSM} color={colors.charcoal} />
+    </View>
   </View>
 );
 
@@ -210,131 +190,94 @@ const CtaRow: React.FC = () => (
 
 const ComingSoonLabel: React.FC = () => (
   <View style={styles.comingSoonRow}>
-    <Ionicons name="time-outline" size={sizing.iconSM} color={colors.sage} />
+    <Ionicons name="time-outline" size={sizing.iconSM} color={colors.sand} />
     <Text style={styles.comingSoonText}>Bientôt disponible</Text>
   </View>
 );
 
 // =============================================================================
-// SHARED — Vertical collage tile (with clean dark fallback, no broken image)
+// HERO — dark gradient block (no photos)
 // =============================================================================
 
-const CollageTile: React.FC<{ item?: SwapPartyItem }> = ({ item }) => (
-  <View style={styles.tile}>
-    {item?.imageUrl ? (
-      <Image
-        source={item.imageUrl}
-        style={styles.tileImage}
-        contentFit="cover"
-        transition={animations.duration.fast}
-        recyclingKey={item.id}
-      />
-    ) : (
-      <View style={[styles.tileImage, styles.tileFallback]}>
-        <Ionicons name="shirt-outline" size={sizing.iconMD} color={colors.sand} />
-      </View>
-    )}
-  </View>
-);
-
-// =============================================================================
-// FULL STATE — split editorial (text left, vertical collage right)
-// =============================================================================
-
-interface FullCardProps {
-  items: SwapPartyItem[];
+interface HeroProps {
   itemsCount: number;
   newThisWeek: number;
-  onPress: () => void;
+  // interactive => a real, open zone. non-interactive => teaser.
+  onPress?: () => void;
 }
 
-const FullCard: React.FC<FullCardProps> = ({ items, itemsCount, newThisWeek, onPress }) => {
-  const tiles = items.slice(0, TILE_COUNT);
-  const statsParts = buildStatsParts(itemsCount, newThisWeek);
+const Hero: React.FC<HeroProps> = ({ itemsCount, newThisWeek, onPress }) => {
+  const interactive = !!onPress;
+  const hasStock = itemsCount > 0;
+  const hasFresh = newThisWeek > 0;
 
   return (
     <CardShell onPress={onPress}>
-      <View style={styles.card}>
-        {/* Left — editorial text block */}
+      <LinearGradient
+        colors={imageGradients.dark}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.card}
+      >
+        {/* Top — open eyebrow (only when the zone is really open) */}
+        {interactive ? <OpenEyebrow /> : <View />}
+
+        {/* Middle — editorial title + tagline */}
         <View style={styles.textBlock}>
           <ZoneTitle />
           <Text style={styles.tagline}>Échange tes pièces, sans frais.</Text>
+        </View>
 
-          {statsParts.length > 0 ? (
-            <Text style={styles.statsLine} numberOfLines={1}>
-              {statsParts.join('  ·  ')}
+        {/* Bottom — stats + CTA (or hint / coming-soon) */}
+        <View style={styles.bottomBlock}>
+          {hasStock ? (
+            <View style={styles.countPill}>
+              <Ionicons name="swap-horizontal" size={sizing.iconSM} color={colors.cream} />
+              <Text style={styles.countPillText}>
+                {itemsCount} {itemsCount > 1 ? 'articles' : 'article'}
+              </Text>
+            </View>
+          ) : interactive ? (
+            <Text style={styles.hint}>
+              Dépose un article et trouve la pièce parfaite à troquer.
             </Text>
           ) : null}
 
-          <CtaRow />
-        </View>
+          {hasStock && hasFresh ? (
+            <Text style={styles.freshText}>
+              {newThisWeek} {newThisWeek > 1 ? 'nouveautés' : 'nouveauté'} cette semaine
+            </Text>
+          ) : null}
 
-        {/* Right — vertical collage of 3 real thumbnails */}
-        <View style={styles.collage}>
-          {Array.from({ length: TILE_COUNT }).map((_, i) => (
-            <CollageTile key={tiles[i]?.id ?? `tile-${i}`} item={tiles[i]} />
-          ))}
+          {interactive ? <CtaRow /> : <ComingSoonLabel />}
         </View>
-      </View>
+      </LinearGradient>
     </CardShell>
   );
 };
 
 // =============================================================================
-// EMPTY / TEASER STATE — inviting teaser, same split frame
-//
-// Two sub-cases, distinguished by `onPress`:
-// - onPress present  : a zone exists but has no items yet → tappable, enters
-//                      the (empty) zone, shows the normal CTA.
-// - onPress absent   : no active zone at all → non-interactive teaser, shows a
-//                      "Bientôt disponible" label instead of a dead CTA.
-// =============================================================================
-
-const EmptyCard: React.FC<{ onPress?: () => void }> = ({ onPress }) => (
-  <CardShell onPress={onPress}>
-    <View style={styles.card}>
-      {/* Left — editorial text block */}
-      <View style={styles.textBlock}>
-        <ZoneTitle />
-        <Text style={styles.tagline}>Échange tes pièces, sans frais.</Text>
-        <Text style={styles.emptyHint}>
-          Dépose un article et trouve la pièce parfaite à troquer.
-        </Text>
-        {onPress ? <CtaRow /> : <ComingSoonLabel />}
-      </View>
-
-      {/* Right — empty collage placeholder (no real stock yet) */}
-      <View style={styles.collage}>
-        {Array.from({ length: TILE_COUNT }).map((_, i) => (
-          <CollageTile key={`empty-tile-${i}`} />
-        ))}
-      </View>
-    </View>
-  </CardShell>
-);
-
-// =============================================================================
-// LOADING STATE — dark skeleton matching the split layout
+// LOADING STATE — dark skeleton
 // =============================================================================
 
 const LoadingCard: React.FC = () => (
   <View style={styles.cardShell}>
-    <View style={[styles.card, styles.skeletonCard]}>
-      {/* Left — text skeleton */}
+    <LinearGradient
+      colors={imageGradients.dark}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.card}
+    >
+      <View style={[styles.skeletonLine, styles.skeletonEyebrow]} />
       <View style={styles.textBlock}>
         <View style={[styles.skeletonLine, styles.skeletonTitle]} />
         <View style={[styles.skeletonLine, styles.skeletonTagline]} />
+      </View>
+      <View style={styles.bottomBlock}>
         <View style={[styles.skeletonLine, styles.skeletonStats]} />
         <View style={styles.skeletonCta} />
       </View>
-
-      {/* Right — collage skeleton */}
-      <View style={styles.collage}>
-        {Array.from({ length: TILE_COUNT }).map((_, i) => (
-          <View key={`skeleton-tile-${i}`} style={[styles.tile, styles.skeletonTile]} />
-        ))}
-      </View>
-    </View>
+    </LinearGradient>
   </View>
 );
 
@@ -344,7 +287,6 @@ const LoadingCard: React.FC = () => (
 
 export const SwapZoneSection: React.FC<SwapZoneSectionProps> = ({
   zone,
-  items = [],
   itemsCount = 0,
   newThisWeek = 0,
   isLoading = false,
@@ -352,41 +294,33 @@ export const SwapZoneSection: React.FC<SwapZoneSectionProps> = ({
   testID,
 }) => {
   const hasZone = !!zone;
-  const hasItems = items.length > 0;
 
-  // A zone exists but has no items yet → still tappable (enter the empty zone).
-  // No zone at all → strip the handler so the teaser stays non-interactive.
-  const emptyOnPress = hasZone ? onPress : undefined;
+  // Only build an interactive hero when a zone actually exists. No zone → strip
+  // the handler so the teaser stays non-interactive (no dead CTA).
+  const heroOnPress = hasZone ? onPress : undefined;
 
   return (
     <View style={styles.container} testID={testID}>
       {isLoading && !zone ? (
         <LoadingCard />
-      ) : hasItems ? (
-        <FullCard
-          items={items}
-          itemsCount={itemsCount}
-          newThisWeek={newThisWeek}
-          onPress={onPress ?? (() => {})}
-        />
       ) : (
-        // (b) zone without items → inviting teaser, tappable.
-        // (c) no active zone   → same teaser, non-interactive (no dead CTA).
-        <EmptyCard onPress={emptyOnPress} />
+        <Hero
+          itemsCount={zone?.itemsCount ?? itemsCount}
+          newThisWeek={newThisWeek}
+          onPress={heroOnPress}
+        />
       )}
     </View>
   );
 };
 
 // =============================================================================
-// STYLES — dark universe, 100% DS tokens
+// STYLES — dark hero, 100% DS tokens
 //
-// Tone separation: wrapper band = colors.dark (#1A1814), card = colors.deep
-// (#0F0E0C). The tonal step is the separator (no beige, no arbitrary hairline).
-//
-// Tile dimensions are DERIVED from tokens, never hardcoded:
-//   width  = sizing.avatarXL (80)
-//   height = aspectRatio components.card.imageRatio (4/5 portrait)
+// Card sits on the wrapper's charcoal band (colors.dark). Its dark gradient
+// (imageGradients.dark) + soft shadow lift it a notch and give the depth the
+// photo collage used to provide. Rounded corners (radius.lg) match the
+// previous hero card. Min height is a sum of sizing tokens (no magic number).
 // =============================================================================
 
 const styles = StyleSheet.create({
@@ -395,37 +329,57 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 
-  // Card shell — flat, sharp corners (DS card signature: radius.none).
-  // colors.deep so the card reads a notch darker than the charcoal band.
   cardShell: {
-    borderRadius: components.card.borderRadius, // radius.none — sharp
+    borderRadius: radius.lg,
     backgroundColor: colors.deep,
-    ...shadows.card, // very soft, opacity 0.03
+    ...shadows.elevated,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    borderRadius: components.card.borderRadius, // radius.none
+    minHeight: sizing.avatarXXL + sizing.avatarXL, // 120 + 80 = 200, token-derived
+    borderRadius: radius.lg,
     overflow: 'hidden',
-    backgroundColor: colors.deep,
     padding: spacing.lg,
+    justifyContent: 'space-between',
     gap: spacing.md,
   },
 
-  // --- Left: editorial text block ---
+  // --- Top: open eyebrow ---
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    backgroundColor: colors.overlay,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+  },
+  statusDot: {
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.success,
+  },
+  eyebrow: {
+    fontFamily: typography.labelUppercase.fontFamily,
+    fontSize: typography.labelUppercase.fontSize,
+    lineHeight: typography.labelUppercase.lineHeight,
+    letterSpacing: typography.labelUppercase.letterSpacing,
+    color: colors.cream,
+    textTransform: 'uppercase',
+  },
+
+  // --- Middle: editorial text ---
   textBlock: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   title: {
     fontFamily: fonts.displaySemiBold,
-    fontSize: typography.h1.fontSize,
-    lineHeight: typography.h1.lineHeight,
-    letterSpacing: typography.h1.letterSpacing,
+    fontSize: typography.hero.fontSize,
+    lineHeight: typography.hero.lineHeight,
+    letterSpacing: typography.hero.letterSpacing,
     color: colors.cream,
   },
-  // Accent: rust color only (NOT italic — no real italic variant is loaded).
   titleAccent: {
     fontFamily: fonts.displaySemiBold,
     color: colors.rust,
@@ -437,115 +391,121 @@ const styles = StyleSheet.create({
     letterSpacing: typography.body.letterSpacing,
     color: colors.sand,
   },
-  statsLine: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    lineHeight: typography.caption.lineHeight,
-    letterSpacing: typography.caption.letterSpacing,
-    color: colors.whiteTranslucent,
-    marginTop: spacing.xs,
-  },
-  emptyHint: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    lineHeight: typography.caption.lineHeight,
-    letterSpacing: typography.caption.letterSpacing,
-    color: colors.whiteTranslucent,
-  },
 
-  // --- Right: vertical collage (tiles derived from tokens) ---
-  collage: {
+  // --- Bottom: stats + CTA ---
+  bottomBlock: {
     gap: spacing.sm,
-    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
-  tile: {
-    width: sizing.avatarXL, // 80 — derived from a DS sizing token
-    aspectRatio: components.card.imageRatio, // 4/5 portrait — DS card ratio
-    borderRadius: radius.none, // sharp corners, matches product images app-wide
-    overflow: 'hidden',
-    backgroundColor: colors.dark, // tile base reads against the deeper card
-  },
-  tileImage: {
-    flex: 1,
-    backgroundColor: colors.dark,
-  },
-  tileFallback: {
-    backgroundColor: colors.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // --- CTA (rust pill — pills are explicitly radius.full in the DS) ---
-  ctaRow: {
+  countPill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: spacing.sm,
+    gap: spacing.xs,
     backgroundColor: colors.rust,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
-    marginTop: spacing.xs,
+  },
+  countPillText: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: typography.label.fontSize,
+    lineHeight: typography.label.lineHeight,
+    letterSpacing: typography.label.letterSpacing,
+    color: colors.cream,
+  },
+  freshText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
+    letterSpacing: typography.caption.letterSpacing,
+    color: colors.sand,
+    paddingLeft: spacing.xs,
+  },
+  hint: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
+    letterSpacing: typography.caption.letterSpacing,
+    color: colors.whiteTranslucent,
+    maxWidth: sizing.avatarXXL * 2, // 240, token-derived
+  },
+
+  // --- CTA (cream pill, full width, charcoal text) ---
+  ctaRow: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.cream,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
   },
   ctaText: {
     fontFamily: typography.button.fontFamily,
     fontSize: typography.button.fontSize,
     lineHeight: typography.button.lineHeight,
     letterSpacing: typography.button.letterSpacing,
-    color: colors.cream,
+    color: colors.charcoal,
     textTransform: 'uppercase',
   },
+  ctaChevron: {
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
+    backgroundColor: colors.sand,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-  // --- "Coming soon" label (non-interactive teaser) ---
+  // --- Coming-soon label (non-interactive teaser) ---
   comingSoonRow: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: spacing.xs,
-    backgroundColor: colors.sageLight,
+    backgroundColor: colors.overlay,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
-    marginTop: spacing.xs,
   },
   comingSoonText: {
     fontFamily: typography.label.fontFamily,
     fontSize: typography.label.fontSize,
     lineHeight: typography.label.lineHeight,
     letterSpacing: typography.label.letterSpacing,
-    color: colors.sage,
+    color: colors.sand,
     textTransform: 'uppercase',
   },
 
   // --- Loading skeleton (dark) ---
-  skeletonCard: {
-    backgroundColor: colors.deep,
-  },
   skeletonLine: {
     borderRadius: radius.sm,
     backgroundColor: colors.dark,
   },
+  skeletonEyebrow: {
+    height: typography.labelUppercase.lineHeight,
+    width: sizing.avatarXXL, // 120
+  },
   skeletonTitle: {
-    height: typography.h1.lineHeight,
-    width: '55%',
+    height: typography.hero.lineHeight,
+    width: '60%',
   },
   skeletonTagline: {
     height: typography.body.lineHeight,
     width: '80%',
+    marginTop: spacing.xs,
   },
   skeletonStats: {
-    height: typography.caption.lineHeight,
-    width: '45%',
-    marginTop: spacing.xs,
+    height: typography.label.lineHeight,
+    width: '40%',
   },
   skeletonCta: {
-    height: sizing.buttonHeightSmall,
-    width: sizing.avatarXXL + sizing.avatarMD, // 120 + 40 = 160, derived from tokens
+    alignSelf: 'stretch',
+    height: sizing.buttonHeight,
     borderRadius: radius.full,
-    backgroundColor: colors.dark,
-    marginTop: spacing.xs,
-  },
-  skeletonTile: {
     backgroundColor: colors.dark,
   },
 });
