@@ -108,13 +108,6 @@ const Shell: React.FC<ShellProps> = ({ onPress, children }) => {
 // SHARED — pieces
 // =============================================================================
 
-const OpenEyebrow: React.FC = () => (
-  <View style={styles.eyebrowRow}>
-    <View style={styles.statusDot} />
-    <Text style={styles.eyebrow}>Échange ouvert</Text>
-  </View>
-);
-
 const ZoneTitle: React.FC = () => (
   <Text style={styles.title}>
     Swap <Text style={styles.titleAccent}>Zone</Text>
