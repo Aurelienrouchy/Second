@@ -82,7 +82,7 @@ function toProductCardProduct(article: Article | ArticleWithLocation) {
     title: article.title,
     price: article.price,
     images: article.images,
-    size: article.size,
+    size: article.size?.value,
     brand: article.brand,
     condition: article.condition,
     likes: article.likes,
