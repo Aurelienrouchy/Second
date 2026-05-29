@@ -38,24 +38,6 @@ interface OrderItem {
   hasReview: boolean;
 }
 
-const STATUS_LABELS: Record<TransactionStatus, { label: string; color: string }> = {
-  pending_payment: { label: 'Paiement en attente', color: colors.warning },
-  meetup_pending: { label: 'Rencontre à confirmer', color: colors.warning },
-  meetup_confirmed: { label: 'Rencontre confirmée', color: colors.primary },
-  meetup_completed: { label: 'Échange terminé', color: colors.success },
-  paid: { label: 'Payée — en préparation', color: colors.primary },
-  label_created: { label: 'Étiquette prête — bientôt en route', color: colors.primary },
-  shipped: { label: "En cours d'acheminement", color: colors.primary },
-  delivered: { label: 'Livrée', color: colors.success },
-  completed: { label: 'Vente finalisée', color: colors.success },
-  delivery_failed: { label: 'Problème de livraison', color: colors.danger },
-  lost: { label: 'Colis égaré', color: colors.danger },
-  cancelled: { label: 'Annulée', color: colors.danger },
-  disputed: { label: 'Litige en cours', color: colors.warning },
-  refund_in_progress: { label: 'Remboursement en cours', color: colors.warning },
-  refunded: { label: 'Remboursée', color: colors.muted },
-};
-
 function OrderCard({
   item,
   onPress,
