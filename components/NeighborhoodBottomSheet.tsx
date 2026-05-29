@@ -203,6 +203,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.foreground,
   },
+  list: {
+    flex: 1,
+  },
   listContent: {
     paddingBottom: 40,
   },
