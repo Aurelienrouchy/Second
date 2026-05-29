@@ -1457,7 +1457,7 @@ export const completeMeetupTransaction = onCall(
           senderId: 'system',
           receiverId: 'system',
           type: 'system',
-          content: 'Rencontre confirmée ! La transaction est terminée. Les fonds ont été transférés au vendeur.',
+          content: 'Rencontre confirmée ! La transaction est terminée. Le paiement a été réglé en main propre entre l\'acheteur et le vendeur.',
           participants,
           timestamp: FieldValue.serverTimestamp(),
           status: 'sent',
