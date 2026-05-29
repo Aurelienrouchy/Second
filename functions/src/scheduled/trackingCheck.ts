@@ -44,8 +44,13 @@ const SHIPENGINE_THROTTLE_MS = 150;
 const LABEL_STALE_DAYS = 3;
 const LABEL_STALE_MS = LABEL_STALE_DAYS * 24 * 60 * 60 * 1000;
 
-/** Statuses whose parcels we poll. */
-const TRACKED_STATUSES = ['label_created', 'shipped'] as const;
+/**
+ * Statuses whose parcels we poll.
+ *   - label_created / shipped: forward leg (buyer-bound), polled via trackingNumber.
+ *   - return_requested: reverse leg (seller-bound), polled via returnTrackingNumber.
+ * All three reuse the SAME composite index (status ASC, createdAt ASC).
+ */
+const TRACKED_STATUSES = ['label_created', 'shipped', 'return_requested'] as const;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
