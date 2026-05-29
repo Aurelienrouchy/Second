@@ -58,6 +58,8 @@ const DEMOGRAPHIC_OPTIONS: { id: SizeDemographic; label: string }[] = [
   { id: 'kids', label: 'Enfant' },
 ];
 
+const SNAP = '85%';
+
 const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetProps>(
   ({ selectedSizes, onConfirm, categoryPath }, ref) => {
     const insets = useSafeAreaInsets();
