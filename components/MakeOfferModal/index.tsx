@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import BottomSheet, { BottomSheetScrollView } from '@expo/ui/community/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MeetupNeighborhood, MeetupSpot } from '@/types';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
 import ConfirmStep from './ConfirmStep';
 import LocationStep from './LocationStep';
 import OfferStep from './OfferStep';
