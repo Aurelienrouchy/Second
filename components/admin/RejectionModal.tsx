@@ -1,6 +1,6 @@
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetView } from '@expo/ui/community/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
-import React, { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
