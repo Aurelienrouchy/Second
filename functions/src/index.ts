@@ -36,9 +36,14 @@ export { visualSearch, getSimilarProducts, backfillEmbeddings } from './callable
 export { createArticle, updateArticle, incrementProductView, toggleProductLike, toggleArticleSold, markSavedSearchViewed } from './callable/products';
 
 // Swap Functions
+// Single permanent generalist Swap Zone (no join/leave/participants).
+// cashTopUp is paid via Stripe (createSwapTopUpCheckout + swap_topup webhook).
 export {
+  ensureGeneralistZone,
+  getActiveSwapPartyInfo,
   proposeMultiSwap,
   acceptSwap,
+  createSwapTopUpCheckout,
   declineSwap,
   cancelSwap,
   setSwapExchangeMode,
@@ -47,10 +52,7 @@ export {
   confirmSwapReception,
   rateSwap,
   openSwapDispute,
-  getActiveSwapPartyInfo,
   getSwapPartyLeaderboard,
-  joinSwapPartySecure,
-  leaveSwapPartySecure,
   addItemToPartySecure,
   removeItemFromPartySecure,
 } from './callable/swaps';
