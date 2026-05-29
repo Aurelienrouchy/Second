@@ -1316,18 +1316,22 @@ async function handleChargeRefunded(charge: any): Promise<void> {
 
     // --- Debit seller wallet of EXACTLY what was credited ---
     // P1: debit the precise amount that was credited to the seller for this sale
-    // (persisted as sellerCreditedCents at credit time; legacy txs fall back to
-    // the derived payout). Cascade across the three buckets in escrow order
-    // pendingBalance -> heldBalance -> balance so we drain wherever the funds
-    // currently sit (paid, delivered-in-window, or released). Any remainder the
-    // seller no longer holds (already withdrawn) is recorded as sellerDebt and
-    // blocks future withdrawals until recovered — NEVER masked with min().
+    // (persisted as sellerCreditedCents at credit time). Cascade across the
+    // three buckets in escrow order pendingBalance -> heldBalance -> balance so
+    // we drain wherever the funds currently sit (paid, delivered-in-window, or
+    // released). Any remainder the seller no longer holds (already withdrawn) is
+    // recorded as sellerDebt and blocks future withdrawals until recovered —
+    // NEVER masked with min().
+    //
+    // P1 (atomicity): under the deferred-credit model the seller is credited
+    // ONLY after the shipping label is created. A shipping transaction still
+    // 'paid' with labelCreationPending was NEVER credited, so sellerCreditedCents
+    // is absent and the debit target is 0 (debiting would create false debt).
+    // The legacy derived-payout fallback is intentionally dropped here.
     const sellerWalletRef = db.collection('wallets').doc(sellerId);
     const sellerWalletSnap = await tx.get(sellerWalletRef);
     const sellerDebitTarget =
-      typeof txData.sellerCreditedCents === 'number'
-        ? txData.sellerCreditedCents
-        : Math.round((sellerPayout || 0) * 100);
+      typeof txData.sellerCreditedCents === 'number' ? txData.sellerCreditedCents : 0;
 
     if (sellerDebitTarget > 0) {
       if (sellerWalletSnap.exists) {
