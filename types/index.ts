@@ -694,7 +694,7 @@ export interface SwapItemInfo {
   price: number;
   imageUrl?: string;
   brand?: string;
-  size?: string;
+  size?: ArticleSize | null;
 }
 
 // Swap - An exchange between two users (supports multi-article)
