@@ -300,6 +300,9 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
         return {
           processed: false,
           reason: 'amount_mismatch' as const,
+          // Carry the tx data so the buyer-overpaid auto-refund can reuse the
+          // shared refund core (atomic Stripe refund + wallet reconciliation).
+          txData,
           mismatch: {
             received: amountReceivedDollars,
             expected: expectedComparable,
