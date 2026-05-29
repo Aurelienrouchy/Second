@@ -97,24 +97,6 @@ export class TransactionService {
   }
 
   /**
-   * Legacy wrapper -- Create a shipping transaction
-   * @deprecated Use createShippingTransaction instead
-   */
-  static async createTransaction(
-    articleId: string,
-    buyerId: string,
-    sellerId: string,
-    amount: number,
-    shippingCost: number,
-    shippingAddress: ShippingAddress,
-    chatId?: string
-  ): Promise<string> {
-    return this.createShippingTransaction(
-      articleId, buyerId, sellerId, amount, shippingCost, shippingAddress, chatId
-    );
-  }
-
-  /**
    * Get a transaction by ID
    */
   static async getTransaction(transactionId: string): Promise<Transaction | null> {
