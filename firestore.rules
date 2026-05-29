@@ -336,54 +336,37 @@ service cloud.firestore {
     // SWAP SYSTEM RULES
     // ============================================
 
-    // Swap Parties Collection Rules
+    // Swap Parties (the single permanent generalist Swap Zone)
     match /swapParties/{partyId} {
-      // Anyone can read swap parties
+      // Anyone can read the zone (counters: itemsCount, swapsCount).
       allow read: if true;
 
-      // Create only via Cloud Functions (Admin SDK)
-      allow create: if false;
-
-      // SECURITY: all swapParties updates go through Cloud Functions (Admin SDK)
-      // which manage counters (participantsCount, itemsCount, swapsCount) and
-      // status transitions atomically. No client-side updates allowed.
-      // Note: creatorId was never written by any code path, so the previous
-      // rule referencing it was always false in practice.
-      allow update: if false;
-
-      // No delete - managed by Cloud Functions/scripts
-      allow delete: if false;
+      // Create / update / delete only via Cloud Functions (Admin SDK):
+      // ensureGeneralistZone bootstraps the zone; addItemToPartySecure /
+      // removeItemFromPartySecure / confirmSwapReception maintain the counters
+      // atomically. No client-side writes.
+      allow create, update, delete: if false;
     }
 
-    // Swap Party Participants Collection Rules
-    match /swapPartyParticipants/{participantId} {
-      // Anyone can read participants
-      allow read: if true;
-
-      // Users can join/leave parties (via Cloud Functions recommended)
-      allow create: if isAuthenticated() &&
-                       request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() &&
-                       resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() &&
-                       resource.data.userId == request.auth.uid;
-    }
-
-    // Swap Party Items Collection Rules
+    // Swap Zone Items
+    // The Swap Zone is open to all — no participants. Depositing an item only
+    // requires owning the article. Items are created/removed via Cloud
+    // Functions (addItemToPartySecure / removeItemFromPartySecure) which keep
+    // itemsCount in sync; the rules below still allow a direct owner write as a
+    // safety net but forbid mutating server-managed flags.
     match /swapPartyItems/{itemId} {
-      // Anyone can read items in a party
+      // Anyone can read items in the zone (public discovery + home preview).
       allow read: if true;
 
-      // Owners can add/remove their items
+      // Owners can add/remove their own items.
       allow create: if isAuthenticated() &&
                        request.resource.data.sellerId == request.auth.uid;
       allow delete: if isAuthenticated() &&
                        resource.data.sellerId == request.auth.uid;
 
-      // SECURITY: sellers can update their own items, but isSwapped and
-      // isPending are managed exclusively by Cloud Functions (Admin SDK).
-      // Preventing client mutation of these fields avoids users marking
-      // their own items as swapped or manipulating pending state.
+      // SECURITY: isSwapped and isPending are managed exclusively by Cloud
+      // Functions (Admin SDK). Clients cannot mark items swapped or manipulate
+      // the pending lock.
       allow update: if isAuthenticated() &&
                        resource.data.sellerId == request.auth.uid &&
                        !request.resource.data.diff(resource.data).affectedKeys()
@@ -391,36 +374,43 @@ service cloud.firestore {
     }
 
     // Swaps Collection Rules
+    //
+    // SECURITY MODEL: all sensitive transitions — payment_pending (top-up
+    // accept), accepted (post-payment), photos_pending, shipping, completed,
+    // disputed, cancelled — are owned by Cloud Functions (Admin SDK, which
+    // bypasses rules). The ONLY client-allowed transition here is a participant
+    // declining a 'proposed' swap (a pure social action with no money/state
+    // side-effects). Everything else MUST go through a callable so invariants
+    // (Stripe payment, escrow ledger, item locks) are enforced atomically.
     match /swaps/{swapId} {
-      // Participants can read their swaps
+      // Participants can read their swaps.
       allow read: if isAuthenticated() &&
                      (resource.data.initiatorId == request.auth.uid ||
                       resource.data.receiverId == request.auth.uid);
 
-      // Only Cloud Functions can create swaps (proposeMultiSwap callable
-      // validates article availability and blocking status via Admin SDK)
+      // Only Cloud Functions can create swaps (proposeMultiSwap validates
+      // article availability, blocking, and cashTopUp via Admin SDK).
       allow create: if false;
 
-      // Participants can update their swap with strict field and status transition rules
+      // Participants may ONLY decline a proposed swap client-side. All other
+      // transitions are CF-only (Admin SDK bypasses these rules).
       allow update: if isAuthenticated() &&
                        (resource.data.initiatorId == request.auth.uid ||
                         resource.data.receiverId == request.auth.uid) &&
-                       // Immutable fields
+                       // Immutable identity + money fields
                        request.resource.data.initiatorId == resource.data.initiatorId &&
                        request.resource.data.receiverId == resource.data.receiverId &&
-                       // Only allow specific field changes
+                       request.resource.data.cashTopUp == resource.data.cashTopUp &&
+                       // Only these fields may change in a client decline
                        request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['status', 'updatedAt', 'declinedBy', 'declinedAt', 'completedAt']) &&
-                       // Status transitions: only receiver can accept, either party can decline
-                       (request.resource.data.status == resource.data.status ||
-                        (resource.data.status == 'proposed' && request.resource.data.status == 'accepted' && request.auth.uid == resource.data.receiverId) ||
-                        (resource.data.status == 'proposed' && request.resource.data.status == 'declined') ||
-                        (resource.data.status == 'accepted' && request.resource.data.status == 'completed'));
+                         .hasOnly(['status', 'updatedAt', 'declinedBy', 'declinedAt']) &&
+                       // Single permitted transition: proposed -> declined
+                       resource.data.status == 'proposed' &&
+                       request.resource.data.status == 'declined';
 
-      // Only initiator can delete (cancel) a pending swap
-      allow delete: if isAuthenticated() &&
-                       resource.data.initiatorId == request.auth.uid &&
-                       resource.data.status == 'proposed';
+      // No client delete — cancellation goes through the cancelSwap callable
+      // (which may need to refund a paid top-up via Stripe).
+      allow delete: if false;
     }
 
     // Admin Collection Rules (Admin-only access)
