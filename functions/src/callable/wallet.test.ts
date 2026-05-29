@@ -613,8 +613,11 @@ describe('walletWithdraw', () => {
       callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
     ).rejects.toThrow('Stripe network error');
 
-    // Two runTransaction calls: debit + revert
-    expect(txCallCount).toBe(2);
+    // Three runTransaction calls: rate-limit check + debit + revert.
+    // (transfers.create throws BEFORE `transfer` is assigned, so no
+    // transfers.createReversal happens — that is a Stripe call, not a
+    // runTransaction, anyway.)
+    expect(txCallCount).toBe(3);
 
     // Revert should update the wallet again
     const walletUpdates = writeOps.filter(
