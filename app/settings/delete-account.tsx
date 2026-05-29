@@ -90,9 +90,28 @@ export default function DeleteAccountScreen() {
       // Vérifier les transactions actives (acheteur ou vendeur)
       const activeTransactions = await TransactionService.getActiveTransactionsForUser(user.id);
       if (activeTransactions.length > 0) {
+        // Un litige actif (ou un échec de livraison / colis perdu, qui ouvrent
+        // un litige côté backend) prime : la suppression est bloquée tant que
+        // la résolution n'est pas terminée et les fonds régularisés.
+        const hasDispute = activeTransactions.some(
+          (t) =>
+            t.status === 'disputed' ||
+            t.status === 'delivery_failed' ||
+            t.status === 'lost'
+        );
+        if (hasDispute) {
+          Alert.alert(
+            'Litige en cours',
+            "Un litige est en cours sur l'une de vos transactions. Vous pourrez supprimer votre compte une fois ce litige résolu et les fonds régularisés.",
+            [{ text: 'Compris' }]
+          );
+          setLoading(false);
+          return;
+        }
+
         Alert.alert(
           'Transactions en cours',
-          'Vous avez des transactions en cours (commandes non finalisées). Veuillez les terminer avant de supprimer votre compte.',
+          'Vous avez des transactions non finalisées (achat ou vente en cours). Veuillez les terminer avant de supprimer votre compte.',
           [{ text: 'Compris' }]
         );
         setLoading(false);
@@ -102,20 +121,42 @@ export default function DeleteAccountScreen() {
       // Vérifier le solde du porte-monnaie avant suppression
       try {
         const walletInfo = await WalletService.getWalletInfo();
-        if (walletInfo.hasWallet && walletInfo.balance > 0) {
+
+        // Dette vendeur à régulariser : bloque la suppression.
+        if (walletInfo.hasWallet && (walletInfo.sellerDebt ?? 0) > 0) {
           Alert.alert(
-            'Solde en attente',
-            `Vous avez ${formatPrice(walletInfo.balance / 100)} disponible sur votre porte-monnaie. Veuillez effectuer un retrait avant de supprimer votre compte.`,
-            [{ text: 'OK' }]
+            'Régularisation nécessaire',
+            'Un montant reste à régulariser sur votre compte. Vous pourrez le supprimer une fois ce solde réglé.',
+            [{ text: 'Compris' }]
           );
           setLoading(false);
           return;
         }
-        if (walletInfo.hasWallet && walletInfo.pendingBalance > 0) {
+
+        // Solde disponible : à retirer avant suppression.
+        if (walletInfo.hasWallet && walletInfo.balance > 0) {
           Alert.alert(
-            'Transactions en cours',
-            `Vous avez ${formatPrice(walletInfo.pendingBalance / 100)} en attente de traitement. Veuillez attendre que toutes les transactions soient terminées avant de supprimer votre compte.`,
-            [{ text: 'OK' }]
+            'Solde à retirer',
+            `Vous disposez de ${formatPrice(walletInfo.balance / 100)} sur votre porte-monnaie. Effectuez un retrait avant de supprimer votre compte.`,
+            [
+              { text: 'Annuler', style: 'cancel' },
+              { text: 'Voir mon porte-monnaie', onPress: () => router.push('/wallet') },
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Fonds en attente (vente en cours) ou bientôt disponibles (fenêtre de
+        // protection acheteur de 7 jours après livraison) : attendre la
+        // finalisation avant de supprimer.
+        const pendingTotal =
+          walletInfo.pendingBalance + (walletInfo.heldBalance ?? 0);
+        if (walletInfo.hasWallet && pendingTotal > 0) {
+          Alert.alert(
+            'Fonds en attente',
+            `Vous avez ${formatPrice(pendingTotal / 100)} en attente de versement. Attendez que vos ventes soient finalisées avant de supprimer votre compte.`,
+            [{ text: 'Compris' }]
           );
           setLoading(false);
           return;
