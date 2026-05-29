@@ -269,9 +269,6 @@ export class SavedSearchService {
     if (filters.brands && filters.brands.length > 0) {
       sanitized.brands = filters.brands;
     }
-    if (filters.patterns && filters.patterns.length > 0) {
-      sanitized.patterns = filters.patterns;
-    }
     if (filters.condition) {
       sanitized.condition = filters.condition;
     }
