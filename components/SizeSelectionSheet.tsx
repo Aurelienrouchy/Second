@@ -23,6 +23,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing } from '@/constants/theme';
+import { SheetFooter, SHEET_FOOTER_HEIGHT } from '@/components/ui';
+import { useSheetHeight } from '@/hooks/useSheetHeight';
 import {
   getSizes,
   getSizesForCategory,
