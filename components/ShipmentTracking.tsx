@@ -10,7 +10,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { httpsCallable } from 'firebase/functions';
-import { useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
