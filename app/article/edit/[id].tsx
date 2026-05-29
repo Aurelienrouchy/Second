@@ -426,7 +426,7 @@ export default function EditArticleScreen() {
         exif: false,
         selectionLimit: remainingSlots,
         preferredAssetRepresentationMode:
-          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets.length > 0) {
         const newImages = result.assets.map((asset) => ({ url: asset.uri }));

@@ -245,7 +245,7 @@ export default function SwapDetailScreen() {
         exif: false,
         selectionLimit: 4,
         preferredAssetRepresentationMode:
-          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (result.canceled) return;
 

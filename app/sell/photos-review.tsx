@@ -254,7 +254,7 @@ export default function PhotosReviewScreen() {
         exif: false,
         selectionLimit: remainingSlots,
         preferredAssetRepresentationMode:
-          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
 
       if (!result.canceled && result.assets.length > 0) {
