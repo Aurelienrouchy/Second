@@ -76,11 +76,13 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
         enablePanDownToClose
+        topInset={insets.top}
+        handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
-        <BottomSheetView style={[styles.container, sheetStyle]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
             <Ionicons
