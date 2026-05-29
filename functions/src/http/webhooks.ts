@@ -793,19 +793,392 @@ async function handleDisputeCreated(dispute: any): Promise<void> {
       return;
     }
 
+    // ---------------------------------------------------------------------
+    // FREEZE FUNDS — the disputed payout must NOT remain in withdrawable
+    // `balance`. Funds may sit in any of the three buckets depending on the
+    // transaction stage:
+    //   - pendingBalance (paid, not delivered)  -> already non-withdrawable
+    //   - heldBalance    (delivered, in window) -> already non-withdrawable
+    //   - balance        (released)             -> MUST move back to heldBalance
+    // We move any released portion from `balance` into `heldBalance` (capped so
+    // balance never goes negative), keeping the rest in place. The seller
+    // cannot withdraw heldBalance/pendingBalance. We do NOT release; the
+    // dispute.closed handler decides won (release) vs lost (debit).
+    // ---------------------------------------------------------------------
+    const sellerId = txData.sellerId;
+    const sellerPayout = txData.sellerPayout ?? txData.amount;
+    const sellerPayoutCents =
+      typeof sellerPayout === 'number' ? Math.round(sellerPayout * 100) : 0;
+
+    if (sellerId && sellerPayoutCents > 0) {
+      const sellerWalletRef = db.collection('wallets').doc(sellerId);
+      const sellerWalletSnap = await tx.get(sellerWalletRef);
+
+      if (sellerWalletSnap.exists) {
+        const walletData = sellerWalletSnap.data()!;
+        const balanceNow = walletData.balance || 0;
+        // Only move what's actually sitting in withdrawable balance.
+        const freezeCents = Math.min(sellerPayoutCents, balanceNow);
+
+        if (freezeCents > 0) {
+          tx.update(sellerWalletRef, {
+            balance: FieldValue.increment(-freezeCents),
+            heldBalance: FieldValue.increment(freezeCents),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          const ledgerRef = sellerWalletRef.collection('ledger').doc();
+          tx.set(ledgerRef, {
+            type: 'dispute_hold',
+            amount: freezeCents,
+            balanceAfter: balanceNow - freezeCents,
+            description: 'Litige ouvert — fonds gelés',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+            status: 'held',
+          });
+        }
+      } else {
+        logger.warn('Stripe webhook: dispute — seller wallet not found, cannot freeze', {
+          transactionId,
+          sellerId,
+        });
+      }
+    }
+
+    // Preserve the status held BEFORE the dispute so dispute.closed (won) can
+    // restore the normal release cycle (paid/shipped/delivered).
     tx.update(txDoc.ref, {
       status: 'disputed',
+      statusBeforeDispute: txData.status,
+      disputed: true,
       disputeId: dispute.id,
       disputedAt: FieldValue.serverTimestamp(),
       disputeReason: dispute.reason || null,
     });
   });
 
-  logger.warn('Stripe webhook: dispute created — transaction marked disputed', {
+  logger.warn('Stripe webhook: dispute created — transaction marked disputed, funds frozen', {
     transactionId,
     disputeId: dispute.id,
     reason: dispute.reason,
     amount: dispute.amount,
+  });
+}
+
+// =============================================================================
+// HANDLER: charge.dispute.closed
+// =============================================================================
+
+/**
+ * Resolve a closed dispute.
+ *
+ *  - WON (dispute.status === 'won'): the seller keeps the money. Restore the
+ *    transaction status that preceded the dispute so the normal release cycle
+ *    resumes (heldBalance -> balance via releaseHeldFunds), and clear the
+ *    `disputed` flag. Funds stay where they are (heldBalance / pendingBalance).
+ *
+ *  - LOST (dispute.status === 'lost'): Stripe has already pulled the money back
+ *    from the platform. Debit the seller: take from heldBalance first, then
+ *    balance. If the seller doesn't have enough (already withdrawn before the
+ *    freeze), record the shortfall as `sellerDebt` (blocks future withdrawals)
+ *    and write a 'refund_debit' ledger entry. Mark the transaction 'refunded'.
+ */
+async function handleDisputeClosed(dispute: any): Promise<void> {
+  const paymentIntentId = dispute.payment_intent;
+
+  if (!paymentIntentId) {
+    logger.error('Stripe webhook: dispute.closed missing payment_intent', {
+      disputeId: dispute.id,
+    });
+    return;
+  }
+
+  const txQuery = await db
+    .collection('transactions')
+    .where('stripePaymentIntentId', '==', paymentIntentId)
+    .limit(1)
+    .get();
+
+  if (txQuery.empty) {
+    logger.error('Stripe webhook: dispute.closed — no transaction found for PaymentIntent', {
+      disputeId: dispute.id,
+      paymentIntentId,
+    });
+    return;
+  }
+
+  const txDoc = txQuery.docs[0];
+  const transactionId = txDoc.id;
+  const outcome = dispute.status; // 'won' | 'lost' | 'warning_closed' | ...
+
+  await db.runTransaction(async (tx) => {
+    const txSnap = await tx.get(txDoc.ref);
+    const txData = txSnap.data();
+    if (!txData) return;
+
+    // Idempotence: only act on a transaction currently in dispute.
+    if (txData.status !== 'disputed') {
+      logger.info('Stripe webhook: dispute.closed skipping — not in disputed status', {
+        transactionId,
+        currentStatus: txData.status,
+        outcome,
+      });
+      return;
+    }
+
+    const sellerId = txData.sellerId;
+    const sellerPayout = txData.sellerPayout ?? txData.amount;
+    const sellerPayoutCents =
+      typeof sellerPayout === 'number' ? Math.round(sellerPayout * 100) : 0;
+
+    if (outcome === 'won') {
+      // Seller keeps the funds. Restore the pre-dispute status so the normal
+      // release cycle can resume; clear the dispute flag.
+      const restored = txData.statusBeforeDispute || 'delivered';
+      tx.update(txDoc.ref, {
+        status: restored,
+        disputed: false,
+        disputeClosedAt: FieldValue.serverTimestamp(),
+        disputeOutcome: 'won',
+      });
+
+      logger.warn('Stripe webhook: dispute.closed WON — status restored', {
+        transactionId,
+        restored,
+      });
+      return;
+    }
+
+    if (outcome === 'lost') {
+      // Stripe already clawed back the funds from the platform. Debit the
+      // seller: heldBalance first, then balance. Track any shortfall as debt.
+      if (sellerId && sellerPayoutCents > 0) {
+        const sellerWalletRef = db.collection('wallets').doc(sellerId);
+        const sellerWalletSnap = await tx.get(sellerWalletRef);
+
+        if (sellerWalletSnap.exists) {
+          const walletData = sellerWalletSnap.data()!;
+          const heldNow = walletData.heldBalance || 0;
+          const balanceNow = walletData.balance || 0;
+
+          const fromHeld = Math.min(sellerPayoutCents, heldNow);
+          const remainingAfterHeld = sellerPayoutCents - fromHeld;
+          const fromBalance = Math.min(remainingAfterHeld, balanceNow);
+          const shortfall = remainingAfterHeld - fromBalance;
+
+          const walletUpdate: Record<string, any> = {
+            updatedAt: FieldValue.serverTimestamp(),
+          };
+          if (fromHeld > 0) walletUpdate.heldBalance = FieldValue.increment(-fromHeld);
+          if (fromBalance > 0) walletUpdate.balance = FieldValue.increment(-fromBalance);
+          if (shortfall > 0) walletUpdate.sellerDebt = FieldValue.increment(shortfall);
+          tx.update(sellerWalletRef, walletUpdate);
+
+          const debited = fromHeld + fromBalance;
+          const ledgerRef = sellerWalletRef.collection('ledger').doc();
+          tx.set(ledgerRef, {
+            type: 'refund_debit',
+            amount: debited,
+            balanceAfter: (balanceNow - fromBalance),
+            description:
+              shortfall > 0
+                ? 'Litige perdu — débit vendeur (dette enregistrée pour le solde manquant)'
+                : 'Litige perdu — débit vendeur',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+            ...(shortfall > 0 && { debtRecorded: shortfall }),
+          });
+        } else {
+          // No wallet at all: record full payout as debt.
+          logger.warn('Stripe webhook: dispute.closed LOST — seller wallet missing, recording full debt', {
+            transactionId,
+            sellerId,
+          });
+          const sellerWalletRefMissing = db.collection('wallets').doc(sellerId);
+          tx.set(
+            sellerWalletRefMissing,
+            {
+              sellerDebt: FieldValue.increment(sellerPayoutCents),
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+      }
+
+      tx.update(txDoc.ref, {
+        status: 'refunded',
+        disputed: false,
+        disputeClosedAt: FieldValue.serverTimestamp(),
+        disputeOutcome: 'lost',
+        refundedAt: FieldValue.serverTimestamp(),
+      });
+
+      logger.warn('Stripe webhook: dispute.closed LOST — seller debited, transaction refunded', {
+        transactionId,
+      });
+      return;
+    }
+
+    // Other outcomes (e.g. warning_closed): clear the flag, restore status.
+    const restored = txData.statusBeforeDispute || 'delivered';
+    tx.update(txDoc.ref, {
+      status: restored,
+      disputed: false,
+      disputeClosedAt: FieldValue.serverTimestamp(),
+      disputeOutcome: outcome || 'closed',
+    });
+
+    logger.info('Stripe webhook: dispute.closed other outcome — status restored', {
+      transactionId,
+      outcome,
+    });
+  });
+}
+
+// =============================================================================
+// HANDLER: payout.failed
+// =============================================================================
+
+/**
+ * A Stripe payout to the seller's bank failed (e.g. invalid bank account).
+ * The wallet was already debited at walletWithdraw time, so we must re-credit
+ * the withdrawn amount and mark the withdrawal request 'failed'.
+ *
+ * The payout is matched to its withdrawal_requests doc via metadata.
+ * withdrawalRequestId (set by walletWithdraw inside the debit transaction).
+ * Idempotent via the withdrawal request status.
+ */
+async function handlePayoutFailed(payout: any): Promise<void> {
+  const withdrawalRequestId = payout.metadata?.withdrawalRequestId;
+  const userId = payout.metadata?.firebaseUserId;
+
+  if (typeof withdrawalRequestId !== 'string' || !withdrawalRequestId) {
+    logger.warn('Stripe webhook: payout.failed missing withdrawalRequestId metadata', {
+      payoutId: payout.id,
+    });
+    return;
+  }
+
+  const requestRef = db.collection('withdrawal_requests').doc(withdrawalRequestId);
+
+  await db.runTransaction(async (tx) => {
+    const requestSnap = await tx.get(requestRef);
+    if (!requestSnap.exists) {
+      logger.warn('Stripe webhook: payout.failed — withdrawal request not found', {
+        withdrawalRequestId,
+        payoutId: payout.id,
+      });
+      return;
+    }
+
+    const request = requestSnap.data()!;
+
+    // Idempotence: only act on a request still in flight.
+    if (request.status !== 'processing') {
+      logger.info('Stripe webhook: payout.failed — request not processing, skipping', {
+        withdrawalRequestId,
+        currentStatus: request.status,
+      });
+      return;
+    }
+
+    const amount = request.amount; // CENTS
+    const ownerId = request.userId || userId;
+
+    if (typeof amount === 'number' && amount > 0 && ownerId) {
+      const walletRef = db.collection('wallets').doc(ownerId);
+      const walletSnap = await tx.get(walletRef);
+      if (walletSnap.exists) {
+        const walletData = walletSnap.data()!;
+        tx.update(walletRef, {
+          balance: FieldValue.increment(amount),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        const ledgerRef = walletRef.collection('ledger').doc();
+        tx.set(ledgerRef, {
+          type: 'withdrawal_failed',
+          amount,
+          balanceAfter: (walletData.balance || 0) + amount,
+          description: 'Retrait échoué — fonds restitués',
+          withdrawalRequestId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } else {
+        logger.warn('Stripe webhook: payout.failed — wallet not found, cannot re-credit', {
+          withdrawalRequestId,
+          ownerId,
+        });
+      }
+    }
+
+    tx.update(requestRef, {
+      status: 'failed',
+      failedAt: FieldValue.serverTimestamp(),
+      stripePayoutId: payout.id,
+      failureReason: payout.failure_message || payout.failure_code || null,
+    });
+  });
+
+  logger.warn('Stripe webhook: payout.failed — withdrawal reverted', {
+    withdrawalRequestId,
+    payoutId: payout.id,
+  });
+}
+
+// =============================================================================
+// HANDLER: payout.paid
+// =============================================================================
+
+/**
+ * A Stripe payout to the seller's bank succeeded. Close out the matching
+ * withdrawal request. Idempotent via status. The wallet was already debited at
+ * walletWithdraw time; nothing financial to do here, just bookkeeping.
+ */
+async function handlePayoutPaid(payout: any): Promise<void> {
+  const withdrawalRequestId = payout.metadata?.withdrawalRequestId;
+
+  if (typeof withdrawalRequestId !== 'string' || !withdrawalRequestId) {
+    logger.warn('Stripe webhook: payout.paid missing withdrawalRequestId metadata', {
+      payoutId: payout.id,
+    });
+    return;
+  }
+
+  const requestRef = db.collection('withdrawal_requests').doc(withdrawalRequestId);
+
+  await db.runTransaction(async (tx) => {
+    const requestSnap = await tx.get(requestRef);
+    if (!requestSnap.exists) {
+      logger.warn('Stripe webhook: payout.paid — withdrawal request not found', {
+        withdrawalRequestId,
+        payoutId: payout.id,
+      });
+      return;
+    }
+
+    const request = requestSnap.data()!;
+
+    // Idempotence: only complete a request still processing.
+    if (request.status !== 'processing') {
+      logger.info('Stripe webhook: payout.paid — request not processing, skipping', {
+        withdrawalRequestId,
+        currentStatus: request.status,
+      });
+      return;
+    }
+
+    tx.update(requestRef, {
+      status: 'completed',
+      completedAt: FieldValue.serverTimestamp(),
+      stripePayoutId: payout.id,
+    });
+  });
+
+  logger.info('Stripe webhook: payout.paid — withdrawal completed', {
+    withdrawalRequestId,
+    payoutId: payout.id,
   });
 }
 
