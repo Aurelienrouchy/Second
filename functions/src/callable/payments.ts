@@ -480,6 +480,38 @@ export const createTransaction = onCall(
       }
     }
 
+    const articleRef = db.collection('articles').doc(articleId);
+
+    // --- Negotiated-amount guard (P1) ---------------------------------------
+    //
+    // If the buyer pays anything other than the exact listed price, the amount
+    // MUST be backed by a seller-accepted offer for this buyer + article. We
+    // read the article price pre-transaction to decide whether this is a
+    // negotiated purchase, then verify the accepted offer exists. Both the
+    // accepted-offer check and the article price invariant are re-validated
+    // atomically inside runTransaction below (the offer cannot change the price
+    // invariant; this only blocks fabricated low amounts).
+    //
+    // Reads are OUTSIDE runTransaction (no I/O inside a Firestore transaction).
+    {
+      const articlePriceSnap = await articleRef.get();
+      if (!articlePriceSnap.exists) {
+        throw new HttpsError('not-found', 'Cet article n\'existe plus');
+      }
+      const listedPrice = articlePriceSnap.data()!.price;
+      if (typeof listedPrice === 'number' && amount !== listedPrice) {
+        const matchedOfferId = await verifyAcceptedOfferForNegotiatedAmount({
+          articleId,
+          buyerId,
+          amount,
+          chatId,
+        });
+        logger.info('createTransaction: negotiated amount backed by accepted offer', {
+          articleId, buyerId, amount, listedPrice, matchedOfferId,
+        });
+      }
+    }
+
     // --- Server-side shipping re-pricing (never trust client shippingCost) ----
     //
     // The buyer-supplied `shippingCost` / `shipEngineRateId` cannot be trusted:
@@ -495,8 +527,6 @@ export const createTransaction = onCall(
     // This network call is done OUTSIDE runTransaction (no I/O inside a
     // Firestore transaction). The amount/availability invariants are still
     // re-checked atomically below.
-    const articleRef = db.collection('articles').doc(articleId);
-
     let serverShippingCost = 0;
 
     if (deliveryType === 'shipping') {
