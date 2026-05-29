@@ -299,13 +299,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   // ── Footer ──
-  footer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
   addButton: {
     backgroundColor: colors.rust,
     paddingVertical: spacing.md,
