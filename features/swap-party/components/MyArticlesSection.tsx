@@ -38,7 +38,13 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
       {userItems.length > 0 ? (
         <View style={styles.list}>
           {userItems.map((item) => (
-            <View key={item.id} style={styles.row}>
+            <Animated.View
+              key={item.id}
+              style={styles.row}
+              entering={FadeInDown.duration(220)}
+              exiting={FadeOut.duration(160)}
+              layout={LinearTransition.duration(220)}
+            >
               <Image source={{ uri: item.imageUrl }} style={styles.rowImage} recyclingKey={item.id} />
               <View style={styles.rowContent}>
                 <Text style={styles.rowBrand}>{item.brand || 'BRAND'}</Text>
