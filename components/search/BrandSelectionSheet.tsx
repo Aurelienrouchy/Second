@@ -382,17 +382,11 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        footerComponent={renderFooter}
         enablePanDownToClose
-        topInset={insets.top}
-        handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="none"
-        android_keyboardInputMode="adjustResize"
       >
+        <BottomSheetView style={styles.flex}>
         {/* ── Header ── */}
         <View style={styles.headerContainer}>
           <View style={styles.header}>
