@@ -190,7 +190,7 @@ export function useArticleActions({
   }, [article, user, router]);
 
   const handleProposeSwap = useCallback(() => {
-    if (!article || !user || !partyId) return;
+    if (!article) return;
 
     requireAuth(
       () => {
@@ -198,8 +198,9 @@ export function useArticleActions({
         router.push({
           pathname: '/propose-swap',
           params: {
-            partyId,
-            targetItemId: swapItemId || '',
+            // The Swap Zone is the single generalist zone; default to it when no
+            // explicit party context is provided so the action is never inert.
+            partyId: partyId ?? GENERALIST_ZONE_ID,
             targetArticleId: article.id,
             receiverId: article.sellerId,
             receiverName: article.sellerName || '',
@@ -209,7 +210,7 @@ export function useArticleActions({
       },
       AUTH_MESSAGES.swapParty
     );
-  }, [article, user, partyId, swapItemId, requireAuth, router]);
+  }, [article, partyId, requireAuth, router]);
 
   const handleViewProfile = useCallback(() => {
     if (!article) return;
