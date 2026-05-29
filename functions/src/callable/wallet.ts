@@ -351,7 +351,6 @@ export const walletWithdraw = onCall(
             metadata: {
               firebaseUserId: userId,
               walletWithdrawal: 'true',
-              ledgerEntryId: ledgerEntryRef.id,
             },
           },
           // stripe-node v22 takes a SINGLE RequestOptions object: both the
