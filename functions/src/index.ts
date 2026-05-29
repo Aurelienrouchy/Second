@@ -70,6 +70,7 @@ export {
   checkTrackingStatus,
   cancelPendingTransaction,
   completeMeetupTransaction,
+  adminRefundTransaction,
 } from './callable/payments';
 
 // Moments Functions
