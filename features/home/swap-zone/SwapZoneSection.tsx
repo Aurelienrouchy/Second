@@ -67,23 +67,8 @@ export const SwapZoneWrapper = React.memo(SwapZoneWrapperComponent);
 const styles = StyleSheet.create({
   swapZoneContainer: {
     backgroundColor: colors.charcoal,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.sm,
     marginTop: spacing.sm,
-  },
-  swapZoneHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: 0,
-  },
-  swapZoneTitle: {
-    fontFamily: fonts.display,
-    fontSize: 22,
-    fontWeight: '300',
-    color: colors.cream,
-  },
-  swapZoneTitleAccent: {
-    fontStyle: 'italic',
-    color: colors.rust,
   },
 });
 
