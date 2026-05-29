@@ -357,6 +357,14 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       status: 'pending',
     });
 
+    // P1: Persist the EXACT amount credited to the seller. On a refund/dispute
+    // the seller must be debited of precisely this figure (not a freshly-derived
+    // sellerPayout, which could drift). This is the anchor for an exact,
+    // loss-free ledger; any shortfall is then recorded as sellerDebt.
+    tx.update(transactionRef, {
+      sellerCreditedCents: sellerPayoutCents,
+    });
+
     return {
       processed: true,
       sellerId,
