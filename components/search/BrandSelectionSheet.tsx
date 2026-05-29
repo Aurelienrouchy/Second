@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: 24,
   },
   brandItem: {
     flexDirection: 'row',
