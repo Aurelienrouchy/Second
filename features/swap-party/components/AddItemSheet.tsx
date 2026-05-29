@@ -103,7 +103,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
       ? "Tu n'as aucun article à déposer.\nMets d'abord un article en vente."
       : 'Tous tes articles sont déjà dans la Swap Zone.';
 
-    const scrollPaddingBottom = spacing.lg + insets.bottom;
+    const scrollPaddingBottom = spacing.lg + insets.bottom + SHEET_FOOTER_HEIGHT;
 
     return (
       <BottomSheetModal
