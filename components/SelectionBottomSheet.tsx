@@ -92,50 +92,16 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
       return selectedValue === value;
     }, [multiSelect, localSelectedValues, selectedValue]);
 
-    const renderBackdrop = useCallback(
-      (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
-      []
-    );
-
-    const renderFooter = useCallback(
-      (props: any) => {
-        if (!multiSelect) return null;
-        return (
-          <BottomSheetFooter {...props}>
-            <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
-              <TouchableOpacity
-                style={[
-                  styles.confirmButton,
-                  localSelectedValues.length === 0 && styles.confirmButtonDisabled,
-                ]}
-                onPress={handleConfirm}
-              >
-                <Text style={styles.confirmButtonText}>
-                  {localSelectedValues.length > 0
-                    ? `VALIDER (${localSelectedValues.length})`
-                    : 'VALIDER'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </BottomSheetFooter>
-        );
-      },
-      [multiSelect, insets.bottom, localSelectedValues, handleConfirm]
-    );
-
     return (
       <BottomSheet
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        footerComponent={renderFooter}
         enablePanDownToClose
-        topInset={insets.top}
-        handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
+        <BottomSheetView style={styles.flex}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
