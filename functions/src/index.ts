@@ -73,8 +73,12 @@ export {
   adminRefundTransaction,
 } from './callable/payments';
 
-// Buyer Recourse Functions (anti-fraud refund & dispute)
-export { requestRefund, reportTransactionProblem } from './callable/recourse';
+// Buyer Recourse Functions (anti-fraud refund & dispute & return)
+export {
+  requestRefund,
+  reportTransactionProblem,
+  requestReturn,
+} from './callable/recourse';
 
 // Moments Functions
 export { getActiveMoments, getMomentProducts } from './callable/moments';
