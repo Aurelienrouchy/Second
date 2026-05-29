@@ -74,13 +74,16 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
       ? categoryNav.navigationPath.map((p: any) => p.label || p.name).join(' > ')
       : null;
 
+    if (!mounted) return null;
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        index={-1}
+        index={0}
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
         enablePanDownToClose
+        onClose={() => setMounted(false)}
         topInset={insets.top}
         handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
