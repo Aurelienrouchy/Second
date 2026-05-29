@@ -112,7 +112,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
         enableDynamicSizing={false}
         onDismiss={onClose}
       >
-        <BottomSheetView style={[styles.container, { height: sheetHeight }]}>
+        <BottomSheetView style={[styles.container, sheetStyle]}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerText}>
