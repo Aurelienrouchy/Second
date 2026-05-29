@@ -66,7 +66,10 @@ Functions: `status`, `amount`, `totalAmount`, `sellerPayout`, `serviceFee`,
 `shippingLabelUrl`, `carrierCode`, `stripePaymentIntentId`, `stripeChargeId`,
 `stripeRefundId`, `stripeRefundIssuedAt`, `refundReason`, `refundStartedAt`,
 `refundedAt`, `cancelReason`, `cancelledBy`, `cancelledAt`, `meetupSpot`
-(immutable after creation), `deliveryType`, and all server timestamps
+(immutable after creation), `deliveryType`, `buyerReport`, and the buyer-return
+(B2) fields `returnLabelId`, `returnTrackingNumber`, `returnLabelUrl`,
+`returnCarrierCode`, `returnLabelCost`, `returnReason`, `returnTrackingStatus`,
+`returnRequestedAt`, `returnDeliveredAt`, and all server timestamps
 (`paidAt`, `labelCreatedAt`, `shippedAt`, `deliveredAt`, `deliveryFailedAt`,
 `completedAt`, `createdAt`).
 
