@@ -16,7 +16,7 @@ import { useArticleSearch } from '@/hooks/useArticleSearch';
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
 
-import type { Article, ArticleWithLocation, SortBy } from '@/types';
+import type { Article, ArticleSize, ArticleWithLocation, SortBy } from '@/types';
 import { formatPrice } from '@/utils/formatPrice';
 
 import { CONDITION_ITEMS, SORT_ITEMS } from '../constants';
