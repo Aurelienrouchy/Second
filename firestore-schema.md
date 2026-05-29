@@ -721,6 +721,34 @@ interface FailedOperationDocument {
 > normalizes those legacy docs (transactionId→refId, reason→error) before
 > dispatch, so both shapes are replayable.
 
+### `disputes/{disputeId}`
+
+Buyer-opened dispute tickets (server-only writes). Created by
+`reportTransactionProblem` when a buyer flags a delivered-but-problematic order
+("delivered but problem"). NO money moves at creation — the parent transaction
+is frozen (`disputed=true`, status `disputed`) so the held-funds release stays
+blocked, and an admin resolves the outcome via `adminRefundTransaction`. A buyer
+cannot open a second dispute on an already-disputed transaction.
+
+```typescript
+interface DisputeDocument {
+  transactionId: string;           // Parent transaction
+  buyerId: string;                 // Reporting buyer (== transaction.buyerId)
+  sellerId: string | null;
+  articleId: string | null;
+  articleTitle: string | null;
+  reason:
+    | 'not_received_despite_delivered'
+    | 'not_as_described'
+    | 'damaged'
+    | 'other';
+  details?: string;                // Optional buyer free text (<= 1000 chars; omitted when empty)
+  status: 'open' | string;         // 'open' at creation; admin moves it on resolution
+  statusBeforeDispute: string;     // Transaction status captured at report time
+  createdAt: Timestamp;
+}
+```
+
 ### `avis/{reviewId}`
 
 User reviews tied to completed transactions (sales or swaps).
