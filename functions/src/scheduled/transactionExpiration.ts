@@ -14,6 +14,7 @@
  *
  * Runs every hour.
  */
+import type Stripe from 'stripe';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
