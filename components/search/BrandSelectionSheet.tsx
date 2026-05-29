@@ -10,7 +10,7 @@
  */
 
 import { firestore } from '@/config/firebaseConfig';
-import BottomSheet, { BottomSheetFlatList, BottomSheetTextInput, BottomSheetView } from '@expo/ui/community/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetFooter, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, limit, query, where, doc, setDoc, orderBy, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -23,9 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, spacing, typography } from '@/constants/theme';
-import { SheetFooter, SHEET_FOOTER_HEIGHT, SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
+import { colors, fonts } from '@/constants/theme';
 import { brandDisplay } from '@/utils/normalizeBrand';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
