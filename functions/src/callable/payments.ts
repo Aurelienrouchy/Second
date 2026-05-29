@@ -940,6 +940,14 @@ export const createStripeConnectAccount = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'createStripeConnectAccount',
+      maxCallsAuthenticated: 3,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const stripe = getStripe();
     if (!stripe) {
       throw new HttpsError('failed-precondition', 'Stripe API not configured');
