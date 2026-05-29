@@ -192,7 +192,6 @@ export const onUserProfileUpdated = onDocumentUpdated(
       articlesUpdated,
       chatsUpdated,
       avisUpdated,
-      swapParticipantsUpdated,
       swapItemsUpdated,
     });
   }
