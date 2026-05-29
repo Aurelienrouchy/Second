@@ -421,9 +421,15 @@ interface TransactionDocument {
   articleTitle?: string;
   articleImage?: string;
 
-  // Amounts
+  // Amounts (dollars)
   amount: number;                // Article price
-  shippingCost?: number;
+  shippingCost?: number;         // Estimated shipping cost billed to the buyer (server re-priced)
+  actualShippingCost?: number;   // Real ShipEngine label cost (shipment_cost + insurance_cost),
+                                 // set when the label is created (reconcileShippingCost)
+  shippingCostDelta?: number;    // actualShippingCost - shippingCost. > $2 absolute => CRITICAL log
+                                 // + platform_ledger 'shipping_cost_variance' entry
+  insuranceCost?: number;        // Real insurance cost on the label (dollars), 0 when none
+  shippingReconciledAt?: Timestamp; // When the label cost was reconciled
   serviceFee?: number;
   serviceFeePercent?: number;
   totalAmount?: number;          // What the buyer pays (amount + shipping + fee)
