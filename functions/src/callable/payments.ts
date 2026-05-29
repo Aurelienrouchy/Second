@@ -165,7 +165,7 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory:
  * Supports both delivery types: 'shipping' and 'meetup'.
  */
 export const createTransaction = onCall(
-  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY', 'SHIPENGINE_API_KEY'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
