@@ -377,20 +377,19 @@ export class ArticlesService {
       category?: string;
       categoryIds?: string[];
       colors?: string[];
-      sizes?: string[];
+      sizes?: ArticleSize[];
       materials?: string[];
       condition?: string;
       minPrice?: number;
       maxPrice?: number;
       brands?: string[];
-      patterns?: string[];
       sortBy?: 'recent' | 'price_asc' | 'price_desc' | 'popular';
       excludeUserId?: string;
       sellerId?: string;
     },
     limitCount: number = 20,
     lastVisible?: QueryDocumentSnapshot
-  ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
+  ): Promise<SearchPage> {
     try {
       if (__DEV__) {
         console.log('searchArticles called with:', { searchTerm, filters, limitCount });
