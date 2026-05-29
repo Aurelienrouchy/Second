@@ -448,6 +448,17 @@ interface TransactionDocument {
   //   dispute, releaseHeldFunds moves delivered -> completed (heldBalance -> balance).
   //   Meetup:   meetup_pending -> meetup_confirmed -> meetup_completed | cancelled
   //   Failed:   pending_payment -> cancelled (via payment_failed webhook)
+  //   Expiry (P1): pending_payment -> cancelled only after expireOrphanedTransactions
+  //   confirms the Stripe PaymentIntent is NOT in flight (retrieve -> not in
+  //   requires_capture/processing/succeeded) and cancels the PI. An in-flight PI
+  //   defers expiry (avoids cancelling a captured payment). A PI.succeeded landing
+  //   AFTER cancellation triggers an idempotent auto-refund (rf_${txId}).
+  //   Seller-no-ship refund (P1): paid -> refund_in_progress -> refunded. The
+  //   3-phase refund (mark in_progress -> Stripe refund w/ idempotencyKey
+  //   rf_${txId} + persist stripeRefundId -> apply wallet movements + set
+  //   refunded) is crash-safe; a stuck refund_in_progress is resumed by the same
+  //   scheduled job (re-uses persisted stripeRefundId, no double refund). Final
+  //   status 'refunded' makes the inbound charge.refunded webhook a no-op.
   //   Delivery failure (carrier FAILURE/exception via poller or ShipEngine
   //   webhook): label_created|shipped -> delivery_failed (disputed=true, funds
   //   NOT released). Resolution = adminRefundTransaction.
