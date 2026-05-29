@@ -289,7 +289,7 @@ export function useSearchScreen() {
   );
 
   const handleSizesConfirm = useCallback(
-    (sizes: string[]) => {
+    (sizes: ArticleSize[]) => {
       setFilters({ ...filters, sizes });
       if (!isSearching && sizes.length > 0) setIsSearching(true);
     },
