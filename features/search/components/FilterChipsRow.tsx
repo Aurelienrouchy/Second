@@ -46,38 +46,58 @@ function FilterChipsRowComponent({ chips, tone = 'light' }: FilterChipsRowProps)
       style={[styles.filterChipsContainer, isDark && styles.filterChipsContainerDark]}
       contentContainerStyle={styles.filterChipsContent}
     >
-      {chips.map(({ key, label, active, onPress }) => (
-        <Pressable
-          key={key}
-          style={[
-            styles.filterChip,
-            active && styles.filterChipActive,
-            isDark && styles.filterChipDark,
-            isDark && active && styles.filterChipActiveDark,
-          ]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onPress();
-          }}
-        >
-          <Text
+      {chips.map(({ key, label, active, onPress, onRemove }) => {
+        const showRemove = active && !!onRemove;
+        return (
+          <Pressable
+            key={key}
             style={[
-              styles.filterChipText,
-              active && styles.filterChipTextActive,
-              isDark && styles.filterChipTextDark,
-              isDark && active && styles.filterChipTextActiveDark,
+              styles.filterChip,
+              active && styles.filterChipActive,
+              isDark && styles.filterChipDark,
+              isDark && active && styles.filterChipActiveDark,
             ]}
-            numberOfLines={1}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onPress();
+            }}
           >
-            {label}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={14}
-            color={active ? activeChevron : inactiveChevron}
-          />
-        </Pressable>
-      ))}
+            <Text
+              style={[
+                styles.filterChipText,
+                active && styles.filterChipTextActive,
+                isDark && styles.filterChipTextDark,
+                isDark && active && styles.filterChipTextActiveDark,
+              ]}
+              numberOfLines={1}
+            >
+              {label}
+            </Text>
+            {showRemove ? (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onRemove?.();
+                }}
+                hitSlop={8}
+                style={styles.filterChipRemove}
+              >
+                <Ionicons
+                  name="close"
+                  size={14}
+                  color={isDark ? activeChevron : colors.white}
+                />
+              </Pressable>
+            ) : (
+              <Ionicons
+                name="chevron-down"
+                size={14}
+                color={active ? activeChevron : inactiveChevron}
+              />
+            )}
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 }
