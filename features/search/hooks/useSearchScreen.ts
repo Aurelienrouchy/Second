@@ -260,6 +260,29 @@ export function useSearchScreen() {
     [filters, setFilters]
   );
 
+  // H5/H6 — with a text term, the server result order is popularity/relevance.
+  // Price/date sorts would re-order only the current page (wrong global order +
+  // skipped docs), so we only offer the relevance-compatible options in text
+  // mode. Without a term, all sorts stay available.
+  const isTextMode = !!activeSearchQuery.trim();
+  const availableSortItems = useMemo(
+    () =>
+      isTextMode
+        ? SORT_ITEMS.filter((s) => s.value === 'popular')
+        : SORT_ITEMS,
+    [isTextMode]
+  );
+
+  // If a text term is committed while an incompatible sort is selected, snap
+  // back to the only valid sort so the chip label never lies.
+  useEffect(() => {
+    if (isTextMode && selectedSort !== 'popular') {
+      setSelectedSort('popular');
+      setFilters({ ...filters, sortBy: 'popular' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTextMode]);
+
   // ─── Filter handlers (multi-select) ─────────────────────────────
   const handleCategorySelect = useCallback(
     (categoryPath: string[]) => {
