@@ -1,37 +1,30 @@
 /**
  * Swap Party Feature Types
+ *
+ * The Swap Zone is a single, always-active generalist zone open to everyone
+ * (no join/leave, no status, no countdown).
  */
 
 import { SwapParty, SwapPartyItemExtended, Article } from '@/types';
 
 export interface PartyHeaderProps {
   party: SwapParty;
-  /** @deprecated Swap Zone is always active — countdown removed. Kept optional for reversibility. */
-  countdownDays?: number | null;
   onBack: () => void;
 }
 
 export interface MyArticlesSectionProps {
   userItems: SwapPartyItemExtended[];
-  /** @deprecated Swap Zone is always active — status no longer gates add/remove. */
-  partyStatus?: SwapParty['status'];
   onAddPress: () => void;
   onRemoveItem: (articleId: string) => void;
-}
-
-export interface PartyActionsProps {
-  isJoined: boolean;
-  /** @deprecated Swap Zone is always active — status no longer gates actions. */
-  partyStatus?: SwapParty['status'];
-  isJoining: boolean;
-  onJoin: () => void;
-  onLeave: () => void;
 }
 
 export interface PartyItemCardProps {
   item: SwapPartyItemExtended;
   isSelected: boolean;
   isMultiSelectMode: boolean;
+  /** Disabled when another seller has already been picked in multi-select. */
+  disabled?: boolean;
+  tone?: 'light' | 'dark';
   onPress: () => void;
   onLongPress: () => void;
 }
