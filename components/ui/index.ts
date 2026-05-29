@@ -62,8 +62,6 @@ export type { ThemedBottomSheetRef } from './ThemedBottomSheet';
 export { ImmersiveOverlay } from './ImmersiveOverlay';
 export { useImmersiveOverlay } from './ImmersiveOverlay';
 
-export { SheetFooter, SHEET_FOOTER_HEIGHT, SHEET_BOTTOM_INSET } from './SheetFooter';
-
 // =============================================================================
 // EXISTING COMPONENTS (Re-export)
 // =============================================================================
