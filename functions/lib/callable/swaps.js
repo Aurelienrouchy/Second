@@ -134,7 +134,10 @@ async function areUsersBlocked(userId1, userId2) {
  *
  * Returns { id } so the client can route to the zone without a query.
  */
-exports.ensureGeneralistZone = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '256MiB' }, async () => {
+exports.ensureGeneralistZone = (0, https_1.onCall)(
+// 512MiB: same reason as getActiveSwapPartyInfo — 256MiB OOMs on cold start
+// with the grown shared bundle (this is why its first deploy failed readiness).
+{ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async () => {
     const zoneRef = firebase_1.db.collection('swapParties').doc(exports.GENERALIST_ZONE_ID);
     try {
         await firebase_1.db.runTransaction(async (tx) => {
@@ -181,7 +184,10 @@ exports.ensureGeneralistZone = (0, https_1.onCall)({ region: 'northamerica-north
  * participantsCount. The front derives "nouveautés cette semaine" from the
  * items themselves.
  */
-exports.getActiveSwapPartyInfo = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '256MiB' }, async () => {
+exports.getActiveSwapPartyInfo = (0, https_1.onCall)(
+// 512MiB: the shared functions bundle grew (Stripe/ShipEngine/scheduled), so a
+// 256MiB instance now OOMs (~312MiB) on cold start → readiness fails → 500.
+{ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async () => {
     try {
         const zoneRef = firebase_1.db.collection('swapParties').doc(exports.GENERALIST_ZONE_ID);
         let snap = await zoneRef.get();
