@@ -1,20 +1,14 @@
 /**
- * SwapZoneSection Component (presentational) — DARK editorial HERO (no photos)
+ * SwapZoneSection Component (presentational) — CONTENT only (no card)
  *
- * Restores the previous hero composition (eyebrow at top, editorial content,
- * stats + CTA at the bottom) that lived on dark surfaces — but WITHOUT the
- * photo collage. The depth the photos used to provide is now carried by a
- * subtle dark gradient background (imageGradients.dark, a DS token), so the
- * card keeps its premium "hero" feel as a solid dark block.
+ * The Swap Zone home block is no longer a floating card inside a band: the
+ * content is laid out DIRECTLY on the section surface. The dark surface (and
+ * its full width) is provided by the feature wrapper (features/home/swap-zone)
+ * — this component renders only the content (eyebrow, title, tagline, stats,
+ * CTA) and owns the tap interaction.
  *
- * The Swap Zone is the app's editorial counterpoint: while the rest of the app
- * is warm white / cream, the Swap Zone lives on dark surfaces — a distinct
- * universe. The wrapper band is charcoal (colors.dark); this card sits a notch
- * deeper via the dark gradient + soft shadow.
- *
- * Copy (kept from the latest iteration):
- *   - Title    "Swap Zone"  ("Zone" accented in rust — color, not italic,
- *               since the loaded Cormorant has no real italic variant)
+ * Copy:
+ *   - Title    "Swap Zone"  ("Zone" accented in rust — color, not italic)
  *   - Tagline  "Échange tes pièces, sans frais."
  *   - Stats    "{itemsCount} articles" (rust pill) + "{newThisWeek} nouveautés
  *               cette semaine" (each hidden when 0)
@@ -27,26 +21,15 @@
  *             "Bientôt disponible" label instead of a dead CTA
  * - loading : dark skeleton
  *
- * Interactivity is keyed off `onPress`: when the wrapper passes no handler the
- * card never renders a Pressable, so there is never a button that does nothing.
- *
- * DS DISCIPLINE: every color / size / radius / spacing / gradient comes from
- * constants/theme. No magic numbers, no hardcoded colors. The only fixed
- * heights are token sums (e.g. sizing.avatarXXL + sizing.avatarXL).
+ * DS DISCIPLINE: every color / size / radius / spacing comes from
+ * constants/theme. No magic numbers, no hardcoded colors.
  */
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  FadeInDown,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import {
   colors,
@@ -55,9 +38,7 @@ import {
   radius,
   sizing,
   fonts,
-  shadows,
   animations,
-  imageGradients,
 } from '@/constants/theme';
 import { SwapPartyItem } from '@/types';
 
@@ -73,7 +54,7 @@ interface SwapZoneInfo {
 
 interface SwapZoneSectionProps {
   zone?: SwapZoneInfo;
-  // Kept for API compatibility with the feature wrapper; the card no longer
+  // Kept for API compatibility with the feature wrapper; the section no longer
   // renders thumbnails, so the list itself is unused here.
   items?: SwapPartyItem[];
   itemsCount?: number;
@@ -84,72 +65,47 @@ interface SwapZoneSectionProps {
 }
 
 // =============================================================================
-// CARD SHELL (layout animation + optional press-scale/haptic)
+// SHELL — entrance animation + optional press/haptic (no card framing)
 // =============================================================================
 
-interface CardShellProps {
-  // When omitted, the shell is rendered non-interactive (no Pressable, no
-  // press-scale, no haptic) — used for the "no active zone" teaser so we
-  // never present a button that does nothing.
+interface ShellProps {
   onPress?: () => void;
   children: React.ReactNode;
 }
 
-const CardShell: React.FC<CardShellProps> = ({ onPress, children }) => {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(animations.scale.pressedCard, {
-      duration: animations.duration.fast,
-      easing: Easing.out(Easing.ease),
-    });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withTiming(1, {
-      duration: animations.duration.normal,
-      easing: Easing.out(Easing.ease),
-    });
-  };
-
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress?.();
-  };
-
-  // Outer wrapper owns the layout animation (FadeInDown).
-  // Inner Animated.View owns the press-scale transform — splitting
-  // them avoids 'transform may be overwritten by a layout animation'.
+const Shell: React.FC<ShellProps> = ({ onPress, children }) => {
   if (!onPress) {
     return (
       <Animated.View
         entering={FadeInDown.duration(animations.duration.slow).delay(animations.duration.instant)}
+        style={styles.shell}
       >
-        <Animated.View style={styles.cardShell}>{children}</Animated.View>
+        {children}
       </Animated.View>
     );
   }
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
 
   return (
     <Animated.View
       entering={FadeInDown.duration(animations.duration.slow).delay(animations.duration.instant)}
     >
-      <Animated.View style={[styles.cardShell, animatedStyle]}>
-        <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handlePress}>
-          {children}
-        </Pressable>
-      </Animated.View>
+      <Pressable
+        onPress={handlePress}
+        style={({ pressed }) => [styles.shell, pressed && styles.shellPressed]}
+      >
+        {children}
+      </Pressable>
     </Animated.View>
   );
 };
 
 // =============================================================================
-// SHARED — Eyebrow ("· ÉCHANGE OUVERT" with a live dot) — only when the zone
-// is actually open (interactive).
+// SHARED — pieces
 // =============================================================================
 
 const OpenEyebrow: React.FC = () => (
@@ -159,20 +115,11 @@ const OpenEyebrow: React.FC = () => (
   </View>
 );
 
-// =============================================================================
-// SHARED — Editorial title ("Swap" cream + "Zone" rust accent)
-// Accent is carried by COLOR (rust) + the display serif, never by italic.
-// =============================================================================
-
 const ZoneTitle: React.FC = () => (
   <Text style={styles.title}>
     Swap <Text style={styles.titleAccent}>Zone</Text>
   </Text>
 );
-
-// =============================================================================
-// SHARED — CTA row ("Entrer dans la zone →") — cream pill on the dark hero
-// =============================================================================
 
 const CtaRow: React.FC = () => (
   <View style={styles.ctaRow}>
@@ -183,11 +130,6 @@ const CtaRow: React.FC = () => (
   </View>
 );
 
-// =============================================================================
-// SHARED — "coming soon" label (non-interactive, replaces the CTA when there
-// is no active zone so the card never shows a dead button)
-// =============================================================================
-
 const ComingSoonLabel: React.FC = () => (
   <View style={styles.comingSoonRow}>
     <Ionicons name="time-outline" size={sizing.iconSM} color={colors.sand} />
@@ -196,88 +138,72 @@ const ComingSoonLabel: React.FC = () => (
 );
 
 // =============================================================================
-// HERO — dark gradient block (no photos)
+// CONTENT
 // =============================================================================
 
-interface HeroProps {
+interface ContentProps {
   itemsCount: number;
   newThisWeek: number;
-  // interactive => a real, open zone. non-interactive => teaser.
-  onPress?: () => void;
+  interactive: boolean;
 }
 
-const Hero: React.FC<HeroProps> = ({ itemsCount, newThisWeek, onPress }) => {
-  const interactive = !!onPress;
+const Content: React.FC<ContentProps> = ({ itemsCount, newThisWeek, interactive }) => {
   const hasStock = itemsCount > 0;
   const hasFresh = newThisWeek > 0;
 
   return (
-    <CardShell onPress={onPress}>
-      <LinearGradient
-        colors={imageGradients.dark}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.card}
-      >
-        {/* Top — open eyebrow (only when the zone is really open) */}
-        {interactive ? <OpenEyebrow /> : <View />}
+    <>
+      {/* Open eyebrow — only when the zone is really open */}
+      {interactive ? <OpenEyebrow /> : null}
 
-        {/* Middle — editorial title + tagline */}
-        <View style={styles.textBlock}>
-          <ZoneTitle />
-          <Text style={styles.tagline}>Échange tes pièces, sans frais.</Text>
-        </View>
+      {/* Title + tagline */}
+      <View style={styles.textBlock}>
+        <ZoneTitle />
+        <Text style={styles.tagline}>Échange tes pièces, sans frais.</Text>
+      </View>
 
-        {/* Bottom — stats + CTA (or hint / coming-soon) */}
-        <View style={styles.bottomBlock}>
-          {hasStock ? (
-            <View style={styles.countPill}>
-              <Ionicons name="swap-horizontal" size={sizing.iconSM} color={colors.cream} />
-              <Text style={styles.countPillText}>
-                {itemsCount} {itemsCount > 1 ? 'articles' : 'article'}
-              </Text>
-            </View>
-          ) : interactive ? (
-            <Text style={styles.hint}>
-              Dépose un article et trouve la pièce parfaite à troquer.
+      {/* Stats + CTA */}
+      <View style={styles.bottomBlock}>
+        {hasStock ? (
+          <View style={styles.countPill}>
+            <Ionicons name="swap-horizontal" size={sizing.iconSM} color={colors.cream} />
+            <Text style={styles.countPillText}>
+              {itemsCount} {itemsCount > 1 ? 'articles' : 'article'}
             </Text>
-          ) : null}
+          </View>
+        ) : interactive ? (
+          <Text style={styles.hint}>
+            Dépose un article et trouve la pièce parfaite à troquer.
+          </Text>
+        ) : null}
 
-          {hasStock && hasFresh ? (
-            <Text style={styles.freshText}>
-              {newThisWeek} {newThisWeek > 1 ? 'nouveautés' : 'nouveauté'} cette semaine
-            </Text>
-          ) : null}
+        {hasStock && hasFresh ? (
+          <Text style={styles.freshText}>
+            {newThisWeek} {newThisWeek > 1 ? 'nouveautés' : 'nouveauté'} cette semaine
+          </Text>
+        ) : null}
 
-          {interactive ? <CtaRow /> : <ComingSoonLabel />}
-        </View>
-      </LinearGradient>
-    </CardShell>
+        {interactive ? <CtaRow /> : <ComingSoonLabel />}
+      </View>
+    </>
   );
 };
 
 // =============================================================================
-// LOADING STATE — dark skeleton
+// LOADING — dark skeleton
 // =============================================================================
 
-const LoadingCard: React.FC = () => (
-  <View style={styles.cardShell}>
-    <LinearGradient
-      colors={imageGradients.dark}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-      style={styles.card}
-    >
-      <View style={[styles.skeletonLine, styles.skeletonEyebrow]} />
-      <View style={styles.textBlock}>
-        <View style={[styles.skeletonLine, styles.skeletonTitle]} />
-        <View style={[styles.skeletonLine, styles.skeletonTagline]} />
-      </View>
-      <View style={styles.bottomBlock}>
-        <View style={[styles.skeletonLine, styles.skeletonStats]} />
-        <View style={styles.skeletonCta} />
-      </View>
-    </LinearGradient>
+const LoadingContent: React.FC = () => (
+  <View style={styles.shell}>
+    <View style={[styles.skeletonLine, styles.skeletonEyebrow]} />
+    <View style={styles.textBlock}>
+      <View style={[styles.skeletonLine, styles.skeletonTitle]} />
+      <View style={[styles.skeletonLine, styles.skeletonTagline]} />
+    </View>
+    <View style={styles.bottomBlock}>
+      <View style={[styles.skeletonLine, styles.skeletonStats]} />
+      <View style={styles.skeletonCta} />
+    </View>
   </View>
 );
 
@@ -294,56 +220,47 @@ export const SwapZoneSection: React.FC<SwapZoneSectionProps> = ({
   testID,
 }) => {
   const hasZone = !!zone;
-
-  // Only build an interactive hero when a zone actually exists. No zone → strip
-  // the handler so the teaser stays non-interactive (no dead CTA).
   const heroOnPress = hasZone ? onPress : undefined;
 
+  if (isLoading && !zone) {
+    return (
+      <View testID={testID}>
+        <LoadingContent />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container} testID={testID}>
-      {isLoading && !zone ? (
-        <LoadingCard />
-      ) : (
-        <Hero
+    <View testID={testID}>
+      <Shell onPress={heroOnPress}>
+        <Content
           itemsCount={zone?.itemsCount ?? itemsCount}
           newThisWeek={newThisWeek}
-          onPress={heroOnPress}
+          interactive={!!heroOnPress}
         />
-      )}
+      </Shell>
     </View>
   );
 };
 
 // =============================================================================
-// STYLES — dark hero, 100% DS tokens
-//
-// Card sits on the wrapper's charcoal band (colors.dark). Its dark gradient
-// (imageGradients.dark) + soft shadow lift it a notch and give the depth the
-// photo collage used to provide. Rounded corners (radius.lg) match the
-// previous hero card. Min height is a sum of sizing tokens (no magic number).
+// STYLES — content laid directly on the section surface (no card)
+// The dark surface + full width are owned by the feature wrapper.
 // =============================================================================
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-
-  cardShell: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.deep,
-    ...shadows.elevated,
-  },
-  card: {
-    minHeight: sizing.avatarXXL + sizing.avatarXL, // 120 + 80 = 200, token-derived
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    padding: spacing.lg,
-    justifyContent: 'space-between',
+  // Content shell: paddings define the inset; no background, no radius, no
+  // shadow — the surface comes from the wrapper's section.
+  shell: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
     gap: spacing.md,
   },
+  shellPressed: {
+    opacity: 0.9,
+  },
 
-  // --- Top: open eyebrow ---
+  // --- Eyebrow ---
   eyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -369,7 +286,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  // --- Middle: editorial text ---
+  // --- Title + tagline ---
   textBlock: {
     gap: spacing.xs,
   },
@@ -392,7 +309,7 @@ const styles = StyleSheet.create({
     color: colors.sand,
   },
 
-  // --- Bottom: stats + CTA ---
+  // --- Stats + CTA ---
   bottomBlock: {
     gap: spacing.sm,
     alignItems: 'flex-start',
@@ -428,10 +345,10 @@ const styles = StyleSheet.create({
     lineHeight: typography.caption.lineHeight,
     letterSpacing: typography.caption.letterSpacing,
     color: colors.whiteTranslucent,
-    maxWidth: sizing.avatarXXL * 2, // 240, token-derived
+    maxWidth: sizing.avatarXXL * 2, // 240 — token-derived
   },
 
-  // --- CTA (cream pill, full width, charcoal text) ---
+  // --- CTA (cream pill, full width) ---
   ctaRow: {
     alignSelf: 'stretch',
     flexDirection: 'row',
@@ -460,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // --- Coming-soon label (non-interactive teaser) ---
+  // --- Coming-soon (non-interactive teaser) ---
   comingSoonRow: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -480,14 +397,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  // --- Loading skeleton (dark) ---
+  // --- Loading skeleton ---
   skeletonLine: {
     borderRadius: radius.sm,
     backgroundColor: colors.dark,
   },
   skeletonEyebrow: {
     height: typography.labelUppercase.lineHeight,
-    width: sizing.avatarXXL, // 120
+    width: sizing.avatarXXL,
   },
   skeletonTitle: {
     height: typography.hero.lineHeight,
