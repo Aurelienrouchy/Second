@@ -384,7 +384,7 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
 
 | Collection | Index composite | Requête servie (fichier) |
 | --- | --- | --- |
-| `transactions` | `status ASC, createdAt ASC` | `checkShippedTracking` pagination par statut (`scheduled/trackingCheck.ts`, `status == 'label_created'\|'shipped'` + `orderBy createdAt asc` + cursor) ; `reconcileFinances` lost-PI (`scheduled/reconcile.ts`, `status == 'pending_payment'` + `createdAt <`) ; `transactionExpiration` (`status == X` + `createdAt <`) |
+| `transactions` | `status ASC, createdAt ASC` | `checkShippedTracking` pagination par statut (`scheduled/trackingCheck.ts`, `status == 'label_created'\|'shipped'\|'return_requested'` + `orderBy createdAt asc` + cursor) ; `reconcileFinances` lost-PI (`scheduled/reconcile.ts`, `status == 'pending_payment'` + `createdAt <`) ; `transactionExpiration` (`status == X` + `createdAt <`) |
 | `transactions` | `status ASC, fundsReleaseAt ASC` | `releaseHeldFunds` (`scheduled/releaseHeldFunds.ts`, `status == 'delivered'` + `fundsReleaseAt <= now` + `orderBy fundsReleaseAt asc` + cursor) |
 | `transactions` | `labelCreationPending ASC, status ASC, createdAt ASC` | `sweepPendingLabels` (`scheduled/sweepPendingLabels.ts`, `labelCreationPending == true` + `status == 'paid'` + `orderBy createdAt asc`) |
 | `transactions` | `sellerId ASC, disputed ASC` | listing des litiges vendeur ouverts (blocage retrait) |
