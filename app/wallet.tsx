@@ -977,9 +977,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   historySectionTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: typography.overline.fontSize,
-    letterSpacing: typography.overline.letterSpacing,
+    ...typography.labelUppercase,
     color: colors.muted,
     marginBottom: spacing.md,
     textTransform: 'uppercase',
