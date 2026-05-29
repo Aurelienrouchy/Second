@@ -237,6 +237,14 @@ export const walletWithdraw = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'walletWithdraw',
+      maxCallsAuthenticated: 5,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const { amount } = request.data ?? {};
     const userId = request.auth.uid;
 
