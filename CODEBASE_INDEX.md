@@ -393,7 +393,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `popularity.ts` | Recalcul scores popularité |
 | `savedSearches.ts` | Notif nouvelles correspondances |
 | `stats.ts` | Agrégation stats |
-| `swaps.ts` | Expiration swap parties |
+| `swaps.ts` | Expiration swaps stale (proposed + payment_pending non payés, 7j) → libère les items |
 | `trackingCheck.ts` | Poll ShipEngine toutes les 6h pour les transactions shipped, marque delivered si livré |
 | `transactionExpiration.ts` | Expiration meetup_pending (48h), pending_payment (1h), paid-not-shipped (7j) orphelins |
 
