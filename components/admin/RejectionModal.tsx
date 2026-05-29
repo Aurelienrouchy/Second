@@ -44,6 +44,13 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
       }
     };
 
+    const renderBackdrop = useCallback(
+      (props: any) => (
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+      ),
+      []
+    );
+
     const predefinedReasons = [
       'Photos insuffisantes ou de mauvaise qualité',
       'Informations incomplètes',
