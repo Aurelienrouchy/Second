@@ -100,7 +100,7 @@ async function fetchSimilarProducts(
       price: article.price,
       imageUrl: article.images[0]?.url || '',
       brand: article.brand || null,
-      size: article.size,
+      size: article.size?.value,
       condition: article.condition,
     }));
     return { products, isAI: false };
