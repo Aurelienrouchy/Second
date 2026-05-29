@@ -502,6 +502,13 @@ exports.createSwapTopUpCheckout = (0, https_1.onCall)({ region: 'northamerica-no
         if (payeeData.stripeChargesEnabled !== true) {
             throw new https_1.HttpsError('failed-precondition', 'Le compte de paiement du bénéficiaire n\'est pas encore actif.');
         }
+        // P1: the payee must ALSO have payouts enabled. The top-up credits the
+        // payee wallet pendingBalance (released to `balance` on reception), and
+        // walletWithdraw refuses to pay out unless stripePayoutsEnabled === true.
+        // Without this guard the payee would accumulate non-withdrawable funds.
+        if (payeeData.stripePayoutsEnabled !== true) {
+            throw new https_1.HttpsError('failed-precondition', 'Le bénéficiaire ne peut pas encore recevoir de versements. Il doit finaliser la configuration de son compte de paiement.');
+        }
         // Fees: top-up base (cents → dollars) is the "article price", shipping 0
         const fees = (0, fees_1.calculateFees)(reserved.amount / 100, 0);
         const totalChargeCents = Math.round(fees.buyerTotal * 100);

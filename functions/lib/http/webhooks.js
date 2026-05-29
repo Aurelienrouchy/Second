@@ -58,6 +58,7 @@ const stripe_1 = require("../config/stripe");
 const notifications_1 = require("../utils/notifications");
 const wallet_1 = require("../callable/wallet");
 const labelFulfillment_1 = require("../utils/labelFulfillment");
+const failedOperations_1 = require("../utils/failedOperations");
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
 // =============================================================================
@@ -223,7 +224,7 @@ exports.stripeWebhook = (0, https_1.onRequest)({
 // HANDLER: payment_intent.succeeded
 // =============================================================================
 async function handlePaymentIntentSucceeded(paymentIntent) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const transactionId = (_a = paymentIntent.metadata) === null || _a === void 0 ? void 0 : _a.transactionId;
     if (!transactionId) {
         logger.error('Stripe webhook: PaymentIntent missing transactionId in metadata', {
@@ -261,46 +262,79 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         // SECURITY: Verify the paid amount matches what we expect.
         // For mixed wallet+card payments, the Stripe charge is only for the
         // card portion (totalAmount - walletAmountUsed).
+        //
+        // P1 (dead-letter, not throw): an amount mismatch is a DETERMINISTIC error
+        // (the captured charge and the stored total will not change on a retry).
+        // Throwing here returned a 500, which is wrong on two counts: (a) Stripe
+        // would re-deliver the same event for ~3 days to no effect, and (b) the
+        // charge stays captured while the transaction is never marked paid, the
+        // seller is never credited and the article stays locked — a silent loss with
+        // no audit trail. Instead we RETURN a structured reason; the caller persists
+        // a `failed_operations` dead-letter (and optionally auto-refunds) and ACKs
+        // 200 so Stripe stops retrying a problem code cannot self-heal.
         const expectedAmount = txData.totalAmount;
         if (expectedAmount != null) {
-            if (isMixedPayment) {
-                // Card portion = total - wallet portion
-                const expectedStripeDollars = expectedAmount - (walletAmountUsedCents / 100);
-                if (Math.abs(amountReceivedDollars - expectedStripeDollars) > 0.01) {
-                    logger.error('Stripe webhook: amount mismatch (mixed payment)', {
-                        transactionId,
+            const expectedComparable = isMixedPayment
+                ? expectedAmount - walletAmountUsedCents / 100
+                : expectedAmount;
+            if (Math.abs(amountReceivedDollars - expectedComparable) > 0.01) {
+                logger.error(`Stripe webhook: amount mismatch${isMixedPayment ? ' (mixed payment)' : ''}`, {
+                    transactionId,
+                    received: amountReceivedDollars,
+                    expected: expectedComparable,
+                    expectedTotal: expectedAmount,
+                    walletCents: walletAmountUsedCents,
+                });
+                // Buyer is short-changed (paid LESS than owed) => seller would be
+                // under-funded; buyer overpaid (paid MORE) => buyer is owed a refund.
+                // Either way the platform must NOT mark this paid blindly.
+                return {
+                    processed: false,
+                    reason: 'amount_mismatch',
+                    mismatch: {
                         received: amountReceivedDollars,
-                        expectedStripe: expectedStripeDollars,
+                        expected: expectedComparable,
                         expectedTotal: expectedAmount,
                         walletCents: walletAmountUsedCents,
-                    });
-                    throw new Error('Payment amount does not match expected card portion');
-                }
-            }
-            else {
-                if (Math.abs(amountReceivedDollars - expectedAmount) > 0.01) {
-                    logger.error('Stripe webhook: amount mismatch', {
-                        transactionId,
-                        received: amountReceivedDollars,
-                        expected: expectedAmount,
-                    });
-                    throw new Error('Payment amount does not match transaction total');
-                }
+                        isMixedPayment,
+                        // Buyer overpaid → refunding makes them whole; underpaid → manual.
+                        buyerOverpaid: amountReceivedDollars - expectedComparable > 0.01,
+                    },
+                };
             }
         }
         // IDEMPOTENCE: If already paid/label_created/shipped/delivered, do nothing
-        // (replay protection). Also reject cancelled transactions.
+        // (replay protection).
         const currentStatus = txData.status;
         if (currentStatus === 'paid' ||
             currentStatus === 'label_created' ||
             currentStatus === 'shipped' ||
-            currentStatus === 'delivered' ||
-            currentStatus === 'cancelled') {
+            currentStatus === 'delivered') {
             logger.info('Stripe webhook: transaction already processed', {
                 transactionId,
                 currentStatus,
             });
             return { processed: false, reason: 'already_processed' };
+        }
+        // P1 (expiration vs payment in flight): the order was cancelled/expired
+        // BEFORE this success landed (e.g. the 1h expiry raced a late capture, or
+        // the buyer paid right after the order was cancelled). We must NOT mark it
+        // paid — the article may already be relisted/sold. Instead, trigger an
+        // idempotent Stripe refund AFTER the transaction so the buyer is made whole.
+        // Already-refunded / in-progress states need no new refund (the refund key
+        // is deterministic, so even a duplicate request would be a no-op, but we
+        // skip to avoid noise).
+        if (currentStatus === 'cancelled' ||
+            currentStatus === 'refund_in_progress' ||
+            currentStatus === 'refunded') {
+            logger.warn('Stripe webhook: PI.succeeded on a non-payable transaction — will refund', {
+                transactionId,
+                currentStatus,
+            });
+            return {
+                processed: false,
+                reason: currentStatus === 'cancelled' ? 'cancelled_needs_refund' : 'already_refunded',
+            };
         }
         // --- Mark transaction as paid ---
         tx.update(transactionRef, {
@@ -340,6 +374,105 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         };
     });
     if (!result.processed) {
+        // P1: the payment succeeded but the order is no longer payable (cancelled
+        // by the 1h expiry that raced this success). Issue an idempotent Stripe
+        // refund so the buyer is reimbursed. The deterministic key rf_${txId} dedups
+        // against the expiry job's own refund, so this can never double-refund. The
+        // resulting charge.refunded webhook applies any wallet reconciliation.
+        if (result.reason === 'cancelled_needs_refund') {
+            const stripe = (0, stripe_1.getStripe)();
+            if (!stripe) {
+                logger.error('Stripe webhook: cannot auto-refund cancelled transaction — Stripe not configured', {
+                    transactionId,
+                    paymentIntentId: paymentIntent.id,
+                });
+                return;
+            }
+            try {
+                const isMixedRefund = isMixedPayment;
+                const refund = await stripe.refunds.create(Object.assign({ payment_intent: paymentIntent.id }, (isMixedRefund
+                    ? {}
+                    : { reverse_transfer: true, refund_application_fee: true })), { idempotencyKey: `rf_${transactionId}` });
+                await transactionRef.update({
+                    stripeRefundId: refund.id,
+                    stripeRefundIssuedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                logger.warn('Stripe webhook: auto-refunded payment on cancelled transaction', {
+                    transactionId,
+                    paymentIntentId: paymentIntent.id,
+                    stripeRefundId: refund.id,
+                    reverseTransfer: !isMixedRefund,
+                });
+            }
+            catch (refundErr) {
+                // Leave it for manual reconciliation — the deterministic idempotency key
+                // means a future retry (e.g. a webhook replay) is safe.
+                logger.error('Stripe webhook: auto-refund on cancelled transaction FAILED', {
+                    transactionId,
+                    paymentIntentId: paymentIntent.id,
+                    error: refundErr instanceof Error ? refundErr.message : refundErr,
+                });
+            }
+            return;
+        }
+        // P1 (amount mismatch — deterministic): the captured amount does not match
+        // what we expected. This cannot self-heal on a Stripe retry, so we MUST NOT
+        // 500. Persist a dead-letter for manual reconciliation BEFORE returning. If
+        // the buyer OVERPAID, we additionally auto-refund the difference idempotently
+        // (a defensive, buyer-favourable action); an UNDERPAYMENT is left for a human
+        // (refunding the full charge or chasing the balance is a business decision).
+        if (result.reason === 'amount_mismatch') {
+            const mismatch = 'mismatch' in result ? result.mismatch : undefined;
+            const buyerOverpaid = (mismatch === null || mismatch === void 0 ? void 0 : mismatch.buyerOverpaid) === true;
+            const isMixedMismatch = (mismatch === null || mismatch === void 0 ? void 0 : mismatch.isMixedPayment) === true;
+            await (0, failedOperations_1.writeFailedOperation)({
+                type: 'amount_mismatch',
+                refId: transactionId,
+                payload: {
+                    paymentIntentId: paymentIntent.id,
+                    received: (_d = mismatch === null || mismatch === void 0 ? void 0 : mismatch.received) !== null && _d !== void 0 ? _d : amountReceivedDollars,
+                    expected: (_e = mismatch === null || mismatch === void 0 ? void 0 : mismatch.expected) !== null && _e !== void 0 ? _e : null,
+                    expectedTotal: (_f = mismatch === null || mismatch === void 0 ? void 0 : mismatch.expectedTotal) !== null && _f !== void 0 ? _f : null,
+                    walletCents: (_g = mismatch === null || mismatch === void 0 ? void 0 : mismatch.walletCents) !== null && _g !== void 0 ? _g : walletAmountUsedCents,
+                    isMixedCharge: isMixedMismatch,
+                    // Drive retryFailedOperations: only auto-refund the buyer-overpaid case.
+                    autoRefund: buyerOverpaid,
+                },
+                error: 'PaymentIntent amount does not match expected transaction amount',
+            });
+            if (buyerOverpaid) {
+                const stripe = (0, stripe_1.getStripe)();
+                if (stripe) {
+                    try {
+                        const refund = await stripe.refunds.create(Object.assign({ payment_intent: paymentIntent.id }, (isMixedMismatch
+                            ? {}
+                            : { reverse_transfer: true, refund_application_fee: true })), { idempotencyKey: `rf_mismatch_${transactionId}` });
+                        logger.warn('Stripe webhook: amount mismatch (buyer overpaid) — auto-refunded', {
+                            transactionId,
+                            paymentIntentId: paymentIntent.id,
+                            stripeRefundId: refund.id,
+                        });
+                    }
+                    catch (refundErr) {
+                        // The dead-letter above + the deterministic idempotency key make a
+                        // later replay (retryFailedOperations) safe.
+                        logger.error('CRITICAL Stripe webhook: amount mismatch auto-refund FAILED', {
+                            transactionId,
+                            paymentIntentId: paymentIntent.id,
+                            error: refundErr instanceof Error ? refundErr.message : refundErr,
+                        });
+                    }
+                }
+            }
+            else {
+                logger.error('CRITICAL Stripe webhook: amount underpaid — dead-lettered for manual reconciliation', {
+                    transactionId,
+                    paymentIntentId: paymentIntent.id,
+                });
+            }
+            // ACK 200 (return normally): the outer handler responds received:true.
+            return;
+        }
         logger.info('Stripe webhook: skipping post-processing', {
             transactionId,
             reason: result.reason,
@@ -465,7 +598,7 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         try {
             const chatSnap = await firebase_1.db.collection('chats').doc(chatId).get();
             if (chatSnap.exists) {
-                participants = ((_d = chatSnap.data()) === null || _d === void 0 ? void 0 : _d.participants) || [];
+                participants = ((_h = chatSnap.data()) === null || _h === void 0 ? void 0 : _h.participants) || [];
             }
         }
         catch (lookupErr) {

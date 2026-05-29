@@ -77,6 +77,7 @@ const stripe_1 = require("../config/stripe");
 const shipEngine_1 = require("../config/shipEngine");
 const rateLimit_1 = require("../utils/rateLimit");
 const labelFulfillment_1 = require("../utils/labelFulfillment");
+const failedOperations_1 = require("../utils/failedOperations");
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -426,6 +427,19 @@ exports.walletWithdraw = (0, https_1.onCall)({ region: 'northamerica-northeast1'
                         userId,
                         transferId: transfer.id,
                         error: reversalError instanceof Error ? reversalError.message : reversalError,
+                    });
+                    // P1: dead-letter so retryFailedOperations re-drives the reversal
+                    // idempotently (key rev_${transferId}). Best-effort; never throws.
+                    await (0, failedOperations_1.writeFailedOperation)({
+                        type: 'transfer_reversal_failed',
+                        refId: withdrawalRequestRef.id,
+                        payload: {
+                            transferId: transfer.id,
+                            userId,
+                            amount,
+                            stripeAccountId,
+                        },
+                        error: reversalError,
                     });
                 }
             }

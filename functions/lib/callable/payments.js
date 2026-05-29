@@ -164,6 +164,65 @@ function resolveSellerOriginAddress(sellerData, articleData) {
     }
     return null;
 }
+/**
+ * Verifies, server-side, that a negotiated (off-list) purchase amount is backed
+ * by a real accepted offer for THIS buyer + article.
+ *
+ * Why (P1 — negotiated amount must be bound to an accepted offer):
+ * `createTransaction` previously accepted ANY positive `amount <= articleData.price`
+ * as a "negotiated price", trusting that the chat offer/accept flow had validated
+ * it. A malicious or buggy client could therefore pay an arbitrary lower amount
+ * (e.g. 1$ on a 500$ article) without any seller-accepted offer. We now require,
+ * for every off-list amount, the existence of an offer message that:
+ *   - lives in a chat for THIS article (chat.articleId === articleId),
+ *   - was SENT by the buyer (senderId === buyerId — the buyer proposes, the
+ *     seller accepts by flipping offer.status to 'accepted'),
+ *   - has offer.status === 'accepted',
+ *   - has offer.amount === the requested amount (exact match).
+ *
+ * Reads happen OUTSIDE runTransaction (no I/O inside a Firestore transaction).
+ * The article price invariant is still re-checked atomically inside the tx.
+ *
+ * Throws HttpsError('failed-precondition') when no matching accepted offer is
+ * found. Returns the matched offer message id (for logging / linkage).
+ */
+async function verifyAcceptedOfferForNegotiatedAmount(params) {
+    const { articleId, buyerId, amount, chatId } = params;
+    if (typeof chatId !== 'string' || chatId.length === 0) {
+        throw new https_1.HttpsError('failed-precondition', 'Un prix négocié nécessite une offre acceptée. Veuillez passer par la conversation pour faire une offre.');
+    }
+    // Bind the chat to this article: the offer must belong to a conversation about
+    // the article being purchased, and the buyer must be a participant.
+    const chatSnap = await firebase_1.db.collection('chats').doc(chatId).get();
+    if (!chatSnap.exists) {
+        throw new https_1.HttpsError('failed-precondition', 'Conversation introuvable pour cette offre.');
+    }
+    const chatData = chatSnap.data();
+    if (chatData.articleId !== articleId) {
+        throw new https_1.HttpsError('failed-precondition', 'L\'offre acceptée ne correspond pas à cet article.');
+    }
+    const participants = chatData.participants;
+    if (!Array.isArray(participants) || !participants.includes(buyerId)) {
+        throw new https_1.HttpsError('permission-denied', 'Vous n\'êtes pas autorisé à utiliser cette offre.');
+    }
+    // Query accepted offers in this chat (composite index:
+    // messages(chatId ASC, type ASC, offer.status ASC) already exists).
+    const offersSnap = await firebase_1.db
+        .collection('messages')
+        .where('chatId', '==', chatId)
+        .where('type', '==', 'offer')
+        .where('offer.status', '==', 'accepted')
+        .get();
+    const matched = offersSnap.docs.find((d) => {
+        var _a;
+        const m = d.data();
+        return m.senderId === buyerId && typeof ((_a = m.offer) === null || _a === void 0 ? void 0 : _a.amount) === 'number' && m.offer.amount === amount;
+    });
+    if (!matched) {
+        throw new https_1.HttpsError('failed-precondition', 'Aucune offre acceptée ne correspond à ce montant. Veuillez faire ou confirmer une offre dans la conversation.');
+    }
+    return matched.id;
+}
 // =============================================================================
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
 // =============================================================================
@@ -342,6 +401,36 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             throw new https_1.HttpsError('failed-precondition', 'Le tarif de livraison n\'est pas disponible pour le moment. Veuillez rafraichir l\'estimation de livraison.');
         }
     }
+    const articleRef = firebase_1.db.collection('articles').doc(articleId);
+    // --- Negotiated-amount guard (P1) ---------------------------------------
+    //
+    // If the buyer pays anything other than the exact listed price, the amount
+    // MUST be backed by a seller-accepted offer for this buyer + article. We
+    // read the article price pre-transaction to decide whether this is a
+    // negotiated purchase, then verify the accepted offer exists. Both the
+    // accepted-offer check and the article price invariant are re-validated
+    // atomically inside runTransaction below (the offer cannot change the price
+    // invariant; this only blocks fabricated low amounts).
+    //
+    // Reads are OUTSIDE runTransaction (no I/O inside a Firestore transaction).
+    {
+        const articlePriceSnap = await articleRef.get();
+        if (!articlePriceSnap.exists) {
+            throw new https_1.HttpsError('not-found', 'Cet article n\'existe plus');
+        }
+        const listedPrice = articlePriceSnap.data().price;
+        if (typeof listedPrice === 'number' && amount !== listedPrice) {
+            const matchedOfferId = await verifyAcceptedOfferForNegotiatedAmount({
+                articleId,
+                buyerId,
+                amount,
+                chatId,
+            });
+            logger.info('createTransaction: negotiated amount backed by accepted offer', {
+                articleId, buyerId, amount, listedPrice, matchedOfferId,
+            });
+        }
+    }
     // --- Server-side shipping re-pricing (never trust client shippingCost) ----
     //
     // The buyer-supplied `shippingCost` / `shipEngineRateId` cannot be trusted:
@@ -357,7 +446,6 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
     // This network call is done OUTSIDE runTransaction (no I/O inside a
     // Firestore transaction). The amount/availability invariants are still
     // re-checked atomically below.
-    const articleRef = firebase_1.db.collection('articles').doc(articleId);
     let serverShippingCost = 0;
     if (deliveryType === 'shipping') {
         const shipEngine = (0, shipEngine_1.getShipEngine)();
@@ -451,8 +539,10 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             }
             // Verify the amount is valid:
             // - Exact listed price is always accepted.
-            // - A negotiated (lower) price is accepted if positive and below listed price.
-            //   The negotiation was validated via the offer/accept flow in chat.
+            // - A negotiated (off-list) price is accepted ONLY when a seller-accepted
+            //   offer for this buyer + article + amount was verified pre-transaction
+            //   (verifyAcceptedOfferForNegotiatedAmount). This block re-checks the
+            //   price invariant atomically against the live article.
             // - Amounts above listed price are rejected (overpay protection).
             if (amount > articleData.price) {
                 throw new https_1.HttpsError('failed-precondition', 'Le montant dépasse le prix de l\'article.');
