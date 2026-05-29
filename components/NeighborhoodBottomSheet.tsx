@@ -109,13 +109,16 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
       );
     }, [selectedNeighborhood, selectedNeighborhoods, multiSelect, handleSelect]);
 
+    if (!mounted) return null;
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        index={-1}
+        index={0}
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
         enablePanDownToClose
+        onClose={() => setMounted(false)}
         topInset={insets.top}
         enableDynamicSizing={false}
       >
