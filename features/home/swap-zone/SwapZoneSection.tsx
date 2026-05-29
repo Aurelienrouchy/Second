@@ -9,10 +9,10 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 
-import { colors, spacing, fonts } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { SwapZoneSection as SwapZoneSectionUI } from '@/components/home/SwapZoneSection';
 import { useSwapParties } from './useSwapParties';
 import { useSwapZoneItems } from './useSwapZoneItems';
