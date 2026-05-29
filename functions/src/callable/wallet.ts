@@ -14,10 +14,24 @@
  *
  * Ledger entry types (WalletLedgerType):
  * - 'purchase_debit'    — buyer pays for article
- * - 'sale_credit'       — seller receives funds after delivery
+ * - 'sale_credit'       — seller receives funds into pendingBalance (escrow)
+ * - 'funds_held'        — delivered: pendingBalance -> heldBalance (7-day dispute window)
+ * - 'funds_released'    — dispute window elapsed: heldBalance -> balance (withdrawable)
+ * - 'dispute_hold'      — dispute opened: balance -> heldBalance (frozen)
  * - 'refund_credit'     — refund returned to buyer's wallet
- * - 'withdrawal'        — funds sent to bank via Stripe
+ * - 'refund_debit'      — seller debited on refund / lost dispute (may record sellerDebt)
+ * - 'withdrawal'        — funds sent to bank via Stripe (withdrawal_requests='processing')
  * - 'withdrawal_failed' — withdrawal reverted after Stripe failure (F08: must be handled in UI)
+ *
+ * THREE-BUCKET FUNDS MODEL (see scheduled/releaseHeldFunds.ts for the full contract):
+ *   pendingBalance — paid, not delivered (escrow)
+ *   heldBalance    — delivered, inside 7-day dispute window (NOT withdrawable)
+ *   balance        — withdrawable
+ *   sellerDebt     — shortfall owed after a lost dispute (blocks withdrawals)
+ *
+ * Withdrawals (walletWithdraw) draw ONLY from `balance`, are refused while any
+ * sale is `disputed`, and create a withdrawal_requests/{id}='processing' doc
+ * (closed out by payout.paid / payout.failed webhooks).
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
