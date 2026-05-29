@@ -73,6 +73,7 @@ export const checkShippedTracking = onSchedule(
     let shippedCount = 0;
     let failedCount = 0;
     let staleNudged = 0;
+    let returnRefundedCount = 0;
     let errorCount = 0;
     let processed = 0;
 
