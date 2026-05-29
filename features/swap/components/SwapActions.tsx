@@ -31,6 +31,8 @@ export const SwapActions = React.memo(function SwapActions({
   const {
     isInitiator,
     isReceiver,
+    isTopUpPayer,
+    topUpPayerName,
     hasUploadedPhotos,
     hasConfirmedShipping,
     hasConfirmedReception,
@@ -39,6 +41,36 @@ export const SwapActions = React.memo(function SwapActions({
 
   return (
     <View style={styles.actionsSection}>
+      {/* Payment pending — payer settles the cash complement */}
+      {status === 'payment_pending' && isTopUpPayer && (
+        <Pressable
+          style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
+          onPress={handlers.onPayTopUp}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <ActivityIndicator size="small" color={colors.cream} />
+          ) : (
+            <>
+              <Ionicons name="lock-closed-outline" size={20} color={colors.cream} />
+              <Text variant="body" style={styles.actionButtonText}>
+                Régler le complément
+              </Text>
+            </>
+          )}
+        </Pressable>
+      )}
+
+      {/* Payment pending — the other party waits for the payment */}
+      {status === 'payment_pending' && !isTopUpPayer && (
+        <View style={styles.waitingCard}>
+          <Ionicons name="hourglass-outline" size={24} color={colors.rust} />
+          <Text variant="body" style={styles.waitingText}>
+            {`En attente du paiement de ${topUpPayerName}`}
+          </Text>
+        </View>
+      )}
+
       {/* Proposed - Receiver can accept/decline */}
       {status === 'proposed' && isReceiver && (
         <>
