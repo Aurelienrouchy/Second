@@ -8,15 +8,16 @@
  * and an optional footer note; on submit it returns the chosen reason code and
  * the trimmed free-text details.
  *
- * Ref-based open/close (`present` / `dismiss`), native @expo/ui BottomSheet —
- * the scrim, drag handle and animations are owned by the platform. Mounts its
- * content only while open.
+ * Ref-based open/close (`present` / `dismiss`), @gorhom/bottom-sheet — the
+ * scrim (BottomSheetBackdrop), drag handle and keyboard coordination are owned
+ * by gorhom. Mounts its content only while open.
  */
 
 import BottomSheet, {
+  BottomSheetBackdrop,
   BottomSheetScrollView,
   BottomSheetTextInput,
-} from '@expo/ui/community/bottom-sheet';
+} from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, {
@@ -34,10 +35,9 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
 
 export interface RecourseReasonOption<Code extends string = string> {
   /** Backend reason code sent to the callable. */
