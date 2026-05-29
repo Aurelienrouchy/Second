@@ -716,11 +716,19 @@ async function refundSwapTopUpIfPaid(swap: FirebaseFirestore.DocumentData, swapI
   }
 
   try {
+    // Swap top-ups are DIRECT PLATFORM CHARGES (no transfer_data / on_behalf_of —
+    // see createSwapTopUpCheckout above): the payee is credited via the wallet
+    // ledger, not a Connect transfer. Stripe rejects reverse_transfer /
+    // refund_application_fee on a charge that never used transfer_data
+    // ("Cannot reverse a transfer for a charge that was not created with
+    // transfer_data"). So we must NOT pass those flags here — unlike destination
+    // charge refunds (purchases) which do. The application fee for a direct charge
+    // is implicit (the platform kept the full amount), so a plain full refund of
+    // the PaymentIntent returns everything the payer paid. Wallet reconciliation
+    // of the payee's pendingBalance happens via the charge.refunded webhook.
     const refund = await stripe.refunds.create(
       {
         payment_intent: swap.topUpPaymentIntentId,
-        reverse_transfer: true,
-        refund_application_fee: true,
         metadata: { type: 'swap_topup_refund', swapId },
       },
       // Deterministic key tied to the swap so a re-trigger never issues a
