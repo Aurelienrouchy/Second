@@ -70,6 +70,8 @@ export default function ProposeSwapScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const effectivePartyId = partyId ?? GENERALIST_ZONE_ID;
+
   // --- React Query: fetch receiver's articles (for receiver selector) ---
   const { data: receiverArticlesRaw } = useQuery({
     queryKey: queryKeys.articles.userList(receiverId ?? ''),
@@ -77,6 +79,23 @@ export default function ProposeSwapScreen() {
     enabled: !!receiverId,
     staleTime: 5 * 60 * 1000,
   });
+
+  // --- React Query: the zone's deposited items (to scope the receiver
+  // selector to what THEY actually deposited, when possible) ---
+  const { data: zoneItems } = useQuery({
+    queryKey: queryKeys.swapParties.detail(effectivePartyId),
+    queryFn: () => getPartyItemsExtended(effectivePartyId),
+    enabled: !!receiverId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Set of article ids the receiver has deposited in the zone.
+  const receiverZoneArticleIds = useMemo<Set<string>>(() => {
+    if (!zoneItems || !receiverId) return new Set();
+    return new Set(
+      zoneItems.filter((i) => i.sellerId === receiverId).map((i) => i.articleId)
+    );
+  }, [zoneItems, receiverId]);
 
   // Derive available items from user articles query (initiator side)
   const allAvailableItems = useMemo<SwapItemInfo[]>(() => {
