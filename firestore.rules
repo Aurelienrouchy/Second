@@ -623,6 +623,19 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Disputes — buyer-opened "delivered but problem" tickets, created by the
+    // reportTransactionProblem callable (Admin SDK). The buyer and seller of the
+    // underlying transaction may READ their ticket; admins may read all and
+    // resolve. No client writes — creation, status changes and resolution are
+    // CF-owned so the linked transaction freeze stays authoritative.
+    match /disputes/{disputeId} {
+      allow read: if isAuthenticated() &&
+                     (request.auth.uid == resource.data.buyerId ||
+                      request.auth.uid == resource.data.sellerId ||
+                      request.auth.token.admin == true);
+      allow create, update, delete: if false;
+    }
+
     // Rate Limit counters — written by the rate-limiter helper (Admin SDK).
     // Internal infrastructure; no client access of any kind.
     match /rate_limits/{limitId} {
