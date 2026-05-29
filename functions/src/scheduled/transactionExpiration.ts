@@ -381,29 +381,34 @@ async function expirePendingPayment(
 /**
  * Refund + expire a single 'paid' transaction the seller never shipped (>7d).
  *
- * P1 (transactional, idempotent refund — R005/R008/R028): the refund is done in
- * three phases so a crash between the Stripe call and the Firestore writes can
- * never double-refund nor leave the buyer un-refunded:
+ * REUSES the shared issueTransactionRefund core (single source of truth for the
+ * reverse_transfer / sellerDebt reconciliation + dead-lettering on Stripe
+ * failure with the deterministic key rf_${txId}). The previous bespoke 3-phase
+ * implementation is replaced by:
  *
- *  1. INTENT (runTransaction): re-check status==='paid', then mark the tx
- *     `refund_in_progress` and stamp `refundReason`. If a `stripeRefundId` is
- *     already persisted we skip straight to the Stripe call guard.
- *  2. EXECUTE (Stripe, idempotent): refunds.create with idempotencyKey
- *     `rf_${transactionId}` (deterministic — Stripe dedups re-tries), reversing
- *     the transfer + application fee for destination charges. Persist the
- *     returned `stripeRefundId` before applying wallet movements.
- *  3. CONFIRM (runTransaction): apply wallet movements (debit seller pending,
- *     re-credit buyer wallet portion), release the article, and set the final
- *     status to `refunded`. Final status `refunded` makes the inbound
- *     `charge.refunded` webhook (triggered by the refund above) a no-op
- *     (its idempotence guard skips status==='refunded'), preventing a second
- *     wallet mutation.
+ *  1. INTENT (runTransaction): re-check status (paid OR resume a stuck
+ *     refund_in_progress), mark `refund_in_progress`, stamp `refundReason`.
+ *  2. CORE: issueTransactionRefund does the idempotent Stripe refund OUTSIDE a
+ *     transaction (key rf_${txId} — Stripe dedups any re-run / resume) then the
+ *     atomic Firestore reconciliation: re-credit buyer wallet portion, debit the
+ *     seller EXACTLY sellerCreditedCents across pending->held->balance (shortfall
+ *     -> sellerDebt, never masked), re-list the article, status -> 'refunded'.
+ *     Final status 'refunded' makes the inbound charge.refunded webhook a no-op.
+ *  3. STAMP: record cancelReason/cancelledAt (audit fields the generic core does
+ *     not own). On the core throwing (Stripe failed -> dead-lettered), roll the
+ *     status back to 'refund_in_progress' is NOT needed — the tx is already
+ *     refund_in_progress and the next run (section 4 resume) re-drives it.
+ *
+ * NOTE: the seller debit now uses sellerCreditedCents (matching the rest of the
+ * hardened ledger) instead of the legacy derived sellerPayout — a correctness
+ * improvement. Under the deferred-credit model a never-credited 'paid' tx has no
+ * sellerCreditedCents, so the debit target is 0 (no false debt).
  *
  * @returns true if the transaction reached a terminal refunded state this run.
  */
 async function refundPaidNotShipped(
   doc: FirebaseFirestore.QueryDocumentSnapshot,
-  stripe: StripeClient
+  _stripe: StripeClient
 ): Promise<boolean> {
   const transactionId = doc.id;
   const data = doc.data();
@@ -422,221 +427,67 @@ async function refundPaidNotShipped(
   try {
     // -----------------------------------------------------------------------
     // PHASE 1 — INTENT: mark refund_in_progress atomically (idempotent).
+    // Acts on a still-'paid' tx OR resumes a tx already flagged
+    // refund_in_progress (crash recovery on a prior run / section-4 resume).
     // -----------------------------------------------------------------------
     const intent = await db.runTransaction(async (tx) => {
       const txSnap = await tx.get(doc.ref);
       const txData = txSnap.data();
-      if (!txData) {
-        return { proceed: false as const, existingRefundId: null };
-      }
+      if (!txData) return { proceed: false as const, preData: null };
 
-      // Idempotence: only act on a still-'paid' tx, OR resume a tx already
-      // flagged refund_in_progress (crash recovery on a prior run).
       if (txData.status === 'paid') {
         tx.update(doc.ref, {
           status: 'refund_in_progress',
           refundReason: 'seller_did_not_ship_7d',
           refundStartedAt: FieldValue.serverTimestamp(),
         });
-        return {
-          proceed: true as const,
-          existingRefundId:
-            typeof txData.stripeRefundId === 'string' ? txData.stripeRefundId : null,
-        };
+        return { proceed: true as const, preData: txData };
       }
 
       if (txData.status === 'refund_in_progress') {
         // Resume an interrupted refund from a previous run.
-        return {
-          proceed: true as const,
-          existingRefundId:
-            typeof txData.stripeRefundId === 'string' ? txData.stripeRefundId : null,
-        };
+        return { proceed: true as const, preData: txData };
       }
 
       // Any other status (cancelled/refunded/shipped/...) → nothing to do.
-      return { proceed: false as const, existingRefundId: null };
+      return { proceed: false as const, preData: null };
     });
 
-    if (!intent.proceed) {
+    if (!intent.proceed || !intent.preData) {
       return false;
     }
 
     // -----------------------------------------------------------------------
-    // PHASE 2 — EXECUTE: Stripe refund (idempotent). Skip if already refunded.
+    // PHASE 2 — CORE: shared idempotent Stripe refund + atomic reconciliation.
+    // The core decides reverse_transfer (destination vs mixed direct charge)
+    // from paidVia, re-credits the buyer wallet portion, debits the seller
+    // exactly sellerCreditedCents, re-lists the article, sets status='refunded'.
+    // On Stripe failure it dead-letters (stripe_refund_failed, key rf_${txId})
+    // and throws — we leave the tx in refund_in_progress for the next run.
     // -----------------------------------------------------------------------
-    let stripeRefundId: string | null = intent.existingRefundId;
-
-    if (data.stripePaymentIntentId && stripe && !stripeRefundId) {
-      try {
-        // Destination charges (card-only purchases) were created with
-        // transfer_data + application_fee_amount, so the seller's Connect
-        // account already received the funds. A plain refund would leave that
-        // money with the seller while the wallet ledger is debited => platform
-        // absorbs the loss. We MUST reverse the transfer and the application fee.
-        //
-        // Mixed wallet+card charges are direct platform charges (NO transfer_data
-        // / application_fee_amount), so there is nothing to reverse — passing
-        // reverse_transfer would error.
-        const isMixedCharge =
-          data.paidVia === 'wallet_and_card' || data.paidVia === 'mixed';
-        const refund = await stripe.refunds.create(
-          {
-            payment_intent: data.stripePaymentIntentId,
-            ...(isMixedCharge
-              ? {}
-              : { reverse_transfer: true, refund_application_fee: true }),
-          },
-          // Deterministic key tied to the transaction so a re-run of the
-          // scheduler (or a resumed refund_in_progress) never issues a second
-          // refund for the same purchase.
-          { idempotencyKey: `rf_${transactionId}` }
-        );
-        stripeRefundId = refund.id;
-
-        // Persist the refund id immediately so a crash before PHASE 3 lets the
-        // next run resume without re-calling Stripe with a fresh decision.
-        await doc.ref.update({
-          stripeRefundId,
-          stripeRefundIssuedAt: FieldValue.serverTimestamp(),
-        });
-
-        logger.info('[expireOrphanedTransactions] Stripe refund created', {
-          transactionId,
-          paymentIntentId: data.stripePaymentIntentId,
-          stripeRefundId,
-          reverseTransfer: !isMixedCharge,
-        });
-      } catch (refundErr) {
-        // Refund failed → leave the tx in 'refund_in_progress' so the next run
-        // retries (the idempotencyKey guarantees no double refund). Do NOT
-        // apply wallet movements without a confirmed Stripe refund.
-        logger.error('[expireOrphanedTransactions] Stripe refund failed — leaving refund_in_progress', {
-          transactionId,
-          paymentIntentId: data.stripePaymentIntentId,
-          error: refundErr instanceof Error ? refundErr.message : refundErr,
-        });
-        return false;
-      }
-    }
+    await issueTransactionRefund(transactionId, intent.preData, {
+      reason: 'seller_did_not_ship_7d',
+      idempotencyKey: `rf_${transactionId}`,
+      // Item never shipped — it still exists, so re-list it (default).
+      relistArticle: true,
+      source: 'expireOrphanedTransactions_paidNotShipped',
+    });
 
     // -----------------------------------------------------------------------
-    // PHASE 3 — CONFIRM: wallet movements + release article + status=refunded.
+    // PHASE 3 — STAMP audit fields the generic core does not own. Best-effort
+    // merge — the core already set status='refunded' + refundedAt atomically.
     // -----------------------------------------------------------------------
-    const paidVia = data.paidVia;
-    const walletAmountUsed = data.walletAmountUsed || 0; // in cents
-    const hasWalletPortion =
-      walletAmountUsed > 0 &&
-      (paidVia === 'wallet' || paidVia === 'wallet_and_card' || paidVia === 'mixed');
-
-    const confirmed = await db.runTransaction(async (tx) => {
-      const txSnap = await tx.get(doc.ref);
-      const txData = txSnap.data();
-
-      // Idempotence: only confirm a tx still in refund_in_progress (a concurrent
-      // run or the charge.refunded webhook may have finished it already).
-      if (!txData || txData.status !== 'refund_in_progress') {
-        return false;
-      }
-
-      // Reads before writes.
-      let buyerWalletSnap: FirebaseFirestore.DocumentSnapshot | null = null;
-      const buyerWalletRef = hasWalletPortion
-        ? db.collection('wallets').doc(data.buyerId)
-        : null;
-      if (buyerWalletRef) {
-        buyerWalletSnap = await tx.get(buyerWalletRef);
-      }
-
-      const sellerWalletRef = data.sellerId
-        ? db.collection('wallets').doc(data.sellerId)
-        : null;
-      let sellerWalletSnap: FirebaseFirestore.DocumentSnapshot | null = null;
-      if (sellerWalletRef) {
-        sellerWalletSnap = await tx.get(sellerWalletRef);
-      }
-
-      let articleSnap: FirebaseFirestore.DocumentSnapshot | null = null;
-      const articleRef = data.articleId
-        ? db.collection('articles').doc(data.articleId)
-        : null;
-      if (articleRef) {
-        articleSnap = await tx.get(articleRef);
-      }
-
-      // --- Writes ---
-
-      // 1. Finalize the transaction as refunded. Final status 'refunded' makes
-      //    the inbound charge.refunded webhook idempotent (it skips refunded).
-      tx.update(doc.ref, {
-        status: 'refunded',
+    await doc.ref
+      .update({
         cancelledAt: FieldValue.serverTimestamp(),
         cancelReason: 'seller_did_not_ship_7d',
-        refundedAt: FieldValue.serverTimestamp(),
-        ...(stripeRefundId ? { stripeRefundId } : {}),
-      });
-
-      // 2. Release the article.
-      if (articleRef && articleSnap && articleSnap.exists) {
-        tx.update(articleRef, { isSold: false });
-      }
-
-      // 3. Debit seller pendingBalance.
-      if (sellerWalletRef && sellerWalletSnap && sellerWalletSnap.exists) {
-        const sellerWalletData = sellerWalletSnap.data()!;
-        const sellerPayout = data.sellerPayout || data.amount || 0;
-        const sellerPayoutCents = Math.round(sellerPayout * 100);
-        const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
-
-        if (deduction > 0) {
-          tx.update(sellerWalletRef, {
-            pendingBalance: FieldValue.increment(-deduction),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-
-          const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-          tx.set(sellerLedgerRef, {
-            type: 'refund_debit',
-            amount: deduction,
-            balanceAfter: (sellerWalletData.pendingBalance || 0) - deduction,
-            description: 'Annulation — vendeur n\'a pas expédié',
-            transactionId,
-            createdAt: FieldValue.serverTimestamp(),
-          });
-        }
-      }
-
-      // 4. Refund wallet portion to buyer.
-      if (hasWalletPortion && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
-        const walletData = buyerWalletSnap.data()!;
-        tx.update(buyerWalletRef, {
-          balance: FieldValue.increment(walletAmountUsed),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-
-        const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
-        tx.set(buyerLedgerRef, {
-          type: 'refund_credit',
-          amount: walletAmountUsed,
-          balanceAfter: (walletData.balance || 0) + walletAmountUsed,
-          description: 'Remboursement — vendeur n\'a pas expedie',
+      })
+      .catch((err) =>
+        logger.warn('[expireOrphanedTransactions] failed to stamp cancel fields after refund', {
           transactionId,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-
-        logger.info('[expireOrphanedTransactions] Wallet portion refunded', {
-          transactionId,
-          buyerId: data.buyerId,
-          walletAmountRefunded: walletAmountUsed,
-        });
-      }
-
-      return true;
-    });
-
-    if (!confirmed) {
-      return false;
-    }
+          error: err instanceof Error ? err.message : err,
+        })
+      );
 
     // Notify buyer that the order was cancelled and refunded (non-blocking).
     if (data.buyerId) {
@@ -657,6 +508,9 @@ async function refundPaidNotShipped(
 
     return true;
   } catch (err) {
+    // issueTransactionRefund already dead-lettered a Stripe failure with the
+    // deterministic key; the tx stays refund_in_progress so section 4 re-drives
+    // it next run. Just log domain context.
     logger.error('[expireOrphanedTransactions] Error processing paid-not-shipped transaction', {
       transactionId,
       error: err instanceof Error ? err.message : err,
