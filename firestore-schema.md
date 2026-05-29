@@ -511,10 +511,19 @@ interface TransactionDocument {
   //   NOT released). Resolution = adminRefundTransaction.
   //   Dispute:  paid|label_created|shipped|delivered -> disputed
   //             -> (won: restore prev status) | (lost: refunded)
+  //   Buyer return (B2 — non-conforming item, anti-fraud): delivered (shipping,
+  //   inside the 7-day window) -> return_requested. requestReturn buys a RETURN
+  //   label (origin=buyer, destination=seller), freezes funds (disputed=true),
+  //   stores returnLabelId/returnTrackingNumber/returnLabelUrl/returnLabelCost/
+  //   returnReason. NO refund yet. The refund (buyer = total - returnLabelCost,
+  //   seller debited their payout) is issued ONLY when the carrier confirms the
+  //   RETURN parcel DELIVERED back to the seller (poller + ShipEngine webhook ->
+  //   utils/returnRefund.ts), at which point return_requested -> refunded with
+  //   returnDeliveredAt. The buyer bears the return label cost.
   status: 'pending_payment' | 'meetup_pending' | 'meetup_confirmed'
         | 'meetup_completed' | 'paid' | 'label_created' | 'shipped'
         | 'delivered' | 'completed' | 'cancelled' | 'disputed' | 'refunded'
-        | 'refund_in_progress' | 'delivery_failed' | 'lost';
+        | 'refund_in_progress' | 'delivery_failed' | 'lost' | 'return_requested';
         // 'refund_in_progress' (P1): transient state during the seller-no-ship
         // 3-phase refund (Stripe refund issued, wallet movements pending). Always
         // resolves to 'refunded' within the same or a subsequent scheduled run.
