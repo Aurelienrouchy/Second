@@ -188,7 +188,7 @@ export const expireOrphanedTransactions = onSchedule(
                 // reverse — passing reverse_transfer would error.
                 const isMixedCharge =
                   data.paidVia === 'wallet_and_card' || data.paidVia === 'mixed';
-                const refundParams: import('stripe').Stripe.RefundCreateParams = {
+                const refundParams: Stripe.RefundCreateParams = {
                   payment_intent: data.stripePaymentIntentId,
                 };
                 if (!isMixedCharge) {
