@@ -472,7 +472,13 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             data={filteredBrands}
             renderItem={renderBrandItem}
             keyExtractor={(item) => item.value}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              {
+                paddingBottom:
+                  24 + (singleSelect ? insets.bottom : SHEET_FOOTER_HEIGHT),
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             onEndReached={handleLoadMore}
