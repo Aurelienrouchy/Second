@@ -395,14 +395,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Confirm button ──
-  confirmContainer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
   confirmButton: {
     backgroundColor: colors.charcoal,
     paddingVertical: 16,
