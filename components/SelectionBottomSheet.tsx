@@ -211,6 +211,26 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
             </View>
           )}
         </BottomSheetScrollView>
+
+        {/* ── Confirm footer (multi-select) ── */}
+        {multiSelect && (
+          <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                localSelectedValues.length === 0 && styles.confirmButtonDisabled,
+              ]}
+              onPress={handleConfirm}
+            >
+              <Text style={styles.confirmButtonText}>
+                {localSelectedValues.length > 0
+                  ? `VALIDER (${localSelectedValues.length})`
+                  : 'VALIDER'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        </BottomSheetView>
       </BottomSheet>
     );
   }
