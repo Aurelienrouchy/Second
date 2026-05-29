@@ -130,6 +130,7 @@ function getAndroidChannel(notificationType: string): string {
     case 'order_shipped':
     case 'order_delivered':
     case 'order_cancelled':
+    case 'order_refunded':
       return 'orders';
 
     case 'review_received':
