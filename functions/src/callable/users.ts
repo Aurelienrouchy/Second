@@ -185,44 +185,28 @@ export const deleteUserAccount = onCall(
       if (!deletedSwapIds.has(d.id)) { bulkWriter.delete(d.ref); deletedSwapIds.add(d.id); }
     }
 
-    // 10. Delete swapPartyParticipants + decrement party counters
-    const ppSnap = await db.collection('swapPartyParticipants').where('userId', '==', uid).get();
+    // 10. Delete the user's Swap Zone items + decrement itemsCount per zone.
+    // (No more swapPartyParticipants — the Swap Zone is open to all, no join.)
     const piSnap = await db.collection('swapPartyItems').where('sellerId', '==', uid).get();
 
-    // Group items by partyId to compute counter decrements
-    const partyDecrements: Record<string, { participants: number; items: number }> = {};
-    for (const d of ppSnap.docs) {
-      const partyId = d.data().partyId;
-      if (partyId) {
-        if (!partyDecrements[partyId]) partyDecrements[partyId] = { participants: 0, items: 0 };
-        partyDecrements[partyId].participants += 1;
-      }
-      bulkWriter.delete(d.ref);
-    }
-
-    // 11. Delete swapPartyItems + count items per party
+    const partyDecrements: Record<string, { items: number }> = {};
     for (const d of piSnap.docs) {
       const partyId = d.data().partyId;
       if (partyId) {
-        if (!partyDecrements[partyId]) partyDecrements[partyId] = { participants: 0, items: 0 };
+        if (!partyDecrements[partyId]) partyDecrements[partyId] = { items: 0 };
         partyDecrements[partyId].items += 1;
       }
       bulkWriter.delete(d.ref);
     }
 
-    // Decrement counters on affected parties
+    // Decrement itemsCount on affected zones
     for (const [partyId, counts] of Object.entries(partyDecrements)) {
-      const partyRef = db.collection('swapParties').doc(partyId);
-      const updates: Record<string, any> = {};
-      if (counts.participants > 0) {
-        updates.participantsCount = FieldValue.increment(-counts.participants);
-      }
       if (counts.items > 0) {
-        updates.itemsCount = FieldValue.increment(-counts.items);
-      }
-      if (Object.keys(updates).length > 0) {
-        updates.updatedAt = FieldValue.serverTimestamp();
-        bulkWriter.update(partyRef, updates);
+        const partyRef = db.collection('swapParties').doc(partyId);
+        bulkWriter.update(partyRef, {
+          itemsCount: FieldValue.increment(-counts.items),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
       }
     }
 
