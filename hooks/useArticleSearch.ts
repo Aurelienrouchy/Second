@@ -173,7 +173,6 @@ export function useArticleSearch({
       (filters.sizes?.length ?? 0) > 0 ||
       (filters.materials?.length ?? 0) > 0 ||
       (filters.brands?.length ?? 0) > 0 ||
-      (filters.patterns?.length ?? 0) > 0 ||
       !!filters.condition ||
       filters.minPrice !== undefined ||
       filters.maxPrice !== undefined,
