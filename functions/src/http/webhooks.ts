@@ -21,6 +21,7 @@ import { getShipEngine } from '../config/shipEngine';
 import { getStripe } from '../config/stripe';
 import { sendPushNotification } from '../utils/notifications';
 import { getOrCreateSellerWallet } from '../callable/wallet';
+import { creditSellerForSale, reconcileShippingCost } from '../utils/labelFulfillment';
 
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
