@@ -109,12 +109,21 @@ function getCarrierStatusInfo(
   }
 }
 
-const REPORT_REASONS = [
-  'Colis non reçu',
-  'Article non conforme à l’annonce',
-  'Article endommagé',
-  'Autre',
-] as const;
+/** "Signaler un problème" options → backend report reason codes. */
+const REPORT_REASON_OPTIONS: ReadonlyArray<RecourseReasonOption<ReportReasonCode>> = [
+  { code: 'not_received_despite_delivered', label: 'Colis non reçu' },
+  { code: 'not_as_described', label: 'Article non conforme à l’annonce' },
+  { code: 'damaged', label: 'Article endommagé' },
+  { code: 'other', label: 'Autre' },
+];
+
+/** "Demander un retour" options → backend return reason codes. */
+const RETURN_REASON_OPTIONS: ReadonlyArray<RecourseReasonOption<ReturnReasonCode>> = [
+  { code: 'not_as_described', label: 'Article non conforme à l’annonce' },
+  { code: 'damaged', label: 'Article endommagé' },
+  { code: 'wrong_item', label: 'Mauvais article reçu' },
+  { code: 'other', label: 'Changement d’avis' },
+];
 
 const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   transaction,
