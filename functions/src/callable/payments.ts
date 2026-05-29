@@ -869,19 +869,24 @@ export const createStripeCheckout = onCall(
         const amountInCents = totalChargeCents;
 
         // Create Stripe PaymentIntent with destination charge
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: amountInCents,
-          currency: 'cad',
-          application_fee_amount: applicationFeeInCents,
-          transfer_data: {
-            destination: sellerStripeAccountId,
+        const paymentIntent = await stripe.paymentIntents.create(
+          {
+            amount: amountInCents,
+            currency: 'cad',
+            application_fee_amount: applicationFeeInCents,
+            transfer_data: {
+              destination: sellerStripeAccountId,
+            },
+            metadata: {
+              transactionId,
+              sellerId: txResult.sellerId,
+              buyerId: request.auth!.uid,
+            },
           },
-          metadata: {
-            transactionId,
-            sellerId: txResult.sellerId,
-            buyerId: request.auth!.uid,
-          },
-        });
+          // Deterministic key so a retry (same transaction) never creates a
+          // second PaymentIntent — Stripe returns the original PI instead.
+          { idempotencyKey: `pi_${transactionId}` }
+        );
 
         // Store PaymentIntent ID in the transaction doc (never store client_secret)
         await txRef.update({
