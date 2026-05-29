@@ -4,18 +4,17 @@
  * Multi-select: tap rows to toggle (selected rows change background + show a
  * check), then a fixed footer button deposits all selected articles at once.
  *
- * Ref-based (show/hide), same @gorhom/bottom-sheet pattern as the app's other
- * sheets. Light editorial surface (sheets stay light even though the Swap Zone
- * screen is dark).
+ * Ref-based (show/hide), native @expo/ui BottomSheetModal — the scrim, drag
+ * handle and back-button handling are provided by the platform. Light
+ * editorial surface (sheets stay light even though the Swap Zone screen is
+ * dark).
  */
 
 import {
   BottomSheetModal,
-  BottomSheetBackdrop,
   BottomSheetScrollView,
-  BottomSheetFooter,
-  TouchableOpacity,
-} from '@gorhom/bottom-sheet';
+  BottomSheetView,
+} from '@expo/ui/community/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, {
   forwardRef,
@@ -24,7 +23,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
