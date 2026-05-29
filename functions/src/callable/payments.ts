@@ -438,17 +438,15 @@ export const createTransaction = onCall(
         );
       }
 
-      // Destination = buyer shipping address (must carry a postal code).
-      const destPostal = (shippingAddress.postalCode || '').toString().trim();
-      if (destPostal.length === 0) {
-        throw new HttpsError('invalid-argument', 'Le code postal de livraison est requis');
-      }
+      // Destination = buyer shipping address. Already strictly validated above
+      // (validatedShippingAddress is guaranteed non-null in shipping mode).
+      const validatedAddr = validatedShippingAddress!;
       const destination: ShipEngineAddress = {
         name: shippingAddress.name || 'Acheteur',
-        addressLine1: shippingAddress.street || origin.addressLine1,
-        cityLocality: shippingAddress.city || origin.cityLocality,
-        stateProvince: shippingAddress.province || origin.stateProvince,
-        postalCode: destPostal,
+        addressLine1: validatedAddr.street,
+        cityLocality: validatedAddr.city,
+        stateProvince: validatedAddr.province,
+        postalCode: validatedAddr.postalCode,
         countryCode: 'CA',
         phone: shippingAddress.phone || origin.phone,
       };
