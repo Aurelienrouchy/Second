@@ -20,6 +20,7 @@ import {
   acceptSwap,
   declineSwap,
   cancelSwap,
+  createSwapTopUpCheckout,
   setExchangeMode,
   uploadSwapPhotos,
   confirmShipping,
@@ -31,6 +32,7 @@ import {
 import { Swap, SwapExchangeMode } from '@/types';
 import { colors, spacing } from '@/constants/theme';
 import { Text } from '@/components/ui';
+import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
 import {
   SwapDetailSkeleton,
   SwapTopBar,
