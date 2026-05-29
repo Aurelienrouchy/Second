@@ -57,6 +57,7 @@ export function buildDeepLink(
     case 'order_shipped':
     case 'order_delivered':
     case 'order_cancelled':
+    case 'order_refunded':
       return data.transactionId
         ? `https://${DEEP_LINK_HOST}/my-orders`
         : '';
