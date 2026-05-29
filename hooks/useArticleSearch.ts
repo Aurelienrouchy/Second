@@ -205,11 +205,13 @@ export function useArticleSearch({
       return {
         articles: result.articles,
         lastVisible: result.lastVisible,
+        // firebase-backend: SearchPage gains `hasMore`. Referenced intentionally.
+        hasMore: result.hasMore,
       };
     },
     initialPageParam: undefined as QueryDocumentSnapshot | undefined,
     getNextPageParam: (lastPage) =>
-      lastPage.lastVisible ? lastPage.lastVisible : undefined,
+      lastPage.hasMore && lastPage.lastVisible ? lastPage.lastVisible : undefined,
     staleTime: SEARCH_STALE_TIME,
     retry: 3,
     enabled: Boolean(
