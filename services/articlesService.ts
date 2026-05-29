@@ -585,99 +585,134 @@ export class ArticlesService {
     limitCount: number,
     lastVisible: QueryDocumentSnapshot | undefined,
     sortBy: 'recent' | 'price_asc' | 'price_desc' | 'popular',
-  ): Promise<{ articles: Article[], lastVisible: QueryDocumentSnapshot | null }> {
+  ): Promise<SearchPage> {
     const articlesRef = collection(firestore, 'articles');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const constraints: any[] = [
-      where('isActive', '==', true),
-      where('isSold', '==', false),
-    ];
 
-    if (filters?.sellerId) {
-      constraints.push(where('sellerId', '==', filters.sellerId));
-    }
+    const hasPriceFilter =
+      filters?.minPrice !== undefined || filters?.maxPrice !== undefined;
 
-    if (filters?.categoryIds && filters.categoryIds.length > 0) {
-      const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
-      constraints.push(where('categoryIds', 'array-contains', targetCategoryId));
-    } else if (filters?.category) {
-      constraints.push(where('category', '==', filters.category));
-    }
+    // C2: when a price inequality is present, Firestore REQUIRES the inequality
+    // field to lead the ordering. So `price` must be the first orderBy, with
+    // `createdAt DESC` as a stable secondary. Direction: price_desc -> desc,
+    // everything else (price_asc / recent / popular) -> asc.
+    const priceDir: 'asc' | 'desc' = sortBy === 'price_desc' ? 'desc' : 'asc';
 
-    if (filters?.condition) {
-      constraints.push(where('condition', '==', filters.condition));
-    }
+    const buildConstraints = (
+      cursor: QueryDocumentSnapshot | undefined,
+      fetchLimit: number,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ): any[] => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const constraints: any[] = [
+        where('isActive', '==', true),
+        where('isSold', '==', false),
+      ];
 
-    if (filters?.minPrice !== undefined) {
-      constraints.push(where('price', '>=', filters.minPrice));
-    }
-    if (filters?.maxPrice !== undefined) {
-      constraints.push(where('price', '<=', filters.maxPrice));
-    }
+      if (filters?.sellerId) {
+        constraints.push(where('sellerId', '==', filters.sellerId));
+      }
 
-    switch (sortBy) {
-      case 'price_asc':
-        constraints.push(orderBy('price', 'asc'));
-        break;
-      case 'price_desc':
-        constraints.push(orderBy('price', 'desc'));
-        break;
-      case 'recent':
-      default:
+      if (filters?.categoryIds && filters.categoryIds.length > 0) {
+        const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
+        constraints.push(where('categoryIds', 'array-contains', targetCategoryId));
+      } else if (filters?.category) {
+        constraints.push(where('category', '==', filters.category));
+      }
+
+      if (filters?.condition) {
+        constraints.push(where('condition', '==', filters.condition));
+      }
+
+      if (filters?.minPrice !== undefined) {
+        constraints.push(where('price', '>=', filters.minPrice));
+      }
+      if (filters?.maxPrice !== undefined) {
+        constraints.push(where('price', '<=', filters.maxPrice));
+      }
+
+      // Ordering.
+      if (hasPriceFilter) {
+        // Inequality field must lead the orderBy. createdAt DESC is the stable
+        // secondary key.
+        constraints.push(orderBy('price', priceDir));
         constraints.push(orderBy('createdAt', 'desc'));
-        break;
-    }
+      } else {
+        switch (sortBy) {
+          case 'price_asc':
+            constraints.push(orderBy('price', 'asc'));
+            constraints.push(orderBy('createdAt', 'desc'));
+            break;
+          case 'price_desc':
+            constraints.push(orderBy('price', 'desc'));
+            constraints.push(orderBy('createdAt', 'desc'));
+            break;
+          case 'recent':
+          default:
+            constraints.push(orderBy('createdAt', 'desc'));
+            break;
+        }
+      }
+
+      constraints.push(firestoreLimit(fetchLimit));
+      if (cursor) {
+        constraints.push(startAfter(cursor));
+      }
+      return constraints;
+    };
 
     const hasClientSideFilter = !!(
       (filters?.colors && filters.colors.length > 0) ||
       (filters?.sizes && filters.sizes.length > 0) ||
       (filters?.materials && filters.materials.length > 0) ||
-      (filters?.brands && filters.brands.length > 0) ||
-      (filters?.patterns && filters.patterns.length > 0)
+      (filters?.brands && filters.brands.length > 0)
     );
     const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount;
 
-    constraints.push(firestoreLimit(fetchLimit));
+    const matches: Article[] = [];
+    let cursor = lastVisible;
+    let lastFetchedDoc: QueryDocumentSnapshot | null = null;
+    let lastBatchFull = false;
 
-    if (lastVisible) {
-      constraints.push(startAfter(lastVisible));
+    for (let batch = 0; batch < MAX_REFILL_BATCHES; batch++) {
+      const q = query(articlesRef, ...buildConstraints(cursor, fetchLimit));
+      const snap = await getDocs(q);
+
+      if (__DEV__) {
+        console.log('articles docs fetched:', snap.docs.length, 'batch', batch);
+      }
+
+      lastBatchFull = snap.docs.length === fetchLimit;
+      if (snap.docs.length > 0) {
+        lastFetchedDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot;
+        cursor = lastFetchedDoc;
+      }
+
+      snap.forEach((docSnap: QueryDocumentSnapshot) => {
+        const data = docSnap.data();
+        if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return;
+        if (!this.matchesClientSideFilters(data, filters)) return;
+
+        matches.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt.toDate(),
+          images: this.fixArticleImageUrls(data.images),
+        } as Article);
+      });
+
+      if (!lastBatchFull || matches.length >= limitCount) break;
     }
 
-    const q = query(articlesRef, ...constraints);
-    const querySnapshot = await getDocs(q);
+    const limitedArticles = matches.slice(0, limitCount);
+    const hasMore = matches.length >= limitCount && lastBatchFull;
 
     if (__DEV__) {
-      console.log('articles docs fetched:', querySnapshot.docs.length);
+      console.log('articles results:', limitedArticles.length, 'articles, hasMore', hasMore);
     }
 
-    const articles: Article[] = [];
-
-    querySnapshot.forEach((docSnap: QueryDocumentSnapshot) => {
-      const data = docSnap.data();
-      if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return;
-
-      if (!this.matchesClientSideFilters(data, filters)) return;
-
-      articles.push({
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt.toDate(),
-        images: this.fixArticleImageUrls(data.images),
-      } as Article);
-    });
-
-    const limitedArticles = articles.slice(0, limitCount);
-
-    const lastFilteredArticle = limitedArticles[limitedArticles.length - 1];
-    const lastVisibleDoc = lastFilteredArticle
-      ? (querySnapshot.docs.find(d => d.id === lastFilteredArticle.id) as QueryDocumentSnapshot) ?? null
-      : null;
-
-    if (__DEV__) {
-      console.log('articles results:', limitedArticles.length, 'articles');
-    }
-
-    return { articles: limitedArticles, lastVisible: lastVisibleDoc };
+    // Cursor is the last document FETCHED from Firestore, never the last retained
+    // article, so pagination resumes correctly even when a full batch is filtered out.
+    return { articles: limitedArticles, lastVisible: lastFetchedDoc, hasMore };
   }
 
   /**
