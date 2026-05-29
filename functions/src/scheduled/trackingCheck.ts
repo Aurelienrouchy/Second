@@ -106,6 +106,40 @@ export const checkShippedTracking = onSchedule(
           lastCreatedAt = (data.createdAt as Timestamp) ?? lastCreatedAt;
           processed++;
 
+          // ---- RETURN leg: poll returnTrackingNumber; DELIVERED -> refund ----
+          if (status === 'return_requested') {
+            if (!data.returnTrackingNumber) {
+              continue;
+            }
+            try {
+              await sleep(SHIPENGINE_THROTTLE_MS);
+              const returnCarrier = data.returnCarrierCode || 'intelcom_ca';
+              const tracking = await shipEngine.getTracking(
+                returnCarrier,
+                data.returnTrackingNumber
+              );
+              const mappedReturn = ShipEngineClient.mapStatus(tracking.statusCode);
+
+              if (mappedReturn === 'DELIVERED') {
+                const r = await processReturnDelivered(transactionId, 'poller');
+                if (r.refunded) returnRefundedCount++;
+              } else if (data.returnTrackingStatus !== mappedReturn) {
+                // Best-effort visibility refresh; no money movement.
+                await doc.ref
+                  .update({ returnTrackingStatus: mappedReturn })
+                  .catch(() => undefined);
+              }
+            } catch (err) {
+              errorCount++;
+              logger.error('[checkShippedTracking] error checking return tracking', {
+                transactionId,
+                returnTrackingNumber: data.returnTrackingNumber,
+                error: err instanceof Error ? err.message : err,
+              });
+            }
+            continue;
+          }
+
           // No tracking number yet (label_created may have one already).
           if (!data.trackingNumber) {
             // Nudge sellers who printed a label but never got a carrier scan.
