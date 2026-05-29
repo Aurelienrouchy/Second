@@ -510,21 +510,27 @@ interface TransactionDocument {
 
 ### `withdrawal_requests/{withdrawalId}`
 
-Withdrawal record. Created atomically with balance debit, then updated
-with Stripe payout result.
+Withdrawal record. Created atomically (`status: 'processing'`) inside the
+`walletWithdraw` debit transaction, then closed out asynchronously by the
+`payout.paid` (-> `completed`) / `payout.failed` (-> `failed` + re-credit)
+Stripe webhook handlers, matched via `metadata.withdrawalRequestId` on the
+Stripe payout. Server-only (see rules chantier).
 
 ```typescript
 interface WithdrawalRequestDocument {
   withdrawalId: string;
   userId: string;
-  amount: number;
-  bankAccountLast4: string;       // Last 4 digits of Canadian bank account
+  amount: number;                 // In CENTS
+  currency: 'cad';
+  ledgerEntryId: string;          // Linked wallets/{userId}/ledger entry id
   stripeAccountId: string;        // Seller's Stripe Connect Custom account
-  stripePayoutId?: string;        // Stripe Payout ID (po_xxx) — set after payout created
+  stripePayoutId?: string;        // Stripe Payout ID (po_xxx) — set by payout.* webhook
   status: 'processing' | 'completed' | 'failed';
   failureReason?: string;         // Set if status is 'failed'
   failedAt?: Timestamp;           // Set if status is 'failed'
+  completedAt?: Timestamp;        // Set if status is 'completed'
   createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 ```
 
