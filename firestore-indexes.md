@@ -372,6 +372,38 @@ Sur le chemin recherche TEXTE, le seul index serveur utilisé reste
 `keywords CONTAINS + popularityScore DESC` (déjà présent) : l'ordre est toujours
 `popularityScore DESC` et tous les autres filtres sont appliqués client-side.
 
+## Paiement / Livraison — indexes des jobs scheduled & callables (P1/P2)
+
+> Source de vérité = `firestore.indexes.json`. Déploiement manuel :
+> `firebase deploy --only firestore:indexes` (JAMAIS `--force` : la prod a des
+> orphelins absents du local, dont des fonctions financières).
+
+Chaque index ci-dessous est requis par une requête réelle (vérifiée dans le code
+des chantiers paiement/livraison). Tous sont déjà présents dans
+`firestore.indexes.json`.
+
+| Collection | Index composite | Requête servie (fichier) |
+| --- | --- | --- |
+| `transactions` | `status ASC, createdAt ASC` | `checkShippedTracking` pagination par statut (`scheduled/trackingCheck.ts`, `status == 'label_created'\|'shipped'` + `orderBy createdAt asc` + cursor) ; `reconcileFinances` lost-PI (`scheduled/reconcile.ts`, `status == 'pending_payment'` + `createdAt <`) ; `transactionExpiration` (`status == X` + `createdAt <`) |
+| `transactions` | `status ASC, fundsReleaseAt ASC` | `releaseHeldFunds` (`scheduled/releaseHeldFunds.ts`, `status == 'delivered'` + `fundsReleaseAt <= now` + `orderBy fundsReleaseAt asc` + cursor) |
+| `transactions` | `labelCreationPending ASC, status ASC, createdAt ASC` | `sweepPendingLabels` (`scheduled/sweepPendingLabels.ts`, `labelCreationPending == true` + `status == 'paid'` + `orderBy createdAt asc`) |
+| `transactions` | `sellerId ASC, disputed ASC` | listing des litiges vendeur ouverts (blocage retrait) |
+| `withdrawal_requests` | `status ASC, createdAt ASC` | `reconcileFinances` payouts bloqués (`scheduled/reconcile.ts`, `status == 'processing'` + `createdAt <`) |
+
+### Requêtes SANS index composite (volontairement non ajoutées)
+
+- `failed_operations` (`scheduled/retryFailedOperations.ts`) : filtre d'égalité
+  UNIQUE `status == 'pending'` + `limit()`, **sans** `orderBy`. Un index
+  mono-champ (auto-créé) suffit ; le backoff est filtré côté serveur en mémoire.
+  Aucun index `status + createdAt` n'est créé pour éviter un index orphelin.
+- `transactions status + shippedAt` : **aucune requête n'utilise `shippedAt`**.
+  Le poller `checkShippedTracking` trie par `createdAt`, pas `shippedAt`. Pas
+  d'index ajouté (orphelin évité).
+- `wallets/{uid}/ledger` (`callable/wallet.ts`) : `orderBy createdAt desc` sur une
+  sous-collection mono-champ → index auto-créé, pas de composite requis.
+- `withdrawal_requests userId ==` (`callable/users.ts`, suppression de compte) :
+  égalité mono-champ → index auto-créé.
+
 ## Single Field Indexes (Auto-created)
 
 These are automatically created by Firestore:
