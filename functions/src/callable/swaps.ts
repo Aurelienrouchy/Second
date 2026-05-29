@@ -614,18 +614,23 @@ export const createSwapTopUpCheckout = onCall(
       // the payee would be paid twice. The wallet ledger is the single rail.
       // The platform fee is still captured: it keeps the full base amount on-platform
       // and only credits the wallet with `topUpAmount` (the service fee stays behind).
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: totalChargeCents,
-        currency: 'cad',
-        metadata: {
-          type: 'swap_topup',
-          swapId,
-          payerId: callerUid,
-          payeeId: reserved.payeeId,
-          topUpAmount: String(reserved.amount),
-          topUpFee: String(applicationFeeCents),
+      const paymentIntent = await stripe.paymentIntents.create(
+        {
+          amount: totalChargeCents,
+          currency: 'cad',
+          metadata: {
+            type: 'swap_topup',
+            swapId,
+            payerId: callerUid,
+            payeeId: reserved.payeeId,
+            topUpAmount: String(reserved.amount),
+            topUpFee: String(applicationFeeCents),
+          },
         },
-      });
+        // Deterministic key so a retry never creates a second top-up PI for the
+        // same swap — Stripe returns the original PI instead.
+        { idempotencyKey: `pi_swap_${swapId}` }
+      );
 
       // Persist the PI id (never store client_secret)
       await swapRef.update({
