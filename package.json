@@ -97,7 +97,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
+    "@babel/core": "^7.29.0",
     "@firebase/firestore": "^4.9.2",
     "@firebase/rules-unit-testing": "^5.0.0",
     "@google/generative-ai": "^0.24.1",
