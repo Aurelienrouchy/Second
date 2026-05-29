@@ -47,6 +47,29 @@ const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
 /** Canadian postal code pattern: A1A1A1 or A1A 1A1 */
 const CA_POSTAL_RE = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
 
+/**
+ * Resolve a Firebase callable error into its stable code suffix.
+ * httpsCallable wraps server HttpsError into FirebaseError with
+ * code = "functions/<code>" (e.g. "functions/failed-precondition").
+ */
+function getCallableErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+  }
+  return null;
+}
+
+/**
+ * True when the server rejected the payment because the selected shipping
+ * rate has expired and must be re-quoted (re-tarification serveur).
+ */
+function isRateExpiredError(error: unknown): boolean {
+  if (getCallableErrorCode(error) !== 'functions/failed-precondition') return false;
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return message.includes('tarif') || message.includes('expir') || message.includes('rate');
+}
+
 // =============================================================================
 // SCREEN
 // =============================================================================
