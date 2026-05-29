@@ -168,6 +168,10 @@ export { checkShippedTracking } from './scheduled/trackingCheck';
 // Release held funds (hourly: heldBalance -> balance after 7-day dispute window)
 export { releaseHeldFunds } from './scheduled/releaseHeldFunds';
 
+// Sweep pending shipping labels (hourly: re-rate + retry createLabel; credit
+// seller on success, refund buyer after N failed attempts)
+export { sweepPendingLabels } from './scheduled/sweepPendingLabels';
+
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
