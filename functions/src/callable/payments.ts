@@ -645,8 +645,10 @@ export const createTransaction = onCall(
 
         // Verify the amount is valid:
         // - Exact listed price is always accepted.
-        // - A negotiated (lower) price is accepted if positive and below listed price.
-        //   The negotiation was validated via the offer/accept flow in chat.
+        // - A negotiated (off-list) price is accepted ONLY when a seller-accepted
+        //   offer for this buyer + article + amount was verified pre-transaction
+        //   (verifyAcceptedOfferForNegotiatedAmount). This block re-checks the
+        //   price invariant atomically against the live article.
         // - Amounts above listed price are rejected (overpay protection).
         if (amount > articleData.price) {
           throw new HttpsError(
