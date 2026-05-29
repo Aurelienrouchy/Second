@@ -395,11 +395,12 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `swaps.ts` | Expiration swaps stale (proposed + payment_pending non payés, 7j) → libère les items |
 | `trackingCheck.ts` | Poll ShipEngine toutes les 6h pour les transactions shipped, marque delivered si livré |
 | `transactionExpiration.ts` | Expiration meetup_pending (48h), pending_payment (1h), paid-not-shipped (7j) orphelins |
+| `releaseHeldFunds.ts` | Toutes les heures : libère heldBalance → balance après la fenêtre de litige 7j (delivered → completed). Expose `applyDeliveredHeldFunds` (contrat pending→held à la livraison) |
 
 ### HTTP — `functions/src/http/`
 | Fichier | Route |
 |---------|-------|
-| `webhooks.ts` | Webhook Stripe (signature, payment_intent.succeeded/failed, charge.dispute.created, charge.refunded, account.updated) |
+| `webhooks.ts` | Webhook Stripe (signature, payment_intent.succeeded/failed, charge.dispute.created/closed, payout.failed/paid, charge.refunded, account.updated) |
 
 ### Services backend — `functions/src/services/`
 | Fichier | Rôle |
