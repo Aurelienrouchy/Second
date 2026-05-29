@@ -356,6 +356,20 @@ export function useSearchScreen() {
     setShowPriceInputs(false);
   }, [filters, setFilters]);
 
+  // ─── Per-chip remove handlers (L3 — chip X buttons) ──────────────
+  // Each clears exactly one filter dimension. Multi-value dimensions and
+  // condition delegate to useArticleSearch.handleFilterRemove (no value =
+  // clear the whole dimension); sort/category/price live in this hook.
+  const handleSortRemove = useCallback(() => {
+    setSelectedSort('recent');
+    setFilters({ ...filters, sortBy: 'recent' });
+  }, [filters, setFilters]);
+
+  const handleCategoryRemove = useCallback(() => {
+    setSelectedCategoryPath([]);
+    categoryNav.goToRoot();
+  }, [categoryNav, setSelectedCategoryPath]);
+
   // ─── Label helpers ──────────────────────────────────────────────
   const getCategoryLabel = (): string =>
     selectedCategoryPath.length > 0 ? getCategoryLabelFromIds(selectedCategoryPath) : 'Catégorie';
