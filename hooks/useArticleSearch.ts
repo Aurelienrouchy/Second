@@ -28,6 +28,11 @@ interface UseArticleSearchArgs {
 interface SearchPage {
   articles: Article[];
   lastVisible: QueryDocumentSnapshot | null;
+  // Provided by ArticlesService.searchArticles (firebase-backend). True when the
+  // service has more documents to paginate even if this page filtered out all
+  // of its fetched docs client-side (H4). Until the service ships this field,
+  // tsc will flag it — that is expected and owned by firebase-backend.
+  hasMore: boolean;
 }
 
 const calculateDistance = (
