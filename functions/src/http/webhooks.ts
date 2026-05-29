@@ -374,6 +374,45 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
   });
 
   if (!result.processed) {
+    // P1: the payment succeeded but the order is no longer payable (cancelled
+    // by the 1h expiry that raced this success). Issue an idempotent Stripe
+    // refund so the buyer is reimbursed. The deterministic key rf_${txId} dedups
+    // against the expiry job's own refund, so this can never double-refund. The
+    // resulting charge.refunded webhook applies any wallet reconciliation.
+    if (result.reason === 'cancelled_needs_refund') {
+      try {
+        const isMixedRefund = isMixedPayment;
+        const refund = await stripe.refunds.create(
+          {
+            payment_intent: paymentIntent.id,
+            ...(isMixedRefund
+              ? {}
+              : { reverse_transfer: true, refund_application_fee: true }),
+          },
+          { idempotencyKey: `rf_${transactionId}` }
+        );
+        await transactionRef.update({
+          stripeRefundId: refund.id,
+          stripeRefundIssuedAt: FieldValue.serverTimestamp(),
+        });
+        logger.warn('Stripe webhook: auto-refunded payment on cancelled transaction', {
+          transactionId,
+          paymentIntentId: paymentIntent.id,
+          stripeRefundId: refund.id,
+          reverseTransfer: !isMixedRefund,
+        });
+      } catch (refundErr) {
+        // Leave it for manual reconciliation — the deterministic idempotency key
+        // means a future retry (e.g. a webhook replay) is safe.
+        logger.error('Stripe webhook: auto-refund on cancelled transaction FAILED', {
+          transactionId,
+          paymentIntentId: paymentIntent.id,
+          error: refundErr instanceof Error ? refundErr.message : refundErr,
+        });
+      }
+      return;
+    }
+
     logger.info('Stripe webhook: skipping post-processing', {
       transactionId,
       reason: result.reason,
