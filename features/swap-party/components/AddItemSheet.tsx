@@ -183,6 +183,22 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
             })}
           </BottomSheetScrollView>
         )}
+
+        {/* ── Footer (deposit) ── */}
+        {hasList && (
+          <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+            <TouchableOpacity
+              style={[styles.addButton, count === 0 && styles.addButtonDisabled]}
+              onPress={handleConfirm}
+              disabled={count === 0}
+            >
+              <Text style={styles.addButtonText}>
+                {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        </BottomSheetView>
       </BottomSheetModal>
     );
   },
