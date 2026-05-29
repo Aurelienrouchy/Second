@@ -12,6 +12,52 @@ import { httpsCallable } from 'firebase/functions';
 import { firestore, functions } from '../config/firebaseConfig';
 import { MeetupSpot, ShippingAddress, Transaction, TransactionStatus } from '../types';
 
+/**
+ * Every `Transaction` field stored as a Firestore `Timestamp` that the app
+ * consumes as a JS `Date`. Centralized so every read path converts the SAME
+ * set — components (ShipmentTracking, Timeline) expect `Date`, never raw
+ * `Timestamp`, otherwise calls like `toLocaleDateString()` crash.
+ */
+const TRANSACTION_DATE_FIELDS = [
+  'meetupConfirmedAt',
+  'meetupCompletedAt',
+  'fundsReleaseAt',
+  'fundsReleasedAt',
+  'disputeClosedAt',
+  'shippingReconciledAt',
+  'lastLabelAttemptAt',
+  'labelCreatedAt',
+  'labelStaleNudgedAt',
+  'deliveryFailedAt',
+  'stripeRefundIssuedAt',
+  'refundStartedAt',
+  'paidAt',
+  'shippedAt',
+  'deliveredAt',
+] as const;
+
+/**
+ * Maps a raw Firestore transaction document into a typed `Transaction`,
+ * converting every `Timestamp` field to a `Date`. `createdAt` always resolves
+ * to a `Date` (falls back to `new Date(0)` when missing so sorting stays
+ * stable); optional date fields stay `undefined` when absent (never written
+ * back as `undefined` to Firestore — read-only mapping).
+ */
+function mapTransaction(id: string, data: Record<string, any>): Transaction {
+  const mapped: Record<string, any> = { ...data, id };
+
+  mapped.createdAt = data?.createdAt?.toDate?.() ?? new Date(0);
+
+  for (const field of TRANSACTION_DATE_FIELDS) {
+    const value = data?.[field];
+    if (value?.toDate) {
+      mapped[field] = value.toDate();
+    }
+  }
+
+  return mapped as Transaction;
+}
+
 export class TransactionService {
   /**
    * Create a shipping transaction via Cloud Function.
