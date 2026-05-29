@@ -928,6 +928,91 @@ async function handleChargeRefunded(charge: any): Promise<void> {
   });
 }
 
+/**
+ * Reconcile a swap top-up refund on the payee wallet.
+ *
+ * The refund was issued via stripe.refunds.create({ reverse_transfer: true })
+ * in the swap callable (cancelSwap / openSwapDispute). This handler debits the
+ * payee's wallet pendingBalance (the escrow that was credited on payment) and
+ * writes a refund_debit ledger entry. Idempotent via topUpRefundReconciledAt.
+ */
+async function handleSwapTopUpRefund(swapDoc: FirebaseFirestore.QueryDocumentSnapshot): Promise<void> {
+  const swapId = swapDoc.id;
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(swapDoc.ref);
+    const swap = snap.data();
+    if (!swap) return;
+
+    // Idempotence
+    if (swap.topUpRefundReconciledAt) {
+      logger.info('Stripe webhook: swap top-up refund already reconciled', { swapId });
+      return;
+    }
+
+    const topUp = swap.cashTopUp;
+    if (topUp == null || typeof topUp.amount !== 'number') {
+      logger.warn('Stripe webhook: swap top-up refund — no cashTopUp on swap', { swapId });
+      tx.update(swapDoc.ref, { topUpRefundReconciledAt: FieldValue.serverTimestamp() });
+      return;
+    }
+
+    const payeeId = topUp.payerId === swap.initiatorId ? swap.receiverId : swap.initiatorId;
+    const baseAmountCents = Math.round(topUp.amount);
+
+    const payeeWalletRef = db.collection('wallets').doc(payeeId);
+    const payeeWalletSnap = await tx.get(payeeWalletRef);
+
+    if (payeeWalletSnap.exists) {
+      const walletData = payeeWalletSnap.data()!;
+      // Funds were released to balance only if topUpReleasedAt is set; refunds
+      // happen pre-release, so debit pendingBalance. Guard with min() for safety.
+      const fundsReleased = !!swap.topUpReleasedAt;
+      if (fundsReleased) {
+        const deduction = Math.min(baseAmountCents, walletData.balance || 0);
+        tx.update(payeeWalletRef, {
+          balance: FieldValue.increment(-deduction),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        const ledgerRef = payeeWalletRef.collection('ledger').doc();
+        tx.set(ledgerRef, {
+          type: 'refund_debit',
+          amount: deduction,
+          balanceAfter: (walletData.balance || 0) - deduction,
+          description: 'Remboursement complément d\'échange — débit',
+          swapId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } else {
+        const deduction = Math.min(baseAmountCents, walletData.pendingBalance || 0);
+        tx.update(payeeWalletRef, {
+          pendingBalance: FieldValue.increment(-deduction),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        const ledgerRef = payeeWalletRef.collection('ledger').doc();
+        tx.set(ledgerRef, {
+          type: 'refund_debit',
+          amount: deduction,
+          balanceAfter: (walletData.pendingBalance || 0) - deduction,
+          description: 'Remboursement complément d\'échange — débit (fonds en attente)',
+          swapId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+    } else {
+      logger.warn('Stripe webhook: swap top-up refund — payee wallet not found', { swapId, payeeId });
+    }
+
+    tx.update(swapDoc.ref, {
+      topUpRefundReconciledAt: FieldValue.serverTimestamp(),
+      stripeRefundId: swap.topUpRefundId || null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  logger.warn('Stripe webhook: swap top-up refund reconciled', { swapId });
+}
+
 // =============================================================================
 // HANDLER: account.updated
 // =============================================================================
