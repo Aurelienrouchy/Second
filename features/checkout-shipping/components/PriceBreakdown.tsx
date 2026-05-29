@@ -72,6 +72,22 @@ export const PriceBreakdown = React.memo(function PriceBreakdown({
           stockées par Seconde
         </Text>
       </View>
+
+      <View style={styles.protectionBox}>
+        <Ionicons
+          name="lock-closed-outline"
+          size={18}
+          color={colors.success}
+        />
+        <View style={styles.protectionTextWrap}>
+          <Text style={styles.protectionTitle}>
+            {CHECKOUT_COPY.buyerProtectionTitle}
+          </Text>
+          <Text style={styles.protectionBody}>
+            {CHECKOUT_COPY.buyerProtectionBody}
+          </Text>
+        </View>
+      </View>
     </>
   );
 });
