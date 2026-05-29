@@ -615,45 +615,16 @@ export interface MessageOfferWithMeetup {
 // SWAP SYSTEM TYPES
 // ============================================
 
-// Swap Party status
-export type SwapPartyStatus = 'upcoming' | 'active' | 'ended';
-
-// Swap Party theme
-export interface SwapPartyTheme {
-  id: string;
-  name: string;
-  emoji: string;
-  description: string;
-}
-
-// Swap Party - Event where users can swap items
+// Swap Zone — single, always-active generalist zone (no time window, no theme,
+// no participants). The deterministic doc is swapParties/generalist.
 export interface SwapParty {
   id: string;
   name: string;
-  emoji: string;
-  description?: string;
-  theme?: SwapPartyTheme;
-  isGeneralist: boolean; // true = all items accepted
-  startDate: Date;
-  endDate: Date;
-  status: SwapPartyStatus;
-  participantsCount: number;
-  itemsCount: number;
-  swapsCount: number;
-  maxParticipants?: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// Participant in a Swap Party
-export interface SwapPartyParticipant {
-  id: string;
-  partyId: string;
-  userId: string;
-  userName: string;
-  userImage?: string;
-  itemIds: string[]; // Articles added to the party
-  joinedAt: Date;
+  isGeneralist?: boolean; // true = all items accepted (always true for the zone)
+  itemsCount?: number;
+  swapsCount?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 // Item in a Swap Party (reference to an Article)
