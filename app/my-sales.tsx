@@ -43,12 +43,17 @@ const STATUS_LABELS: Record<TransactionStatus, { label: string; color: string }>
   meetup_pending: { label: 'Rencontre a confirmer', color: colors.warning },
   meetup_confirmed: { label: 'Rencontre confirmee', color: colors.primary },
   meetup_completed: { label: 'Echange termine', color: colors.success },
-  paid: { label: 'En attente d\'envoi', color: colors.warning },
-  shipped: { label: 'Expediee', color: colors.primary },
+  paid: { label: 'A expedier', color: colors.warning },
+  label_created: { label: 'Etiquette creee — deposez le colis', color: colors.primary },
+  shipped: { label: 'Colis expedie', color: colors.primary },
   delivered: { label: 'Livree', color: colors.success },
+  completed: { label: 'Vente finalisee', color: colors.success },
+  delivery_failed: { label: 'Probleme de livraison', color: colors.danger },
+  lost: { label: 'Colis egare', color: colors.danger },
   cancelled: { label: 'Annulee', color: colors.danger },
   disputed: { label: 'Litige en cours', color: colors.warning },
-  refunded: { label: 'Remboursé', color: colors.muted },
+  refund_in_progress: { label: 'Remboursement en cours', color: colors.warning },
+  refunded: { label: 'Remboursée', color: colors.muted },
 };
 
 function SaleCard({
