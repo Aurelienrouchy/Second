@@ -190,7 +190,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
 
         {/* ── Footer (deposit) ── */}
         {hasList && (
-          <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+          <SheetFooter>
             <TouchableOpacity
               style={[styles.addButton, count === 0 && styles.addButtonDisabled]}
               onPress={handleConfirm}
@@ -200,7 +200,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
                 {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </SheetFooter>
         )}
         </BottomSheetView>
       </BottomSheetModal>
