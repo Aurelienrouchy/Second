@@ -69,6 +69,9 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
       selectedSizes[0]?.system ?? 'EU'
     );
     const [demographic, setDemographic] = React.useState<SizeDemographic>('adult');
+    // Mount-on-open: the sheet is only rendered while open, so its backdrop can
+    // never leak a residual veil when closed (gorhom #701 on New Architecture).
+    const [mounted, setMounted] = React.useState(false);
 
     useImperativeHandle(ref, () => ({
       show: () => {
@@ -78,7 +81,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
         setLocalSelectedSizes(
           selectedSizes.filter((s) => s.system === system).map((s) => s.value)
         );
-        bottomSheetRef.current?.expand();
+        setMounted(true);
       },
       hide: () => bottomSheetRef.current?.close(),
     }));
