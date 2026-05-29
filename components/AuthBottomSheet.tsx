@@ -69,6 +69,14 @@ const AuthBottomSheet: React.FC = () => {
     handleClose();
   }, [onSuccessCallback, handleClose]);
 
+  const renderBackdrop = useCallback(
+    (props: React.ComponentProps<typeof BottomSheetBackdrop>) =>
+      isVisible ? (
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+      ) : null,
+    [isVisible],
+  );
+
   const handleSocialAuth = async (provider: 'Google' | 'Apple') => {
     if (isLoading) return;
     setIsLoading(true);
