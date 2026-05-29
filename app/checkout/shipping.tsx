@@ -260,6 +260,20 @@ export default function ShippingCheckoutScreen() {
     if (!currentUser) { Alert.alert('Erreur', 'Vous devez être connecté pour acheter.'); return; }
     if (!canPay) { Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires.'); return; }
 
+    // ── ShipEngine indisponible (rate fallback_*) ──────────────────────────
+    // Un tarif de repli ne permet pas d'acheter une vraie étiquette : on
+    // bloque le paiement carte et on oriente vers la remise en main propre.
+    if (isFallbackRate(selectedEstimate.rateId)) {
+      const buttons = [
+        { text: CHECKOUT_COPY.shippingDownCtaPrimary, onPress: fetchShippingEstimates },
+        ...(article.isHandDelivery !== false
+          ? [{ text: CHECKOUT_COPY.shippingDownCtaSecondary, onPress: goToMeetup }]
+          : []),
+      ];
+      Alert.alert(CHECKOUT_COPY.shippingDownTitle, CHECKOUT_COPY.shippingDownBody, buttons);
+      return;
+    }
+
     let createdTransactionId: string | null = null;
 
     try {
