@@ -524,28 +524,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             }
           />
         )}
-
-        {/* ── Confirm footer (multi-select) ── */}
-        {!singleSelect && (
-          <SheetFooter>
-            <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                selectedBrands.length === 0 && styles.confirmButtonDisabled,
-              ]}
-              onPress={handleConfirm}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.confirmButtonText}>
-                {selectedBrands.length === 0
-                  ? 'VALIDER'
-                  : `VALIDER (${selectedBrands.length})`
-                }
-              </Text>
-            </TouchableOpacity>
-          </SheetFooter>
-        )}
-        </BottomSheetView>
       </BottomSheet>
     );
   }
