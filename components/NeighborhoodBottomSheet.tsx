@@ -53,6 +53,13 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
       }
     }, [onSelect, multiSelect]);
 
+    const renderBackdrop = useCallback(
+      (props: any) => (
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+      ),
+      []
+    );
+
     // Build sections from neighborhoods grouped by borough
     const sections = useMemo((): SectionData[] => {
       if (searchQuery.trim()) {
