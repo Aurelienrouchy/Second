@@ -16,6 +16,10 @@ export interface SwapParticipantContext {
   hasConfirmedShipping: boolean;
   hasConfirmedReception: boolean;
   hasRated: boolean;
+  /** True when the current user is the cash top-up payer (cashTopUp.payerId). */
+  isTopUpPayer: boolean;
+  /** Display name of the party expected to pay the cash top-up. */
+  topUpPayerName: string;
 }
 
 /** Action callbacks passed from the screen to action components. */
@@ -23,6 +27,7 @@ export interface SwapActionHandlers {
   onAccept: () => void;
   onDecline: () => void;
   onCancel: () => void;
+  onPayTopUp: () => void;
   onSetExchangeMode: (mode: SwapExchangeMode) => void;
   onUploadPhotos: () => void;
   onConfirmShipping: () => void;
