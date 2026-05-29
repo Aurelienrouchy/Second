@@ -422,7 +422,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
               shippedAt: FieldValue.serverTimestamp(),
               labelCreationPending: false,
             };
-            reconcileShippingCost(label, result.shippingCost, transactionId, update);
+            reconcileShippingCost(label, result.shippingCost ?? 0, transactionId, update);
             tx.update(transactionRef, update);
           });
 
