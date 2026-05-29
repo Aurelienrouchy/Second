@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BottomSheetTextInput } from '@expo/ui/community/bottom-sheet';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 
 import {
