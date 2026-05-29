@@ -587,6 +587,14 @@ export const createStripeCheckout = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'createStripeCheckout',
+      maxCallsAuthenticated: 10,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const { transactionId, walletAmount: rawWalletAmount } = request.data ?? {};
 
     if (!transactionId || typeof transactionId !== 'string') {
