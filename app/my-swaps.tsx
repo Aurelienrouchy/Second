@@ -91,7 +91,7 @@ export default function MySwapsScreen() {
 
   const pendingCount = swaps.filter((s) => s.status === 'proposed').length;
   const activeCount = swaps.filter((s) =>
-    ['accepted', 'photos_pending', 'shipping'].includes(s.status)
+    ['payment_pending', 'accepted', 'photos_pending', 'shipping'].includes(s.status)
   ).length;
 
   if (isLoading) {
