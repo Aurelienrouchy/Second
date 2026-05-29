@@ -156,6 +156,42 @@ export default function SwapDetailScreen() {
     );
   }, [id]);
 
+  const handlePayTopUp = useCallback(async () => {
+    if (!id) return;
+    setIsProcessing(true);
+    try {
+      const { clientSecret: secret, feeBreakdown } = await createSwapTopUpCheckout(id);
+      // feeBreakdown amounts are in cents; the sheet displays dollars.
+      setTopUpTotal(feeBreakdown.buyerTotal / 100);
+      setClientSecret(secret);
+      setShowStripePayment(true);
+    } catch (error) {
+      if (__DEV__) console.error('Error creating swap top-up checkout:', error);
+      Alert.alert('Erreur', "Impossible d'initier le paiement du complément");
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [id]);
+
+  const handlePaymentResult = useCallback((result: StripePaymentResult) => {
+    setShowStripePayment(false);
+    setClientSecret(null);
+    if (!result.success) {
+      if (result.error !== 'cancelled') {
+        Alert.alert('Paiement échoué', result.error || 'Veuillez réessayer.');
+      }
+      return;
+    }
+    // On success the webhook advances the swap (payment_pending -> accepted);
+    // subscribeToSwap reflects it in real time. Nothing to write here.
+    Alert.alert('Paiement confirmé !', "Le complément a bien été réglé.");
+  }, []);
+
+  const handleClosePayment = useCallback(() => {
+    setShowStripePayment(false);
+    setClientSecret(null);
+  }, []);
+
   const handleCancel = useCallback(async () => {
     Alert.alert(
       "Annuler l'échange",
