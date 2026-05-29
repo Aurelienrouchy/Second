@@ -630,6 +630,44 @@ interface PlatformLedgerDocument {
 }
 ```
 
+### `failed_operations/{opId}`
+
+Dead-letter queue (server-only). A doc is written at every critical money/
+shipping side-effect that fails after the point of no return (Stripe refund,
+transfer/payout reversal, webhook amount mismatch, label give-up). The scheduled
+`retryFailedOperations` (every 30 min) re-drives each `pending` doc idempotently
+with exponential backoff, marking it `resolved` on success or `exhausted` after
+6 attempts (a `CRITICAL` log fires on exhaustion for a log-based alert). The
+`reconcileFinances` job (every 6h) also writes here when it detects a lost
+PaymentIntent/payout webhook. Written via the `writeFailedOperation` helper
+(`utils/failedOperations.ts`), which never throws.
+
+```typescript
+interface FailedOperationDocument {
+  type:
+    | 'stripe_refund_failed'      // a refunds.create failed
+    | 'transfer_reversal_failed'  // transfers.createReversal failed after a payout error
+    | 'payout_reversal_failed'    // a payout could not be reversed/cancelled (or lost payout webhook)
+    | 'amount_mismatch'           // webhook PI.succeeded amount != expected (deterministic)
+    | 'label_refund_failed'       // legacy alias (older docs) — treated as stripe_refund_failed
+    | 'admin_refund_failed';      // legacy alias (older docs) — treated as stripe_refund_failed
+  refId: string;                  // Primary entity id (transactionId / withdrawalRequestId / swapId / eventId)
+  payload: Record<string, any>;   // Everything the replay handler needs (paymentIntentId, transferId, amounts, autoRefund…)
+  error: string;                  // Last error message
+  attempts: number;               // Replay attempts so far (starts at 0)
+  status: 'pending' | 'resolved' | 'exhausted';
+  createdAt: Timestamp;
+  lastTriedAt: Timestamp | null;
+  resolvedAt?: Timestamp;         // Set when status -> 'resolved'
+  exhaustedAt?: Timestamp;        // Set when status -> 'exhausted'
+}
+```
+
+> NOTE: earlier chantiers wrote a leaner shape (`transactionId`/`paymentIntentId`/
+> `reason` at the top level, no `attempts`/`payload`). `retryFailedOperations`
+> normalizes those legacy docs (transactionId→refId, reason→error) before
+> dispatch, so both shapes are replayable.
+
 ### `avis/{reviewId}`
 
 User reviews tied to completed transactions (sales or swaps).
