@@ -363,8 +363,12 @@ export class TransactionService {
       'meetup_pending',
       'meetup_confirmed',
       'paid',
+      'label_created',
       'shipped',
       'disputed',
+      'delivery_failed',
+      'lost',
+      'refund_in_progress',
       'delivered',
     ];
 
