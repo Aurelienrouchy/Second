@@ -103,6 +103,9 @@ export const PartyItemCard = React.memo(function PartyItemCard({
 });
 
 const styles = StyleSheet.create({
+  cardWrapper: {
+    flex: 1,
+  },
   productCard: {
     flex: 1,
     backgroundColor: colors.cream,
