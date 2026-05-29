@@ -10,20 +10,18 @@
  * Sharp corners on chips. Charcoal selected state.
  */
 
-import BottomSheet, { BottomSheetScrollView, BottomSheetView } from '@expo/ui/community/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFooter, BottomSheetScrollView, TouchableOpacity } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts, spacing } from '@/constants/theme';
-import { SheetFooter, SHEET_FOOTER_HEIGHT, SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
+import { colors, fonts } from '@/constants/theme';
 import {
   getSizes,
   getSizesForCategory,
