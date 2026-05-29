@@ -7,9 +7,10 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, {
+  BottomSheetBackdrop,
   BottomSheetScrollView,
-} from '@expo/ui/community/bottom-sheet';
-import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+} from '@gorhom/bottom-sheet';
+import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,11 +20,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
-
-// iOS : bornage au plus grand détent (height fixe). Android : flex:1 (detente native).
-const MAX_SNAP = '80%';
 
 export interface ReportBottomSheetRef {
   open: (type: ReportType, targetId: string, targetOwnerId?: string) => void;
