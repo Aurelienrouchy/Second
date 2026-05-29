@@ -12,25 +12,119 @@ exports.ShipEngineClient = exports.getShipEngine = void 0;
 // =============================================================================
 // CLIENT
 // =============================================================================
+// Per-attempt network timeout. ShipEngine rate/label calls are normally well
+// under a second; 15s is a generous ceiling that still lets the webhook handler
+// respond before Stripe's retry window — a hung fetch would otherwise block the
+// 200 response and trigger duplicate Stripe webhook deliveries (P1-17/P1-27).
+const REQUEST_TIMEOUT_MS = 15000;
+// Exponential backoff schedule (ms) for transient failures. The number of
+// entries also caps the number of RETRIES (so 3 here => up to 4 attempts).
+const RETRY_BACKOFF_MS = [500, 1000, 2000];
+// HTTP statuses worth retrying: 429 (rate limited) + 5xx (server-side).
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Error carrying the HTTP status so callers / the retry loop can branch on it.
+ */
+class ShipEngineHttpError extends Error {
+    constructor(status, message) {
+        super(message);
+        this.name = 'ShipEngineHttpError';
+        this.status = status;
+    }
+}
 class ShipEngineClient {
     constructor(config) {
         this.config = config;
     }
-    async request(method, endpoint, body) {
-        const url = `${this.config.baseUrl}${endpoint}`;
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                'API-Key': this.config.apiKey,
-            },
-            body: body ? JSON.stringify(body) : undefined,
-        });
+    /**
+     * Performs a single HTTP attempt with an AbortController timeout. Throws
+     * `ShipEngineHttpError` on a non-OK response (carrying the status) and a
+     * generic timeout/network Error otherwise.
+     */
+    async requestOnce(method, url, body) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        let response;
+        try {
+            response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'API-Key': this.config.apiKey,
+                },
+                body: body ? JSON.stringify(body) : undefined,
+                signal: controller.signal,
+            });
+        }
+        catch (err) {
+            // AbortError (timeout) or network failure — both transient/retryable.
+            const message = err instanceof Error && err.name === 'AbortError'
+                ? `ShipEngine request timed out after ${REQUEST_TIMEOUT_MS}ms`
+                : `ShipEngine network error: ${err instanceof Error ? err.message : String(err)}`;
+            throw new Error(message);
+        }
+        finally {
+            clearTimeout(timer);
+        }
         if (!response.ok) {
             const errorBody = await response.text();
-            throw new Error(`ShipEngine API error (${response.status}): ${errorBody}`);
+            // Honour Retry-After when ShipEngine throttles us (429/503). The header
+            // is either delta-seconds or an HTTP-date; we only parse delta-seconds.
+            const retryAfterHeader = response.headers.get('retry-after');
+            const retryAfterSeconds = retryAfterHeader
+                ? Number.parseInt(retryAfterHeader, 10)
+                : NaN;
+            const retryAfterMs = Number.isFinite(retryAfterSeconds)
+                ? retryAfterSeconds * 1000
+                : null;
+            throw Object.assign(new ShipEngineHttpError(response.status, `ShipEngine API error (${response.status}): ${errorBody}`), { retryAfterMs });
         }
-        return response.json();
+        return { result: (await response.json()), retryAfterMs: null };
+    }
+    /**
+     * Issues a request with bounded timeout and exponential backoff.
+     *
+     * Retries ONLY on transient failures (429, 5xx, network/timeout) and honours
+     * the `Retry-After` header. Non-retryable failures (4xx other than 429)
+     * bubble up immediately.
+     *
+     * `allowRetry` defaults to true. `createLabel` MUST pass `false`: ShipEngine
+     * label creation is NOT idempotent here (no client-supplied idempotency key),
+     * so a retry after a timeout could purchase a second paid label. Stuck labels
+     * are instead recovered by the `sweepPendingLabels` job.
+     */
+    async request(method, endpoint, body, allowRetry = true) {
+        const url = `${this.config.baseUrl}${endpoint}`;
+        const maxRetries = allowRetry ? RETRY_BACKOFF_MS.length : 0;
+        let lastError;
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const { result } = await this.requestOnce(method, url, body);
+                return result;
+            }
+            catch (err) {
+                lastError = err;
+                const isHttp = err instanceof ShipEngineHttpError;
+                const status = isHttp ? err.status : null;
+                // Network/timeout errors have no status → treated as retryable.
+                const isRetryable = status === null || RETRYABLE_STATUSES.has(status);
+                if (!allowRetry || attempt === maxRetries || !isRetryable) {
+                    throw err;
+                }
+                const retryAfterMs = err === null || err === void 0 ? void 0 : err.retryAfterMs;
+                const delayMs = typeof retryAfterMs === 'number' && retryAfterMs > 0
+                    ? retryAfterMs
+                    : RETRY_BACKOFF_MS[attempt];
+                // Intentionally not using functions/logger here to avoid a circular
+                // import; this is a config-layer module. Callers log domain context.
+                await sleep(delayMs);
+            }
+        }
+        // Unreachable in practice (loop either returns or throws), but satisfies TS.
+        throw lastError instanceof Error
+            ? lastError
+            : new Error('ShipEngine request failed');
     }
     // ===========================================================================
     // RATE SHOPPING — Compare Intelcom + Canada Post rates
@@ -86,17 +180,28 @@ class ShipEngineClient {
     // LABEL CREATION — Purchase a shipping label from the selected rate
     // ===========================================================================
     async createLabel(rateId) {
+        var _a, _b;
         const response = await this.request('POST', '/v1/labels', {
             rate_id: rateId,
             label_format: 'pdf',
             label_layout: '4x6',
-        });
+        }, 
+        // allowRetry = false: label creation is NOT idempotent (no idempotency
+        // key supported here). A retry after a timeout could buy a 2nd paid
+        // label. Stuck labels are recovered by the sweepPendingLabels job.
+        false);
         return {
             labelId: response.label_id,
             trackingNumber: response.tracking_number,
             labelDownload: response.label_download,
             trackingUrl: this.getTrackingUrl(response.carrier_code, response.tracking_number),
             carrierCode: response.carrier_code,
+            shipmentCost: typeof ((_a = response.shipment_cost) === null || _a === void 0 ? void 0 : _a.amount) === 'number'
+                ? response.shipment_cost.amount
+                : 0,
+            insuranceCost: typeof ((_b = response.insurance_cost) === null || _b === void 0 ? void 0 : _b.amount) === 'number'
+                ? response.insurance_cost.amount
+                : 0,
         };
     }
     // ===========================================================================

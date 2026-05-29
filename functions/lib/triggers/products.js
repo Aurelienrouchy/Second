@@ -51,7 +51,7 @@ const debounce_1 = require("../utils/debounce");
  * Migrate to search_index queries for better performance.
  */
 exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     const articleId = event.params.articleId;
     try {
         // If document was deleted, remove from search index
@@ -114,6 +114,9 @@ exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'arti
             keywords,
             // Filterable fields
             category: articleData.category,
+            // Hierarchical category IDs — mirrored so the search_index path can
+            // filter by category when a text term is present (C1).
+            categoryIds: articleData.categoryIds || [],
             subcategory: articleData.subcategory || null,
             brands: brands,
             colors: colors,
@@ -121,20 +124,21 @@ exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'arti
             brand: brands[0] || null,
             color: colors[0] || null,
             material: materials[0] || null,
-            size: articleData.size || null,
+            // ArticleSize is an object { value, system }; mirror verbatim (or null).
+            size: (_e = articleData.size) !== null && _e !== void 0 ? _e : null,
             condition: articleData.condition,
             price: articleData.price,
             // Location data
             location: {
-                city: ((_e = articleData.location) === null || _e === void 0 ? void 0 : _e.city) || '',
+                city: ((_f = articleData.location) === null || _f === void 0 ? void 0 : _f.city) || '',
                 geohash,
-                coordinates: ((_f = articleData.location) === null || _f === void 0 ? void 0 : _f.coordinates) || null,
+                coordinates: ((_g = articleData.location) === null || _g === void 0 ? void 0 : _g.coordinates) || null,
             },
             // Cached display data
             sellerId: articleData.sellerId,
             sellerName: articleData.sellerName,
             sellerRating: articleData.sellerRating || null,
-            firstImage: ((_h = (_g = articleData.images) === null || _g === void 0 ? void 0 : _g[0]) === null || _h === void 0 ? void 0 : _h.url) || null,
+            firstImage: ((_j = (_h = articleData.images) === null || _h === void 0 ? void 0 : _h[0]) === null || _j === void 0 ? void 0 : _j.url) || null,
             // Status
             isActive: articleData.isActive,
             isSold: articleData.isSold,
@@ -157,7 +161,7 @@ exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'arti
             logger.info(`Updated search index for article ${articleId}`);
         });
         // Update article with geohash if not present
-        if (geohash && !((_j = articleData.location) === null || _j === void 0 ? void 0 : _j.geohash)) {
+        if (geohash && !((_k = articleData.location) === null || _k === void 0 ? void 0 : _k.geohash)) {
             const geoKey = `article_geohash_${articleId}`;
             (0, debounce_1.debounceUpdate)(geoKey, async () => {
                 await firebase_1.db.collection('articles').doc(articleId).update({

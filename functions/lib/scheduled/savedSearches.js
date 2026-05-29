@@ -147,9 +147,15 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
             if (filters.maxPrice !== undefined) {
                 matchingArticles = matchingArticles.filter((article) => article.price <= filters.maxPrice);
             }
-            // Filter by sizes
+            // Filter by sizes (ArticleSize objects { value, system } — exact match
+            // on both value and system so US/EU sizes never collide).
             if (filters.sizes && filters.sizes.length > 0) {
-                matchingArticles = matchingArticles.filter((article) => filters.sizes.includes(article.size));
+                matchingArticles = matchingArticles.filter((article) => {
+                    const articleSize = article.size;
+                    if (!articleSize || typeof articleSize !== 'object')
+                        return false;
+                    return filters.sizes.some((f) => f.value === articleSize.value && f.system === articleSize.system);
+                });
             }
             // Filter by colors
             if (filters.colors && filters.colors.length > 0) {

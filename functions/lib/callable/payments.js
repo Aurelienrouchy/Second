@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cancelPendingTransaction = exports.completeMeetupTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
+exports.resolveSellerOriginAddress = resolveSellerOriginAddress;
 /**
  * Payment callable functions
  * Firebase Functions v7 - using onCall
@@ -48,12 +49,126 @@ const firebase_1 = require("../config/firebase");
 const shipEngine_1 = require("../config/shipEngine");
 const stripe_1 = require("../config/stripe");
 const fees_1 = require("../utils/fees");
-const notifications_1 = require("../utils/notifications");
-const wallet_1 = require("./wallet");
+const rateLimit_1 = require("../utils/rateLimit");
+const trackingTransition_1 = require("../utils/trackingTransition");
+// Rate limiting: financial callables share a 1-minute sliding window.
+// maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+// =============================================================================
+// HELPERS — Seller origin address resolution
+// =============================================================================
+const CA_POSTAL_RE = /^[A-Z]\d[A-Z]\d[A-Z]\d$/;
+// The 13 Canadian province / territory codes (Stripe + Canada Post standard).
+const CA_PROVINCE_CODES = new Set([
+    'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT',
+]);
+/**
+ * Validates a buyer shipping address server-side for a Canadian shipping label.
+ *
+ * Mirrors the strictness of the seller onboarding postal-code check
+ * (createStripeConnectAccount): a label must carry a real, deliverable
+ * destination or `createLabel` will fail AFTER the buyer has been charged.
+ *
+ * Returns the normalized fields on success, or throws HttpsError
+ * 'invalid-argument' (the caller validates BEFORE locking the article /
+ * capturing payment).
+ *
+ * NOTE: never trust the client `country` — we force CA and reject anything else.
+ */
+function validateBuyerShippingAddress(raw) {
+    var _a, _b, _c, _d, _e;
+    if (!raw || typeof raw !== 'object') {
+        throw new https_1.HttpsError('invalid-argument', 'L\'adresse de livraison est requise');
+    }
+    const addr = raw;
+    // Country must be Canada (default + only supported destination).
+    const country = ((_a = addr.country) !== null && _a !== void 0 ? _a : 'CA').toString().trim().toUpperCase();
+    if (country !== 'CA') {
+        throw new https_1.HttpsError('invalid-argument', 'Seules les adresses de livraison canadiennes sont prises en charge');
+    }
+    const street = ((_b = addr.street) !== null && _b !== void 0 ? _b : '').toString().trim();
+    if (street.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'La rue de livraison est requise');
+    }
+    const city = ((_c = addr.city) !== null && _c !== void 0 ? _c : '').toString().trim();
+    if (city.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'La ville de livraison est requise');
+    }
+    const province = ((_d = addr.province) !== null && _d !== void 0 ? _d : '').toString().trim().toUpperCase();
+    if (!CA_PROVINCE_CODES.has(province)) {
+        throw new https_1.HttpsError('invalid-argument', 'La province de livraison est invalide (code a 2 lettres requis, ex: QC)');
+    }
+    const postalCode = ((_e = addr.postalCode) !== null && _e !== void 0 ? _e : '').toString().replace(/\s/g, '').toUpperCase();
+    if (!CA_POSTAL_RE.test(postalCode)) {
+        throw new https_1.HttpsError('invalid-argument', 'Le code postal de livraison est invalide (format A1A 1A1)');
+    }
+    return { street, city, province, postalCode };
+}
+/**
+ * Resolves the seller's real shipping origin address from their profile,
+ * with a last-resort fallback to the article's denormalized `location`.
+ *
+ * Resolution order:
+ *   1. Seller `addresses[]` entry flagged `isDefault` (must have street + postal)
+ *   2. First seller `addresses[]` entry with a street + postal code
+ *   3. Article `location` (postal code only) — uses seller display name as
+ *      shipper name and a minimal line1 so ShipEngine can still rate by postal.
+ *
+ * Returns `null` when no usable origin (i.e. no valid Canadian postal code)
+ * can be found — the caller must then reject the transaction. There is NO
+ * Montreal fallback: a label must ship from the seller's real address.
+ */
+function resolveSellerOriginAddress(sellerData, articleData) {
+    const sellerName = sellerData.displayName || 'Vendeur';
+    const sellerPhone = typeof sellerData.phoneNumber === 'string' && sellerData.phoneNumber.trim().length > 0
+        ? sellerData.phoneNumber.trim()
+        : undefined;
+    const normalizePostal = (raw) => {
+        const cleaned = (raw !== null && raw !== void 0 ? raw : '').toString().replace(/\s/g, '').toUpperCase();
+        return CA_POSTAL_RE.test(cleaned) ? cleaned : null;
+    };
+    const addresses = Array.isArray(sellerData.addresses) ? sellerData.addresses : [];
+    const candidate = addresses.find((a) => (a === null || a === void 0 ? void 0 : a.isDefault) && (a === null || a === void 0 ? void 0 : a.street) && (a === null || a === void 0 ? void 0 : a.postalCode)) ||
+        addresses.find((a) => (a === null || a === void 0 ? void 0 : a.street) && (a === null || a === void 0 ? void 0 : a.postalCode)) ||
+        null;
+    if (candidate) {
+        const postal = normalizePostal(candidate.postalCode);
+        if (postal && typeof candidate.street === 'string' && candidate.street.trim().length > 0) {
+            return {
+                name: sellerName,
+                addressLine1: candidate.street.trim(),
+                cityLocality: (candidate.city || '').toString().trim() || 'Montreal',
+                stateProvince: (candidate.province || 'QC').toString().trim(),
+                postalCode: postal,
+                countryCode: 'CA',
+                phone: sellerPhone,
+            };
+        }
+    }
+    // Last resort: article.location postal code (denormalized). No street, so we
+    // use the postal code + city to let ShipEngine rate by zone.
+    const loc = articleData.location;
+    if (loc && typeof loc === 'object') {
+        const postal = normalizePostal(loc.postalCode);
+        if (postal) {
+            return {
+                name: sellerName,
+                addressLine1: (loc.city || '').toString().trim() || 'Adresse vendeur',
+                cityLocality: (loc.city || '').toString().trim() || 'Montreal',
+                stateProvince: (loc.province || 'QC').toString().trim(),
+                postalCode: postal,
+                countryCode: 'CA',
+                phone: sellerPhone,
+            };
+        }
+    }
+    return null;
+}
 // =============================================================================
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
 // =============================================================================
 exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
+    var _a, _b, _c, _d;
     const { fromAddress, toAddress, weight, dimensions } = request.data;
     if (!fromAddress || !toAddress) {
         throw new https_1.HttpsError('invalid-argument', 'From and to addresses are required');
@@ -62,50 +177,53 @@ exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northe
     if (!shipEngine) {
         throw new https_1.HttpsError('failed-precondition', 'ShipEngine API not configured');
     }
+    // Require BOTH endpoints to be usable Canadian addresses. NO silent Montreal
+    // fallback (P2-f): a fabricated QC/Montreal origin or destination produces a
+    // wrong estimate for any seller/buyer outside Montreal, which then diverges
+    // from the authoritative server re-pricing in createTransaction. Reject
+    // explicitly so the client surfaces a real "address required" error.
+    const normalizePostal = (raw) => {
+        const cleaned = (raw !== null && raw !== void 0 ? raw : '').toString().replace(/\s/g, '').toUpperCase();
+        return CA_POSTAL_RE.test(cleaned) ? cleaned : null;
+    };
+    const fromStreet = ((_a = fromAddress.street) !== null && _a !== void 0 ? _a : '').toString().trim();
+    const fromCity = ((_b = fromAddress.city) !== null && _b !== void 0 ? _b : '').toString().trim();
+    const fromPostal = normalizePostal(fromAddress.postalCode);
+    if (fromStreet.length === 0 || fromCity.length === 0 || !fromPostal) {
+        throw new https_1.HttpsError('invalid-argument', 'L\'adresse d\'expedition (vendeur) est incomplete ou invalide. Une rue, une ville et un code postal canadien valides sont requis.');
+    }
+    const toCity = ((_c = toAddress.city) !== null && _c !== void 0 ? _c : '').toString().trim();
+    const toPostal = normalizePostal(toAddress.postalCode);
+    if (toCity.length === 0 || !toPostal) {
+        throw new https_1.HttpsError('invalid-argument', 'L\'adresse de livraison (acheteur) est incomplete ou invalide. Une ville et un code postal canadien valides sont requis.');
+    }
     try {
         const parcelWeight = parseFloat(weight) || 0.5;
         const parcelLength = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.length) || 30;
         const parcelWidth = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.width) || 25;
         const parcelHeight = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.height) || 10;
-        // Default Montreal address used when the seller hasn't set their address yet.
-        // This provides a reasonable estimate for shipping rates in the Montreal area.
-        const MONTREAL_FALLBACK = {
-            name: 'Vendeur',
-            addressLine1: '1000 Rue Sainte-Catherine O',
-            cityLocality: 'Montreal',
-            stateProvince: 'QC',
-            postalCode: 'H3B 1C9',
-            countryCode: 'CA',
-            phone: '5141234567',
-        };
-        // Build the from-address with fallback for missing fields
-        const hasValidFromAddress = fromAddress.street && fromAddress.street.trim().length > 0 &&
-            fromAddress.city && fromAddress.city.trim().length > 0;
         logger.info('Getting ShipEngine multi-carrier rates', {
-            from: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
-            to: toAddress.postalCode,
+            from: fromPostal,
+            to: toPostal,
             weight: parcelWeight,
-            usingFallbackAddress: !hasValidFromAddress,
         });
         // Rate shopping across Intelcom + Canada Post via ShipEngine
-        const rates = await shipEngine.getRates(hasValidFromAddress
-            ? {
-                name: fromAddress.name || 'Vendeur',
-                addressLine1: fromAddress.street,
-                cityLocality: fromAddress.city,
-                stateProvince: fromAddress.province || 'QC',
-                postalCode: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
-                countryCode: 'CA',
-                phone: fromAddress.phone || MONTREAL_FALLBACK.phone,
-            }
-            : MONTREAL_FALLBACK, {
-            name: toAddress.name || 'Acheteur',
-            addressLine1: toAddress.street || MONTREAL_FALLBACK.addressLine1,
-            cityLocality: toAddress.city || MONTREAL_FALLBACK.cityLocality,
-            stateProvince: toAddress.province || 'QC',
-            postalCode: toAddress.postalCode || MONTREAL_FALLBACK.postalCode,
+        const rates = await shipEngine.getRates({
+            name: fromAddress.name || 'Vendeur',
+            addressLine1: fromStreet,
+            cityLocality: fromCity,
+            stateProvince: (fromAddress.province || 'QC').toString().trim(),
+            postalCode: fromPostal,
             countryCode: 'CA',
-            phone: toAddress.phone || MONTREAL_FALLBACK.phone,
+            phone: fromAddress.phone || undefined,
+        }, {
+            name: toAddress.name || 'Acheteur',
+            addressLine1: ((_d = toAddress.street) !== null && _d !== void 0 ? _d : '').toString().trim() || toCity,
+            cityLocality: toCity,
+            stateProvince: (toAddress.province || 'QC').toString().trim(),
+            postalCode: toPostal,
+            countryCode: 'CA',
+            phone: toAddress.phone || undefined,
         }, {
             weight: { value: parcelWeight, unit: 'kilogram' },
             dimensions: {
@@ -177,11 +295,18 @@ exports.getServiceFee = (0, https_1.onCall)({ region: 'northamerica-northeast1',
  *
  * Supports both delivery types: 'shipping' and 'meetup'.
  */
-exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY', 'SHIPENGINE_API_KEY'] }, async (request) => {
     var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'createTransaction',
+        maxCallsAuthenticated: 20,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { articleId, deliveryType, amount, shippingCost, shippingAddress, meetupSpot, chatId, shipEngineRateId, } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     const buyerId = request.auth.uid;
     // --- Input validation ---------------------------------------------------
@@ -194,16 +319,120 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
     if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
         throw new https_1.HttpsError('invalid-argument', 'amount must be a positive number');
     }
+    // Holds the strictly-validated buyer shipping address (shipping mode only).
+    let validatedShippingAddress = null;
     if (deliveryType === 'shipping') {
-        if (typeof shippingCost !== 'number' || !isFinite(shippingCost) || shippingCost < 0) {
-            throw new https_1.HttpsError('invalid-argument', 'shippingCost is required for shipping');
+        // NOTE: the client-supplied `shippingCost` is intentionally NOT trusted.
+        // It is re-priced server-side below via ShipEngine. We only require the
+        // address and a valid (non-fallback) ShipEngine rateId to re-tarify.
+        //
+        // Strict server-side address validation (P1-18): a Canadian shipping
+        // label needs a deliverable destination (valid CA postal code, province
+        // in the 13 codes, non-empty street/city, country=CA) or createLabel
+        // would fail AFTER the buyer is charged. We reject BEFORE locking the
+        // article / capturing payment.
+        validatedShippingAddress = validateBuyerShippingAddress(shippingAddress);
+        if (typeof shipEngineRateId !== 'string' || shipEngineRateId.length === 0) {
+            throw new https_1.HttpsError('invalid-argument', 'shipEngineRateId is required for shipping. Veuillez rafraichir l\'estimation de livraison.');
         }
-        if (!shippingAddress || typeof shippingAddress !== 'object') {
-            throw new https_1.HttpsError('invalid-argument', 'shippingAddress is required for shipping');
+        if (shipEngineRateId.startsWith('fallback_')) {
+            // A fallback rateId means ShipEngine was unreachable when the buyer
+            // requested an estimate. We cannot purchase a real label from it, so
+            // we refuse to create a paid order that could never ship.
+            throw new https_1.HttpsError('failed-precondition', 'Le tarif de livraison n\'est pas disponible pour le moment. Veuillez rafraichir l\'estimation de livraison.');
         }
     }
-    // --- Atomic check + create -----------------------------------------------
+    // --- Server-side shipping re-pricing (never trust client shippingCost) ----
+    //
+    // The buyer-supplied `shippingCost` / `shipEngineRateId` cannot be trusted:
+    // a malicious or buggy client could send shippingCost=0.01 with a real
+    // rateId, then the platform pays the true ~14$ label at the webhook.
+    //
+    // We re-quote the exact same origin (seller profile address) / destination
+    // (buyer shipping address) / parcel server-side, locate the rate matching
+    // the supplied rateId, and use ITS amount as the authoritative shipping
+    // cost. If the rateId can no longer be found (expired / tampered), we
+    // reject and force the client to re-fetch a fresh estimate.
+    //
+    // This network call is done OUTSIDE runTransaction (no I/O inside a
+    // Firestore transaction). The amount/availability invariants are still
+    // re-checked atomically below.
     const articleRef = firebase_1.db.collection('articles').doc(articleId);
+    let serverShippingCost = 0;
+    if (deliveryType === 'shipping') {
+        const shipEngine = (0, shipEngine_1.getShipEngine)();
+        if (!shipEngine) {
+            throw new https_1.HttpsError('failed-precondition', 'ShipEngine API not configured');
+        }
+        // Read article (parcel + seller) and seller (origin address) for re-pricing.
+        const articlePreSnap = await articleRef.get();
+        if (!articlePreSnap.exists) {
+            throw new https_1.HttpsError('not-found', 'Cet article n\'existe plus');
+        }
+        const articlePreData = articlePreSnap.data();
+        const sellerPreSnap = await firebase_1.db.collection('users').doc(articlePreData.sellerId).get();
+        if (!sellerPreSnap.exists) {
+            throw new https_1.HttpsError('not-found', 'Vendeur introuvable');
+        }
+        const sellerPreData = sellerPreSnap.data();
+        // Resolve the seller's origin address from their profile — NO Montreal
+        // fallback. A real label must ship from the seller's real address.
+        const origin = resolveSellerOriginAddress(sellerPreData, articlePreData);
+        if (!origin) {
+            throw new https_1.HttpsError('failed-precondition', 'Le vendeur n\'a pas renseigne d\'adresse d\'expedition valide. La commande ne peut pas etre creee.');
+        }
+        // Destination = buyer shipping address. Already strictly validated above
+        // (validatedShippingAddress is guaranteed non-null in shipping mode).
+        const validatedAddr = validatedShippingAddress;
+        const destination = {
+            name: shippingAddress.name || 'Acheteur',
+            addressLine1: validatedAddr.street,
+            cityLocality: validatedAddr.city,
+            stateProvince: validatedAddr.province,
+            postalCode: validatedAddr.postalCode,
+            countryCode: 'CA',
+            phone: shippingAddress.phone || origin.phone,
+        };
+        // Parcel from article metadata (same defaults as getShippingEstimate).
+        const parcelWeight = parseFloat(articlePreData.weight) || 0.5;
+        const dims = articlePreData.dimensions || {};
+        const parcel = {
+            weight: { value: parcelWeight, unit: 'kilogram' },
+            dimensions: {
+                length: parseFloat(dims.length) || 30,
+                width: parseFloat(dims.width) || 25,
+                height: parseFloat(dims.height) || 10,
+                unit: 'centimeter',
+            },
+        };
+        let rates;
+        try {
+            rates = await shipEngine.getRates(origin, destination, parcel);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            logger.error('createTransaction: ShipEngine re-pricing failed', {
+                articleId, shipEngineRateId, message,
+            });
+            throw new https_1.HttpsError('unavailable', 'Impossible de verifier le tarif de livraison pour le moment. Veuillez reessayer.');
+        }
+        const matchedRate = rates.find((r) => r.rateId === shipEngineRateId);
+        if (!matchedRate) {
+            // rateId expired or never belonged to this origin/destination/parcel.
+            logger.warn('createTransaction: supplied rateId not found in fresh rates', {
+                articleId, shipEngineRateId, ratesReturned: rates.length,
+            });
+            throw new https_1.HttpsError('failed-precondition', 'Le tarif de livraison selectionne a expire. Veuillez rafraichir l\'estimation de livraison.');
+        }
+        serverShippingCost = matchedRate.shippingAmount.amount;
+        logger.info('createTransaction: shipping re-priced server-side', {
+            articleId,
+            shipEngineRateId,
+            clientShippingCost: shippingCost,
+            serverShippingCost,
+            carrier: matchedRate.carrierCode,
+        });
+    }
     try {
         const transactionId = await firebase_1.db.runTransaction(async (tx) => {
             const articleSnap = await tx.get(articleRef);
@@ -258,7 +487,8 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             // Meetup transactions have NO platform fee (aligned with frontend
             // messaging "Aucun frais de plateforme") and no shipping cost.
             const fee = deliveryType === 'meetup' ? 0 : (0, fees_1.calculateServiceFee)(amount);
-            const shipping = deliveryType === 'shipping' ? (shippingCost || 0) : 0;
+            // Shipping cost is the SERVER re-priced value, never the client input.
+            const shipping = deliveryType === 'shipping' ? serverShippingCost : 0;
             const totalAmount = amount + shipping + fee;
             const transactionData = {
                 articleId,
@@ -336,6 +566,13 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'createStripeCheckout',
+        maxCallsAuthenticated: 10,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { transactionId, walletAmount: rawWalletAmount } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     if (!transactionId || typeof transactionId !== 'string') {
         throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
@@ -497,7 +734,10 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                         walletAmountUsed: String(walletAmount),
                         paymentType: 'wallet_and_card',
                     },
-                });
+                }, 
+                // Deterministic key so a retry (same transaction) never creates a
+                // second PaymentIntent — Stripe returns the original PI instead.
+                { idempotencyKey: `pi_${transactionId}` });
             }
             catch (stripeError) {
                 // F05: Stripe PI creation failed — revert the wallet debit
@@ -575,7 +815,10 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                     sellerId: txResult.sellerId,
                     buyerId: request.auth.uid,
                 },
-            });
+            }, 
+            // Deterministic key so a retry (same transaction) never creates a
+            // second PaymentIntent — Stripe returns the original PI instead.
+            { idempotencyKey: `pi_${transactionId}` });
             // Store PaymentIntent ID in the transaction doc (never store client_secret)
             await txRef.update({
                 stripePaymentIntentId: paymentIntent.id,
@@ -633,6 +876,13 @@ exports.createStripeConnectAccount = (0, https_1.onCall)({ region: 'northamerica
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'createStripeConnectAccount',
+        maxCallsAuthenticated: 3,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const stripe = (0, stripe_1.getStripe)();
     if (!stripe) {
         throw new https_1.HttpsError('failed-precondition', 'Stripe API not configured');
@@ -1058,7 +1308,6 @@ exports.findPickupPoints = (0, https_1.onCall)({ region: 'northamerica-northeast
 // CHECK TRACKING STATUS — Via ShipEngine
 // =============================================================================
 exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'] }, async (request) => {
-    var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -1089,92 +1338,29 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
         const carrierCode = transaction.carrierCode || 'intelcom_ca';
         const tracking = await shipEngine.getTracking(carrierCode, transaction.trackingNumber);
         const trackingStatus = shipEngine_1.ShipEngineClient.mapStatus(tracking.statusCode);
-        // If delivered, atomically update transaction status AND credit seller
-        // balance in a single runTransaction to prevent partial writes (e.g.
-        // marking delivered but failing to credit the seller).
-        if (trackingStatus === 'DELIVERED') {
-            const txRef = firebase_1.db.collection('transactions').doc(transactionId);
-            const sellerId = transaction.sellerId;
-            const sellerPayout = transaction.sellerPayout || transaction.amount;
-            await firebase_1.db.runTransaction(async (t) => {
-                const txSnap = await t.get(txRef);
-                // Guard: if already delivered, skip (idempotent)
-                if (txSnap.exists && txSnap.data().status === 'delivered') {
-                    return;
-                }
-                // Get or create seller wallet
-                const { walletRef: sellerWalletRef, walletData: sellerWalletData } = await (0, wallet_1.getOrCreateSellerWallet)(t, sellerId);
-                // 1. Update transaction: trackingStatus + status + deliveredAt
-                t.update(txRef, {
-                    trackingStatus,
-                    status: 'delivered',
-                    deliveredAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-                // 2. Credit seller wallet: move pendingBalance -> balance
-                const sellerPayoutCents = Math.round(sellerPayout * 100);
-                t.update(sellerWalletRef, {
-                    pendingBalance: firebase_1.FieldValue.increment(-sellerPayoutCents),
-                    balance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-                // Create ledger entry
-                const ledgerRef = sellerWalletRef.collection('ledger').doc();
-                t.set(ledgerRef, {
-                    type: 'sale_available',
-                    amount: sellerPayoutCents,
-                    balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
-                    description: 'Vente livrée — fonds disponibles',
-                    transactionId,
-                    createdAt: firebase_1.FieldValue.serverTimestamp(),
-                });
+        // Explicit status guard (P1-21): a DELIVERED scan must only move funds when
+        // the transaction is in a deliverable state. A DELIVERED scan arriving on a
+        // refunded / disputed / cancelled / already-delivered / meetup_* transaction
+        // would otherwise drive pendingBalance negative or double-credit the seller.
+        // applyTrackingOutcome re-checks this invariant atomically inside its own
+        // runTransaction; this early note keeps the intent explicit for readers.
+        if (trackingStatus === 'DELIVERED' && !trackingTransition_1.DELIVERABLE_STATUSES.has(transaction.status)) {
+            logger.warn('[checkTrackingStatus] DELIVERED scan ignored — non-deliverable status', {
+                transactionId,
+                currentStatus: transaction.status,
             });
-            // Send system message (non-critical, outside transaction)
-            if (transaction.chatId) {
-                // Look up chat participants so the message is visible to listeners
-                // that filter messages by participants and respects rules.
-                let participants = [];
-                try {
-                    const chatSnap = await firebase_1.db.collection('chats').doc(transaction.chatId).get();
-                    if (chatSnap.exists) {
-                        participants = ((_a = chatSnap.data()) === null || _a === void 0 ? void 0 : _a.participants) || [];
-                    }
-                }
-                catch (lookupErr) {
-                    logger.warn('[payments] Could not load chat participants', {
-                        chatId: transaction.chatId,
-                        error: lookupErr instanceof Error ? lookupErr.message : lookupErr,
-                    });
-                }
-                await firebase_1.db.collection('messages').add({
-                    chatId: transaction.chatId,
-                    senderId: 'system',
-                    receiverId: 'system',
-                    type: 'system',
-                    content: 'Colis livré ! La transaction est terminée. Les fonds ont été transférés au vendeur.',
-                    participants,
-                    timestamp: firebase_1.FieldValue.serverTimestamp(),
-                    status: 'sent',
-                    isRead: true,
-                });
-            }
-            // Push notification to buyer: order delivered
-            try {
-                const articleTitle = transaction.articleTitle || 'votre commande';
-                await (0, notifications_1.sendPushNotification)(transaction.buyerId, 'Colis livre !', `Votre commande ${articleTitle} a ete livree.`, { transactionId, articleId: transaction.articleId || '' }, 'order_delivered');
-            }
-            catch (notifError) {
-                logger.warn('[checkTrackingStatus] Failed to send buyer delivery notification', {
-                    transactionId,
-                    error: notifError instanceof Error ? notifError.message : notifError,
-                });
-            }
-        }
-        else {
-            // Not delivered yet — just update the tracking status
-            await firebase_1.db.collection('transactions').doc(transactionId).update({
+            return {
+                success: true,
                 trackingStatus,
-            });
+                trackingHistory: tracking.events || [],
+            };
         }
+        // Apply the tracking outcome via the shared state-machine helper:
+        //  - DELIVERED -> pendingBalance -> heldBalance + fundsReleaseAt (+7d)
+        //  - FAILURE   -> delivery_failed, funds frozen, both parties notified
+        //  - TRANSIT   -> label_created becomes 'shipped' (first carrier scan)
+        //  - else      -> trackingStatus refresh only
+        await (0, trackingTransition_1.applyTrackingOutcome)(transactionId, trackingStatus, 'manual');
         return {
             success: true,
             trackingStatus,
@@ -1194,9 +1380,11 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
 // =============================================================================
 /**
  * Buyer confirms the meetup exchange was completed. This transitions the
- * transaction from `meetup_confirmed` → `meetup_completed` and credits the
- * seller balance (pending → available), mirroring what checkTrackingStatus
- * does for shipping transactions on DELIVERED.
+ * transaction from `meetup_confirmed` → `meetup_completed`, sets
+ * `meetupCompletedAt`, and thereby unlocks review eligibility.
+ *
+ * Meetup is a pure cash-in-hand exchange: NO money flows through the platform,
+ * so this NEVER credits the seller wallet and writes NO ledger entry.
  *
  * Only the buyer can call this (the buyer confirms receipt).
  */
@@ -1205,6 +1393,13 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'completeMeetupTransaction',
+        maxCallsAuthenticated: 20,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { transactionId } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     if (typeof transactionId !== 'string' || transactionId.length === 0) {
         throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
@@ -1227,29 +1422,16 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                 throw new https_1.HttpsError('failed-precondition', `Cannot complete meetup from status ${data.status}`);
             }
             const sellerId = data.sellerId;
-            const sellerPayout = data.sellerPayout || data.amount;
-            // Get or create seller wallet
-            const { walletRef: sellerWalletRef, walletData: sellerWalletData } = await (0, wallet_1.getOrCreateSellerWallet)(tx, sellerId);
-            // 1. Update transaction status
+            // Meetup = paiement cash hors-ligne pur. AUCUN argent n'a transité par
+            // la plateforme, donc on NE crédite JAMAIS le wallet vendeur
+            // (balance / pendingBalance) et on n'écrit AUCUN ledger de vente.
+            // Le runTransaction se limite à : passer le statut à meetup_completed,
+            // poser meetupCompletedAt, et débloquer l'éligibilité à l'avis (review),
+            // qui est dérivée du statut terminal + meetupCompletedAt dans reviews.ts.
             tx.update(txRef, {
                 status: 'meetup_completed',
                 completedAt: firebase_1.FieldValue.serverTimestamp(),
-            });
-            // 2. Credit seller wallet — meetup = immediate availability
-            const sellerPayoutCents = Math.round(sellerPayout * 100);
-            tx.update(sellerWalletRef, {
-                balance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                updatedAt: firebase_1.FieldValue.serverTimestamp(),
-            });
-            // Create ledger entry
-            const ledgerRef = sellerWalletRef.collection('ledger').doc();
-            tx.set(ledgerRef, {
-                type: 'sale_available',
-                amount: sellerPayoutCents,
-                balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
-                description: 'Vente meetup — fonds disponibles',
-                transactionId,
-                createdAt: firebase_1.FieldValue.serverTimestamp(),
+                meetupCompletedAt: firebase_1.FieldValue.serverTimestamp(),
             });
             return { chatId: data.chatId, sellerId };
         });
@@ -1270,7 +1452,7 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                 senderId: 'system',
                 receiverId: 'system',
                 type: 'system',
-                content: 'Rencontre confirmée ! La transaction est terminée. Les fonds ont été transférés au vendeur.',
+                content: 'Rencontre confirmée ! La transaction est terminée. Le paiement a été réglé en main propre entre l\'acheteur et le vendeur.',
                 participants,
                 timestamp: firebase_1.FieldValue.serverTimestamp(),
                 status: 'sent',
@@ -1304,6 +1486,13 @@ exports.cancelPendingTransaction = (0, https_1.onCall)({ region: 'northamerica-n
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'cancelPendingTransaction',
+        maxCallsAuthenticated: 20,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { transactionId } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     if (typeof transactionId !== 'string' || transactionId.length === 0) {
         throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');

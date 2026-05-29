@@ -51,16 +51,35 @@ exports.getOrCreateSellerWallet = getOrCreateSellerWallet;
  *
  * Ledger entry types (WalletLedgerType):
  * - 'purchase_debit'    — buyer pays for article
- * - 'sale_credit'       — seller receives funds after delivery
+ * - 'sale_credit'       — seller receives funds into pendingBalance (escrow)
+ * - 'funds_held'        — delivered: pendingBalance -> heldBalance (7-day dispute window)
+ * - 'funds_released'    — dispute window elapsed: heldBalance -> balance (withdrawable)
+ * - 'dispute_hold'      — dispute opened: balance -> heldBalance (frozen)
  * - 'refund_credit'     — refund returned to buyer's wallet
- * - 'withdrawal'        — funds sent to bank via Stripe
+ * - 'refund_debit'      — seller debited on refund / lost dispute (may record sellerDebt)
+ * - 'withdrawal'        — funds sent to bank via Stripe (withdrawal_requests='processing')
  * - 'withdrawal_failed' — withdrawal reverted after Stripe failure (F08: must be handled in UI)
+ *
+ * THREE-BUCKET FUNDS MODEL (see scheduled/releaseHeldFunds.ts for the full contract):
+ *   pendingBalance — paid, not delivered (escrow)
+ *   heldBalance    — delivered, inside 7-day dispute window (NOT withdrawable)
+ *   balance        — withdrawable
+ *   sellerDebt     — shortfall owed after a lost dispute (blocks withdrawals)
+ *
+ * Withdrawals (walletWithdraw) draw ONLY from `balance`, are refused while any
+ * sale is `disputed`, and create a withdrawal_requests/{id}='processing' doc
+ * (closed out by payout.paid / payout.failed webhooks).
  */
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const stripe_1 = require("../config/stripe");
 const shipEngine_1 = require("../config/shipEngine");
+const rateLimit_1 = require("../utils/rateLimit");
+const labelFulfillment_1 = require("../utils/labelFulfillment");
+// Rate limiting: financial callables share a 1-minute sliding window.
+// maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 // =============================================================================
 // HELPER — Get or auto-create seller wallet inside a transaction
 // =============================================================================
@@ -235,6 +254,13 @@ exports.walletWithdraw = (0, https_1.onCall)({ region: 'northamerica-northeast1'
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'walletWithdraw',
+        maxCallsAuthenticated: 5,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { amount } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     const userId = request.auth.uid;
     // --- Input validation ---
@@ -266,9 +292,24 @@ exports.walletWithdraw = (0, https_1.onCall)({ region: 'northamerica-northeast1'
     }
     const stripeAccountId = userData.stripeAccountId;
     const walletRef = firebase_1.db.collection('wallets').doc(userId);
+    // --- Dispute guard: refuse withdrawal while a dispute is active ---
+    // A seller with any transaction currently in 'disputed' status (chargeback
+    // open) cannot cash out: the funds may need to be clawed back. Funds in
+    // heldBalance/pendingBalance are already non-withdrawable; this guard also
+    // freezes the rest of the balance for the duration of the dispute.
+    const disputedSnap = await firebase_1.db
+        .collection('transactions')
+        .where('sellerId', '==', userId)
+        .where('disputed', '==', true)
+        .limit(1)
+        .get();
+    if (!disputedSnap.empty) {
+        throw new https_1.HttpsError('failed-precondition', 'Un litige est en cours sur l\'une de vos ventes. Les retraits sont suspendus jusqu\'à sa résolution.');
+    }
     try {
-        // Step 1: Atomically debit wallet
+        // Step 1: Atomically debit wallet + create withdrawal_requests doc
         const ledgerEntryRef = walletRef.collection('ledger').doc();
+        const withdrawalRequestRef = firebase_1.db.collection('withdrawal_requests').doc();
         let newBalance;
         await firebase_1.db.runTransaction(async (tx) => {
             const walletSnap = await tx.get(walletRef);
@@ -278,6 +319,12 @@ exports.walletWithdraw = (0, https_1.onCall)({ region: 'northamerica-northeast1'
             const walletData = walletSnap.data();
             if (walletData.status !== 'active') {
                 throw new https_1.HttpsError('failed-precondition', 'Le porte-monnaie n\'est pas actif');
+            }
+            // Block withdrawals while the seller carries a debt (e.g. lost dispute
+            // where funds were already withdrawn). Only `balance` is withdrawable;
+            // heldBalance/pendingBalance are never touched here.
+            if ((walletData.sellerDebt || 0) > 0) {
+                throw new https_1.HttpsError('failed-precondition', 'Votre compte présente un solde dû. Les retraits sont suspendus.');
             }
             if (walletData.balance < amount) {
                 throw new https_1.HttpsError('failed-precondition', 'Solde insuffisant');
@@ -292,7 +339,19 @@ exports.walletWithdraw = (0, https_1.onCall)({ region: 'northamerica-northeast1'
                 amount,
                 balanceAfter: newBalance,
                 description: `Retrait vers compte bancaire ****${userData.stripeBankAccountLast4 || '****'}`,
+                withdrawalRequestId: withdrawalRequestRef.id,
                 createdAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            // Audit/tracking doc for the payout lifecycle (payout.paid/failed).
+            tx.set(withdrawalRequestRef, {
+                userId,
+                amount,
+                currency: 'cad',
+                status: 'processing',
+                ledgerEntryId: ledgerEntryRef.id,
+                stripeAccountId,
+                createdAt: firebase_1.FieldValue.serverTimestamp(),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
             });
         });
         // Step 2: Create Stripe transfer + payout
@@ -305,27 +364,41 @@ exports.walletWithdraw = (0, https_1.onCall)({ region: 'northamerica-northeast1'
                 metadata: {
                     firebaseUserId: userId,
                     walletWithdrawal: 'true',
+                    withdrawalRequestId: withdrawalRequestRef.id,
                 },
-            });
+            }, 
+            // Deterministic key tied to the (stable) ledger entry id so a retry
+            // never moves the same withdrawal twice.
+            { idempotencyKey: `tr_${ledgerEntryRef.id}` });
             const payout = await stripe.payouts.create({
                 amount,
                 currency: 'cad',
                 metadata: {
                     firebaseUserId: userId,
                     walletWithdrawal: 'true',
+                    // Matched by handlePayoutFailed/handlePayoutPaid to close out the
+                    // withdrawal_requests doc asynchronously.
+                    withdrawalRequestId: withdrawalRequestRef.id,
                 },
-            }, { stripeAccount: stripeAccountId });
-            logger.info('Wallet withdrawal completed', {
+            }, 
+            // stripe-node v22 takes a SINGLE RequestOptions object: both the
+            // Connect account selection (stripeAccount) and the deterministic
+            // idempotencyKey live here. Tied to the stable ledger entry id so a
+            // retry never pays out the same withdrawal twice.
+            { stripeAccount: stripeAccountId, idempotencyKey: `po_${ledgerEntryRef.id}` });
+            logger.info('Wallet withdrawal initiated', {
                 userId,
                 amount,
                 transferId: transfer.id,
                 payoutId: payout.id,
+                withdrawalRequestId: withdrawalRequestRef.id,
             });
             return {
                 success: true,
                 newBalance: newBalance,
                 transferId: transfer.id,
                 payoutId: payout.id,
+                withdrawalRequestId: withdrawalRequestRef.id,
             };
         }
         catch (stripeError) {
@@ -369,6 +442,14 @@ exports.walletWithdraw = (0, https_1.onCall)({ region: 'northamerica-northeast1'
                     description: `Retrait echoue — fonds restitues`,
                     type: 'withdrawal_failed',
                 });
+                // Mark the withdrawal request as failed (synchronous failure — the
+                // async payout.failed handler will be a no-op since status != processing).
+                tx.update(withdrawalRequestRef, {
+                    status: 'failed',
+                    failedAt: firebase_1.FieldValue.serverTimestamp(),
+                    failureReason: stripeError instanceof Error ? stripeError.message : 'stripe_error',
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
             });
             const message = stripeError instanceof Error ? stripeError.message : 'Unknown error';
             throw new https_1.HttpsError('internal', `Echec du retrait: ${message}`);
@@ -403,6 +484,13 @@ exports.payWithWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'payWithWallet',
+        maxCallsAuthenticated: 10,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { transactionId } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
     if (typeof transactionId !== 'string' || transactionId.length === 0) {
         throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
@@ -446,16 +534,13 @@ exports.payWithWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1',
             if (buyerWallet.balance < totalAmountCents) {
                 throw new https_1.HttpsError('failed-precondition', 'Solde insuffisant dans le porte-monnaie');
             }
-            // --- Get or create seller wallet ---
             const sellerId = txData.sellerId;
-            const { walletRef: sellerWalletRef, walletData: sellerWalletData, isNew: sellerWalletIsNew } = await getOrCreateSellerWallet(tx, sellerId);
+            const isShipping = txData.deliveryType === 'shipping';
             // --- Read article to mark as sold ---
             let articleRef = null;
             if (txData.articleId) {
                 articleRef = firebase_1.db.collection('articles').doc(txData.articleId);
             }
-            // Calculate seller payout in cents
-            const sellerPayoutCents = Math.round((txData.sellerPayout || txData.amount || 0) * 100);
             const newBuyerBalance = buyerWallet.balance - totalAmountCents;
             // --- Writes ---
             // 1. Debit buyer wallet
@@ -463,46 +548,31 @@ exports.payWithWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1',
                 balance: firebase_1.FieldValue.increment(-totalAmountCents),
                 updatedAt: firebase_1.FieldValue.serverTimestamp(),
             });
-            // 2. Credit seller wallet pendingBalance (auto-created if absent)
-            if (!sellerWalletIsNew) {
-                tx.update(sellerWalletRef, {
-                    pendingBalance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
+            // 2. Credit seller wallet pendingBalance.
+            // P1 (atomicity payment<->label): for SHIPPING transactions defer the
+            // seller credit until the shipping label is created (label step /
+            // sweepPendingLabels). Crediting then failing the label would pay the
+            // seller for a parcel that never ships. For non-shipping there is no
+            // label, so credit immediately. creditSellerForSale also persists
+            // sellerCreditedCents (the exact amount for an accurate refund debit).
+            if (!isShipping) {
+                await (0, labelFulfillment_1.creditSellerForSale)(tx, txRef, txData, transactionId);
             }
-            else {
-                // Wallet was just created with pendingBalance: 0 — update it
-                tx.update(sellerWalletRef, {
-                    pendingBalance: sellerPayoutCents,
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-            }
-            // 3. Create seller ledger entry
-            const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-            tx.set(sellerLedgerRef, {
-                type: 'sale_credit',
-                amount: sellerPayoutCents,
-                balanceAfter: (sellerWalletData.pendingBalance || 0) + sellerPayoutCents,
-                description: 'Vente — fonds en attente de livraison',
-                transactionId,
-                createdAt: firebase_1.FieldValue.serverTimestamp(),
-                status: 'pending',
-            });
-            // 4. Mark transaction as paid
+            // 3. Mark transaction as paid
             tx.update(txRef, {
                 status: 'paid',
                 paidAt: firebase_1.FieldValue.serverTimestamp(),
                 paidVia: 'wallet',
                 walletAmountUsed: totalAmountCents,
             });
-            // 5. Mark article as sold
+            // 4. Mark article as sold
             if (articleRef) {
                 tx.update(articleRef, {
                     isSold: true,
                     soldAt: firebase_1.FieldValue.serverTimestamp(),
                 });
             }
-            // 6. Create buyer ledger entry
+            // 5. Create buyer ledger entry
             const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
             tx.set(buyerLedgerRef, {
                 type: 'purchase_debit',
@@ -518,6 +588,7 @@ exports.payWithWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1',
                 chatId: txData.chatId,
                 deliveryType: txData.deliveryType,
                 shipEngineRateId: txData.shipEngineRateId || null,
+                shippingCost: typeof txData.shippingCost === 'number' ? txData.shippingCost : 0,
                 articleId: txData.articleId || null,
                 articleTitle: txData.articleTitle || null,
             };
@@ -527,15 +598,17 @@ exports.payWithWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         // =====================================================================
         if (result.deliveryType === 'shipping') {
             const rateId = result.shipEngineRateId;
-            // Guard: reject fallback rateIds generated by the client
+            // Guard: reject fallback rateIds generated by the client. The seller is
+            // NOT credited (deferred above) and the transaction stays 'paid' for the
+            // sweep job to re-rate + retry.
             if (rateId && rateId.startsWith('fallback_')) {
-                logger.warn('payWithWallet: fallback rateId detected — skipping label creation', {
+                logger.warn('payWithWallet: fallback rateId detected — deferring to sweepPendingLabels', {
                     transactionId,
                     rateId,
                 });
                 await txRef.update({
                     labelCreationPending: true,
-                    labelCreationNote: `Fallback rateId "${rateId}" — label must be created manually`,
+                    labelCreationNote: `Fallback rateId "${rateId}" — re-rate + retry required`,
                 });
             }
             else {
@@ -543,17 +616,32 @@ exports.payWithWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1',
                 if (shipEngine && rateId) {
                     try {
                         const label = await shipEngine.createLabel(rateId);
-                        await txRef.update({
-                            trackingNumber: label.trackingNumber,
-                            shippingLabelUrl: label.labelDownload.href,
-                            trackingUrl: label.trackingUrl,
-                            carrierCode: label.carrierCode,
-                            trackingStatus: 'TRANSIT',
-                            shipEngineLabelId: label.labelId,
-                            status: 'shipped',
-                            shippedAt: firebase_1.FieldValue.serverTimestamp(),
+                        // ATOMIC: credit the seller now that the label exists, reconcile
+                        // the real label cost vs the estimated shippingCost, persist label
+                        // fields, clear the pending flag, and mark 'shipped'.
+                        await firebase_1.db.runTransaction(async (tx) => {
+                            const txSnap = await tx.get(txRef);
+                            const tdata = txSnap.data();
+                            if (!tdata)
+                                return;
+                            if (tdata.status === 'shipped' || tdata.status === 'delivered')
+                                return;
+                            await (0, labelFulfillment_1.creditSellerForSale)(tx, txRef, tdata, transactionId);
+                            const update = {
+                                trackingNumber: label.trackingNumber,
+                                shippingLabelUrl: label.labelDownload.href,
+                                trackingUrl: label.trackingUrl,
+                                carrierCode: label.carrierCode,
+                                trackingStatus: 'TRANSIT',
+                                shipEngineLabelId: label.labelId,
+                                status: 'shipped',
+                                shippedAt: firebase_1.FieldValue.serverTimestamp(),
+                                labelCreationPending: false,
+                            };
+                            (0, labelFulfillment_1.reconcileShippingCost)(label, result.shippingCost, transactionId, update);
+                            tx.update(txRef, update);
                         });
-                        logger.info('payWithWallet: ShipEngine label created — transaction marked shipped', {
+                        logger.info('payWithWallet: ShipEngine label created — seller credited, transaction marked shipped', {
                             transactionId,
                             trackingNumber: label.trackingNumber,
                             carrierCode: label.carrierCode,
@@ -694,9 +782,11 @@ exports.refundWalletPayment = (0, https_1.onCall)({ region: 'northamerica-northe
             const buyerId = txData.buyerId;
             const sellerId = txData.sellerId;
             const totalAmountCents = txData.walletAmountUsed || Math.round((txData.totalAmount || 0) * 100);
-            const sellerPayout = txData.sellerPayout || txData.amount;
-            const sellerPayoutCents = Math.round(sellerPayout * 100);
-            const fundsInBalance = txData.status === 'delivered' || txData.status === 'meetup_completed';
+            // P1: debit the EXACT amount credited to the seller (persisted at credit
+            // time). Under the deferred-credit model an uncredited shipping tx still
+            // 'paid' with labelCreationPending has no sellerCreditedCents and so a
+            // debit target of 0 — debiting would create false sellerDebt.
+            const sellerDebitTarget = typeof txData.sellerCreditedCents === 'number' ? txData.sellerCreditedCents : 0;
             // Read buyer wallet
             const buyerWalletRef = firebase_1.db.collection('wallets').doc(buyerId);
             const buyerWalletSnap = await tx.get(buyerWalletRef);
@@ -728,46 +818,71 @@ exports.refundWalletPayment = (0, https_1.onCall)({ region: 'northamerica-northe
                     createdAt: firebase_1.FieldValue.serverTimestamp(),
                 });
             }
-            // 2. Debit seller wallet
-            if (sellerWalletSnap.exists) {
-                const sellerWalletData = sellerWalletSnap.data();
-                if (fundsInBalance) {
-                    const deduction = Math.min(sellerPayoutCents, sellerWalletData.balance || 0);
-                    tx.update(sellerWalletRef, {
-                        balance: firebase_1.FieldValue.increment(-deduction),
+            // 2. Debit seller wallet of EXACTLY what was credited.
+            // P1: cascade across the three buckets in escrow order
+            // pendingBalance -> heldBalance -> balance. Any remainder the seller no
+            // longer holds (already withdrawn) becomes sellerDebt and blocks future
+            // withdrawals until recovered — NEVER masked with min().
+            if (sellerDebitTarget > 0) {
+                if (sellerWalletSnap.exists) {
+                    const sellerWalletData = sellerWalletSnap.data();
+                    const pendingNow = sellerWalletData.pendingBalance || 0;
+                    const heldNow = sellerWalletData.heldBalance || 0;
+                    const balanceNow = sellerWalletData.balance || 0;
+                    const fromPending = Math.min(sellerDebitTarget, pendingNow);
+                    let remaining = sellerDebitTarget - fromPending;
+                    const fromHeld = Math.min(remaining, heldNow);
+                    remaining -= fromHeld;
+                    const fromBalance = Math.min(remaining, balanceNow);
+                    const shortfall = remaining - fromBalance;
+                    const walletUpdate = {
                         updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
+                    };
+                    if (fromPending > 0)
+                        walletUpdate.pendingBalance = firebase_1.FieldValue.increment(-fromPending);
+                    if (fromHeld > 0)
+                        walletUpdate.heldBalance = firebase_1.FieldValue.increment(-fromHeld);
+                    if (fromBalance > 0)
+                        walletUpdate.balance = firebase_1.FieldValue.increment(-fromBalance);
+                    if (shortfall > 0)
+                        walletUpdate.sellerDebt = firebase_1.FieldValue.increment(shortfall);
+                    tx.update(sellerWalletRef, walletUpdate);
+                    const debited = fromPending + fromHeld + fromBalance;
                     const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-                    tx.set(sellerLedgerRef, {
-                        type: 'refund_debit',
-                        amount: deduction,
-                        balanceAfter: (sellerWalletData.balance || 0) - deduction,
-                        description: 'Remboursement — débit vendeur',
-                        transactionId,
-                        createdAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
+                    tx.set(sellerLedgerRef, Object.assign({ type: 'refund_debit', amount: debited, balanceAfter: balanceNow - fromBalance, description: shortfall > 0
+                            ? 'Remboursement — débit vendeur (dette enregistrée pour le solde manquant)'
+                            : 'Remboursement — débit vendeur', transactionId, createdAt: firebase_1.FieldValue.serverTimestamp() }, (shortfall > 0 && { debtRecorded: shortfall })));
+                    if (shortfall > 0) {
+                        logger.warn('[refundWalletPayment] Seller balance insufficient — debt recorded', {
+                            transactionId,
+                            sellerId,
+                            debitTarget: sellerDebitTarget,
+                            debited,
+                            shortfall,
+                        });
+                    }
                 }
                 else {
-                    const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
-                    tx.update(sellerWalletRef, {
-                        pendingBalance: firebase_1.FieldValue.increment(-deduction),
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    logger.warn('[refundWalletPayment] Seller wallet not found — recording full debt', {
+                        transactionId,
+                        sellerId,
+                        debitTarget: sellerDebitTarget,
                     });
+                    tx.set(sellerWalletRef, {
+                        sellerDebt: firebase_1.FieldValue.increment(sellerDebitTarget),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    }, { merge: true });
                     const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
                     tx.set(sellerLedgerRef, {
                         type: 'refund_debit',
-                        amount: deduction,
-                        balanceAfter: (sellerWalletData.pendingBalance || 0) - deduction,
-                        description: 'Remboursement — débit vendeur (fonds en attente)',
+                        amount: 0,
+                        balanceAfter: 0,
+                        description: 'Remboursement — porte-monnaie absent, dette enregistrée',
                         transactionId,
                         createdAt: firebase_1.FieldValue.serverTimestamp(),
+                        debtRecorded: sellerDebitTarget,
                     });
                 }
-            }
-            else {
-                logger.warn('[refundWalletPayment] Seller wallet not found — cannot debit', {
-                    transactionId, sellerId,
-                });
             }
             // 3. Mark transaction as refunded
             tx.update(txRef, {

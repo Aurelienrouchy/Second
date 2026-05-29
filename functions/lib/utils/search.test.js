@@ -2,6 +2,24 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const vitest_1 = require("vitest");
 const search_1 = require("./search");
+(0, vitest_1.describe)('normalizeSearchText', () => {
+    (0, vitest_1.it)('strips diacritics (accents)', () => {
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)('été')).toBe('ete');
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)('décontracté')).toBe('decontracte');
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)('Robe À Manches')).toBe('robe a manches');
+    });
+    (0, vitest_1.it)('strips punctuation', () => {
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)("c'est")).toBe('c est');
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)('nike,')).toBe('nike');
+    });
+    (0, vitest_1.it)('collapses whitespace and trims', () => {
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)('  robe   bleue  ')).toBe('robe bleue');
+    });
+    (0, vitest_1.it)('handles null/undefined-like input', () => {
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)(null)).toBe('');
+        (0, vitest_1.expect)((0, search_1.normalizeSearchText)(undefined)).toBe('');
+    });
+});
 (0, vitest_1.describe)('generateSearchKeywords', () => {
     (0, vitest_1.it)('returns empty array for empty string', () => {
         (0, vitest_1.expect)((0, search_1.generateSearchKeywords)('')).toEqual([]);
@@ -47,6 +65,12 @@ const search_1 = require("./search");
         const keywords = (0, search_1.generateSearchKeywords)("l'élégance, c'est!");
         (0, vitest_1.expect)(keywords.some(k => k.includes("'"))).toBe(false);
         (0, vitest_1.expect)(keywords.some(k => k.includes(','))).toBe(false);
+    });
+    (0, vitest_1.it)('strips accents so keywords are searchable without diacritics', () => {
+        const keywords = (0, search_1.generateSearchKeywords)("robe d'été décontractée");
+        (0, vitest_1.expect)(keywords).toContain('ete');
+        (0, vitest_1.expect)(keywords).toContain('decontractee');
+        (0, vitest_1.expect)(keywords.some(k => /[éèàâêîôûäëïöü]/.test(k))).toBe(false);
     });
     (0, vitest_1.it)('deduplicates keywords', () => {
         const keywords = (0, search_1.generateSearchKeywords)('robe robe robe');

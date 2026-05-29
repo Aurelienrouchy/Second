@@ -35,31 +35,50 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkShippedTracking = void 0;
 /**
- * Scheduled tracking check
- * Firebase Functions v7 - using onSchedule
+ * Scheduled tracking check (safety-net poller)
+ * Firebase Functions v2 - onSchedule, region northamerica-northeast1
  *
- * Polls ShipEngine for tracking updates on all shipped transactions.
- * Runs every 6 hours.
+ * The PRIMARY tracking path is now the ShipEngine webhook (http/shipEngineWebhook.ts).
+ * This poller is a SPACED-OUT safety net: it runs every 12 hours and reconciles
+ * any parcel whose webhook was missed, by polling ShipEngine directly.
  *
- * For each transaction with status 'shipped' and a trackingNumber:
- * - Queries ShipEngine for the current tracking status
- * - If delivered: atomically marks the transaction as 'delivered',
- *   transfers seller funds from pending to available, and notifies buyer
- * - Otherwise: updates the trackingStatus field
+ * For each SHIPPING transaction in `label_created` or `shipped`:
+ *   - DELIVERED  -> applyTrackingOutcome moves pendingBalance -> heldBalance and
+ *                   stamps fundsReleaseAt = +7d (held-funds contract); status
+ *                   becomes 'delivered' (release handled by releaseHeldFunds).
+ *   - FAILURE    -> status 'delivery_failed', funds frozen, both parties notified
+ *                   (refund resolved by the admin refund callable).
+ *   - TRANSIT/IN_TRANSIT (first real carrier scan) -> label_created becomes
+ *                   'shipped' (decouples label printing from actual shipment).
  *
- * This replaces the previous manual-only tracking approach where buyers
- * had to call checkTrackingStatus to trigger delivery detection.
+ * It also nudges sellers whose label_created parcel has had NO carrier scan for
+ * LABEL_STALE_DAYS (printed a label but never dropped it off).
+ *
+ * Pagination: orderBy('createdAt','asc') + startAfter cursor, looping until the
+ * collection is exhausted, with a per-call ShipEngine throttle to respect rate
+ * limits. Uses the existing composite index (status ASC, createdAt ASC).
  */
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+const firestore_1 = require("firebase-admin/firestore");
 const shipEngine_1 = require("../config/shipEngine");
 const notifications_1 = require("../utils/notifications");
-const wallet_1 = require("../callable/wallet");
-/** Process at most this many transactions per run to avoid timeouts */
-const MAX_TRANSACTIONS_PER_RUN = 200;
+const trackingTransition_1 = require("../utils/trackingTransition");
+/** Page size per Firestore query. */
+const PAGE_SIZE = 200;
+/** Hard cap on parcels processed per run (across both statuses) to bound time. */
+const MAX_TRANSACTIONS_PER_RUN = 600;
+/** Throttle between ShipEngine tracking calls (ms) to respect rate limits. */
+const SHIPENGINE_THROTTLE_MS = 150;
+/** A label_created parcel with no carrier scan after this many days nudges the seller. */
+const LABEL_STALE_DAYS = 3;
+const LABEL_STALE_MS = LABEL_STALE_DAYS * 24 * 60 * 60 * 1000;
+/** Statuses whose parcels we poll. */
+const TRACKED_STATUSES = ['label_created', 'shipped'];
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
-    schedule: 'every 6 hours',
+    schedule: 'every 12 hours',
     region: 'northamerica-northeast1',
     memory: '512MiB',
     secrets: ['SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'],
@@ -70,130 +89,119 @@ exports.checkShippedTracking = (0, scheduler_1.onSchedule)({
         logger.warn('[checkShippedTracking] ShipEngine not configured, skipping');
         return;
     }
-    // Query all shipped transactions that have a tracking number
-    const shippedSnap = await firebase_1.db
-        .collection('transactions')
-        .where('status', '==', 'shipped')
-        .limit(MAX_TRANSACTIONS_PER_RUN)
-        .get();
-    if (shippedSnap.empty) {
-        logger.info('[checkShippedTracking] No shipped transactions to check');
-        return;
-    }
-    logger.info(`[checkShippedTracking] Checking ${shippedSnap.size} shipped transactions`);
     let deliveredCount = 0;
+    let shippedCount = 0;
+    let failedCount = 0;
+    let staleNudged = 0;
     let errorCount = 0;
-    for (const doc of shippedSnap.docs) {
-        const data = doc.data();
-        const transactionId = doc.id;
-        if (!data.trackingNumber) {
-            // No tracking number yet — skip
-            continue;
-        }
-        try {
-            const carrierCode = data.carrierCode || 'intelcom_ca';
-            const tracking = await shipEngine.getTracking(carrierCode, data.trackingNumber);
-            const trackingStatus = shipEngine_1.ShipEngineClient.mapStatus(tracking.statusCode);
-            if (trackingStatus === 'DELIVERED') {
-                // Atomically mark delivered + transfer seller funds
-                const sellerId = data.sellerId;
-                const sellerPayout = data.sellerPayout || data.amount;
-                await firebase_1.db.runTransaction(async (tx) => {
-                    const txSnap = await tx.get(doc.ref);
-                    // Guard: if already delivered, skip (idempotent)
-                    if (txSnap.exists && txSnap.data().status === 'delivered') {
-                        return;
-                    }
-                    // Get or create seller wallet
-                    const { walletRef: sellerWalletRef, walletData: sellerWalletData } = await (0, wallet_1.getOrCreateSellerWallet)(tx, sellerId);
-                    // 1. Update transaction
-                    tx.update(doc.ref, {
-                        trackingStatus,
-                        status: 'delivered',
-                        deliveredAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                    // 2. Credit seller wallet: move pendingBalance -> balance
-                    const sellerPayoutCents = Math.round(sellerPayout * 100);
-                    tx.update(sellerWalletRef, {
-                        pendingBalance: firebase_1.FieldValue.increment(-sellerPayoutCents),
-                        balance: firebase_1.FieldValue.increment(sellerPayoutCents),
-                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                    // Create ledger entry
-                    const ledgerRef = sellerWalletRef.collection('ledger').doc();
-                    tx.set(ledgerRef, {
-                        type: 'sale_available',
-                        amount: sellerPayoutCents,
-                        balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
-                        description: 'Vente livrée — fonds disponibles',
-                        transactionId,
-                        createdAt: firebase_1.FieldValue.serverTimestamp(),
-                    });
-                });
-                deliveredCount++;
-                // Send system message to chat (non-critical)
-                if (data.chatId) {
-                    try {
-                        let participants = [];
-                        const chatSnap = await firebase_1.db.collection('chats').doc(data.chatId).get();
-                        if (chatSnap.exists) {
-                            participants = ((_a = chatSnap.data()) === null || _a === void 0 ? void 0 : _a.participants) || [];
-                        }
-                        await firebase_1.db.collection('messages').add({
-                            chatId: data.chatId,
-                            senderId: 'system',
-                            receiverId: 'system',
-                            type: 'system',
-                            content: 'Colis livre ! La transaction est terminee. Les fonds ont ete transferes au vendeur.',
-                            participants,
-                            timestamp: firebase_1.FieldValue.serverTimestamp(),
-                            status: 'sent',
-                            isRead: true,
+    let processed = 0;
+    const now = Date.now();
+    // Paginate each tracked status independently with a stable orderBy + cursor.
+    for (const status of TRACKED_STATUSES) {
+        let lastCreatedAt = null;
+        let keepGoing = true;
+        while (keepGoing && processed < MAX_TRANSACTIONS_PER_RUN) {
+            let query = firebase_1.db
+                .collection('transactions')
+                .where('status', '==', status)
+                .orderBy('createdAt', 'asc')
+                .limit(PAGE_SIZE);
+            if (lastCreatedAt) {
+                query = query.startAfter(lastCreatedAt);
+            }
+            const snap = await query.get();
+            if (snap.empty)
+                break;
+            for (const doc of snap.docs) {
+                if (processed >= MAX_TRANSACTIONS_PER_RUN)
+                    break;
+                const data = doc.data();
+                const transactionId = doc.id;
+                lastCreatedAt = (_a = data.createdAt) !== null && _a !== void 0 ? _a : lastCreatedAt;
+                processed++;
+                // No tracking number yet (label_created may have one already).
+                if (!data.trackingNumber) {
+                    // Nudge sellers who printed a label but never got a carrier scan.
+                    if (status === 'label_created') {
+                        await maybeNudgeStaleLabel(doc.ref, data, transactionId, now).then((nudged) => {
+                            if (nudged)
+                                staleNudged++;
                         });
                     }
-                    catch (msgErr) {
-                        logger.warn('[checkShippedTracking] Failed to send system message', {
-                            transactionId,
-                            error: msgErr instanceof Error ? msgErr.message : msgErr,
-                        });
-                    }
+                    continue;
                 }
-                // Push notification to buyer
                 try {
-                    const articleTitle = data.articleTitle || 'votre commande';
-                    await (0, notifications_1.sendPushNotification)(data.buyerId, 'Colis livre !', `Votre commande ${articleTitle} a ete livree.`, { transactionId, articleId: data.articleId || '' }, 'order_delivered');
+                    await sleep(SHIPENGINE_THROTTLE_MS);
+                    const carrierCode = data.carrierCode || 'intelcom_ca';
+                    const tracking = await shipEngine.getTracking(carrierCode, data.trackingNumber);
+                    const mapped = shipEngine_1.ShipEngineClient.mapStatus(tracking.statusCode);
+                    const result = await (0, trackingTransition_1.applyTrackingOutcome)(transactionId, mapped, 'poller');
+                    if (result.kind === 'delivered' && result.changed)
+                        deliveredCount++;
+                    else if (result.kind === 'shipped' && result.changed)
+                        shippedCount++;
+                    else if (result.kind === 'failed' && result.changed)
+                        failedCount++;
+                    // Stale-label nudge for label_created parcels still without a scan.
+                    if (status === 'label_created' && result.kind !== 'shipped') {
+                        const nudged = await maybeNudgeStaleLabel(doc.ref, data, transactionId, now);
+                        if (nudged)
+                            staleNudged++;
+                    }
                 }
-                catch (notifErr) {
-                    logger.warn('[checkShippedTracking] Failed to send buyer notification', {
+                catch (err) {
+                    errorCount++;
+                    logger.error('[checkShippedTracking] error checking tracking', {
                         transactionId,
-                        error: notifErr instanceof Error ? notifErr.message : notifErr,
+                        trackingNumber: data.trackingNumber,
+                        error: err instanceof Error ? err.message : err,
                     });
                 }
-                logger.info('[checkShippedTracking] Transaction delivered', {
-                    transactionId,
-                    trackingNumber: data.trackingNumber,
-                });
             }
-            else {
-                // Just update tracking status if changed
-                if (trackingStatus !== data.trackingStatus) {
-                    await doc.ref.update({ trackingStatus });
-                }
-            }
-        }
-        catch (err) {
-            errorCount++;
-            logger.error('[checkShippedTracking] Error checking tracking', {
-                transactionId,
-                trackingNumber: data.trackingNumber,
-                error: err instanceof Error ? err.message : err,
-            });
+            keepGoing = snap.size === PAGE_SIZE;
         }
     }
-    logger.info('[checkShippedTracking] Run complete', {
-        checked: shippedSnap.size,
+    logger.info('[checkShippedTracking] run complete', {
+        processed,
+        shipped: shippedCount,
         delivered: deliveredCount,
+        failed: failedCount,
+        staleNudged,
         errors: errorCount,
     });
 });
+/**
+ * If a label_created parcel has had no carrier scan for LABEL_STALE_DAYS and we
+ * haven't nudged in the last window, send the seller a "drop off your parcel"
+ * reminder. Idempotent via `labelStaleNudgedAt`.
+ */
+async function maybeNudgeStaleLabel(ref, data, transactionId, nowMs) {
+    const labelAt = data.labelCreatedAt instanceof firestore_1.Timestamp
+        ? data.labelCreatedAt.toMillis()
+        : data.shippedAt instanceof firestore_1.Timestamp
+            ? data.shippedAt.toMillis()
+            : null;
+    if (labelAt === null || nowMs - labelAt < LABEL_STALE_MS) {
+        return false;
+    }
+    // Only nudge once per stale window.
+    const lastNudge = data.labelStaleNudgedAt instanceof firestore_1.Timestamp ? data.labelStaleNudgedAt.toMillis() : 0;
+    if (nowMs - lastNudge < LABEL_STALE_MS) {
+        return false;
+    }
+    try {
+        await ref.update({ labelStaleNudgedAt: firebase_1.FieldValue.serverTimestamp() });
+        if (data.sellerId) {
+            await (0, notifications_1.sendPushNotification)(data.sellerId, 'Pensez a expedier votre colis', `L'etiquette de "${data.articleTitle || 'votre vente'}" a ete creee mais le transporteur n'a pas encore scanne le colis. Deposez-le rapidement.`, { transactionId, articleId: data.articleId || '' }, 'label_stale_reminder');
+        }
+        return true;
+    }
+    catch (err) {
+        logger.warn('[checkShippedTracking] stale-label nudge failed', {
+            transactionId,
+            error: err instanceof Error ? err.message : err,
+        });
+        return false;
+    }
+}
 //# sourceMappingURL=trackingCheck.js.map

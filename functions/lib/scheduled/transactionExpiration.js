@@ -177,16 +177,42 @@ exports.expireOrphanedTransactions = (0, scheduler_1.onSchedule)({
             for (const doc of paidSnap.docs) {
                 const data = doc.data();
                 const transactionId = doc.id;
+                // P1 (atomicity payment<->label): a transaction still awaiting its
+                // shipping label is owned by sweepPendingLabels (re-rate + retry, then
+                // refund after N attempts). Do NOT expire/refund it here — the seller
+                // was never credited and the sweep handles the eventual refund itself.
+                // Excluded until the sweep resolves the flag (sets shipped or refunds).
+                if (data.labelCreationPending === true) {
+                    logger.info('[expireOrphanedTransactions] skipping labelCreationPending tx (owned by sweepPendingLabels)', {
+                        transactionId,
+                    });
+                    continue;
+                }
                 try {
                     // --- Stripe refund (card portion) ---
                     if (data.stripePaymentIntentId && stripe) {
                         try {
-                            await stripe.refunds.create({
-                                payment_intent: data.stripePaymentIntentId,
-                            });
+                            // Destination charges (card-only purchases) were created with
+                            // transfer_data + application_fee_amount, so the seller's Connect
+                            // account already received the funds. A plain refund would leave
+                            // that money with the seller while the wallet ledger is debited =>
+                            // platform absorbs the loss. We MUST reverse the transfer and the
+                            // application fee.
+                            //
+                            // Mixed wallet+card charges are direct platform charges (NO
+                            // transfer_data / application_fee_amount), so there is nothing to
+                            // reverse — passing reverse_transfer would error.
+                            const isMixedCharge = data.paidVia === 'wallet_and_card' || data.paidVia === 'mixed';
+                            await stripe.refunds.create(Object.assign({ payment_intent: data.stripePaymentIntentId }, (isMixedCharge
+                                ? {}
+                                : { reverse_transfer: true, refund_application_fee: true })), 
+                            // Deterministic key tied to the transaction so a re-run of the
+                            // scheduler never issues a second refund for the same purchase.
+                            { idempotencyKey: `rf_${transactionId}` });
                             logger.info('[expireOrphanedTransactions] Stripe refund created', {
                                 transactionId,
                                 paymentIntentId: data.stripePaymentIntentId,
+                                reverseTransfer: !isMixedCharge,
                             });
                         }
                         catch (refundErr) {

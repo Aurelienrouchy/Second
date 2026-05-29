@@ -3,8 +3,31 @@
  * Search utilities
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizeSearchText = normalizeSearchText;
 exports.generateSearchKeywords = generateSearchKeywords;
 exports.calculatePopularityScore = calculatePopularityScore;
+/**
+ * Normalize free text for search indexing AND query matching.
+ *
+ * NOTE: this exact function is duplicated verbatim in
+ * `services/articlesService.ts` (client). There is no shared module possible
+ * between Cloud Functions and the Expo app, so the two copies MUST stay in
+ * sync — any change here must be mirrored there (and vice-versa), otherwise
+ * the keywords written by the indexer and the keyword built by the client
+ * query diverge and matches silently break.
+ *
+ * Steps: NFD decompose -> strip diacritics -> lowercase -> strip punctuation
+ * -> collapse whitespace -> trim.
+ */
+function normalizeSearchText(input) {
+    return (input !== null && input !== void 0 ? input : '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '') // strip diacritiques
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ') // strip ponctuation
+        .replace(/\s+/g, ' ')
+        .trim();
+}
 /**
  * Generate search keywords from text
  * Creates individual words, bigrams, and prefixes for fuzzy searching
@@ -12,10 +35,8 @@ exports.calculatePopularityScore = calculatePopularityScore;
 function generateSearchKeywords(text) {
     if (!text)
         return [];
-    const words = text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .split(/\s+/)
+    const words = normalizeSearchText(text)
+        .split(' ')
         .filter((word) => word.length > 2);
     const keywords = new Set();
     // Add individual words

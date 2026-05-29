@@ -506,13 +506,19 @@ exports.createSwapTopUpCheckout = (0, https_1.onCall)({ region: 'northamerica-no
         const fees = (0, fees_1.calculateFees)(reserved.amount / 100, 0);
         const totalChargeCents = Math.round(fees.buyerTotal * 100);
         const applicationFeeCents = Math.round(fees.serviceFee * 100);
+        // SINGLE MONEY MOVEMENT PER TOP-UP.
+        // We charge the platform directly (NO transfer_data / on_behalf_of), exactly
+        // like the mixed wallet+card flow in payments.ts. The payee is credited via
+        // the wallet ledger (pendingBalance) in handleSwapTopUpSucceeded, released to
+        // `balance` once both parties confirm reception, then paid out through
+        // walletWithdraw. Using transfer_data here would have Stripe auto-transfer the
+        // net to the payee's Connect account AND the webhook would credit the wallet —
+        // the payee would be paid twice. The wallet ledger is the single rail.
+        // The platform fee is still captured: it keeps the full base amount on-platform
+        // and only credits the wallet with `topUpAmount` (the service fee stays behind).
         const paymentIntent = await stripe.paymentIntents.create({
             amount: totalChargeCents,
             currency: 'cad',
-            application_fee_amount: applicationFeeCents,
-            transfer_data: {
-                destination: payeeData.stripeAccountId,
-            },
             metadata: {
                 type: 'swap_topup',
                 swapId,
@@ -521,7 +527,10 @@ exports.createSwapTopUpCheckout = (0, https_1.onCall)({ region: 'northamerica-no
                 topUpAmount: String(reserved.amount),
                 topUpFee: String(applicationFeeCents),
             },
-        });
+        }, 
+        // Deterministic key so a retry never creates a second top-up PI for the
+        // same swap — Stripe returns the original PI instead.
+        { idempotencyKey: `pi_swap_${swapId}` });
         // Persist the PI id (never store client_secret)
         await swapRef.update({
             topUpPaymentIntentId: paymentIntent.id,
@@ -594,7 +603,10 @@ async function refundSwapTopUpIfPaid(swap, swapId) {
             reverse_transfer: true,
             refund_application_fee: true,
             metadata: { type: 'swap_topup_refund', swapId },
-        });
+        }, 
+        // Deterministic key tied to the swap so a re-trigger never issues a
+        // second refund for the same top-up.
+        { idempotencyKey: `rf_swap_${swapId}` });
         await firebase_1.db.collection('swaps').doc(swapId).update({
             topUpRefundId: refund.id,
             topUpRefundedAt: firebase_1.FieldValue.serverTimestamp(),

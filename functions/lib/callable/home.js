@@ -133,6 +133,7 @@ async function _getNewArrivals(lastDocId, limit = 20) {
     // Single batch read for all sellers — no N+1
     const sellerMap = await batchFetchSellerNames(docs.map((d) => d.data().sellerId));
     const articles = docs.map((doc) => {
+        var _a, _b;
         const data = doc.data();
         return {
             id: doc.id,
@@ -142,7 +143,9 @@ async function _getNewArrivals(lastDocId, limit = 20) {
             images: data.images || [],
             sellerId: data.sellerId,
             sellerName: sellerMap.get(data.sellerId) || 'Unknown',
-            size: data.size,
+            // data.size is now an ArticleSize object { value, system }; the DTO
+            // exposes a plain string to the client.
+            size: (_b = (_a = data.size) === null || _a === void 0 ? void 0 : _a.value) !== null && _b !== void 0 ? _b : null,
             condition: data.condition,
         };
     });

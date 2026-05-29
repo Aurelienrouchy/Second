@@ -43,22 +43,33 @@ const { writeOps, docSnapshots, queryResults, autoDocCounter, mockDb, mockFieldV
         };
     }
     function mockCollectionRef(path) {
+        // Chainable query stub: supports any sequence of where/orderBy/limit
+        // terminated by get(). Results come from state.queryResults[path]
+        // (default empty — e.g. the walletWithdraw dispute guard finds no
+        // disputed transactions unless a test explicitly seeds them).
+        const makeQuery = () => {
+            const q = {
+                where: () => makeQuery(),
+                orderBy: () => makeQuery(),
+                limit: () => makeQuery(),
+                startAfter: () => makeQuery(),
+                get: async () => {
+                    var _a;
+                    const docs = (_a = state.queryResults[path]) !== null && _a !== void 0 ? _a : [];
+                    return { docs, empty: docs.length === 0, size: docs.length };
+                },
+            };
+            return q;
+        };
         return {
             path,
             doc: (id) => {
                 const docId = id !== null && id !== void 0 ? id : `auto_${++state.autoDocCounter.value}`;
                 return mockDocRef(`${path}/${docId}`);
             },
-            orderBy: () => ({
-                limit: () => ({
-                    get: async () => {
-                        var _a;
-                        return ({
-                            docs: (_a = state.queryResults[path]) !== null && _a !== void 0 ? _a : [],
-                        });
-                    },
-                }),
-            }),
+            where: () => makeQuery(),
+            orderBy: () => makeQuery(),
+            limit: () => makeQuery(),
         };
     }
     function createMockTransaction() {
@@ -290,6 +301,9 @@ const callPayWithWallet = wallet_1.payWithWallet;
         setDoc('users/user1', {
             stripeAccountId: 'acct_123',
             stripeChargesEnabled: true,
+            // Required by the payouts-enabled guard in wallet.ts (added by a prior
+            // chantier); without it every withdrawal test throws failed-precondition.
+            stripePayoutsEnabled: true,
             stripeBankAccountLast4: '4242',
         });
         setDoc('wallets/user1', {
@@ -403,6 +417,8 @@ const callPayWithWallet = wallet_1.payWithWallet;
                 walletWithdrawal: 'true',
             },
         });
+        // Deterministic idempotency key derived from the ledger entry id
+        (0, vitest_1.expect)(transferArgs[1]).toEqual({ idempotencyKey: vitest_1.expect.stringMatching(/^tr_/) });
         (0, vitest_1.expect)(payoutArgs[0]).toEqual({
             amount: 2000,
             currency: 'cad',
@@ -411,7 +427,12 @@ const callPayWithWallet = wallet_1.payWithWallet;
                 walletWithdrawal: 'true',
             },
         });
-        (0, vitest_1.expect)(payoutArgs[1]).toEqual({ stripeAccount: 'acct_123' });
+        // stripe-node v22: single RequestOptions object carries both the Connect
+        // account selection and the deterministic idempotency key.
+        (0, vitest_1.expect)(payoutArgs[1]).toEqual({
+            stripeAccount: 'acct_123',
+            idempotencyKey: vitest_1.expect.stringMatching(/^po_/),
+        });
     });
     (0, vitest_1.it)('reverts wallet debit when Stripe transfer fails', async () => {
         setupWithdrawable(5000);
