@@ -112,20 +112,23 @@ export default function ProposeSwapScreen() {
       }));
   }, [userArticlesRaw]);
 
-  // Derive available items from receiver articles query (receiver side)
+  // Derive available items from receiver articles query (receiver side).
+  // Prefer items the receiver has deposited in the zone; fall back to their
+  // full active inventory when they have nothing deposited.
   const receiverAvailableItems = useMemo<SwapItemInfo[]>(() => {
     if (!receiverArticlesRaw) return [];
-    return receiverArticlesRaw
-      .filter((a) => a.isActive !== false && !a.isSold)
-      .map((a) => ({
-        articleId: a.id,
-        title: a.title,
-        price: a.price,
-        imageUrl: a.images?.[0]?.url,
-        brand: a.brand,
-        size: a.size,
-      }));
-  }, [receiverArticlesRaw]);
+    const active = receiverArticlesRaw.filter((a) => a.isActive !== false && !a.isSold);
+    const inZone = active.filter((a) => receiverZoneArticleIds.has(a.id));
+    const source = inZone.length > 0 ? inZone : active;
+    return source.map((a) => ({
+      articleId: a.id,
+      title: a.title,
+      price: a.price,
+      imageUrl: a.images?.[0]?.url,
+      brand: a.brand,
+      size: a.size,
+    }));
+  }, [receiverArticlesRaw, receiverZoneArticleIds]);
 
   // Derive initial receiver items from params or target article query
   const initialReceiverItems = useMemo<SwapItemInfo[]>(() => {
