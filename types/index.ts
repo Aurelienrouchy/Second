@@ -106,7 +106,7 @@ export interface Article {
   /** @deprecated Use categoryIds instead */
   category: string;
   categoryIds: string[]; // IDs hiérarchiques ex: ['home', 'home_decoration', 'home_decoration_vases']
-  size?: string;
+  size?: ArticleSize | null;
   brand?: string;
   color?: string;
   colors?: string[];
