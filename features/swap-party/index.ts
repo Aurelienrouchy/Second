@@ -10,6 +10,7 @@ export { AddItemModal } from './components/AddItemModal';
 export { MultiSelectBar } from './components/MultiSelectBar';
 export { PartyEmptyGrid } from './components/PartyEmptyGrid';
 export { SwapPartyDetailSkeleton } from './components/SwapPartyDetailSkeleton';
+export { useSwapZoneFilters } from './hooks/useSwapZoneFilters';
 
 export type {
   PartyHeaderProps,
