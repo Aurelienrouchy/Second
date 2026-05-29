@@ -448,27 +448,11 @@ export class TransactionService {
       const transactions: Transaction[] = [];
 
       buyerSnapshot.forEach((doc) => {
-        const data = doc.data();
-        transactions.push({
-          id: doc.id,
-          ...data,
-          createdAt: data?.createdAt?.toDate() || new Date(),
-          paidAt: data?.paidAt?.toDate(),
-          shippedAt: data?.shippedAt?.toDate(),
-          deliveredAt: data?.deliveredAt?.toDate(),
-        } as Transaction);
+        transactions.push(mapTransaction(doc.id, doc.data()));
       });
 
       sellerSnapshot.forEach((doc) => {
-        const data = doc.data();
-        transactions.push({
-          id: doc.id,
-          ...data,
-          createdAt: data?.createdAt?.toDate() || new Date(),
-          paidAt: data?.paidAt?.toDate(),
-          shippedAt: data?.shippedAt?.toDate(),
-          deliveredAt: data?.deliveredAt?.toDate(),
-        } as Transaction);
+        transactions.push(mapTransaction(doc.id, doc.data()));
       });
 
       // Sort by creation date (most recent first)
