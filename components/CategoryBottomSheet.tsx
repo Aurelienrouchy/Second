@@ -77,7 +77,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
-        <BottomSheetView style={[styles.container, { height: sheetHeight }]}>
+        <BottomSheetView style={[styles.container, sheetStyle]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
             <Ionicons
