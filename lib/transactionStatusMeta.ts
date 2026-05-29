@@ -101,6 +101,13 @@ const STATUS_META: Record<TransactionStatus, StatusMeta> = {
     descriptionBuyer: 'Vente finalisée. Merci pour votre achat.',
     descriptionSeller: 'Vente finalisée. Le montant est disponible dans votre porte-monnaie.',
   },
+  return_requested: {
+    labelBuyer: 'Retour demandé',
+    labelSeller: 'Retour en cours',
+    variant: 'warning',
+    descriptionBuyer: 'Votre demande de retour est en cours de validation. Vous recevrez l\'étiquette de retour et les instructions ici même.',
+    descriptionSeller: 'L\'acheteur·euse a demandé un retour. Les fonds restent gelés le temps de la réception du colis.',
+  },
   delivery_failed: {
     labelBuyer: 'Problème de livraison',
     labelSeller: 'Problème de livraison',
