@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: 40,
+    // paddingBottom appliqué inline (inset fiable + marge) — voir contentContainerStyle.
   },
   sectionHeader: {
     backgroundColor: colors.surfaceWarm,
