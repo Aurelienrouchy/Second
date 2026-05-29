@@ -222,17 +222,7 @@ export class TransactionService {
 
       // Pick the most recent
       const sorted = docs
-        .map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            createdAt: data?.createdAt?.toDate() || new Date(0),
-            paidAt: data?.paidAt?.toDate(),
-            shippedAt: data?.shippedAt?.toDate(),
-            deliveredAt: data?.deliveredAt?.toDate(),
-          } as Transaction;
-        })
+        .map((d) => mapTransaction(d.id, d.data()))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       return sorted[0];
