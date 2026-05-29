@@ -413,7 +413,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 firebase.ts, gemini.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, stripe.ts
 
 ### Utils backend — `functions/src/utils/`
-debounce.ts, fees.ts, geohash.ts, notifications.ts, search.ts
+debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, search.ts, labelFulfillment.ts (P1 : `creditSellerForSale` crédit vendeur après label réussi + `reconcileShippingCost` coût réel vs estimé, partagé webhook/wallet/sweep)
 
 ---
 
