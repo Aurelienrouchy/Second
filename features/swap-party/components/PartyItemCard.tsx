@@ -98,6 +98,7 @@ export const PartyItemCard = React.memo(function PartyItemCard({
         </View>
       </View>
     </Pressable>
+    </Animated.View>
   );
 });
 
