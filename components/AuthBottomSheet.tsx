@@ -190,10 +190,16 @@ const AuthBottomSheet: React.FC = () => {
       ref={bottomSheetRef}
       index={-1}
       snapPoints={snapPoints}
+      backdropComponent={renderBackdrop}
       enablePanDownToClose
       enableDynamicSizing={false}
       onClose={handleClose}
+      topInset={insets.top}
+      handleIndicatorStyle={styles.handle}
       backgroundStyle={styles.sheetBackground}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="none"
+      android_keyboardInputMode="adjustResize"
     >
       <BottomSheetView style={styles.content}>
         <Animated.View key={authType} entering={FadeIn.duration(200)}>
