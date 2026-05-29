@@ -109,7 +109,7 @@ function getCarrierStatusInfo(
 }
 
 /** "Signaler un problème" options → backend report reason codes. */
-const REPORT_REASON_OPTIONS: ReadonlyArray<RecourseReasonOption<ReportReasonCode>> = [
+const REPORT_REASON_OPTIONS: readonly RecourseReasonOption<ReportReasonCode>[] = [
   { code: 'not_received_despite_delivered', label: 'Colis non reçu' },
   { code: 'not_as_described', label: 'Article non conforme à l’annonce' },
   { code: 'damaged', label: 'Article endommagé' },
@@ -117,7 +117,7 @@ const REPORT_REASON_OPTIONS: ReadonlyArray<RecourseReasonOption<ReportReasonCode
 ];
 
 /** "Demander un retour" options → backend return reason codes. */
-const RETURN_REASON_OPTIONS: ReadonlyArray<RecourseReasonOption<ReturnReasonCode>> = [
+const RETURN_REASON_OPTIONS: readonly RecourseReasonOption<ReturnReasonCode>[] = [
   { code: 'not_as_described', label: 'Article non conforme à l’annonce' },
   { code: 'damaged', label: 'Article endommagé' },
   { code: 'wrong_item', label: 'Mauvais article reçu' },
