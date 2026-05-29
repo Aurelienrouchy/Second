@@ -44,8 +44,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState<'reason' | 'description'>('reason');
 
-    const snapPoints = useMemo(() => ['60%', MAX_SNAP], []);
-    const sheetStyle = useSheetHeight(MAX_SNAP);
+    const snapPoints = useMemo(() => ['60%', '80%'], []);
 
     useImperativeHandle(ref, () => ({
       open: (type: ReportType, id: string, ownerId?: string) => {
