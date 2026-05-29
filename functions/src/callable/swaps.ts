@@ -604,13 +604,19 @@ export const createSwapTopUpCheckout = onCall(
       const totalChargeCents = Math.round(fees.buyerTotal * 100);
       const applicationFeeCents = Math.round(fees.serviceFee * 100);
 
+      // SINGLE MONEY MOVEMENT PER TOP-UP.
+      // We charge the platform directly (NO transfer_data / on_behalf_of), exactly
+      // like the mixed wallet+card flow in payments.ts. The payee is credited via
+      // the wallet ledger (pendingBalance) in handleSwapTopUpSucceeded, released to
+      // `balance` once both parties confirm reception, then paid out through
+      // walletWithdraw. Using transfer_data here would have Stripe auto-transfer the
+      // net to the payee's Connect account AND the webhook would credit the wallet —
+      // the payee would be paid twice. The wallet ledger is the single rail.
+      // The platform fee is still captured: it keeps the full base amount on-platform
+      // and only credits the wallet with `topUpAmount` (the service fee stays behind).
       const paymentIntent = await stripe.paymentIntents.create({
         amount: totalChargeCents,
         currency: 'cad',
-        application_fee_amount: applicationFeeCents,
-        transfer_data: {
-          destination: payeeData.stripeAccountId,
-        },
         metadata: {
           type: 'swap_topup',
           swapId,
