@@ -1422,35 +1422,17 @@ export const completeMeetupTransaction = onCall(
         }
 
         const sellerId = data.sellerId;
-        const sellerPayout = data.sellerPayout || data.amount;
 
-        // Get or create seller wallet
-        const { walletRef: sellerWalletRef, walletData: sellerWalletData } =
-          await getOrCreateSellerWallet(tx, sellerId);
-
-        // 1. Update transaction status
+        // Meetup = paiement cash hors-ligne pur. AUCUN argent n'a transité par
+        // la plateforme, donc on NE crédite JAMAIS le wallet vendeur
+        // (balance / pendingBalance) et on n'écrit AUCUN ledger de vente.
+        // Le runTransaction se limite à : passer le statut à meetup_completed,
+        // poser meetupCompletedAt, et débloquer l'éligibilité à l'avis (review),
+        // qui est dérivée du statut terminal + meetupCompletedAt dans reviews.ts.
         tx.update(txRef, {
           status: 'meetup_completed',
           completedAt: FieldValue.serverTimestamp(),
-        });
-
-        // 2. Credit seller wallet — meetup = immediate availability
-        const sellerPayoutCents = Math.round(sellerPayout * 100);
-
-        tx.update(sellerWalletRef, {
-          balance: FieldValue.increment(sellerPayoutCents),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-
-        // Create ledger entry
-        const ledgerRef = sellerWalletRef.collection('ledger').doc();
-        tx.set(ledgerRef, {
-          type: 'sale_available',
-          amount: sellerPayoutCents,
-          balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
-          description: 'Vente meetup — fonds disponibles',
-          transactionId,
-          createdAt: FieldValue.serverTimestamp(),
+          meetupCompletedAt: FieldValue.serverTimestamp(),
         });
 
         return { chatId: data.chatId, sellerId };
