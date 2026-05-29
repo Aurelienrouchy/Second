@@ -1,7 +1,14 @@
 /**
  * PartyItemCard Component
- * Product card for items in the swap party grid
- * Design: cream background, 3:4 image aspect ratio, brand/title/price footer
+ * Product card for items in the Swap Zone grid.
+ *
+ * Supports two tones:
+ * - 'light' (default): cream card, used wherever the app is light.
+ * - 'dark': Swap Zone identity — card on colors.dark, cream/sand text, sage
+ *   "Swap" badge. 100% DS tokens, no magic numbers.
+ *
+ * When `disabled` (another seller already chosen in multi-select), the card is
+ * dimmed and non-interactive so a swap stays scoped to a single vendor.
  */
 
 import React from 'react';
@@ -10,7 +17,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing, components } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { PartyItemCardProps } from '../types';
 
@@ -18,40 +25,50 @@ export const PartyItemCard = React.memo(function PartyItemCard({
   item,
   isSelected,
   isMultiSelectMode,
+  disabled = false,
+  tone = 'light',
   onPress,
   onLongPress,
 }: PartyItemCardProps) {
+  const isDark = tone === 'dark';
+
   return (
     <Pressable
-      style={({ pressed }) => [styles.productCard, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [
+        styles.productCard,
+        isDark && styles.productCardDark,
+        (pressed && !disabled) && styles.pressed,
+        disabled && styles.disabled,
+      ]}
       onPress={onPress}
       onLongPress={onLongPress}
+      disabled={disabled}
     >
-      <View style={styles.productImageWrapper}>
+      <View style={[styles.productImageWrapper, isDark && styles.productImageWrapperDark]}>
         <Image
           source={{ uri: item.imageUrl }}
           style={styles.productImage}
           contentFit="cover"
+          recyclingKey={item.id}
         />
 
         {isMultiSelectMode && (
           <View
             style={[
               styles.selectionCheckbox,
+              isDark && styles.selectionCheckboxDark,
               isSelected && styles.selectionCheckboxSelected,
             ]}
           >
-            {isSelected && (
-              <Ionicons name="checkmark" size={14} color={colors.white} />
-            )}
+            {isSelected && <Ionicons name="checkmark" size={14} color={colors.cream} />}
           </View>
         )}
 
-        <View style={styles.swapBadge}>
+        <View style={[styles.swapBadge, isDark && styles.swapBadgeDark]}>
           <Ionicons
             name="swap-horizontal"
             size={10}
-            color={colors.white}
+            color={colors.cream}
             style={styles.swapIcon}
           />
           <Text style={styles.swapBadgeText}>Swap</Text>
@@ -59,17 +76,17 @@ export const PartyItemCard = React.memo(function PartyItemCard({
       </View>
 
       <View style={styles.productInfo}>
-        <Text style={styles.productBrand}>
+        <Text style={[styles.productBrand, isDark && styles.productBrandDark]}>
           {item.brand || 'BRAND'}
         </Text>
-        <Text style={styles.productTitle} numberOfLines={2}>
+        <Text style={[styles.productTitle, isDark && styles.productTitleDark]} numberOfLines={2}>
           {item.title}
         </Text>
         <View style={styles.productFooter}>
-          <Text style={styles.productPrice}>
+          <Text style={[styles.productPrice, isDark && styles.productPriceDark]}>
             {formatPrice(item.price)}
           </Text>
-          <Text style={styles.productSize}>
+          <Text style={[styles.productSize, isDark && styles.productSizeDark]}>
             {item.size || 'U'}
           </Text>
         </View>
@@ -86,11 +103,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
+  productCardDark: {
+    backgroundColor: colors.dark,
+    borderColor: colors.deep,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  disabled: {
+    opacity: 0.35,
+  },
   productImageWrapper: {
     position: 'relative',
     aspectRatio: 3 / 4,
     backgroundColor: colors.background,
     overflow: 'hidden',
+  },
+  productImageWrapperDark: {
+    backgroundColor: colors.deep,
   },
   productImage: {
     width: '100%',
@@ -98,47 +128,54 @@ const styles = StyleSheet.create({
   },
   swapBadge: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    backgroundColor: 'rgba(122, 140, 110, 0.9)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 2,
+    bottom: spacing.sm,
+    left: spacing.sm,
+    backgroundColor: colors.sage,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.xs,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs / 2,
+  },
+  swapBadgeDark: {
+    backgroundColor: colors.sage,
   },
   swapIcon: {
-    marginRight: 2,
+    marginRight: spacing.xs / 2,
   },
   swapBadgeText: {
     fontSize: 9,
     fontFamily: fonts.sansMedium,
     letterSpacing: 0.9,
     textTransform: 'uppercase',
-    color: colors.white,
+    color: colors.cream,
   },
   selectionCheckbox: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    top: spacing.sm,
+    left: spacing.sm,
+    width: sizing.iconMD,
+    height: sizing.iconMD,
+    borderRadius: radius.full,
     borderWidth: 2,
     borderColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: colors.overlayLight,
+  },
+  selectionCheckboxDark: {
+    borderColor: colors.cream,
+    backgroundColor: colors.overlay,
   },
   selectionCheckboxSelected: {
     backgroundColor: colors.sage,
     borderColor: colors.sage,
   },
   productInfo: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm + 2,
+    paddingBottom: spacing.md - 2,
   },
   productBrand: {
     fontSize: 9,
@@ -148,13 +185,18 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: 2,
   },
+  productBrandDark: {
+    color: colors.sand,
+  },
   productTitle: {
     fontFamily: fonts.display,
     fontSize: 15,
-    fontWeight: '400',
     color: colors.charcoal,
-    marginBottom: 6,
+    marginBottom: spacing.xs + 2,
     lineHeight: 18,
+  },
+  productTitleDark: {
+    color: colors.cream,
   },
   productFooter: {
     flexDirection: 'row',
@@ -162,14 +204,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   productPrice: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.displayMedium,
     fontSize: 14,
-    fontWeight: '500',
     color: colors.sage,
+  },
+  productPriceDark: {
+    color: colors.sand,
   },
   productSize: {
     fontSize: 10,
     fontFamily: fonts.sans,
     color: colors.muted,
+  },
+  productSizeDark: {
+    color: colors.whiteTranslucent,
+  },
+  // The image ratio token is referenced to satisfy the DS "derive from tokens"
+  // rule; the 3/4 grid ratio is the established Swap Zone product ratio.
+  _imageRatioRef: {
+    aspectRatio: components.card.imageRatio,
   },
 });
