@@ -99,6 +99,37 @@ export const stripeWebhook = onRequest(
       const eventType = event.type;
 
       // =======================================================================
+      // UNIVERSAL IDEMPOTENCE — dedup by Stripe event.id
+      // =======================================================================
+      // Stripe may deliver the same event multiple times (retries on a slow
+      // ACK, at-least-once delivery). We atomically claim each event.id by
+      // creating a stripe_events/{event.id} marker doc inside a transaction.
+      // If the marker already exists, the event was already handled — ACK and
+      // return without re-running any handler. The per-status guards inside
+      // each handler remain as defense-in-depth.
+      const eventMarkerRef = db.collection('stripe_events').doc(event.id);
+      const alreadyHandled = await db.runTransaction(async (tx) => {
+        const markerSnap = await tx.get(eventMarkerRef);
+        if (markerSnap.exists) {
+          return true;
+        }
+        tx.create(eventMarkerRef, {
+          type: eventType,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        return false;
+      });
+
+      if (alreadyHandled) {
+        logger.info('Stripe webhook: duplicate event ignored', {
+          eventId: event.id,
+          eventType,
+        });
+        res.json({ received: true });
+        return;
+      }
+
+      // =======================================================================
       // PAYMENT_INTENT.SUCCEEDED
       // =======================================================================
 
