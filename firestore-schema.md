@@ -577,6 +577,20 @@ interface TransactionDocument {
   refundInitiatedAt?: Timestamp;   // Stamped by requestRefund when status -> refund_in_progress
                                    // (buyer auto-refund on carrier-confirmed delivery_failed/lost).
                                    // Cleared on rollback if the refund core throws.
+
+  // Buyer return leg (B2) — set by requestReturn; refund issued on return DELIVERED.
+  returnLabelId?: string;          // ShipEngine label id of the RETURN parcel (buyer -> seller)
+  returnTrackingNumber?: string;   // Tracking number of the RETURN parcel (polled / webhook-matched)
+  returnLabelUrl?: string | null;  // Downloadable PDF of the return label
+  returnCarrierCode?: string | null; // Carrier of the return parcel (poller getTracking)
+  returnLabelCost?: number;        // Real cost of the return label in DOLLARS; borne by the buyer
+                                   // (return refund = totalAmount - returnLabelCost).
+  returnReason?: 'not_as_described' | 'damaged' | 'wrong_item' | 'other';
+  returnTrackingStatus?: string;   // Best-effort visibility of the return parcel's mapped status
+  returnRequestedAt?: Timestamp;   // Stamped when the buyer requested the return (status -> return_requested)
+  returnDeliveredAt?: Timestamp;   // Stamped when the carrier confirmed the seller received the return
+                                   // (the moment the return-leg refund is issued -> status 'refunded').
+
   cancelReason?: string;           // Machine-readable reason (payment_failed, meetup_expired_48h, pending_payment_expired_1h, seller_did_not_ship_7d, label_creation_failed, etc.)
   cancelledBy?: string;            // UID of user who cancelled (manual cancel only)
   refundedAt?: Timestamp;
