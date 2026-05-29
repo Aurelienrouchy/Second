@@ -197,11 +197,26 @@ export const createTransaction = onCall(
     }
 
     if (deliveryType === 'shipping') {
-      if (typeof shippingCost !== 'number' || !isFinite(shippingCost) || shippingCost < 0) {
-        throw new HttpsError('invalid-argument', 'shippingCost is required for shipping');
-      }
+      // NOTE: the client-supplied `shippingCost` is intentionally NOT trusted.
+      // It is re-priced server-side below via ShipEngine. We only require the
+      // address and a valid (non-fallback) ShipEngine rateId to re-tarify.
       if (!shippingAddress || typeof shippingAddress !== 'object') {
         throw new HttpsError('invalid-argument', 'shippingAddress is required for shipping');
+      }
+      if (typeof shipEngineRateId !== 'string' || shipEngineRateId.length === 0) {
+        throw new HttpsError(
+          'invalid-argument',
+          'shipEngineRateId is required for shipping. Veuillez rafraichir l\'estimation de livraison.'
+        );
+      }
+      if (shipEngineRateId.startsWith('fallback_')) {
+        // A fallback rateId means ShipEngine was unreachable when the buyer
+        // requested an estimate. We cannot purchase a real label from it, so
+        // we refuse to create a paid order that could never ship.
+        throw new HttpsError(
+          'failed-precondition',
+          'Le tarif de livraison n\'est pas disponible pour le moment. Veuillez rafraichir l\'estimation de livraison.'
+        );
       }
     }
 
