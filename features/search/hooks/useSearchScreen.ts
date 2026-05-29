@@ -72,10 +72,20 @@ export function useSearchScreen() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showVisualSearch, setShowVisualSearch] = useState(false);
   const [isSearching, setIsSearching] = useState(hasInitialContext);
-  const [selectedSort, setSelectedSort] = useState<SortBy>('recent');
+  // M6 — hydrate the sort chip from restored filters (deep-link / saved search)
+  // so the chip label/active state matches the query's actual sort.
+  const [selectedSort, setSelectedSort] = useState<SortBy>(
+    (initialFilters?.sortBy as SortBy) || 'recent'
+  );
   const [showPriceInputs, setShowPriceInputs] = useState(false);
-  const [minPriceText, setMinPriceText] = useState('');
-  const [maxPriceText, setMaxPriceText] = useState('');
+  // M7 — hydrate the price inputs from restored filters so a re-Apply doesn't
+  // wipe a restored price range.
+  const [minPriceText, setMinPriceText] = useState(
+    initialFilters?.minPrice !== undefined ? String(initialFilters.minPrice) : ''
+  );
+  const [maxPriceText, setMaxPriceText] = useState(
+    initialFilters?.maxPrice !== undefined ? String(initialFilters.maxPrice) : ''
+  );
 
   // ─── Refs ────────────────────────────────────────────────────────
   const inputRef = useRef<TextInput>(null);
