@@ -257,12 +257,17 @@ export type TransactionStatus =
   | 'meetup_pending'     // Meetup requested, awaiting seller confirmation
   | 'meetup_confirmed'   // Seller confirmed meetup
   | 'meetup_completed'   // Both parties confirmed exchange
-  | 'paid'               // Payment received (shipping)
-  | 'shipped'            // Package shipped
-  | 'delivered'          // Package delivered
+  | 'paid'               // Payment received (shipping) — seller prepares parcel
+  | 'label_created'      // Shipping label purchased, before first carrier scan
+  | 'shipped'            // Package shipped (in transit)
+  | 'delivered'          // Package delivered — funds held during dispute window
+  | 'completed'          // Sale finalized after 7-day dispute window
+  | 'delivery_failed'    // Carrier delivery failed — dispute opened, funds frozen
+  | 'lost'               // Parcel declared lost — funds frozen
   | 'cancelled'          // Cancelled by either party
-  | 'disputed'           // Stripe dispute opened
-  | 'refunded';          // Stripe refund completed
+  | 'disputed'           // Dispute opened on the order
+  | 'refund_in_progress' // Transient — resolves to 'refunded'
+  | 'refunded';          // Refund completed
 
 export interface Transaction {
   id: string;
