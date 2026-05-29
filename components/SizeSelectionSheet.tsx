@@ -313,24 +313,6 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
             SIZE_SECTIONS.map(renderSizeSection)
           )}
         </BottomSheetScrollView>
-
-        {/* ── Confirm footer ── */}
-        <SheetFooter>
-          <TouchableOpacity
-            style={[
-              styles.confirmButton,
-              localSelectedSizes.length === 0 && styles.confirmButtonDisabled,
-            ]}
-            onPress={handleConfirm}
-          >
-            <Text style={styles.confirmButtonText}>
-              {localSelectedSizes.length > 0
-                ? `VALIDER (${localSelectedSizes.length})`
-                : 'VALIDER'}
-            </Text>
-          </TouchableOpacity>
-        </SheetFooter>
-        </BottomSheetView>
       </BottomSheet>
     );
   }
