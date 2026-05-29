@@ -220,9 +220,118 @@ export const createTransaction = onCall(
       }
     }
 
-    // --- Atomic check + create -----------------------------------------------
-
+    // --- Server-side shipping re-pricing (never trust client shippingCost) ----
+    //
+    // The buyer-supplied `shippingCost` / `shipEngineRateId` cannot be trusted:
+    // a malicious or buggy client could send shippingCost=0.01 with a real
+    // rateId, then the platform pays the true ~14$ label at the webhook.
+    //
+    // We re-quote the exact same origin (seller profile address) / destination
+    // (buyer shipping address) / parcel server-side, locate the rate matching
+    // the supplied rateId, and use ITS amount as the authoritative shipping
+    // cost. If the rateId can no longer be found (expired / tampered), we
+    // reject and force the client to re-fetch a fresh estimate.
+    //
+    // This network call is done OUTSIDE runTransaction (no I/O inside a
+    // Firestore transaction). The amount/availability invariants are still
+    // re-checked atomically below.
     const articleRef = db.collection('articles').doc(articleId);
+
+    let serverShippingCost = 0;
+
+    if (deliveryType === 'shipping') {
+      const shipEngine = getShipEngine();
+      if (!shipEngine) {
+        throw new HttpsError('failed-precondition', 'ShipEngine API not configured');
+      }
+
+      // Read article (parcel + seller) and seller (origin address) for re-pricing.
+      const articlePreSnap = await articleRef.get();
+      if (!articlePreSnap.exists) {
+        throw new HttpsError('not-found', 'Cet article n\'existe plus');
+      }
+      const articlePreData = articlePreSnap.data()!;
+
+      const sellerPreSnap = await db.collection('users').doc(articlePreData.sellerId).get();
+      if (!sellerPreSnap.exists) {
+        throw new HttpsError('not-found', 'Vendeur introuvable');
+      }
+      const sellerPreData = sellerPreSnap.data()!;
+
+      // Resolve the seller's origin address from their profile — NO Montreal
+      // fallback. A real label must ship from the seller's real address.
+      const origin = resolveSellerOriginAddress(sellerPreData, articlePreData);
+      if (!origin) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Le vendeur n\'a pas renseigne d\'adresse d\'expedition valide. La commande ne peut pas etre creee.'
+        );
+      }
+
+      // Destination = buyer shipping address (must carry a postal code).
+      const destPostal = (shippingAddress.postalCode || '').toString().trim();
+      if (destPostal.length === 0) {
+        throw new HttpsError('invalid-argument', 'Le code postal de livraison est requis');
+      }
+      const destination: ShipEngineAddress = {
+        name: shippingAddress.name || 'Acheteur',
+        addressLine1: shippingAddress.street || origin.addressLine1,
+        cityLocality: shippingAddress.city || origin.cityLocality,
+        stateProvince: shippingAddress.province || origin.stateProvince,
+        postalCode: destPostal,
+        countryCode: 'CA',
+        phone: shippingAddress.phone || origin.phone,
+      };
+
+      // Parcel from article metadata (same defaults as getShippingEstimate).
+      const parcelWeight = parseFloat(articlePreData.weight) || 0.5;
+      const dims = articlePreData.dimensions || {};
+      const parcel = {
+        weight: { value: parcelWeight, unit: 'kilogram' as const },
+        dimensions: {
+          length: parseFloat(dims.length) || 30,
+          width: parseFloat(dims.width) || 25,
+          height: parseFloat(dims.height) || 10,
+          unit: 'centimeter' as const,
+        },
+      };
+
+      let rates;
+      try {
+        rates = await shipEngine.getRates(origin, destination, parcel);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('createTransaction: ShipEngine re-pricing failed', {
+          articleId, shipEngineRateId, message,
+        });
+        throw new HttpsError(
+          'unavailable',
+          'Impossible de verifier le tarif de livraison pour le moment. Veuillez reessayer.'
+        );
+      }
+
+      const matchedRate = rates.find((r) => r.rateId === shipEngineRateId);
+      if (!matchedRate) {
+        // rateId expired or never belonged to this origin/destination/parcel.
+        logger.warn('createTransaction: supplied rateId not found in fresh rates', {
+          articleId, shipEngineRateId, ratesReturned: rates.length,
+        });
+        throw new HttpsError(
+          'failed-precondition',
+          'Le tarif de livraison selectionne a expire. Veuillez rafraichir l\'estimation de livraison.'
+        );
+      }
+
+      serverShippingCost = matchedRate.shippingAmount.amount;
+
+      logger.info('createTransaction: shipping re-priced server-side', {
+        articleId,
+        shipEngineRateId,
+        clientShippingCost: shippingCost,
+        serverShippingCost,
+        carrier: matchedRate.carrierCode,
+      });
+    }
 
     try {
       const transactionId = await db.runTransaction(async (tx) => {
