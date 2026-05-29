@@ -481,24 +481,32 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       if (buyerOverpaid) {
         const stripe = getStripe();
         if (stripe) {
+          // Reuse the shared refund core: ONE atomic op refunds the full card
+          // charge (deterministic key rf_mismatch_${txId}) AND reconciles the
+          // wallet (re-credit buyer wallet portion, debit seller exactly what was
+          // credited — 0 here since the tx was never marked paid). The tx never
+          // persisted stripePaymentIntentId (never reached 'paid'), so we inject
+          // the live id from the event. isMixedMismatch is derived inside the core
+          // from paidVia, so the reverse_transfer decision stays consistent.
+          const mismatchTxData = 'txData' in result ? result.txData : {};
           try {
-            const refund = await stripe.refunds.create(
+            await issueTransactionRefund(
+              transactionId,
+              { ...mismatchTxData, stripePaymentIntentId: paymentIntent.id },
               {
-                payment_intent: paymentIntent.id,
-                ...(isMixedMismatch
-                  ? {}
-                  : { reverse_transfer: true, refund_application_fee: true }),
-              },
-              { idempotencyKey: `rf_mismatch_${transactionId}` }
+                reason: 'amount_mismatch_buyer_overpaid',
+                idempotencyKey: `rf_mismatch_${transactionId}`,
+                source: 'webhook_amount_mismatch',
+              }
             );
             logger.warn('Stripe webhook: amount mismatch (buyer overpaid) — auto-refunded', {
               transactionId,
               paymentIntentId: paymentIntent.id,
-              stripeRefundId: refund.id,
             });
           } catch (refundErr) {
-            // The dead-letter above + the deterministic idempotency key make a
-            // later replay (retryFailedOperations) safe.
+            // issueTransactionRefund already dead-lettered the Stripe failure with
+            // the same deterministic key, in addition to the amount_mismatch
+            // dead-letter above; a later replay (retryFailedOperations) is safe.
             logger.error('CRITICAL Stripe webhook: amount mismatch auto-refund FAILED', {
               transactionId,
               paymentIntentId: paymentIntent.id,
