@@ -163,4 +163,27 @@ const styles = StyleSheet.create({
     color: colors.muted,
     lineHeight: 15,
   },
+  protectionBox: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  protectionTextWrap: {
+    flex: 1,
+  },
+  protectionTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.charcoal,
+    marginBottom: 4,
+  },
+  protectionBody: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.foregroundSecondary,
+    lineHeight: 16,
+  },
 });
