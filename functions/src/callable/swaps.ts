@@ -702,12 +702,17 @@ async function refundSwapTopUpIfPaid(swap: FirebaseFirestore.DocumentData, swapI
   }
 
   try {
-    const refund = await stripe.refunds.create({
-      payment_intent: swap.topUpPaymentIntentId,
-      reverse_transfer: true,
-      refund_application_fee: true,
-      metadata: { type: 'swap_topup_refund', swapId },
-    });
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: swap.topUpPaymentIntentId,
+        reverse_transfer: true,
+        refund_application_fee: true,
+        metadata: { type: 'swap_topup_refund', swapId },
+      },
+      // Deterministic key tied to the swap so a re-trigger never issues a
+      // second refund for the same top-up.
+      { idempotencyKey: `rf_swap_${swapId}` }
+    );
     await db.collection('swaps').doc(swapId).update({
       topUpRefundId: refund.id,
       topUpRefundedAt: FieldValue.serverTimestamp(),
