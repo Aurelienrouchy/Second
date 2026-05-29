@@ -179,13 +179,24 @@ export class TransactionService {
       throw new Error('userId is required to query a transaction');
     }
     try {
+      // Includes the post-delivery + recourse statuses so the chat-embedded
+      // ShipmentTracking (buyer recourse on delivery_failed/lost, return
+      // request on completed) keeps rendering instead of getting a null
+      // transaction. Excludes only the cold terminal states (refunded,
+      // cancelled) and refund_in_progress, which carry no tracking surface.
       const allowedStatuses = [
         'pending_payment',
         'meetup_pending',
         'meetup_confirmed',
+        'meetup_completed',
         'paid',
+        'label_created',
         'shipped',
         'delivered',
+        'completed',
+        'delivery_failed',
+        'lost',
+        'disputed',
       ] as const;
       const transactionsRef = collection(firestore, 'transactions');
       const buyerQuery = query(
