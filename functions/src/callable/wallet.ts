@@ -880,8 +880,12 @@ export const refundWalletPayment = onCall(
         const sellerId = txData.sellerId;
         const totalAmountCents = txData.walletAmountUsed || Math.round((txData.totalAmount || 0) * 100);
         const sellerPayout = txData.sellerPayout || txData.amount;
-        const sellerPayoutCents = Math.round(sellerPayout * 100);
-        const fundsInBalance = txData.status === 'delivered' || txData.status === 'meetup_completed';
+        // P1: debit the EXACT amount credited to the seller (persisted at credit
+        // time; legacy txs fall back to the derived payout).
+        const sellerDebitTarget =
+          typeof txData.sellerCreditedCents === 'number'
+            ? txData.sellerCreditedCents
+            : Math.round((sellerPayout || 0) * 100);
 
         // Read buyer wallet
         const buyerWalletRef = db.collection('wallets').doc(buyerId);
