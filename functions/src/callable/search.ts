@@ -268,6 +268,9 @@ export const getSimilarProducts = onCall(
         queryVector: sourceEmbedding,
         limit: limit + 1, // +1 to exclude self
         distanceMeasure: 'COSINE',
+        // Materialize the computed distance so doc.get('__distance__') is real.
+        // Without this the field is never written and similarity is always 100%.
+        distanceResultField: '__distance__',
       });
 
     const snapshot = await vectorQuery.get();
