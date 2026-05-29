@@ -36,7 +36,16 @@ export const getStripe = (): StripeClient | null => {
   if (!stripeInstance || stripeInstanceKey !== secretKey) {
     const keyPrefix = secretKey.substring(0, 12);
     logger.info('Initializing Stripe SDK', { keyPrefix: `${keyPrefix}...` });
-    stripeInstance = new Stripe(secretKey);
+    // Pin the API version coherent with stripe ^22 (Dahlia release) so the
+    // shape of webhook payloads / API responses cannot drift under us.
+    // maxNetworkRetries: Stripe retries are idempotent (uses idempotency keys
+    // internally), safe to retry transient network/5xx failures.
+    // timeout: cap each request at 20s to avoid hanging the webhook handler.
+    stripeInstance = new Stripe(secretKey, {
+      apiVersion: '2026-04-22.dahlia',
+      maxNetworkRetries: 2,
+      timeout: 20000,
+    });
     stripeInstanceKey = secretKey;
   }
   return stripeInstance;
