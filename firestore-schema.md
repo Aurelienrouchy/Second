@@ -808,10 +808,20 @@ interface SearchIndexDocument {
 
 Virtual wallet for buyers and sellers. All amounts are in **cents** (not dollars) to avoid floating-point issues. Balance mutations are server-side only via Cloud Functions with `runTransaction`.
 
+**Three-bucket seller funds model** (P1 dispute window):
+- `pendingBalance` — sale paid, NOT yet delivered (escrow, in transit). Not withdrawable.
+- `heldBalance` — delivered, inside the 7-day buyer-dispute window. Not withdrawable.
+- `balance` — withdrawable (dispute window elapsed without claim, via `releaseHeldFunds`).
+- `sellerDebt` — shortfall owed after a lost dispute where funds were already withdrawn; blocks all future withdrawals until cleared.
+
+Fund flow per sale: `pendingBalance` (paid) → `heldBalance` (delivered, `applyDeliveredHeldFunds`) → `balance` (`releaseHeldFunds` after 7d). On `charge.dispute.created` any released portion is moved `balance → heldBalance`; `charge.dispute.closed` releases (won) or debits `heldBalance`/`balance` (lost, recording `sellerDebt` if insufficient).
+
 ```typescript
 interface WalletDocument {
-  balance: number;           // Available balance in cents
-  pendingBalance: number;    // Funds waiting for delivery confirmation, in cents
+  balance: number;           // Withdrawable balance in cents
+  pendingBalance: number;    // Funds in transit (paid, not delivered), in cents
+  heldBalance?: number;      // Delivered, inside 7-day dispute window, in cents
+  sellerDebt?: number;       // Shortfall owed after a lost dispute, in cents
   currency: 'cad';
   status: 'active';
   activatedAt: Timestamp;
@@ -825,11 +835,23 @@ Immutable transaction log for the wallet.
 
 ```typescript
 interface WalletLedgerEntry {
-  type: 'sale_credit' | 'purchase_debit' | 'withdrawal' | 'refund_credit' | 'withdrawal_failed';
+  type:
+    | 'sale_credit'        // seller credited into pendingBalance (escrow)
+    | 'funds_held'         // delivered: pendingBalance -> heldBalance
+    | 'funds_released'     // dispute window elapsed: heldBalance -> balance
+    | 'dispute_hold'       // dispute opened: balance -> heldBalance (frozen)
+    | 'purchase_debit'
+    | 'withdrawal'
+    | 'refund_credit'
+    | 'refund_debit'       // seller debited on refund / lost dispute
+    | 'withdrawal_failed';
   amount: number;            // Positive, in cents
   balanceAfter: number;      // Wallet balance after this entry
   description: string;       // Human-readable description (FR)
+  status?: 'pending' | 'held';
   transactionId?: string;    // Reference to transactions collection
+  withdrawalRequestId?: string; // Reference to withdrawal_requests doc
+  debtRecorded?: number;     // Shortfall added to sellerDebt (lost dispute), in cents
   createdAt: Timestamp;
 }
 ```
