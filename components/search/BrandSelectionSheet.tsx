@@ -464,6 +464,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           </View>
         ) : (
           <BottomSheetFlatList
+            style={styles.flex}
             data={filteredBrands}
             renderItem={renderBrandItem}
             keyExtractor={(item) => item.value}
@@ -481,6 +482,28 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             }
           />
         )}
+
+        {/* ── Confirm footer (multi-select) ── */}
+        {!singleSelect && (
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                selectedBrands.length === 0 && styles.confirmButtonDisabled,
+              ]}
+              onPress={handleConfirm}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.confirmButtonText}>
+                {selectedBrands.length === 0
+                  ? 'VALIDER'
+                  : `VALIDER (${selectedBrands.length})`
+                }
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        </BottomSheetView>
       </BottomSheet>
     );
   }
