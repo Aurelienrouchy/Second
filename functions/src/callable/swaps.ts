@@ -25,7 +25,6 @@
  *    webhook reconciles the wallet ledger)
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
