@@ -32,6 +32,8 @@ import {
   ShippingCheckoutSkeleton,
   INITIAL_ADDRESS,
   FALLBACK_ESTIMATES,
+  isFallbackRate,
+  CHECKOUT_COPY,
 } from '@/features/checkout-shipping';
 import type { ShippingEstimate, AddressFormValues } from '@/features/checkout-shipping';
 import { homeKeys } from '@/features/home/query-keys';
