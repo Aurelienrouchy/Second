@@ -415,14 +415,7 @@ export class TransactionService {
         }
       }
 
-      transactions.push({
-        id: d.id,
-        ...data,
-        createdAt: data?.createdAt?.toDate() || new Date(),
-        paidAt: data?.paidAt?.toDate(),
-        shippedAt: data?.shippedAt?.toDate(),
-        deliveredAt: data?.deliveredAt?.toDate(),
-      } as Transaction);
+      transactions.push(mapTransaction(d.id, data));
     }
 
     return transactions;
