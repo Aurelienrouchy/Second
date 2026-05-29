@@ -17,7 +17,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts, spacing, radius, sizing, components } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { PartyItemCardProps } from '../types';
 
