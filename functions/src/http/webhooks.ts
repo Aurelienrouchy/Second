@@ -1260,10 +1260,13 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     const sellerPayout = txData.sellerPayout || txData.amount;
     const paidVia = txData.paidVia;
     const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
-    const previousStatus = txData.status;
-    const wasDelivered = previousStatus === 'delivered' || previousStatus === 'meetup_completed';
 
-    // --- Handle wallet refund for buyer ---
+    // --- Handle wallet refund for buyer (mixed/100%-wallet payments) ---
+    // The buyer's wallet portion is a purely INTERNAL movement: it was debited
+    // from the buyer at checkout, so on refund it must be re-credited to the
+    // buyer's wallet. The card portion is returned to the card by the Stripe
+    // refund itself (created upstream with reverse_transfer when the original
+    // charge was a destination charge). This handler only reconciles the ledger.
     if (paidVia === 'wallet' || paidVia === 'wallet_and_card') {
       const buyerId = txData.buyerId;
       const buyerWalletRef = db.collection('wallets').doc(buyerId);
@@ -1288,59 +1291,113 @@ async function handleChargeRefunded(charge: any): Promise<void> {
             type: 'refund_credit',
             amount: walletRefundAmount,
             balanceAfter: (walletData.balance || 0) + walletRefundAmount,
-            description: 'Remboursement — retour au porte-monnaie',
+            description:
+              paidVia === 'wallet_and_card'
+                ? 'Remboursement — portion porte-monnaie restituée'
+                : 'Remboursement — retour au porte-monnaie',
             transactionId,
             createdAt: FieldValue.serverTimestamp(),
           });
         }
+      } else {
+        logger.warn('Stripe webhook: refund — buyer wallet not found, cannot re-credit wallet portion', {
+          transactionId,
+          buyerId,
+        });
       }
     }
 
-    // --- Debit seller wallet ---
+    // --- Debit seller wallet of EXACTLY what was credited ---
+    // P1: debit the precise amount that was credited to the seller for this sale
+    // (persisted as sellerCreditedCents at credit time; legacy txs fall back to
+    // the derived payout). Cascade across the three buckets in escrow order
+    // pendingBalance -> heldBalance -> balance so we drain wherever the funds
+    // currently sit (paid, delivered-in-window, or released). Any remainder the
+    // seller no longer holds (already withdrawn) is recorded as sellerDebt and
+    // blocks future withdrawals until recovered — NEVER masked with min().
     const sellerWalletRef = db.collection('wallets').doc(sellerId);
     const sellerWalletSnap = await tx.get(sellerWalletRef);
-    const sellerPayoutCents = Math.round(sellerPayout * 100);
+    const sellerDebitTarget =
+      typeof txData.sellerCreditedCents === 'number'
+        ? txData.sellerCreditedCents
+        : Math.round((sellerPayout || 0) * 100);
 
-    if (sellerWalletSnap.exists) {
-      const sellerWalletData = sellerWalletSnap.data()!;
+    if (sellerDebitTarget > 0) {
+      if (sellerWalletSnap.exists) {
+        const sellerWalletData = sellerWalletSnap.data()!;
+        const pendingNow = sellerWalletData.pendingBalance || 0;
+        const heldNow = sellerWalletData.heldBalance || 0;
+        const balanceNow = sellerWalletData.balance || 0;
 
-      if (wasDelivered) {
-        const deduction = Math.min(sellerPayoutCents, sellerWalletData.balance || 0);
-        tx.update(sellerWalletRef, {
-          balance: FieldValue.increment(-deduction),
+        const fromPending = Math.min(sellerDebitTarget, pendingNow);
+        let remaining = sellerDebitTarget - fromPending;
+        const fromHeld = Math.min(remaining, heldNow);
+        remaining -= fromHeld;
+        const fromBalance = Math.min(remaining, balanceNow);
+        const shortfall = remaining - fromBalance;
+
+        const walletUpdate: Record<string, any> = {
           updatedAt: FieldValue.serverTimestamp(),
-        });
+        };
+        if (fromPending > 0) walletUpdate.pendingBalance = FieldValue.increment(-fromPending);
+        if (fromHeld > 0) walletUpdate.heldBalance = FieldValue.increment(-fromHeld);
+        if (fromBalance > 0) walletUpdate.balance = FieldValue.increment(-fromBalance);
+        if (shortfall > 0) walletUpdate.sellerDebt = FieldValue.increment(shortfall);
+        tx.update(sellerWalletRef, walletUpdate);
 
+        const debited = fromPending + fromHeld + fromBalance;
         const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
         tx.set(sellerLedgerRef, {
           type: 'refund_debit',
-          amount: deduction,
-          balanceAfter: (sellerWalletData.balance || 0) - deduction,
-          description: 'Remboursement Stripe — débit vendeur',
+          amount: debited,
+          balanceAfter: balanceNow - fromBalance,
+          description:
+            shortfall > 0
+              ? 'Remboursement Stripe — débit vendeur (dette enregistrée pour le solde manquant)'
+              : 'Remboursement Stripe — débit vendeur',
           transactionId,
           createdAt: FieldValue.serverTimestamp(),
+          ...(shortfall > 0 && { debtRecorded: shortfall }),
         });
+
+        if (shortfall > 0) {
+          logger.warn('Stripe webhook: refund — seller balance insufficient, debt recorded', {
+            transactionId,
+            sellerId,
+            debitTarget: sellerDebitTarget,
+            debited,
+            shortfall,
+          });
+        }
       } else {
-        const deduction = Math.min(sellerPayoutCents, sellerWalletData.pendingBalance || 0);
-        tx.update(sellerWalletRef, {
-          pendingBalance: FieldValue.increment(-deduction),
-          updatedAt: FieldValue.serverTimestamp(),
+        // No wallet at all: the seller was paid (destination charge / earlier
+        // credit) but the wallet doc is gone — record the full amount as debt so
+        // the loss is tracked and future withdrawals stay blocked.
+        logger.warn('Stripe webhook: refund — seller wallet missing, recording full debt', {
+          transactionId,
+          sellerId,
+          debitTarget: sellerDebitTarget,
         });
+        tx.set(
+          sellerWalletRef,
+          {
+            sellerDebt: FieldValue.increment(sellerDebitTarget),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
 
         const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
         tx.set(sellerLedgerRef, {
           type: 'refund_debit',
-          amount: deduction,
-          balanceAfter: (sellerWalletData.pendingBalance || 0) - deduction,
-          description: 'Remboursement Stripe — débit vendeur (fonds en attente)',
+          amount: 0,
+          balanceAfter: 0,
+          description: 'Remboursement Stripe — porte-monnaie absent, dette enregistrée',
           transactionId,
           createdAt: FieldValue.serverTimestamp(),
+          debtRecorded: sellerDebitTarget,
         });
       }
-    } else {
-      logger.warn('Stripe webhook: refund — seller wallet not found, cannot debit', {
-        transactionId, sellerId,
-      });
     }
 
     // Release the article
