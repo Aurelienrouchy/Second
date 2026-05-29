@@ -188,87 +188,136 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   }, [transaction.shippingLabelUrl]);
 
   // ---------------------------------------------------------------------------
-  // BUYER RECOURSE
-  //
-  // TODO(backend): no buyer-facing callable exists yet for problem reports /
-  // refund requests / return requests (`adminRefundTransaction` is admin-only).
-  // Until a `reportTransactionProblem` / `requestRefund` / `requestReturn`
-  // callable is exposed, these flows confirm intent with the spec copy and route
-  // the buyer to the transaction chat — the real channel to reach the team /
-  // seller — instead of inventing a server call. Wire the callable here when
-  // available (see followUps).
+  // BUYER RECOURSE — wired to the buyer-facing callables
+  // (functions/src/callable/recourse.ts): requestRefund / reportTransactionProblem
+  // / requestReturn. The transaction doc is the source of truth — after a
+  // successful call we trigger onStatusUpdate() so the parent refetches and the
+  // UI reflects the new status (refund_in_progress / disputed / return_requested).
   // ---------------------------------------------------------------------------
 
-  const goToTransactionChat = useCallback(() => {
-    if (transaction.chatId) {
-      router.push(`/chat/${transaction.chatId}`);
-    }
-  }, [router, transaction.chatId]);
+  const { requestRefund, reportProblem, requestReturn } = useTransactionRecourse();
+  const reportSheetRef = useRef<RecourseReasonSheetRef>(null);
+  const returnSheetRef = useRef<RecourseReasonSheetRef>(null);
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
+  const [isReturning, setIsReturning] = useState(false);
 
-  const showReportConfirmation = useCallback(() => {
-    Alert.alert(
-      'Signalement envoyé',
-      'Nous avons bien reçu votre signalement. Notre équipe revient vers vous sous 48 h. Vos fonds restent protégés.',
-      [{ text: 'Compris' }],
-    );
+  const openReportSheet = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    reportSheetRef.current?.present();
   }, []);
 
-  const handleReportProblem = useCallback(() => {
+  const openReturnSheet = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
-      'Signaler un problème',
-      'Sélectionnez ce qui s’est passé. Notre équipe examine chaque signalement sous 48 h.',
-      [
-        ...REPORT_REASONS.map((reason) => ({
-          text: reason,
-          onPress: showReportConfirmation,
-        })),
-        { text: 'Annuler', style: 'cancel' as const },
-      ],
-    );
-  }, [showReportConfirmation]);
+    returnSheetRef.current?.present();
+  }, []);
+
+  const handleSubmitReport = useCallback(
+    async (reason: ReportReasonCode, details: string) => {
+      if (isReporting) return;
+      try {
+        setIsReporting(true);
+        await reportProblem(transaction.id, reason, details);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        reportSheetRef.current?.dismiss();
+        onStatusUpdate?.();
+        Alert.alert(
+          'Signalement envoyé',
+          'Nous avons bien reçu votre signalement. Notre équipe revient vers vous sous 48 h. Le scan livré fait foi, notre équipe examine. Vos fonds restent protégés.',
+          [{ text: 'Compris' }],
+        );
+      } catch (error: unknown) {
+        if (__DEV__) console.error('reportTransactionProblem failed:', error);
+        Alert.alert('Signalement impossible', getRecourseErrorMessage(error), [
+          { text: 'Compris' },
+        ]);
+      } finally {
+        setIsReporting(false);
+      }
+    },
+    [isReporting, reportProblem, transaction.id, onStatusUpdate],
+  );
+
+  const submitRefund = useCallback(async () => {
+    if (isRefunding) return;
+    try {
+      setIsRefunding(true);
+      const result = await requestRefund(transaction.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onStatusUpdate?.();
+      Alert.alert(
+        'Demande envoyée',
+        result.alreadyRefunded
+          ? 'Cette commande a déjà été remboursée. Le montant a été recrédité sur votre moyen de paiement d’origine.'
+          : 'Votre remboursement a été enregistré. Le montant sera recrédité sur votre moyen de paiement d’origine. Nous vous tiendrons informé·e de son avancement.',
+        [{ text: 'Compris' }],
+      );
+    } catch (error: unknown) {
+      if (__DEV__) console.error('requestRefund failed:', error);
+      // Refund refused on a delivered parcel → steer the buyer to the report flow.
+      if (isFailedPrecondition(error)) {
+        Alert.alert(
+          'Remboursement automatique indisponible',
+          'Le remboursement automatique est réservé aux colis confirmés perdus ou en échec de livraison. Pour un colis livré présentant un problème, signalez-le à notre équipe.',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Signaler un problème', onPress: openReportSheet },
+          ],
+        );
+        return;
+      }
+      Alert.alert('Demande impossible', getRecourseErrorMessage(error), [
+        { text: 'Compris' },
+      ]);
+    } finally {
+      setIsRefunding(false);
+    }
+  }, [isRefunding, requestRefund, transaction.id, onStatusUpdate, openReportSheet]);
 
   const handleRequestRefund = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
       'Demander un remboursement',
-      'Vous pouvez demander le remboursement de cette commande. Une fois validé, le montant sera recrédité sur votre moyen de paiement d’origine. Le remboursement est traité après vérification par notre équipe.',
+      'Vous pouvez demander le remboursement de cette commande. Une fois validé, le montant sera recrédité sur votre moyen de paiement d’origine.',
       [
         { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer la demande',
-          onPress: () => {
-            Alert.alert(
-              'Demande envoyée',
-              'Votre demande de remboursement a été transmise. Nous vous tiendrons informé·e de son avancement.',
-              [{ text: 'Compris', onPress: goToTransactionChat }],
-            );
-          },
-        },
+        { text: 'Confirmer la demande', onPress: submitRefund },
       ],
     );
-  }, [goToTransactionChat]);
+  }, [submitRefund]);
 
-  const handleRequestReturn = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
-      'Demander un retour',
-      'Vous souhaitez renvoyer cet article ? Les frais d’expédition du retour sont à votre charge et seront déduits du remboursement. Le montant de l’article vous sera remboursé une fois le retour réceptionné par le vendeur·euse.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Demander le retour',
-          onPress: () => {
-            Alert.alert(
-              'Demande de retour envoyée',
-              'Votre demande est en cours de validation. Vous recevrez l’étiquette de retour et les instructions ici même.',
-              [{ text: 'Compris', onPress: goToTransactionChat }],
-            );
-          },
-        },
-      ],
-    );
-  }, [goToTransactionChat]);
+  const handleSubmitReturn = useCallback(
+    async (reason: ReturnReasonCode) => {
+      if (isReturning) return;
+      try {
+        setIsReturning(true);
+        await requestReturn(transaction.id, reason);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        returnSheetRef.current?.dismiss();
+        onStatusUpdate?.();
+        Alert.alert(
+          'Demande de retour envoyée',
+          'Votre demande est validée. Imprimez l’étiquette de retour ci-dessous et déposez le colis chez le transporteur. Vous serez remboursé·e une fois le retour réceptionné par le vendeur·euse.',
+          [{ text: 'Compris' }],
+        );
+      } catch (error: unknown) {
+        if (__DEV__) console.error('requestReturn failed:', error);
+        Alert.alert('Retour impossible', getRecourseErrorMessage(error), [
+          { text: 'Compris' },
+        ]);
+      } finally {
+        setIsReturning(false);
+      }
+    },
+    [isReturning, requestReturn, transaction.id, onStatusUpdate],
+  );
+
+  const handleOpenReturnLabel = useCallback(() => {
+    if (transaction.returnLabelUrl) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Linking.openURL(transaction.returnLabelUrl);
+    }
+  }, [transaction.returnLabelUrl]);
 
   const carrierInfo = getCarrierStatusInfo(transaction);
 
