@@ -8,6 +8,7 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
