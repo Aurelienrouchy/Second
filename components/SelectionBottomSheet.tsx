@@ -134,7 +134,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
             styles.scrollContent,
             {
               paddingBottom:
-                insets.bottom + 20 + (multiSelect ? SHEET_FOOTER_HEIGHT : 0),
+                SHEET_BOTTOM_INSET + 20 + (multiSelect ? SHEET_FOOTER_HEIGHT : 0),
             },
           ]}
           showsVerticalScrollIndicator={false}
