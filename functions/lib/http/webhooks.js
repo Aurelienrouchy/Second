@@ -82,6 +82,7 @@ exports.stripeWebhook = (0, https_1.onRequest)({
     memory: '512MiB',
     secrets: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'SHIPENGINE_API_KEY'],
 }, async (req, res) => {
+    var _a, _b;
     if (req.method !== 'POST') {
         res.status(405).send('Method not allowed');
         return;
@@ -126,7 +127,14 @@ exports.stripeWebhook = (0, https_1.onRequest)({
         // PAYMENT_INTENT.SUCCEEDED
         // =======================================================================
         if (eventType === 'payment_intent.succeeded') {
-            await handlePaymentIntentSucceeded(event.data.object);
+            // Swap cash top-up payments are tagged with metadata.type === 'swap_topup'
+            // and handled separately (advance swap + credit payee wallet pending).
+            if (((_b = (_a = event.data.object) === null || _a === void 0 ? void 0 : _a.metadata) === null || _b === void 0 ? void 0 : _b.type) === 'swap_topup') {
+                await handleSwapTopUpSucceeded(event.data.object);
+            }
+            else {
+                await handlePaymentIntentSucceeded(event.data.object);
+            }
         }
         // =======================================================================
         // PAYMENT_INTENT.PAYMENT_FAILED
@@ -431,6 +439,110 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
     logger.info('Stripe webhook: fully processed', { transactionId });
 }
 // =============================================================================
+// HANDLER: payment_intent.succeeded (metadata.type === 'swap_topup')
+// =============================================================================
+/**
+ * Confirm a swap cash top-up payment.
+ *
+ * Calqued on handlePaymentIntentSucceeded for purchases:
+ *  1. Idempotence: only advance a swap still in 'payment_pending'.
+ *  2. Verify the amount matches the stored topUpFee + base top-up amount.
+ *  3. Transition swap 'payment_pending' → 'accepted' (exchange mode flow next).
+ *  4. Credit the payee wallet pendingBalance (escrow) with the base top-up
+ *     amount (the platform keeps the fee, mirroring 0% seller commission).
+ *     Funds are released to `balance` at confirmSwapReception.
+ *
+ * The top-up `amount` in metadata is in CENTS (base amount, fee excluded).
+ */
+async function handleSwapTopUpSucceeded(paymentIntent) {
+    var _a, _b, _c;
+    const swapId = (_a = paymentIntent.metadata) === null || _a === void 0 ? void 0 : _a.swapId;
+    if (typeof swapId !== 'string' ||
+        swapId.length === 0 ||
+        swapId.length > 200 ||
+        swapId.includes('/')) {
+        logger.error('Stripe webhook: swap_topup PaymentIntent missing/invalid swapId', {
+            paymentIntentId: paymentIntent.id,
+            swapId,
+        });
+        return;
+    }
+    const payeeId = (_b = paymentIntent.metadata) === null || _b === void 0 ? void 0 : _b.payeeId;
+    const baseAmountCents = parseInt(((_c = paymentIntent.metadata) === null || _c === void 0 ? void 0 : _c.topUpAmount) || '0', 10);
+    if (typeof payeeId !== 'string' || !payeeId || !Number.isInteger(baseAmountCents) || baseAmountCents <= 0) {
+        logger.error('Stripe webhook: swap_topup PaymentIntent missing payeeId/topUpAmount', {
+            paymentIntentId: paymentIntent.id,
+            swapId,
+        });
+        return;
+    }
+    const amountReceivedCents = paymentIntent.amount_received || paymentIntent.amount;
+    const swapRef = firebase_1.db.collection('swaps').doc(swapId);
+    await firebase_1.db.runTransaction(async (tx) => {
+        const swapSnap = await tx.get(swapRef);
+        const swap = swapSnap.data();
+        if (!swap) {
+            logger.error('Stripe webhook: swap_topup swap not found', { swapId });
+            return;
+        }
+        // SECURITY: verify the charged amount matches base + fee from the swap doc.
+        const expectedTotalCents = baseAmountCents + (swap.topUpFee || 0);
+        if (Math.abs(amountReceivedCents - expectedTotalCents) > 1) {
+            logger.error('Stripe webhook: swap_topup amount mismatch', {
+                swapId,
+                received: amountReceivedCents,
+                expected: expectedTotalCents,
+            });
+            throw new Error('Swap top-up amount does not match expected total');
+        }
+        // IDEMPOTENCE: only advance a swap still awaiting payment.
+        if (swap.status !== 'payment_pending') {
+            logger.info('Stripe webhook: swap_topup already processed or not pending', {
+                swapId,
+                currentStatus: swap.status,
+            });
+            return;
+        }
+        // Credit payee wallet pendingBalance (escrow), auto-create if absent.
+        const { walletRef, walletData, isNew } = await (0, wallet_1.getOrCreateSellerWallet)(tx, payeeId);
+        if (!isNew) {
+            tx.update(walletRef, {
+                pendingBalance: firebase_1.FieldValue.increment(baseAmountCents),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+        }
+        else {
+            tx.update(walletRef, {
+                pendingBalance: baseAmountCents,
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+        }
+        const ledgerRef = walletRef.collection('ledger').doc();
+        tx.set(ledgerRef, {
+            type: 'sale_credit',
+            amount: baseAmountCents,
+            balanceAfter: (walletData.pendingBalance || 0) + baseAmountCents,
+            description: 'Complément d\'échange — fonds en attente',
+            swapId,
+            createdAt: firebase_1.FieldValue.serverTimestamp(),
+            status: 'pending',
+        });
+        // Advance swap to 'accepted' (exchange mode flow proceeds from here).
+        tx.update(swapRef, {
+            status: 'accepted',
+            topUpPaidAt: firebase_1.FieldValue.serverTimestamp(),
+            topUpPaymentIntentId: paymentIntent.id,
+            topUpChargeId: paymentIntent.latest_charge || null,
+            updatedAt: firebase_1.FieldValue.serverTimestamp(),
+        });
+    });
+    logger.info('Stripe webhook: swap top-up confirmed, swap advanced to accepted', {
+        swapId,
+        paymentIntentId: paymentIntent.id,
+        payeeId,
+    });
+}
+// =============================================================================
 // HANDLER: payment_intent.payment_failed
 // =============================================================================
 async function handlePaymentIntentFailed(paymentIntent) {
@@ -588,10 +700,23 @@ async function handleChargeRefunded(charge) {
         .limit(1)
         .get();
     if (txQuery.empty) {
-        logger.error('Stripe webhook: refund — no transaction found for PaymentIntent', {
-            chargeId: charge.id,
-            paymentIntentId,
-        });
+        // Not a purchase — could be a swap cash top-up refund. Reconcile the payee
+        // wallet pendingBalance (the funds were never released to balance because a
+        // top-up is only released to balance at confirmSwapReception, and refunds
+        // only occur on cancel/dispute BEFORE release).
+        const swapQuery = await firebase_1.db
+            .collection('swaps')
+            .where('topUpPaymentIntentId', '==', paymentIntentId)
+            .limit(1)
+            .get();
+        if (swapQuery.empty) {
+            logger.error('Stripe webhook: refund — no transaction or swap found for PaymentIntent', {
+                chargeId: charge.id,
+                paymentIntentId,
+            });
+            return;
+        }
+        await handleSwapTopUpRefund(swapQuery.docs[0]);
         return;
     }
     const txDoc = txQuery.docs[0];
@@ -706,6 +831,85 @@ async function handleChargeRefunded(charge) {
         chargeId: charge.id,
         paymentIntentId,
     });
+}
+/**
+ * Reconcile a swap top-up refund on the payee wallet.
+ *
+ * The refund was issued via stripe.refunds.create({ reverse_transfer: true })
+ * in the swap callable (cancelSwap / openSwapDispute). This handler debits the
+ * payee's wallet pendingBalance (the escrow that was credited on payment) and
+ * writes a refund_debit ledger entry. Idempotent via topUpRefundReconciledAt.
+ */
+async function handleSwapTopUpRefund(swapDoc) {
+    const swapId = swapDoc.id;
+    await firebase_1.db.runTransaction(async (tx) => {
+        const snap = await tx.get(swapDoc.ref);
+        const swap = snap.data();
+        if (!swap)
+            return;
+        // Idempotence
+        if (swap.topUpRefundReconciledAt) {
+            logger.info('Stripe webhook: swap top-up refund already reconciled', { swapId });
+            return;
+        }
+        const topUp = swap.cashTopUp;
+        if (topUp == null || typeof topUp.amount !== 'number') {
+            logger.warn('Stripe webhook: swap top-up refund — no cashTopUp on swap', { swapId });
+            tx.update(swapDoc.ref, { topUpRefundReconciledAt: firebase_1.FieldValue.serverTimestamp() });
+            return;
+        }
+        const payeeId = topUp.payerId === swap.initiatorId ? swap.receiverId : swap.initiatorId;
+        const baseAmountCents = Math.round(topUp.amount);
+        const payeeWalletRef = firebase_1.db.collection('wallets').doc(payeeId);
+        const payeeWalletSnap = await tx.get(payeeWalletRef);
+        if (payeeWalletSnap.exists) {
+            const walletData = payeeWalletSnap.data();
+            // Funds were released to balance only if topUpReleasedAt is set; refunds
+            // happen pre-release, so debit pendingBalance. Guard with min() for safety.
+            const fundsReleased = !!swap.topUpReleasedAt;
+            if (fundsReleased) {
+                const deduction = Math.min(baseAmountCents, walletData.balance || 0);
+                tx.update(payeeWalletRef, {
+                    balance: firebase_1.FieldValue.increment(-deduction),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                const ledgerRef = payeeWalletRef.collection('ledger').doc();
+                tx.set(ledgerRef, {
+                    type: 'refund_debit',
+                    amount: deduction,
+                    balanceAfter: (walletData.balance || 0) - deduction,
+                    description: 'Remboursement complément d\'échange — débit',
+                    swapId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+            else {
+                const deduction = Math.min(baseAmountCents, walletData.pendingBalance || 0);
+                tx.update(payeeWalletRef, {
+                    pendingBalance: firebase_1.FieldValue.increment(-deduction),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                const ledgerRef = payeeWalletRef.collection('ledger').doc();
+                tx.set(ledgerRef, {
+                    type: 'refund_debit',
+                    amount: deduction,
+                    balanceAfter: (walletData.pendingBalance || 0) - deduction,
+                    description: 'Remboursement complément d\'échange — débit (fonds en attente)',
+                    swapId,
+                    createdAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+        }
+        else {
+            logger.warn('Stripe webhook: swap top-up refund — payee wallet not found', { swapId, payeeId });
+        }
+        tx.update(swapDoc.ref, {
+            topUpRefundReconciledAt: firebase_1.FieldValue.serverTimestamp(),
+            stripeRefundId: swap.topUpRefundId || null,
+            updatedAt: firebase_1.FieldValue.serverTimestamp(),
+        });
+    });
+    logger.warn('Stripe webhook: swap top-up refund reconciled', { swapId });
 }
 // =============================================================================
 // HANDLER: account.updated

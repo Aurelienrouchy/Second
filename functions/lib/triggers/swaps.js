@@ -171,7 +171,7 @@ function getSwapDescription(swap) {
  * Send notification when swap status changes
  */
 exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'swaps/{swapId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     try {
         const before = (_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before) === null || _b === void 0 ? void 0 : _b.data();
         const after = (_d = (_c = event.data) === null || _c === void 0 ? void 0 : _c.after) === null || _d === void 0 ? void 0 : _d.data();
@@ -192,6 +192,18 @@ exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'sw
                 title = 'Échange accepté !';
                 body = `${after.receiverName} a accepté ${getSwapDescription(after)}`;
                 break;
+            case 'payment_pending':
+                // The receiver accepted a swap with a cash top-up — notify the payer
+                // (could be either party) that payment is required to proceed.
+                if ((_e = after.cashTopUp) === null || _e === void 0 ? void 0 : _e.payerId) {
+                    await (0, notifications_1.sendSwapNotification)(after.cashTopUp.payerId, swapId, 'Paiement requis', 'Ton échange est accepté. Règle le complément pour lancer l\'échange.', after);
+                }
+                return;
+            case 'disputed':
+                // Notify both parties that a dispute was opened.
+                await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, 'Litige ouvert', 'Un litige a été ouvert sur cet échange. Notre équipe va l\'examiner.', after);
+                await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, 'Litige ouvert', 'Un litige a été ouvert sur cet échange. Notre équipe va l\'examiner.', after);
+                return;
             case 'declined':
                 targetUserId = after.initiatorId;
                 title = 'Échange refusé';

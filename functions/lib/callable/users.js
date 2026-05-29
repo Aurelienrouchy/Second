@@ -205,43 +205,27 @@ exports.deleteUserAccount = (0, https_1.onCall)({
             deletedSwapIds.add(d.id);
         }
     }
-    // 10. Delete swapPartyParticipants + decrement party counters
-    const ppSnap = await firebase_1.db.collection('swapPartyParticipants').where('userId', '==', uid).get();
+    // 10. Delete the user's Swap Zone items + decrement itemsCount per zone.
+    // (No more swapPartyParticipants — the Swap Zone is open to all, no join.)
     const piSnap = await firebase_1.db.collection('swapPartyItems').where('sellerId', '==', uid).get();
-    // Group items by partyId to compute counter decrements
     const partyDecrements = {};
-    for (const d of ppSnap.docs) {
-        const partyId = d.data().partyId;
-        if (partyId) {
-            if (!partyDecrements[partyId])
-                partyDecrements[partyId] = { participants: 0, items: 0 };
-            partyDecrements[partyId].participants += 1;
-        }
-        bulkWriter.delete(d.ref);
-    }
-    // 11. Delete swapPartyItems + count items per party
     for (const d of piSnap.docs) {
         const partyId = d.data().partyId;
         if (partyId) {
             if (!partyDecrements[partyId])
-                partyDecrements[partyId] = { participants: 0, items: 0 };
+                partyDecrements[partyId] = { items: 0 };
             partyDecrements[partyId].items += 1;
         }
         bulkWriter.delete(d.ref);
     }
-    // Decrement counters on affected parties
+    // Decrement itemsCount on affected zones
     for (const [partyId, counts] of Object.entries(partyDecrements)) {
-        const partyRef = firebase_1.db.collection('swapParties').doc(partyId);
-        const updates = {};
-        if (counts.participants > 0) {
-            updates.participantsCount = firebase_1.FieldValue.increment(-counts.participants);
-        }
         if (counts.items > 0) {
-            updates.itemsCount = firebase_1.FieldValue.increment(-counts.items);
-        }
-        if (Object.keys(updates).length > 0) {
-            updates.updatedAt = firebase_1.FieldValue.serverTimestamp();
-            bulkWriter.update(partyRef, updates);
+            const partyRef = firebase_1.db.collection('swapParties').doc(partyId);
+            bulkWriter.update(partyRef, {
+                itemsCount: firebase_1.FieldValue.increment(-counts.items),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
         }
     }
     // 12. Anonymise transactions

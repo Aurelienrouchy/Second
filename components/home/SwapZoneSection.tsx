@@ -1,19 +1,30 @@
 /**
- * SwapZoneSection Component (presentational)
- * Single, always-active "Swap Zone" hero card — image-driven.
+ * SwapZoneSection Component (presentational) — Split éditorial layout
  *
  * The Swap Zone is a permanent generalist zone (no time window, no theme,
- * no countdown). Instead of a temporal hook, this card sells entry through
- * a preview of the zone's REAL stock (a collage of recent item thumbnails),
- * a prominent available-items counter, an optional freshness signal, and a
- * clear CTA.
+ * no countdown). This card sells entry through a "split éditorial" layout:
+ * a TEXT block on the left (title + tagline + inline stats + CTA) and a
+ * VERTICAL collage of 3 real item thumbnails on the right.
+ *
+ * Visual (option A): a cream card (colors.surfaceWarm) sitting on the
+ * wrapper's charcoal band. Title + tagline in charcoal, the word "Zone"
+ * in italic rust. Tiles have rounded corners on the cream surface.
+ *
+ *   ┌──────────────────────────────┐
+ *   │ Swap Zone            ┌─────┐  │
+ *   │ Échange tes pièces,  │ ▣   │  │
+ *   │ sans frais.          │ ▣   │  │
+ *   │                      │ ▣   │  │
+ *   │ 234 articles · 12 n… └─────┘  │
+ *   │  [ Entrer dans la zone → ]    │
+ *   └──────────────────────────────┘
  *
  * States (driven by `zone` presence + `items` + `onPress`):
- * - full    : zone has items → collage of up to 6 images + counter + tappable CTA
- * - empty   : zone exists but has no items → inviting teaser, tappable CTA (enter the empty zone)
- * - teaser  : no zone active (onPress absent) → same visual teaser but NON-interactive,
+ * - full    : zone has items → text block + vertical collage + tappable CTA
+ * - empty   : zone exists but has no items → inviting teaser, tappable CTA
+ * - teaser  : no zone active (onPress absent) → same teaser but NON-interactive,
  *             no dead CTA — shows a "Bientôt disponible" label instead
- * - loading : light skeleton (collage tiles + text lines)
+ * - loading : light skeleton matching the split layout
  *
  * Interactivity is keyed off `onPress`: when the wrapper passes no handler
  * (no active zone) the card never renders a Pressable, so there is never a
@@ -26,7 +37,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -64,10 +74,30 @@ interface SwapZoneSectionProps {
 // CONSTANTS
 // =============================================================================
 
-// Bottom scrim so overlaid copy stays legible over the image collage.
-const SCRIM_GRADIENT = ['transparent', 'rgba(26, 24, 20, 0.85)'] as const;
+// Vertical collage shows exactly 3 thumbnails.
+const TILE_COUNT = 3;
 
-const MAX_TILES = 6;
+// =============================================================================
+// HELPERS — inline stats copy (FR, singular/plural, hide zero)
+// =============================================================================
+
+/**
+ * Builds the inline stats line. Each stat is hidden when 0 (never "0 articles"
+ * / "0 nouveautés"). When both are present they are joined by " · ".
+ * Returns null when nothing to show.
+ */
+function buildStatsParts(itemsCount: number, newThisWeek: number): string[] {
+  const parts: string[] = [];
+  if (itemsCount > 0) {
+    parts.push(`${itemsCount} ${itemsCount > 1 ? 'articles' : 'article'}`);
+  }
+  if (newThisWeek > 0) {
+    parts.push(
+      `${newThisWeek} ${newThisWeek > 1 ? 'nouveautés' : 'nouveauté'} cette semaine`,
+    );
+  }
+  return parts;
+}
 
 // =============================================================================
 // CARD SHELL (layout animation + optional press-scale/haptic)
@@ -115,11 +145,7 @@ const CardShell: React.FC<CardShellProps> = ({ onPress, children }) => {
   return (
     <Animated.View entering={FadeInDown.duration(400).delay(100)}>
       <Animated.View style={[styles.cardShadow, animatedStyle]}>
-        <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onPress={handlePress}
-        >
+        <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handlePress}>
           {children}
         </Pressable>
       </Animated.View>
@@ -128,25 +154,23 @@ const CardShell: React.FC<CardShellProps> = ({ onPress, children }) => {
 };
 
 // =============================================================================
-// SHARED — CTA row
+// SHARED — Editorial title ("Swap" charcoal + "Zone" italic rust)
 // =============================================================================
 
-interface CtaRowProps {
-  light?: boolean;
-}
+const ZoneTitle: React.FC = () => (
+  <Text style={styles.title}>
+    Swap <Text style={styles.titleAccent}>Zone</Text>
+  </Text>
+);
 
-const CtaRow: React.FC<CtaRowProps> = ({ light = false }) => (
+// =============================================================================
+// SHARED — CTA row ("Entrer dans la zone →")
+// =============================================================================
+
+const CtaRow: React.FC = () => (
   <View style={styles.ctaRow}>
-    <Text style={[styles.ctaText, light && styles.ctaTextLight]}>
-      Entrer dans la Swap Zone
-    </Text>
-    <View style={[styles.ctaChevron, light && styles.ctaChevronLight]}>
-      <Ionicons
-        name="arrow-forward"
-        size={sizing.iconSM}
-        color={light ? colors.cream : colors.charcoal}
-      />
-    </View>
+    <Text style={styles.ctaText}>Entrer dans la zone</Text>
+    <Ionicons name="arrow-forward" size={sizing.iconSM} color={colors.cream} />
   </View>
 );
 
@@ -163,7 +187,29 @@ const ComingSoonLabel: React.FC = () => (
 );
 
 // =============================================================================
-// FULL STATE — image-driven hero
+// SHARED — Vertical collage tile (with clean image fallback)
+// =============================================================================
+
+const CollageTile: React.FC<{ item?: SwapPartyItem }> = ({ item }) => (
+  <View style={styles.tile}>
+    {item?.imageUrl ? (
+      <Image
+        source={item.imageUrl}
+        style={styles.tileImage}
+        contentFit="cover"
+        transition={200}
+        recyclingKey={item.id}
+      />
+    ) : (
+      <View style={[styles.tileImage, styles.tileFallback]}>
+        <Ionicons name="shirt-outline" size={sizing.iconMD} color={colors.muted} />
+      </View>
+    )}
+  </View>
+);
+
+// =============================================================================
+// FULL STATE — split editorial (text left, vertical collage right)
 // =============================================================================
 
 interface FullCardProps {
@@ -174,65 +220,31 @@ interface FullCardProps {
 }
 
 const FullCard: React.FC<FullCardProps> = ({ items, itemsCount, newThisWeek, onPress }) => {
-  const tiles = items.slice(0, MAX_TILES);
+  const tiles = items.slice(0, TILE_COUNT);
+  const statsParts = buildStatsParts(itemsCount, newThisWeek);
 
   return (
     <CardShell onPress={onPress}>
       <View style={styles.card}>
-        {/* Image collage — the real stock preview */}
-        <View style={styles.collage}>
-          {tiles.map((item) => (
-            <View key={item.id} style={styles.tile}>
-              {item.imageUrl ? (
-                <Image
-                  source={item.imageUrl}
-                  style={styles.tileImage}
-                  contentFit="cover"
-                  transition={200}
-                  recyclingKey={item.id}
-                />
-              ) : (
-                <View style={[styles.tileImage, styles.tileFallback]} />
-              )}
-            </View>
-          ))}
+        {/* Left — editorial text block */}
+        <View style={styles.textBlock}>
+          <ZoneTitle />
+          <Text style={styles.tagline}>Échange tes pièces, sans frais.</Text>
+
+          {statsParts.length > 0 ? (
+            <Text style={styles.statsLine} numberOfLines={1}>
+              {statsParts.join('  ·  ')}
+            </Text>
+          ) : null}
+
+          <CtaRow />
         </View>
 
-        {/* Scrim for legibility */}
-        <LinearGradient
-          colors={SCRIM_GRADIENT}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-
-        {/* Overlaid editorial content */}
-        <View style={styles.fullContent}>
-          <View style={styles.eyebrowRow}>
-            <View style={styles.statusDot} />
-            <Text style={styles.eyebrow}>Échange ouvert</Text>
-          </View>
-
-          <View style={styles.fullBottom}>
-            <View style={styles.countBlock}>
-              <View style={styles.countPill}>
-                <Ionicons
-                  name="swap-horizontal"
-                  size={sizing.iconSM}
-                  color={colors.cream}
-                />
-                <Text style={styles.countPillText}>
-                  +{itemsCount} articles à échanger
-                </Text>
-              </View>
-              {newThisWeek > 0 ? (
-                <Text style={styles.freshText}>
-                  {newThisWeek} nouveau{newThisWeek > 1 ? 'x' : ''} cette semaine
-                </Text>
-              ) : null}
-            </View>
-
-            <CtaRow light />
-          </View>
+        {/* Right — vertical collage of 3 real thumbnails */}
+        <View style={styles.collage}>
+          {Array.from({ length: TILE_COUNT }).map((_, i) => (
+            <CollageTile key={tiles[i]?.id ?? `tile-${i}`} item={tiles[i]} />
+          ))}
         </View>
       </View>
     </CardShell>
@@ -240,7 +252,7 @@ const FullCard: React.FC<FullCardProps> = ({ items, itemsCount, newThisWeek, onP
 };
 
 // =============================================================================
-// EMPTY / TEASER STATE — inviting teaser
+// EMPTY / TEASER STATE — inviting teaser, same split frame
 //
 // Two sub-cases, distinguished by `onPress`:
 // - onPress present  : a zone exists but has no items yet → tappable, enters
@@ -251,42 +263,46 @@ const FullCard: React.FC<FullCardProps> = ({ items, itemsCount, newThisWeek, onP
 
 const EmptyCard: React.FC<{ onPress?: () => void }> = ({ onPress }) => (
   <CardShell onPress={onPress}>
-    <LinearGradient
-      colors={[colors.cream, colors.sandLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.card, styles.emptyCard]}
-    >
-      <View style={styles.emptyIconCircle}>
-        <Ionicons
-          name="swap-horizontal"
-          size={sizing.iconLG}
-          color={colors.secondary}
-        />
+    <View style={styles.card}>
+      {/* Left — editorial text block */}
+      <View style={styles.textBlock}>
+        <ZoneTitle />
+        <Text style={styles.tagline}>Échange tes pièces, sans frais.</Text>
+        <Text style={styles.emptyHint}>
+          Dépose un article et trouve la pièce parfaite à troquer.
+        </Text>
+        {onPress ? <CtaRow /> : <ComingSoonLabel />}
       </View>
-      <Text style={styles.emptyTitle}>Échange tes pièces, sans frais</Text>
-      <Text style={styles.emptySubtitle}>
-        Dépose un article et trouve la pièce parfaite à troquer.
-      </Text>
-      {onPress ? <CtaRow /> : <ComingSoonLabel />}
-    </LinearGradient>
+
+      {/* Right — empty collage placeholder (no real stock yet) */}
+      <View style={styles.collage}>
+        {Array.from({ length: TILE_COUNT }).map((_, i) => (
+          <CollageTile key={`empty-tile-${i}`} />
+        ))}
+      </View>
+    </View>
   </CardShell>
 );
 
 // =============================================================================
-// LOADING STATE — light skeleton
+// LOADING STATE — skeleton matching the split layout
 // =============================================================================
 
 const LoadingCard: React.FC = () => (
   <View style={[styles.card, styles.skeletonCard]}>
-    <View style={styles.skeletonCollage}>
-      {Array.from({ length: 3 }).map((_, i) => (
-        <View key={i} style={styles.skeletonTile} />
-      ))}
+    {/* Left — text skeleton */}
+    <View style={styles.textBlock}>
+      <View style={[styles.skeletonLine, styles.skeletonTitle]} />
+      <View style={[styles.skeletonLine, styles.skeletonTagline]} />
+      <View style={[styles.skeletonLine, styles.skeletonStats]} />
+      <View style={styles.skeletonCta} />
     </View>
-    <View style={styles.skeletonLines}>
-      <View style={[styles.skeletonLine, styles.skeletonLineWide]} />
-      <View style={[styles.skeletonLine, styles.skeletonLineNarrow]} />
+
+    {/* Right — collage skeleton */}
+    <View style={styles.collage}>
+      {Array.from({ length: TILE_COUNT }).map((_, i) => (
+        <View key={`skeleton-tile-${i}`} style={[styles.tile, styles.skeletonTile]} />
+      ))}
     </View>
   </View>
 );
@@ -335,180 +351,123 @@ export const SwapZoneSection: React.FC<SwapZoneSectionProps> = ({
 // STYLES
 // =============================================================================
 
+const TILE_WIDTH = 88;
+const TILE_HEIGHT = 56;
+
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
   cardShadow: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.dark,
-    ...shadows.elevated,
+    borderRadius: radius.xl, // 16 — within DS 14-20px rule
+    backgroundColor: colors.surfaceWarm,
+    ...shadows.card, // very soft, opacity 0.03
   },
   card: {
-    borderRadius: radius.lg,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    borderRadius: radius.xl,
     overflow: 'hidden',
-    minHeight: 220,
-    backgroundColor: colors.dark,
-  },
-
-  // --- Full state: collage ---
-  collage: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tile: {
-    width: '33.333%',
-    height: '50%',
-  },
-  tileImage: {
-    flex: 1,
     backgroundColor: colors.surfaceWarm,
-  },
-  tileFallback: {
-    backgroundColor: colors.secondaryLight,
-  },
-
-  // --- Full state: overlaid content ---
-  fullContent: {
-    flex: 1,
     padding: spacing.lg,
-    justifyContent: 'space-between',
-  },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: radius.full,
-    backgroundColor: colors.success,
-  },
-  eyebrow: {
-    fontFamily: typography.labelUppercase.fontFamily,
-    fontSize: typography.labelUppercase.fontSize,
-    lineHeight: typography.labelUppercase.lineHeight,
-    letterSpacing: typography.labelUppercase.letterSpacing,
-    color: colors.cream,
-    textTransform: 'uppercase',
-  },
-  fullBottom: {
     gap: spacing.md,
   },
-  countBlock: {
-    gap: spacing.xs,
+
+  // --- Left: editorial text block ---
+  textBlock: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    gap: spacing.sm,
   },
-  countPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-    backgroundColor: colors.rust,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
+  title: {
+    fontFamily: fonts.display,
+    fontSize: typography.h1.fontSize,
+    lineHeight: typography.h1.lineHeight,
+    letterSpacing: typography.h1.letterSpacing,
+    color: colors.charcoal,
   },
-  countPillText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: typography.label.fontSize,
-    lineHeight: typography.label.lineHeight,
-    color: colors.cream,
+  titleAccent: {
+    fontStyle: 'italic',
+    color: colors.rust,
   },
-  freshText: {
+  tagline: {
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    lineHeight: typography.body.lineHeight,
+    letterSpacing: typography.body.letterSpacing,
+    color: colors.foreground,
+  },
+  statsLine: {
     fontFamily: typography.caption.fontFamily,
     fontSize: typography.caption.fontSize,
     lineHeight: typography.caption.lineHeight,
     letterSpacing: typography.caption.letterSpacing,
-    color: colors.cream,
-    paddingLeft: spacing.xs,
+    color: colors.foregroundSecondary,
+    marginTop: spacing.xs,
+  },
+  emptyHint: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
+    letterSpacing: typography.caption.letterSpacing,
+    color: colors.foregroundSecondary,
   },
 
-  // --- Shared CTA ---
+  // --- Right: vertical collage ---
+  collage: {
+    gap: spacing.sm,
+    justifyContent: 'center',
+  },
+  tile: {
+    width: TILE_WIDTH,
+    height: TILE_HEIGHT,
+    borderRadius: radius.lg, // 12 — within DS 14-20px rule
+    overflow: 'hidden',
+    backgroundColor: colors.cream,
+  },
+  tileImage: {
+    flex: 1,
+    backgroundColor: colors.borderLight,
+  },
+  tileFallback: {
+    backgroundColor: colors.secondaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // --- CTA ---
   ctaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.cream,
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.sm,
+    alignSelf: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.rust,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
+    marginTop: spacing.xs,
   },
   ctaText: {
     fontFamily: typography.button.fontFamily,
     fontSize: typography.button.fontSize,
     lineHeight: typography.button.lineHeight,
     letterSpacing: typography.button.letterSpacing,
-    color: colors.charcoal,
+    color: colors.cream,
     textTransform: 'uppercase',
-  },
-  ctaTextLight: {
-    color: colors.charcoal,
-  },
-  ctaChevron: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    backgroundColor: colors.sand,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ctaChevronLight: {
-    backgroundColor: colors.rust,
-  },
-
-  // --- Empty state ---
-  emptyCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  emptyIconCircle: {
-    width: sizing.avatarLG,
-    height: sizing.avatarLG,
-    borderRadius: radius.full,
-    backgroundColor: colors.secondaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  emptyTitle: {
-    fontFamily: fonts.displayMedium,
-    fontSize: typography.h2.fontSize,
-    lineHeight: typography.h2.lineHeight,
-    letterSpacing: typography.h2.letterSpacing,
-    color: colors.charcoal,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-    color: colors.foregroundSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-    maxWidth: 280,
   },
 
   // --- "Coming soon" label (non-interactive teaser) ---
   comingSoonRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: spacing.xs,
     backgroundColor: colors.secondaryLight,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
+    marginTop: spacing.xs,
   },
   comingSoonText: {
     fontFamily: typography.label.fontFamily,
@@ -522,33 +481,33 @@ const styles = StyleSheet.create({
   // --- Loading skeleton ---
   skeletonCard: {
     backgroundColor: colors.surfaceWarm,
-    padding: spacing.lg,
-    justifyContent: 'space-between',
-  },
-  skeletonCollage: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  skeletonTile: {
-    flex: 1,
-    height: 90,
-    borderRadius: radius.md,
-    backgroundColor: colors.borderLight,
-  },
-  skeletonLines: {
-    gap: spacing.sm,
-    marginTop: spacing.lg,
   },
   skeletonLine: {
-    height: 16,
     borderRadius: radius.sm,
     backgroundColor: colors.borderLight,
   },
-  skeletonLineWide: {
-    width: '60%',
+  skeletonTitle: {
+    height: 24,
+    width: '55%',
   },
-  skeletonLineNarrow: {
-    width: '35%',
+  skeletonTagline: {
+    height: 16,
+    width: '80%',
+  },
+  skeletonStats: {
+    height: 12,
+    width: '45%',
+    marginTop: spacing.xs,
+  },
+  skeletonCta: {
+    height: 36,
+    width: 160,
+    borderRadius: radius.full,
+    backgroundColor: colors.borderLight,
+    marginTop: spacing.xs,
+  },
+  skeletonTile: {
+    backgroundColor: colors.borderLight,
   },
 });
 
