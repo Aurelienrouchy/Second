@@ -496,8 +496,14 @@ interface TransactionDocument {
   shippingLabelUrl?: string;
   shipEngineLabelId?: string;
   carrierCode?: string;
-  labelCreationPending?: boolean;  // True when label must be created manually (fallback rateId or API error)
-  labelCreationNote?: string;      // Explanation of why label creation was skipped
+  labelCreationPending?: boolean;  // True when the shipping label could not be created at payment
+                                   // (ShipEngine down/5xx, expired or fallback_* rateId). The tx stays
+                                   // 'paid', the seller is NOT credited, and sweepPendingLabels (hourly)
+                                   // re-rates + retries createLabel. Cleared (false) on success.
+  labelCreationNote?: string;      // Human-readable reason the label was deferred
+  labelAttempts?: number;          // Number of sweepPendingLabels createLabel attempts. After 4 failures
+                                   // the buyer is refunded and the transaction is cancelled.
+  lastLabelAttemptAt?: Timestamp;  // Timestamp of the last sweepPendingLabels attempt
 
   // Shipping address (deliveryType === 'shipping')
   shippingAddress?: {
