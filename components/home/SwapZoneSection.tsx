@@ -4,8 +4,8 @@
  * The Swap Zone home block is no longer a floating card inside a band: the
  * content is laid out DIRECTLY on the section surface. The dark surface (and
  * its full width) is provided by the feature wrapper (features/home/swap-zone)
- * — this component renders only the content (eyebrow, title, tagline, stats,
- * CTA) and owns the tap interaction.
+ * — this component renders only the content (title, tagline, stats, CTA) and
+ * owns the tap interaction.
  *
  * Copy:
  *   - Title    "Swap Zone"  ("Zone" accented in rust — color, not italic)
