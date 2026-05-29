@@ -553,10 +553,13 @@ interface TransactionDocument {
   // Timestamps
   createdAt: Timestamp;
   paidAt?: Timestamp;
-  shippedAt?: Timestamp;          // When shipping label was created
+  labelCreatedAt?: Timestamp;     // When the shipping label was purchased (status 'label_created')
+  shippedAt?: Timestamp;          // When the carrier FIRST scanned the parcel (status 'shipped')
   deliveredAt?: Timestamp;
+  deliveryFailedAt?: Timestamp;   // When a carrier FAILURE/exception flipped the tx to delivery_failed
   cancelledAt?: Timestamp;
   completedAt?: Timestamp;        // When meetup was completed
+  refundReason?: string;          // Free-text reason set by adminRefundTransaction
   updatedAt?: Timestamp;
 }
 ```
