@@ -78,10 +78,12 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
     }, [searchQuery, filteredBrands]);
 
     const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
+    // Mount-on-open: the sheet is only rendered while open, so its backdrop can
+    // never leak a residual veil when closed (gorhom #701 on New Architecture).
+    const [mounted, setMounted] = useState(false);
 
     useImperativeHandle(ref, () => ({
       show: (searchQueryOverride?: string) => {
-        bottomSheetRef.current?.expand();
         if (singleSelect) {
           setSelectedBrands(selectedBrand ? [selectedBrand] : []);
         } else {
@@ -93,6 +95,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           hasInitializedSearch.current = true;
           setPendingSearchQuery(queryToUse);
         }
+        setMounted(true);
       },
       hide: () => {
         bottomSheetRef.current?.close();
