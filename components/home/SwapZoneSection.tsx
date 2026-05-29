@@ -249,32 +249,6 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
 
-  // --- Eyebrow ---
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-  },
-  statusDot: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.success,
-  },
-  eyebrow: {
-    fontFamily: typography.labelUppercase.fontFamily,
-    fontSize: typography.labelUppercase.fontSize,
-    lineHeight: typography.labelUppercase.lineHeight,
-    letterSpacing: typography.labelUppercase.letterSpacing,
-    color: colors.cream,
-    textTransform: 'uppercase',
-  },
-
   // --- Title + tagline ---
   textBlock: {
     gap: spacing.xs,
