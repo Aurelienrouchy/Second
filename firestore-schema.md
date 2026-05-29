@@ -15,10 +15,9 @@
 | 9 | `transactions` | Root | Purchase transactions (Stripe Connect payments) |
 | 10 | `withdrawal_requests` | Root | Seller withdrawal requests |
 | 11 | `avis` | Root | User reviews / ratings |
-| 12 | `swaps` | Root | Swap proposals between users |
-| 13 | `swapParties` | Root | Swap party (zone) events |
-| 14 | `swapPartyParticipants` | Root | Users enrolled in a swap party |
-| 15 | `swapPartyItems` | Root | Articles submitted to a swap party |
+| 12 | `swaps` | Root | Swap proposals between users (optional Stripe cash top-up) |
+| 13 | `swapParties` | Root | Single permanent generalist Swap Zone (doc id `generalist`) |
+| 14 | `swapPartyItems` | Root | Articles deposited in the Swap Zone |
 | 16 | `notifications` | Root | Push notification records |
 | 17 | `drafts` | Root | Unsaved article drafts |
 | 18 | `guest_preferences` | Root | Onboarding preferences for unauthenticated users |
