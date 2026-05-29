@@ -166,7 +166,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
-        <BottomSheetView style={styles.flex}>
+        <BottomSheetView style={[styles.container, { height: sheetHeight }]}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
