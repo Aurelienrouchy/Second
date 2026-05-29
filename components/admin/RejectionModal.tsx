@@ -57,7 +57,6 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
         enablePanDownToClose
         enableDynamicSizing={false}
       >
