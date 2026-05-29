@@ -180,12 +180,9 @@ const AuthBottomSheet: React.FC = () => {
       ref={bottomSheetRef}
       index={-1}
       snapPoints={snapPoints}
-      backdropComponent={renderBackdrop}
       enablePanDownToClose
       enableDynamicSizing={false}
       onClose={handleClose}
-      topInset={insets.top}
-      handleIndicatorStyle={styles.handle}
       backgroundStyle={styles.sheetBackground}
     >
       <BottomSheetView style={styles.content}>
