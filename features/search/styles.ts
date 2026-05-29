@@ -4,7 +4,7 @@
 
 import { StyleSheet } from 'react-native';
 
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 export const searchStyles = StyleSheet.create({
   container: {
