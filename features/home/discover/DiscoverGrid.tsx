@@ -112,7 +112,7 @@ const DiscoverGridComponent: React.FC = () => {
                 price={article.price}
                 images={article.images}
                 brand={article.brand}
-                size={article.size?.value}
+                size={article.size}
                 condition={article.condition}
               />
             ))}
