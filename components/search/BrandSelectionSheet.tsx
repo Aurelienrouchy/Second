@@ -66,7 +66,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
     const sheetMaxHeight = SCREEN_HEIGHT - insets.top - 50;
     const snapPoints = useMemo(() => [sheetMaxHeight], [sheetMaxHeight]);
-    const sheetStyle = useSheetHeight(sheetMaxHeight);
     const inputRef = useRef<any>(null);
 
     const canAddCustomBrand = useMemo(() => {
