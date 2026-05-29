@@ -1,19 +1,23 @@
 /**
  * SwapZoneSection — Feature Component
- * Self-contained: fetches data via useSwapParties() + useSwapZoneItems(),
- * then renders the presentational SwapZoneSection from components/home/ on a
- * charcoal band. The card carries its own "Swap Zone" title (no duplicate header).
+ * Self-contained: fetches data via useSwapParties() + useSwapZoneItems(), then
+ * renders the Swap Zone content DIRECTLY on a full-width dark section surface.
  *
- * The Swap Zone is now a single, always-active generalist zone (no time
- * window, no theme, no countdown). This wrapper renders a single permanent
- * card driven by a preview of the zone's real stock, routing to the zone detail.
+ * There is no inner "card": the section container itself is the dark surface
+ * (imageGradients.dark) and the presentational SwapZoneSection lays its content
+ * straight onto it. The Swap Zone is the app's dark editorial counterpoint to
+ * the warm-white rest of the home.
+ *
+ * Single, always-active generalist zone (no time window / theme / countdown),
+ * routing to /swap-zone.
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 
-import { colors, spacing } from '@/constants/theme';
+import { spacing, imageGradients } from '@/constants/theme';
 import { SwapZoneSection as SwapZoneSectionUI } from '@/components/home/SwapZoneSection';
 import { useSwapParties } from './useSwapParties';
 import { useSwapZoneItems } from './useSwapZoneItems';
@@ -28,16 +32,12 @@ const SwapZoneWrapperComponent: React.FC = () => {
   // Cloud Function returns the single generalist zone in `party`.
   const zone = data?.party ?? null;
 
-  // Preview of real stock (drives the card's attractiveness).
-  const {
-    items,
-    newThisWeek,
-    isLoading: isItemsLoading,
-  } = useSwapZoneItems(zone?.id);
+  // Preview of real stock (freshness counter).
+  const { newThisWeek, isLoading: isItemsLoading } = useSwapZoneItems(zone?.id);
 
   // Only build a navigation handler when a zone actually exists. When no zone
-  // is active we pass `onPress={undefined}` so the card renders a non-interactive
-  // teaser instead of a dead CTA (see presentational SwapZoneSection).
+  // is active we pass `onPress={undefined}` so the section renders a
+  // non-interactive teaser instead of a dead CTA.
   const handlePress = useCallback(() => {
     if (zone) {
       router.push('/swap-zone');
@@ -45,17 +45,20 @@ const SwapZoneWrapperComponent: React.FC = () => {
   }, [zone]);
 
   return (
-    <View style={styles.swapZoneContainer}>
-      {/* Title is now carried by the card itself (presentational SwapZoneSection). */}
+    <LinearGradient
+      colors={imageGradients.dark}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.section}
+    >
       <SwapZoneSectionUI
         zone={zone ?? undefined}
-        items={items}
         itemsCount={zone?.itemsCount ?? 0}
         newThisWeek={newThisWeek}
         isLoading={isPartyLoading || isItemsLoading}
         onPress={zone ? handlePress : undefined}
       />
-    </View>
+    </LinearGradient>
   );
 };
 
@@ -66,9 +69,9 @@ export const SwapZoneWrapper = React.memo(SwapZoneWrapperComponent);
 // =============================================================================
 
 const styles = StyleSheet.create({
-  swapZoneContainer: {
-    backgroundColor: colors.charcoal,
-    paddingVertical: spacing.sm,
+  // Full-width dark section surface. Inner padding is owned by the content
+  // component (no card, no inner padding here).
+  section: {
     marginTop: spacing.sm,
   },
 });
