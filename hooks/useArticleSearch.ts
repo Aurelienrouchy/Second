@@ -264,32 +264,47 @@ export function useArticleSearch({
     setFilters({ ...DEFAULT_FILTERS });
   }, []);
 
+  /**
+   * Remove a filter dimension. For multi-value dimensions (colors/sizes/
+   * materials/brands), passing a `value` removes just that entry; omitting it
+   * clears the whole dimension (chip-level remove). Sizes are matched on
+   * value+system so US/EU never collide.
+   */
   const handleFilterRemove = useCallback(
-    (filterType: keyof SearchFilters, value?: string) => {
-      if (filterType === 'colors' && value) {
+    (filterType: keyof SearchFilters, value?: string | ArticleSize) => {
+      if (filterType === 'colors') {
         setFilters((prev) => ({
           ...prev,
-          colors: (prev.colors ?? []).filter((c) => c !== value),
+          colors:
+            typeof value === 'string'
+              ? (prev.colors ?? []).filter((c) => c !== value)
+              : [],
         }));
-      } else if (filterType === 'sizes' && value) {
+      } else if (filterType === 'sizes') {
         setFilters((prev) => ({
           ...prev,
-          sizes: (prev.sizes ?? []).filter((s) => s !== value),
+          sizes:
+            value && typeof value === 'object'
+              ? (prev.sizes ?? []).filter(
+                  (s) => !(s.value === value.value && s.system === value.system)
+                )
+              : [],
         }));
-      } else if (filterType === 'materials' && value) {
+      } else if (filterType === 'materials') {
         setFilters((prev) => ({
           ...prev,
-          materials: (prev.materials ?? []).filter((m) => m !== value),
+          materials:
+            typeof value === 'string'
+              ? (prev.materials ?? []).filter((m) => m !== value)
+              : [],
         }));
-      } else if (filterType === 'brands' && value) {
+      } else if (filterType === 'brands') {
         setFilters((prev) => ({
           ...prev,
-          brands: (prev.brands ?? []).filter((b) => b !== value),
-        }));
-      } else if (filterType === 'patterns' && value) {
-        setFilters((prev) => ({
-          ...prev,
-          patterns: (prev.patterns ?? []).filter((p) => p !== value),
+          brands:
+            typeof value === 'string'
+              ? (prev.brands ?? []).filter((b) => b !== value)
+              : [],
         }));
       } else if (filterType === 'condition') {
         setFilters((prev) => ({ ...prev, condition: undefined }));
