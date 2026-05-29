@@ -354,6 +354,21 @@ export default function ShippingCheckoutScreen() {
         }
       }
 
+      // ── Tarif de livraison expiré (re-tarification serveur) ──────────────
+      // Le serveur a invalidé le rateId : on propose de réactualiser
+      // l'estimation pour obtenir un tarif à jour avant de repayer.
+      if (isRateExpiredError(error)) {
+        Alert.alert(
+          CHECKOUT_COPY.rateExpiredTitle,
+          CHECKOUT_COPY.rateExpiredBody,
+          [
+            { text: CHECKOUT_COPY.rateExpiredCtaSecondary, style: 'cancel' },
+            { text: CHECKOUT_COPY.rateExpiredCtaPrimary, onPress: fetchShippingEstimates },
+          ],
+        );
+        return;
+      }
+
       // Cloud Function errors arrive as FirebaseError with a readable
       // message (e.g. "Cet article a deja ete vendu"). Surface it so
       // the buyer understands why the purchase failed.
@@ -364,7 +379,7 @@ export default function ShippingCheckoutScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router, walletCoversAll, useWalletBalance, walletAmountCents, totalAmount, queryClient]);
+  }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router, walletCoversAll, useWalletBalance, walletAmountCents, totalAmount, queryClient, fetchShippingEstimates, goToMeetup]);
 
   const retryStripePayment = useCallback(async () => {
     if (!pendingTransactionId) return;
