@@ -180,7 +180,6 @@ export class SearchHistoryService {
       (filters.sizes && filters.sizes.length > 0) ||
       (filters.materials && filters.materials.length > 0) ||
       (filters.brands && filters.brands.length > 0) ||
-      (filters.patterns && filters.patterns.length > 0) ||
       filters.condition ||
       filters.minPrice !== undefined ||
       filters.maxPrice !== undefined ||
