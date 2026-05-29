@@ -308,11 +308,24 @@ export class TransactionService {
   /**
    * Get active (non-finalized) transactions for a user.
    *
-   * Used to block account deletion when the user has pending orders.
-   * Active statuses: pending_payment, meetup_pending, meetup_confirmed, paid, shipped.
+   * Used to block account deletion when the user has a pending order, an open
+   * dispute, or delivered funds still inside the 7-day held window.
    *
-   * Firestore does not support OR on different fields, so we run two
-   * queries (buyer-side + seller-side) and merge.
+   * Active statuses (P1):
+   *   - pending_payment, meetup_pending, meetup_confirmed, paid, shipped
+   *   - disputed           → a litige in progress must never be abandoned by
+   *                          deleting an account.
+   *   - delivered          → funds are held for a 7-day dispute window
+   *                          (heldBalance, transaction.fundsReleaseAt). A
+   *                          delivered transaction is only FINALIZED once funds
+   *                          are released, so it counts as active until then.
+   *
+   * Firestore does not support OR on different fields, so we run two queries
+   * (buyer-side + seller-side) and merge. `delivered` cannot be range-filtered
+   * on `fundsReleaseAt` inside the same `in` query, so we post-filter delivered
+   * rows: a delivered transaction is considered finalized (NOT active) only when
+   * its funds have been released (`fundsReleasedAt` set) OR its release time
+   * (`fundsReleaseAt`) is already past.
    */
   static async getActiveTransactionsForUser(userId: string): Promise<Transaction[]> {
     const activeStatuses: TransactionStatus[] = [
@@ -321,6 +334,8 @@ export class TransactionService {
       'meetup_confirmed',
       'paid',
       'shipped',
+      'disputed',
+      'delivered',
     ];
 
     const transactionsRef = collection(firestore, 'transactions');
@@ -342,13 +357,31 @@ export class TransactionService {
       getDocs(sellerQuery),
     ]);
 
+    const now = Date.now();
     const seen = new Set<string>();
     const transactions: Transaction[] = [];
 
     for (const d of [...buyerSnap.docs, ...sellerSnap.docs]) {
       if (seen.has(d.id)) continue;
       seen.add(d.id);
-      const data = d.data();
+      const data = d.data() as Record<string, any>;
+
+      // `delivered` is only "active" while funds are still held (within the
+      // 7-day dispute window). Once released, the transaction is finalized and
+      // must NOT block deletion.
+      if (data?.status === 'delivered') {
+        const fundsReleased = !!data.fundsReleasedAt;
+        const releaseAtMs =
+          typeof data.fundsReleaseAt?.toDate === 'function'
+            ? data.fundsReleaseAt.toDate().getTime()
+            : null;
+        const releasePast = releaseAtMs != null && releaseAtMs <= now;
+        if (fundsReleased || releasePast) {
+          continue; // finalized — skip
+        }
+      }
+
+      seen.add(d.id);
       transactions.push({
         id: d.id,
         ...data,
