@@ -31,6 +31,7 @@ import { formatPrice } from '@/utils/formatPrice';
 
 const STATUS_LABELS: Record<SwapStatus, string> = {
   proposed: 'En attente',
+  payment_pending: 'Paiement',
   accepted: 'Accepté',
   declined: 'Refusé',
   cancelled: 'Annulé',
@@ -42,6 +43,7 @@ const STATUS_LABELS: Record<SwapStatus, string> = {
 
 const STATUS_COLORS: Record<SwapStatus, string> = {
   proposed: colors.warning,
+  payment_pending: colors.primary,
   accepted: colors.sage,
   declined: colors.danger,
   cancelled: colors.muted,
