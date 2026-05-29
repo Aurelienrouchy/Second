@@ -22,7 +22,7 @@ import { colors } from '@/constants/theme';
 import { queryClient } from '@/lib/queryClient';
 import { STRIPE_PUBLISHABLE_KEY } from '@/config/stripeConfig';
 import { StripeProvider } from '@stripe/stripe-react-native';
-import { BottomSheetModalProvider } from '@expo/ui/community/bottom-sheet';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
