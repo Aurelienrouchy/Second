@@ -771,26 +771,6 @@ export class ArticlesService {
     return true;
   }
 
-  private static sortArticles(
-    articles: Article[],
-    sortBy: 'recent' | 'price_asc' | 'price_desc' | 'popular',
-  ): void {
-    switch (sortBy) {
-      case 'price_asc':
-        articles.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-        break;
-      case 'price_desc':
-        articles.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-        break;
-      case 'recent':
-        articles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        break;
-      case 'popular':
-        articles.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
-        break;
-    }
-  }
-
   static async searchArticlesSimple(searchTerm: string, limitCount: number = 20): Promise<Article[]> {
     const result = await this.searchArticles(searchTerm, undefined, limitCount);
     return result.articles;
