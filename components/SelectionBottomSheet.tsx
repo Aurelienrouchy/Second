@@ -18,9 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
-import { SheetFooter, SHEET_FOOTER_HEIGHT } from '@/components/ui';
+import { SheetFooter, SHEET_FOOTER_HEIGHT, SHEET_BOTTOM_INSET } from '@/components/ui';
 import { useSheetHeight } from '@/hooks/useSheetHeight';
 
 const SNAP = '85%';
