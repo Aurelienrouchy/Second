@@ -217,11 +217,6 @@ const styles = StyleSheet.create({
   bottomSheetContainer: {
     zIndex: 100,
   },
-  handleIndicator: {
-    backgroundColor: colors.borderStrong,
-    width: 36,
-    height: 4,
-  },
   container: {
     flex: 1,
     backgroundColor: colors.white,
