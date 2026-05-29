@@ -154,15 +154,7 @@ export class TransactionService {
         return null;
       }
 
-      const data = transactionDoc.data();
-      return {
-        id: transactionDoc.id,
-        ...data,
-        createdAt: data?.createdAt?.toDate() || new Date(),
-        paidAt: data?.paidAt?.toDate(),
-        shippedAt: data?.shippedAt?.toDate(),
-        deliveredAt: data?.deliveredAt?.toDate(),
-      } as Transaction;
+      return mapTransaction(transactionDoc.id, transactionDoc.data() ?? {});
     } catch (error: any) {
       throw new Error(`Erreur lors de la récupération de la transaction: ${error.message}`);
     }
