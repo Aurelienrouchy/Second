@@ -1624,6 +1624,14 @@ export const completeMeetupTransaction = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'completeMeetupTransaction',
+      maxCallsAuthenticated: 20,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const { transactionId } = request.data ?? {};
     if (typeof transactionId !== 'string' || transactionId.length === 0) {
       throw new HttpsError('invalid-argument', 'Transaction ID is required');
