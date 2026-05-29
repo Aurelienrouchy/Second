@@ -262,6 +262,7 @@ export type TransactionStatus =
   | 'shipped'            // Package shipped (in transit)
   | 'delivered'          // Package delivered — funds held during dispute window
   | 'completed'          // Sale finalized after 7-day dispute window
+  | 'return_requested'   // Buyer requested a return — return label being issued, funds held
   | 'delivery_failed'    // Carrier delivery failed — dispute opened, funds frozen
   | 'lost'               // Parcel declared lost — funds frozen
   | 'cancelled'          // Cancelled by either party
