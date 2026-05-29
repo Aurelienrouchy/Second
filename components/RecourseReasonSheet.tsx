@@ -104,6 +104,13 @@ function RecourseReasonSheetInner<Code extends string = string>(
     if (index === -1) setIsOpen(false);
   }, []);
 
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+    ),
+    [],
+  );
+
   const handleSubmit = useCallback(() => {
     if (!selected || isSubmitting) return;
     onSubmit(selected, details.trim());
