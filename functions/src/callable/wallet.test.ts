@@ -942,7 +942,11 @@ describe('payWithWallet', () => {
     expect(ledgerEntry!.data.transactionId).toBe('tx1');
   });
 
-  it('does not update seller wallet when seller has no wallet', async () => {
+  it('credits seller pendingBalance even when seller has no prior wallet', async () => {
+    // NEW behavior (P1 atomic credit): for a non-shipping sale, payWithWallet
+    // calls creditSellerForSale -> getOrCreateSellerWallet, which CREATES the
+    // seller wallet on the fly and credits pendingBalance immediately. The old
+    // "skip credit if no wallet" behavior is gone — the seller must be paid.
     setupPayable({ sellerHasWallet: false, totalAmount: 50, sellerPayout: 45 });
 
     const result = await callPayWithWallet({
@@ -952,10 +956,21 @@ describe('payWithWallet', () => {
 
     expect(result.success).toBe(true);
 
-    const sellerWalletUpdate = writeOps.find(
-      (w) => w.path === 'wallets/seller1' && w.method === 'update'
+    // The wallet is created (set) ...
+    const sellerWalletCreate = writeOps.find(
+      (w) => w.path === 'wallets/seller1' && w.method === 'set'
     );
-    expect(sellerWalletUpdate).toBeUndefined();
+    expect(sellerWalletCreate).toBeDefined();
+
+    // ... and credited (update) with the sellerPayout in CENTS (45$ -> 4500).
+    const sellerWalletCredit = writeOps.find(
+      (w) =>
+        w.path === 'wallets/seller1' &&
+        w.method === 'update' &&
+        w.data.pendingBalance !== undefined
+    );
+    expect(sellerWalletCredit).toBeDefined();
+    expect(sellerWalletCredit!.data.pendingBalance).toBe(4500);
   });
 
   it('handles exact balance match (balance === totalAmount in cents)', async () => {
