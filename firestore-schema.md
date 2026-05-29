@@ -62,7 +62,7 @@ interface ArticleDocument {
   subcategory?: string;
   brand?: string;                // Primary brand
   brands?: string[];             // All brands (multi-brand support)
-  size?: string;
+  size?: { value: string; system: 'US' | 'EU' } | null;  // ArticleSize object (US/EU never collide)
   color?: string;
   colors?: string[];
   material?: string;
