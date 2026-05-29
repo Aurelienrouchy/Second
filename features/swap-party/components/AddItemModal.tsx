@@ -63,13 +63,19 @@ export const AddItemModal = React.memo(function AddItemModal({
     <View style={styles.modal}>
       <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
-          <Text variant="body" style={styles.modalTitle}>Ajouter des articles</Text>
+          <Text variant="body" style={styles.modalTitle}>Ajouter à la Swap Zone</Text>
           <Pressable
             style={({ pressed }) => [styles.modalDoneButton, pressed && { opacity: 0.7 }]}
             onPress={onClose}
           >
             <Text style={styles.modalDoneText}>Terminé</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.modalSubtextRow}>
+          <Text style={styles.modalSubtext}>
+            Cet article sera proposé à l&apos;échange dans la Swap Zone.
+          </Text>
         </View>
 
         {userItems.length > 0 && (
