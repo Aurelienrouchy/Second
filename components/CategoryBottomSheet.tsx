@@ -28,7 +28,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
   ({ onSelect, selectedCategoryIds, suggestedCategoryId }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const snapPoints = useMemo(() => [SNAP], []);
-    const sheetHeight = useSheetHeight(SNAP);
+    const sheetStyle = useSheetHeight(SNAP);
 
     // Use shared category navigation hook
     const categoryNav = useCategoryNavigation({
