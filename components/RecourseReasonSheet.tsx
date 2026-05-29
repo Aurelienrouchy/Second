@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    // paddingBottom appliqué inline (inset fiable + marge).
   },
   title: {
     fontFamily: fonts.displaySemiBold,
