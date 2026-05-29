@@ -537,6 +537,7 @@ service cloud.firestore {
             'fundsReleaseAt', 'fundsReleasedAt',
             'disputed', 'disputeId', 'disputedAt', 'disputeReason',
             'statusBeforeDispute', 'disputeOutcome', 'disputeClosedAt',
+            'buyerReport', 'refundInitiatedAt',
             'labelCreationPending', 'labelCreationNote', 'labelAttempts',
             'lastLabelAttemptAt', 'labelStaleNudgedAt',
             'shipEngineRateId', 'shipEngineLabelId', 'trackingNumber',
