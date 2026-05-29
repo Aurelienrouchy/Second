@@ -209,7 +209,9 @@ export const visualSearch = onCall(
         price: article.price,
         imageUrl: article.images?.[0]?.url,
         brand: article.brand || null,
-        size: article.size || null,
+        // article.size is now an ArticleSize object { value, system };
+        // the DTO exposes a plain string to the client.
+        size: article.size?.value ?? null,
         condition: article.condition,
       });
     }
