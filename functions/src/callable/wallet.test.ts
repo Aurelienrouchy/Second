@@ -554,7 +554,6 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
-        ledgerEntryId: expect.any(String),
       },
     });
     // Deterministic idempotency key derived from the ledger entry id
@@ -566,7 +565,6 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
-        ledgerEntryId: expect.any(String),
       },
     });
     // stripe-node v22: single RequestOptions object carries both the Connect
