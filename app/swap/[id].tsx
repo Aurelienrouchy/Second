@@ -80,9 +80,19 @@ export default function SwapDetailScreen() {
     const isInitiator = swap.initiatorId === user.id;
     const isReceiver = swap.receiverId === user.id;
 
+    const payerId = swap.cashTopUp?.payerId;
+    const payerName =
+      payerId === swap.initiatorId
+        ? swap.initiatorName
+        : payerId === swap.receiverId
+          ? swap.receiverName
+          : '';
+
     return {
       isInitiator,
       isReceiver,
+      isTopUpPayer: !!payerId && payerId === user.id,
+      topUpPayerName: payerName,
       senderName: isInitiator ? swap.receiverName : swap.initiatorName,
       senderImage: isInitiator ? swap.receiverImage : swap.initiatorImage,
       senderItems: isInitiator
