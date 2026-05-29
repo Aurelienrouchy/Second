@@ -82,13 +82,13 @@ function RecourseReasonSheetInner<Code extends string = string>(
   const [selected, setSelected] = useState<Code | null>(null);
   const [details, setDetails] = useState('');
 
-  // Bornage au plus grand détent : le ScrollView (height fixe) scrolle dans le détent.
+  // iOS : bornage au plus grand détent (height fixe). Android : flex:1 (detente native).
   const maxSnap = showDetailsField ? '90%' : '85%';
   const snapPoints = useMemo(
     () => (showDetailsField ? ['70%', '90%'] : ['55%', '85%']),
     [showDetailsField],
   );
-  const sheetHeight = useSheetHeight(maxSnap);
+  const sheetStyle = useSheetHeight(maxSnap);
 
   useImperativeHandle(ref, () => ({
     present: () => {
