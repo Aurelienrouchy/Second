@@ -44,3 +44,6 @@ serviceAccountKey.json
 functions/.env
 *-firebase-adminsdk-*.json
 firestore-debug.log
+
+# Claude Code temporary git worktrees (never commit — full repo duplicates)
+.claude/worktrees/
