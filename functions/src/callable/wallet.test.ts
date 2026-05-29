@@ -647,7 +647,10 @@ describe('walletWithdraw', () => {
       callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
     ).rejects.toThrow('Payout failed');
 
-    expect(txCallCount).toBe(2);
+    // Three runTransaction calls: rate-limit check + debit + revert. The
+    // transfer succeeded so the code ALSO calls stripe.transfers.createReversal,
+    // but that is a Stripe call (mocked), not a runTransaction.
+    expect(txCallCount).toBe(3);
   });
 
   it('rejects string amounts', async () => {
