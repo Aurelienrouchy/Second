@@ -475,6 +475,124 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
 }
 
 // =============================================================================
+// HANDLER: payment_intent.succeeded (metadata.type === 'swap_topup')
+// =============================================================================
+
+/**
+ * Confirm a swap cash top-up payment.
+ *
+ * Calqued on handlePaymentIntentSucceeded for purchases:
+ *  1. Idempotence: only advance a swap still in 'payment_pending'.
+ *  2. Verify the amount matches the stored topUpFee + base top-up amount.
+ *  3. Transition swap 'payment_pending' → 'accepted' (exchange mode flow next).
+ *  4. Credit the payee wallet pendingBalance (escrow) with the base top-up
+ *     amount (the platform keeps the fee, mirroring 0% seller commission).
+ *     Funds are released to `balance` at confirmSwapReception.
+ *
+ * The top-up `amount` in metadata is in CENTS (base amount, fee excluded).
+ */
+async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
+  const swapId = paymentIntent.metadata?.swapId;
+
+  if (
+    typeof swapId !== 'string' ||
+    swapId.length === 0 ||
+    swapId.length > 200 ||
+    swapId.includes('/')
+  ) {
+    logger.error('Stripe webhook: swap_topup PaymentIntent missing/invalid swapId', {
+      paymentIntentId: paymentIntent.id,
+      swapId,
+    });
+    return;
+  }
+
+  const payeeId = paymentIntent.metadata?.payeeId;
+  const baseAmountCents = parseInt(paymentIntent.metadata?.topUpAmount || '0', 10);
+
+  if (typeof payeeId !== 'string' || !payeeId || !Number.isInteger(baseAmountCents) || baseAmountCents <= 0) {
+    logger.error('Stripe webhook: swap_topup PaymentIntent missing payeeId/topUpAmount', {
+      paymentIntentId: paymentIntent.id,
+      swapId,
+    });
+    return;
+  }
+
+  const amountReceivedCents = paymentIntent.amount_received || paymentIntent.amount;
+  const swapRef = db.collection('swaps').doc(swapId);
+
+  await db.runTransaction(async (tx) => {
+    const swapSnap = await tx.get(swapRef);
+    const swap = swapSnap.data();
+
+    if (!swap) {
+      logger.error('Stripe webhook: swap_topup swap not found', { swapId });
+      return;
+    }
+
+    // SECURITY: verify the charged amount matches base + fee from the swap doc.
+    const expectedTotalCents = baseAmountCents + (swap.topUpFee || 0);
+    if (Math.abs(amountReceivedCents - expectedTotalCents) > 1) {
+      logger.error('Stripe webhook: swap_topup amount mismatch', {
+        swapId,
+        received: amountReceivedCents,
+        expected: expectedTotalCents,
+      });
+      throw new Error('Swap top-up amount does not match expected total');
+    }
+
+    // IDEMPOTENCE: only advance a swap still awaiting payment.
+    if (swap.status !== 'payment_pending') {
+      logger.info('Stripe webhook: swap_topup already processed or not pending', {
+        swapId,
+        currentStatus: swap.status,
+      });
+      return;
+    }
+
+    // Credit payee wallet pendingBalance (escrow), auto-create if absent.
+    const { walletRef, walletData, isNew } = await getOrCreateSellerWallet(tx, payeeId);
+    if (!isNew) {
+      tx.update(walletRef, {
+        pendingBalance: FieldValue.increment(baseAmountCents),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      tx.update(walletRef, {
+        pendingBalance: baseAmountCents,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    const ledgerRef = walletRef.collection('ledger').doc();
+    tx.set(ledgerRef, {
+      type: 'sale_credit',
+      amount: baseAmountCents,
+      balanceAfter: (walletData.pendingBalance || 0) + baseAmountCents,
+      description: 'Complément d\'échange — fonds en attente',
+      swapId,
+      createdAt: FieldValue.serverTimestamp(),
+      status: 'pending',
+    });
+
+    // Advance swap to 'accepted' (exchange mode flow proceeds from here).
+    tx.update(swapRef, {
+      status: 'accepted',
+      topUpPaidAt: FieldValue.serverTimestamp(),
+      topUpPaymentIntentId: paymentIntent.id,
+      topUpChargeId: paymentIntent.latest_charge || null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  logger.info('Stripe webhook: swap top-up confirmed, swap advanced to accepted', {
+    swapId,
+    paymentIntentId: paymentIntent.id,
+    payeeId,
+  });
+}
+
+// =============================================================================
 // HANDLER: payment_intent.payment_failed
 // =============================================================================
 
