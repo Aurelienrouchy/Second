@@ -446,6 +446,11 @@ interface TransactionDocument {
   // Payment method
   paidVia?: 'wallet' | 'wallet_and_card';  // Set when wallet is used (absent = card-only destination charge)
   walletAmountUsed?: number;       // Wallet portion in cents (for mixed payments)
+  sellerCreditedCents?: number;    // EXACT amount credited to the seller's wallet at payment time
+                                   // (in cents). A refund/lost dispute debits precisely this figure
+                                   // (cascading pendingBalance -> heldBalance -> balance); any shortfall
+                                   // already withdrawn is recorded as sellerDebt. Set by
+                                   // handlePaymentIntentSucceeded / payWithWallet.
 
   // Stripe Connect payment
   stripePaymentIntentId?: string;  // Stripe PaymentIntent ID
