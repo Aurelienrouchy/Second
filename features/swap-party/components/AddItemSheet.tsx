@@ -216,6 +216,9 @@ const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: colors.surface,
   },
+  // height fixe appliqué inline (bornage au détent) — pas de flex:1 ici.
+  container: {},
+  // utilisé par le BottomSheetScrollView interne (parent borné → flex:1 légitime).
   flex: {
     flex: 1,
   },
