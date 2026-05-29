@@ -1,101 +1,49 @@
 /**
- * SwapPartyDetailSkeleton Component
- * Composed skeleton loader for the swap party detail screen
+ * SwapPartyDetailSkeleton Component — Swap Zone (DARK identity)
+ * Lightweight dark skeleton: lines on colors.dark over a colors.deep canvas.
+ * No full-page spinner — just the layout silhouette.
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 
-import { Skeleton, SkeletonText } from '@/components/ui';
-import { colors } from '@/constants/theme';
+import { colors, spacing, radius } from '@/constants/theme';
+
+const TILE_ROWS = [0, 1, 2, 3];
 
 export const SwapPartyDetailSkeleton = React.memo(function SwapPartyDetailSkeleton() {
   return (
     <View style={styles.container}>
-      {/* Header skeleton */}
+      {/* Header silhouette */}
       <View style={styles.header}>
-        <Skeleton width={32} height={32} borderRadius={16} />
+        <View style={styles.backDot} />
         <View style={styles.headerTitle}>
-          <Skeleton width={100} height={9} borderRadius={2} />
-          <Skeleton width={180} height={18} borderRadius={2} style={styles.titleSpacing} />
-        </View>
-        <Skeleton width={40} height={24} borderRadius={4} />
-      </View>
-
-      {/* My articles section skeleton */}
-      <View style={styles.myArticlesSection}>
-        <View style={styles.myArticlesHeader}>
-          <Skeleton width={180} height={10} borderRadius={2} />
-          <Skeleton width={70} height={24} borderRadius={2} />
-        </View>
-        <View style={styles.articleRow}>
-          <Skeleton width={48} height={60} borderRadius={0} />
-          <View style={styles.articleRowContent}>
-            <Skeleton width={60} height={10} borderRadius={2} />
-            <Skeleton width={120} height={15} borderRadius={2} style={styles.smallSpacing} />
-          </View>
-          <View style={styles.articleRowValue}>
-            <Skeleton width={40} height={11} borderRadius={2} />
-            <Skeleton width={30} height={18} borderRadius={2} style={styles.smallSpacing} />
-          </View>
+          <View style={[styles.line, styles.lineLabel]} />
+          <View style={[styles.line, styles.lineTitle]} />
         </View>
       </View>
 
-      {/* Grid label skeleton */}
-      <View style={styles.gridLabel}>
-        <Skeleton width={160} height={10} borderRadius={2} />
+      {/* Deposit section silhouette */}
+      <View style={styles.depositSection}>
+        <View style={[styles.line, styles.lineDeposit]} />
+        <View style={styles.depositButton} />
       </View>
 
-      {/* Product grid skeleton - 2 columns */}
-      <View style={styles.gridContainer}>
-        <View style={styles.gridRow}>
-          <View style={styles.gridCard}>
-            <Skeleton width="100%" height={0} borderRadius={0} style={styles.cardImage} />
-            <View style={styles.cardInfo}>
-              <Skeleton width={60} height={9} borderRadius={2} />
-              <SkeletonText lines={1} style={styles.smallSpacing} />
-              <View style={styles.cardFooter}>
-                <Skeleton width={40} height={14} borderRadius={2} />
-                <Skeleton width={20} height={10} borderRadius={2} />
-              </View>
-            </View>
+      {/* Filter chips silhouette */}
+      <View style={styles.chipsRow}>
+        <View style={styles.chip} />
+        <View style={styles.chip} />
+        <View style={styles.chip} />
+      </View>
+
+      {/* Grid silhouette — 2 columns */}
+      <View style={styles.grid}>
+        {TILE_ROWS.map((row) => (
+          <View key={`row-${row}`} style={styles.gridRow}>
+            <View style={styles.gridTile} />
+            <View style={styles.gridTile} />
           </View>
-          <View style={styles.gridCard}>
-            <Skeleton width="100%" height={0} borderRadius={0} style={styles.cardImage} />
-            <View style={styles.cardInfo}>
-              <Skeleton width={50} height={9} borderRadius={2} />
-              <SkeletonText lines={1} style={styles.smallSpacing} />
-              <View style={styles.cardFooter}>
-                <Skeleton width={35} height={14} borderRadius={2} />
-                <Skeleton width={20} height={10} borderRadius={2} />
-              </View>
-            </View>
-          </View>
-        </View>
-        <View style={styles.gridRow}>
-          <View style={styles.gridCard}>
-            <Skeleton width="100%" height={0} borderRadius={0} style={styles.cardImage} />
-            <View style={styles.cardInfo}>
-              <Skeleton width={70} height={9} borderRadius={2} />
-              <SkeletonText lines={1} style={styles.smallSpacing} />
-              <View style={styles.cardFooter}>
-                <Skeleton width={45} height={14} borderRadius={2} />
-                <Skeleton width={20} height={10} borderRadius={2} />
-              </View>
-            </View>
-          </View>
-          <View style={styles.gridCard}>
-            <Skeleton width="100%" height={0} borderRadius={0} style={styles.cardImage} />
-            <View style={styles.cardInfo}>
-              <Skeleton width={55} height={9} borderRadius={2} />
-              <SkeletonText lines={1} style={styles.smallSpacing} />
-              <View style={styles.cardFooter}>
-                <Skeleton width={38} height={14} borderRadius={2} />
-                <Skeleton width={20} height={10} borderRadius={2} />
-              </View>
-            </View>
-          </View>
-        </View>
+        ))}
       </View>
     </View>
   );
@@ -104,80 +52,74 @@ export const SwapPartyDetailSkeleton = React.memo(function SwapPartyDetailSkelet
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.deep,
+  },
+  line: {
+    backgroundColor: colors.dark,
+    borderRadius: radius.xs,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md - 2,
+    gap: spacing.md - 4,
+  },
+  backDot: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: colors.dark,
   },
   headerTitle: {
     flex: 1,
+    gap: spacing.xs,
   },
-  titleSpacing: {
-    marginTop: 6,
+  lineLabel: {
+    width: '30%',
+    height: 9,
   },
-  myArticlesSection: {
-    backgroundColor: 'rgba(122, 140, 110, 0.06)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(122, 140, 110, 0.12)',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+  lineTitle: {
+    width: '55%',
+    height: 18,
   },
-  myArticlesHeader: {
+  depositSection: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  lineDeposit: {
+    width: '45%',
+    height: 10,
+  },
+  depositButton: {
+    height: 44,
+    borderRadius: radius.none,
+    backgroundColor: colors.dark,
+  },
+  chipsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
-  articleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  chip: {
+    width: 72,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: colors.dark,
   },
-  articleRowContent: {
-    flex: 1,
-  },
-  articleRowValue: {
-    alignItems: 'flex-end',
-  },
-  smallSpacing: {
-    marginTop: 4,
-  },
-  gridLabel: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    marginBottom: 12,
-  },
-  gridContainer: {
-    gap: 0,
+  grid: {
+    marginTop: spacing.sm,
   },
   gridRow: {
     flexDirection: 'row',
+    gap: 1,
+    marginBottom: 1,
   },
-  gridCard: {
+  gridTile: {
     flex: 1,
-    backgroundColor: colors.cream,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-  },
-  cardImage: {
     aspectRatio: 3 / 4,
-  },
-  cardInfo: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 14,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: colors.dark,
   },
 });
