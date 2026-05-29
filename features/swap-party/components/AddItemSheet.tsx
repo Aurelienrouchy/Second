@@ -4,17 +4,18 @@
  * Multi-select: tap rows to toggle (selected rows change background + show a
  * check), then a fixed footer button deposits all selected articles at once.
  *
- * Ref-based (show/hide), native @expo/ui BottomSheetModal — the scrim, drag
- * handle and back-button handling are provided by the platform. Light
- * editorial surface (sheets stay light even though the Swap Zone screen is
- * dark).
+ * Ref-based (show/hide), same @gorhom/bottom-sheet pattern as the app's other
+ * sheets. Light editorial surface (sheets stay light even though the Swap Zone
+ * screen is dark).
  */
 
 import {
   BottomSheetModal,
+  BottomSheetBackdrop,
   BottomSheetScrollView,
-  BottomSheetView,
-} from '@expo/ui/community/bottom-sheet';
+  BottomSheetFooter,
+  TouchableOpacity,
+} from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, {
   forwardRef,
@@ -23,17 +24,15 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Text, Caption, SheetFooter, SHEET_FOOTER_HEIGHT, SHEET_BOTTOM_INSET } from '@/components/ui';
-import { useSheetHeight } from '@/hooks/useSheetHeight';
+import { Text, Caption } from '@/components/ui';
 import { colors, fonts, spacing, typography, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { Article, SwapPartyItemExtended } from '@/types';
-
-const SNAP = '75%';
 
 export interface AddItemSheetProps {
   articles: Article[];
@@ -43,9 +42,9 @@ export interface AddItemSheetProps {
   /** Deposit the selected articles in one batch. */
   onAddItems: (articles: Article[]) => void;
   /**
-   * Called when the modal is fully dismissed. The native sheet manages its own
-   * presentation container, but the parent may still unmount this sheet on
-   * dismiss for cleanliness.
+   * Called when the modal is fully dismissed. Lets the parent unmount this
+   * sheet so the @gorhom portal hosting container (StyleSheet.absoluteFill) is
+   * removed and never lingers as a full-screen touch-capturing layer (Android).
    */
   onClose?: () => void;
 }
@@ -57,8 +56,8 @@ export interface AddItemSheetRef {
 
 const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
   ({ articles, userItems, loading = false, onAddItems, onClose }, ref) => {
-    const snapPoints = useMemo(() => [SNAP], []);
-    const sheetStyle = useSheetHeight(SNAP);
+    const insets = useSafeAreaInsets();
+    const snapPoints = useMemo(() => ['75%'], []);
     const bottomSheetRef = React.useRef<BottomSheetModal>(null);
     const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -92,27 +91,57 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
       bottomSheetRef.current?.dismiss();
     }, [availableArticles, selected, onAddItems]);
 
+    const renderBackdrop = useCallback(
+      (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
+      [],
+    );
+
     const hasList = !loading && availableArticles.length > 0;
 
-    const count = selected.size;
+    const renderFooter = useCallback(
+      (props: any) => {
+        if (!hasList) return null;
+        const count = selected.size;
+        return (
+          <BottomSheetFooter {...props}>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+              <TouchableOpacity
+                style={[styles.addButton, count === 0 && styles.addButtonDisabled]}
+                onPress={handleConfirm}
+                disabled={count === 0}
+              >
+                <Text style={styles.addButtonText}>
+                  {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </BottomSheetFooter>
+        );
+      },
+      [hasList, selected.size, insets.bottom, handleConfirm],
+    );
 
     const hasInventory = articles.length > 0;
     const emptyText = !hasInventory
       ? "Tu n'as aucun article à déposer.\nMets d'abord un article en vente."
       : 'Tous tes articles sont déjà dans la Swap Zone.';
 
-    const scrollPaddingBottom = spacing.lg + SHEET_BOTTOM_INSET + SHEET_FOOTER_HEIGHT;
+    // Leave room for the fixed footer above the scroll content.
+    const scrollPaddingBottom = (hasList ? spacing['4xl'] : spacing.lg) + insets.bottom;
 
     return (
       <BottomSheetModal
         ref={bottomSheetRef}
         snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
+        footerComponent={renderFooter}
         enablePanDownToClose
+        topInset={insets.top}
+        handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
         onDismiss={onClose}
       >
-        <BottomSheetView style={[styles.container, sheetStyle]}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerText}>
@@ -145,7 +174,6 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
           </View>
         ) : (
           <BottomSheetScrollView
-            style={styles.flex}
             contentContainerStyle={[styles.listContent, { paddingBottom: scrollPaddingBottom }]}
             showsVerticalScrollIndicator={false}
           >
@@ -185,22 +213,6 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
             })}
           </BottomSheetScrollView>
         )}
-
-        {/* ── Footer (deposit) ── */}
-        {hasList && (
-          <SheetFooter>
-            <TouchableOpacity
-              style={[styles.addButton, count === 0 && styles.addButtonDisabled]}
-              onPress={handleConfirm}
-              disabled={count === 0}
-            >
-              <Text style={styles.addButtonText}>
-                {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
-              </Text>
-            </TouchableOpacity>
-          </SheetFooter>
-        )}
-        </BottomSheetView>
       </BottomSheetModal>
     );
   },
@@ -214,11 +226,10 @@ const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: colors.surface,
   },
-  // height fixe appliqué inline (bornage au détent) — pas de flex:1 ici.
-  container: {},
-  // utilisé par le BottomSheetScrollView interne (parent borné → flex:1 légitime).
-  flex: {
-    flex: 1,
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
+    width: 40,
+    height: 4,
   },
   header: {
     flexDirection: 'row',
@@ -297,6 +308,13 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   // ── Footer ──
+  footer: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   addButton: {
     backgroundColor: colors.rust,
     paddingVertical: spacing.md,
