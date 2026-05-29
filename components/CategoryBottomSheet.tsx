@@ -108,6 +108,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
         </View>
 
         <BottomSheetScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
         >
