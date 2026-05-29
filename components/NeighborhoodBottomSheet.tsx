@@ -33,8 +33,8 @@ interface SectionData {
 
 const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, NeighborhoodBottomSheetProps>(
   ({ selectedNeighborhood, selectedNeighborhoods = [], onSelect, multiSelect = false }, ref) => {
-    const snapPoints = useMemo(() => SNAP_POINTS, []);
-    const sheetStyle = useSheetHeight(MAX_SNAP);
+    const insets = useSafeAreaInsets();
+    const snapPoints = useMemo(() => ['75%', '90%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
