@@ -570,6 +570,24 @@ interface WithdrawalRequestDocument {
 }
 ```
 
+### `platform_ledger/{entryId}`
+
+Append-only platform accounting ledger (server-only). Records platform-side
+financial variances for tax/audit traceability — does not move user funds.
+Written by `reconcileShippingCost` (label cost reconciliation, P1).
+
+```typescript
+interface PlatformLedgerDocument {
+  type: 'shipping_cost_variance';   // Real label cost differed from the billed estimate
+  transactionId: string;
+  estimatedShippingCost: number;    // shippingCost billed to the buyer (dollars)
+  actualShippingCost: number;       // Real ShipEngine label cost (dollars)
+  delta: number;                    // actual - estimated (dollars). Logged CRITICAL when |delta| > $2
+  currency: 'cad';
+  createdAt: Timestamp;
+}
+```
+
 ### `avis/{reviewId}`
 
 User reviews tied to completed transactions (sales or swaps).
