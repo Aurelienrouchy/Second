@@ -831,9 +831,11 @@ Virtual wallet for buyers and sellers. All amounts are in **cents** (not dollars
 - `pendingBalance` — sale paid, NOT yet delivered (escrow, in transit). Not withdrawable.
 - `heldBalance` — delivered, inside the 7-day buyer-dispute window. Not withdrawable.
 - `balance` — withdrawable (dispute window elapsed without claim, via `releaseHeldFunds`).
-- `sellerDebt` — shortfall owed after a lost dispute where funds were already withdrawn; blocks all future withdrawals until cleared.
+- `sellerDebt` — shortfall owed after a refund or lost dispute where the seller's funds were already withdrawn; blocks all future withdrawals until cleared.
 
 Fund flow per sale: `pendingBalance` (paid) → `heldBalance` (delivered, `applyDeliveredHeldFunds`) → `balance` (`releaseHeldFunds` after 7d). On `charge.dispute.created` any released portion is moved `balance → heldBalance`; `charge.dispute.closed` releases (won) or debits `heldBalance`/`balance` (lost, recording `sellerDebt` if insufficient).
+
+Refund debit (any path: `charge.refunded`, `refundWalletPayment`, lost dispute): the seller is debited of EXACTLY `transactions.sellerCreditedCents` (the amount credited at payment), cascading `pendingBalance → heldBalance → balance` to drain wherever the funds currently sit. Any remainder the seller no longer holds (already withdrawn) is added to `sellerDebt` and recorded in a `refund_debit` ledger entry with `debtRecorded` — never masked with `min()`. On a mixed wallet+card refund, the buyer's wallet portion (`walletAmountUsed`) is re-credited to the buyer's wallet (internal movement) while the card portion is returned to the card by the upstream Stripe refund (`reverse_transfer` when the original charge was a destination charge).
 
 ```typescript
 interface WalletDocument {
