@@ -148,7 +148,6 @@ export function useArticleSearch({
       minPrice: filters.minPrice,
       maxPrice: filters.maxPrice,
       brands: filters.brands ?? [],
-      patterns: filters.patterns ?? [],
       sortBy: filters.sortBy as SortBy | undefined,
       excludeUserId,
       sellerId,
