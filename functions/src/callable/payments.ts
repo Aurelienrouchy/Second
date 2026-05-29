@@ -129,12 +129,21 @@ export function resolveSellerOriginAddress(
 
   if (candidate) {
     const postal = normalizePostal(candidate.postalCode);
-    if (postal && typeof candidate.street === 'string' && candidate.street.trim().length > 0) {
+    const street =
+      typeof candidate.street === 'string' ? candidate.street.trim() : '';
+    const city = (candidate.city ?? '').toString().trim();
+    const province = (candidate.province ?? '').toString().trim();
+    // P2-f: NO Montreal/QC fallback. A real origin requires postal + street +
+    // city + province from the seller's actual address; fabricating
+    // 'Montreal'/'QC' produces a wrong rate for any seller outside Montreal,
+    // which then diverges from the authoritative server re-pricing. If any
+    // component is missing we fall through and ultimately reject (return null).
+    if (postal && street.length > 0 && city.length > 0 && province.length > 0) {
       return {
         name: sellerName,
-        addressLine1: candidate.street.trim(),
-        cityLocality: (candidate.city || '').toString().trim() || 'Montreal',
-        stateProvince: (candidate.province || 'QC').toString().trim(),
+        addressLine1: street,
+        cityLocality: city,
+        stateProvince: province,
         postalCode: postal,
         countryCode: 'CA',
         phone: sellerPhone,
@@ -142,17 +151,21 @@ export function resolveSellerOriginAddress(
     }
   }
 
-  // Last resort: article.location postal code (denormalized). No street, so we
-  // use the postal code + city to let ShipEngine rate by zone.
+  // Last resort: article.location (denormalized). No street is stored, so we
+  // use the city as line1 to let ShipEngine rate by zone — but city AND
+  // province must be present alongside a valid postal code. NO Montreal/QC
+  // fallback (P2-f): reject rather than fabricate.
   const loc = articleData.location;
   if (loc && typeof loc === 'object') {
     const postal = normalizePostal(loc.postalCode);
-    if (postal) {
+    const city = (loc.city ?? '').toString().trim();
+    const province = (loc.province ?? '').toString().trim();
+    if (postal && city.length > 0 && province.length > 0) {
       return {
         name: sellerName,
-        addressLine1: (loc.city || '').toString().trim() || 'Adresse vendeur',
-        cityLocality: (loc.city || '').toString().trim() || 'Montreal',
-        stateProvince: (loc.province || 'QC').toString().trim(),
+        addressLine1: city,
+        cityLocality: city,
+        stateProvince: province,
         postalCode: postal,
         countryCode: 'CA',
         phone: sellerPhone,
