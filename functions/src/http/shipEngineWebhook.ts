@@ -30,9 +30,10 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { db } from '../config/firebase';
+import { db, FieldValue } from '../config/firebase';
 import { ShipEngineClient } from '../config/shipEngine';
 import { applyTrackingOutcome } from '../utils/trackingTransition';
+import { processReturnDelivered } from '../utils/returnRefund';
 
 /** Timing-safe equality for two short secret strings. */
 function secretsMatch(a: string, b: string): boolean {
