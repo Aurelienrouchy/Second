@@ -146,9 +146,6 @@ const Content: React.FC<ContentProps> = ({ itemsCount, newThisWeek, interactive 
 
   return (
     <>
-      {/* Open eyebrow — only when the zone is really open */}
-      {interactive ? <OpenEyebrow /> : null}
-
       {/* Title + tagline */}
       <View style={styles.textBlock}>
         <ZoneTitle />
