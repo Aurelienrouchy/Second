@@ -1587,106 +1587,30 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 
     const trackingStatus = ShipEngineClient.mapStatus(tracking.statusCode);
 
-    // If delivered, atomically update transaction status AND credit seller
-    // balance in a single runTransaction to prevent partial writes (e.g.
-    // marking delivered but failing to credit the seller).
-    if (trackingStatus === 'DELIVERED') {
-      const txRef = db.collection('transactions').doc(transactionId);
-      const sellerId = transaction.sellerId;
-      const sellerPayout = transaction.sellerPayout || transaction.amount;
-
-      await db.runTransaction(async (t) => {
-        const txSnap = await t.get(txRef);
-
-        // Guard: if already delivered, skip (idempotent)
-        if (txSnap.exists && txSnap.data()!.status === 'delivered') {
-          return;
-        }
-
-        // Get or create seller wallet
-        const { walletRef: sellerWalletRef, walletData: sellerWalletData } =
-          await getOrCreateSellerWallet(t, sellerId);
-
-        // 1. Update transaction: trackingStatus + status + deliveredAt
-        t.update(txRef, {
-          trackingStatus,
-          status: 'delivered',
-          deliveredAt: FieldValue.serverTimestamp(),
-        });
-
-        // 2. Credit seller wallet: move pendingBalance -> balance
-        const sellerPayoutCents = Math.round(sellerPayout * 100);
-
-        t.update(sellerWalletRef, {
-          pendingBalance: FieldValue.increment(-sellerPayoutCents),
-          balance: FieldValue.increment(sellerPayoutCents),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-
-        // Create ledger entry
-        const ledgerRef = sellerWalletRef.collection('ledger').doc();
-        t.set(ledgerRef, {
-          type: 'sale_available',
-          amount: sellerPayoutCents,
-          balanceAfter: (sellerWalletData.balance || 0) + sellerPayoutCents,
-          description: 'Vente livrée — fonds disponibles',
-          transactionId,
-          createdAt: FieldValue.serverTimestamp(),
-        });
+    // Explicit status guard (P1-21): a DELIVERED scan must only move funds when
+    // the transaction is in a deliverable state. A DELIVERED scan arriving on a
+    // refunded / disputed / cancelled / already-delivered / meetup_* transaction
+    // would otherwise drive pendingBalance negative or double-credit the seller.
+    // applyTrackingOutcome re-checks this invariant atomically inside its own
+    // runTransaction; this early note keeps the intent explicit for readers.
+    if (trackingStatus === 'DELIVERED' && !DELIVERABLE_STATUSES.has(transaction.status)) {
+      logger.warn('[checkTrackingStatus] DELIVERED scan ignored — non-deliverable status', {
+        transactionId,
+        currentStatus: transaction.status,
       });
-
-      // Send system message (non-critical, outside transaction)
-      if (transaction.chatId) {
-        // Look up chat participants so the message is visible to listeners
-        // that filter messages by participants and respects rules.
-        let participants: string[] = [];
-        try {
-          const chatSnap = await db.collection('chats').doc(transaction.chatId).get();
-          if (chatSnap.exists) {
-            participants = (chatSnap.data()?.participants as string[]) || [];
-          }
-        } catch (lookupErr) {
-          logger.warn('[payments] Could not load chat participants', {
-            chatId: transaction.chatId,
-            error: lookupErr instanceof Error ? lookupErr.message : lookupErr,
-          });
-        }
-
-        await db.collection('messages').add({
-          chatId: transaction.chatId,
-          senderId: 'system',
-          receiverId: 'system',
-          type: 'system',
-          content: 'Colis livré ! La transaction est terminée. Les fonds ont été transférés au vendeur.',
-          participants,
-          timestamp: FieldValue.serverTimestamp(),
-          status: 'sent',
-          isRead: true,
-        });
-      }
-
-      // Push notification to buyer: order delivered
-      try {
-        const articleTitle = transaction.articleTitle || 'votre commande';
-        await sendPushNotification(
-          transaction.buyerId,
-          'Colis livre !',
-          `Votre commande ${articleTitle} a ete livree.`,
-          { transactionId, articleId: transaction.articleId || '' },
-          'order_delivered'
-        );
-      } catch (notifError) {
-        logger.warn('[checkTrackingStatus] Failed to send buyer delivery notification', {
-          transactionId,
-          error: notifError instanceof Error ? notifError.message : notifError,
-        });
-      }
-    } else {
-      // Not delivered yet — just update the tracking status
-      await db.collection('transactions').doc(transactionId).update({
+      return {
+        success: true,
         trackingStatus,
-      });
+        trackingHistory: tracking.events || [],
+      };
     }
+
+    // Apply the tracking outcome via the shared state-machine helper:
+    //  - DELIVERED -> pendingBalance -> heldBalance + fundsReleaseAt (+7d)
+    //  - FAILURE   -> delivery_failed, funds frozen, both parties notified
+    //  - TRANSIT   -> label_created becomes 'shipped' (first carrier scan)
+    //  - else      -> trackingStatus refresh only
+    await applyTrackingOutcome(transactionId, trackingStatus, 'manual');
 
     return {
       success: true,
