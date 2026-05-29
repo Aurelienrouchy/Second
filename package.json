@@ -23,6 +23,14 @@
     "test:security:run": "vitest run --config tests/security/vitest.config.ts",
     "test:security": "firebase emulators:exec --only firestore,storage,auth 'npm run test:security:run'"
   },
+  "expo": {
+    "install": {
+      "exclude": [
+        "@stripe/stripe-react-native",
+        "typescript"
+      ]
+    }
+  },
   "dependencies": {
     "@composio/mcp": "^1.0.9",
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
