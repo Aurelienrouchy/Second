@@ -336,12 +336,16 @@ describe('getWalletInfo', () => {
   });
 
   it('returns correct balance and ledger entries when wallet exists', async () => {
+    // getWalletInfo serializes date fields via `?.toDate?.()?.toISOString()`
+    // (wallet.ts ~209,219). Firestore returns Timestamp objects with a toDate()
+    // method, so the fixtures must mimic that shape — a raw string has no
+    // toDate() and would serialize to null.
     setDoc('wallets/user1', {
       balance: 12000,
       pendingBalance: 3000,
       currency: 'cad',
       status: 'active',
-      activatedAt: '2026-01-01',
+      activatedAt: { toDate: () => new Date('2026-01-01T00:00:00Z') },
     });
 
     setQuery('wallets/user1/ledger', [
@@ -353,7 +357,7 @@ describe('getWalletInfo', () => {
           balanceAfter: 12000,
           description: 'Achat article',
           transactionId: 'tx1',
-          createdAt: '2026-05-01',
+          createdAt: { toDate: () => new Date('2026-05-01T00:00:00Z') },
         },
       },
       {
@@ -363,7 +367,7 @@ describe('getWalletInfo', () => {
           amount: 8000,
           balanceAfter: 17000,
           description: 'Vente article',
-          createdAt: '2026-04-28',
+          createdAt: { toDate: () => new Date('2026-04-28T00:00:00Z') },
         },
       },
     ]);
@@ -375,13 +379,14 @@ describe('getWalletInfo', () => {
     expect(result.pendingBalance).toBe(3000);
     expect(result.currency).toBe('cad');
     expect(result.status).toBe('active');
-    expect(result.activatedAt).toBe('2026-01-01');
+    expect(result.activatedAt).toBe('2026-01-01T00:00:00.000Z');
 
     const ledger = result.ledger as Array<Record<string, unknown>>;
     expect(ledger).toHaveLength(2);
     expect(ledger[0].id).toBe('ledger1');
     expect(ledger[0].type).toBe('purchase_debit');
     expect(ledger[0].transactionId).toBe('tx1');
+    expect(ledger[0].createdAt).toBe('2026-05-01T00:00:00.000Z');
     expect(ledger[1].id).toBe('ledger2');
     expect(ledger[1].transactionId).toBeNull(); // missing field => null fallback
   });
