@@ -15,12 +15,46 @@ import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { firestore, auth, storage, functions } from '../config/firebaseConfig';
-import { Article, ArticleImage } from '../types';
+import { Article, ArticleImage, ArticleSize } from '../types';
 import {
   fixStorageUrl as fixStorageUrlUtil,
   isStorageUrl as isStorageUrlUtil,
 } from '../utils/fixStorageUrl';
+import { brandKey } from '../utils/normalizeBrand';
 import { processImageWithBlurhash } from '../utils/imageUtils';
+
+/**
+ * Normalize free text for search query matching.
+ *
+ * NOTE: this exact function is duplicated verbatim in
+ * `functions/src/utils/search.ts` (the search indexer). There is no shared
+ * module possible between the Expo app and Cloud Functions, so the two copies
+ * MUST stay in sync — any change here must be mirrored there (and vice-versa),
+ * otherwise the keywords written by the indexer and the keyword built by this
+ * client query diverge and matches silently break.
+ *
+ * Steps: NFD decompose -> strip diacritics -> lowercase -> strip punctuation
+ * -> collapse whitespace -> trim.
+ */
+export function normalizeSearchText(input: string): string {
+  return (input ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // strip diacritiques
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ') // strip ponctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Max Firestore batches fetched while refilling a client-filtered page. */
+const MAX_REFILL_BATCHES = 5;
+
+/** A page of search results plus pagination metadata. */
+interface SearchPage {
+  articles: Article[];
+  lastVisible: QueryDocumentSnapshot | null;
+  hasMore: boolean;
+}
 
 export class ArticlesService {
   /** @deprecated Import { isStorageUrl } from '@/utils/fixStorageUrl'. */
