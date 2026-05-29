@@ -291,6 +291,15 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
       ]
     },
     {
+      "collectionGroup": "withdrawal_requests",
+      "queryScope": "COLLECTION",
+      "comment": "reconcileFinances: withdrawals stuck 'processing' past createdAt cutoff (lost payout webhook)",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "swaps",
       "queryScope": "COLLECTION",
       "fields": [
