@@ -66,7 +66,9 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
     const hasInitializedSearch = useRef(false);
     const PAGE_SIZE = 50;
 
-    const snapPoints = useMemo(() => [SCREEN_HEIGHT - insets.top - 50], [insets.top]);
+    const sheetMaxHeight = SCREEN_HEIGHT - insets.top - 50;
+    const snapPoints = useMemo(() => [sheetMaxHeight], [sheetMaxHeight]);
+    const sheetHeight = useSheetHeight(sheetMaxHeight);
     const inputRef = useRef<any>(null);
 
     const canAddCustomBrand = useMemo(() => {
