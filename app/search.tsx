@@ -33,7 +33,6 @@ import {
   CONDITION_ITEMS,
   FilterChipsRow,
   PriceRangeInputs,
-  SORT_ITEMS,
   SearchHeader,
   searchStyles as styles,
   useSearchScreen,
