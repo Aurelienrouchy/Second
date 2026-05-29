@@ -60,13 +60,24 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
-    const [localSelectedSizes, setLocalSelectedSizes] = React.useState<string[]>(selectedSizes);
-    const [sizeSystem, setSizeSystem] = React.useState<SizeSystem>('EU');
+    // Internal selection is value-only and always scoped to the active system —
+    // the sheet wraps each value into { value, system } at confirm time.
+    const [localSelectedSizes, setLocalSelectedSizes] = React.useState<string[]>(
+      selectedSizes.map((s) => s.value)
+    );
+    const [sizeSystem, setSizeSystem] = React.useState<SizeSystem>(
+      selectedSizes[0]?.system ?? 'EU'
+    );
     const [demographic, setDemographic] = React.useState<SizeDemographic>('adult');
 
     useImperativeHandle(ref, () => ({
       show: () => {
-        setLocalSelectedSizes(selectedSizes);
+        // Align the active system to the existing selection so values aren't lost.
+        const system = selectedSizes[0]?.system ?? sizeSystem;
+        setSizeSystem(system);
+        setLocalSelectedSizes(
+          selectedSizes.filter((s) => s.system === system).map((s) => s.value)
+        );
         bottomSheetRef.current?.expand();
       },
       hide: () => bottomSheetRef.current?.close(),
