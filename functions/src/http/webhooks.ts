@@ -349,6 +349,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       return {
         processed: false,
         reason: currentStatus === 'cancelled' ? 'cancelled_needs_refund' : 'already_refunded',
+        // Carry the tx data so the post-transaction refund (issueTransactionRefund)
+        // can re-credit the buyer wallet portion and debit the seller exactly what
+        // was credited, in one atomic operation (no two-phase charge.refunded).
+        txData,
       };
     }
 
