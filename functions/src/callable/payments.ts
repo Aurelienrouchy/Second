@@ -180,57 +180,66 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
     throw new HttpsError('failed-precondition', 'ShipEngine API not configured');
   }
 
+  // Require BOTH endpoints to be usable Canadian addresses. NO silent Montreal
+  // fallback (P2-f): a fabricated QC/Montreal origin or destination produces a
+  // wrong estimate for any seller/buyer outside Montreal, which then diverges
+  // from the authoritative server re-pricing in createTransaction. Reject
+  // explicitly so the client surfaces a real "address required" error.
+  const normalizePostal = (raw: unknown): string | null => {
+    const cleaned = (raw ?? '').toString().replace(/\s/g, '').toUpperCase();
+    return CA_POSTAL_RE.test(cleaned) ? cleaned : null;
+  };
+
+  const fromStreet = (fromAddress.street ?? '').toString().trim();
+  const fromCity = (fromAddress.city ?? '').toString().trim();
+  const fromPostal = normalizePostal(fromAddress.postalCode);
+  if (fromStreet.length === 0 || fromCity.length === 0 || !fromPostal) {
+    throw new HttpsError(
+      'invalid-argument',
+      'L\'adresse d\'expedition (vendeur) est incomplete ou invalide. Une rue, une ville et un code postal canadien valides sont requis.'
+    );
+  }
+
+  const toCity = (toAddress.city ?? '').toString().trim();
+  const toPostal = normalizePostal(toAddress.postalCode);
+  if (toCity.length === 0 || !toPostal) {
+    throw new HttpsError(
+      'invalid-argument',
+      'L\'adresse de livraison (acheteur) est incomplete ou invalide. Une ville et un code postal canadien valides sont requis.'
+    );
+  }
+
   try {
     const parcelWeight = parseFloat(weight) || 0.5;
     const parcelLength = parseFloat(dimensions?.length) || 30;
     const parcelWidth = parseFloat(dimensions?.width) || 25;
     const parcelHeight = parseFloat(dimensions?.height) || 10;
 
-    // Default Montreal address used when the seller hasn't set their address yet.
-    // This provides a reasonable estimate for shipping rates in the Montreal area.
-    const MONTREAL_FALLBACK = {
-      name: 'Vendeur',
-      addressLine1: '1000 Rue Sainte-Catherine O',
-      cityLocality: 'Montreal',
-      stateProvince: 'QC',
-      postalCode: 'H3B 1C9',
-      countryCode: 'CA',
-      phone: '5141234567',
-    };
-
-    // Build the from-address with fallback for missing fields
-    const hasValidFromAddress =
-      fromAddress.street && fromAddress.street.trim().length > 0 &&
-      fromAddress.city && fromAddress.city.trim().length > 0;
-
     logger.info('Getting ShipEngine multi-carrier rates', {
-      from: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
-      to: toAddress.postalCode,
+      from: fromPostal,
+      to: toPostal,
       weight: parcelWeight,
-      usingFallbackAddress: !hasValidFromAddress,
     });
 
     // Rate shopping across Intelcom + Canada Post via ShipEngine
     const rates = await shipEngine.getRates(
-      hasValidFromAddress
-        ? {
-            name: fromAddress.name || 'Vendeur',
-            addressLine1: fromAddress.street,
-            cityLocality: fromAddress.city,
-            stateProvince: fromAddress.province || 'QC',
-            postalCode: fromAddress.postalCode || MONTREAL_FALLBACK.postalCode,
-            countryCode: 'CA',
-            phone: fromAddress.phone || MONTREAL_FALLBACK.phone,
-          }
-        : MONTREAL_FALLBACK,
+      {
+        name: fromAddress.name || 'Vendeur',
+        addressLine1: fromStreet,
+        cityLocality: fromCity,
+        stateProvince: (fromAddress.province || 'QC').toString().trim(),
+        postalCode: fromPostal,
+        countryCode: 'CA',
+        phone: fromAddress.phone || undefined,
+      },
       {
         name: toAddress.name || 'Acheteur',
-        addressLine1: toAddress.street || MONTREAL_FALLBACK.addressLine1,
-        cityLocality: toAddress.city || MONTREAL_FALLBACK.cityLocality,
-        stateProvince: toAddress.province || 'QC',
-        postalCode: toAddress.postalCode || MONTREAL_FALLBACK.postalCode,
+        addressLine1: (toAddress.street ?? '').toString().trim() || toCity,
+        cityLocality: toCity,
+        stateProvince: (toAddress.province || 'QC').toString().trim(),
+        postalCode: toPostal,
         countryCode: 'CA',
-        phone: toAddress.phone || MONTREAL_FALLBACK.phone,
+        phone: toAddress.phone || undefined,
       },
       {
         weight: { value: parcelWeight, unit: 'kilogram' },
