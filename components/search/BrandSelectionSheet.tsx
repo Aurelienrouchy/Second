@@ -507,17 +507,10 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           </View>
         ) : (
           <BottomSheetFlatList
-            style={styles.flex}
             data={filteredBrands}
             renderItem={renderBrandItem}
             keyExtractor={(item) => item.value}
-            contentContainerStyle={[
-              styles.listContent,
-              {
-                paddingBottom:
-                  24 + (singleSelect ? SHEET_BOTTOM_INSET : SHEET_FOOTER_HEIGHT),
-              },
-            ]}
+            contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             onEndReached={handleLoadMore}
