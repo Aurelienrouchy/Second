@@ -61,7 +61,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
               >
                 <Ionicons name="close-circle" size={20} color={colors.sand} />
               </Pressable>
-            </View>
+            </Animated.View>
           ))}
         </View>
       ) : (
