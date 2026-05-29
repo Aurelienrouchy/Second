@@ -182,6 +182,38 @@ export const onSwapStatusUpdated = onDocumentUpdated(
           body = `${after.receiverName} a accepté ${getSwapDescription(after)}`;
           break;
 
+        case 'payment_pending':
+          // The receiver accepted a swap with a cash top-up — notify the payer
+          // (could be either party) that payment is required to proceed.
+          if (after.cashTopUp?.payerId) {
+            await sendSwapNotification(
+              after.cashTopUp.payerId,
+              swapId,
+              'Paiement requis',
+              'Ton échange est accepté. Règle le complément pour lancer l\'échange.',
+              after
+            );
+          }
+          return;
+
+        case 'disputed':
+          // Notify both parties that a dispute was opened.
+          await sendSwapNotification(
+            after.initiatorId,
+            swapId,
+            'Litige ouvert',
+            'Un litige a été ouvert sur cet échange. Notre équipe va l\'examiner.',
+            after
+          );
+          await sendSwapNotification(
+            after.receiverId,
+            swapId,
+            'Litige ouvert',
+            'Un litige a été ouvert sur cet échange. Notre équipe va l\'examiner.',
+            after
+          );
+          return;
+
         case 'declined':
           targetUserId = after.initiatorId;
           title = 'Échange refusé';
