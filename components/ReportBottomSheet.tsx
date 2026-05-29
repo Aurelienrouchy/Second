@@ -151,7 +151,13 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
         enableDynamicSizing={false}
         onChange={(index) => { if (index === -1) setIsOpen(false); }}
       >
-        <BottomSheetScrollView style={{ height: sheetHeight }} contentContainerStyle={styles.content}>
+        <BottomSheetScrollView
+          style={sheetStyle}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: SHEET_BOTTOM_INSET + 40 },
+          ]}
+        >
             <View style={styles.header}>
               <Ionicons name="flag" size={24} color="#ff4757" />
               <Text style={styles.title}>{getTitle()}</Text>
