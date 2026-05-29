@@ -365,6 +365,96 @@ class ShipEngineClient {
   }
 
   // ===========================================================================
+  // RETURN LABEL — Purchase a label for the reverse leg (buyer -> seller)
+  // ===========================================================================
+
+  /**
+   * Creates a RETURN shipping label for the reverse direction (buyer ships the
+   * item back to the seller). Unlike createLabel(rateId), a return has no
+   * pre-quoted rate, so we buy a label directly from an inline shipment using
+   * ShipEngine rate-shopping (`rate_options.service_code` omitted = let
+   * ShipEngine pick the carrier/service for the route).
+   *
+   * Cost is billed to the platform account; who ultimately bears it (buyer by
+   * default, seller if a dispute is ruled against them) is a business decision
+   * applied downstream — this method only purchases the label.
+   *
+   * Like createLabel, allowRetry is false: label purchase is not idempotent.
+   */
+  async createReturnLabel(
+    shipFrom: ShipEngineAddress,
+    shipTo: ShipEngineAddress,
+    parcel: ShipEngineParcel
+  ): Promise<ShipEngineLabel> {
+    const response = await this.request<{
+      label_id: string;
+      tracking_number: string;
+      label_download: { href: string };
+      carrier_code: string;
+      shipment_cost?: { amount: number; currency: string };
+      insurance_cost?: { amount: number; currency: string };
+    }>(
+      'POST',
+      '/v1/labels',
+      {
+        shipment: {
+          ship_from: {
+            name: shipFrom.name,
+            address_line1: shipFrom.addressLine1,
+            address_line2: shipFrom.addressLine2,
+            city_locality: shipFrom.cityLocality,
+            state_province: shipFrom.stateProvince,
+            postal_code: shipFrom.postalCode,
+            country_code: shipFrom.countryCode,
+            phone: shipFrom.phone,
+          },
+          ship_to: {
+            name: shipTo.name,
+            address_line1: shipTo.addressLine1,
+            address_line2: shipTo.addressLine2,
+            city_locality: shipTo.cityLocality,
+            state_province: shipTo.stateProvince,
+            postal_code: shipTo.postalCode,
+            country_code: shipTo.countryCode,
+            phone: shipTo.phone,
+          },
+          packages: [
+            {
+              weight: parcel.weight,
+              dimensions: parcel.dimensions,
+            },
+          ],
+        },
+        label_format: 'pdf',
+        label_layout: '4x6',
+        // is_return_label tells the carrier this is a reverse-logistics label.
+        is_return_label: true,
+      },
+      // allowRetry = false: label creation is NOT idempotent (no idempotency key).
+      false
+    );
+
+    return {
+      labelId: response.label_id,
+      trackingNumber: response.tracking_number,
+      labelDownload: response.label_download,
+      trackingUrl: this.getTrackingUrl(
+        response.carrier_code,
+        response.tracking_number
+      ),
+      carrierCode: response.carrier_code,
+      shipmentCost:
+        typeof response.shipment_cost?.amount === 'number'
+          ? response.shipment_cost.amount
+          : 0,
+      insuranceCost:
+        typeof response.insurance_cost?.amount === 'number'
+          ? response.insurance_cost.amount
+          : 0,
+    };
+  }
+
+  // ===========================================================================
   // TRACKING — Get shipment tracking info
   // ===========================================================================
 
