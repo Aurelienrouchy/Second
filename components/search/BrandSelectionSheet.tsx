@@ -691,13 +691,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.muted,
   },
-  footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
   confirmButton: {
     backgroundColor: colors.charcoal,
     borderRadius: 0,
