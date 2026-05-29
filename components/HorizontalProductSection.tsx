@@ -124,7 +124,7 @@ export default function HorizontalProductSection({
                     price: article.price,
                     images: article.images,
                     brand: article.brand,
-                    size: article.size,
+                    size: article.size?.value,
                     condition: article.condition,
                     location:
                       distance !== undefined ? { distance } : undefined,
