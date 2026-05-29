@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { httpsCallable } from 'firebase/functions';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,11 +23,23 @@ import {
 } from 'react-native';
 
 import { functions } from '@/config/firebaseConfig';
+import {
+  RecourseReasonSheet,
+  RecourseReasonSheetRef,
+  RecourseReasonOption,
+} from '@/components/RecourseReasonSheet';
 import { Transaction } from '@/types';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useAuthStore, selectUser } from '@/store/authStore';
 import { getStatusDescription, fillFundsReleaseAt } from '@/lib/transactionStatusMeta';
+import {
+  useTransactionRecourse,
+  isFailedPrecondition,
+  getRecourseErrorMessage,
+  ReportReasonCode,
+  ReturnReasonCode,
+} from '@/hooks/useTransactionRecourse';
 
 interface ShipmentTrackingProps {
   transaction: Transaction;
