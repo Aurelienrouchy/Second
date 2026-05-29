@@ -140,7 +140,6 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
             );
           })}
         </BottomSheetScrollView>
-        </BottomSheetView>
       </BottomSheet>
     );
   }
