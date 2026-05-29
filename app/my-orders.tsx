@@ -48,7 +48,6 @@ function OrderCard({
   onReview?: () => void;
 }) {
   const { transaction, article, hasReview } = item;
-  const status = STATUS_LABELS[transaction.status];
   const firstImage = article?.images?.[0];
   const dateLabel = transaction.createdAt.toLocaleDateString(APP_LOCALE, {
     day: 'numeric',
