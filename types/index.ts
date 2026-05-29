@@ -828,7 +828,24 @@ export interface WalletInfo {
   hasWallet: boolean;
   balance: number;
   pendingBalance: number;
+  /** Funds soon available (cents) — delivered sales inside the 7-day protection window. */
+  heldBalance?: number;
+  /** Outstanding amount to regularize (cents). Blocks withdrawals while > 0. */
+  sellerDebt?: number;
   status: 'active' | 'inactive';
   ledger: WalletLedgerEntry[];
+}
+
+// withdrawal_requests collection — tracks payouts to the seller bank account.
+export type WithdrawalRequestStatus = 'processing' | 'completed' | 'failed';
+
+export interface WithdrawalRequest {
+  id: string;
+  status: WithdrawalRequestStatus;
+  /** Withdrawn amount (cents). */
+  amount: number;
+  failureReason?: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
