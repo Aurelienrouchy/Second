@@ -58,7 +58,6 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     ref
   ) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
-    const insets = useSafeAreaInsets();
     const [state, setState] = useState<MakeOfferState>({
       ...initialState,
       mode: defaultMode,
