@@ -491,6 +491,13 @@ interface TransactionDocument {
   stripeCheckoutCreatedAt?: Timestamp;
   stripeChargeId?: string;         // Latest charge ID from webhook
   stripeRefundId?: string;         // Stripe refund ID (if refunded)
+  stripeRefundIssuedAt?: Timestamp; // P1: stamped when the expiry job / auto-refund
+                                   // successfully calls Stripe refunds.create (before
+                                   // wallet movements). Crash-recovery marker so a
+                                   // resumed refund_in_progress skips re-calling Stripe.
+  refundReason?: string;           // P1: machine-readable refund reason set at PHASE 1
+                                   // (e.g. seller_did_not_ship_7d)
+  refundStartedAt?: Timestamp;     // P1: stamped when status -> refund_in_progress
 
   // Dispute window (7-day held funds)
   fundsReleaseAt?: Timestamp;      // deliveredAt + 7d; when heldBalance becomes withdrawable
