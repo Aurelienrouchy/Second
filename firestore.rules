@@ -611,7 +611,7 @@ service cloud.firestore {
     // refId but have no per-user owner, and they may carry sensitive payloads
     // (paymentIntentId, amounts). Server-only; admins may inspect.
     match /failed_operations/{opId} {
-      allow read: if request.auth.token.admin == true;
+      allow read: if isAdmin();
       allow create, update, delete: if false;
     }
 
