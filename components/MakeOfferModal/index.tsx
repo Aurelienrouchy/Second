@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.lg + spacing.lg,
+    paddingBottom: SHEET_BOTTOM_INSET + spacing.lg + spacing.lg,
   },
 });
 
