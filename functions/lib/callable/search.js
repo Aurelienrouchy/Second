@@ -113,7 +113,7 @@ exports.visualSearch = (0, https_1.onCall)({
     timeoutSeconds: 60,
     memory: '512MiB',
 }, async (request) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     // Rate limiting: protect Vertex AI from abuse
     const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
     await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
@@ -150,6 +150,9 @@ exports.visualSearch = (0, https_1.onCall)({
         queryVector: firebase_1.FieldValue.vector(queryEmbedding),
         limit: Math.min(limit + 1, 50), // +1 to filter out self if needed
         distanceMeasure: 'COSINE',
+        // Materialize the computed distance so doc.get('__distance__') is real.
+        // Without this the field is never written and similarity is always 100%.
+        distanceResultField: '__distance__',
     });
     const snapshot = await vectorQuery.get();
     const queryTime = Date.now() - startTime - embeddingTime;
@@ -202,7 +205,9 @@ exports.visualSearch = (0, https_1.onCall)({
             price: article.price,
             imageUrl: (_c = (_b = article.images) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.url,
             brand: article.brand || null,
-            size: article.size || null,
+            // article.size is now an ArticleSize object { value, system };
+            // the DTO exposes a plain string to the client.
+            size: (_e = (_d = article.size) === null || _d === void 0 ? void 0 : _d.value) !== null && _e !== void 0 ? _e : null,
             condition: article.condition,
         });
     }
@@ -217,7 +222,7 @@ exports.visualSearch = (0, https_1.onCall)({
  * Falls back gracefully if no embedding exists.
  */
 exports.getSimilarProducts = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', timeoutSeconds: 30, memory: '512MiB' }, async (request) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     // Rate limiting: protect Vertex AI from abuse
     const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
     await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
@@ -249,6 +254,9 @@ exports.getSimilarProducts = (0, https_1.onCall)({ region: 'northamerica-northea
         queryVector: sourceEmbedding,
         limit: limit + 1, // +1 to exclude self
         distanceMeasure: 'COSINE',
+        // Materialize the computed distance so doc.get('__distance__') is real.
+        // Without this the field is never written and similarity is always 100%.
+        distanceResultField: '__distance__',
     });
     const snapshot = await vectorQuery.get();
     // 3. Fetch articles
@@ -294,7 +302,9 @@ exports.getSimilarProducts = (0, https_1.onCall)({ region: 'northamerica-northea
             price: article.price,
             imageUrl: (_b = (_a = article.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.url,
             brand: article.brand || null,
-            size: article.size || null,
+            // article.size is now an ArticleSize object { value, system };
+            // the DTO exposes a plain string to the client.
+            size: (_d = (_c = article.size) === null || _c === void 0 ? void 0 : _c.value) !== null && _d !== void 0 ? _d : null,
             condition: article.condition,
         };
         if (includeScore) {

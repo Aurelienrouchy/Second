@@ -690,12 +690,20 @@ export const payWithWallet = onCall(
 
               // ATOMIC: credit the seller now that the label exists, reconcile
               // the real label cost vs the estimated shippingCost, persist label
-              // fields, clear the pending flag, and mark 'shipped'.
+              // fields, clear the pending flag, and mark 'label_created'.
+              // NOTE: 'label_created', NOT 'shipped' — the carrier hasn't scanned
+              // the parcel yet. The first real scan (poller / ShipEngine webhook)
+              // advances label_created -> shipped.
               await db.runTransaction(async (tx) => {
                 const txSnap = await tx.get(txRef);
                 const tdata = txSnap.data();
                 if (!tdata) return;
-                if (tdata.status === 'shipped' || tdata.status === 'delivered') return;
+                if (
+                  tdata.status === 'label_created' ||
+                  tdata.status === 'shipped' ||
+                  tdata.status === 'delivered'
+                )
+                  return;
 
                 await creditSellerForSale(tx, txRef, tdata, transactionId);
 
@@ -704,10 +712,10 @@ export const payWithWallet = onCall(
                   shippingLabelUrl: label.labelDownload.href,
                   trackingUrl: label.trackingUrl,
                   carrierCode: label.carrierCode,
-                  trackingStatus: 'TRANSIT',
+                  trackingStatus: 'LABEL_CREATED',
                   shipEngineLabelId: label.labelId,
-                  status: 'shipped',
-                  shippedAt: FieldValue.serverTimestamp(),
+                  status: 'label_created',
+                  labelCreatedAt: FieldValue.serverTimestamp(),
                   labelCreationPending: false,
                 };
                 reconcileShippingCost(label, result.shippingCost, transactionId, update);
