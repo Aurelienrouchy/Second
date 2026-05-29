@@ -175,11 +175,17 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
         index={0}
         snapPoints={snapPoints}
         onChange={handleSheetChanges}
+        backdropComponent={renderBackdrop}
         enablePanDownToClose
+        handleIndicatorStyle={styles.handleIndicator}
         containerStyle={styles.bottomSheetContainer}
+        topInset={insets.top}
         enableDynamicSizing={false}
+        keyboardBehavior="fillParent"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
       >
-        <BottomSheetScrollView style={[styles.container, sheetStyle]} keyboardShouldPersistTaps="handled">
+        <BottomSheetScrollView style={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             {state.step !== 'offer' && (
               <Pressable onPress={handleBack} style={styles.backButton}>
