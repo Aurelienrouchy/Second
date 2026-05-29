@@ -20,11 +20,22 @@ _Maj 2026-05-29. Voir aussi `AUDIT_PAIEMENT_LIVRAISON_report.md` (audit) et `_ar
 ### Corrections P1
 Idempotency keys Stripe · dédup `stripe_events/{event.id}` · cycle dispute (`charge.dispute.closed`) + `payout.failed/paid` + 7j hold + garde retrait · cohérence refund mixte + `sellerDebt` · atomicité label (crédit vendeur différé) + `sweepPendingLabels` + réconciliation coût (`actualShippingCost`) · retry/timeout ShipEngine + validation adresse · pagination tracking + découplage `label_created`/`shipped` + flux `delivery_failed`/`lost` + label retour + `shipEngineWebhook` · race expiration↔paiement + refund transactionnel paginé · montant lié à l'offre acceptée + payee swap onboardé + blocage suppression compte en litige · dead-letter `failed_operations` + `retryFailedOperations` + `reconcileFinances` · indexes + durcissement rules.
 
-## ⚠️ Prérequis déploiement / config (NON code)
-- **Secret manquant** : `SHIPENGINE_WEBHOOK_SECRET` (pour `shipEngineWebhook`) à créer dans Secret Manager.
-- **Déploiement** : nouvelles fonctions (`releaseHeldFunds`, `sweepPendingLabels`, `retryFailedOperations`, `reconcileFinances`, `shipEngineWebhook`, `adminRefundTransaction`) + indexes Firestore. ⚠️ **JAMAIS `deploy functions --force`** (orphelins prod, dont `requestWithdrawal`) — déployer par fonction nommée.
-- **Webhook ShipEngine** : configurer l'URL de tracking côté tableau de bord ShipEngine vers `shipEngineWebhook`.
-- **CI** : exporter `JAVA_HOME=openjdk@21` pour `test:security`.
+## ✅ Déploiement (2026-05-29, projet seconde-b47a6)
+- **Firestore rules + indexes + storage** : déployés (sans `--force` → 2 indexes prod + 1 field override orphelins préservés).
+- **35 fonctions** déployées par nom (paiement, wallet, swap, recours, scheduled, stripeWebhook). `reportTransactionProblem` repassée en 512MiB (256MiB faisait échouer le healthcheck cold-start). Orphelins prod (`requestWithdrawal`…) non touchés (déploiement par nom).
+- **`stripeWebhook`** : URL inchangée → aucune reconfig Stripe nécessaire.
+
+## ⚠️ Reste à faire (toi — secret fund-affecting, je ne dois pas le voir)
+1. Poser le secret (sur ta machine, la valeur reste chez toi) :
+   ```sh
+   SECRET=$(openssl rand -base64 36); echo "$SECRET"   # note-la pour ShipEngine
+   printf "%s" "$SECRET" | firebase functions:secrets:set SHIPENGINE_WEBHOOK_SECRET --data-file - --project seconde-b47a6
+   ```
+2. Me dire « secret posé » → je déploie `shipEngineWebhook` (`firebase deploy --only functions:shipEngineWebhook`).
+3. Dans le tableau de bord ShipEngine, créer un webhook tracking vers :
+   `https://northamerica-northeast1-seconde-b47a6.cloudfunctions.net/shipEngineWebhook?secret=<SECRET>`
+- **CI** : `JAVA_HOME=openjdk@21` pour `test:security`.
+- En attendant : le poller `checkShippedTracking` (toutes les 6 h) couvre le tracking (filet de sécurité).
 
 ## ✅ App — FAIT (workflow 3) et vérifié
 - `npx tsc --noEmit` (racine) : seules 2 erreurs **préexistantes** (orphelins `components/AuthTester.tsx`, `components/ExternalLink.tsx`) — le câblage paiement/livraison ajoute **0 erreur**.
