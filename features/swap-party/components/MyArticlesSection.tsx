@@ -1,6 +1,7 @@
 /**
- * MyArticlesSection Component
- * Shows the user's articles in the swap party with add/remove actions
+ * MyArticlesSection Component — Swap Zone (DARK identity)
+ * Shows the user's deposited articles with add/remove actions. Always available
+ * to an authenticated user (the zone is open to all — no join gate).
  */
 
 import React from 'react';
@@ -9,7 +10,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
@@ -18,65 +19,51 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
   onAddPress,
   onRemoveItem,
 }: MyArticlesSectionProps) {
-  // Swap Zone is always active — articles can always be added/removed.
   return (
-    <View style={styles.myArticleSection}>
-      <View style={styles.myArticleLabelRow}>
-        <Text style={styles.myArticleLabel}>
+    <View style={styles.section}>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>
           {"Mes articles à l'échange · "}{userItems.length}
         </Text>
         <Pressable
-          style={({ pressed }) => [styles.addArticleButton, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           onPress={onAddPress}
         >
-          <Ionicons name="add" size={16} color={colors.sage} />
-          <Text style={styles.addArticleButtonText}>Ajouter</Text>
+          <Ionicons name="add" size={sizing.iconSM} color={colors.cream} />
+          <Text style={styles.addButtonText}>Déposer un article</Text>
         </Pressable>
       </View>
 
       {userItems.length > 0 ? (
-        <View style={styles.myArticlesList}>
+        <View style={styles.list}>
           {userItems.map((item) => (
-            <View key={item.id} style={styles.myArticleRow}>
-              <Image
-                source={{ uri: item.imageUrl }}
-                style={styles.myArticleImage}
-              />
-              <View style={styles.myArticleContent}>
-                <Text style={styles.myArticleBrand}>
-                  {item.brand || 'BRAND'}
-                </Text>
-                <Text style={styles.myArticleTitle}>
-                  {item.title}
-                </Text>
-                <Text style={styles.myArticleStatus}>
-                  Disponible au swap
-                </Text>
+            <View key={item.id} style={styles.row}>
+              <Image source={{ uri: item.imageUrl }} style={styles.rowImage} recyclingKey={item.id} />
+              <View style={styles.rowContent}>
+                <Text style={styles.rowBrand}>{item.brand || 'BRAND'}</Text>
+                <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.rowStatus}>Disponible au swap</Text>
               </View>
-              <View style={styles.myArticleValue}>
-                <Text style={styles.myArticleValueLabel}>Valeur</Text>
-                <Text style={styles.myArticlePrice}>
-                  {formatPrice(item.price)}
-                </Text>
+              <View style={styles.rowValue}>
+                <Text style={styles.rowValueLabel}>Valeur</Text>
+                <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
               </View>
               <Pressable
-                style={({ pressed }) => [styles.removeItemButton, pressed && { opacity: 0.7 }]}
+                style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
                 onPress={() => onRemoveItem(item.articleId)}
               >
-                <Ionicons name="close-circle" size={20} color={colors.muted} />
+                <Ionicons name="close-circle" size={20} color={colors.sand} />
               </Pressable>
             </View>
           ))}
         </View>
       ) : (
         <Pressable
-          style={({ pressed }) => [styles.myArticleEmpty, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.empty, pressed && styles.pressed]}
           onPress={onAddPress}
         >
-          <Ionicons name="add-circle-outline" size={24} color={colors.sage} />
-          <Text style={styles.myArticleEmptyText}>
-            Ajouter des articles à échanger
-          </Text>
+          <Ionicons name="add-circle-outline" size={sizing.iconMD} color={colors.sage} />
+          <Text style={styles.emptyText}>Déposez vos articles à échanger</Text>
         </Pressable>
       )}
     </View>
@@ -84,106 +71,108 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
 });
 
 const styles = StyleSheet.create({
-  myArticleSection: {
-    backgroundColor: 'rgba(122, 140, 110, 0.06)',
+  section: {
+    backgroundColor: colors.dark,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(122, 140, 110, 0.12)',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    borderBottomColor: colors.deep,
+    paddingHorizontal: spacing.md + 4,
+    paddingVertical: spacing.md - 2,
   },
-  myArticleLabelRow: {
+  pressed: {
+    opacity: 0.7,
+  },
+  labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
-  myArticleLabel: {
+  label: {
     fontSize: 10,
     fontFamily: fonts.sansMedium,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: colors.sage,
+    color: colors.sand,
+    flexShrink: 1,
+    marginRight: spacing.sm,
   },
-  addArticleButton: {
+  addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(122, 140, 110, 0.3)',
-    borderRadius: 2,
+    gap: spacing.xs,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.sm + 2,
+    backgroundColor: colors.rust,
+    borderRadius: radius.none,
   },
-  addArticleButtonText: {
+  addButtonText: {
     fontSize: 10,
     fontFamily: fonts.sansMedium,
     letterSpacing: 1.0,
     textTransform: 'uppercase',
-    color: colors.sage,
+    color: colors.cream,
   },
-  myArticlesList: {
-    gap: 8,
+  list: {
+    gap: spacing.sm,
   },
-  myArticleRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm + 2,
   },
-  myArticleImage: {
+  rowImage: {
     width: 48,
     height: 60,
-    backgroundColor: colors.background,
-    borderRadius: 0,
+    backgroundColor: colors.deep,
+    borderRadius: radius.none,
   },
-  myArticleContent: {
+  rowContent: {
     flex: 1,
   },
-  myArticleBrand: {
+  rowBrand: {
     fontSize: 10,
     fontFamily: fonts.sansMedium,
     letterSpacing: 1.0,
     textTransform: 'uppercase',
-    color: colors.muted,
+    color: colors.whiteTranslucent,
     marginBottom: 2,
   },
-  myArticleTitle: {
+  rowTitle: {
     fontFamily: fonts.display,
     fontSize: 15,
-    fontWeight: '400',
-    color: colors.charcoal,
-    marginBottom: 6,
+    color: colors.cream,
+    marginBottom: spacing.xs + 2,
   },
-  myArticleStatus: {
+  rowStatus: {
     fontSize: 11,
     fontFamily: fonts.sans,
     color: colors.sage,
   },
-  myArticleValue: {
+  rowValue: {
     alignItems: 'flex-end',
   },
-  myArticleValueLabel: {
+  rowValueLabel: {
     fontSize: 11,
     fontFamily: fonts.sans,
-    color: colors.muted,
+    color: colors.whiteTranslucent,
   },
-  myArticlePrice: {
+  rowPrice: {
     fontFamily: fonts.display,
     fontSize: 18,
-    fontWeight: '400',
-    color: colors.charcoal,
+    color: colors.cream,
   },
-  myArticleEmpty: {
-    paddingVertical: 20,
+  removeButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  empty: {
+    paddingVertical: spacing.lg,
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
-  myArticleEmptyText: {
+  emptyText: {
     fontSize: 11,
     fontFamily: fonts.sans,
-    color: colors.muted,
-  },
-  removeItemButton: {
-    padding: 4,
-    marginLeft: 4,
+    color: colors.sand,
   },
 });
