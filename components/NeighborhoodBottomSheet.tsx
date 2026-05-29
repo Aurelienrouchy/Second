@@ -111,10 +111,12 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
         enablePanDownToClose
+        topInset={insets.top}
         enableDynamicSizing={false}
       >
-        <View style={[styles.container, sheetStyle]}>
+        <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>Zone de meetup</Text>
             <Pressable onPress={() => bottomSheetRef.current?.close()}>
