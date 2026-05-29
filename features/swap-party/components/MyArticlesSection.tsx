@@ -58,13 +58,10 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
           ))}
         </View>
       ) : (
-        <Pressable
-          style={({ pressed }) => [styles.empty, pressed && styles.pressed]}
-          onPress={onAddPress}
-        >
-          <Ionicons name="add-circle-outline" size={sizing.iconMD} color={colors.sage} />
-          <Text style={styles.emptyText}>Déposez vos articles à échanger</Text>
-        </Pressable>
+        <View style={styles.empty}>
+          <Ionicons name="shirt-outline" size={sizing.iconMD} color={colors.sage} />
+          <Text style={styles.emptyText}>Aucun article déposé pour l&apos;instant</Text>
+        </View>
       )}
     </View>
   );
