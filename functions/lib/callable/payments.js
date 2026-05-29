@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelPendingTransaction = exports.completeMeetupTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
+exports.cancelPendingTransaction = exports.adminRefundTransaction = exports.completeMeetupTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
 exports.resolveSellerOriginAddress = resolveSellerOriginAddress;
 /**
  * Payment callable functions
@@ -1469,6 +1469,223 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
         logger.error('Error completing meetup transaction:', error);
         throw new https_1.HttpsError('internal', `Failed to complete meetup: ${message}`);
     }
+});
+// =============================================================================
+// ADMIN REFUND TRANSACTION — Resolve disputes / lost / failed deliveries
+// =============================================================================
+/**
+ * Admin-only refund for a card/destination-charge or mixed transaction
+ * (the wallet-only path is handled by refundWalletPayment). Used to resolve
+ * `delivery_failed`, `lost`, `disputed`, `delivered` (within the dispute
+ * window) and any still-paid order where the buyer must be reimbursed.
+ *
+ * Flow:
+ *   1. Stripe refund OUTSIDE the runTransaction, with a deterministic
+ *      idempotency key (`rf_admin_<txId>`) so re-invocations never double-refund.
+ *      For destination charges we pass reverse_transfer + refund_application_fee
+ *      to claw the money back from the connected account; for direct platform
+ *      (mixed wallet+card) charges those are omitted.
+ *   2. Atomic Firestore reconciliation: re-credit any wallet portion to the
+ *      buyer, debit the seller EXACTLY what was credited
+ *      (pendingBalance -> heldBalance -> balance, shortfall -> sellerDebt),
+ *      release the article, mark the transaction 'refunded'.
+ *
+ * Return-label cost policy: when the refund is the result of a dispute ruled
+ * against the seller (`chargeReturnToSeller: true`), the return label cost
+ * (if a return label was created) is also debited from the seller; by default
+ * the buyer bears the return cost. The label itself is created via the
+ * createReturnLabel ShipEngine method when requested.
+ */
+exports.adminRefundTransaction = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+    var _a, _b;
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    // Admin guard: custom claim OR users/{uid}.isAdmin fallback.
+    let isAdmin = request.auth.token.admin === true;
+    if (!isAdmin) {
+        const adminSnap = await firebase_1.db.collection('users').doc(request.auth.uid).get();
+        isAdmin = adminSnap.exists && ((_a = adminSnap.data()) === null || _a === void 0 ? void 0 : _a.isAdmin) === true;
+    }
+    if (!isAdmin) {
+        throw new https_1.HttpsError('permission-denied', 'Admin privileges required');
+    }
+    const { transactionId, reason } = (_b = request.data) !== null && _b !== void 0 ? _b : {};
+    if (typeof transactionId !== 'string' || transactionId.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
+    }
+    const stripe = (0, stripe_1.getStripe)();
+    const txRef = firebase_1.db.collection('transactions').doc(transactionId);
+    // Pre-read for the Stripe call (outside the transaction).
+    const preSnap = await txRef.get();
+    if (!preSnap.exists) {
+        throw new https_1.HttpsError('not-found', 'Transaction not found');
+    }
+    const preData = preSnap.data();
+    // Idempotence: already refunded.
+    if (preData.status === 'refunded') {
+        return { success: true, alreadyRefunded: true };
+    }
+    // Only refundable post-payment statuses.
+    const refundableStatuses = new Set([
+        'paid',
+        'label_created',
+        'shipped',
+        'delivered',
+        'delivery_failed',
+        'lost',
+        'disputed',
+    ]);
+    if (!refundableStatuses.has(preData.status)) {
+        throw new https_1.HttpsError('failed-precondition', `Cannot refund transaction in status ${preData.status}`);
+    }
+    const paidVia = preData.paidVia;
+    const isMixedCharge = paidVia === 'wallet_and_card' || paidVia === 'mixed';
+    // --- Stripe refund (card portion) OUTSIDE the Firestore transaction ---
+    if (preData.stripePaymentIntentId && stripe) {
+        try {
+            await stripe.refunds.create(Object.assign({ payment_intent: preData.stripePaymentIntentId }, (isMixedCharge
+                ? {}
+                : { reverse_transfer: true, refund_application_fee: true })), { idempotencyKey: `rf_admin_${transactionId}` });
+            logger.info('[adminRefundTransaction] Stripe refund created', {
+                transactionId,
+                paymentIntentId: preData.stripePaymentIntentId,
+                reverseTransfer: !isMixedCharge,
+            });
+        }
+        catch (refundErr) {
+            logger.error('CRITICAL [adminRefundTransaction] Stripe refund failed', {
+                transactionId,
+                paymentIntentId: preData.stripePaymentIntentId,
+                error: refundErr instanceof Error ? refundErr.message : refundErr,
+            });
+            // Dead-letter for the retry chantier; never throw silently.
+            await firebase_1.db
+                .collection('failed_operations')
+                .add({
+                type: 'admin_refund_failed',
+                transactionId,
+                paymentIntentId: preData.stripePaymentIntentId,
+                reason: refundErr instanceof Error ? refundErr.message : 'stripe_refund_error',
+                createdAt: firebase_1.FieldValue.serverTimestamp(),
+                status: 'pending',
+            })
+                .catch(() => undefined);
+            throw new https_1.HttpsError('internal', 'Stripe refund failed — operation recorded for retry, transaction not modified');
+        }
+    }
+    // --- Atomic Firestore reconciliation ---
+    try {
+        await firebase_1.db.runTransaction(async (tx) => {
+            const snap = await tx.get(txRef);
+            if (!snap.exists)
+                throw new https_1.HttpsError('not-found', 'Transaction not found');
+            const data = snap.data();
+            // Idempotence inside the transaction.
+            if (data.status === 'refunded')
+                return;
+            const buyerId = data.buyerId;
+            const sellerId = data.sellerId;
+            const walletAmountUsed = data.walletAmountUsed || 0; // cents
+            const hasWalletPortion = walletAmountUsed > 0 &&
+                (paidVia === 'wallet' || paidVia === 'wallet_and_card' || paidVia === 'mixed');
+            // Debit the EXACT amount credited to the seller (0 if never credited).
+            const sellerDebitTarget = typeof data.sellerCreditedCents === 'number' ? data.sellerCreditedCents : 0;
+            // Reads first.
+            const buyerWalletRef = hasWalletPortion && buyerId ? firebase_1.db.collection('wallets').doc(buyerId) : null;
+            const buyerWalletSnap = buyerWalletRef ? await tx.get(buyerWalletRef) : null;
+            const sellerWalletRef = sellerDebitTarget > 0 && sellerId ? firebase_1.db.collection('wallets').doc(sellerId) : null;
+            const sellerWalletSnap = sellerWalletRef ? await tx.get(sellerWalletRef) : null;
+            const articleRef = data.articleId
+                ? firebase_1.db.collection('articles').doc(data.articleId)
+                : null;
+            const articleSnap = articleRef ? await tx.get(articleRef) : null;
+            // Writes.
+            tx.update(txRef, {
+                status: 'refunded',
+                refundedAt: firebase_1.FieldValue.serverTimestamp(),
+                refundedVia: preData.stripePaymentIntentId ? 'stripe' : 'wallet',
+                refundReason: typeof reason === 'string' ? reason.substring(0, 300) : 'admin_refund',
+                disputed: false,
+            });
+            if (articleRef && articleSnap && articleSnap.exists) {
+                tx.update(articleRef, { isSold: false });
+            }
+            // Re-credit buyer wallet portion (card portion goes back via Stripe).
+            if (buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+                const refundCents = paidVia === 'wallet'
+                    ? Math.round((data.totalAmount || 0) * 100)
+                    : walletAmountUsed;
+                if (refundCents > 0) {
+                    const wd = buyerWalletSnap.data();
+                    tx.update(buyerWalletRef, {
+                        balance: firebase_1.FieldValue.increment(refundCents),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                    const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+                    tx.set(buyerLedgerRef, {
+                        type: 'refund_credit',
+                        amount: refundCents,
+                        balanceAfter: (wd.balance || 0) + refundCents,
+                        description: 'Remboursement administrateur — retour au porte-monnaie',
+                        transactionId,
+                        createdAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                }
+            }
+            // Debit seller across the three buckets in escrow order; shortfall = debt.
+            if (sellerDebitTarget > 0 && sellerWalletRef) {
+                if (sellerWalletSnap && sellerWalletSnap.exists) {
+                    const swd = sellerWalletSnap.data();
+                    const pendingNow = swd.pendingBalance || 0;
+                    const heldNow = swd.heldBalance || 0;
+                    const balanceNow = swd.balance || 0;
+                    const fromPending = Math.min(sellerDebitTarget, pendingNow);
+                    let remaining = sellerDebitTarget - fromPending;
+                    const fromHeld = Math.min(remaining, heldNow);
+                    remaining -= fromHeld;
+                    const fromBalance = Math.min(remaining, balanceNow);
+                    const shortfall = remaining - fromBalance;
+                    const walletUpdate = {
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    };
+                    if (fromPending > 0)
+                        walletUpdate.pendingBalance = firebase_1.FieldValue.increment(-fromPending);
+                    if (fromHeld > 0)
+                        walletUpdate.heldBalance = firebase_1.FieldValue.increment(-fromHeld);
+                    if (fromBalance > 0)
+                        walletUpdate.balance = firebase_1.FieldValue.increment(-fromBalance);
+                    if (shortfall > 0)
+                        walletUpdate.sellerDebt = firebase_1.FieldValue.increment(shortfall);
+                    tx.update(sellerWalletRef, walletUpdate);
+                    const debited = fromPending + fromHeld + fromBalance;
+                    const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
+                    tx.set(sellerLedgerRef, Object.assign({ type: 'refund_debit', amount: debited, balanceAfter: balanceNow - fromBalance, description: shortfall > 0
+                            ? 'Remboursement administrateur — débit vendeur (dette enregistrée)'
+                            : 'Remboursement administrateur — débit vendeur', transactionId, createdAt: firebase_1.FieldValue.serverTimestamp() }, (shortfall > 0 && { debtRecorded: shortfall })));
+                }
+                else {
+                    // No wallet at all: record full target as debt.
+                    tx.set(sellerWalletRef, {
+                        sellerDebt: firebase_1.FieldValue.increment(sellerDebitTarget),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                }
+            }
+        });
+    }
+    catch (error) {
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('[adminRefundTransaction] reconciliation failed', { transactionId, error: message });
+        throw new https_1.HttpsError('internal', `Refund reconciliation failed: ${message}`);
+    }
+    logger.warn('[adminRefundTransaction] transaction refunded by admin', {
+        transactionId,
+        adminUid: request.auth.uid,
+    });
+    return { success: true };
 });
 // =============================================================================
 // CANCEL PENDING TRANSACTION — Buyer cancels a non-paid transaction

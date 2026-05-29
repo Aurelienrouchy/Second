@@ -23,6 +23,18 @@ import { sendPushNotification } from '../utils/notifications';
 /** Firestore batch limit is 500; use 450 for safety margin */
 const BATCH_SIZE = 450;
 
+/**
+ * Cap how many docs each query pulls per scheduled run. Each paid-not-shipped
+ * doc triggers a Stripe network call (refund) and a runTransaction, so an
+ * unbounded `.get()` on a backlog could timeout the function, partially fail,
+ * and re-process on the next run (P1-29). With a cap + per-status pagination,
+ * the backlog drains across successive hourly runs deterministically.
+ */
+const MAX_PER_RUN = 200;
+
+/** Process Stripe-bound work in small concurrent lots to bound network fan-out. */
+const STRIPE_LOT_SIZE = 10;
+
 /** Meetup transactions expire after 48 hours */
 const MEETUP_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
@@ -31,6 +43,19 @@ const PENDING_PAYMENT_EXPIRY_MS = 1 * 60 * 60 * 1000;
 
 /** Paid but not shipped transactions expire after 7 days (seller didn't ship) */
 const PAID_NOT_SHIPPED_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Stripe PaymentIntent statuses that mean money is in flight or already captured.
+ * If a 'pending_payment' transaction's PaymentIntent is in one of these states we
+ * must NOT expire/cancel it — the webhook (PI.succeeded) is either about to fire
+ * or already did; expiring here would race the credit and leave a paid charge on
+ * a cancelled transaction (P1: expiration vs payment in flight).
+ */
+const STRIPE_PI_IN_FLIGHT = new Set([
+  'requires_capture',
+  'processing',
+  'succeeded',
+]);
 
 export const expireOrphanedTransactions = onSchedule(
   {
