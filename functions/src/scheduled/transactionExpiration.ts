@@ -187,14 +187,16 @@ export const expireOrphanedTransactions = onSchedule(
                 // reverse — passing reverse_transfer would error.
                 const isMixedCharge =
                   data.paidVia === 'wallet_and_card' || data.paidVia === 'mixed';
-                const refundParams: Stripe.RefundCreateParams = {
+                await stripe.refunds.create({
                   payment_intent: data.stripePaymentIntentId,
-                };
-                if (!isMixedCharge) {
-                  refundParams.reverse_transfer = true;
-                  refundParams.refund_application_fee = true;
-                }
-                await stripe.refunds.create(refundParams);
+                  // Destination-charge (card-only) refunds must claw the funds
+                  // back from the seller's Connect account and the application
+                  // fee. Mixed wallet+card charges are direct platform charges
+                  // with no transfer, so these flags are omitted there.
+                  ...(isMixedCharge
+                    ? {}
+                    : { reverse_transfer: true, refund_application_fee: true }),
+                });
                 logger.info('[expireOrphanedTransactions] Stripe refund created', {
                   transactionId,
                   paymentIntentId: data.stripePaymentIntentId,
