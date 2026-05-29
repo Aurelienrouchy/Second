@@ -16,6 +16,83 @@ import { sendPushNotification } from '../utils/notifications';
 import { getOrCreateSellerWallet } from './wallet';
 
 // =============================================================================
+// HELPERS — Seller origin address resolution
+// =============================================================================
+
+const CA_POSTAL_RE = /^[A-Z]\d[A-Z]\d[A-Z]\d$/;
+
+/**
+ * Resolves the seller's real shipping origin address from their profile,
+ * with a last-resort fallback to the article's denormalized `location`.
+ *
+ * Resolution order:
+ *   1. Seller `addresses[]` entry flagged `isDefault` (must have street + postal)
+ *   2. First seller `addresses[]` entry with a street + postal code
+ *   3. Article `location` (postal code only) — uses seller display name as
+ *      shipper name and a minimal line1 so ShipEngine can still rate by postal.
+ *
+ * Returns `null` when no usable origin (i.e. no valid Canadian postal code)
+ * can be found — the caller must then reject the transaction. There is NO
+ * Montreal fallback: a label must ship from the seller's real address.
+ */
+function resolveSellerOriginAddress(
+  sellerData: Record<string, any>,
+  articleData: Record<string, any>
+): ShipEngineAddress | null {
+  const sellerName = sellerData.displayName || 'Vendeur';
+  const sellerPhone =
+    typeof sellerData.phoneNumber === 'string' && sellerData.phoneNumber.trim().length > 0
+      ? sellerData.phoneNumber.trim()
+      : undefined;
+
+  const normalizePostal = (raw: unknown): string | null => {
+    const cleaned = (raw ?? '').toString().replace(/\s/g, '').toUpperCase();
+    return CA_POSTAL_RE.test(cleaned) ? cleaned : null;
+  };
+
+  const addresses: any[] = Array.isArray(sellerData.addresses) ? sellerData.addresses : [];
+  const candidate =
+    addresses.find((a) => a?.isDefault && a?.street && a?.postalCode) ||
+    addresses.find((a) => a?.street && a?.postalCode) ||
+    null;
+
+  if (candidate) {
+    const postal = normalizePostal(candidate.postalCode);
+    if (postal && typeof candidate.street === 'string' && candidate.street.trim().length > 0) {
+      return {
+        name: sellerName,
+        addressLine1: candidate.street.trim(),
+        cityLocality: (candidate.city || '').toString().trim() || 'Montreal',
+        stateProvince: (candidate.province || 'QC').toString().trim(),
+        postalCode: postal,
+        countryCode: 'CA',
+        phone: sellerPhone,
+      };
+    }
+  }
+
+  // Last resort: article.location postal code (denormalized). No street, so we
+  // use the postal code + city to let ShipEngine rate by zone.
+  const loc = articleData.location;
+  if (loc && typeof loc === 'object') {
+    const postal = normalizePostal(loc.postalCode);
+    if (postal) {
+      return {
+        name: sellerName,
+        addressLine1: (loc.city || '').toString().trim() || 'Adresse vendeur',
+        cityLocality: (loc.city || '').toString().trim() || 'Montreal',
+        stateProvince: (loc.province || 'QC').toString().trim(),
+        postalCode: postal,
+        countryCode: 'CA',
+        phone: sellerPhone,
+      };
+    }
+  }
+
+  return null;
+}
+
+// =============================================================================
 // GET SHIPPING ESTIMATES — Multi-carrier via ShipEngine
 // =============================================================================
 
