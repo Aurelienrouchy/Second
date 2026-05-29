@@ -36,6 +36,7 @@ const AuthBottomSheet: React.FC = () => {
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuthActions();
+  const insets = useSafeAreaInsets();
 
   const snapPoints = useMemo(() => ['82%'], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
