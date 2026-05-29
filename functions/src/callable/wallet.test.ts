@@ -894,8 +894,15 @@ describe('payWithWallet', () => {
       data: { transactionId: 'tx1' },
     });
 
+    // For a non-shipping sale the transaction is written TWICE inside the same
+    // runTransaction: first by creditSellerForSale ({ sellerCreditedCents }),
+    // then the status update ({ status, paidAt, paidVia, walletAmountUsed }).
+    // Target the write that carries the status field, not the first match.
     const txUpdate = writeOps.find(
-      (w) => w.path === 'transactions/tx1' && w.method === 'update'
+      (w) =>
+        w.path === 'transactions/tx1' &&
+        w.method === 'update' &&
+        w.data.status === 'paid'
     );
     expect(txUpdate).toBeDefined();
     expect(txUpdate!.data.status).toBe('paid');
