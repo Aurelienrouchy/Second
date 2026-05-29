@@ -110,9 +110,9 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
     }, [demographic]);
 
     const handleConfirm = useCallback(() => {
-      onConfirm(localSelectedSizes);
+      onConfirm(localSelectedSizes.map((value) => ({ value, system: sizeSystem })));
       bottomSheetRef.current?.close();
-    }, [onConfirm, localSelectedSizes]);
+    }, [onConfirm, localSelectedSizes, sizeSystem]);
 
     const handleClear = useCallback(() => {
       setLocalSelectedSizes([]);
