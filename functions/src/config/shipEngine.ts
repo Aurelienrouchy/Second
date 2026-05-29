@@ -58,6 +58,14 @@ export interface ShipEngineLabel {
   labelDownload: { href: string };
   trackingUrl: string;
   carrierCode: string;
+  /**
+   * Real cost ShipEngine charged the platform for this label, in dollars.
+   * Used by the cost-reconciliation pass (compare with the estimated
+   * shippingCost billed to the buyer). 0 when ShipEngine omits the field.
+   */
+  shipmentCost: number;
+  /** Real insurance cost in dollars (0 when no insurance was purchased). */
+  insuranceCost: number;
 }
 
 export interface ShipEngineTracking {
