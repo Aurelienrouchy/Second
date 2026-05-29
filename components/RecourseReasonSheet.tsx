@@ -227,9 +227,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
   },
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
+    width: 40,
+    height: 4,
+  },
   content: {
     padding: spacing.lg,
-    // paddingBottom appliqué inline (inset fiable + marge).
   },
   title: {
     fontFamily: fonts.displaySemiBold,
