@@ -14,7 +14,6 @@ import { getStripe } from '../config/stripe';
 import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../utils/fees';
 import { sendPushNotification } from '../utils/notifications';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
-import { getOrCreateSellerWallet } from './wallet';
 import { applyTrackingOutcome, DELIVERABLE_STATUSES } from '../utils/trackingTransition';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
