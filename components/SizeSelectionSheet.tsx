@@ -157,14 +157,11 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        footerComponent={renderFooter}
         enablePanDownToClose
-        topInset={insets.top}
-        handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
+        <BottomSheetView style={styles.flex}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
