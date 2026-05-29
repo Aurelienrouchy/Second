@@ -293,11 +293,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       }
     }
 
-    // IDEMPOTENCE: If already paid/shipped/delivered, do nothing (replay protection).
-    // Also reject cancelled transactions.
+    // IDEMPOTENCE: If already paid/label_created/shipped/delivered, do nothing
+    // (replay protection). Also reject cancelled transactions.
     const currentStatus = txData.status;
     if (
       currentStatus === 'paid' ||
+      currentStatus === 'label_created' ||
       currentStatus === 'shipped' ||
       currentStatus === 'delivered' ||
       currentStatus === 'cancelled'
