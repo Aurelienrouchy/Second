@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BottomSheetTextInput } from '@expo/ui/community/bottom-sheet';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 import { getNextStep, MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
