@@ -262,7 +262,7 @@ export default function ProposeSwapScreen() {
     message,
     complementAmount,
     complementPayer,
-    partyId,
+    effectivePartyId,
   ]);
 
   // --- Loading state ---
