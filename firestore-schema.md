@@ -515,6 +515,12 @@ interface TransactionDocument {
   labelAttempts?: number;          // Number of sweepPendingLabels createLabel attempts. After 4 failures
                                    // the buyer is refunded and the transaction is cancelled.
   lastLabelAttemptAt?: Timestamp;  // Timestamp of the last sweepPendingLabels attempt
+  labelStaleNudgedAt?: Timestamp;  // Last time the tracking poller nudged the seller about a
+                                   // label_created parcel with no carrier scan (3-day window)
+  actualShippingCost?: number;     // Real ShipEngine label cost (dollars), reconcileShippingCost
+  shippingCostDelta?: number;      // actualShippingCost - estimated shippingCost (dollars)
+  insuranceCost?: number;          // Real insurance cost on the label (dollars)
+  shippingReconciledAt?: Timestamp;
 
   // Shipping address (deliveryType === 'shipping')
   shippingAddress?: {
