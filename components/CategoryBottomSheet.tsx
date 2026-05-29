@@ -43,7 +43,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
     useImperativeHandle(ref, () => ({
       show: () => {
         categoryNav.goToRoot();
-        bottomSheetRef.current?.expand();
+        setMounted(true);
       },
       hide: () => bottomSheetRef.current?.close(),
     }));
