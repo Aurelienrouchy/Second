@@ -29,6 +29,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { getShipEngine, ShipEngineClient } from '../config/shipEngine';
 import { sendPushNotification } from '../utils/notifications';
 import { applyTrackingOutcome } from '../utils/trackingTransition';
+import { processReturnDelivered } from '../utils/returnRefund';
 
 /** Page size per Firestore query. */
 const PAGE_SIZE = 200;
