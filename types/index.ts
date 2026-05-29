@@ -304,6 +304,35 @@ export interface Transaction {
   meetupCompletedAt?: Date;
   // Chat reference
   chatId?: string;
+  // Buyer-protection / funds-release window (7 days after delivery)
+  fundsReleaseAt?: Date;        // When held funds become available
+  fundsReleasedAt?: Date;       // When held funds were actually released
+  // Dispute lifecycle
+  disputed?: boolean;
+  statusBeforeDispute?: TransactionStatus; // Status snapshot before dispute opened
+  disputeOutcome?: string;      // Resolution outcome (free-form / enum server-side)
+  disputeClosedAt?: Date;
+  // Shipping reconciliation (actual cost vs estimate)
+  actualShippingCost?: number;  // Real shipping cost charged by carrier (currency units)
+  shippingCostDelta?: number;   // Difference vs estimated shippingCost
+  insuranceCost?: number;       // Shipping insurance cost
+  shippingReconciledAt?: Date;
+  // Label generation tracking
+  labelAttempts?: number;       // Number of label-creation attempts
+  lastLabelAttemptAt?: Date;
+  labelCreatedAt?: Date;
+  labelStaleNudgedAt?: Date;    // Last reminder sent for an undeposited label
+  // Delivery / loss
+  deliveryFailedAt?: Date;
+  // Seller crediting
+  sellerCreditedCents?: number; // Amount credited to seller wallet (cents)
+  // Refund details
+  refundReason?: string;
+  refundedVia?: string;         // e.g. 'stripe' | 'wallet'
+  stripeRefundIssuedAt?: Date;
+  refundStartedAt?: Date;
+  // Cancellation
+  cancelReason?: string;
   // Timestamps
   createdAt: Date;
   paidAt?: Date;
