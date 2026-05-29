@@ -125,14 +125,17 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
       [multiSelect, insets.bottom, localSelectedValues, handleConfirm]
     );
 
+    if (!mounted) return null;
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        index={-1}
+        index={0}
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
         footerComponent={renderFooter}
         enablePanDownToClose
+        onClose={() => setMounted(false)}
         topInset={insets.top}
         handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
