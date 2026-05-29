@@ -266,30 +266,48 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     // SECURITY: Verify the paid amount matches what we expect.
     // For mixed wallet+card payments, the Stripe charge is only for the
     // card portion (totalAmount - walletAmountUsed).
+    //
+    // P1 (dead-letter, not throw): an amount mismatch is a DETERMINISTIC error
+    // (the captured charge and the stored total will not change on a retry).
+    // Throwing here returned a 500, which is wrong on two counts: (a) Stripe
+    // would re-deliver the same event for ~3 days to no effect, and (b) the
+    // charge stays captured while the transaction is never marked paid, the
+    // seller is never credited and the article stays locked — a silent loss with
+    // no audit trail. Instead we RETURN a structured reason; the caller persists
+    // a `failed_operations` dead-letter (and optionally auto-refunds) and ACKs
+    // 200 so Stripe stops retrying a problem code cannot self-heal.
     const expectedAmount = txData.totalAmount;
     if (expectedAmount != null) {
-      if (isMixedPayment) {
-        // Card portion = total - wallet portion
-        const expectedStripeDollars = expectedAmount - (walletAmountUsedCents / 100);
-        if (Math.abs(amountReceivedDollars - expectedStripeDollars) > 0.01) {
-          logger.error('Stripe webhook: amount mismatch (mixed payment)', {
+      const expectedComparable = isMixedPayment
+        ? expectedAmount - walletAmountUsedCents / 100
+        : expectedAmount;
+      if (Math.abs(amountReceivedDollars - expectedComparable) > 0.01) {
+        logger.error(
+          `Stripe webhook: amount mismatch${isMixedPayment ? ' (mixed payment)' : ''}`,
+          {
             transactionId,
             received: amountReceivedDollars,
-            expectedStripe: expectedStripeDollars,
+            expected: expectedComparable,
             expectedTotal: expectedAmount,
             walletCents: walletAmountUsedCents,
-          });
-          throw new Error('Payment amount does not match expected card portion');
-        }
-      } else {
-        if (Math.abs(amountReceivedDollars - expectedAmount) > 0.01) {
-          logger.error('Stripe webhook: amount mismatch', {
-            transactionId,
+          }
+        );
+        // Buyer is short-changed (paid LESS than owed) => seller would be
+        // under-funded; buyer overpaid (paid MORE) => buyer is owed a refund.
+        // Either way the platform must NOT mark this paid blindly.
+        return {
+          processed: false,
+          reason: 'amount_mismatch' as const,
+          mismatch: {
             received: amountReceivedDollars,
-            expected: expectedAmount,
-          });
-          throw new Error('Payment amount does not match transaction total');
-        }
+            expected: expectedComparable,
+            expectedTotal: expectedAmount,
+            walletCents: walletAmountUsedCents,
+            isMixedPayment,
+            // Buyer overpaid → refunding makes them whole; underpaid → manual.
+            buyerOverpaid: amountReceivedDollars - expectedComparable > 0.01,
+          },
+        };
       }
     }
 
