@@ -830,6 +830,8 @@ export interface WalletInfo {
   pendingBalance: number;
   /** Funds soon available (cents) — delivered sales inside the 7-day protection window. */
   heldBalance?: number;
+  /** ISO date at which the next batch of held funds becomes withdrawable (7-day window). */
+  heldReleaseAt?: string;
   /** Outstanding amount to regularize (cents). Blocks withdrawals while > 0. */
   sellerDebt?: number;
   status: 'active' | 'inactive';
