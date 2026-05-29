@@ -210,6 +210,49 @@ export const expireOrphanedTransactions = onSchedule(
       });
     }
 
+    // =========================================================================
+    // 4. Resume interrupted refunds (status === 'refund_in_progress')
+    //    A refund that crashed between PHASE 1 (mark in_progress) and PHASE 3
+    //    (confirm) is no longer matched by the 'paid' query above. Re-drive it:
+    //    refundPaidNotShipped resumes from refund_in_progress, re-using the
+    //    persisted stripeRefundId (no double Stripe refund) and finalizing to
+    //    'refunded'. Single equality filter — no composite index required.
+    // =========================================================================
+
+    try {
+      const stuckSnap = await db
+        .collection('transactions')
+        .where('status', '==', 'refund_in_progress')
+        .limit(MAX_PER_RUN)
+        .get();
+
+      if (!stuckSnap.empty) {
+        const stripe = getStripe();
+        let resumed = 0;
+
+        for (let i = 0; i < stuckSnap.docs.length; i += STRIPE_LOT_SIZE) {
+          const lot = stuckSnap.docs.slice(i, i + STRIPE_LOT_SIZE);
+          const results = await Promise.allSettled(
+            lot.map((doc) => refundPaidNotShipped(doc, stripe))
+          );
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) {
+              resumed++;
+              totalExpired++;
+            }
+          }
+        }
+
+        logger.info(
+          `[expireOrphanedTransactions] Resumed ${resumed}/${stuckSnap.size} interrupted refunds (refund_in_progress)`
+        );
+      }
+    } catch (error) {
+      logger.error('[expireOrphanedTransactions] Error resuming interrupted refunds', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
     logger.info(`[expireOrphanedTransactions] Total expired: ${totalExpired}`);
   }
 );
