@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView } from '@expo/ui/community/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MeetupNeighborhood, MeetupSpot } from '@/types';
 
