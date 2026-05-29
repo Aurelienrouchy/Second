@@ -155,7 +155,10 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
               renderSectionHeader={renderSectionHeader}
               stickySectionHeadersEnabled
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
+              contentContainerStyle={[
+                styles.listContent,
+                { paddingBottom: SHEET_BOTTOM_INSET + 40 },
+              ]}
             />
           )}
         </View>
