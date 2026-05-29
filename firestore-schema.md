@@ -436,17 +436,26 @@ interface TransactionDocument {
   sellerPayout?: number;         // What the seller receives
 
   // Status flow:
-  //   Shipping: pending_payment -> paid -> shipped -> delivered -> completed
-  //             | cancelled | disputed | refunded
+  //   Shipping: pending_payment -> paid -> label_created -> shipped -> delivered -> completed
+  //             | cancelled | disputed | refunded | delivery_failed
+  //   DECOUPLED (P1): the shipping label being purchased sets 'label_created'
+  //   (NOT 'shipped'). 'shipped' is set only on the FIRST real carrier scan
+  //   (tracking poller / ShipEngine webhook). This distinguishes a seller who
+  //   printed a label from one who actually handed the parcel to the carrier;
+  //   the tracking poller nudges sellers whose label_created parcel has had no
+  //   scan for 3 days (labelStaleNudgedAt).
   //   Delivered funds enter a 7-day dispute window (heldBalance). At J+7 without
   //   dispute, releaseHeldFunds moves delivered -> completed (heldBalance -> balance).
   //   Meetup:   meetup_pending -> meetup_confirmed -> meetup_completed | cancelled
   //   Failed:   pending_payment -> cancelled (via payment_failed webhook)
-  //   Dispute:  paid|shipped|delivered -> disputed -> (won: restore prev status)
-  //                                                  | (lost: refunded)
+  //   Delivery failure (carrier FAILURE/exception via poller or ShipEngine
+  //   webhook): label_created|shipped -> delivery_failed (disputed=true, funds
+  //   NOT released). Resolution = adminRefundTransaction.
+  //   Dispute:  paid|label_created|shipped|delivered -> disputed
+  //             -> (won: restore prev status) | (lost: refunded)
   status: 'pending_payment' | 'meetup_pending' | 'meetup_confirmed'
-        | 'meetup_completed' | 'paid' | 'shipped' | 'delivered' | 'completed'
-        | 'cancelled' | 'disputed' | 'refunded'
+        | 'meetup_completed' | 'paid' | 'label_created' | 'shipped'
+        | 'delivered' | 'completed' | 'cancelled' | 'disputed' | 'refunded'
         | 'delivery_failed' | 'lost';
 
   // Payment method
