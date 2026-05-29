@@ -6,7 +6,8 @@
 export { PartyHeader } from './components/PartyHeader';
 export { MyArticlesSection } from './components/MyArticlesSection';
 export { PartyItemCard } from './components/PartyItemCard';
-export { AddItemModal } from './components/AddItemModal';
+export { default as AddItemSheet } from './components/AddItemSheet';
+export type { AddItemSheetRef, AddItemSheetProps } from './components/AddItemSheet';
 export { MultiSelectBar } from './components/MultiSelectBar';
 export { PartyEmptyGrid } from './components/PartyEmptyGrid';
 export { SwapPartyDetailSkeleton } from './components/SwapPartyDetailSkeleton';
