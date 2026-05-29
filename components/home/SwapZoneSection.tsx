@@ -365,10 +365,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     backgroundColor: colors.dark,
   },
-  skeletonEyebrow: {
-    height: typography.labelUppercase.lineHeight,
-    width: sizing.avatarXXL,
-  },
   skeletonTitle: {
     height: typography.hero.lineHeight,
     width: '60%',
