@@ -128,7 +128,6 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   transaction,
   onStatusUpdate,
 }) => {
-  const router = useRouter();
   const user = useAuthStore(selectUser);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
