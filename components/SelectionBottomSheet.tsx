@@ -49,11 +49,14 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
     const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     const [localSelectedValues, setLocalSelectedValues] = React.useState<string[]>(selectedValues);
+    // Mount-on-open: the sheet is only rendered while open, so its backdrop can
+    // never leak a residual veil when closed (gorhom #701 on New Architecture).
+    const [mounted, setMounted] = React.useState(false);
 
     useImperativeHandle(ref, () => ({
       show: () => {
         setLocalSelectedValues(selectedValues);
-        bottomSheetRef.current?.expand();
+        setMounted(true);
       },
       hide: () => bottomSheetRef.current?.close(),
     }));
