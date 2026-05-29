@@ -782,17 +782,22 @@ export const createStripeCheckout = onCall(
         // is implicitly captured.
         let paymentIntent;
         try {
-          paymentIntent = await stripe.paymentIntents.create({
-            amount: stripeChargeCents,
-            currency: 'cad',
-            metadata: {
-              transactionId,
-              sellerId: txResult.sellerId,
-              buyerId: request.auth!.uid,
-              walletAmountUsed: String(walletAmount),
-              paymentType: 'wallet_and_card',
+          paymentIntent = await stripe.paymentIntents.create(
+            {
+              amount: stripeChargeCents,
+              currency: 'cad',
+              metadata: {
+                transactionId,
+                sellerId: txResult.sellerId,
+                buyerId: request.auth!.uid,
+                walletAmountUsed: String(walletAmount),
+                paymentType: 'wallet_and_card',
+              },
             },
-          });
+            // Deterministic key so a retry (same transaction) never creates a
+            // second PaymentIntent — Stripe returns the original PI instead.
+            { idempotencyKey: `pi_${transactionId}` }
+          );
         } catch (stripeError) {
           // F05: Stripe PI creation failed — revert the wallet debit
           logger.error('Stripe PaymentIntent creation failed (mixed) — reverting wallet debit', {
