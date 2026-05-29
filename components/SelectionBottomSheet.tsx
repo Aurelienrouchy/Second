@@ -104,7 +104,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
       >
-        <BottomSheetView style={[styles.container, { height: sheetHeight }]}>
+        <BottomSheetView style={[styles.container, sheetStyle]}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
