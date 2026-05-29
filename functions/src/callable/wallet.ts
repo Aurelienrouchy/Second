@@ -875,13 +875,12 @@ export const refundWalletPayment = onCall(
         const buyerId = txData.buyerId;
         const sellerId = txData.sellerId;
         const totalAmountCents = txData.walletAmountUsed || Math.round((txData.totalAmount || 0) * 100);
-        const sellerPayout = txData.sellerPayout || txData.amount;
         // P1: debit the EXACT amount credited to the seller (persisted at credit
-        // time; legacy txs fall back to the derived payout).
+        // time). Under the deferred-credit model an uncredited shipping tx still
+        // 'paid' with labelCreationPending has no sellerCreditedCents and so a
+        // debit target of 0 — debiting would create false sellerDebt.
         const sellerDebitTarget =
-          typeof txData.sellerCreditedCents === 'number'
-            ? txData.sellerCreditedCents
-            : Math.round((sellerPayout || 0) * 100);
+          typeof txData.sellerCreditedCents === 'number' ? txData.sellerCreditedCents : 0;
 
         // Read buyer wallet
         const buyerWalletRef = db.collection('wallets').doc(buyerId);
