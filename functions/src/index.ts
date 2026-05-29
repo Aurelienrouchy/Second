@@ -165,6 +165,9 @@ export { expireOrphanedTransactions } from './scheduled/transactionExpiration';
 // Tracking check (poll ShipEngine every 6h for shipped transactions)
 export { checkShippedTracking } from './scheduled/trackingCheck';
 
+// Release held funds (hourly: heldBalance -> balance after 7-day dispute window)
+export { releaseHeldFunds } from './scheduled/releaseHeldFunds';
+
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
