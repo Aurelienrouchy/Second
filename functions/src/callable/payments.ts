@@ -13,7 +13,12 @@ import { getShipEngine, ShipEngineClient, ShipEngineAddress } from '../config/sh
 import { getStripe } from '../config/stripe';
 import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../utils/fees';
 import { sendPushNotification } from '../utils/notifications';
+import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { getOrCreateSellerWallet } from './wallet';
+
+// Rate limiting: financial callables share a 1-minute sliding window.
+// maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 // =============================================================================
 // HELPERS — Seller origin address resolution
