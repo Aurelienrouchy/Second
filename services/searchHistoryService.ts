@@ -244,7 +244,12 @@ export class SearchHistoryService {
     }
 
     if (item.filters.sizes && item.filters.sizes.length > 0) {
-      parts.push(`taille ${item.filters.sizes.slice(0, 2).join(', ')}`);
+      // Sizes are ArticleSize objects { value, system }; render value + system.
+      const sizeLabels = item.filters.sizes
+        .slice(0, 2)
+        .map((s) => `${s.value} ${s.system}`)
+        .join(', ');
+      parts.push(`taille ${sizeLabels}`);
     }
 
     if (item.filters.minPrice !== undefined || item.filters.maxPrice !== undefined) {
