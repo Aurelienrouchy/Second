@@ -14,6 +14,7 @@ import { getStripe } from '../config/stripe';
 import { calculateFees, calculateServiceFee, getServiceFeeConfig } from '../utils/fees';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { applyTrackingOutcome, DELIVERABLE_STATUSES } from '../utils/trackingTransition';
+import { issueTransactionRefund } from '../utils/refund';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
