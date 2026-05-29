@@ -7,10 +7,9 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, {
-  BottomSheetBackdrop,
   BottomSheetScrollView,
-} from '@gorhom/bottom-sheet';
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+} from '@expo/ui/community/bottom-sheet';
+import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
