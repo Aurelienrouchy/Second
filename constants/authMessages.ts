@@ -14,3 +14,29 @@ export const AUTH_MESSAGES = {
 } as const;
 
 export type AuthMessageKey = keyof typeof AUTH_MESSAGES;
+
+/**
+ * Consent + age gate copy (rédigé par le juriste — ne pas modifier/paraphraser).
+ */
+export const COPY_CONSENT = {
+  dobLabel: 'Date de naissance',
+  ageError: 'Vous devez avoir au moins 16 ans pour utiliser Second.',
+  termsPrefix: "J'ai lu et j'accepte les ",
+  termsLink: "Conditions d'utilisation",
+  termsSuffix: '.',
+  privacyPrefix: "J'ai lu et j'accepte la ",
+  privacyLink: 'Politique de confidentialité',
+  privacySuffix: '.',
+  marketing:
+    "J'accepte de recevoir des offres, baisses de prix et nouveautés (vous pouvez vous désabonner à tout moment).",
+  law25Prefix:
+    'Vos renseignements sont traités conformément à la Loi 25 (Québec). Voir notre ',
+  law25Link: 'Politique de confidentialité',
+  law25Suffix: '.',
+} as const;
+
+/**
+ * Sell gate copy for 16-17 year olds (rédigé par le juriste — ne pas modifier).
+ */
+export const COPY_SELL_GATE =
+  "La vente d'articles est réservée aux personnes de 18 ans et plus, car notre partenaire de paiement Stripe exige cet âge pour ouvrir un compte de versement. Vous pouvez continuer à acheter et naviguer sur Second.";
