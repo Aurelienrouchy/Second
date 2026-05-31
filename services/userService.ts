@@ -29,6 +29,7 @@ interface ExportedUserData {
   drafts: Record<string, unknown>[];
   savedSearches: Record<string, unknown>[];
   searchHistory: Record<string, unknown>[];
+  consents: Record<string, unknown>[];
 }
 
 export class UserService {
