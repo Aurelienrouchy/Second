@@ -350,6 +350,86 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
     }
   }, [transaction.returnLabelUrl]);
 
+  // ---------------------------------------------------------------------------
+  // AUTOMATED DECISIONS (Loi 25, art. 12.1)
+  //
+  // The transparent log (getAutomatedDecisionLog) is the source of truth: the
+  // presence of an entry means an automated decision (funds released / order
+  // expired / label refund) was applied to this transaction. We then surface
+  // (a) the juriste notification text, (b) an accessible "Pourquoi cette
+  // décision ?" explanation, and (c) the "Contester cette décision" button.
+  // Contesting opens a human-review request and REVERSES NOTHING.
+  // ---------------------------------------------------------------------------
+
+  const {
+    latestDecision,
+    hasAutomatedDecision,
+    contest,
+    isContesting,
+  } = useAutomatedDecision(transaction.id);
+
+  const contestSheetRef = useRef<RecourseReasonSheetRef>(null);
+  const [isExplanationOpen, setIsExplanationOpen] = useState(false);
+
+  const decisionType: AutomatedDecisionType | null =
+    latestDecision && isAutomatedDecisionType(latestDecision.decisionType)
+      ? latestDecision.decisionType
+      : null;
+
+  const decisionDateLabel = latestDecision?.executedAt
+    ? new Date(latestDecision.executedAt).toLocaleDateString(APP_LOCALE, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null;
+
+  const criteriaRows = useMemo(
+    () =>
+      latestDecision ? buildCriteriaRows(latestDecision.criteria, APP_LOCALE) : [],
+    [latestDecision],
+  );
+
+  const toggleExplanation = useCallback(() => {
+    Haptics.selectionAsync();
+    setIsExplanationOpen((prev) => !prev);
+  }, []);
+
+  const openContestSheet = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    contestSheetRef.current?.present();
+  }, []);
+
+  const handleSubmitContest = useCallback(
+    async (reason: ContestReasonCode, details: string) => {
+      if (isContesting || !decisionType) return;
+      // Combine the predefined motive with the optional free-text so the human
+      // reviewer gets the full context in a single `reason` string.
+      const label = CONTEST_REASON_LABELS[reason];
+      const composed = details.trim().length > 0 ? `${label} — ${details.trim()}` : label;
+      try {
+        await contest({
+          transactionId: transaction.id,
+          decisionType,
+          reason: composed,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        contestSheetRef.current?.dismiss();
+        Alert.alert(
+          'Contestation transmise',
+          'Votre contestation a été transmise. Notre équipe procédera à une révision humaine de cette décision et reviendra vers vous.',
+          [{ text: 'Compris' }],
+        );
+      } catch (error: unknown) {
+        if (__DEV__) console.error('contestAutomatedDecision failed:', error);
+        Alert.alert('Contestation impossible', getRecourseErrorMessage(error), [
+          { text: 'Compris' },
+        ]);
+      }
+    },
+    [isContesting, decisionType, contest, transaction.id],
+  );
+
   const carrierInfo = getCarrierStatusInfo(transaction);
 
   return (
