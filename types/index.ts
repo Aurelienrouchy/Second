@@ -76,6 +76,22 @@ export interface User {
   stripeDetailsSubmitted?: boolean;
 }
 
+/**
+ * Legal/consent record types.
+ * Consent docs live in the `users/{uid}/consents/{autoId}` sub-collection and are
+ * written SERVER-SIDE ONLY (Admin SDK via the recordSignupConsent callable).
+ */
+export type ConsentType = 'terms' | 'privacy_policy' | 'marketing';
+
+export interface ConsentRecord {
+  type: ConsentType;
+  /** Policy version accepted, e.g. "2026-05-31". */
+  version: string;
+  /** serverTimestamp() written by the callable; read back as a Date on the client. */
+  acceptedAt: Date;
+  channel: 'app';
+}
+
 export interface ArticleImage {
   url: string;
   blurhash?: string;
