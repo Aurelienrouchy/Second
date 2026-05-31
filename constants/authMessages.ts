@@ -8,7 +8,7 @@ export const AUTH_MESSAGES = {
   buy: "Créez un compte pour finaliser votre achat",
   sell: "Inscrivez-vous pour vendre vos articles",
   follow: "Créez un compte pour suivre ce vendeur",
-  swapParty: "Inscrivez-vous pour participer à cette Swap Party",
+  swapParty: "Inscrivez-vous pour participer à la Swap Zone",
   saveSearch: "Créez un compte pour sauvegarder vos recherches",
   default: "Connectez-vous pour continuer",
 } as const;
