@@ -198,7 +198,7 @@ export default function PrivacySettingsScreen() {
             />
           </View>
 
-          <View style={[styles.settingItem, styles.settingItemLast]}>
+          <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
               <Text variant="body" style={styles.settingTitle}>{COPY_AI.title}</Text>
               <Caption>{COPY_AI.description}</Caption>
@@ -207,6 +207,24 @@ export default function PrivacySettingsScreen() {
               value={privacySettings.aiProfilingConsent}
               onValueChange={(value) => {
                 savePreferences({ aiProfilingConsent: value });
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
+              ios_backgroundColor={colors.border}
+            />
+          </View>
+
+          <View style={[styles.settingItem, styles.settingItemLast]}>
+            <View style={styles.settingInfo}>
+              <Text variant="body" style={styles.settingTitle}>{COPY_MARKETING_REVOKE.title}</Text>
+              <Caption>{COPY_MARKETING_REVOKE.description}</Caption>
+            </View>
+            <Switch
+              value={privacySettings.marketingConsent}
+              onValueChange={(value) => {
+                // Désactiver = RETRAIT du consentement (enregistré côté serveur
+                // via la préférence persistée) ; réactivable à tout moment.
+                savePreferences({ marketingConsent: value });
               }}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.white}
