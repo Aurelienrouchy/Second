@@ -20,6 +20,7 @@ import {
 } from 'firebase/auth';
 import {
   arrayUnion,
+  deleteDoc,
   doc,
   getDoc,
   serverTimestamp,
