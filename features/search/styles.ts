@@ -125,11 +125,11 @@ export const searchStyles = StyleSheet.create({
   // ── Filter chips — DARK tone (Swap Zone identity, additive) ──
   filterChipsContainerDark: {
     backgroundColor: colors.deep,
-    borderBottomColor: colors.dark,
+    borderBottomColor: colors.darkBorder,
   },
   filterChipDark: {
-    backgroundColor: colors.dark,
-    borderColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
+    borderColor: colors.darkBorder,
     borderRadius: radius.full,
   },
   filterChipActiveDark: {
