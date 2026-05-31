@@ -133,7 +133,7 @@ export default function TermsScreen() {
           exclusive pour utiliser ce contenu dans le cadre de l'exploitation du service.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>10. Modération et sanctions</Text>
+        <Text variant="h3" style={styles.sectionTitle}>11. Modération et sanctions</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'Éditeur se réserve le droit de :
         </Text>
