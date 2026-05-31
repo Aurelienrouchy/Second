@@ -117,7 +117,12 @@ export { deleteUserAccount } from './callable/users';
 export { recordSignupConsent } from './callable/consent';
 
 // Privacy Incident Register Functions (admin-only; Loi 25 / RGPD breach log)
-export { reportPrivacyIncident, getPrivacyIncidentsLog } from './callable/privacyIncidents';
+export {
+  reportPrivacyIncident,
+  getPrivacyIncidentsLog,
+  escalatePrivacyIncidentToCAI,
+  notifyAffectedUsers,
+} from './callable/privacyIncidents';
 
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
