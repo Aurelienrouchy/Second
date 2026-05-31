@@ -46,8 +46,18 @@ interface AuthActions {
     username: string,
     consent: SignupConsent,
   ) => Promise<User>;
-  signInWithGoogle: () => Promise<User>;
-  signInWithApple: () => Promise<User>;
+  /**
+   * Social sign-in. Returns `needsConsent: true` for a brand-new or
+   * not-yet-consented account — in that case the user is NOT signed into
+   * the app yet; the caller must run the mandatory consent step
+   * (`recordSocialConsent`) or roll back (`rollbackSocialSignIn`).
+   */
+  signInWithGoogle: () => Promise<SocialAuthResult>;
+  signInWithApple: () => Promise<SocialAuthResult>;
+  /** Records consent for the just-authenticated social user, then signs them in. */
+  recordSocialConsent: (user: User, consent: SignupConsent) => Promise<User>;
+  /** Rolls back a social account that never completed the consent step. */
+  rollbackSocialSignIn: () => Promise<void>;
   initGuestSession: () => Promise<void>;
   mergeGuestToUser: (userId: string) => Promise<void>;
 
