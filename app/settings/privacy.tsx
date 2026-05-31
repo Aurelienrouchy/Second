@@ -5,6 +5,7 @@
 import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { UserPreferences } from '@/types';
+import { functions } from '@/config/firebaseConfig';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Label, ScreenHeader } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,16 @@ import {
 } from 'react-native';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { httpsCallable } from 'firebase/functions';
+
+// Callable serveur (région northamerica-northeast1, déjà configurée dans
+// firebaseConfig.functions). Journalise le consentement/retrait marketing
+// dans users/{uid}/consents (append-only) ET applique l'effet serveur sur
+// preferences.marketingConsent + les flags de notifications marketing.
+const setMarketingConsentFn = httpsCallable<
+  { enabled: boolean },
+  { ok: true; enabled: boolean }
+>(functions, 'setMarketingConsent');
 
 interface RgpdItemProps {
   icon: keyof typeof Ionicons.glyphMap;
