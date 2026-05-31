@@ -111,6 +111,13 @@ export default function PrivacySettingsScreen() {
       if (updates.aiProfilingConsent !== undefined) {
         preferenceUpdates.aiProfilingConsent = updates.aiProfilingConsent;
       }
+      if (updates.marketingConsent !== undefined) {
+        // Persiste l'état du consentement marketing (false = RETRAIT, art. 14 / LCAP).
+        // Le consentement initial (opt-in) est journalisé serveur dans
+        // users/{uid}/consents via recordSignupConsent ; ce champ est le miroir
+        // applicatif retirable/réactivable à tout moment.
+        preferenceUpdates.marketingConsent = updates.marketingConsent;
+      }
       return UserService.updateUserPreferences(user!.id, preferenceUpdates);
     },
     onMutate: async (updates: Partial<PrivacySettings>) => {
