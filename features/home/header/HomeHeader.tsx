@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   notifBadgeText: {
     fontFamily: fonts.sansBold,
     fontSize: 7,
-    color: '#FFFFFF',
+    color: colors.white,
     textAlign: 'center',
   },
   categoriesContent: {
