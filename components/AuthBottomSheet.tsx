@@ -129,7 +129,24 @@ const AuthBottomSheet: React.FC = () => {
     setIsLoading(true);
     try {
       if (authType === 'signUp') {
-        await signUpWithEmail(email, password, username);
+        // The SignUpForm keeps the button disabled until these are valid;
+        // toIsoDate is the single source of truth for the calendar date.
+        const dateOfBirth = toIsoDate(
+          parseInt(dobYear, 10),
+          parseInt(dobMonth, 10),
+          parseInt(dobDay, 10),
+        );
+        if (!dateOfBirth) {
+          Alert.alert('Erreur', 'La date de naissance est invalide');
+          setIsLoading(false);
+          return;
+        }
+        await signUpWithEmail(email, password, username, {
+          dateOfBirth,
+          acceptedTerms,
+          acceptedPrivacy,
+          marketingOptIn,
+        });
       } else {
         await signInWithEmail(email, password);
       }
