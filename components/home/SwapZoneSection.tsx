@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     height: sizing.buttonHeight,
     borderRadius: radius.full,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
   },
 });
 
