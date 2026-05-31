@@ -26,7 +26,7 @@ export const PartyHeader = React.memo(function PartyHeader({
       </Pressable>
 
       <View style={styles.headerTitleSection}>
-        <Text style={styles.headerLabel}>Swap Zone</Text>
+        <Text style={styles.headerLabel}>Ouvert à tous</Text>
         <Text style={styles.headerTitle}>{party.name}</Text>
       </View>
     </View>
