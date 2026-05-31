@@ -116,12 +116,19 @@ const styles = StyleSheet.create({
   },
   productCardDark: {
     backgroundColor: colors.darkSurface1,
+    // Full hairline frame (not just right/bottom) so the grid perimeter — the
+    // top row's top edge and the left column's left edge — never relies on the
+    // fill step alone to separate from the deep canvas.
     borderColor: colors.darkBorder,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
   },
   productCardSelectedDark: {
     borderColor: colors.rust,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
   },
   pressed: {
     opacity: 0.7,
