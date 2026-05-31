@@ -114,7 +114,10 @@ export { createReview, getUserReviews, getUserPublicProfile } from './callable/r
 export { deleteUserAccount } from './callable/users';
 
 // Consent & Age-Gate Functions
-export { recordSignupConsent } from './callable/consent';
+// setMarketingConsent: retrait/octroi du consentement marketing — journalisé
+// append-only (preuve Loi 25 art. 14 / LCAP) ET appliqué serveur (coupe les
+// prefs notifications marketing relues par les triggers).
+export { recordSignupConsent, setMarketingConsent } from './callable/consent';
 
 // Privacy Incident Register Functions (admin-only; Loi 25 / RGPD breach log)
 export {
