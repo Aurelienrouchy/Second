@@ -24,8 +24,9 @@ import { colors, fonts, radius } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
 import { useAuthStore } from '@/store/authStore';
 import { useAuthSheetStore } from '@/store/authSheetStore';
-import { AUTH_MESSAGES } from '@/constants/authMessages';
+import { AUTH_MESSAGES, COPY_SELL_GATE } from '@/constants/authMessages';
 import { useChatStore, selectUnreadChatCount } from '@/store/chatStore';
+import { canSell } from '@/utils/age';
 
 // ── Badge component for tab icons ──
 function TabBadge({ count }: { count: number }) {
