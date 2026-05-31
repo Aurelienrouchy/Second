@@ -73,9 +73,12 @@ const styles = StyleSheet.create({
   // component (no card, no inner padding here).
   section: {
     marginTop: spacing.sm,
+    // A soft white-alpha top edge reads as a subtle "lifted" highlight on the
+    // dark band (premium feel); the dark-band-vs-warm-white-feed luminance jump
+    // already provides the actual boundary.
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: colors.darkBorder,
+    borderColor: colors.darkBorderStrong,
   },
 });
 
