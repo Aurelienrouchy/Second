@@ -65,11 +65,27 @@ const AuthBottomSheet: React.FC = () => {
     setEmail('');
     setPassword('');
     setUsername('');
+    setDobDay('');
+    setDobMonth('');
+    setDobYear('');
+    setAcceptedTerms(false);
+    setAcceptedPrivacy(false);
+    setMarketingOptIn(false);
     setAuthType('signIn');
     setIsLoading(false);
     setResetEmailSent(false);
     useAuthSheetStore.getState().hide();
   }, []);
+
+  const handleToggleTerms = useCallback(() => setAcceptedTerms((v) => !v), []);
+  const handleTogglePrivacy = useCallback(
+    () => setAcceptedPrivacy((v) => !v),
+    [],
+  );
+  const handleToggleMarketing = useCallback(
+    () => setMarketingOptIn((v) => !v),
+    [],
+  );
 
   const handleSuccess = useCallback(() => {
     onSuccessCallback?.();
