@@ -19,8 +19,13 @@ import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
-const TILE_W = 88;
-const TILE_H = 110;
+// Portrait 4/5 tile footprint (128 / 160 = 0.8). Fixed named consts rather than
+// aspectRatio because rail children are not flex-driven and need a deterministic
+// footprint. ADD_TILE_H matches the card's total height (image + info block) so
+// the leading "+" tile sits flush with the cards in the rail row.
+const TILE_W = 128;
+const IMG_H = 160;
+const ADD_TILE_H = 223;
 
 export const MyArticlesSection = React.memo(function MyArticlesSection({
   userItems,
