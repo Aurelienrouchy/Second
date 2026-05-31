@@ -47,6 +47,12 @@ export const PartyEmptyGrid = React.memo(function PartyEmptyGrid({
 
 const styles = StyleSheet.create({
   emptyGrid: {
+    backgroundColor: colors.darkSurface1,
+    borderWidth: 1,
+    borderColor: colors.darkBorderStrong,
+    borderRadius: radius.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing['2xl'],
     alignItems: 'center',
