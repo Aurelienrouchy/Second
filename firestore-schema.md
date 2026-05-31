@@ -335,6 +335,27 @@ interface SearchHistoryEntry {
 }
 ```
 
+#### Sub-collection: `users/{uid}/consents/{autoId}`
+
+Legal consent ledger. One document per accepted consent, append-only.
+
+**Written SERVER-SIDE ONLY** by the `recordSignupConsent` callable (Admin SDK).
+Firestore rules: owner can READ; `create/update/delete: if false` (no client
+writes ever). The `acceptedAt` timestamp and `version` are authoritative proof
+of consent and must never be client-tamperable.
+
+```typescript
+interface ConsentDocument {
+  type: 'terms' | 'privacy_policy' | 'marketing';
+  version: string;        // Policy version, e.g. "2026-05-31" (POLICY_VERSION)
+  acceptedAt: Timestamp;  // serverTimestamp()
+  channel: 'app';
+}
+```
+
+At signup, `recordSignupConsent` always writes `terms` + `privacy_policy`, and
+additionally `marketing` only when the user opted in (`marketingOptIn === true`).
+
 ### `favorites/{userId}`
 
 Single document per user containing all favorite article IDs.
