@@ -26,8 +26,10 @@ import {
 
 import { Button, ScreenHeader, Skeleton, Text } from '@/components/ui';
 import { functions } from '@/config/firebaseConfig';
+import { COPY_SELL_GATE } from '@/constants/authMessages';
 import { colors, spacing, radius, typography } from '@/constants/theme';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { canSell } from '@/utils/age';
 
 // ---------------------------------------------------------------------------
 // CF callable typings
