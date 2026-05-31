@@ -404,6 +404,38 @@ async function expirePendingPayment(
       return true;
     });
 
+    if (expired) {
+      // Loi 25 art. 12.1 — journal the AUTOMATED expiry decision (best-effort).
+      await logAutomatedDecision({
+        transactionId,
+        userId: typeof data.buyerId === 'string' ? data.buyerId : '',
+        decisionType: 'transaction_expired',
+        criteria: {
+          status: 'pending_payment',
+          expiryWindowHours: 1,
+          cancelReason: 'pending_payment_expired_1h',
+        },
+        result: 'Transaction annulée (paiement non finalisé sous 1h)',
+      });
+
+      // Transparency notification to the buyer (best-effort).
+      if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
+        const articleTitle = data.articleTitle || 'votre commande';
+        sendPushNotification(
+          data.buyerId,
+          'Commande annulée automatiquement',
+          `Votre commande ${articleTitle} a été annulée automatiquement : le paiement n'a pas été finalisé dans le délai imparti (1 h). Si vous contestez cette décision, vous pouvez nous le signaler.`,
+          { transactionId, articleId: data.articleId || '' },
+          'order_cancelled'
+        ).catch((err) => {
+          logger.warn('[expireOrphanedTransactions] Failed to notify buyer of pending_payment expiry', {
+            transactionId,
+            error: err instanceof Error ? err.message : err,
+          });
+        });
+      }
+    }
+
     return expired;
   } catch (err) {
     logger.error('[expireOrphanedTransactions] Error expiring pending_payment transaction', {
