@@ -194,6 +194,18 @@ service cloud.firestore {
         // Allow delete by owner
         allow delete: if isOwner(userId);
       }
+
+      // Consents Subcollection Rules (legal consent records — CGU, politique de
+      // confidentialité, marketing). Written EXCLUSIVELY server-side by the
+      // recordSignupConsent callable (Admin SDK bypasses these rules) so the
+      // acceptedAt timestamp and version stay authoritative and tamper-proof.
+      match /consents/{consentId} {
+        // Owner may read their own consent history.
+        allow read: if isOwner(userId);
+
+        // No client writes — server-only.
+        allow create, update, delete: if false;
+      }
     }
     
     // Favorites Collection Rules
