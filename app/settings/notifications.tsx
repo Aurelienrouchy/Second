@@ -101,14 +101,17 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
   },
 ];
 
+// Privacy by default (opt-in marketing) : les notifications de nature
+// marketing/secondaire sont OFF par défaut. L'utilisateur doit les activer
+// explicitement. Les notifications transactionnelles essentielles restent ON.
 const DEFAULT_SETTINGS: Record<NotificationType, boolean> = {
   email: true,
   push: true,
   newMessages: true,
   newOrders: true,
-  priceDrops: true,
-  articleFavorited: true,
-  swapZoneReminder: true,
+  priceDrops: false,
+  articleFavorited: false,
+  swapZoneReminder: false,
   offerReceived: true,
   offerResponse: true,
 };
