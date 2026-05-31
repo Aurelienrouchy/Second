@@ -154,6 +154,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   scrollContent: {
-    paddingBottom: 200,
+    paddingBottom: spacing['4xl'] + spacing['3xl'],
   },
 });
