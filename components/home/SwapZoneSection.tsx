@@ -278,14 +278,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: 'flex-start',
   },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   countPill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: spacing.xs,
     backgroundColor: colors.rust,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: radius.full,
   },
   countPillText: {
