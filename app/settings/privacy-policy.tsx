@@ -32,7 +32,7 @@ export default function PrivacyPolicyScreen() {
       <ScreenHeader title="Politique de confidentialité" onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
+        <Caption style={styles.lastUpdate}>Dernière mise à jour : 31 mai 2026</Caption>
 
         <View style={styles.introBox}>
           <Text variant="bodySmall" style={styles.introText}>
@@ -43,70 +43,101 @@ export default function PrivacyPolicyScreen() {
           </Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>1. Responsable du traitement</Text>
+        <Text variant="h3" style={styles.sectionTitle}>1. Responsable de la protection des renseignements personnels</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Le responsable du traitement de vos données personnelles est :
+          Second a désigné un responsable de la protection des renseignements personnels,
+          conformément à l'article 3.1 de la Loi 25. Pour toute question relative à vos
+          renseignements personnels ou pour exercer vos droits : privacy@seconde.app.
         </Text>
         <View style={styles.infoCard}>
           <Text variant="body" style={styles.companyName}>Seconde Inc.</Text>
           <Caption>Montréal, Québec, Canada</Caption>
           <Caption>Email : privacy@seconde.app</Caption>
-          <Caption>Responsable de la protection des renseignements personnels : dpo@seconde.app</Caption>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>2. Données collectées</Text>
+        <Text variant="h3" style={styles.sectionTitle}>2. Renseignements que nous recueillons</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Nous collectons les catégories de données suivantes :
+          Nous recueillons les catégories de renseignements suivantes :
         </Text>
 
-        <Label style={styles.subTitle}>2.1 Données que vous nous fournissez</Label>
+        <Label style={styles.subTitle}>Identité et compte</Label>
         <View style={styles.listContainer}>
-          <Text variant="bodySmall" style={styles.listItem}>• Données d'identification : nom, prénom, email, photo de profil</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Coordonnées : adresse, numéro de téléphone</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Contenu : photos et descriptions d'articles, messages</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Préférences : tailles, marques favorites, localisation préférée</Text>
+          <Text variant="bodySmall" style={styles.listItem}>• Nom d'affichage, courriel, date de naissance, photo de profil</Text>
         </View>
 
-        <Label style={styles.subTitle}>2.2 Données collectées automatiquement</Label>
+        <Label style={styles.subTitle}>Annonces et contenus</Label>
         <View style={styles.listContainer}>
-          <Text variant="bodySmall" style={styles.listItem}>• Données techniques : type d'appareil, système d'exploitation, identifiants</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Données d'utilisation : pages visitées, fonctionnalités utilisées</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Données de localisation : si vous l'autorisez, pour les fonctionnalités de proximité</Text>
+          <Text variant="bodySmall" style={styles.listItem}>• Photos d'articles, descriptions, tailles, marques</Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>3. Finalités du traitement</Text>
+        <Label style={styles.subTitle}>Transactions</Label>
+        <View style={styles.listContainer}>
+          <Text variant="bodySmall" style={styles.listItem}>• Historique d'achats et de ventes, montants</Text>
+        </View>
+
+        <Label style={styles.subTitle}>Paiement et versement</Label>
+        <View style={styles.listContainer}>
+          <Text variant="bodySmall" style={styles.listItem}>• Traités par Stripe : nom légal, date de naissance, adresse, coordonnées bancaires</Text>
+        </View>
+
+        <Label style={styles.subTitle}>Expédition</Label>
+        <View style={styles.listContainer}>
+          <Text variant="bodySmall" style={styles.listItem}>• Adresses complètes, téléphone, traitées par ShipEngine</Text>
+        </View>
+
+        <Label style={styles.subTitle}>Communications</Label>
+        <View style={styles.listContainer}>
+          <Text variant="bodySmall" style={styles.listItem}>• Messages échangés dans la messagerie</Text>
+        </View>
+
+        <Label style={styles.subTitle}>Données d'utilisation et préférences</Label>
+        <View style={styles.listContainer}>
+          <Text variant="bodySmall" style={styles.listItem}>• Recherches, articles consultés, favoris et préférences</Text>
+        </View>
+
+        <Label style={styles.subTitle}>Localisation</Label>
+        <View style={styles.listContainer}>
+          <Text variant="bodySmall" style={styles.listItem}>• Données de localisation ou de quartier, si vous les fournissez</Text>
+        </View>
+
+        <Text variant="h3" style={styles.sectionTitle}>3. Finalités de l'utilisation</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Vos données sont utilisées pour :
+          Nous utilisons vos renseignements pour :
         </Text>
         <View style={styles.listContainer}>
-          <Text variant="bodySmall" style={styles.listItem}>• Fournir et améliorer nos services</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Gérer votre compte utilisateur</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Permettre les transactions entre utilisateurs</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Envoyer des notifications (si vous l'autorisez)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Personnaliser votre expérience (recommandations)</Text>
+          <Text variant="bodySmall" style={styles.listItem}>• Fournir le service de place de marché</Text>
+          <Text variant="bodySmall" style={styles.listItem}>• Traiter les paiements et les expéditions</Text>
           <Text variant="bodySmall" style={styles.listItem}>• Assurer la sécurité et prévenir la fraude</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Respecter nos obligations légales</Text>
+          <Text variant="bodySmall" style={styles.listItem}>• Communiquer avec vous</Text>
+          <Text variant="bodySmall" style={styles.listItem}>• Uniquement si vous y consentez : vous offrir des recommandations personnalisées par IA et des communications marketing</Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>4. Base légale du traitement</Text>
+        <Text variant="h3" style={styles.sectionTitle}>4. Destinataires et communications hors Québec (art. 8 et 17)</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Le traitement de vos données repose sur :
+          Pour fournir le service, nous communiquons certains renseignements à des prestataires
+          situés à l'extérieur du Québec et du Canada, principalement aux États-Unis. Nous avons
+          évalué les facteurs relatifs à la vie privée applicables et encadrons ces communications
+          par des ententes écrites.
         </Text>
-        <View style={styles.listContainer}>
-          <Text variant="bodySmall" style={styles.listItem}>• L'exécution du contrat (utilisation du service)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Votre consentement (notifications, localisation, marketing)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Notre intérêt légitime (sécurité, amélioration du service)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Nos obligations légales (conservation légale)</Text>
+        <View style={styles.infoCard}>
+          <Text variant="body" style={styles.companyName}>Stripe, Inc. (États-Unis)</Text>
+          <Caption>Paiements et conformité (KYC) : nom, date de naissance, adresse, coordonnées bancaires</Caption>
+          <Caption>https://stripe.com/fr-ca/privacy</Caption>
         </View>
-
-        <Text variant="h3" style={styles.sectionTitle}>5. Destinataires des données</Text>
-        <Text variant="bodySmall" style={styles.paragraph}>
-          Vos données peuvent être partagées avec :
-        </Text>
-        <View style={styles.listContainer}>
-          <Text variant="bodySmall" style={styles.listItem}>• Les autres utilisateurs (profil public, annonces)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Nos prestataires techniques (hébergement, analytics)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Les autorités compétentes (obligation légale)</Text>
+        <View style={styles.infoCard}>
+          <Text variant="body" style={styles.companyName}>ShipEngine / Auctane (États-Unis)</Text>
+          <Caption>Expédition : adresses, téléphone, courriel</Caption>
+          <Caption>https://www.shipengine.com/privacy-policy/</Caption>
+        </View>
+        <View style={styles.infoCard}>
+          <Text variant="body" style={styles.companyName}>Google Cloud — Vertex AI et Gemini (États-Unis)</Text>
+          <Caption>Analyse d'images et recommandations (uniquement si vous activez les recommandations IA) : photos d'articles, métadonnées</Caption>
+          <Caption>https://policies.google.com/privacy</Caption>
+        </View>
+        <View style={styles.infoCard}>
+          <Text variant="body" style={styles.companyName}>Google Firebase (Google LLC)</Text>
+          <Caption>Hébergement, authentification, base de données, notifications</Caption>
+          <Caption>Nos fonctions infonuagiques sont hébergées dans la région de Montréal (northamerica-northeast1)</Caption>
         </View>
 
         <View style={styles.highlightBox}>
@@ -116,122 +147,83 @@ export default function PrivacyPolicyScreen() {
           </Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>6. Transferts hors Canada</Text>
+        <Text variant="h3" style={styles.sectionTitle}>5. Profilage et technologies (art. 8.1)</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Certains de nos prestataires (Firebase/Google) peuvent traiter des données hors du
-          Canada. Ces transferts sont encadrés par des garanties contractuelles appropriées
-          conformément aux exigences de la Loi 25 et de la LPRPDE.
+          Second peut utiliser une technologie d'analyse par intelligence artificielle pour vous
+          proposer des recommandations personnalisées (profilage). Cette fonction est désactivée
+          par défaut. Vous pouvez l'activer ou la désactiver à tout moment dans Réglages {'>'} Confidentialité.
+          Nous n'utilisons pas votre localisation à des fins de profilage sans votre consentement.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>7. Durée de conservation</Text>
+        <Text variant="h3" style={styles.sectionTitle}>6. Durée de conservation et destruction (art. 23)</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Nous conservons vos données selon les durées suivantes :
+          Nous conservons vos renseignements seulement le temps nécessaire aux finalités décrites,
+          puis les détruisons ou les anonymisons. Les renseignements liés aux transactions sont
+          conservés jusqu'à 7 ans pour respecter nos obligations comptables et fiscales. Les données
+          de navigation et les préférences sont conservées au plus 12 mois. Les données des visiteurs
+          non inscrits sont supprimées après 90 jours d'inactivité.
         </Text>
-        <View style={styles.listContainer}>
-          <Text variant="bodySmall" style={styles.listItem}>• Compte actif : durée de vie du compte + 3 ans</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Compte supprimé : suppression immédiate (sauf obligations légales)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Données de transaction : 10 ans (obligation comptable)</Text>
-          <Text variant="bodySmall" style={styles.listItem}>• Logs de connexion : 1 an</Text>
-        </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>8. Vos droits</Text>
+        <Text variant="h3" style={styles.sectionTitle}>7. Vos droits (art. 27, 28.1, 30)</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Conformément à la Loi 25 du Québec et à la LPRPDE (PIPEDA), vous disposez des droits suivants :
+          Vous avez le droit d'accéder à vos renseignements, de les faire rectifier, d'en obtenir
+          une copie dans un format technologique structuré et couramment utilisé (portabilité),
+          d'en demander la suppression, et de retirer votre consentement à tout moment. Vous pouvez
+          exporter vos données (Réglages {'>'} Exporter mes données) ou supprimer votre compte
+          (Réglages {'>'} Supprimer mon compte). Nous répondons à toute demande dans un délai maximal
+          de 30 jours.
         </Text>
 
         <RightBox
           title="Droit d'accès"
-          description="Obtenir une copie de vos renseignements personnels."
+          description="Accéder à vos renseignements personnels."
         />
         <RightBox
           title="Droit de rectification"
-          description="Corriger vos renseignements inexacts ou incomplets."
-        />
-        <RightBox
-          title="Droit à l'effacement"
-          description="Demander la suppression de vos renseignements personnels."
+          description="Faire rectifier vos renseignements inexacts ou incomplets."
         />
         <RightBox
           title="Droit à la portabilité"
-          description="Récupérer vos renseignements dans un format structuré et lisible."
+          description="Obtenir une copie de vos renseignements dans un format technologique structuré et couramment utilisé."
+        />
+        <RightBox
+          title="Droit à la suppression"
+          description="Demander la suppression de vos renseignements personnels."
         />
         <RightBox
           title="Droit de retrait du consentement"
-          description="Retirer votre consentement à tout moment (sans affecter la licéité du traitement antérieur)."
+          description="Retirer votre consentement à tout moment."
         />
 
+        <Text variant="h3" style={styles.sectionTitle}>8. Consentement et retrait</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Pour exercer ces droits, rendez-vous dans Paramètres → Confidentialité ou contactez-nous
-          à privacy@seconde.app.
+          En créant un compte, vous consentez à la collecte et à l'utilisation de vos
+          renseignements aux fins décrites. Vous pouvez retirer votre consentement aux finalités
+          facultatives (marketing, recommandations IA) à tout moment dans les Réglages.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>9. Sécurité des données</Text>
+        <Text variant="h3" style={styles.sectionTitle}>9. Incidents de confidentialité (art. 3.5-3.8)</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Nous mettons en œuvre des mesures techniques et organisationnelles appropriées pour
-          protéger vos données :
-        </Text>
-        <View style={styles.securityBox}>
-          <View style={styles.securityItem}>
-            <Ionicons name="lock-closed" size={16} color={colors.success} />
-            <Caption style={styles.securityText}>Chiffrement des données en transit (HTTPS/TLS)</Caption>
-          </View>
-          <View style={styles.securityItem}>
-            <Ionicons name="lock-closed" size={16} color={colors.success} />
-            <Caption style={styles.securityText}>Chiffrement des données au repos</Caption>
-          </View>
-          <View style={styles.securityItem}>
-            <Ionicons name="key" size={16} color={colors.success} />
-            <Caption style={styles.securityText}>Contrôles d'accès stricts</Caption>
-          </View>
-          <View style={styles.securityItem}>
-            <Ionicons name="eye" size={16} color={colors.success} />
-            <Caption style={styles.securityText}>Surveillance et détection des intrusions</Caption>
-          </View>
-          <View style={styles.securityItem}>
-            <Ionicons name="people" size={16} color={colors.success} />
-            <Caption style={styles.securityText}>Formation de nos équipes</Caption>
-          </View>
-        </View>
-
-        <Text variant="h3" style={styles.sectionTitle}>10. Cookies et traceurs</Text>
-        <Text variant="bodySmall" style={styles.paragraph}>
-          L'Application utilise des technologies similaires aux cookies pour son fonctionnement.
-          Pour plus d'informations, consultez notre Politique Cookies accessible depuis les
-          paramètres.
+          En cas d'incident de confidentialité présentant un risque de préjudice sérieux, nous
+          prendrons les mesures nécessaires, tiendrons un registre de l'incident et aviserons les
+          personnes concernées ainsi que la Commission d'accès à l'information (CAI) comme l'exige
+          la loi.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>11. Mineurs</Text>
+        <Text variant="h3" style={styles.sectionTitle}>10. Nous joindre et plainte</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          L'Application n'est pas destinée aux personnes de moins de 16 ans. Nous ne collectons
-          pas sciemment de données concernant des mineurs de moins de 16 ans.
-        </Text>
-
-        <Text variant="h3" style={styles.sectionTitle}>12. Réclamation</Text>
-        <Text variant="bodySmall" style={styles.paragraph}>
-          Si vous estimez que vos droits ne sont pas respectés, vous pouvez déposer une
-          plainte auprès de la Commission d'accès à l'information du Québec :
-        </Text>
-        <View style={styles.infoCard}>
-          <Text variant="body" style={styles.companyName}>CAI</Text>
-          <Caption>Commission d'accès à l'information du Québec</Caption>
-          <Caption>525, boul. René-Lévesque Est, bureau 2.36</Caption>
-          <Caption>Québec (Québec) G1R 5S9</Caption>
-          <Caption>www.cai.gouv.qc.ca</Caption>
-        </View>
-
-        <Text variant="h3" style={styles.sectionTitle}>13. Modifications</Text>
-        <Text variant="bodySmall" style={styles.paragraph}>
-          Nous pouvons modifier cette politique à tout moment. Vous serez informé de tout
-          changement significatif par notification dans l'Application.
-        </Text>
-
-        <Text variant="h3" style={styles.sectionTitle}>14. Contact</Text>
-        <Text variant="bodySmall" style={styles.paragraph}>
-          Pour toute question relative à cette politique ou à vos données personnelles :
+          Pour exercer vos droits ou porter plainte : privacy@seconde.app. Vous pouvez aussi
+          déposer une plainte auprès de la Commission d'accès à l'information du Québec
+          (www.cai.gouv.qc.ca).
         </Text>
         <View style={styles.infoCard}>
           <Caption>Email : privacy@seconde.app</Caption>
-          <Caption>DPO : dpo@seconde.app</Caption>
+        </View>
+        <View style={styles.infoCard}>
+          <Text variant="body" style={styles.companyName}>Commission d'accès à l'information du Québec (CAI)</Text>
+          <Caption>525, boul. René-Lévesque Est, bureau 2.36</Caption>
+          <Caption>Québec (Québec) G1R 5S9</Caption>
+          <Caption>www.cai.gouv.qc.ca</Caption>
         </View>
 
         <View style={styles.footer}>
