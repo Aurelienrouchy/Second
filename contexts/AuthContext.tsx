@@ -50,6 +50,8 @@ export const useAuthActions = () =>
       signUpWithEmail: s.signUpWithEmail,
       signInWithGoogle: s.signInWithGoogle,
       signInWithApple: s.signInWithApple,
+      recordSocialConsent: s.recordSocialConsent,
+      rollbackSocialSignIn: s.rollbackSocialSignIn,
       initGuestSession: s.initGuestSession,
       mergeGuestToUser: s.mergeGuestToUser,
     }))
