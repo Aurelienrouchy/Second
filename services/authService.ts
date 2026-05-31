@@ -509,15 +509,39 @@ export class AuthService {
    * Rollback d'un compte social sans consentement (Loi 25 art. 12, 14).
    *
    * Appelé quand l'utilisateur refuse / ferme l'écran de consentement, a
-   * moins de 16 ans, ou si recordSignupConsent échoue après une PREMIÈRE
-   * connexion sociale. Supprime le doc users/{uid} (best-effort) puis le
-   * compte Firebase Auth (session récente) pour ne JAMAIS laisser subsister
-   * un compte sans preuve de consentement. Best-effort : on ne propage pas
-   * les erreurs de cleanup pour ne pas masquer la raison du rollback.
+   * moins de 16 ans, ou si recordSignupConsent échoue après une connexion
+   * sociale.
+   *
+   * `isNewUser` distingue deux cas RADICALEMENT différents :
+   *  - `true` (compte BRAND-NEW créé à l'instant par signInWithCredential) :
+   *    rien à perdre → suppression DESTRUCTIVE (doc users/{uid} best-effort
+   *    puis compte Firebase Auth) pour ne JAMAIS laisser subsister un compte
+   *    sans preuve de consentement.
+   *  - `false` (compte EXISTANT sans dateOfBirth qui refuse de re-consentir) :
+   *    le compte peut porter un solde vendeur, des commandes, etc. → NE PAS
+   *    SUPPRIMER (cela bypasserait le pre-check de solde de deleteUserAccount
+   *    et ferait perdre le compte). On se contente d'un signOut : il reste
+   *    non-authentifié côté app tant qu'il n'a pas consenti (gate dans
+   *    authStore.hydrateFromFirebase), mais le compte est préservé.
+   *
+   * Best-effort : on ne propage pas les erreurs de cleanup pour ne pas
+   * masquer la raison du rollback.
    */
-  static async rollbackUnconsentedAccount(): Promise<void> {
+  static async rollbackUnconsentedAccount(isNewUser: boolean): Promise<void> {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return;
+
+    // Compte existant : jamais de suppression destructive. Simple déconnexion.
+    if (!isNewUser) {
+      try {
+        await this.signOut();
+      } catch (signOutError) {
+        if (__DEV__) {
+          console.error('[AuthService] rollbackUnconsentedAccount signOut (existing) failed:', signOutError);
+        }
+      }
+      return;
+    }
 
     const uid = firebaseUser.uid;
     try {
