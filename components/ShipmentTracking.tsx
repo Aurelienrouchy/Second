@@ -39,6 +39,14 @@ import {
   ReportReasonCode,
   ReturnReasonCode,
 } from '@/hooks/useTransactionRecourse';
+import { useAutomatedDecision } from '@/hooks/useAutomatedDecision';
+import {
+  getDecisionExplanation,
+  getDecisionTitle,
+  buildCriteriaRows,
+  isAutomatedDecisionType,
+  type AutomatedDecisionType,
+} from '@/lib/automatedDecisionMeta';
 
 interface ShipmentTrackingProps {
   transaction: Transaction;
