@@ -41,10 +41,21 @@ const AuthBottomSheet: React.FC = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [dobTouched, setDobTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  // Set once a social sign-in reports `needsConsent`. While non-null, the
+  // mandatory consent step is shown and a back-out must roll the account back.
+  const [pendingSocialUser, setPendingSocialUser] = useState<User | null>(null);
 
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuthActions();
+  const {
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    signInWithApple,
+    recordSocialConsent,
+    rollbackSocialSignIn,
+  } = useAuthActions();
   const insets = useSafeAreaInsets();
 
   const snapPoints = useMemo(() => ['82%'], []);
