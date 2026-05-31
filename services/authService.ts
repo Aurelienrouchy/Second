@@ -437,7 +437,7 @@ export class AuthService {
         userData.displayName = resolvedName;
       }
 
-      return { user: userData, needsConsent };
+      return { user: userData, needsConsent, isNewUser };
     } catch (error: any) {
       if (error.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Connexion Apple annulée');
