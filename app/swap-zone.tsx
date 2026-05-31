@@ -336,8 +336,15 @@ export default function SwapZoneScreen() {
   // in the tree while open, so it never lingers as a touch-capturing veil on
   // Android.
   const handleShowMyArticles = useCallback(() => {
+    // The deposit entry is always visible (even logged-out) so the "add your
+    // articles" affordance can never disappear. A logged-out tap routes through
+    // the canonical auth gate, mirroring handleItemPress.
+    if (!user) {
+      requireAuth(() => setDepositOpened(true), AUTH_MESSAGES.swapParty);
+      return;
+    }
     setDepositOpened(true);
-  }, []);
+  }, [user, requireAuth]);
 
   // Present the modal right after it mounts (when depositOpened flips to true).
   useEffect(() => {
