@@ -424,13 +424,13 @@ export default function SwapZoneScreen() {
       <View>
         <Text style={styles.subtitle}>Échangez vos pièces, sans frais.</Text>
 
-        {user && (
-          <MyArticlesSection
-            userItems={userItems}
-            onAddPress={handleShowMyArticles}
-            onRemoveItem={handleRemoveItem}
-          />
-        )}
+        {/* Always rendered (even logged-out) so the deposit affordance can never
+            disappear; onAddPress routes through requireAuth when no user. */}
+        <MyArticlesSection
+          userItems={userItems}
+          onAddPress={handleShowMyArticles}
+          onRemoveItem={handleRemoveItem}
+        />
 
         {/* Filter chips (dark tone) */}
         <FilterChipsRow chips={filterChips} tone="dark" />
@@ -441,7 +441,7 @@ export default function SwapZoneScreen() {
         </View>
       </View>
     ),
-    [user, userItems, handleShowMyArticles, handleRemoveItem, filterChips, otherItems.length]
+    [userItems, handleShowMyArticles, handleRemoveItem, filterChips, otherItems.length]
   );
 
   const listEmpty = useMemo(
