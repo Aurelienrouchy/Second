@@ -247,7 +247,6 @@ const styles = StyleSheet.create({
   // Empty "deposit" slot mirroring the card silhouette (deep panel, no faked product).
   addTile: {
     width: TILE_W,
-    height: ADD_TILE_H,
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.xs,
