@@ -1203,8 +1203,8 @@ export const createStripeConnectAccount = onCall(
     if (!Number.isInteger(dobMonth) || dobMonth < 1 || dobMonth > 12) {
       throw new HttpsError('invalid-argument', 'Mois de naissance invalide (1-12)');
     }
-    if (!Number.isInteger(dobYear) || dobYear < 1900 || dobYear > new Date().getFullYear() - 13) {
-      throw new HttpsError('invalid-argument', 'Annee de naissance invalide (minimum 13 ans)');
+    if (!Number.isInteger(dobYear) || dobYear < 1900 || dobYear > new Date().getFullYear() - 18) {
+      throw new HttpsError('invalid-argument', 'Annee de naissance invalide (minimum 18 ans)');
     }
 
     // Address
