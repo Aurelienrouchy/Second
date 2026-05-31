@@ -47,7 +47,7 @@ export default function TermsScreen() {
           notre partenaire de paiement. En créant un compte, vous confirmez avoir l'âge requis.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>3. Inscription et compte utilisateur</Text>
+        <Text variant="h3" style={styles.sectionTitle}>4. Inscription et compte utilisateur</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Pour utiliser pleinement les services de l'Application, vous devez créer un compte
           utilisateur. Vous vous engagez à fournir des informations exactes et à les maintenir
@@ -57,12 +57,8 @@ export default function TermsScreen() {
           Vous êtes responsable de la confidentialité de vos identifiants de connexion et de
           toutes les activités effectuées sous votre compte.
         </Text>
-        <Text variant="bodySmall" style={styles.paragraph}>
-          L'inscription est réservée aux personnes majeures (18 ans et plus) ou aux mineurs
-          disposant de l'autorisation de leur représentant légal.
-        </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>4. Services proposés</Text>
+        <Text variant="h3" style={styles.sectionTitle}>5. Services proposés</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'Application permet aux utilisateurs de :
         </Text>
