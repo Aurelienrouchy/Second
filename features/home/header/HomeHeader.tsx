@@ -98,7 +98,6 @@ export const HomeHeader = React.memo(HomeHeaderComponent);
 const styles = StyleSheet.create({
   darkHeader: {
     backgroundColor: colors.cream,
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
@@ -106,17 +105,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
   searchInput: {
     flex: 1,
+    height: sizing.buttonHeightSmall,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.white,
     borderRadius: 0,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + spacing.xs,
     borderWidth: 1,
     borderColor: colors.borderStrong,
   },
