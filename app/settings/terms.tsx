@@ -71,7 +71,7 @@ export default function TermsScreen() {
           <Text variant="bodySmall" style={styles.listItem}>• Organiser des remises en main propre</Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>5. Obligations des utilisateurs</Text>
+        <Text variant="h3" style={styles.sectionTitle}>6. Obligations des utilisateurs</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           En utilisant l'Application, vous vous engagez à :
         </Text>
