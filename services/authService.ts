@@ -303,7 +303,10 @@ export class AuthService {
       let userData = await this.getUserData(firebaseUser.uid);
       // Calcule AVANT de créer/mettre à jour le doc (sinon getUserData ne
       // refléterait plus l'état "nouveau").
-      const needsConsent = this.computeNeedsConsent(userCredential, userData);
+      const { needsConsent, isNewUser } = this.computeConsentState(
+        userCredential,
+        userData,
+      );
 
       if (!userData) {
         userData = {
