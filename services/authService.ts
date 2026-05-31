@@ -138,6 +138,7 @@ export class AuthService {
         createdAt: serverTimestamp(),
         isActive: true,
         authProvider: 'email',
+        dateOfBirth: consent.dateOfBirth,
       };
 
       if (userData.profileImage) {
@@ -170,7 +171,30 @@ export class AuthService {
       if (__DEV__) {
         console.error('[AuthService] signUpWithEmail post-create error:', error);
       }
-      throw new Error(this.getAuthErrorMessage(error.code));
+
+      // ── ROLLBACK : aucun compte ne doit subsister sans preuve de consentement
+      // (état illégal Loi 25). Le setDoc ou recordSignupConsent a échoué après
+      // la création du compte Auth → on supprime le doc user (best-effort) puis
+      // le compte Auth (la session vient d'être créée, donc récente). ──
+      try {
+        await deleteDoc(doc(firestore, 'users', firebaseUser.uid));
+      } catch (cleanupError) {
+        // Les rules peuvent refuser la suppression directe : ne pas bloquer le
+        // rollback du compte Auth pour autant.
+        if (__DEV__) {
+          console.error('[AuthService] signUpWithEmail user doc cleanup failed:', cleanupError);
+        }
+      }
+
+      try {
+        await firebaseUser.delete();
+      } catch (deleteError) {
+        if (__DEV__) {
+          console.error('[AuthService] signUpWithEmail auth rollback failed:', deleteError);
+        }
+      }
+
+      throw new Error('La création du compte a échoué. Veuillez réessayer.');
     }
   }
 
