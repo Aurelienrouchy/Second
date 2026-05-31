@@ -44,8 +44,18 @@ export async function mergeGuestDataIntoUser(userId: string): Promise<void> {
     if (__DEV__) console.log('[authMerge] onboarding preferences merge failed (silent):', error);
   }
 
-  // ── 2. Behavioural data → style profile ──
+  // ── 2. Behavioural data → style profile (gated on AI profiling consent) ──
   try {
+    // Opt-in gate: never generate a style profile or send behavioural data
+    // to Gemini/Vertex unless the user explicitly consented. Absent => false.
+    const preferences = await UserService.getUserPreferences(userId);
+    if (preferences?.aiProfilingConsent !== true) {
+      if (__DEV__) {
+        console.log('[authMerge] style profile skipped — aiProfilingConsent not granted');
+      }
+      return;
+    }
+
     const guestData = await guestPreferencesService.exportGuestData();
     if (!guestData) return;
 
