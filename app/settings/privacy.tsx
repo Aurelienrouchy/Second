@@ -75,6 +75,8 @@ export default function PrivacySettingsScreen() {
       const preferences = await UserService.getUserPreferences(user!.id);
       return {
         showProfilePhoto: preferences?.privacy?.showProfilePhoto ?? true,
+        // Absent => false (opt-in default).
+        aiProfilingConsent: preferences?.aiProfilingConsent ?? false,
       };
     },
     enabled: !!user?.id,
