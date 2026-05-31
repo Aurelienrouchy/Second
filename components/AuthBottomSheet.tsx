@@ -136,16 +136,82 @@ const AuthBottomSheet: React.FC = () => {
     if (isLoading) return;
     setIsLoading(true);
     try {
-      if (provider === 'Google') {
-        await signInWithGoogle();
-      } else if (provider === 'Apple') {
-        await signInWithApple();
+      const result =
+        provider === 'Google'
+          ? await signInWithGoogle()
+          : await signInWithApple();
+
+      if (result.needsConsent) {
+        // New / not-yet-consented social account: DO NOT enter the app.
+        // Show the mandatory consent step. Until resolved, dismissing the
+        // sheet rolls the account back (see handleClose).
+        consentResolvedRef.current = false;
+        setPendingSocialUser(result.user);
+        pendingSocialUserRef.current = result.user;
+        // Pre-fill nothing; collect a fresh DOB + consents.
+        setDobDay('');
+        setDobMonth('');
+        setDobYear('');
+        setAcceptedTerms(false);
+        setAcceptedPrivacy(false);
+        setMarketingOptIn(false);
+        setDobTouched(false);
+        setAuthType('socialConsent');
+        setIsLoading(false);
+        return;
       }
+
       handleSuccess();
     } catch (error: any) {
       Alert.alert('Erreur', error.message || 'Erreur de connexion');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSocialConsentSubmit = async () => {
+    if (isLoading || !pendingSocialUser) return;
+
+    const dateOfBirth = toIsoDate(
+      parseInt(dobYear, 10),
+      parseInt(dobMonth, 10),
+      parseInt(dobDay, 10),
+    );
+    if (!dateOfBirth) {
+      Alert.alert('Erreur', 'La date de naissance est invalide');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await recordSocialConsent(pendingSocialUser, {
+        dateOfBirth,
+        acceptedTerms,
+        acceptedPrivacy,
+        marketingOptIn,
+      });
+      // Consent recorded server-side → user is now signed in.
+      consentResolvedRef.current = true;
+      pendingSocialUserRef.current = null;
+      handleSuccess();
+    } catch (error: any) {
+      // Age < 16, missing boxes, or callable failure → roll the account back
+      // so no social account ever subsists without consent (Loi 25).
+      consentResolvedRef.current = true;
+      try {
+        await rollbackSocialSignIn();
+      } catch {
+        // best-effort
+      }
+      pendingSocialUserRef.current = null;
+      setPendingSocialUser(null);
+      setIsLoading(false);
+      Alert.alert(
+        'Inscription non finalisée',
+        error.message ||
+          'Le consentement n\'a pas pu être enregistré. Votre compte a été supprimé. Veuillez réessayer.',
+      );
+      handleClose();
     }
   };
 
