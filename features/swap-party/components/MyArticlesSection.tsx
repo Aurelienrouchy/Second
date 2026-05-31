@@ -2,73 +2,92 @@
  * MyArticlesSection Component — Swap Zone (DARK identity)
  * Shows the user's deposited articles with add/remove actions. Always available
  * to an authenticated user (the zone is open to all — no join gate).
+ *
+ * EMPTY state: a full-width tappable drop zone (the only CTA).
+ * POPULATED state: a horizontal rail of portrait photo tiles so the user
+ * recognizes their garments instantly, ending in a "+" add tile.
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
+const TILE_W = 88;
+const TILE_H = 110;
+
 export const MyArticlesSection = React.memo(function MyArticlesSection({
   userItems,
   onAddPress,
   onRemoveItem,
 }: MyArticlesSectionProps) {
+  const hasItems = userItems.length > 0;
+
   return (
     <View style={styles.section}>
       <View style={styles.labelRow}>
         <Text style={styles.label}>
-          {"Mes articles à l'échange · "}{userItems.length}
+          {hasItems ? `Mes pièces · ${userItems.length}` : 'Mes pièces'}
         </Text>
-        <Pressable
-          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-          onPress={onAddPress}
-        >
-          <Ionicons name="add" size={sizing.iconSM} color={colors.cream} />
-          <Text style={styles.addButtonText}>Déposer un article</Text>
-        </Pressable>
       </View>
 
-      {userItems.length > 0 ? (
-        <View style={styles.list}>
+      {hasItems ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rail}
+        >
           {userItems.map((item) => (
             <Animated.View
               key={item.id}
-              style={styles.row}
-              entering={FadeInDown.duration(220)}
+              entering={FadeIn.duration(200)}
               exiting={FadeOut.duration(160)}
               layout={LinearTransition.duration(220)}
             >
-              <Image source={{ uri: item.imageUrl }} style={styles.rowImage} recyclingKey={item.id} />
-              <View style={styles.rowContent}>
-                <Text style={styles.rowBrand}>{item.brand || 'BRAND'}</Text>
-                <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.rowStatus}>Disponible au swap</Text>
+              <View style={styles.tileImageWrap}>
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.tileImage}
+                  recyclingKey={item.id}
+                  contentFit="cover"
+                />
+                <Pressable
+                  style={({ pressed }) => [styles.removeTile, pressed && styles.pressed]}
+                  onPress={() => onRemoveItem(item.articleId)}
+                  hitSlop={8}
+                >
+                  <Ionicons name="close" size={sizing.iconSM} color={colors.cream} />
+                </Pressable>
               </View>
-              <View style={styles.rowValue}>
-                <Text style={styles.rowValueLabel}>Valeur</Text>
-                <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
-              </View>
-              <Pressable
-                style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
-                onPress={() => onRemoveItem(item.articleId)}
-              >
-                <Ionicons name="close-circle" size={20} color={colors.sand} />
-              </Pressable>
+              <Text style={styles.tilePrice}>{formatPrice(item.price)}</Text>
             </Animated.View>
           ))}
-        </View>
+
+          <Pressable
+            style={({ pressed }) => [styles.addTile, pressed && styles.pressed]}
+            onPress={onAddPress}
+          >
+            <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
+            <Text style={styles.addTileLabel}>Déposer</Text>
+          </Pressable>
+        </ScrollView>
       ) : (
-        <View style={styles.empty}>
-          <Ionicons name="shirt-outline" size={sizing.iconMD} color={colors.sage} />
-          <Text style={styles.emptyText}>Aucun article déposé pour l&apos;instant</Text>
-        </View>
+        <Pressable
+          style={({ pressed }) => [styles.dropZone, pressed && styles.pressed]}
+          onPress={onAddPress}
+        >
+          <View style={styles.dropZonePlus}>
+            <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
+          </View>
+          <Text style={styles.dropZoneLabel}>Déposer un article</Text>
+          <Text style={styles.dropZoneHint}>Ajoutez vos pièces à échanger</Text>
+        </Pressable>
       )}
     </View>
   );
@@ -79,17 +98,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.darkSurface1,
     borderBottomWidth: 1,
     borderBottomColor: colors.darkBorderStrong,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.rust,
-    paddingHorizontal: spacing.md + 4,
-    paddingVertical: spacing.md - 2,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
   pressed: {
     opacity: 0.7,
   },
   labelRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
@@ -99,88 +115,93 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     color: colors.sand,
-    flexShrink: 1,
-    marginRight: spacing.sm,
   },
-  addButton: {
-    flexDirection: 'row',
+  // ── EMPTY drop zone ──
+  dropZone: {
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.sm + 2,
-    backgroundColor: colors.rust,
+    gap: spacing.sm,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.darkSurface2,
+    borderWidth: 1,
+    borderColor: colors.darkBorderStrong,
     borderRadius: radius.none,
   },
-  addButtonText: {
-    fontSize: 10,
+  dropZonePlus: {
+    width: sizing.avatarMD,
+    height: sizing.avatarMD,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.darkSurface1,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: radius.none,
+  },
+  dropZoneLabel: {
     fontFamily: fonts.sansMedium,
+    fontSize: 12,
     letterSpacing: 1.0,
     textTransform: 'uppercase',
     color: colors.cream,
   },
-  list: {
+  dropZoneHint: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.whiteTranslucent,
+  },
+  // ── POPULATED rail ──
+  rail: {
     gap: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignItems: 'flex-start',
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-  },
-  rowImage: {
-    width: 48,
-    height: 60,
+  tileImageWrap: {
+    position: 'relative',
+    width: TILE_W,
+    height: TILE_H,
     backgroundColor: colors.darkSurface2,
     borderWidth: 1,
     borderColor: colors.darkBorder,
     borderRadius: radius.none,
   },
-  rowContent: {
-    flex: 1,
+  tileImage: {
+    width: '100%',
+    height: '100%',
   },
-  rowBrand: {
-    fontSize: 10,
-    fontFamily: fonts.sansMedium,
-    letterSpacing: 1.0,
-    textTransform: 'uppercase',
-    color: colors.sand,
-    marginBottom: 2,
+  removeTile: {
+    position: 'absolute',
+    top: spacing.xs,
+    right: spacing.xs,
+    width: sizing.iconMD,
+    height: sizing.iconMD,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.overlay,
+    borderRadius: radius.full,
   },
-  rowTitle: {
+  tilePrice: {
     fontFamily: fonts.display,
     fontSize: 15,
     color: colors.cream,
-    marginBottom: spacing.xs + 2,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
-  rowStatus: {
-    fontSize: 11,
-    fontFamily: fonts.sans,
-    color: colors.sage,
-  },
-  rowValue: {
-    alignItems: 'flex-end',
-  },
-  rowValueLabel: {
-    fontSize: 11,
-    fontFamily: fonts.sans,
-    color: colors.whiteTranslucent,
-  },
-  rowPrice: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    color: colors.cream,
-  },
-  removeButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.xs,
-  },
-  empty: {
-    paddingVertical: spacing.lg,
+  addTile: {
+    width: TILE_W,
+    height: TILE_H,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    backgroundColor: colors.darkSurface2,
+    borderWidth: 1,
+    borderColor: colors.darkBorderStrong,
+    borderRadius: radius.none,
   },
-  emptyText: {
-    fontSize: 11,
-    fontFamily: fonts.sans,
+  addTileLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
     color: colors.sand,
   },
 });
