@@ -132,6 +132,27 @@ const RETURN_REASON_OPTIONS: readonly RecourseReasonOption<ReturnReasonCode>[] =
   { code: 'other', label: 'Changement d’avis' },
 ];
 
+/** Loi 25 art. 12.1 — motifs prédéfinis pour contester une décision automatisée. */
+type ContestReasonCode =
+  | 'disagree_decision'
+  | 'incorrect_information'
+  | 'special_circumstances'
+  | 'other';
+
+const CONTEST_REASON_OPTIONS: readonly RecourseReasonOption<ContestReasonCode>[] = [
+  { code: 'disagree_decision', label: 'Je ne suis pas d’accord avec cette décision' },
+  { code: 'incorrect_information', label: 'Les informations utilisées sont incorrectes' },
+  { code: 'special_circumstances', label: 'Ma situation présente des circonstances particulières' },
+  { code: 'other', label: 'Autre' },
+];
+
+const CONTEST_REASON_LABELS: Record<ContestReasonCode, string> = {
+  disagree_decision: 'Je ne suis pas d’accord avec cette décision',
+  incorrect_information: 'Les informations utilisées sont incorrectes',
+  special_circumstances: 'Ma situation présente des circonstances particulières',
+  other: 'Autre',
+};
+
 const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   transaction,
   onStatusUpdate,
