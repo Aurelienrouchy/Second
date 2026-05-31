@@ -457,6 +457,7 @@ export const imageGradients = {
   rust: ['#C4603A', '#8B3A1A'],
   cream: ['#E8D8B0', '#C0A878'],
   dark: ['#3A3530', '#1A1510'],
+  swapZone: ['#3D352E', '#1C1712'] as const, // Dedicated Swap Zone home-card gradient (additive)
   blush: ['#D4A090', '#B07060'],
   navy: ['#2A3550', '#0A1530'],
   olive: ['#6A7050', '#3A4030'],
