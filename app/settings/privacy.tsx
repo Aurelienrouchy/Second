@@ -85,9 +85,15 @@ export default function PrivacySettingsScreen() {
     queryFn: async () => {
       const preferences = await UserService.getUserPreferences(user!.id);
       return {
-        showProfilePhoto: preferences?.privacy?.showProfilePhoto ?? true,
+        // Privacy-by-default : absent => false (photo non visible tant que non activée).
+        showProfilePhoto:
+          preferences?.privacy?.showProfilePhoto ?? UserService.PRIVACY_DEFAULTS.showProfilePhoto,
         // Absent => false (opt-in default).
-        aiProfilingConsent: preferences?.aiProfilingConsent ?? false,
+        aiProfilingConsent:
+          preferences?.aiProfilingConsent ?? UserService.PRIVACY_DEFAULTS.aiProfilingConsent,
+        // État courant du consentement marketing ; absent => pas de consentement (false).
+        marketingConsent:
+          preferences?.marketingConsent ?? UserService.PRIVACY_DEFAULTS.marketingConsent,
       };
     },
     enabled: !!user?.id,
