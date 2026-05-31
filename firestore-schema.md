@@ -346,10 +346,11 @@ interface SearchHistoryEntry {
 
 Legal consent ledger. One document per accepted consent, append-only.
 
-**Written SERVER-SIDE ONLY** by the `recordSignupConsent` callable (Admin SDK).
-Firestore rules: owner can READ; `create/update/delete: if false` (no client
-writes ever). The `acceptedAt` timestamp and `version` are authoritative proof
-of consent and must never be client-tamperable.
+**Written SERVER-SIDE ONLY** by the `recordSignupConsent` and
+`setMarketingConsent` callables (Admin SDK). Firestore rules: owner can READ;
+`create/update/delete: if false` (no client writes ever). The `acceptedAt`
+timestamp and `version` are authoritative proof of consent and must never be
+client-tamperable.
 
 ```typescript
 interface ConsentDocument {
@@ -357,11 +358,27 @@ interface ConsentDocument {
   version: string;        // Policy version, e.g. "2026-05-31" (POLICY_VERSION)
   acceptedAt: Timestamp;  // serverTimestamp()
   channel: 'app';
+  // Present on type 'marketing' docs written by setMarketingConsent:
+  // true = consent granted, false = consent withdrawn. Each grant/withdrawal
+  // appends a NEW doc (never mutates prior ones) — the ledger keeps the full
+  // history (Loi 25 art. 14 / LCAP proof). Absent on legacy signup-time
+  // marketing docs (implicitly granted at signup).
+  granted?: boolean;
 }
 ```
 
 At signup, `recordSignupConsent` always writes `terms` + `privacy_policy`, and
 additionally `marketing` only when the user opted in (`marketingOptIn === true`).
+
+**`setMarketingConsent({ enabled })`** (callable, region
+`northamerica-northeast1`): handles marketing consent grant/withdrawal post-signup.
+It (a) appends a new `marketing` consent doc with `granted: enabled` (append-only
+proof — existing docs are never modified), and (b) enforces the effect server-side
+by setting `users/{uid}.preferences.marketingConsent = enabled` and the marketing
+notification flags `preferences.notifications.{priceDrops, articleFavorited,
+swapZoneReminder} = enabled`. Those flags are re-read by the favorites triggers
+before any send, so a withdrawal stops all marketing emissions. Returns
+`{ ok: true, enabled }`.
 
 The `users/{uid}.preferences.aiProfilingConsent` boolean flag (opt-in AI
 profiling, default **false** / absent ⇒ disabled) is a SEPARATE preference,
