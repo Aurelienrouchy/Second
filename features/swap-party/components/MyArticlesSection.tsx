@@ -43,6 +43,16 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.rail}
         >
+          {/* Add tile leads the rail so the deposit action is always the
+              first thing in view (no horizontal scroll needed to reach it). */}
+          <Pressable
+            style={({ pressed }) => [styles.addTile, pressed && styles.pressed]}
+            onPress={onAddPress}
+          >
+            <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
+            <Text style={styles.addTileLabel}>Déposer</Text>
+          </Pressable>
+
           {userItems.map((item) => (
             <Animated.View
               key={item.id}
@@ -68,14 +78,6 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
               <Text style={styles.tilePrice}>{formatPrice(item.price)}</Text>
             </Animated.View>
           ))}
-
-          <Pressable
-            style={({ pressed }) => [styles.addTile, pressed && styles.pressed]}
-            onPress={onAddPress}
-          >
-            <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
-            <Text style={styles.addTileLabel}>Déposer</Text>
-          </Pressable>
         </ScrollView>
       ) : (
         <Pressable
