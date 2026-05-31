@@ -21,7 +21,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.requestReturn = exports.reportTransactionProblem = exports.requestRefund = exports.adminRefundTransaction = exports.completeMeetupTransaction = exports.cancelPendingTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = exports.removeItemFromPartySecure = exports.addItemToPartySecure = exports.getSwapPartyLeaderboard = exports.openSwapDispute = exports.rateSwap = exports.confirmSwapReception = exports.confirmSwapShipping = exports.uploadSwapPhotos = exports.setSwapExchangeMode = exports.cancelSwap = exports.declineSwap = exports.createSwapTopUpCheckout = exports.acceptSwap = exports.proposeMultiSwap = exports.getActiveSwapPartyInfo = exports.ensureGeneralistZone = exports.markSavedSearchViewed = exports.toggleArticleSold = exports.toggleProductLike = exports.incrementProductView = exports.updateArticle = exports.createArticle = exports.backfillEmbeddings = exports.getSimilarProducts = exports.visualSearch = exports.consolidateChatDuplicates = exports.analyzeProductImage = void 0;
-exports.shipEngineWebhook = exports.stripeWebhook = exports.reconcileFinances = exports.retryFailedOperations = exports.sweepPendingLabels = exports.releaseHeldFunds = exports.checkShippedTracking = exports.expireOrphanedTransactions = exports.expireStaleOffers = exports.cleanupExpiredDrafts = exports.checkSavedSearchNotifications = exports.expireStaleProposedSwaps = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticleInfoUpdated = exports.onArticleSold = exports.onArticleSoftDeleted = exports.onUserProfileUpdated = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.deleteUserAccount = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.refundWalletPayment = exports.payWithWallet = exports.walletWithdraw = exports.getWalletInfo = exports.activateWallet = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = void 0;
+exports.shipEngineWebhook = exports.stripeWebhook = exports.retentionPurge = exports.reconcileFinances = exports.retryFailedOperations = exports.sweepPendingLabels = exports.releaseHeldFunds = exports.checkShippedTracking = exports.expireOrphanedTransactions = exports.expireStaleOffers = exports.cleanupExpiredDrafts = exports.checkSavedSearchNotifications = exports.expireStaleProposedSwaps = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticleInfoUpdated = exports.onArticleSold = exports.onArticleSoftDeleted = exports.onUserProfileUpdated = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.getPrivacyIncidentsLog = exports.reportPrivacyIncident = exports.recordSignupConsent = exports.deleteUserAccount = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.refundWalletPayment = exports.payWithWallet = exports.walletWithdraw = exports.getWalletInfo = exports.activateWallet = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = void 0;
 // ============================================================
 // CALLABLE FUNCTIONS (onCall)
 // ============================================================
@@ -121,6 +121,13 @@ Object.defineProperty(exports, "getUserPublicProfile", { enumerable: true, get: 
 // User Account Functions
 var users_1 = require("./callable/users");
 Object.defineProperty(exports, "deleteUserAccount", { enumerable: true, get: function () { return users_1.deleteUserAccount; } });
+// Consent & Age-Gate Functions
+var consent_1 = require("./callable/consent");
+Object.defineProperty(exports, "recordSignupConsent", { enumerable: true, get: function () { return consent_1.recordSignupConsent; } });
+// Privacy Incident Register Functions (admin-only; Loi 25 / RGPD breach log)
+var privacyIncidents_1 = require("./callable/privacyIncidents");
+Object.defineProperty(exports, "reportPrivacyIncident", { enumerable: true, get: function () { return privacyIncidents_1.reportPrivacyIncident; } });
+Object.defineProperty(exports, "getPrivacyIncidentsLog", { enumerable: true, get: function () { return privacyIncidents_1.getPrivacyIncidentsLog; } });
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
@@ -201,6 +208,11 @@ Object.defineProperty(exports, "retryFailedOperations", { enumerable: true, get:
 // CRITICAL log + dead-letter on divergence)
 var reconcile_1 = require("./scheduled/reconcile");
 Object.defineProperty(exports, "reconcileFinances", { enumerable: true, get: function () { return reconcile_1.reconcileFinances; } });
+// Data-retention purge (daily: hard-delete stale personal data — inactive
+// articles > 3y, guest_preferences > 90d, notifications > 180d, searchHistory
+// > 12mo. NEVER touches transactions — 7-year legal retention. Loi 25 / RGPD)
+var retentionPurge_1 = require("./scheduled/retentionPurge");
+Object.defineProperty(exports, "retentionPurge", { enumerable: true, get: function () { return retentionPurge_1.retentionPurge; } });
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================

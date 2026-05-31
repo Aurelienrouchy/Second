@@ -42,11 +42,20 @@ exports.generateStyleProfile = (0, https_1.onCall)({
     timeoutSeconds: 30,
     memory: '512MiB',
 }, async (request) => {
+    var _a, _b;
     // Verify authentication
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
     const userId = request.auth.uid;
+    // Loi 25 — Gate de consentement au profilage par IA (vérification serveur).
+    // Le seul garde client n'est pas suffisant : on relit le consentement
+    // explicite dans Firestore avant tout traitement ou écriture de styleProfile.
+    const consentSnap = await firebase_1.db.collection('users').doc(userId).get();
+    const aiProfilingConsent = (_b = (_a = consentSnap.data()) === null || _a === void 0 ? void 0 : _a.preferences) === null || _b === void 0 ? void 0 : _b.aiProfilingConsent;
+    if (aiProfilingConsent !== true) {
+        throw new https_1.HttpsError('failed-precondition', 'Le profilage par IA requiert votre consentement (Réglages > Confidentialité).');
+    }
     const { likedArticles = [], viewedArticles = [], searches = [] } = request.data;
     // Check if we have enough data
     const totalInteractions = likedArticles.length + viewedArticles.length + searches.length;
@@ -70,7 +79,7 @@ exports.generateStyleProfile = (0, https_1.onCall)({
     try {
         // Build context for Gemini
         const likedContext = likedArticles
-            .map((a) => `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}, ${a.price}€`)
+            .map((a) => `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}, ${a.price} $`)
             .join('\n');
         const viewedContext = viewedArticles
             .slice(0, 20)

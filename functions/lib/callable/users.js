@@ -45,6 +45,8 @@ exports.deleteUserAccount = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+const stripe_1 = require("../config/stripe");
+const privacyIncidents_1 = require("./privacyIncidents");
 // =============================================================================
 // DELETE USER ACCOUNT — GDPR Art. 17 / Loi 25 exhaustive cleanup
 // =============================================================================
@@ -52,6 +54,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     region: 'northamerica-northeast1',
     memory: '512MiB',
     timeoutSeconds: 120,
+    secrets: ['STRIPE_SECRET_KEY'],
 }, async (request) => {
     var _a, _b;
     // 1. Auth check — only the authenticated user can delete their own account
@@ -105,7 +108,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
         });
     }
     // 1. Delete /users/{uid} sub-collections then the doc itself
-    for (const subCol of ['savedSearches', 'searchHistory']) {
+    for (const subCol of ['savedSearches', 'searchHistory', 'consents']) {
         const subSnap = await firebase_1.db.collection('users').doc(uid).collection(subCol).get();
         for (const d of subSnap.docs)
             bulkWriter.delete(d.ref);
@@ -292,6 +295,46 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     }
     catch (e) {
         logger.error('[deleteUserAccount] Storage cleanup error', { uid, error: e });
+    }
+    // 16b. Delete the Stripe Connect Custom account (white-label — the platform
+    //      owns/controls the account, so accounts.del is the correct teardown for
+    //      a Custom connected account). Best-effort: never blocks the rest of the
+    //      deletion. On failure we log AND record a privacy_incidents entry
+    //      (type: deletion_failed) so the dangling Stripe account is tracked for
+    //      manual reconciliation (Loi 25 / RGPD accountability).
+    const stripeAccountId = userData === null || userData === void 0 ? void 0 : userData.stripeAccountId;
+    if (typeof stripeAccountId === 'string' && stripeAccountId.length > 0) {
+        try {
+            const stripe = (0, stripe_1.getStripe)();
+            if (!stripe) {
+                throw new Error('Stripe client unavailable (missing STRIPE_SECRET_KEY)');
+            }
+            await stripe.accounts.del(stripeAccountId);
+            logger.info('[deleteUserAccount] Stripe Connect account deleted', {
+                uid,
+                stripeAccountId,
+            });
+        }
+        catch (e) {
+            const message = e instanceof Error ? e.message : 'Unknown error';
+            logger.error('[deleteUserAccount] Failed to delete Stripe Connect account', {
+                uid,
+                stripeAccountId,
+                error: message,
+            });
+            // Record an incident so the orphaned Stripe account can be reconciled manually.
+            await (0, privacyIncidents_1.recordPrivacyIncident)({
+                type: 'deletion_failed',
+                severity: 'high',
+                description: `Échec de la suppression du compte Stripe Connect lors de la suppression du compte utilisateur. Compte Stripe orphelin à supprimer manuellement. Erreur: ${message}`,
+                affectedUserIds: [uid],
+                affectedDataFields: ['stripeAccountId'],
+                measures: 'Suppression manuelle du compte Stripe Connect requise.',
+                notifiedCAI: false,
+                status: 'open',
+            });
+            // Don't throw — the rest of the user data is already cleaned up.
+        }
     }
     // 17. Delete Firebase Auth user (last step — after all data is cleaned up)
     try {
