@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.full,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
   },
   headerTitle: {
     flex: 1,
