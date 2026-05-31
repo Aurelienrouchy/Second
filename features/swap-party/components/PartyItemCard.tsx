@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   productImageWrapperDark: {
-    backgroundColor: colors.deep,
+    backgroundColor: colors.darkSurface2,
   },
   productImage: {
     width: '100%',
