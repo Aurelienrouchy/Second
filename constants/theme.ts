@@ -36,10 +36,12 @@ export const colors = {
 
   // Dark Elevation Scale — Swap Zone identity (additive).
   // Canvas: deep (L0) < darkSurface1 (L1) < darkSurface2 (L2); hairlines: darkBorder / darkBorderStrong.
-  darkSurface1: '#211E1A',     // Dark elevation L1 — elevated surfaces (cards, sections)
-  darkSurface2: '#2A2620',     // Dark elevation L2 — raised controls (chips, bars, skeletons)
-  darkBorder: 'rgba(255, 255, 255, 0.10)',       // White-alpha hairline (visible on dark)
-  darkBorderStrong: 'rgba(255, 255, 255, 0.16)', // Stronger white-alpha hairline (emphasis on dark)
+  // Steps are tuned for a perceptible FILL jump on the near-black canvas (not
+  // hairline-dependent) while staying firmly sombre (every level < 20% luminance).
+  darkSurface1: '#26221C',     // Dark elevation L1 — elevated surfaces (cards, sections)
+  darkSurface2: '#332D25',     // Dark elevation L2 — raised controls (chips, bars, skeletons)
+  darkBorder: 'rgba(255, 255, 255, 0.14)',       // White-alpha hairline (visible on dark)
+  darkBorderStrong: 'rgba(255, 255, 255, 0.22)', // Stronger white-alpha hairline (emphasis on dark)
 
   // Text — Rich charcoal hierarchy
   foreground: '#1A1814',       // Deep charcoal
