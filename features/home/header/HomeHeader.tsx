@@ -155,9 +155,9 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   categoryTag: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 9999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.borderStrong,
   },
