@@ -111,6 +111,9 @@ export default function PrivacySettingsScreen() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // showProfilePhoto + aiProfilingConsent : écriture client directe (préférences
+  // simples). marketingConsent est traité séparément par le callable serveur
+  // (voir saveMarketingConsent) — il NE PASSE PLUS par cette mutation.
   const { mutate: savePreferences } = useMutation({
     mutationFn: (updates: Partial<PrivacySettings>) => {
       const preferenceUpdates: Partial<UserPreferences> = {};
@@ -121,13 +124,6 @@ export default function PrivacySettingsScreen() {
       }
       if (updates.aiProfilingConsent !== undefined) {
         preferenceUpdates.aiProfilingConsent = updates.aiProfilingConsent;
-      }
-      if (updates.marketingConsent !== undefined) {
-        // Persiste l'état du consentement marketing (false = RETRAIT, art. 14 / LCAP).
-        // Le consentement initial (opt-in) est journalisé serveur dans
-        // users/{uid}/consents via recordSignupConsent ; ce champ est le miroir
-        // applicatif retirable/réactivable à tout moment.
-        preferenceUpdates.marketingConsent = updates.marketingConsent;
       }
       return UserService.updateUserPreferences(user!.id, preferenceUpdates);
     },
@@ -155,6 +151,43 @@ export default function PrivacySettingsScreen() {
       Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
     },
   });
+
+  // Consentement marketing : journalisé (consents append-only) ET appliqué
+  // serveur (preferences.marketingConsent + flags notifications) via le
+  // callable setMarketingConsent. false = RETRAIT (art. 14 / LCAP). On NE
+  // doit JAMAIS écrire preferences.marketingConsent côté client.
+  const { mutate: saveMarketingConsent, isPending: isSavingMarketing } =
+    useMutation({
+      mutationFn: async (enabled: boolean) => {
+        const res = await setMarketingConsentFn({ enabled });
+        return res.data.enabled;
+      },
+      onMutate: async (enabled: boolean) => {
+        await queryClient.cancelQueries({
+          queryKey: ['userPrivacyPreferences', user?.id],
+        });
+        const previousSettings = queryClient.getQueryData<PrivacySettings>(
+          ['userPrivacyPreferences', user?.id]
+        );
+        queryClient.setQueryData(
+          ['userPrivacyPreferences', user?.id],
+          (old: PrivacySettings | undefined) => ({
+            ...(old ?? DEFAULT_PRIVACY),
+            marketingConsent: enabled,
+          })
+        );
+        return { previousSettings };
+      },
+      onError: (_error, _enabled, context) => {
+        if (context?.previousSettings) {
+          queryClient.setQueryData(
+            ['userPrivacyPreferences', user?.id],
+            context.previousSettings
+          );
+        }
+        Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
+      },
+    });
 
   if (isLoading) {
     return (
