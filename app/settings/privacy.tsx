@@ -51,18 +51,28 @@ const RgpdItem = ({ icon, iconColor, title, description, onPress, isLast }: Rgpd
 interface PrivacySettings {
   showProfilePhoto: boolean;
   aiProfilingConsent: boolean;
+  marketingConsent: boolean;
 }
 
+// Privacy-by-default (Loi 25 art. 9.1, LCAP) : tous les défauts sont OFF.
+// Source de vérité partagée : UserService.PRIVACY_DEFAULTS.
 const DEFAULT_PRIVACY: PrivacySettings = {
-  showProfilePhoto: true,
-  // Opt-in: AI profiling is DISABLED by default (absent => false).
-  aiProfilingConsent: false,
+  showProfilePhoto: UserService.PRIVACY_DEFAULTS.showProfilePhoto,
+  aiProfilingConsent: UserService.PRIVACY_DEFAULTS.aiProfilingConsent,
+  marketingConsent: UserService.PRIVACY_DEFAULTS.marketingConsent,
 };
 
 const COPY_AI = {
   title: 'Recommandations personnalisées par IA',
   description:
     "Pour vous suggérer des articles adaptés à vos goûts, Second peut analyser les articles que vous consultez et aimez à l'aide d'une intelligence artificielle de Google (Gemini et Vertex AI), dont le traitement a lieu aux États-Unis. Cette fonctionnalité est désactivée par défaut. Vous pouvez l'activer ou la désactiver à tout moment, sans incidence sur le reste de l'application.",
+} as const;
+
+// Retrait du consentement marketing (art. 14 / LCAP). Textes rédigés par le juriste.
+const COPY_MARKETING_REVOKE = {
+  title: 'Communications marketing',
+  description:
+    'Recevoir nos offres, baisses de prix et nouveautés. Vous pouvez retirer ce consentement à tout moment, conformément à la Loi canadienne anti-pourriel (LCAP).',
 } as const;
 
 export default function PrivacySettingsScreen() {
