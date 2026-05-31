@@ -557,13 +557,29 @@ async function refundPaidNotShipped(
         })
       );
 
+    // Loi 25 art. 12.1 — journal the AUTOMATED expiry+refund decision
+    // (best-effort, never affects the refund already committed by the core).
+    await logAutomatedDecision({
+      transactionId,
+      userId: typeof data.buyerId === 'string' ? data.buyerId : '',
+      decisionType: 'transaction_expired',
+      criteria: {
+        status: 'paid',
+        expiryWindowDays: 7,
+        cancelReason: 'seller_did_not_ship_7d',
+      },
+      result: 'Commande annulée et remboursée (vendeur n\'a pas expédié sous 7 jours)',
+    });
+
     // Notify buyer that the order was cancelled and refunded (non-blocking).
+    // ENRICHED for Loi 25 transparency: states the decision was AUTOMATIC and
+    // that it can be contested (right to human review).
     if (data.buyerId) {
       const articleTitle = data.articleTitle || 'votre article';
       sendPushNotification(
         data.buyerId,
-        'Commande annulee et remboursee',
-        `Votre commande ${articleTitle} a ete annulee car le vendeur n'a pas expedie dans les delais. Le remboursement est en cours.`,
+        'Commande annulée et remboursée automatiquement',
+        `Votre commande ${articleTitle} a été annulée automatiquement car le vendeur n'a pas expédié dans les délais (7 jours). Le remboursement est en cours. Si vous contestez cette décision, vous pouvez nous le signaler.`,
         { transactionId, articleId: data.articleId || '' },
         'order_cancelled'
       ).catch((err) => {
