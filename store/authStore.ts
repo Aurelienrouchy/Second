@@ -114,6 +114,26 @@ export const useAuthStore = create<AuthStore>()(
       if (firebaseUser) {
         const fresh = await AuthService.getCurrentUser();
         if (fresh) {
+          // ── Consent gate (Loi 25 art. 12, 14) ──
+          // signInWithCredential crée le compte Auth + le doc users/{uid}
+          // (sans dateOfBirth) AVANT que l'écran de consentement obligatoire
+          // ne tourne. Le listener global (useAuthListener → ici) ne doit
+          // JAMAIS débloquer les capacités tant que le consentement n'est pas
+          // enregistré. `dateOfBirth` n'est écrit QUE par le callable serveur
+          // recordSignupConsent : son absence prouve le « pas encore consenti ».
+          // → on traite ce cas comme non-onboardé : pas d'authentification,
+          // session invité conservée, USER_DATA_KEY non persisté. Le flux
+          // post-consentement (recordSocialConsent → signIn) ré-authentifie
+          // une fois dateOfBirth écrit. Les inscriptions email écrivent
+          // dateOfBirth dès le setDoc, donc elles ne sont pas affectées.
+          if (!fresh.dateOfBirth) {
+            set({ user: null, isLoading: false });
+            await AsyncStorage.removeItem(USER_DATA_KEY);
+            if (!get().guestSession) {
+              await get().initGuestSession();
+            }
+            return;
+          }
           // Sync email if Firebase Auth has a different (verified) email than Firestore
           const fbUser = firebaseUser as { email?: string | null; uid?: string };
           if (fbUser.email && fresh.email !== fbUser.email) {
