@@ -117,6 +117,41 @@ export const expireOrphanedTransactions = onSchedule(
           await batch.commit();
         }
 
+        // Loi 25 art. 12.1 — after the cancellations commit, journal each
+        // AUTOMATED decision and notify the affected parties that the
+        // cancellation was automatic and can be contested. Best-effort; never
+        // affects the cancellation itself.
+        for (const doc of meetupSnap.docs) {
+          const data = doc.data();
+          const transactionId = doc.id;
+          await logAutomatedDecision({
+            transactionId,
+            userId: typeof data.buyerId === 'string' ? data.buyerId : (data.sellerId ?? ''),
+            decisionType: 'transaction_expired',
+            criteria: {
+              status: 'meetup_pending',
+              expiryWindowHours: 48,
+              cancelReason: 'meetup_expired_48h',
+            },
+            result: 'Transaction annulée (rendez-vous non confirmé sous 48h)',
+          });
+          if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
+            const articleTitle = data.articleTitle || 'votre commande';
+            sendPushNotification(
+              data.buyerId,
+              'Commande annulée automatiquement',
+              `Votre commande ${articleTitle} a été annulée automatiquement : le rendez-vous n'a pas été confirmé dans les délais (48 h). Si vous contestez cette décision, vous pouvez nous le signaler.`,
+              { transactionId, articleId: data.articleId || '' },
+              'order_cancelled'
+            ).catch((err) => {
+              logger.warn('[expireOrphanedTransactions] Failed to notify buyer of meetup expiry', {
+                transactionId,
+                error: err instanceof Error ? err.message : err,
+              });
+            });
+          }
+        }
+
         logger.info(`[expireOrphanedTransactions] Expired ${meetupSnap.size} meetup_pending transactions`);
       }
     } catch (error) {
