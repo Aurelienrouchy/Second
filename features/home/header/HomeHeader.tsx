@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 0,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm + spacing.xs,
     borderWidth: 1,
     borderColor: colors.borderStrong,
   },
