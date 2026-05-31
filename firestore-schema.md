@@ -378,9 +378,25 @@ interface PrivacyIncidentDocument {
   affectedDataFields: string[];
   measures: string;        // mitigation/remediation taken or planned
   notifiedCAI: boolean;    // whether the Commission d'accès à l'information was notified
+  notifiedCAIAt?: Timestamp;  // serverTimestamp() — set by escalatePrivacyIncidentToCAI
+  caiReference?: string | null; // CAI dossier reference, or null if none provided
+  notifiedUsersAt?: Timestamp;  // serverTimestamp() — set by notifyAffectedUsers once fan-out completes
   status: 'open' | 'investigating' | 'contained' | 'resolved';
 }
 ```
+
+**Escalation thresholds (Loi 25 — "incident de confidentialité"):** `severity`
+`critical`/`high` ⇒ CAI notification **mandatory**; `medium` ⇒ at the privacy
+officer's discretion; `low` ⇒ register-only. Target delay: **72 h** from
+`detectedAt` to `notifiedCAIAt` / `notifiedUsersAt` (auditable via those stamps).
+
+Escalation is performed **server-side only** by two admin-only callables:
+- `escalatePrivacyIncidentToCAI(incidentId, caiReference?)` — sets `notifiedCAI=true`,
+  `notifiedCAIAt`, `caiReference`, and advances `status` `open → investigating`
+  (never regresses a more advanced status).
+- `notifyAffectedUsers(incidentId, message)` — sends a `privacy_incident` in-app
+  notification (best-effort per user) to each `affectedUserIds` entry and stamps
+  `notifiedUsersAt`.
 
 ### Data-retention purge (`retentionPurge` scheduled function)
 
