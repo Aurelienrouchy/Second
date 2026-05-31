@@ -65,6 +65,9 @@ export function buildDeepLink(
     case 'review_received':
       return `https://${DEEP_LINK_HOST}/notifications`;
 
+    case 'privacy_incident':
+      return `https://${DEEP_LINK_HOST}/notifications`;
+
     case 'shop_approved':
     case 'shop_rejected':
     case 'shop_created':
