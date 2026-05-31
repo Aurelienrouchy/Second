@@ -141,6 +141,21 @@ export class UserService {
   }
 
   /**
+   * Défauts confidentialité PRIVACY-BY-DEFAULT (Loi 25 art. 9.1, LCAP).
+   * Source de vérité unique des valeurs par défaut côté app — appliqués UNIQUEMENT
+   * lorsqu'aucune préférence n'est encore enregistrée (NOUVEAUX utilisateurs).
+   * Les préférences déjà persistées d'un utilisateur existant ne sont jamais réécrites.
+   * - showProfilePhoto : false  (photo non visible publiquement tant que non activée)
+   * - aiProfilingConsent : false (profilage IA désactivé tant que non activé)
+   * - marketingConsent : false  (aucune communication marketing tant que non consentie)
+   */
+  static readonly PRIVACY_DEFAULTS = {
+    showProfilePhoto: false,
+    aiProfilingConsent: false,
+    marketingConsent: false,
+  } as const;
+
+  /**
    * Vérifier si un utilisateur est admin.
    *
    * SECURITY: prefers the `admin` custom claim on the Firebase Auth ID
