@@ -139,6 +139,9 @@ function getAndroidChannel(notificationType: string): string {
     case 'review_received':
       return 'notifications';
 
+    case 'privacy_incident':
+      return 'notifications';
+
     default:
       return 'notifications';
   }
