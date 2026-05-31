@@ -61,6 +61,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
           {userItems.map((item) => (
             <Animated.View
               key={item.id}
+              style={styles.tileCard}
               entering={FadeIn.duration(200)}
               exiting={FadeOut.duration(160)}
               layout={LinearTransition.duration(220)}
@@ -80,7 +81,21 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
                   <Ionicons name="close" size={sizing.iconSM} color={colors.cream} />
                 </Pressable>
               </View>
-              <Text style={styles.tilePrice}>{formatPrice(item.price)}</Text>
+
+              <View style={styles.tileInfo}>
+                <Text style={styles.tileBrand} numberOfLines={1}>
+                  {item.brand || 'MARQUE'}
+                </Text>
+                <Text style={styles.tileTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <View style={styles.tileFooter}>
+                  <Text style={styles.tilePrice}>{formatPrice(item.price)}</Text>
+                  {item.size?.value ? (
+                    <Text style={styles.tileSize}>{item.size.value}</Text>
+                  ) : null}
+                </View>
+              </View>
             </Animated.View>
           ))}
         </ScrollView>
