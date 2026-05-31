@@ -54,6 +54,9 @@ the rules.
 | `stripe_events` | admin only | denied |
 | `failed_operations` | admin only | denied |
 | `platform_ledger` | admin only | denied |
+| `privacy_incidents` | admin only | denied |
+| `automatic_decisions_log` | party (buyer/seller of tx) / admin | denied |
+| `automated_decision_contestations` | author / admin | author-create only (must be party to tx + self-tag `userId`); update/delete denied |
 | `rate_limits` | denied | denied |
 
 **`transactions` — client-immutable fields** (a client may only confirm a
