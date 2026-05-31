@@ -208,17 +208,39 @@ export const useAuthStore = create<AuthStore>()(
   },
 
   signInWithGoogle: async () => {
-    const userData = await AuthService.signInWithGoogle();
-    await get().signIn(userData);
-    await get().mergeGuestToUser(userData.id);
-    return userData;
+    const result = await AuthService.signInWithGoogle();
+    // Nouveau / non-consenti : NE PAS faire entrer dans l'app. Le caller
+    // déclenche l'écran de consentement obligatoire (Loi 25).
+    if (!result.needsConsent) {
+      await get().signIn(result.user);
+      await get().mergeGuestToUser(result.user.id);
+    }
+    return result;
   },
 
   signInWithApple: async () => {
-    const userData = await AuthService.signInWithApple();
-    await get().signIn(userData);
-    await get().mergeGuestToUser(userData.id);
-    return userData;
+    const result = await AuthService.signInWithApple();
+    if (!result.needsConsent) {
+      await get().signIn(result.user);
+      await get().mergeGuestToUser(result.user.id);
+    }
+    return result;
+  },
+
+  recordSocialConsent: async (user, consent) => {
+    // Persiste dateOfBirth + consents côté serveur (recordSignupConsent),
+    // puis fait entrer l'utilisateur dans l'app et merge la session invité.
+    const fresh = await AuthService.recordConsentForCurrentUser(consent);
+    await get().signIn(fresh);
+    await get().mergeGuestToUser(user.id);
+    return fresh;
+  },
+
+  rollbackSocialSignIn: async () => {
+    // Supprime le compte Auth + doc user (best-effort) puis nettoie l'état
+    // local. Aucun compte social ne doit subsister sans consentement.
+    await AuthService.rollbackUnconsentedAccount();
+    set({ ...initialState, isLoading: false });
   },
 
   initGuestSession: async () => {
