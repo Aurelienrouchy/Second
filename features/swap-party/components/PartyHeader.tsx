@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md - 2,
     backgroundColor: colors.deep,
     borderBottomWidth: 1,
-    borderBottomColor: colors.darkBorder,
+    borderBottomColor: colors.darkBorderStrong,
     gap: spacing.md - 4,
   },
   pressed: {
