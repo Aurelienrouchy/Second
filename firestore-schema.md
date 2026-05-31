@@ -246,6 +246,9 @@ interface UserDocument {
     sizes?: string[];
     shoesSizes?: string[];
     sex?: string;
+    // AI profiling opt-in (RGPD). ABSENT or false => profilage IA DÉSACTIVÉ.
+    // This is an opt-in flag: default = false.
+    aiProfilingConsent?: boolean;
   };
 
   // Onboarding
