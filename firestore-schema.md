@@ -32,6 +32,7 @@
 | 26 | `platform_ledger` | Root | Platform accounting ledger (shipping cost variance, server-only) |
 | 27 | `failed_operations` | Root | Dead-letter queue for failed money/shipping side-effects (server-only, replayed by `retryFailedOperations`) |
 | 28 | `stripe_events` | Root | Stripe webhook idempotency markers keyed by `event.id` (server-only) |
+| 29 | `privacy_incidents` | Root | Privacy/security incident register (Loi 25 / RGPD breach log) — admin-read, server-write only |
 
 ---
 
