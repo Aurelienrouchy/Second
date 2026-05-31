@@ -361,12 +361,24 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   // Contesting opens a human-review request and REVERSES NOTHING.
   // ---------------------------------------------------------------------------
 
+  // Only query the automated-decision log when an automated decision is
+  // PLAUSIBLE for this transaction (avoids a callable per chat view). The three
+  // automated decisions land the transaction in a terminal/post-decision state
+  // or release the held funds. The log entries themselves remain the source of
+  // truth for what is actually displayed.
+  const couldHaveAutomatedDecision =
+    !!transaction.fundsReleasedAt ||
+    transaction.status === 'completed' ||
+    transaction.status === 'cancelled' ||
+    transaction.status === 'refunded' ||
+    transaction.status === 'refund_in_progress';
+
   const {
     latestDecision,
     hasAutomatedDecision,
     contest,
     isContesting,
-  } = useAutomatedDecision(transaction.id);
+  } = useAutomatedDecision(transaction.id, couldHaveAutomatedDecision);
 
   const contestSheetRef = useRef<RecourseReasonSheetRef>(null);
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
