@@ -73,6 +73,9 @@ const styles = StyleSheet.create({
   // component (no card, no inner padding here).
   section: {
     marginTop: spacing.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.darkBorder,
   },
 });
 
