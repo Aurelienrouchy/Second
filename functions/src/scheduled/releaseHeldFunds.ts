@@ -221,12 +221,33 @@ export const releaseHeldFunds = onSchedule(
 
           if (moved) {
             released++;
-            // Best-effort notification to the seller.
+
+            // Loi 25 art. 12.1 — journal the AUTOMATED decision (best-effort,
+            // never throws, never rolls back the money move above).
+            await logAutomatedDecision({
+              transactionId,
+              userId: sellerId,
+              decisionType: 'funds_released',
+              criteria: {
+                status: 'delivered',
+                disputed: false,
+                fundsReleaseAt:
+                  data.fundsReleaseAt instanceof Timestamp
+                    ? data.fundsReleaseAt.toDate().toISOString()
+                    : null,
+                disputeWindowDays: 7,
+              },
+              result: 'Fonds libérés au vendeur (fenêtre de litige écoulée)',
+            });
+
+            // Best-effort notification to the seller. ENRICHED for Loi 25
+            // transparency: states the decision was AUTOMATIC and that it can
+            // be contested (right to human review).
             try {
               await sendPushNotification(
                 sellerId,
-                'Fonds disponibles',
-                'La fenêtre de litige est terminée. Vos fonds sont maintenant disponibles au retrait.',
+                'Fonds libérés automatiquement',
+                'Vos fonds ont été libérés automatiquement : la livraison a été confirmée et le délai de réclamation (7 jours) est écoulé. Si vous contestez cette décision, vous pouvez nous le signaler.',
                 { transactionId },
                 'funds_released'
               );
