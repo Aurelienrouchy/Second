@@ -6,7 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 
 import { firestore } from '@/config/firebaseConfig';
 import { queryClient } from '@/lib/queryClient';
-import { AuthService, SignupConsent } from '@/services/authService';
+import { AuthService, SignupConsent, SocialAuthResult } from '@/services/authService';
 import {
   guestPreferencesService,
   GuestSession,
