@@ -17,7 +17,7 @@ export default function TermsScreen() {
       <ScreenHeader title="Conditions d'utilisation" onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
+        <Caption style={styles.lastUpdate}>Dernière mise à jour : 31 mai 2026</Caption>
 
         <Text variant="h3" style={styles.sectionTitle}>1. Objet</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
