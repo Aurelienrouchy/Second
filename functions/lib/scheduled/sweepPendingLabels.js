@@ -73,6 +73,7 @@ const payments_1 = require("../callable/payments");
 const labelFulfillment_1 = require("../utils/labelFulfillment");
 const refund_1 = require("../utils/refund");
 const notifications_1 = require("../utils/notifications");
+const automatedDecisions_1 = require("../callable/automatedDecisions");
 /** Process at most this many transactions per run to bound execution time. */
 const MAX_TRANSACTIONS_PER_RUN = 50;
 /** Number of label-creation attempts before giving up and refunding the buyer. */
@@ -234,10 +235,25 @@ async function refundPendingLabelTransaction(txRef, txData, transactionId) {
     logger.warn('[sweepPendingLabels] transaction refunded after max label attempts', {
         transactionId,
     });
-    // Notify buyer (best-effort).
+    // Loi 25 art. 12.1 — journal the AUTOMATED refund decision (best-effort,
+    // never affects the refund already committed by the core).
+    await (0, automatedDecisions_1.logAutomatedDecision)({
+        transactionId,
+        userId: typeof txData.buyerId === 'string' ? txData.buyerId : '',
+        decisionType: 'label_refund',
+        criteria: {
+            status: 'paid',
+            labelCreationPending: true,
+            maxAttempts: MAX_ATTEMPTS,
+            cancelReason: 'label_creation_failed',
+        },
+        result: 'Commande annulée et remboursée (étiquette d\'expédition impossible à générer)',
+    });
+    // Notify buyer (best-effort). ENRICHED for Loi 25 transparency: states the
+    // decision was AUTOMATIC and that it can be contested (right to human review).
     if (txData.buyerId) {
         const articleTitle = txData.articleTitle || 'votre article';
-        (0, notifications_1.sendPushNotification)(txData.buyerId, 'Commande annulee et remboursee', `Nous n'avons pas pu generer l'etiquette d'expedition pour ${articleTitle}. Votre commande a ete annulee et remboursee.`, { transactionId, articleId: txData.articleId || '' }, 'order_cancelled').catch((err) => {
+        (0, notifications_1.sendPushNotification)(txData.buyerId, 'Commande annulée et remboursée automatiquement', `Nous n'avons pas pu générer l'étiquette d'expédition pour ${articleTitle}. Votre commande a été annulée et remboursée automatiquement. Si vous contestez cette décision, vous pouvez nous le signaler.`, { transactionId, articleId: txData.articleId || '' }, 'order_cancelled').catch((err) => {
             logger.warn('[sweepPendingLabels] failed to notify buyer of label give-up', {
                 transactionId,
                 error: err instanceof Error ? err.message : err,

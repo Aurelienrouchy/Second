@@ -56,6 +56,7 @@ const firebase_1 = require("../config/firebase");
 const stripe_1 = require("../config/stripe");
 const refund_1 = require("../utils/refund");
 const notifications_1 = require("../utils/notifications");
+const automatedDecisions_1 = require("../callable/automatedDecisions");
 /** Firestore batch limit is 500; use 450 for safety margin */
 const BATCH_SIZE = 450;
 /**
@@ -92,6 +93,7 @@ exports.expireOrphanedTransactions = (0, scheduler_1.onSchedule)({
     memory: '512MiB',
     secrets: ['STRIPE_SECRET_KEY'],
 }, async () => {
+    var _a;
     const now = Date.now();
     let totalExpired = 0;
     // =========================================================================
@@ -131,6 +133,34 @@ exports.expireOrphanedTransactions = (0, scheduler_1.onSchedule)({
             }
             if (count > 0) {
                 await batch.commit();
+            }
+            // Loi 25 art. 12.1 — after the cancellations commit, journal each
+            // AUTOMATED decision and notify the affected parties that the
+            // cancellation was automatic and can be contested. Best-effort; never
+            // affects the cancellation itself.
+            for (const doc of meetupSnap.docs) {
+                const data = doc.data();
+                const transactionId = doc.id;
+                await (0, automatedDecisions_1.logAutomatedDecision)({
+                    transactionId,
+                    userId: typeof data.buyerId === 'string' ? data.buyerId : ((_a = data.sellerId) !== null && _a !== void 0 ? _a : ''),
+                    decisionType: 'transaction_expired',
+                    criteria: {
+                        status: 'meetup_pending',
+                        expiryWindowHours: 48,
+                        cancelReason: 'meetup_expired_48h',
+                    },
+                    result: 'Transaction annulée (rendez-vous non confirmé sous 48h)',
+                });
+                if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
+                    const articleTitle = data.articleTitle || 'votre commande';
+                    (0, notifications_1.sendPushNotification)(data.buyerId, 'Commande annulée automatiquement', `Votre commande ${articleTitle} a été annulée automatiquement : le rendez-vous n'a pas été confirmé dans les délais (48 h). Si vous contestez cette décision, vous pouvez nous le signaler.`, { transactionId, articleId: data.articleId || '' }, 'order_cancelled').catch((err) => {
+                        logger.warn('[expireOrphanedTransactions] Failed to notify buyer of meetup expiry', {
+                            transactionId,
+                            error: err instanceof Error ? err.message : err,
+                        });
+                    });
+                }
             }
             logger.info(`[expireOrphanedTransactions] Expired ${meetupSnap.size} meetup_pending transactions`);
         }
@@ -346,6 +376,30 @@ async function expirePendingPayment(doc, stripe) {
             }
             return true;
         });
+        if (expired) {
+            // Loi 25 art. 12.1 — journal the AUTOMATED expiry decision (best-effort).
+            await (0, automatedDecisions_1.logAutomatedDecision)({
+                transactionId,
+                userId: typeof data.buyerId === 'string' ? data.buyerId : '',
+                decisionType: 'transaction_expired',
+                criteria: {
+                    status: 'pending_payment',
+                    expiryWindowHours: 1,
+                    cancelReason: 'pending_payment_expired_1h',
+                },
+                result: 'Transaction annulée (paiement non finalisé sous 1h)',
+            });
+            // Transparency notification to the buyer (best-effort).
+            if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
+                const articleTitle = data.articleTitle || 'votre commande';
+                (0, notifications_1.sendPushNotification)(data.buyerId, 'Commande annulée automatiquement', `Votre commande ${articleTitle} a été annulée automatiquement : le paiement n'a pas été finalisé dans le délai imparti (1 h). Si vous contestez cette décision, vous pouvez nous le signaler.`, { transactionId, articleId: data.articleId || '' }, 'order_cancelled').catch((err) => {
+                    logger.warn('[expireOrphanedTransactions] Failed to notify buyer of pending_payment expiry', {
+                        transactionId,
+                        error: err instanceof Error ? err.message : err,
+                    });
+                });
+            }
+        }
         return expired;
     }
     catch (err) {
@@ -454,10 +508,25 @@ async function refundPaidNotShipped(doc, _stripe) {
             transactionId,
             error: err instanceof Error ? err.message : err,
         }));
+        // Loi 25 art. 12.1 — journal the AUTOMATED expiry+refund decision
+        // (best-effort, never affects the refund already committed by the core).
+        await (0, automatedDecisions_1.logAutomatedDecision)({
+            transactionId,
+            userId: typeof data.buyerId === 'string' ? data.buyerId : '',
+            decisionType: 'transaction_expired',
+            criteria: {
+                status: 'paid',
+                expiryWindowDays: 7,
+                cancelReason: 'seller_did_not_ship_7d',
+            },
+            result: 'Commande annulée et remboursée (vendeur n\'a pas expédié sous 7 jours)',
+        });
         // Notify buyer that the order was cancelled and refunded (non-blocking).
+        // ENRICHED for Loi 25 transparency: states the decision was AUTOMATIC and
+        // that it can be contested (right to human review).
         if (data.buyerId) {
             const articleTitle = data.articleTitle || 'votre article';
-            (0, notifications_1.sendPushNotification)(data.buyerId, 'Commande annulee et remboursee', `Votre commande ${articleTitle} a ete annulee car le vendeur n'a pas expedie dans les delais. Le remboursement est en cours.`, { transactionId, articleId: data.articleId || '' }, 'order_cancelled').catch((err) => {
+            (0, notifications_1.sendPushNotification)(data.buyerId, 'Commande annulée et remboursée automatiquement', `Votre commande ${articleTitle} a été annulée automatiquement car le vendeur n'a pas expédié dans les délais (7 jours). Le remboursement est en cours. Si vous contestez cette décision, vous pouvez nous le signaler.`, { transactionId, articleId: data.articleId || '' }, 'order_cancelled').catch((err) => {
                 logger.warn('[expireOrphanedTransactions] Failed to notify buyer of paid expiry', {
                     transactionId,
                     error: err instanceof Error ? err.message : err,

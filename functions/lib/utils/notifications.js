@@ -90,6 +90,8 @@ function buildDeepLink(notificationType, data) {
                 : '';
         case 'review_received':
             return `https://${DEEP_LINK_HOST}/notifications`;
+        case 'privacy_incident':
+            return `https://${DEEP_LINK_HOST}/notifications`;
         case 'shop_approved':
         case 'shop_rejected':
         case 'shop_created':
@@ -142,6 +144,8 @@ function getAndroidChannel(notificationType) {
         case 'order_refunded':
             return 'orders';
         case 'review_received':
+            return 'notifications';
+        case 'privacy_incident':
             return 'notifications';
         default:
             return 'notifications';

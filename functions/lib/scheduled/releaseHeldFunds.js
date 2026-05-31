@@ -74,6 +74,7 @@ const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const firestore_1 = require("firebase-admin/firestore");
 const notifications_1 = require("../utils/notifications");
+const automatedDecisions_1 = require("../callable/automatedDecisions");
 /** Buyer-dispute window after delivery before seller funds become withdrawable. */
 exports.DISPUTE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 /** Process at most this many transactions per run to bound execution time. */
@@ -226,9 +227,27 @@ exports.releaseHeldFunds = (0, scheduler_1.onSchedule)({
                 });
                 if (moved) {
                     released++;
-                    // Best-effort notification to the seller.
+                    // Loi 25 art. 12.1 — journal the AUTOMATED decision (best-effort,
+                    // never throws, never rolls back the money move above).
+                    await (0, automatedDecisions_1.logAutomatedDecision)({
+                        transactionId,
+                        userId: sellerId,
+                        decisionType: 'funds_released',
+                        criteria: {
+                            status: 'delivered',
+                            disputed: false,
+                            fundsReleaseAt: data.fundsReleaseAt instanceof firestore_1.Timestamp
+                                ? data.fundsReleaseAt.toDate().toISOString()
+                                : null,
+                            disputeWindowDays: 7,
+                        },
+                        result: 'Fonds libérés au vendeur (fenêtre de litige écoulée)',
+                    });
+                    // Best-effort notification to the seller. ENRICHED for Loi 25
+                    // transparency: states the decision was AUTOMATIC and that it can
+                    // be contested (right to human review).
                     try {
-                        await (0, notifications_1.sendPushNotification)(sellerId, 'Fonds disponibles', 'La fenêtre de litige est terminée. Vos fonds sont maintenant disponibles au retrait.', { transactionId }, 'funds_released');
+                        await (0, notifications_1.sendPushNotification)(sellerId, 'Fonds libérés automatiquement', 'Vos fonds ont été libérés automatiquement : la livraison a été confirmée et le délai de réclamation (7 jours) est écoulé. Si vous contestez cette décision, vous pouvez nous le signaler.', { transactionId }, 'funds_released');
                     }
                     catch (notifErr) {
                         logger.warn('[releaseHeldFunds] seller notification failed', {

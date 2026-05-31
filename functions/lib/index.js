@@ -21,7 +21,8 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getNewArrivals = exports.getFeaturedSellers = exports.getPriceDrops = exports.getTrendingBrands = exports.saveOnboardingPreferences = exports.generateStyleProfile = exports.getMomentProducts = exports.getActiveMoments = exports.requestReturn = exports.reportTransactionProblem = exports.requestRefund = exports.adminRefundTransaction = exports.completeMeetupTransaction = exports.cancelPendingTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = exports.removeItemFromPartySecure = exports.addItemToPartySecure = exports.getSwapPartyLeaderboard = exports.openSwapDispute = exports.rateSwap = exports.confirmSwapReception = exports.confirmSwapShipping = exports.uploadSwapPhotos = exports.setSwapExchangeMode = exports.cancelSwap = exports.declineSwap = exports.createSwapTopUpCheckout = exports.acceptSwap = exports.proposeMultiSwap = exports.getActiveSwapPartyInfo = exports.ensureGeneralistZone = exports.markSavedSearchViewed = exports.toggleArticleSold = exports.toggleProductLike = exports.incrementProductView = exports.updateArticle = exports.createArticle = exports.backfillEmbeddings = exports.getSimilarProducts = exports.visualSearch = exports.consolidateChatDuplicates = exports.analyzeProductImage = void 0;
-exports.shipEngineWebhook = exports.stripeWebhook = exports.retentionPurge = exports.reconcileFinances = exports.retryFailedOperations = exports.sweepPendingLabels = exports.releaseHeldFunds = exports.checkShippedTracking = exports.expireOrphanedTransactions = exports.expireStaleOffers = exports.cleanupExpiredDrafts = exports.checkSavedSearchNotifications = exports.expireStaleProposedSwaps = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticleInfoUpdated = exports.onArticleSold = exports.onArticleSoftDeleted = exports.onUserProfileUpdated = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.getPrivacyIncidentsLog = exports.reportPrivacyIncident = exports.recordSignupConsent = exports.deleteUserAccount = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.refundWalletPayment = exports.payWithWallet = exports.walletWithdraw = exports.getWalletInfo = exports.activateWallet = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = void 0;
+exports.stripeWebhook = exports.retentionPurge = exports.reconcileFinances = exports.retryFailedOperations = exports.sweepPendingLabels = exports.releaseHeldFunds = exports.checkShippedTracking = exports.expireOrphanedTransactions = exports.expireStaleOffers = exports.cleanupExpiredDrafts = exports.checkSavedSearchNotifications = exports.expireStaleProposedSwaps = exports.updatePopularityScores = exports.cleanupSearchIndex = exports.updateGlobalStats = exports.onArticleInfoUpdated = exports.onArticleSold = exports.onArticleSoftDeleted = exports.onUserProfileUpdated = exports.onArticlePriceDropped = exports.onArticleFavorited = exports.onSwapStatusUpdated = exports.onSwapCreated = exports.sendOfferStatusNotification = exports.sendMessageNotification = exports.generateEmbeddingOnUpdate = exports.generateEmbeddingOnCreate = exports.updateUserStats = exports.updateSearchIndex = exports.getAutomatedDecisionLog = exports.contestAutomatedDecision = exports.notifyAffectedUsers = exports.escalatePrivacyIncidentToCAI = exports.getPrivacyIncidentsLog = exports.reportPrivacyIncident = exports.setMarketingConsent = exports.recordSignupConsent = exports.deleteUserAccount = exports.getUserPublicProfile = exports.getUserReviews = exports.createReview = exports.refundWalletPayment = exports.payWithWallet = exports.walletWithdraw = exports.getWalletInfo = exports.activateWallet = exports.getHomeFeed = exports.recordPriceDrop = exports.getLikedSellers = exports.toggleSellerLike = void 0;
+exports.shipEngineWebhook = void 0;
 // ============================================================
 // CALLABLE FUNCTIONS (onCall)
 // ============================================================
@@ -122,12 +123,24 @@ Object.defineProperty(exports, "getUserPublicProfile", { enumerable: true, get: 
 var users_1 = require("./callable/users");
 Object.defineProperty(exports, "deleteUserAccount", { enumerable: true, get: function () { return users_1.deleteUserAccount; } });
 // Consent & Age-Gate Functions
+// setMarketingConsent: retrait/octroi du consentement marketing — journalisé
+// append-only (preuve Loi 25 art. 14 / LCAP) ET appliqué serveur (coupe les
+// prefs notifications marketing relues par les triggers).
 var consent_1 = require("./callable/consent");
 Object.defineProperty(exports, "recordSignupConsent", { enumerable: true, get: function () { return consent_1.recordSignupConsent; } });
+Object.defineProperty(exports, "setMarketingConsent", { enumerable: true, get: function () { return consent_1.setMarketingConsent; } });
 // Privacy Incident Register Functions (admin-only; Loi 25 / RGPD breach log)
 var privacyIncidents_1 = require("./callable/privacyIncidents");
 Object.defineProperty(exports, "reportPrivacyIncident", { enumerable: true, get: function () { return privacyIncidents_1.reportPrivacyIncident; } });
 Object.defineProperty(exports, "getPrivacyIncidentsLog", { enumerable: true, get: function () { return privacyIncidents_1.getPrivacyIncidentsLog; } });
+Object.defineProperty(exports, "escalatePrivacyIncidentToCAI", { enumerable: true, get: function () { return privacyIncidents_1.escalatePrivacyIncidentToCAI; } });
+Object.defineProperty(exports, "notifyAffectedUsers", { enumerable: true, get: function () { return privacyIncidents_1.notifyAffectedUsers; } });
+// Automated-decision transparency & contestation (Loi 25, art. 12.1)
+// contestAutomatedDecision: party opens a human-review request (reverses NOTHING).
+// getAutomatedDecisionLog: party reads the transparent log for one transaction.
+var automatedDecisions_1 = require("./callable/automatedDecisions");
+Object.defineProperty(exports, "contestAutomatedDecision", { enumerable: true, get: function () { return automatedDecisions_1.contestAutomatedDecision; } });
+Object.defineProperty(exports, "getAutomatedDecisionLog", { enumerable: true, get: function () { return automatedDecisions_1.getAutomatedDecisionLog; } });
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
