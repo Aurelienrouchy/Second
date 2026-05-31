@@ -323,9 +323,10 @@ export class UserService {
         push: true,
         newMessages: true,
         newOrders: true,
-        priceDrops: true,
-        articleFavorited: true,
-        swapZoneReminder: true,
+        // Privacy by default (opt-in marketing) : notifications secondaires OFF
+        priceDrops: false,
+        articleFavorited: false,
+        swapZoneReminder: false,
         offerReceived: true,
         offerResponse: true,
       };
@@ -337,9 +338,10 @@ export class UserService {
         push: true,
         newMessages: true,
         newOrders: true,
-        priceDrops: true,
-        articleFavorited: true,
-        swapZoneReminder: true,
+        // Privacy by default (opt-in marketing) : notifications secondaires OFF
+        priceDrops: false,
+        articleFavorited: false,
+        swapZoneReminder: false,
         offerReceived: true,
         offerResponse: true,
       };
