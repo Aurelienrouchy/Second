@@ -213,6 +213,9 @@ function AppContent({ fontsReady }: { fontsReady: boolean }) {
             />
             <Stack.Screen name="shop/[id]" />
             <Stack.Screen name="settings" />
+            {/* legal/* — PUBLIC routes (Terms, Privacy) reachable at consent
+                time without authentication (Loi 25 art. 12). */}
+            <Stack.Screen name="legal" />
             <Stack.Screen
               name="sell"
               options={{ animation: 'fade_from_bottom' }}
