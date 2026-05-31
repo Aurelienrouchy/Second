@@ -643,6 +643,16 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Privacy Incidents register (Loi 25 / RGPD breach log) — written EXCLUSIVELY
+    // server-side by the reportPrivacyIncident callable and automated handlers
+    // (e.g. deletion_failed in deleteUserAccount), all via the Admin SDK. May
+    // carry sensitive payloads (affected UIDs, data fields). Admins may read for
+    // incident response and CAI notification tracking. No client writes ever.
+    match /privacy_incidents/{incidentId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     // Disputes — buyer-opened "delivered but problem" tickets, created by the
     // reportTransactionProblem callable (Admin SDK). The buyer and seller of the
     // underlying transaction may READ their ticket; admins may read all and
