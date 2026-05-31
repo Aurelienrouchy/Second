@@ -261,10 +261,12 @@ export const useAuthStore = create<AuthStore>()(
     return fresh;
   },
 
-  rollbackSocialSignIn: async () => {
-    // Supprime le compte Auth + doc user (best-effort) puis nettoie l'état
-    // local. Aucun compte social ne doit subsister sans consentement.
-    await AuthService.rollbackUnconsentedAccount();
+  rollbackSocialSignIn: async (isNewUser) => {
+    // Compte BRAND-NEW : supprime le compte Auth + doc user (best-effort).
+    // Compte EXISTANT (isNewUser=false) : simple signOut, jamais de
+    // suppression destructive (préserve solde/commandes). Dans les deux cas
+    // on nettoie l'état local → non-authentifié.
+    await AuthService.rollbackUnconsentedAccount(isNewUser);
     set({ ...initialState, isLoading: false });
   },
 
