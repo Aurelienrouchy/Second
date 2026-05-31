@@ -666,6 +666,43 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Automated-decision transparency log (Loi 25 art. 12.1) — written
+    // EXCLUSIVELY server-side by logAutomatedDecision (Admin SDK) from the
+    // scheduled jobs (releaseHeldFunds / expireOrphanedTransactions /
+    // sweepPendingLabels) AFTER the monetary move. A party (buyer or seller) of
+    // the underlying transaction may READ the log entries concerning their
+    // transaction; admins may read all. No client writes ever.
+    match /automatic_decisions_log/{logId} {
+      allow read: if isAuthenticated() &&
+                     (request.auth.token.admin == true ||
+                      request.auth.uid ==
+                        get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.buyerId ||
+                      request.auth.uid ==
+                        get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.sellerId);
+      allow create, update, delete: if false;
+    }
+
+    // Automated-decision contestations (Loi 25 art. 12.1 right to human review)
+    // — opened by contestAutomatedDecision (Admin SDK). A client CREATE is also
+    // permitted, scoped to the authenticated author being a party (buyer or
+    // seller) of the underlying transaction and tagging themselves as the
+    // author (userId == uid). Reading is restricted to the author and admins.
+    // Updates/resolution are CF/admin-only — the contestation reverses NOTHING
+    // automatically; a human agent decides the outcome out-of-band.
+    match /automated_decision_contestations/{contestationId} {
+      allow read: if isAuthenticated() &&
+                     (request.auth.uid == resource.data.userId ||
+                      request.auth.token.admin == true);
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.transactionId is string &&
+                       (request.auth.uid ==
+                          get(/databases/$(database)/documents/transactions/$(request.resource.data.transactionId)).data.buyerId ||
+                        request.auth.uid ==
+                          get(/databases/$(database)/documents/transactions/$(request.resource.data.transactionId)).data.sellerId);
+      allow update, delete: if false;
+    }
+
     // Rate Limit counters — written by the rate-limiter helper (Admin SDK).
     // Internal infrastructure; no client access of any kind.
     match /rate_limits/{limitId} {
