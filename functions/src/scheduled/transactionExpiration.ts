@@ -20,6 +20,7 @@ import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
+import { logAutomatedDecision } from '../callable/automatedDecisions';
 
 /** Firestore batch limit is 500; use 450 for safety margin */
 const BATCH_SIZE = 450;
