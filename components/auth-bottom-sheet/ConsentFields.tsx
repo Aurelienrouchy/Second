@@ -137,14 +137,6 @@ function ConsentFieldsComponent({
         >
           <Text style={styles.consentText}>{COPY_CONSENT.marketing}</Text>
         </Checkbox>
-
-        <Text style={styles.law25Note}>
-          {COPY_CONSENT.law25Prefix}
-          <Link href="/legal/privacy-policy" style={styles.consentLink}>
-            {COPY_CONSENT.law25Link}
-          </Link>
-          {COPY_CONSENT.law25Suffix}
-        </Text>
       </View>
     </>
   );
