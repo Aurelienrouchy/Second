@@ -198,11 +198,23 @@ const AuthBottomSheet: React.FC = () => {
           email={email}
           password={password}
           username={username}
+          dobDay={dobDay}
+          dobMonth={dobMonth}
+          dobYear={dobYear}
+          acceptedTerms={acceptedTerms}
+          acceptedPrivacy={acceptedPrivacy}
+          marketingOptIn={marketingOptIn}
           isLoading={isLoading}
           message={displayMessage}
           onChangeEmail={setEmail}
           onChangePassword={setPassword}
           onChangeUsername={setUsername}
+          onChangeDobDay={setDobDay}
+          onChangeDobMonth={setDobMonth}
+          onChangeDobYear={setDobYear}
+          onToggleTerms={handleToggleTerms}
+          onTogglePrivacy={handleTogglePrivacy}
+          onToggleMarketing={handleToggleMarketing}
           onSubmit={handleEmailAuth}
           onSwitchToSignIn={() => setAuthType('signIn')}
           onSocialAuth={handleSocialAuth}
