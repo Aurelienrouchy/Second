@@ -35,6 +35,27 @@ Added for the daily `retentionPurge` scheduled function (Loi 25 / RGPD):
 }
 ```
 
+`drafts` purge (`updatedAt < cutoff` + `orderBy updatedAt`) is a single-field
+range query — automatic single-field index, no composite index required.
+
+## Automated-decision transparency log (`getAutomatedDecisionLog`)
+
+Loi 25 art. 12.1. The `getAutomatedDecisionLog` callable queries one
+transaction's automated-decision log entries, most-recent first:
+`where transactionId == X` + `orderBy executedAt desc`. Requires a composite
+index.
+
+```json
+{
+  "collectionGroup": "automatic_decisions_log",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "transactionId", "order": "ASCENDING" },
+    { "fieldPath": "executedAt", "order": "DESCENDING" }
+  ]
+}
+```
+
 ## Composite Indexes
 
 Add these indexes to your `firestore.indexes.json` file or create them in the Firebase Console:
