@@ -206,6 +206,12 @@ interface UserDocument {
   phoneNumber?: string;
   accountType?: 'user' | 'seller' | 'admin';
 
+  // Age gate — ISO "YYYY-MM-DD" string (NOT a Date/object, to avoid timezone
+  // drift). Written server-side by the recordSignupConsent callable after
+  // validating age >= 16 (MIN_AGE_REGISTER). Selling (Stripe Connect onboarding)
+  // additionally requires age >= 18 (MIN_AGE_SELL, enforced in createStripeConnectAccount).
+  dateOfBirth?: string;
+
   // Addresses
   addresses?: {
     id: string;
