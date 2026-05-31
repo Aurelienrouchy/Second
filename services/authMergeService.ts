@@ -5,6 +5,7 @@ import { functions } from '@/config/firebaseConfig';
 import { ONBOARDING_PREFERENCES_KEY } from '@/constants/storageKeys';
 import { guestPreferencesService } from '@/services/guestPreferencesService';
 import { generateStyleProfile } from '@/services/styleProfileService';
+import { UserService } from '@/services/userService';
 
 const STYLE_PROFILE_MIN_INTERACTIONS = 5;
 
