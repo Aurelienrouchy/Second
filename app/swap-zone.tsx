@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontFamily: fonts.sans,
     fontSize: 14,
-    color: colors.sand,
+    color: colors.whiteTranslucent,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
@@ -703,8 +703,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md - 2,
+    backgroundColor: colors.darkSurface1,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.darkBorder,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     marginBottom: spacing.sm + 4,
   },
   gridLabel: {
