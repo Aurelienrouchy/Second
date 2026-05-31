@@ -238,16 +238,39 @@ export class AuthService {
   }
 
   /**
+   * Détermine si un utilisateur social fraîchement authentifié doit passer
+   * par l'écran de consentement obligatoire (Loi 25 art. 12, 14).
+   *
+   * needsConsent === true si :
+   *  - le compte est nouveau (Firebase `isNewUser`), OU
+   *  - le doc users/{uid} existe sans `dateOfBirth` (donc sans preuve de
+   *    consentement enregistrée par recordSignupConsent).
+   *
+   * Le `dateOfBirth` n'est écrit QUE par le callable serveur
+   * recordSignupConsent : son absence est la source de vérité du « pas
+   * encore consenti ».
+   */
+  private static computeNeedsConsent(
+    userCredential: UserCredential,
+    existingUser: User | null,
+  ): boolean {
+    const isNewUser = getAdditionalUserInfo(userCredential)?.isNewUser === true;
+    if (isNewUser) return true;
+    if (!existingUser) return true;
+    return !existingUser.dateOfBirth;
+  }
+
+  /**
    * Connexion avec Google
    */
-  static async signInWithGoogle(): Promise<User> {
+  static async signInWithGoogle(): Promise<SocialAuthResult> {
     try {
       // Vérifier si Google Play Services est disponible
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      
+
       // Obtenir les informations utilisateur de Google
       const userInfo = await GoogleSignin.signIn();
-      
+
       // Extraire correctement l'idToken et l'accessToken selon la forme retournée
       const idToken = (userInfo as any)?.idToken ?? (userInfo as any)?.data?.idToken;
       const accessToken = (userInfo as any)?.accessToken ?? (userInfo as any)?.data?.accessToken;
@@ -255,19 +278,23 @@ export class AuthService {
       if (!idToken) {
         throw new Error('Connexion Google impossible. Vérifiez la configuration SHA-1 dans Firebase Console.');
       }
-      
-      // Créer un credential Firebase avec le token Google  
+
+      // Créer un credential Firebase avec le token Google
       const googleCredential = GoogleAuthProvider.credential(idToken, accessToken);
-      
+
       // Se connecter à Firebase avec le credential Google
       const userCredential = await signInWithCredential(auth, googleCredential);
       const firebaseUser = userCredential.user;
-      
+
       const googleName = isGenericDisplayName(firebaseUser.displayName)
         ? generateDefaultUsername(firebaseUser.uid)
         : firebaseUser.displayName!;
 
       let userData = await this.getUserData(firebaseUser.uid);
+      // Calcule AVANT de créer/mettre à jour le doc (sinon getUserData ne
+      // refléterait plus l'état "nouveau").
+      const needsConsent = this.computeNeedsConsent(userCredential, userData);
+
       if (!userData) {
         userData = {
           id: firebaseUser.uid,
@@ -297,7 +324,7 @@ export class AuthService {
         userData.displayName = googleName;
       }
 
-      return userData;
+      return { user: userData, needsConsent };
     } catch (error: any) {
       if (error?.code === 'SIGN_IN_CANCELLED' || error?.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Connexion Google annulée');
