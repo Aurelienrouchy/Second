@@ -620,6 +620,84 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         </View>
       )}
 
+      {/* Automated decision (Loi 25, art. 12.1) — transparency + contestation */}
+      {hasAutomatedDecision && decisionType && (
+        <View style={styles.automatedBox}>
+          <View style={styles.recourseHeader}>
+            <Ionicons name="hardware-chip-outline" size={20} color={colors.foreground} />
+            <Text style={styles.recourseTitle}>{getDecisionTitle(decisionType)}</Text>
+          </View>
+
+          {/* Juriste notification text (decision moment) */}
+          {decisionType === 'funds_released' ? (
+            <Text style={styles.recourseBody}>
+              {decisionDateLabel
+                ? `Vos fonds ont été libérés automatiquement le ${decisionDateLabel} : la livraison a été confirmée et le délai de réclamation (7 jours) est écoulé. Si vous contestez cette décision, vous pouvez nous le signaler.`
+                : 'Vos fonds ont été libérés automatiquement : la livraison a été confirmée et le délai de réclamation (7 jours) est écoulé. Si vous contestez cette décision, vous pouvez nous le signaler.'}
+            </Text>
+          ) : (
+            <Text style={styles.recourseBody}>
+              {latestDecision?.result && latestDecision.result.trim().length > 0
+                ? latestDecision.result
+                : 'Cette décision a été prise automatiquement. Si vous contestez cette décision, vous pouvez nous le signaler.'}
+            </Text>
+          )}
+
+          {/* Accessible explanation — "Pourquoi cette décision ?" */}
+          <Pressable
+            style={styles.explanationToggle}
+            onPress={toggleExplanation}
+            hitSlop={6}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color={colors.primary}
+            />
+            <Text style={styles.explanationToggleText}>Pourquoi cette décision ?</Text>
+            <Ionicons
+              name={isExplanationOpen ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.primary}
+            />
+          </Pressable>
+
+          {isExplanationOpen && (
+            <View style={styles.explanationContent}>
+              <Text style={styles.explanationText}>
+                {getDecisionExplanation(decisionType)}
+              </Text>
+              {criteriaRows.length > 0 && (
+                <View style={styles.criteriaList}>
+                  {criteriaRows.map((row) => (
+                    <View key={row.key} style={styles.criteriaRow}>
+                      <Text style={styles.criteriaLabel}>{row.label}</Text>
+                      <Text style={styles.criteriaValue}>{row.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Contester cette décision — opens a human-review request */}
+          <Pressable
+            style={[styles.outlineButton, isContesting && styles.buttonDisabled]}
+            onPress={openContestSheet}
+            disabled={isContesting}
+          >
+            {isContesting ? (
+              <ActivityIndicator size="small" color={colors.foreground} />
+            ) : (
+              <>
+                <Ionicons name="flag-outline" size={16} color={colors.foreground} />
+                <Text style={styles.outlineButtonText}>Contester cette décision</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      )}
+
       {/* shipped / delivered + buyer — report a problem ("le scan livré fait foi") */}
       {isReportable && isBuyer && (
         <Pressable
