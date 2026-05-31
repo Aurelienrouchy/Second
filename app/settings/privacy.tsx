@@ -49,11 +49,20 @@ const RgpdItem = ({ icon, iconColor, title, description, onPress, isLast }: Rgpd
 
 interface PrivacySettings {
   showProfilePhoto: boolean;
+  aiProfilingConsent: boolean;
 }
 
 const DEFAULT_PRIVACY: PrivacySettings = {
   showProfilePhoto: true,
+  // Opt-in: AI profiling is DISABLED by default (absent => false).
+  aiProfilingConsent: false,
 };
+
+const COPY_AI = {
+  title: 'Recommandations personnalisées par IA',
+  description:
+    "Pour vous suggérer des articles adaptés à vos goûts, Second peut analyser les articles que vous consultez et aimez à l'aide d'une intelligence artificielle de Google (Gemini et Vertex AI), dont le traitement a lieu aux États-Unis. Cette fonctionnalité est désactivée par défaut. Vous pouvez l'activer ou la désactiver à tout moment, sans incidence sur le reste de l'application.",
+} as const;
 
 export default function PrivacySettingsScreen() {
   const router = useRouter();
