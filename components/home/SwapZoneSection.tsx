@@ -155,21 +155,22 @@ const Content: React.FC<ContentProps> = ({ itemsCount, newThisWeek, interactive 
       {/* Stats + CTA */}
       <View style={styles.bottomBlock}>
         {hasStock ? (
-          <View style={styles.countPill}>
-            <Ionicons name="swap-horizontal" size={sizing.iconSM} color={colors.cream} />
-            <Text style={styles.countPillText}>
-              {itemsCount} {itemsCount > 1 ? 'articles' : 'article'}
-            </Text>
+          <View style={styles.statsRow}>
+            <View style={styles.countPill}>
+              <Ionicons name="swap-horizontal" size={sizing.iconSM} color={colors.cream} />
+              <Text style={styles.countPillText}>
+                {itemsCount} {itemsCount > 1 ? 'articles' : 'article'}
+              </Text>
+            </View>
+            {hasFresh ? (
+              <Text style={styles.freshText}>
+                {newThisWeek} {newThisWeek > 1 ? 'nouveautés' : 'nouveauté'} cette semaine
+              </Text>
+            ) : null}
           </View>
         ) : interactive ? (
           <Text style={styles.hint}>
             Dépose un article et trouve la pièce parfaite à troquer.
-          </Text>
-        ) : null}
-
-        {hasStock && hasFresh ? (
-          <Text style={styles.freshText}>
-            {newThisWeek} {newThisWeek > 1 ? 'nouveautés' : 'nouveauté'} cette semaine
           </Text>
         ) : null}
 
