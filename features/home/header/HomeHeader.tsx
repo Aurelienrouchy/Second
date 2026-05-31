@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   categoriesContent: {
     gap: spacing.sm,
-    paddingBottom: 2,
+    paddingLeft: spacing.lg,
   },
   categoryTag: {
     paddingHorizontal: spacing.md,
