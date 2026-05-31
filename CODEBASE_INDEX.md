@@ -310,6 +310,9 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | Fichier | Rôle |
 |---------|------|
 | `queryClient.ts` | Instance React Query |
+| `queryKeys.ts` | Clés React Query centralisées |
+| `transactionStatusMeta.ts` | Métadonnées statut transaction (copy FR buyer/seller) |
+| `automatedDecisionMeta.ts` | Loi 25 art. 12.1 — copy FR décisions auto (titre, explication, critères lisibles) |
 
 ## Utils — `utils/`
 
