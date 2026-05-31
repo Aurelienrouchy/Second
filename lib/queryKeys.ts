@@ -61,4 +61,9 @@ export const queryKeys = {
     all: ['wallet'] as const,
     info: () => ['wallet', 'info'] as const,
   },
+  automatedDecisions: {
+    all: ['automated-decisions'] as const,
+    log: (transactionId: string) =>
+      ['automated-decisions', 'log', transactionId] as const,
+  },
 } as const;
