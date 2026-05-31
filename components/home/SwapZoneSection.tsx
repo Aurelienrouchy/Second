@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     lineHeight: typography.body.lineHeight,
     letterSpacing: typography.body.letterSpacing,
-    color: colors.sand,
+    color: colors.whiteTranslucent,
   },
 
   // --- Stats + CTA ---
