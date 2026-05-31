@@ -64,6 +64,13 @@ export interface SignupConsent {
 export interface SocialAuthResult {
   user: User;
   needsConsent: boolean;
+  /**
+   * True UNIQUEMENT pour un compte fraîchement créé (Firebase
+   * `getAdditionalUserInfo().isNewUser`). Distingue un brand-new account
+   * d'un compte EXISTANT sans `dateOfBirth` : seul le premier peut être
+   * supprimé en cas de refus de consentement (cf. rollbackUnconsentedAccount).
+   */
+  isNewUser: boolean;
 }
 
 function generateDefaultUsername(uid: string): string {
