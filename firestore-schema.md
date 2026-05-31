@@ -408,6 +408,7 @@ Daily hard-delete of stale personal data (Loi 25 / RGPD data minimisation):
 | `guest_preferences` | `createdAt` > 90 days | |
 | `notifications` | `createdAt` > 180 days | |
 | `users/{uid}/searchHistory` | `timestamp` > 12 months | collection-group index on `timestamp` |
+| `drafts` | `updatedAt` > 90 days | abandoned sell-flow drafts; staleness = last modification |
 
 `transactions` are **never** purged (7-year legal/accounting retention).
 
