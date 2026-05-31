@@ -9,6 +9,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, auth, storage, FieldValue } from '../config/firebase';
+import { getStripe } from '../config/stripe';
+import { recordPrivacyIncident } from './privacyIncidents';
 
 // =============================================================================
 // DELETE USER ACCOUNT — GDPR Art. 17 / Loi 25 exhaustive cleanup
