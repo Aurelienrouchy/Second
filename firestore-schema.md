@@ -357,6 +357,44 @@ interface ConsentDocument {
 At signup, `recordSignupConsent` always writes `terms` + `privacy_policy`, and
 additionally `marketing` only when the user opted in (`marketingOptIn === true`).
 
+The `users/{uid}.preferences.aiProfilingConsent` boolean flag (opt-in AI
+profiling, default **false** / absent ⇒ disabled) is a SEPARATE preference,
+managed via the preferences flow — NOT written by `recordSignupConsent`.
+
+### `privacy_incidents/{incidentId}`
+
+Privacy/security incident register (Loi 25 / RGPD breach log). **WRITTEN
+SERVER-SIDE ONLY** (Admin SDK via the `reportPrivacyIncident` callable and
+automated handlers such as the `deletion_failed` path in `deleteUserAccount`).
+Firestore rules: **admin READ only**; `create/update/delete: if false`.
+
+```typescript
+interface PrivacyIncidentDocument {
+  type: string;            // e.g. "data_breach", "deletion_failed", "unauthorized_access"
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  detectedAt: Timestamp;   // serverTimestamp()
+  affectedUserIds: string[];
+  affectedDataFields: string[];
+  measures: string;        // mitigation/remediation taken or planned
+  notifiedCAI: boolean;    // whether the Commission d'accès à l'information was notified
+  status: 'open' | 'investigating' | 'contained' | 'resolved';
+}
+```
+
+### Data-retention purge (`retentionPurge` scheduled function)
+
+Daily hard-delete of stale personal data (Loi 25 / RGPD data minimisation):
+
+| Target | Threshold | Notes |
+|--------|-----------|-------|
+| `articles` (`isActive === false`) | `updatedAt` > 3 years | composite index `(isActive ASC, updatedAt ASC)` |
+| `guest_preferences` | `createdAt` > 90 days | |
+| `notifications` | `createdAt` > 180 days | |
+| `users/{uid}/searchHistory` | `timestamp` > 12 months | collection-group index on `timestamp` |
+
+`transactions` are **never** purged (7-year legal/accounting retention).
+
 ### `favorites/{userId}`
 
 Single document per user containing all favorite article IDs.
