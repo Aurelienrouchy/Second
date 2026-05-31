@@ -1,7 +1,8 @@
 /**
  * PartyHeader Component — Swap Zone (DARK identity)
  * Sticky header with back button and zone name. The Swap Zone is always active
- * and open to everyone — no status label, no countdown badge.
+ * and open to everyone. Standard centered title (dark variant) — no eyebrow,
+ * no status label, no countdown badge.
  */
 
 import React from 'react';
@@ -21,14 +22,14 @@ export const PartyHeader = React.memo(function PartyHeader({
       <Pressable
         style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         onPress={onBack}
+        hitSlop={8}
       >
         <Ionicons name="chevron-back" size={20} color={colors.cream} />
       </Pressable>
 
-      <View style={styles.headerTitleSection}>
-        <Text style={styles.headerLabel}>Ouvert à tous</Text>
-        <Text style={styles.headerTitle}>{party.name}</Text>
-      </View>
+      <Text style={styles.headerTitle}>{party.name}</Text>
+
+      <View style={styles.rightSpacer} />
     </View>
   );
 });
@@ -38,11 +39,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md - 2,
+    paddingVertical: spacing.md,
     backgroundColor: colors.deep,
     borderBottomWidth: 1,
     borderBottomColor: colors.darkBorderStrong,
-    gap: spacing.md - 4,
   },
   pressed: {
     opacity: 0.7,
@@ -57,20 +57,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
   },
-  headerTitleSection: {
-    flex: 1,
-  },
-  headerLabel: {
-    fontSize: 9,
-    fontFamily: fonts.sansMedium,
-    letterSpacing: 1.35,
-    textTransform: 'uppercase',
-    color: colors.rust,
-    marginBottom: 1,
-  },
   headerTitle: {
+    flex: 1,
     fontFamily: fonts.display,
-    fontSize: 18,
+    fontSize: 20,
     color: colors.cream,
+    textAlign: 'center',
+  },
+  rightSpacer: {
+    width: sizing.avatarSM,
   },
 });
