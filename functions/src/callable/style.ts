@@ -61,6 +61,19 @@ export const generateStyleProfile = onCall(
     }
 
     const userId = request.auth.uid;
+
+    // Loi 25 — Gate de consentement au profilage par IA (vérification serveur).
+    // Le seul garde client n'est pas suffisant : on relit le consentement
+    // explicite dans Firestore avant tout traitement ou écriture de styleProfile.
+    const consentSnap = await db.collection('users').doc(userId).get();
+    const aiProfilingConsent = consentSnap.data()?.preferences?.aiProfilingConsent;
+    if (aiProfilingConsent !== true) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Le profilage par IA requiert votre consentement (Réglages > Confidentialité).'
+      );
+    }
+
     const { likedArticles = [], viewedArticles = [], searches = [] } = request.data;
 
     // Check if we have enough data
