@@ -114,7 +114,7 @@ export const generateStyleProfile = onCall(
       const likedContext = likedArticles
         .map(
           (a: { category?: string; brand?: string; size?: string; price?: number }) =>
-            `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}, ${a.price}€`
+            `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}, ${a.price} $`
         )
         .join('\n');
 
