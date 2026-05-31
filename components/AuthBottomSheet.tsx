@@ -153,6 +153,7 @@ const AuthBottomSheet: React.FC = () => {
         consentResolvedRef.current = false;
         setPendingSocialUser(result.user);
         pendingSocialUserRef.current = result.user;
+        pendingIsNewUserRef.current = result.isNewUser;
         // Pre-fill nothing; collect a fresh DOB + consents.
         setDobDay('');
         setDobMonth('');
