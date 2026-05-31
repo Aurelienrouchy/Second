@@ -550,6 +550,19 @@ export class UserService {
         });
       });
 
+      // 12. Consents (subcollection) — preuve de consentement Loi 25
+      const consentsSnapshot = await getDocs(
+        collection(firestore, 'users', userId, 'consents')
+      );
+      consentsSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        exportData.consents.push({
+          id: docSnap.id,
+          ...data,
+          acceptedAt: data.acceptedAt?.toDate?.()?.toISOString(),
+        });
+      });
+
       // TODO: add swaps export (requires queries on both initiatorId and receiverId)
       // TODO: add wallet export (requires composite queries)
 
