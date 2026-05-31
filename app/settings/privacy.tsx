@@ -265,10 +265,13 @@ export default function PrivacySettingsScreen() {
             </View>
             <Switch
               value={privacySettings.marketingConsent}
+              disabled={isSavingMarketing}
               onValueChange={(value) => {
-                // Désactiver = RETRAIT du consentement (enregistré côté serveur
-                // via la préférence persistée) ; réactivable à tout moment.
-                savePreferences({ marketingConsent: value });
+                // Désactiver = RETRAIT du consentement (art. 14 / LCAP).
+                // Passe par le callable serveur setMarketingConsent qui
+                // journalise le retrait (consents) ET coupe les émissions
+                // marketing serveur. Réactivable à tout moment.
+                saveMarketingConsent(value);
               }}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.white}
