@@ -177,14 +177,21 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     alignItems: 'flex-start',
   },
-  tileImageWrap: {
-    position: 'relative',
+  // Card surface + full hairline frame, echoing productCardDark from PartyItemCard.
+  tileCard: {
     width: TILE_W,
-    height: TILE_H,
-    backgroundColor: colors.darkSurface2,
+    backgroundColor: colors.darkSurface1,
     borderWidth: 1,
     borderColor: colors.darkBorder,
     borderRadius: radius.none,
+    overflow: 'hidden',
+  },
+  // Image fills the card width (minus hairlines); the card owns the frame now.
+  tileImageWrap: {
+    position: 'relative',
+    width: '100%',
+    height: IMG_H,
+    backgroundColor: colors.darkSurface2,
   },
   tileImage: {
     width: '100%',
@@ -201,16 +208,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
     borderRadius: radius.full,
   },
-  tilePrice: {
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.cream,
-    marginTop: spacing.xs,
-    textAlign: 'center',
+  // Left-aligned info block, mirroring PartyItemCard productInfo (compacted).
+  tileInfo: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs + 2,
+    paddingBottom: spacing.sm,
   },
+  tileBrand: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    letterSpacing: 1.35,
+    textTransform: 'uppercase',
+    color: colors.sand,
+    marginBottom: 2,
+  },
+  tileTitle: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 17,
+    color: colors.cream,
+    marginBottom: spacing.xs,
+  },
+  tileFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tilePrice: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 14,
+    color: colors.sand,
+  },
+  tileSize: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.whiteTranslucent,
+  },
+  // Empty "deposit" slot mirroring the card silhouette (deep panel, no faked product).
   addTile: {
     width: TILE_W,
-    height: TILE_H,
+    height: ADD_TILE_H,
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.xs,
