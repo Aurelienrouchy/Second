@@ -345,7 +345,7 @@ export class AuthService {
   /**
    * Connexion avec Apple (expo-apple-authentication)
    */
-  static async signInWithApple(): Promise<User> {
+  static async signInWithApple(): Promise<SocialAuthResult> {
     try {
       const nonceBytes = await Crypto.getRandomBytesAsync(32);
       const nonce = Array.from(new Uint8Array(nonceBytes))
