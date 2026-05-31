@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   depositButton: {
     height: 44,
     borderRadius: radius.none,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
   },
   chipsRow: {
     flexDirection: 'row',
