@@ -1,5 +1,40 @@
 # Required Firestore Indexes for useProducts Hook
 
+## Data-retention purge indexes (`retentionPurge`)
+
+Added for the daily `retentionPurge` scheduled function (Loi 25 / RGPD):
+
+- Composite index on `articles` — `(isActive ASC, updatedAt ASC)` — purge of
+  inactive articles older than 3 years (`where isActive == false && updatedAt < cutoff`).
+- Collection-group single-field index on `searchHistory.timestamp` (ASC,
+  `COLLECTION_GROUP` scope) — purge of search-history entries older than 12
+  months via `collectionGroup('searchHistory')`.
+
+`guest_preferences` and `notifications` purges use single-field range queries on
+`createdAt` only (automatic single-field index — no composite index required).
+
+```json
+{
+  "collectionGroup": "articles",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "isActive", "order": "ASCENDING" },
+    { "fieldPath": "updatedAt", "order": "ASCENDING" }
+  ]
+}
+```
+
+```json
+// fieldOverrides entry
+{
+  "collectionGroup": "searchHistory",
+  "fieldPath": "timestamp",
+  "indexes": [
+    { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+  ]
+}
+```
+
 ## Composite Indexes
 
 Add these indexes to your `firestore.indexes.json` file or create them in the Firebase Console:
