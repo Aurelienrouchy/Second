@@ -84,7 +84,7 @@ export default function TermsScreen() {
           <Text variant="bodySmall" style={styles.listItem}>• Ne pas utiliser l'Application à des fins frauduleuses</Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>6. Articles interdits</Text>
+        <Text variant="h3" style={styles.sectionTitle}>7. Articles interdits</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Sont strictement interdits sur l'Application :
         </Text>
