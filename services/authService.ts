@@ -403,7 +403,10 @@ export class AuthService {
 
       let userData = await this.getUserData(firebaseUser.uid);
       // Calcule AVANT toute écriture (cf. signInWithGoogle).
-      const needsConsent = this.computeNeedsConsent(userCredential, userData);
+      const { needsConsent, isNewUser } = this.computeConsentState(
+        userCredential,
+        userData,
+      );
 
       if (!userData) {
         userData = {
