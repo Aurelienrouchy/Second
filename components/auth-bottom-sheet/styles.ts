@@ -228,13 +228,6 @@ export const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.primary,
   },
-  law25Note: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.muted,
-    marginTop: spacing.xs,
-  },
 
   // ── Field error ──
   fieldError: {
