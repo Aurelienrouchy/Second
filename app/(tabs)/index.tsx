@@ -19,7 +19,7 @@ import { Modal, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import VisualSearchCamera from '@/components/VisualSearchCamera';
-import { colors } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 
 import {
   DiscoverGrid,
