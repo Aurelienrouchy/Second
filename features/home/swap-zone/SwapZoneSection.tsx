@@ -46,7 +46,7 @@ const SwapZoneWrapperComponent: React.FC = () => {
 
   return (
     <LinearGradient
-      colors={imageGradients.dark}
+      colors={imageGradients.swapZone}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
       style={styles.section}
