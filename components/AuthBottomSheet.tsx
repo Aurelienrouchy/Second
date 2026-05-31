@@ -64,6 +64,10 @@ const AuthBottomSheet: React.FC = () => {
   // (success or rollback). Mirrors `pendingSocialUser` for use inside the
   // `onClose` callback, which can fire from a pan-down / backdrop dismiss.
   const pendingSocialUserRef = useRef<User | null>(null);
+  // Mirrors SocialAuthResult.isNewUser for the pending consent step. Decides
+  // whether a back-out rolls back DESTRUCTIVELY (brand-new account) or just
+  // signs out (existing account without dateOfBirth — must never be deleted).
+  const pendingIsNewUserRef = useRef(false);
   const consentResolvedRef = useRef(false);
 
   const isVisible = useAuthSheetStore((s) => s.isVisible);
