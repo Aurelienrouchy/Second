@@ -108,7 +108,7 @@ const AuthBottomSheet: React.FC = () => {
     // social account has no proof of consent → roll it back (Loi 25).
     if (pendingSocialUserRef.current && !consentResolvedRef.current) {
       consentResolvedRef.current = true;
-      void rollbackSocialSignIn();
+      void rollbackSocialSignIn(pendingIsNewUserRef.current);
     }
     resetForm();
     useAuthSheetStore.getState().hide();
