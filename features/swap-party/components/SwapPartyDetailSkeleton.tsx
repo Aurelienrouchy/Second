@@ -120,6 +120,6 @@ const styles = StyleSheet.create({
   gridTile: {
     flex: 1,
     aspectRatio: 3 / 4,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
   },
 });
