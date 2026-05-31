@@ -15,8 +15,11 @@ const STYLE_PROFILE_MIN_INTERACTIONS = 5;
  * 1. Replay onboarding preferences (size/sex) into the user's Firestore
  *    doc via the saveOnboardingPreferences Cloud Function.
  * 2. Generate a Gemini-backed style profile from guest behavioural data
- *    (likes, views, searches) when there is enough signal — fire and
- *    forget; failures must not block sign-in.
+ *    (likes, views, searches) when there is enough signal AND the user has
+ *    explicitly opted in to AI profiling (preferences.aiProfilingConsent ===
+ *    true). Opt-in is OFF by default (Loi 25 / RGPD) — without consent we
+ *    never send behavioural data to Gemini/Vertex for recommendations. Fire
+ *    and forget; failures must not block sign-in.
  *
  * Errors are swallowed because none of these are critical to the sign-in
  * flow. The caller is responsible for clearing the guest session
