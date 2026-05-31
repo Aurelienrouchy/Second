@@ -194,6 +194,11 @@ export { retryFailedOperations } from './scheduled/retryFailedOperations';
 // CRITICAL log + dead-letter on divergence)
 export { reconcileFinances } from './scheduled/reconcile';
 
+// Data-retention purge (daily: hard-delete stale personal data — inactive
+// articles > 3y, guest_preferences > 90d, notifications > 180d, searchHistory
+// > 12mo. NEVER touches transactions — 7-year legal retention. Loi 25 / RGPD)
+export { retentionPurge } from './scheduled/retentionPurge';
+
 // ============================================================
 // HTTP ENDPOINTS (webhooks)
 // ============================================================
