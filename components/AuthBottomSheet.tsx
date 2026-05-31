@@ -60,6 +60,11 @@ const AuthBottomSheet: React.FC = () => {
 
   const snapPoints = useMemo(() => ['82%'], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  // Tracks whether the social consent step is pending an explicit resolution
+  // (success or rollback). Mirrors `pendingSocialUser` for use inside the
+  // `onClose` callback, which can fire from a pan-down / backdrop dismiss.
+  const pendingSocialUserRef = useRef<User | null>(null);
+  const consentResolvedRef = useRef(false);
 
   const isVisible = useAuthSheetStore((s) => s.isVisible);
   const displayMessage = useAuthSheetStore((s) => s.message);
