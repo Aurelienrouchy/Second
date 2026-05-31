@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   // --- Loading skeleton ---
   skeletonLine: {
     borderRadius: radius.sm,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
   },
   skeletonTitle: {
     height: typography.hero.lineHeight,
