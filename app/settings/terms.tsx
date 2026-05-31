@@ -153,14 +153,15 @@ export default function TermsScreen() {
           de l'utilisation de l'Application ou de l'impossibilité de l'utiliser.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>12. Données personnelles</Text>
+        <Text variant="h3" style={styles.sectionTitle}>13. Données personnelles</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Le traitement de vos données personnelles est régi par notre Politique de
-          Confidentialité, accessible depuis l'Application. En utilisant l'Application, vous
-          consentez à ce traitement.
+          Confidentialité, accessible depuis l'Application. En cochant les cases prévues lors de
+          votre inscription, vous acceptez expressément les présentes Conditions d'utilisation et
+          notre Politique de confidentialité.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>13. Droit applicable et litiges</Text>
+        <Text variant="h3" style={styles.sectionTitle}>14. Droit applicable et litiges</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Les présentes CGU sont soumises au droit français. En cas de litige, une solution
           amiable sera recherchée avant toute action judiciaire. À défaut, les tribunaux
