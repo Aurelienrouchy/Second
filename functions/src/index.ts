@@ -116,6 +116,9 @@ export { deleteUserAccount } from './callable/users';
 // Consent & Age-Gate Functions
 export { recordSignupConsent } from './callable/consent';
 
+// Privacy Incident Register Functions (admin-only; Loi 25 / RGPD breach log)
+export { reportPrivacyIncident, getPrivacyIncidentsLog } from './callable/privacyIncidents';
+
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
