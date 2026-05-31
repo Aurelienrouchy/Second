@@ -114,8 +114,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   productCardDark: {
-    backgroundColor: colors.dark,
-    borderColor: colors.deep,
+    backgroundColor: colors.darkSurface1,
+    borderColor: colors.darkBorder,
+  },
+  productCardSelectedDark: {
+    borderColor: colors.rust,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
   },
   pressed: {
     opacity: 0.7,
