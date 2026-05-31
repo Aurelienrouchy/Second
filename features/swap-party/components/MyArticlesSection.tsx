@@ -174,7 +174,8 @@ const styles = StyleSheet.create({
   rail: {
     gap: spacing.sm,
     paddingVertical: spacing.xs,
-    alignItems: 'flex-start',
+    // Stretch so the leading "+" add tile matches the cards' height (no magic const).
+    alignItems: 'stretch',
   },
   // Card surface + full hairline frame, echoing productCardDark from PartyItemCard.
   tileCard: {
