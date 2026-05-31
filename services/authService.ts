@@ -337,7 +337,7 @@ export class AuthService {
         userData.displayName = googleName;
       }
 
-      return { user: userData, needsConsent };
+      return { user: userData, needsConsent, isNewUser };
     } catch (error: any) {
       if (error?.code === 'SIGN_IN_CANCELLED' || error?.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Connexion Google annulée');
