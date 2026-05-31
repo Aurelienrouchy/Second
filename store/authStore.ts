@@ -40,7 +40,12 @@ interface AuthActions {
   skipAuth: () => Promise<void>;
   refreshUser: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
-  signUpWithEmail: (email: string, password: string, username: string) => Promise<User>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    username: string,
+    consent: SignupConsent,
+  ) => Promise<User>;
   signInWithGoogle: () => Promise<User>;
   signInWithApple: () => Promise<User>;
   initGuestSession: () => Promise<void>;
