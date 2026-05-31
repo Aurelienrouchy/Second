@@ -17,7 +17,7 @@ import { StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 
-import { spacing, imageGradients } from '@/constants/theme';
+import { colors, spacing, imageGradients } from '@/constants/theme';
 import { SwapZoneSection as SwapZoneSectionUI } from '@/components/home/SwapZoneSection';
 import { useSwapParties } from './useSwapParties';
 import { useSwapZoneItems } from './useSwapZoneItems';
