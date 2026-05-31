@@ -337,23 +337,6 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     fontFamily: fonts.sansMedium,
   },
-  securityBox: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    gap: spacing.sm,
-  },
-  securityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  securityText: {
-    color: colors.foreground,
-  },
   footer: {
     marginTop: spacing['2xl'],
     paddingTop: spacing.lg,
