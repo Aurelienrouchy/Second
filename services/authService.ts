@@ -389,6 +389,9 @@ export class AuthService {
         || generateDefaultUsername(firebaseUser.uid);
 
       let userData = await this.getUserData(firebaseUser.uid);
+      // Calcule AVANT toute écriture (cf. signInWithGoogle).
+      const needsConsent = this.computeNeedsConsent(userCredential, userData);
+
       if (!userData) {
         userData = {
           id: firebaseUser.uid,
@@ -418,12 +421,52 @@ export class AuthService {
         userData.displayName = resolvedName;
       }
 
-      return userData;
+      return { user: userData, needsConsent };
     } catch (error: any) {
       if (error.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Connexion Apple annulée');
       }
       throw new Error('Erreur lors de la connexion Apple');
+    }
+  }
+
+  /**
+   * Rollback d'un compte social sans consentement (Loi 25 art. 12, 14).
+   *
+   * Appelé quand l'utilisateur refuse / ferme l'écran de consentement, a
+   * moins de 16 ans, ou si recordSignupConsent échoue après une PREMIÈRE
+   * connexion sociale. Supprime le doc users/{uid} (best-effort) puis le
+   * compte Firebase Auth (session récente) pour ne JAMAIS laisser subsister
+   * un compte sans preuve de consentement. Best-effort : on ne propage pas
+   * les erreurs de cleanup pour ne pas masquer la raison du rollback.
+   */
+  static async rollbackUnconsentedAccount(): Promise<void> {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return;
+
+    const uid = firebaseUser.uid;
+    try {
+      await deleteDoc(doc(firestore, 'users', uid));
+    } catch (cleanupError) {
+      if (__DEV__) {
+        console.error('[AuthService] rollbackUnconsentedAccount user doc cleanup failed:', cleanupError);
+      }
+    }
+
+    try {
+      await firebaseUser.delete();
+    } catch (deleteError) {
+      // Si delete() échoue (ex: requires-recent-login improbable ici), on
+      // garantit au moins la déconnexion pour ne pas laisser une session
+      // active sans consentement.
+      if (__DEV__) {
+        console.error('[AuthService] rollbackUnconsentedAccount auth delete failed:', deleteError);
+      }
+      try {
+        await this.signOut();
+      } catch {
+        // ignore
+      }
     }
   }
 
