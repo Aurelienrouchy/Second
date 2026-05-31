@@ -97,7 +97,7 @@ export default function TermsScreen() {
           <Text variant="bodySmall" style={styles.warningListItem}>• Données personnelles de tiers</Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>7. Transactions et responsabilités</Text>
+        <Text variant="h3" style={styles.sectionTitle}>8. Transactions et responsabilités</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'Éditeur agit uniquement en tant qu'intermédiaire technique et n'est pas partie aux
           transactions entre utilisateurs. Chaque utilisateur est seul responsable de ses
