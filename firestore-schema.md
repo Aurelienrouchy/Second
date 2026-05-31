@@ -418,6 +418,65 @@ Daily hard-delete of stale personal data (Loi 25 / RGPD data minimisation):
 
 `transactions` are **never** purged (7-year legal/accounting retention).
 
+### `automatic_decisions_log/{logId}`
+
+Transparency log of decisions taken **without human intervention** (Loi 25,
+art. 12.1). **WRITTEN SERVER-SIDE ONLY** by the `logAutomatedDecision` helper,
+called from the scheduled jobs `releaseHeldFunds` / `expireOrphanedTransactions`
+/ `sweepPendingLabels` **after** the monetary move succeeds (best-effort, never
+rolls back the money move). Firestore rules: **READ by a party** (buyer or
+seller of the linked transaction, resolved via `get()`) **or admin**;
+`create/update/delete: if false`.
+
+```typescript
+interface AutomaticDecisionLogDocument {
+  transactionId: string;        // links the decision to a transaction
+  userId: string;               // the party the decision concerns (seller for funds_released, buyer for refunds/expiry)
+  decisionType: 'funds_released' | 'transaction_expired' | 'label_refund';
+  criteria: Record<string, unknown>; // human-readable criteria that drove the decision (e.g. { status, disputed, fundsReleaseAt, disputeWindowDays })
+  result: string;               // human-readable outcome summary
+  executedAt: Timestamp;        // serverTimestamp()
+}
+```
+
+The three automated decisions: `funds_released` (heldBalance→balance after the
+7-day dispute window, `releaseHeldFunds`), `transaction_expired`
+(meetup 48h / pending_payment 1h / paid-not-shipped 7d cancellation,
+`expireOrphanedTransactions`), `label_refund` (refund after the shipping label
+could never be created, `sweepPendingLabels`). At the moment of each decision
+the affected party also receives an in-app/push notification stating the
+decision was **automatic** and that it can be contested.
+
+Composite index required (used by `getAutomatedDecisionLog`):
+`(transactionId ASC, executedAt DESC)`.
+
+### `automated_decision_contestations/{contestationId}`
+
+Human-review requests against an automated decision (Loi 25, art. 12.1 right to
+request human intervention). Opened by the `contestAutomatedDecision` callable
+(Admin SDK). **REVERSES NOTHING automatically** — a human agent decides the
+outcome out-of-band. Firestore rules: **READ by the author** (`userId`) **or
+admin**; **CREATE allowed for the authenticated author** scoped to being a party
+(buyer/seller) of the linked transaction and self-tagging `userId == uid`;
+`update/delete: if false`.
+
+```typescript
+interface AutomatedDecisionContestationDocument {
+  transactionId: string;
+  userId: string;               // the contesting user (author == request.auth.uid)
+  buyerId: string | null;       // snapshot of the transaction parties
+  sellerId: string | null;
+  decisionType: 'funds_released' | 'transaction_expired' | 'label_refund';
+  reason: string;               // free-text justification (capped 2000 chars)
+  status: 'open';               // opened; resolution is admin/CF-owned
+  createdAt: Timestamp;         // serverTimestamp()
+}
+```
+
+Opening a contestation also writes a low-severity `privacy_incidents` register
+entry (`type: 'automated_decision_contestation'`) so the on-call admin dashboard
+surfaces it for human review.
+
 ### `favorites/{userId}`
 
 Single document per user containing all favorite article IDs.
