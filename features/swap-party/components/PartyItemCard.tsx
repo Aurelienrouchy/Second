@@ -43,6 +43,7 @@ export const PartyItemCard = React.memo(function PartyItemCard({
       style={({ pressed }) => [
         styles.productCard,
         isDark && styles.productCardDark,
+        (isDark && isSelected) && styles.productCardSelectedDark,
         (pressed && !disabled) && styles.pressed,
         disabled && styles.disabled,
       ]}
