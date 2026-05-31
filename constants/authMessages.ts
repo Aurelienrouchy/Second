@@ -29,10 +29,6 @@ export const COPY_CONSENT = {
   privacySuffix: '.',
   marketing:
     "J'accepte de recevoir des offres, baisses de prix et nouveautés (vous pouvez vous désabonner à tout moment).",
-  law25Prefix:
-    'Vos renseignements sont traités conformément à la Loi 25 (Québec). Voir notre ',
-  law25Link: 'Politique de confidentialité',
-  law25Suffix: '.',
 } as const;
 
 /**
