@@ -44,6 +44,8 @@ export interface User {
   displayName?: string;
   bio?: string;
   profileImage?: string;
+  /** ISO "YYYY-MM-DD" — stored as a string (no Date/object) to avoid timezone drift. Set server-side via recordSignupConsent. */
+  dateOfBirth?: string;
   createdAt: Date;
   rating?: number;
   phoneNumber?: string;
