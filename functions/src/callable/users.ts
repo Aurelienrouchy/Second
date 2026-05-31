@@ -85,7 +85,7 @@ export const deleteUserAccount = onCall(
     }
 
     // 1. Delete /users/{uid} sub-collections then the doc itself
-    for (const subCol of ['savedSearches', 'searchHistory']) {
+    for (const subCol of ['savedSearches', 'searchHistory', 'consents']) {
       const subSnap = await db.collection('users').doc(uid).collection(subCol).get();
       for (const d of subSnap.docs) bulkWriter.delete(d.ref);
     }
