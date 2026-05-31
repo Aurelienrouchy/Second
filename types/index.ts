@@ -23,6 +23,12 @@ export interface UserPreferences {
     /** @deprecated Not implemented — toggle removed from UI */
     allowSearchEngines?: boolean;
   };
+  /**
+   * Opt-in flag for AI personalisation/profiling (style profile, recommendations).
+   * ABSENT or false => AI profiling DISABLED (explicit opt-in, Loi 25 / RGPD).
+   * Default = false. Managed via the user preferences flow, NOT recordSignupConsent.
+   */
+  aiProfilingConsent?: boolean;
 }
 
 /**
