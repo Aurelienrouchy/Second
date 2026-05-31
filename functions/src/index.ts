@@ -124,6 +124,14 @@ export {
   notifyAffectedUsers,
 } from './callable/privacyIncidents';
 
+// Automated-decision transparency & contestation (Loi 25, art. 12.1)
+// contestAutomatedDecision: party opens a human-review request (reverses NOTHING).
+// getAutomatedDecisionLog: party reads the transparent log for one transaction.
+export {
+  contestAutomatedDecision,
+  getAutomatedDecisionLog,
+} from './callable/automatedDecisions';
+
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
