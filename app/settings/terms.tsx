@@ -122,7 +122,7 @@ export default function TermsScreen() {
           </View>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>9. Propriété intellectuelle</Text>
+        <Text variant="h3" style={styles.sectionTitle}>10. Propriété intellectuelle</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'Application, son contenu, sa structure et ses fonctionnalités sont protégés par le
           droit de la propriété intellectuelle. Toute reproduction, modification ou utilisation
