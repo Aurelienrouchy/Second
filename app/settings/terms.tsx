@@ -168,7 +168,7 @@ export default function TermsScreen() {
           français seront seuls compétents.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>14. Contact</Text>
+        <Text variant="h3" style={styles.sectionTitle}>15. Contact</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Pour toute question relative aux présentes CGU, vous pouvez nous contacter à l'adresse
           suivante : support@seconde.app
