@@ -278,6 +278,46 @@ const AuthBottomSheet: React.FC = () => {
   }, []);
 
   const renderBody = () => {
+    if (authType === 'socialConsent') {
+      // Age + consent validation for the social step (server revalidates).
+      const dobComplete =
+        dobDay !== '' && dobMonth !== '' && dobYear.length === 4;
+      const isoDob = dobComplete
+        ? toIsoDate(
+            parseInt(dobYear, 10),
+            parseInt(dobMonth, 10),
+            parseInt(dobDay, 10),
+          )
+        : null;
+      const age = isoDob ? computeAgeFromIso(isoDob) : null;
+      const ageValid = age !== null && age >= MIN_AGE_REGISTER;
+      const showAgeError =
+        dobTouched && dobComplete && (isoDob === null || !ageValid);
+      const submitDisabled =
+        !ageValid || !acceptedTerms || !acceptedPrivacy || isLoading;
+
+      return (
+        <SocialConsentForm
+          dobDay={dobDay}
+          dobMonth={dobMonth}
+          dobYear={dobYear}
+          acceptedTerms={acceptedTerms}
+          acceptedPrivacy={acceptedPrivacy}
+          marketingOptIn={marketingOptIn}
+          showAgeError={showAgeError}
+          submitDisabled={submitDisabled}
+          isLoading={isLoading}
+          onChangeDobDay={setDobDay}
+          onChangeDobMonth={setDobMonth}
+          onChangeDobYear={setDobYear}
+          onBlurDob={() => setDobTouched(true)}
+          onToggleTerms={handleToggleTerms}
+          onTogglePrivacy={handleTogglePrivacy}
+          onToggleMarketing={handleToggleMarketing}
+          onSubmit={handleSocialConsentSubmit}
+        />
+      );
+    }
     if (authType === 'forgotPassword') {
       return (
         <ForgotPasswordForm
