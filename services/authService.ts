@@ -257,14 +257,17 @@ export class AuthService {
    * recordSignupConsent : son absence est la source de vérité du « pas
    * encore consenti ».
    */
-  private static computeNeedsConsent(
+  private static computeConsentState(
     userCredential: UserCredential,
     existingUser: User | null,
-  ): boolean {
+  ): { needsConsent: boolean; isNewUser: boolean } {
     const isNewUser = getAdditionalUserInfo(userCredential)?.isNewUser === true;
-    if (isNewUser) return true;
-    if (!existingUser) return true;
-    return !existingUser.dateOfBirth;
+    // needsConsent : nouveau compte, OU compte existant sans dateOfBirth.
+    // isNewUser : brand-new uniquement — détermine si un rollback peut
+    // supprimer le compte (cf. rollbackUnconsentedAccount).
+    const needsConsent =
+      isNewUser || !existingUser || !existingUser.dateOfBirth;
+    return { needsConsent, isNewUser };
   }
 
   /**
