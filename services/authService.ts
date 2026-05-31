@@ -76,16 +76,47 @@ export class AuthService {
   }
 
   /**
-   * Inscription avec email et mot de passe
+   * Inscription avec email et mot de passe + consentement (Loi 25 / age gate).
+   *
+   * L'âge (>= 16) est validé AVANT createUserWithEmailAndPassword pour ne jamais
+   * créer de compte orphelin. Après création du compte + user doc, le callable
+   * serveur `recordSignupConsent` persiste dateOfBirth + les docs consents
+   * (terms, privacy_policy, marketing) avec la version de politique courante.
    */
-  static async signUpWithEmail(email: string, password: string, displayName: string): Promise<User> {
+  static async signUpWithEmail(
+    email: string,
+    password: string,
+    displayName: string,
+    consent: SignupConsent,
+  ): Promise<User> {
+    // ── Age gate AVANT toute création de compte (pas d'orphelin) ──
+    const age = computeAgeFromIso(consent.dateOfBirth);
+    if (age === null) {
+      throw new Error('La date de naissance est invalide');
+    }
+    if (age < MIN_AGE_REGISTER) {
+      throw new Error(
+        `Vous devez avoir au moins ${MIN_AGE_REGISTER} ans pour utiliser Second.`,
+      );
+    }
+    if (!consent.acceptedTerms || !consent.acceptedPrivacy) {
+      throw new Error(
+        "Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité.",
+      );
+    }
+
+    let firebaseUser: import('firebase/auth').User;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
+      firebaseUser = userCredential.user;
 
       // Mettre à jour le profil Firebase avec le nom d'affichage
       await updateProfile(firebaseUser, { displayName });
+    } catch (error: any) {
+      throw new Error(this.getAuthErrorMessage(error.code));
+    }
 
+    try {
       // Créer l'utilisateur dans Firestore
       const userData: User = {
         id: firebaseUser.uid,
@@ -93,6 +124,7 @@ export class AuthService {
         displayName,
         createdAt: new Date(),
         isActive: true,
+        dateOfBirth: consent.dateOfBirth,
       };
 
       if (firebaseUser.photoURL) {
@@ -114,8 +146,30 @@ export class AuthService {
 
       await setDoc(doc(firestore, 'users', firebaseUser.uid), firestoreData);
 
+      // Persister dateOfBirth + consents côté serveur (source de vérité).
+      // recordSignupConsent revalide l'âge et écrit la sous-collection consents.
+      const recordConsentFn = httpsCallable<
+        {
+          dateOfBirth: string;
+          acceptedTerms: boolean;
+          acceptedPrivacy: boolean;
+          marketingOptIn: boolean;
+        },
+        { ok: true; age: number }
+      >(functions, 'recordSignupConsent');
+
+      await recordConsentFn({
+        dateOfBirth: consent.dateOfBirth,
+        acceptedTerms: consent.acceptedTerms,
+        acceptedPrivacy: consent.acceptedPrivacy,
+        marketingOptIn: consent.marketingOptIn,
+      });
+
       return userData;
     } catch (error: any) {
+      if (__DEV__) {
+        console.error('[AuthService] signUpWithEmail post-create error:', error);
+      }
       throw new Error(this.getAuthErrorMessage(error.code));
     }
   }
