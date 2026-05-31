@@ -125,12 +125,17 @@ export default function TabLayout() {
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
-            if (!useAuthStore.getState().user) {
+            const currentUser = useAuthStore.getState().user;
+            if (!currentUser) {
               e.preventDefault();
               useAuthSheetStore.getState().show(
                 AUTH_MESSAGES.sell,
                 () => navigation.navigate('sell')
               );
+            } else if (!canSell(currentUser.dateOfBirth)) {
+              // 16-17 ans : achat/navigation OK, mais vente bloquée (18+ Stripe).
+              e.preventDefault();
+              Alert.alert('Vente non disponible', COPY_SELL_GATE);
             } else if (Platform.OS === 'ios') {
               e.preventDefault();
               immerse({
