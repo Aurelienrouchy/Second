@@ -22,7 +22,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { useAuthStore } from '@/store/authStore';
 import { GuestSession } from '@/services/guestPreferencesService';
-import { SignupConsent } from '@/services/authService';
+import { SignupConsent, SocialAuthResult } from '@/services/authService';
 import { User } from '@/types';
 
 // ─── Focused hooks ──────────────────────────────────────────────────────────
