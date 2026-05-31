@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   signOut as firebaseSignOut,
+  getAdditionalUserInfo,
   GoogleAuthProvider,
   OAuthProvider,
   signInWithCredential,
@@ -17,6 +18,7 @@ import {
   sendEmailVerification as firebaseSendEmailVerification,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   reload,
+  type UserCredential,
 } from 'firebase/auth';
 import {
   arrayUnion,
