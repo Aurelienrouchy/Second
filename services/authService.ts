@@ -431,6 +431,65 @@ export class AuthService {
   }
 
   /**
+   * Enregistre le consentement (date de naissance + CGU + politique + opt-in
+   * marketing) pour l'utilisateur DÉJÀ authentifié — utilisé par l'écran de
+   * consentement obligatoire qui suit une première connexion sociale.
+   *
+   * Réutilise le callable serveur `recordSignupConsent` (région
+   * northamerica-northeast1), source de vérité : il revalide l'âge (>= 16,
+   * America/Toronto), écrit users/{uid}.dateOfBirth et la sous-collection
+   * consents. L'âge est aussi pré-validé côté client (UX) avant l'appel.
+   *
+   * Retourne le User rafraîchi (avec dateOfBirth). Lève en cas d'âge < 16,
+   * de cases manquantes ou d'échec serveur — le caller doit alors rollback.
+   */
+  static async recordConsentForCurrentUser(consent: SignupConsent): Promise<User> {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error('Utilisateur non connecté');
+    }
+
+    // ── Age gate client (UX) — le serveur revalide de toute façon ──
+    const age = computeAgeFromIso(consent.dateOfBirth);
+    if (age === null) {
+      throw new Error('La date de naissance est invalide');
+    }
+    if (age < MIN_AGE_REGISTER) {
+      throw new Error(
+        `Vous devez avoir au moins ${MIN_AGE_REGISTER} ans pour utiliser Second.`,
+      );
+    }
+    if (!consent.acceptedTerms || !consent.acceptedPrivacy) {
+      throw new Error(
+        "Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité.",
+      );
+    }
+
+    const recordConsentFn = httpsCallable<
+      {
+        dateOfBirth: string;
+        acceptedTerms: boolean;
+        acceptedPrivacy: boolean;
+        marketingOptIn: boolean;
+      },
+      { ok: true; age: number }
+    >(functions, 'recordSignupConsent');
+
+    await recordConsentFn({
+      dateOfBirth: consent.dateOfBirth,
+      acceptedTerms: consent.acceptedTerms,
+      acceptedPrivacy: consent.acceptedPrivacy,
+      marketingOptIn: consent.marketingOptIn,
+    });
+
+    const fresh = await this.getUserData(firebaseUser.uid);
+    if (!fresh) {
+      throw new Error('Données utilisateur introuvables');
+    }
+    return fresh;
+  }
+
+  /**
    * Rollback d'un compte social sans consentement (Loi 25 art. 12, 14).
    *
    * Appelé quand l'utilisateur refuse / ferme l'écran de consentement, a
