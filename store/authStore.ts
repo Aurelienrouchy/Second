@@ -190,8 +190,8 @@ export const useAuthStore = create<AuthStore>()(
     return userData;
   },
 
-  signUpWithEmail: async (email, password, username) => {
-    const userData = await AuthService.signUpWithEmail(email, password, username);
+  signUpWithEmail: async (email, password, username, consent) => {
+    const userData = await AuthService.signUpWithEmail(email, password, username, consent);
     await get().signIn(userData);
     await get().mergeGuestToUser(userData.id);
     return userData;
