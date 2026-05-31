@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
-import { colors, spacing, fonts, radius } from '@/constants/theme';
+import { colors, spacing, fonts, radius, sizing } from '@/constants/theme';
 import { useNotificationStore, selectUnreadCount } from '@/store/notificationStore';
 import { CATEGORIES } from '@/data/categories-v2';
 
