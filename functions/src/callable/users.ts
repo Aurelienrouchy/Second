@@ -21,6 +21,7 @@ export const deleteUserAccount = onCall(
     region: 'northamerica-northeast1',
     memory: '512MiB',
     timeoutSeconds: 120,
+    secrets: ['STRIPE_SECRET_KEY'],
   },
   async (request) => {
     // 1. Auth check — only the authenticated user can delete their own account
