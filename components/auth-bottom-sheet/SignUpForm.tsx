@@ -206,97 +206,23 @@ function SignUpFormComponent({
         <Text style={styles.fieldError}>6 caractères minimum</Text>
       ) : null}
 
-      {/* Date of birth (age gate) */}
-      <Text style={styles.dobLabel}>{COPY_CONSENT.dobLabel}</Text>
-      <View style={styles.dobRow}>
-        <TextInput
-          style={[styles.input, styles.dobField]}
-          placeholder="JJ"
-          placeholderTextColor={colors.muted}
-          value={dobDay}
-          onChangeText={(t) => onChangeDobDay(t.replace(/\D/g, '').slice(0, 2))}
-          onBlur={() => handleBlur('dob')}
-          keyboardType="number-pad"
-          maxLength={2}
-          accessibilityLabel="Jour de naissance"
-        />
-        <Text style={styles.dobSeparator}>/</Text>
-        <TextInput
-          style={[styles.input, styles.dobField]}
-          placeholder="MM"
-          placeholderTextColor={colors.muted}
-          value={dobMonth}
-          onChangeText={(t) =>
-            onChangeDobMonth(t.replace(/\D/g, '').slice(0, 2))
-          }
-          onBlur={() => handleBlur('dob')}
-          keyboardType="number-pad"
-          maxLength={2}
-          accessibilityLabel="Mois de naissance"
-        />
-        <Text style={styles.dobSeparator}>/</Text>
-        <TextInput
-          style={[styles.input, styles.dobFieldYear]}
-          placeholder="AAAA"
-          placeholderTextColor={colors.muted}
-          value={dobYear}
-          onChangeText={(t) => onChangeDobYear(t.replace(/\D/g, '').slice(0, 4))}
-          onBlur={() => handleBlur('dob')}
-          keyboardType="number-pad"
-          maxLength={4}
-          accessibilityLabel="Année de naissance"
-        />
-      </View>
-      {showAgeError ? (
-        <Text style={styles.fieldError}>{COPY_CONSENT.ageError}</Text>
-      ) : null}
-
-      {/* Consent checkboxes */}
-      <View style={styles.consentBlock}>
-        <Checkbox
-          checked={acceptedTerms}
-          onToggle={onToggleTerms}
-          accessibilityLabel={`${COPY_CONSENT.termsPrefix}${COPY_CONSENT.termsLink}`}
-        >
-          <Text style={styles.consentText}>
-            {COPY_CONSENT.termsPrefix}
-            <Link href="/settings/terms" style={styles.consentLink}>
-              {COPY_CONSENT.termsLink}
-            </Link>
-            {COPY_CONSENT.termsSuffix}
-          </Text>
-        </Checkbox>
-
-        <Checkbox
-          checked={acceptedPrivacy}
-          onToggle={onTogglePrivacy}
-          accessibilityLabel={`${COPY_CONSENT.privacyPrefix}${COPY_CONSENT.privacyLink}`}
-        >
-          <Text style={styles.consentText}>
-            {COPY_CONSENT.privacyPrefix}
-            <Link href="/settings/privacy-policy" style={styles.consentLink}>
-              {COPY_CONSENT.privacyLink}
-            </Link>
-            {COPY_CONSENT.privacySuffix}
-          </Text>
-        </Checkbox>
-
-        <Checkbox
-          checked={marketingOptIn}
-          onToggle={onToggleMarketing}
-          accessibilityLabel={COPY_CONSENT.marketing}
-        >
-          <Text style={styles.consentText}>{COPY_CONSENT.marketing}</Text>
-        </Checkbox>
-
-        <Text style={styles.law25Note}>
-          {COPY_CONSENT.law25Prefix}
-          <Link href="/settings/privacy-policy" style={styles.consentLink}>
-            {COPY_CONSENT.law25Link}
-          </Link>
-          {COPY_CONSENT.law25Suffix}
-        </Text>
-      </View>
+      {/* Date of birth (age gate) + consent checkboxes — shared with social flow */}
+      <ConsentFields
+        dobDay={dobDay}
+        dobMonth={dobMonth}
+        dobYear={dobYear}
+        acceptedTerms={acceptedTerms}
+        acceptedPrivacy={acceptedPrivacy}
+        marketingOptIn={marketingOptIn}
+        showAgeError={showAgeError}
+        onChangeDobDay={onChangeDobDay}
+        onChangeDobMonth={onChangeDobMonth}
+        onChangeDobYear={onChangeDobYear}
+        onBlurDob={() => handleBlur('dob')}
+        onToggleTerms={onToggleTerms}
+        onTogglePrivacy={onTogglePrivacy}
+        onToggleMarketing={onToggleMarketing}
+      />
 
       <Pressable
         style={[styles.primaryButton, submitDisabled && styles.disabledButton]}
