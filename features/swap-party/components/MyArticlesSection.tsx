@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     letterSpacing: 1.0,
     textTransform: 'uppercase',
-    color: colors.whiteTranslucent,
+    color: colors.sand,
     marginBottom: 2,
   },
   rowTitle: {
