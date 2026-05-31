@@ -178,6 +178,58 @@ export const styles = StyleSheet.create({
     color: colors.primary,
   },
 
+  // ── Date of birth ──
+  dobLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  dobRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  dobField: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  dobFieldYear: {
+    flex: 1.5,
+    textAlign: 'center',
+  },
+  dobSeparator: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
+
+  // ── Consent ──
+  consentBlock: {
+    marginTop: spacing.md,
+  },
+  consentText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.foreground,
+  },
+  consentLink: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.primary,
+  },
+  law25Note: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+
   // ── Field error ──
   fieldError: {
     fontFamily: fonts.sans,
