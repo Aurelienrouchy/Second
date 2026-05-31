@@ -19,14 +19,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthActions } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
-import { toIsoDate } from '@/utils/age';
+import { User } from '@/types';
+import { computeAgeFromIso, MIN_AGE_REGISTER, toIsoDate } from '@/utils/age';
 
 import { ForgotPasswordForm } from './auth-bottom-sheet/ForgotPasswordForm';
 import { SignInForm } from './auth-bottom-sheet/SignInForm';
 import { SignUpForm } from './auth-bottom-sheet/SignUpForm';
+import { SocialConsentForm } from './auth-bottom-sheet/SocialConsentForm';
 import { styles } from './auth-bottom-sheet/styles';
 
-type AuthMode = 'signIn' | 'signUp' | 'forgotPassword';
+type AuthMode = 'signIn' | 'signUp' | 'forgotPassword' | 'socialConsent';
 
 const AuthBottomSheet: React.FC = () => {
   const [authType, setAuthType] = useState<AuthMode>('signIn');
