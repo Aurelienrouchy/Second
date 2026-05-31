@@ -355,6 +355,27 @@ export default function StripeOnboardingScreen() {
     );
   }
 
+  // ---- Age gate: selling requires 18+ (Stripe payout account) ----
+  if (!canSell(user?.dateOfBirth)) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenHeader title="Compte de paiement" onBack={() => router.back()} />
+        <View style={styles.centerState}>
+          <Ionicons name="lock-closed-outline" size={48} color={colors.muted} />
+          <Text style={styles.ageGateText}>{COPY_SELL_GATE}</Text>
+          <Button
+            variant="primary"
+            onPress={() => router.back()}
+            style={styles.centerStateButton}
+          >
+            Continuer
+          </Button>
+        </View>
+      </View>
+    );
+  }
+
   // ---- Loading skeleton ----
   if (isLoading) {
     return (
