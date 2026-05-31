@@ -277,6 +277,46 @@ export const deleteUserAccount = onCall(
       logger.error('[deleteUserAccount] Storage cleanup error', { uid, error: e });
     }
 
+    // 16b. Delete the Stripe Connect Custom account (white-label — the platform
+    //      owns/controls the account, so accounts.del is the correct teardown for
+    //      a Custom connected account). Best-effort: never blocks the rest of the
+    //      deletion. On failure we log AND record a privacy_incidents entry
+    //      (type: deletion_failed) so the dangling Stripe account is tracked for
+    //      manual reconciliation (Loi 25 / RGPD accountability).
+    const stripeAccountId = userData?.stripeAccountId;
+    if (typeof stripeAccountId === 'string' && stripeAccountId.length > 0) {
+      try {
+        const stripe = getStripe();
+        if (!stripe) {
+          throw new Error('Stripe client unavailable (missing STRIPE_SECRET_KEY)');
+        }
+        await stripe.accounts.del(stripeAccountId);
+        logger.info('[deleteUserAccount] Stripe Connect account deleted', {
+          uid,
+          stripeAccountId,
+        });
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Unknown error';
+        logger.error('[deleteUserAccount] Failed to delete Stripe Connect account', {
+          uid,
+          stripeAccountId,
+          error: message,
+        });
+        // Record an incident so the orphaned Stripe account can be reconciled manually.
+        await recordPrivacyIncident({
+          type: 'deletion_failed',
+          severity: 'high',
+          description: `Échec de la suppression du compte Stripe Connect lors de la suppression du compte utilisateur. Compte Stripe orphelin à supprimer manuellement. Erreur: ${message}`,
+          affectedUserIds: [uid],
+          affectedDataFields: ['stripeAccountId'],
+          measures: 'Suppression manuelle du compte Stripe Connect requise.',
+          notifiedCAI: false,
+          status: 'open',
+        });
+        // Don't throw — the rest of the user data is already cleaned up.
+      }
+    }
+
     // 17. Delete Firebase Auth user (last step — after all data is cleaned up)
     try {
       await auth.deleteUser(uid);
