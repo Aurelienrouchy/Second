@@ -126,8 +126,8 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: sizing.buttonHeightSmall,
+    height: sizing.buttonHeightSmall,
     borderRadius: 0,
     backgroundColor: colors.white,
     borderWidth: 1,
