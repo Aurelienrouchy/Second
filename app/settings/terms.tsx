@@ -32,12 +32,19 @@ export default function TermsScreen() {
 
         <Text variant="h3" style={styles.sectionTitle}>2. Acceptation des CGU</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          L'utilisation de l'Application implique l'acceptation pleine et entière des présentes
-          CGU. Si vous n'acceptez pas ces conditions, vous ne devez pas utiliser l'Application.
+          En cochant les cases prévues lors de votre inscription, vous acceptez expressément les
+          présentes Conditions d'utilisation et notre Politique de confidentialité.
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'Éditeur se réserve le droit de modifier les présentes CGU à tout moment. Les
           utilisateurs seront informés de toute modification par notification dans l'Application.
+        </Text>
+
+        <Text variant="h3" style={styles.sectionTitle}>3. Admissibilité / Âge</Text>
+        <Text variant="bodySmall" style={styles.paragraph}>
+          Vous devez avoir au moins 16 ans pour créer un compte et utiliser Second. La vente
+          d'articles est réservée aux personnes de 18 ans et plus, en raison des exigences de
+          notre partenaire de paiement. En créant un compte, vous confirmez avoir l'âge requis.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>3. Inscription et compte utilisateur</Text>
