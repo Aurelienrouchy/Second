@@ -16,6 +16,9 @@ export type { ButtonVariant, ButtonSize } from './Button';
 export { Input } from './Input';
 export type { InputVariant } from './Input';
 
+export { Checkbox } from './Checkbox';
+export type { CheckboxProps } from './Checkbox';
+
 export { Avatar } from './Avatar';
 export type { AvatarSize } from './Avatar';
 
