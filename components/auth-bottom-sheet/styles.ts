@@ -29,6 +29,12 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     textAlign: 'center',
   },
+  // Standalone title (no `subtitle` second line below it, e.g. SocialConsentForm):
+  // adds the same gap to the message that `subtitle.marginBottom` provides on
+  // the other auth forms, so the title↔message rhythm stays consistent.
+  titleStandalone: {
+    marginBottom: spacing.sm,
+  },
   subtitle: {
     fontFamily: fonts.display,
     fontSize: 32,
