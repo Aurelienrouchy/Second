@@ -129,7 +129,9 @@ const styles = StyleSheet.create({
   rowImage: {
     width: 48,
     height: 60,
-    backgroundColor: colors.deep,
+    backgroundColor: colors.darkSurface2,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
     borderRadius: radius.none,
   },
   rowContent: {
