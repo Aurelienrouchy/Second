@@ -229,13 +229,29 @@ async function refundPendingLabelTransaction(
     transactionId,
   });
 
-  // Notify buyer (best-effort).
+  // Loi 25 art. 12.1 — journal the AUTOMATED refund decision (best-effort,
+  // never affects the refund already committed by the core).
+  await logAutomatedDecision({
+    transactionId,
+    userId: typeof txData.buyerId === 'string' ? txData.buyerId : '',
+    decisionType: 'label_refund',
+    criteria: {
+      status: 'paid',
+      labelCreationPending: true,
+      maxAttempts: MAX_ATTEMPTS,
+      cancelReason: 'label_creation_failed',
+    },
+    result: 'Commande annulée et remboursée (étiquette d\'expédition impossible à générer)',
+  });
+
+  // Notify buyer (best-effort). ENRICHED for Loi 25 transparency: states the
+  // decision was AUTOMATIC and that it can be contested (right to human review).
   if (txData.buyerId) {
     const articleTitle = txData.articleTitle || 'votre article';
     sendPushNotification(
       txData.buyerId,
-      'Commande annulee et remboursee',
-      `Nous n'avons pas pu generer l'etiquette d'expedition pour ${articleTitle}. Votre commande a ete annulee et remboursee.`,
+      'Commande annulée et remboursée automatiquement',
+      `Nous n'avons pas pu générer l'étiquette d'expédition pour ${articleTitle}. Votre commande a été annulée et remboursée automatiquement. Si vous contestez cette décision, vous pouvez nous le signaler.`,
       { transactionId, articleId: txData.articleId || '' },
       'order_cancelled'
     ).catch((err) => {
