@@ -143,7 +143,7 @@ export default function TermsScreen() {
           <Text variant="bodySmall" style={styles.listItem}>• Signaler aux autorités compétentes tout comportement illégal</Text>
         </View>
 
-        <Text variant="h3" style={styles.sectionTitle}>11. Limitation de responsabilité</Text>
+        <Text variant="h3" style={styles.sectionTitle}>12. Limitation de responsabilité</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           L'Éditeur s'efforce d'assurer la disponibilité et le bon fonctionnement de
           l'Application, mais ne peut garantir une disponibilité continue et sans erreur.
