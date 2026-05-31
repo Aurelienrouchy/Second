@@ -77,8 +77,10 @@ export interface AuthContextType {
     username: string,
     consent: SignupConsent,
   ) => Promise<User>;
-  signInWithGoogle: () => Promise<User>;
-  signInWithApple: () => Promise<User>;
+  signInWithGoogle: () => Promise<SocialAuthResult>;
+  signInWithApple: () => Promise<SocialAuthResult>;
+  recordSocialConsent: (user: User, consent: SignupConsent) => Promise<User>;
+  rollbackSocialSignIn: () => Promise<void>;
   initGuestSession: () => Promise<void>;
   mergeGuestToUser: (userId: string) => Promise<void>;
 }
