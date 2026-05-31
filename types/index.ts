@@ -19,6 +19,12 @@ export interface UserPreferences {
     offerResponse: boolean;       // Réponse à ma proposition
   };
   privacy?: {
+    /**
+     * Privacy-by-default (Loi 25 art. 9.1) : la photo de profil n'est PAS visible
+     * publiquement tant que l'utilisateur ne l'a pas explicitement activé.
+     * ABSENT => false (privacy by default). Default = false pour les NOUVEAUX
+     * utilisateurs ; les préférences déjà enregistrées ne sont jamais réécrites.
+     */
     showProfilePhoto: boolean;
     /** @deprecated Not implemented — toggle removed from UI */
     allowSearchEngines?: boolean;
@@ -29,6 +35,15 @@ export interface UserPreferences {
    * Default = false. Managed via the user preferences flow, NOT recordSignupConsent.
    */
   aiProfilingConsent?: boolean;
+  /**
+   * Consentement aux communications marketing (LCAP / Loi canadienne anti-pourriel).
+   * Le consentement INITIAL (opt-in) est enregistré côté serveur dans la sous-collection
+   * users/{uid}/consents (type 'marketing', version POLICY_VERSION) via recordSignupConsent.
+   * Ce champ est le miroir applicatif de l'état courant : passer à `false` matérialise un
+   * RETRAIT du consentement (art. 14), retirable et réactivable à tout moment depuis
+   * app/settings/privacy.tsx. ABSENT => pas de consentement marketing actif (privacy by default).
+   */
+  marketingConsent?: boolean;
 }
 
 /**
