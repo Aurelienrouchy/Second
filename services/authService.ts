@@ -32,6 +32,20 @@ import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 
+import { computeAgeFromIso, MIN_AGE_REGISTER } from '@/utils/age';
+
+/**
+ * Consent payload collected at signup. `dateOfBirth` is an ISO "YYYY-MM-DD"
+ * calendar string (no Date/timezone) shared with the backend callable
+ * `recordSignupConsent`.
+ */
+export interface SignupConsent {
+  dateOfBirth: string;
+  acceptedTerms: boolean;
+  acceptedPrivacy: boolean;
+  marketingOptIn: boolean;
+}
+
 function generateDefaultUsername(uid: string): string {
   return `user${uid.slice(-6)}`;
 }
