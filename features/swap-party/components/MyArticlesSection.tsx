@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: colors.darkSurface1,
     borderBottomWidth: 1,
-    borderBottomColor: colors.darkBorder,
+    borderBottomColor: colors.darkBorderStrong,
     borderLeftWidth: 3,
     borderLeftColor: colors.rust,
     paddingHorizontal: spacing.md + 4,
