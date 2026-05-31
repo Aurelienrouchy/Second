@@ -76,9 +76,11 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface1,
     borderBottomWidth: 1,
-    borderBottomColor: colors.deep,
+    borderBottomColor: colors.darkBorder,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.rust,
     paddingHorizontal: spacing.md + 4,
     paddingVertical: spacing.md - 2,
   },
