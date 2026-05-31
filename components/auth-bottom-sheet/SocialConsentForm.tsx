@@ -61,7 +61,7 @@ function SocialConsentFormComponent({
 }: SocialConsentFormProps) {
   return (
     <>
-      <Text style={styles.title}>Avant de continuer</Text>
+      <Text style={[styles.title, styles.titleStandalone]}>Avant de continuer</Text>
       <Text style={styles.message}>
         Pour utiliser Second, indiquez votre date de naissance et acceptez nos
         conditions.
