@@ -113,6 +113,9 @@ export { createReview, getUserReviews, getUserPublicProfile } from './callable/r
 // User Account Functions
 export { deleteUserAccount } from './callable/users';
 
+// Consent & Age-Gate Functions
+export { recordSignupConsent } from './callable/consent';
+
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
