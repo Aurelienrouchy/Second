@@ -306,7 +306,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.caption.lineHeight,
     letterSpacing: typography.caption.letterSpacing,
     color: colors.sand,
-    paddingLeft: spacing.xs,
   },
   hint: {
     fontFamily: typography.caption.fontFamily,
