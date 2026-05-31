@@ -79,7 +79,7 @@ const AuthBottomSheet: React.FC = () => {
     }
   }, [isVisible, sheetVersion]);
 
-  const handleClose = useCallback(() => {
+  const resetForm = useCallback(() => {
     setEmail('');
     setPassword('');
     setUsername('');
@@ -89,11 +89,25 @@ const AuthBottomSheet: React.FC = () => {
     setAcceptedTerms(false);
     setAcceptedPrivacy(false);
     setMarketingOptIn(false);
+    setDobTouched(false);
     setAuthType('signIn');
     setIsLoading(false);
     setResetEmailSent(false);
-    useAuthSheetStore.getState().hide();
+    setPendingSocialUser(null);
+    pendingSocialUserRef.current = null;
   }, []);
+
+  const handleClose = useCallback(() => {
+    // If the sheet is dismissed (pan-down / backdrop / programmatic close)
+    // while a social consent step is still unresolved, the freshly created
+    // social account has no proof of consent → roll it back (Loi 25).
+    if (pendingSocialUserRef.current && !consentResolvedRef.current) {
+      consentResolvedRef.current = true;
+      void rollbackSocialSignIn();
+    }
+    resetForm();
+    useAuthSheetStore.getState().hide();
+  }, [resetForm, rollbackSocialSignIn]);
 
   const handleToggleTerms = useCallback(() => setAcceptedTerms((v) => !v), []);
   const handleTogglePrivacy = useCallback(
