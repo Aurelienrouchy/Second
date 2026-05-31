@@ -49,6 +49,23 @@ export interface SignupConsent {
   marketingOptIn: boolean;
 }
 
+/**
+ * Result of a social sign-in (Google/Apple).
+ *
+ * `needsConsent` is true when the account is BRAND NEW (Firebase
+ * `isNewUser`) or when an existing account has no recorded consent yet
+ * (no `dateOfBirth` on users/{uid}). In that case the caller MUST present
+ * the mandatory consent step (age gate + Terms + Privacy) BEFORE letting
+ * the user into the app — a social sign-in must never bypass Loi 25
+ * consent (art. 12, 14). If the user backs out, the caller must call
+ * `AuthService.rollbackUnconsentedAccount()` so no account ever subsists
+ * without proof of consent.
+ */
+export interface SocialAuthResult {
+  user: User;
+  needsConsent: boolean;
+}
+
 function generateDefaultUsername(uid: string): string {
   return `user${uid.slice(-6)}`;
 }
