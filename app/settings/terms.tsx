@@ -108,7 +108,7 @@ export default function TermsScreen() {
           ni la véracité des informations fournies par les utilisateurs.
         </Text>
 
-        <Text variant="h3" style={styles.sectionTitle}>8. Remise en main propre</Text>
+        <Text variant="h3" style={styles.sectionTitle}>9. Remise en main propre</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Pour les remises en main propre, nous recommandons de :
         </Text>
