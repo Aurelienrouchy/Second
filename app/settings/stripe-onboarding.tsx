@@ -748,6 +748,13 @@ const styles = StyleSheet.create({
   centerStateButton: {
     minWidth: 160,
   },
+  ageGateText: {
+    ...typography.body,
+    color: colors.foreground,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
   statusCard: {
     backgroundColor: colors.surfaceWarm,
     borderRadius: radius.xl,
