@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.deep,
   },
   line: {
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
     borderRadius: radius.xs,
   },
   header: {
