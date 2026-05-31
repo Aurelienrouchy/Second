@@ -98,6 +98,41 @@ export interface ConsentRecord {
   channel: 'app';
 }
 
+/**
+ * Privacy incident severity levels (internal register — Loi 25 / RGPD).
+ */
+export type PrivacyIncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+/**
+ * Privacy incident lifecycle status.
+ */
+export type PrivacyIncidentStatus = 'open' | 'investigating' | 'contained' | 'resolved';
+
+/**
+ * Privacy/security incident register entry.
+ * Lives in the `privacy_incidents/{id}` collection. WRITTEN SERVER-SIDE ONLY
+ * (Admin SDK via reportPrivacyIncident or automated handlers); READ by admins
+ * only. Used for breach logging and CAI (Commission d'accès à l'information)
+ * notification tracking under Loi 25.
+ */
+export interface PrivacyIncident {
+  /** Free-form classifier, e.g. "data_breach", "deletion_failed", "unauthorized_access". */
+  type: string;
+  severity: PrivacyIncidentSeverity;
+  description: string;
+  /** serverTimestamp() written server-side; read back as a Date on the client. */
+  detectedAt: Date;
+  /** UIDs of affected users (may be empty if not yet scoped). */
+  affectedUserIds: string[];
+  /** Data fields/categories impacted, e.g. ["email", "address"]. */
+  affectedDataFields: string[];
+  /** Mitigation/remediation measures taken or planned. */
+  measures: string;
+  /** Whether the CAI (Commission d'accès à l'information) was notified. */
+  notifiedCAI: boolean;
+  status: PrivacyIncidentStatus;
+}
+
 export interface ArticleImage {
   url: string;
   blurhash?: string;
