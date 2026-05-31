@@ -56,8 +56,13 @@ interface AuthActions {
   signInWithApple: () => Promise<SocialAuthResult>;
   /** Records consent for the just-authenticated social user, then signs them in. */
   recordSocialConsent: (user: User, consent: SignupConsent) => Promise<User>;
-  /** Rolls back a social account that never completed the consent step. */
-  rollbackSocialSignIn: () => Promise<void>;
+  /**
+   * Rolls back a social account that never completed the consent step.
+   * `isNewUser` MUST be the value from the originating SocialAuthResult:
+   * a brand-new account is deleted, an existing account is only signed out
+   * (never destroyed — it may carry a seller balance / orders).
+   */
+  rollbackSocialSignIn: (isNewUser: boolean) => Promise<void>;
   initGuestSession: () => Promise<void>;
   mergeGuestToUser: (userId: string) => Promise<void>;
 
