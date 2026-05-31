@@ -199,17 +199,20 @@ const AuthBottomSheet: React.FC = () => {
       // Consent recorded server-side → user is now signed in.
       consentResolvedRef.current = true;
       pendingSocialUserRef.current = null;
+      pendingIsNewUserRef.current = false;
       handleSuccess();
     } catch (error: any) {
-      // Age < 16, missing boxes, or callable failure → roll the account back
-      // so no social account ever subsists without consent (Loi 25).
+      // Age < 16, missing boxes, or callable failure → roll the account back.
+      // Brand-new account → deleted ; existing account → only signed out, so
+      // no account with a balance is ever destroyed (Loi 25 + safety).
       consentResolvedRef.current = true;
       try {
-        await rollbackSocialSignIn();
+        await rollbackSocialSignIn(pendingIsNewUserRef.current);
       } catch {
         // best-effort
       }
       pendingSocialUserRef.current = null;
+      pendingIsNewUserRef.current = false;
       setPendingSocialUser(null);
       setIsLoading(false);
       Alert.alert(
