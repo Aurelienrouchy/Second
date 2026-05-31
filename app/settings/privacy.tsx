@@ -85,10 +85,16 @@ export default function PrivacySettingsScreen() {
 
   const { mutate: savePreferences } = useMutation({
     mutationFn: (updates: Partial<PrivacySettings>) => {
-      const newPrivacy = {
-        showProfilePhoto: updates.showProfilePhoto ?? privacySettings.showProfilePhoto,
-      };
-      return UserService.updateUserPreferences(user!.id, { privacy: newPrivacy });
+      const preferenceUpdates: Partial<UserPreferences> = {};
+      if (updates.showProfilePhoto !== undefined) {
+        preferenceUpdates.privacy = {
+          showProfilePhoto: updates.showProfilePhoto,
+        };
+      }
+      if (updates.aiProfilingConsent !== undefined) {
+        preferenceUpdates.aiProfilingConsent = updates.aiProfilingConsent;
+      }
+      return UserService.updateUserPreferences(user!.id, preferenceUpdates);
     },
     onMutate: async (updates: Partial<PrivacySettings>) => {
       await queryClient.cancelQueries({ queryKey: ['userPrivacyPreferences', user?.id] });
