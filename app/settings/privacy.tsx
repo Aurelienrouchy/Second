@@ -159,7 +159,7 @@ export default function PrivacySettingsScreen() {
       >
         {/* Privacy Settings */}
         <View style={styles.settingsList}>
-          <View style={[styles.settingItem, styles.settingItemLast]}>
+          <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
               <Text variant="body" style={styles.settingTitle}>Afficher ma photo de profil</Text>
               <Caption>Rendre ma photo visible aux autres utilisateurs</Caption>
@@ -175,7 +175,22 @@ export default function PrivacySettingsScreen() {
             />
           </View>
 
+          <View style={[styles.settingItem, styles.settingItemLast]}>
+            <View style={styles.settingInfo}>
+              <Text variant="body" style={styles.settingTitle}>{COPY_AI.title}</Text>
+              <Caption>{COPY_AI.description}</Caption>
+            </View>
+            <Switch
+              value={privacySettings.aiProfilingConsent}
+              onValueChange={(value) => {
+                savePreferences({ aiProfilingConsent: value });
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
+              ios_backgroundColor={colors.border}
+            />
           </View>
+        </View>
 
         {/* Privacy Rights Section */}
         <Label style={styles.sectionHeader}>Vos droits</Label>
