@@ -373,6 +373,7 @@ export class UserService {
         drafts: [],
         savedSearches: [],
         searchHistory: [],
+        consents: [],
       };
 
       // 1. Profil utilisateur
