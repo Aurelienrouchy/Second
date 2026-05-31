@@ -99,6 +99,7 @@ const AuthBottomSheet: React.FC = () => {
     setResetEmailSent(false);
     setPendingSocialUser(null);
     pendingSocialUserRef.current = null;
+    pendingIsNewUserRef.current = false;
   }, []);
 
   const handleClose = useCallback(() => {
