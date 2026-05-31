@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 32,
     borderRadius: radius.full,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.darkSurface2,
   },
   grid: {
     marginTop: spacing.sm,
