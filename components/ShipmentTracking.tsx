@@ -811,6 +811,16 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         isSubmitting={isReturning}
         onSubmit={handleSubmitReturn}
       />
+      <RecourseReasonSheet<ContestReasonCode>
+        ref={contestSheetRef}
+        title="Contester cette décision"
+        intro="Cette décision a été prise automatiquement. Indiquez-nous pourquoi vous la contestez : notre équipe procédera à une révision humaine."
+        reasons={CONTEST_REASON_OPTIONS}
+        showDetailsField
+        submitLabel="Demander une révision humaine"
+        isSubmitting={isContesting}
+        onSubmit={handleSubmitContest}
+      />
     </View>
   );
 };
