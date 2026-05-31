@@ -33,6 +33,9 @@
 | 27 | `failed_operations` | Root | Dead-letter queue for failed money/shipping side-effects (server-only, replayed by `retryFailedOperations`) |
 | 28 | `stripe_events` | Root | Stripe webhook idempotency markers keyed by `event.id` (server-only) |
 | 29 | `privacy_incidents` | Root | Privacy/security incident register (Loi 25 / RGPD breach log) — admin-read, server-write only |
+| 30 | `disputes` | Root | Buyer "delivered but problem" tickets (CF-owned, freezes the linked transaction) |
+| 31 | `automatic_decisions_log` | Root | Transparency log of automated decisions (Loi 25 art. 12.1) — party-read, server-write only |
+| 32 | `automated_decision_contestations` | Root | Human-review requests against automated decisions (Loi 25 art. 12.1) — author-create, author/admin-read |
 
 ---
 
