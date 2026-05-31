@@ -160,8 +160,9 @@ export default function PrivacyPolicyScreen() {
           Nous conservons vos renseignements seulement le temps nécessaire aux finalités décrites,
           puis les détruisons ou les anonymisons. Les renseignements liés aux transactions sont
           conservés jusqu'à 7 ans pour respecter nos obligations comptables et fiscales. Les données
-          de navigation et les préférences sont conservées au plus 12 mois. Les données des visiteurs
-          non inscrits sont supprimées après 90 jours d'inactivité.
+          de navigation et les préférences sont conservées au plus 12 mois. Les notifications sont
+          conservées au plus 6 mois (180 jours). Les données des visiteurs non inscrits sont
+          supprimées après 90 jours d'inactivité.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>7. Vos droits (art. 27, 28.1, 30)</Text>
