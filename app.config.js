@@ -44,6 +44,12 @@ export default {
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Seconde utilise l'appareil photo pour prendre des photos de vos articles à vendre."
+        }
+      ],
+      [
         "@react-native-google-signin/google-signin"
       ],
       // Helcim payment via WebView — no native plugin needed
