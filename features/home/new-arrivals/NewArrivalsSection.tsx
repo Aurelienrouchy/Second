@@ -80,8 +80,11 @@ export const NewArrivalsSection = React.memo(NewArrivalsSectionComponent);
 
 const styles = StyleSheet.create({
   horizontalScrollContent: {
-    paddingHorizontal: spacing.md,
-    gap: 4,
+    // Home gutter on the left only; the last card bleeds to the screen edge
+    // (the canonical HomeHeader.categoriesContent rail convention).
+    paddingLeft: spacing.lg,
+    paddingRight: 0,
+    gap: spacing.sm,
     paddingBottom: spacing.sm,
   },
   horizontalCardWrapper: {
