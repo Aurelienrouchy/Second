@@ -235,11 +235,32 @@ export default function SwapZoneScreen() {
             text: 'Retirer',
             style: 'destructive',
             onPress: async () => {
+              const detailKey = queryKeys.swapParties.detail(partyId);
+              // Snapshot the current cache for rollback on failure.
+              const prev = queryClient.getQueryData<PartyDetailData>(detailKey);
+
+              // Optimistic removal — the article disappears instantly from the
+              // grid AND from "Mes pièces" (both derive from this cache entry).
+              queryClient.setQueryData<PartyDetailData>(detailKey, (old) => {
+                if (!old) return old;
+                return {
+                  ...old,
+                  items: old.items.filter(
+                    (item) => !(item.articleId === articleId && item.sellerId === user.id)
+                  ),
+                };
+              });
+
               try {
                 await removeItemFromParty(party.id, articleId, user.id);
+                // Success: UI is already correct via the optimistic update.
+                // Reconcile silently in the background (fire-and-forget) — do
+                // NOT await a heavy refetch that would re-introduce latency.
                 invalidatePartyData();
               } catch (error) {
                 if (__DEV__) console.error('Error removing item:', error);
+                // Rollback: restore the snapshot, then surface the error.
+                queryClient.setQueryData<PartyDetailData>(detailKey, prev);
                 Alert.alert('Erreur', "Impossible de retirer l'article");
               }
             },
@@ -247,7 +268,7 @@ export default function SwapZoneScreen() {
         ]
       );
     },
-    [user, party, invalidatePartyData]
+    [user, party, partyId, queryClient, invalidatePartyData]
   );
 
   // ── Multi-select (single-vendor) ──
