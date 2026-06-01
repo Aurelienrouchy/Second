@@ -186,27 +186,39 @@ const styles = StyleSheet.create({
   list: {
     paddingVertical: spacing.xs,
   },
-  // Full-width deposit row leading the list — fine, frameless, action-legible.
-  addRow: {
+  // Compact deposit BUTTON leading the list — content-width, square, hairline.
+  // Shares the home Swap Zone CtaRow language (darkSurface2 fill + darkBorderStrong
+  // hairline + rust square icon tile) so the deposit action reads as the zone's
+  // signature action, not a list row.
+  addButton: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    backgroundColor: colors.darkSurface2,
+    borderWidth: 1,
+    borderColor: colors.darkBorderStrong,
+    borderRadius: radius.none,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  addRowIcon: {
-    width: THUMB_W,
-    height: THUMB_H,
+  addButtonIcon: {
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.darkSurface2,
-    overflow: 'hidden',
+    backgroundColor: colors.rust,
+    borderRadius: radius.none,
   },
-  addRowLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.0,
+  addButtonLabel: {
+    fontFamily: typography.button.fontFamily,
+    fontSize: typography.button.fontSize,
+    lineHeight: typography.button.lineHeight,
+    letterSpacing: typography.button.letterSpacing,
     textTransform: 'uppercase',
-    color: colors.sand,
+    color: colors.cream,
   },
   // Full-width article row — frameless, fine, split from the row above by a
   // single top hairline (uniform style, no index magic needed).
