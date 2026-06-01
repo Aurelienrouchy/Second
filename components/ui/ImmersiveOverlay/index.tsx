@@ -96,6 +96,13 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
     /** Breathing loop for background circles */
     const breathe = useSharedValue(0);
 
+    /**
+     * Content (camera) reveal: 0 = hidden, 1 = shown. Decoupled from the
+     * entrance `progress` so the content can fade in AFTER the entrance
+     * gradient + blurred circles finish, instead of appearing during them.
+     */
+    const contentReveal = useSharedValue(0);
+
     const isMounted = useRef(true);
 
     useEffect(() => {
