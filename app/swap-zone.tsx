@@ -701,16 +701,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  subtitle: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-    letterSpacing: typography.body.letterSpacing,
-    color: colors.whiteTranslucent,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.sm,
-  },
   gridLabelSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
