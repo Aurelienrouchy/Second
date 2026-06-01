@@ -258,13 +258,15 @@ const styles = StyleSheet.create({
     color: colors.cream,
   },
   rowSep: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 17,
     color: colors.whiteTranslucent,
   },
   rowPrice: {
-    fontFamily: fonts.displayMedium,
+    fontFamily: fonts.display,
     fontSize: 14,
+    lineHeight: 17,
     color: colors.sand,
   },
   rowSize: {
