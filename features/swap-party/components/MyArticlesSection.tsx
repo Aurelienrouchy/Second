@@ -301,4 +301,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
     borderRadius: radius.full,
   },
+  // ── Skeleton row placeholders (deposit in flight) ──
+  // Same darkSurface2 language as SwapPartyDetailSkeleton; static (no spring).
+  skeletonThumb: {
+    width: THUMB_W,
+    height: THUMB_H,
+    backgroundColor: colors.darkSurface2,
+  },
+  skeletonLine: {
+    backgroundColor: colors.darkSurface2,
+    borderRadius: radius.xs,
+  },
+  // Mirrors rowPriceBrand geometry: price-height bar, spaced from the line below.
+  skeletonLinePrice: {
+    width: '55%',
+    height: typography.price.lineHeight,
+    marginBottom: spacing.md,
+  },
+  // Mirrors the title line geometry.
+  skeletonLineTitle: {
+    width: '40%',
+    height: 17,
+  },
 });
