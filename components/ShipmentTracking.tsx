@@ -444,6 +444,112 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
 
   const carrierInfo = getCarrierStatusInfo(transaction);
 
+  // ---------------------------------------------------------------------------
+  // MEETUP transactions (deliveryType !== 'shipping')
+  //
+  // There is no carrier shipment to track, but a meetup order CAN still be hit
+  // by an automated decision — typically `transaction_expired` (annulation
+  // automatique du meetup) or `funds_released`. Loi 25 art. 12.1 requires the
+  // contestation path to be reachable here too. We therefore render ONLY the
+  // automated-decision transparency + contestation block (never the shipping
+  // timeline / carrier card / label buttons, which would be meaningless), plus
+  // the contest reason sheet it drives. When no automated decision applies, we
+  // render nothing so the chat header stays clean.
+  // ---------------------------------------------------------------------------
+  if (transaction.deliveryType !== 'shipping') {
+    if (!hasAutomatedDecision || !decisionType) {
+      return null;
+    }
+    return (
+      <View style={styles.container}>
+        <View style={styles.automatedBox}>
+          <View style={styles.recourseHeader}>
+            <Ionicons name="hardware-chip-outline" size={20} color={colors.foreground} />
+            <Text style={styles.recourseTitle}>{getDecisionTitle(decisionType)}</Text>
+          </View>
+
+          {decisionType === 'funds_released' ? (
+            <Text style={styles.recourseBody}>
+              {decisionDateLabel
+                ? `Vos fonds ont été libérés automatiquement le ${decisionDateLabel} : l'échange a été confirmé et le délai de réclamation (7 jours) est écoulé. Si vous contestez cette décision, vous pouvez nous le signaler.`
+                : "Vos fonds ont été libérés automatiquement : l'échange a été confirmé et le délai de réclamation (7 jours) est écoulé. Si vous contestez cette décision, vous pouvez nous le signaler."}
+            </Text>
+          ) : (
+            <Text style={styles.recourseBody}>
+              {latestDecision?.result && latestDecision.result.trim().length > 0
+                ? latestDecision.result
+                : 'Cette décision a été prise automatiquement. Si vous contestez cette décision, vous pouvez nous le signaler.'}
+            </Text>
+          )}
+
+          {/* Accessible explanation — "Pourquoi cette décision ?" */}
+          <Pressable
+            style={styles.explanationToggle}
+            onPress={toggleExplanation}
+            hitSlop={6}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color={colors.primary}
+            />
+            <Text style={styles.explanationToggleText}>Pourquoi cette décision ?</Text>
+            <Ionicons
+              name={isExplanationOpen ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.primary}
+            />
+          </Pressable>
+
+          {isExplanationOpen && (
+            <View style={styles.explanationContent}>
+              <Text style={styles.explanationText}>
+                {getDecisionExplanation(decisionType)}
+              </Text>
+              {criteriaRows.length > 0 && (
+                <View style={styles.criteriaList}>
+                  {criteriaRows.map((row) => (
+                    <View key={row.key} style={styles.criteriaRow}>
+                      <Text style={styles.criteriaLabel}>{row.label}</Text>
+                      <Text style={styles.criteriaValue}>{row.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Contester cette décision — opens a human-review request */}
+          <Pressable
+            style={[styles.outlineButton, isContesting && styles.buttonDisabled]}
+            onPress={openContestSheet}
+            disabled={isContesting}
+          >
+            {isContesting ? (
+              <ActivityIndicator size="small" color={colors.foreground} />
+            ) : (
+              <>
+                <Ionicons name="flag-outline" size={16} color={colors.foreground} />
+                <Text style={styles.outlineButtonText}>Contester cette décision</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+
+        <RecourseReasonSheet<ContestReasonCode>
+          ref={contestSheetRef}
+          title="Contester cette décision"
+          intro="Cette décision a été prise automatiquement. Indiquez-nous pourquoi vous la contestez : notre équipe procédera à une révision humaine."
+          reasons={CONTEST_REASON_OPTIONS}
+          showDetailsField
+          submitLabel="Demander une révision humaine"
+          isSubmitting={isContesting}
+          onSubmit={handleSubmitContest}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
