@@ -196,12 +196,15 @@ export const TrendingBrandsSection = React.memo(TrendingBrandsSectionComponent);
 // =============================================================================
 
 const styles = StyleSheet.create({
-  container: {
-    paddingVertical: spacing.md,
-  },
+  // Vertical rhythm is owned by SectionHeader (paddingTop 28 / paddingBottom
+  // md); the container must not double-stack its own paddingVertical.
+  container: {},
   scrollContent: {
-    paddingHorizontal: spacing.md,
+    // Home gutter on the left only; last brand circle bleeds to the edge.
+    paddingLeft: spacing.lg,
+    paddingRight: 0,
     gap: CIRCLE_MARGIN,
+    paddingBottom: spacing.sm,
   },
   brandWrapper: {
     width: CIRCLE_SIZE + CIRCLE_MARGIN,
