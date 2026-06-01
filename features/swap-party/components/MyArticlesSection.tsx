@@ -83,10 +83,12 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
             </View>
           ))}
 
-          {userItems.map((item) => (
+          {userItems.map((item, index) => (
             <Animated.View
               key={item.id}
-              style={styles.row}
+              // The leading row (no skeletons ahead of it) drops its top hairline
+              // so it doesn't read as a stray line right under the deposit button.
+              style={[styles.row, index === 0 && !isAdding && styles.rowFirst]}
               entering={FadeIn.duration(200)}
               exiting={FadeOut.duration(160)}
               layout={LinearTransition.duration(220)}
