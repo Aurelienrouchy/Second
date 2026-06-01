@@ -240,12 +240,15 @@ export const FeaturedSellersSection = React.memo(FeaturedSellersSectionComponent
 // =============================================================================
 
 const styles = StyleSheet.create({
-  container: {
-    paddingVertical: spacing.md,
-  },
+  // Vertical rhythm is owned by SectionHeader (paddingTop 28 / paddingBottom
+  // md); the container must not double-stack its own paddingVertical.
+  container: {},
   scrollContent: {
-    paddingHorizontal: spacing.md,
+    // Home gutter on the left only; last card bleeds to the edge.
+    paddingLeft: spacing.lg,
+    paddingRight: 0,
     gap: CARD_GAP,
+    paddingBottom: spacing.sm,
   },
   cardWrapper: {
     width: CARD_WIDTH,
