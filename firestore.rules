@@ -146,18 +146,24 @@ service cloud.firestore {
 
       // Allow create only with valid initial data. The isAdmin/role/claims
       // fields cannot be set by clients on creation either.
+      // SECURITY: `username` is the persistent, unique, immutable handle assigned
+      // EXCLUSIVELY server-side by the assignUsername callable (Admin SDK) right
+      // after the doc is created. The client creates the users doc WITHOUT a
+      // username, so it must be absent at create time.
       allow create: if isOwner(userId) &&
                        isValidUserData(request.resource.data) &&
-                       !request.resource.data.keys().hasAny(['isAdmin', 'role', 'customClaims']);
+                       !request.resource.data.keys().hasAny(['isAdmin', 'role', 'customClaims', 'username']);
 
       // Allow update by owner — but never to fields that grant privileges.
       // SECURITY: previously a user could write { isAdmin: true } to their
       // own document and pass UI-side admin checks. Privileged fields must
       // be set out-of-band (Cloud Function with Admin SDK + Auth custom claim).
+      // `username` is in the protected set: it is server-assigned and IMMUTABLE,
+      // so a client can never add it, change it, or remove it.
       allow update: if isOwner(userId) &&
                        !request.resource.data.diff(resource.data)
                           .affectedKeys()
-                          .hasAny(['isAdmin', 'role', 'customClaims', 'onboardingCompleted', 'onboardingPreferences', 'createdAt', 'id']);
+                          .hasAny(['isAdmin', 'role', 'customClaims', 'username', 'onboardingCompleted', 'onboardingPreferences', 'createdAt', 'id']);
 
       // No delete allowed (soft delete by setting isActive = false)
       allow delete: if false;
