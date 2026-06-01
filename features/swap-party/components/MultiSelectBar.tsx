@@ -33,7 +33,7 @@ export const MultiSelectBar = React.memo(function MultiSelectBar({
 
       {canPropose && (
         <Pressable
-          style={({ pressed }) => [styles.proposeButton, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.proposeButton, pressed && styles.pressed]}
           onPress={onPropose}
         >
           <Text style={styles.proposeButtonText}>Proposer</Text>
