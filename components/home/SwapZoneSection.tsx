@@ -367,8 +367,8 @@ const styles = StyleSheet.create({
   },
 
   // --- Coming-soon (non-interactive teaser) ---
-  // Shares the live CTA's dark-pill language (darkSurface2 + hairline) so all
-  // Swap Zone states feel from the same refined dark system.
+  // Shares the live CTA's dark square language (darkSurface2 + hairline +
+  // radius.none) so all Swap Zone states feel from the same refined dark system.
   comingSoonRow: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     borderColor: colors.darkBorder,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.full,
+    borderRadius: radius.none,
   },
   comingSoonText: {
     fontFamily: typography.label.fontFamily,
