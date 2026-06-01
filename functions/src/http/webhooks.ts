@@ -1751,38 +1751,59 @@ async function handleSwapTopUpRefund(swapDoc: FirebaseFirestore.QueryDocumentSna
 
     if (payeeWalletSnap.exists) {
       const walletData = payeeWalletSnap.data()!;
-      // Funds were released to balance only if topUpReleasedAt is set; refunds
-      // happen pre-release, so debit pendingBalance. Guard with min() for safety.
-      const fundsReleased = !!swap.topUpReleasedAt;
-      if (fundsReleased) {
-        const deduction = Math.min(baseAmountCents, walletData.balance || 0);
-        tx.update(payeeWalletRef, {
-          balance: FieldValue.increment(-deduction),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        const ledgerRef = payeeWalletRef.collection('ledger').doc();
-        tx.set(ledgerRef, {
-          type: 'refund_debit',
-          amount: deduction,
-          balanceAfter: (walletData.balance || 0) - deduction,
-          description: 'Remboursement complément d\'échange — débit',
+      // The top-up complement can sit in one of three buckets depending on the
+      // swap stage when the refund lands (mirrors the purchase 3-bucket model):
+      //   pendingBalance — pre-reception (topUpFundsHeldAt unset)
+      //   heldBalance    — post-reception, inside the 7-day window
+      //                    (topUpFundsHeldAt set, topUpReleasedAt unset)
+      //   balance        — released by releaseHeldFunds (topUpReleasedAt set)
+      // Cascade pending -> held -> balance so we drain wherever the funds
+      // actually are. The platform refunds the payer in full via Stripe; this
+      // only reconciles the internal ledger. Any shortfall (payee already
+      // withdrew released funds) is recorded as sellerDebt and blocks future
+      // withdrawals until recovered — NEVER masked.
+      const pendingNow = walletData.pendingBalance || 0;
+      const heldNow = walletData.heldBalance || 0;
+      const balanceNow = walletData.balance || 0;
+
+      const fromPending = Math.min(baseAmountCents, pendingNow);
+      let remaining = baseAmountCents - fromPending;
+      const fromHeld = Math.min(remaining, heldNow);
+      remaining -= fromHeld;
+      const fromBalance = Math.min(remaining, balanceNow);
+      const shortfall = remaining - fromBalance;
+
+      const walletUpdate: Record<string, any> = {
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (fromPending > 0) walletUpdate.pendingBalance = FieldValue.increment(-fromPending);
+      if (fromHeld > 0) walletUpdate.heldBalance = FieldValue.increment(-fromHeld);
+      if (fromBalance > 0) walletUpdate.balance = FieldValue.increment(-fromBalance);
+      if (shortfall > 0) walletUpdate.sellerDebt = FieldValue.increment(shortfall);
+      tx.update(payeeWalletRef, walletUpdate);
+
+      const debited = fromPending + fromHeld + fromBalance;
+      const ledgerRef = payeeWalletRef.collection('ledger').doc();
+      tx.set(ledgerRef, {
+        type: 'refund_debit',
+        amount: debited,
+        balanceAfter: balanceNow - fromBalance,
+        description:
+          shortfall > 0
+            ? 'Remboursement complément d\'échange — débit (dette enregistrée pour le solde manquant)'
+            : 'Remboursement complément d\'échange — débit',
+        swapId,
+        createdAt: FieldValue.serverTimestamp(),
+        ...(shortfall > 0 && { debtRecorded: shortfall }),
+      });
+
+      if (shortfall > 0) {
+        logger.warn('Stripe webhook: swap top-up refund — payee balance insufficient, debt recorded', {
           swapId,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-      } else {
-        const deduction = Math.min(baseAmountCents, walletData.pendingBalance || 0);
-        tx.update(payeeWalletRef, {
-          pendingBalance: FieldValue.increment(-deduction),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        const ledgerRef = payeeWalletRef.collection('ledger').doc();
-        tx.set(ledgerRef, {
-          type: 'refund_debit',
-          amount: deduction,
-          balanceAfter: (walletData.pendingBalance || 0) - deduction,
-          description: 'Remboursement complément d\'échange — débit (fonds en attente)',
-          swapId,
-          createdAt: FieldValue.serverTimestamp(),
+          payeeId,
+          debitTarget: baseAmountCents,
+          debited,
+          shortfall,
         });
       }
     } else {
