@@ -245,8 +245,6 @@ export default function DetailsScreen() {
         title="Détails"
         onBack={handleBack}
       />
-      <StepProgressBar currentStep={2} />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
