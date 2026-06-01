@@ -226,32 +226,23 @@ const styles = StyleSheet.create({
   rowInfo: {
     flex: 1,
   },
-  // Line 1 — brand pinned left, price pinned right, baseline-aligned so the
-  // uppercase brand caps sit on the same baseline as the price.
-  rowTopLine: {
+  // Title line — title truncates (flexShrink) so the price stays right next to
+  // it, left-aligned, instead of being pushed to the far edge. Size trails.
+  rowTitleLine: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    gap: spacing.sm,
-    marginBottom: 2,
-  },
-  // Line 2 — title flexes and truncates, size pinned right.
-  rowBottomLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'baseline',
     gap: spacing.sm,
   },
   rowBrand: {
-    flex: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 9,
     letterSpacing: 1.35,
     textTransform: 'uppercase',
     color: colors.sand,
+    marginBottom: spacing.xs,
   },
   rowTitle: {
-    flex: 1,
+    flexShrink: 1,
     fontFamily: fonts.display,
     fontSize: 14,
     lineHeight: 17,
