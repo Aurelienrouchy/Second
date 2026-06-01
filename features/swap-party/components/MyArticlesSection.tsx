@@ -245,11 +245,12 @@ const styles = StyleSheet.create({
   rowInfo: {
     flex: 1,
   },
-  // Price + brand on one line, single Text, same typo as the title.
+  // Price + brand on one line — the prominent editorial price line.
   rowPriceBrand: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    lineHeight: 20,
+    fontFamily: typography.price.fontFamily,
+    fontSize: typography.price.fontSize,
+    lineHeight: typography.price.lineHeight,
+    letterSpacing: typography.price.letterSpacing,
     color: colors.sand,
     marginBottom: spacing.md,
   },
