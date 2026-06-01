@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   // Title line — title truncates, size trails right beside it.
   rowTitleLine: {
