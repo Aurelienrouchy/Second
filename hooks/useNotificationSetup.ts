@@ -157,7 +157,7 @@ async function routeFromNotificationData(
             });
           }
         } catch (error) {
-          console.error('Error handling saved search notification:', error);
+          if (__DEV__) console.error('Error handling saved search notification:', error);
           router.push('/search');
         }
       }
