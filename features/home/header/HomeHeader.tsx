@@ -96,6 +96,10 @@ export const HomeHeader = React.memo(HomeHeaderComponent);
 // =============================================================================
 
 const styles = StyleSheet.create({
+  // Intentionally full-bleed (like the Swap Zone band): the cream background
+  // runs edge-to-edge while the inner rows own the home gutter —
+  // searchRow (paddingHorizontal: spacing.lg) and categoriesContent
+  // (paddingLeft: spacing.lg, no paddingRight = canonical rail bleed).
   darkHeader: {
     backgroundColor: colors.cream,
     paddingTop: spacing.sm,
