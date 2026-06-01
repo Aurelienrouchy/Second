@@ -197,6 +197,7 @@ export default function ProfileScreen() {
             <ProfileHeader
               profileImage={user.profileImage}
               displayName={user.displayName}
+              username={user.username}
               bio={user.bio}
               createdAt={user.createdAt}
               city={user.address?.city}
