@@ -45,6 +45,16 @@ const STRIPE_LOT_SIZE = 10;
 /** Meetup transactions expire after 48 hours */
 const MEETUP_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
+/**
+ * A3: a `meetup_confirmed` transaction whose meetup was supposedly arranged but
+ * which neither party ever marked `meetup_completed`. After 7 days from creation
+ * we treat the meetup as abandoned and auto-cancel it, releasing the article so
+ * it can be re-sold. Generous window (vs 48h for unconfirmed) because the parties
+ * agreed on a date that may legitimately be days out. No money is involved
+ * (cash-in-hand), so there is nothing to refund.
+ */
+const MEETUP_CONFIRMED_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** Pending payment transactions expire after 1 hour */
 const PENDING_PAYMENT_EXPIRY_MS = 1 * 60 * 60 * 1000;
 
