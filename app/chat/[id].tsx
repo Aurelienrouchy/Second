@@ -418,7 +418,10 @@ export default function ChatScreen() {
               flatListRef.current?.scrollToEnd({ animated: false })
             }
             ListHeaderComponent={
-              transaction && transaction.status !== 'pending_payment' && transaction.deliveryType === 'shipping' ? (
+              // Shipping → full tracker. Meetup → ShipmentTracking self-limits to
+              // the Loi 25 automated-decision transparency + contestation block
+              // (e.g. annulation automatique du meetup), or renders nothing.
+              transaction && transaction.status !== 'pending_payment' ? (
                 <ShipmentTracking
                   transaction={transaction}
                   onStatusUpdate={() => { refetchTransaction(); }}
