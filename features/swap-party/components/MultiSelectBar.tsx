@@ -7,7 +7,7 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 
 import { Text } from '@/components/ui';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, spacing, radius, typography } from '@/constants/theme';
 import type { MultiSelectBarProps } from '../types';
 
 export const MultiSelectBar = React.memo(function MultiSelectBar({
