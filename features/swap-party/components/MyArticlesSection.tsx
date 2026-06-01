@@ -74,17 +74,19 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
               </View>
 
               <View style={styles.rowInfo}>
-                {/* Line 1: brand. */}
-                <Text style={styles.rowBrand} numberOfLines={1}>
-                  {item.brand || 'MARQUE'}
-                </Text>
-                {/* Line 2: title with the price right beside it (left-aligned,
-                    not pushed to the far edge), then the size. */}
+                {/* Line 1: brand with the price right beside it (left-aligned,
+                    not pushed to the far edge). */}
+                <View style={styles.rowBrandLine}>
+                  <Text style={styles.rowBrand} numberOfLines={1}>
+                    {item.brand || 'MARQUE'}
+                  </Text>
+                  <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
+                </View>
+                {/* Line 2: product title + size. */}
                 <View style={styles.rowTitleLine}>
                   <Text style={styles.rowTitle} numberOfLines={1}>
                     {item.title}
                   </Text>
-                  <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
                   {item.size?.value ? (
                     <Text style={styles.rowSize}>{item.size.value}</Text>
                   ) : null}
