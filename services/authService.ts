@@ -364,6 +364,9 @@ export class AuthService {
         }
 
         await setDoc(doc(firestore, 'users', firebaseUser.uid), firestoreData);
+
+        // Username persistant/immuable pour le nouveau compte (non-bloquant).
+        await this.ensureUsernameAssigned();
       } else if (isGenericDisplayName(userData.displayName)) {
         await updateDoc(doc(firestore, 'users', firebaseUser.uid), { displayName: googleName });
         userData.displayName = googleName;
