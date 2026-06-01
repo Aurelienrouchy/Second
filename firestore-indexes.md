@@ -73,6 +73,43 @@ Requires a composite index on the `reports` collection.
 }
 ```
 
+## Open-dispute deletion gate (`deleteUserAccount`)
+
+GDPR Art. 17 / Loi 25. The `deleteUserAccount` callable
+(`callable/users.ts`) refuses account deletion while an open dispute is tied to
+the user, on either side. It runs two equality-only queries in parallel:
+
+- `disputes where buyerId == uid && status == 'open'` + `limit(1)`
+- `disputes where sellerId == uid && status == 'open'` + `limit(1)`
+
+**Two equalities on two distinct fields require a composite index.** Firestore
+does NOT auto-merge single-field indexes for two equalities in the same query;
+without these composites the queries fail in prod (`FAILED_PRECONDITION`,
+"requires an index"). The `limit(1)` and the absence of an `orderBy` do not
+remove the requirement. Two composites are needed (one per buyer/seller side):
+
+```json
+{
+  "collectionGroup": "disputes",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "buyerId", "order": "ASCENDING" },
+    { "fieldPath": "status", "order": "ASCENDING" }
+  ]
+}
+```
+
+```json
+{
+  "collectionGroup": "disputes",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "sellerId", "order": "ASCENDING" },
+    { "fieldPath": "status", "order": "ASCENDING" }
+  ]
+}
+```
+
 ## Composite Indexes
 
 Add these indexes to your `firestore.indexes.json` file or create them in the Firebase Console:
