@@ -56,13 +56,20 @@ exports.getSwapPartyLeaderboard = exports.removeItemFromPartySecure = exports.ad
  *    for the payer → payee's connected account, with application_fee_amount
  *  - stripeWebhook (payment_intent.succeeded, type=swap_topup) advances the swap
  *    to 'accepted' (exchange mode flow) and credits the payee wallet pendingBalance
- *  - confirmSwapReception releases payee funds (pending → available)
- *  - cancel/dispute after payment refund the payer via Stripe (charge.refunded
- *    webhook reconciles the wallet ledger)
+ *  - confirmSwapReception moves the payee funds pending → held with a 7-day
+ *    release deadline (topUpFundsReleaseAt), EXACTLY like a delivered purchase —
+ *    NOT straight to withdrawable balance
+ *  - releaseHeldFunds (scheduled) moves held → balance once the window elapses
+ *    and stamps topUpReleasedAt
+ *  - cancel/dispute BEFORE release (topUpReleasedAt unset: funds in pending OR
+ *    held) refund the payer via Stripe (charge.refunded webhook claws the
+ *    complement back from the right bucket). This makes the POST-RECEPTION
+ *    dispute window effective.
  */
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+const firestore_1 = require("firebase-admin/firestore");
 const stripe_1 = require("../config/stripe");
 const fees_1 = require("../utils/fees");
 const wallet_1 = require("./wallet");
@@ -918,10 +925,21 @@ exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northe
     }
 });
 /**
+ * Buyer-protection window for a swap cash top-up after reception, mirroring the
+ * purchase dispute window (scheduled/releaseHeldFunds.ts DISPUTE_WINDOW_MS).
+ * The payee's top-up complement sits in heldBalance during this window so a
+ * post-reception dispute can still claw it back.
+ */
+const SWAP_TOPUP_HOLD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+/**
  * Confirm reception for a swap — participant confirms they received the package.
  * When BOTH sides have received: transitions to 'completed', marks articles
- * sold, marks party items swapped + increments swapsCount, and RELEASES the
- * top-up funds to the payee (pending → available), calqued on a delivered sale.
+ * sold, marks party items swapped + increments swapsCount, and MOVES the top-up
+ * funds to the payee's heldBalance (pending → held) with a 7-day release
+ * deadline — EXACTLY like a delivered purchase (applyDeliveredHeldFunds). The
+ * funds are released to withdrawable `balance` by the releaseHeldFunds scheduled
+ * job once the window elapses, NOT here, so openSwapDispute can still refund the
+ * payer during the window (post-reception recourse).
  */
 exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
@@ -949,9 +967,12 @@ exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-north
             const isInitiator = swap.initiatorId === uid;
             const otherSideReceived = isInitiator ? !!swap.receiverReceivedAt : !!swap.initiatorReceivedAt;
             const bothReceived = otherSideReceived;
-            // Determine top-up release target (the payee) before any writes.
+            // Determine top-up hold target (the payee) before any writes.
+            // topUpFundsHeldAt is the idempotence marker for the pending → held move
+            // performed here; topUpReleasedAt (held → balance) is set LATER by the
+            // releaseHeldFunds scheduled job once the 7-day window elapses.
             const topUp = swap.cashTopUp;
-            const topUpPaid = topUp != null && !!swap.topUpPaidAt && !swap.topUpReleasedAt;
+            const topUpPaid = topUp != null && !!swap.topUpPaidAt && !swap.topUpFundsHeldAt && !swap.topUpReleasedAt;
             let payeeWalletRef = null;
             let payeeWalletData = null;
             let payeeId = null;
@@ -978,25 +999,34 @@ exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-north
                 updateData.status = 'completed';
                 updateData.completedAt = firebase_1.FieldValue.serverTimestamp();
                 if (topUpPaid) {
-                    updateData.topUpReleasedAt = firebase_1.FieldValue.serverTimestamp();
+                    // Mark the pending → held move + stamp the release deadline. NOTE:
+                    // we DO NOT set topUpReleasedAt here — that marks "released to
+                    // withdrawable balance" and is owned by releaseHeldFunds. Keeping it
+                    // unset is what makes the post-reception dispute window effective.
+                    updateData.topUpFundsHeldAt = firebase_1.FieldValue.serverTimestamp();
+                    updateData.topUpFundsReleaseAt = firestore_1.Timestamp.fromMillis(Date.now() + SWAP_TOPUP_HOLD_WINDOW_MS);
                 }
             }
-            // Release top-up funds: pending → available on the payee wallet.
+            // Move top-up funds pending → held on the payee wallet (delivered, inside
+            // the 7-day dispute window), EXACTLY like a delivered purchase. The funds
+            // become withdrawable (held → balance) only when releaseHeldFunds runs
+            // after topUpFundsReleaseAt.
             if (bothReceived && topUpPaid && payeeWalletRef && payeeWalletData && payeeId) {
                 const payoutCents = Math.round(topUp.amount); // top-up amount is already in cents, fee kept by platform
                 tx.update(payeeWalletRef, {
                     pendingBalance: firebase_1.FieldValue.increment(-payoutCents),
-                    balance: firebase_1.FieldValue.increment(payoutCents),
+                    heldBalance: firebase_1.FieldValue.increment(payoutCents),
                     updatedAt: firebase_1.FieldValue.serverTimestamp(),
                 });
                 const ledgerRef = payeeWalletRef.collection('ledger').doc();
                 tx.set(ledgerRef, {
-                    type: 'sale_available',
+                    type: 'funds_held',
                     amount: payoutCents,
-                    balanceAfter: (payeeWalletData.balance || 0) + payoutCents,
-                    description: 'Complément d\'échange — fonds disponibles',
+                    balanceAfter: (payeeWalletData.heldBalance || 0) + payoutCents,
+                    description: 'Complément d\'échange — fonds en attente (fenêtre de litige 7 jours)',
                     swapId,
                     createdAt: firebase_1.FieldValue.serverTimestamp(),
+                    status: 'held',
                 });
             }
             tx.update(swapRef, updateData);
@@ -1181,8 +1211,14 @@ exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invo
 });
 /**
  * Open a dispute on a swap — participant can dispute during shipping or after
- * completion. Transitions to 'disputed'. If a top-up was paid, it is refunded
- * to the payer (manual moderation may follow; refunding protects the buyer).
+ * completion (within the 7-day post-reception protection window). Transitions to
+ * 'disputed'. If a top-up was paid AND not yet released to the payee's
+ * withdrawable balance (topUpReleasedAt unset — i.e. the funds are still in
+ * pendingBalance pre-reception or heldBalance during the window), it is refunded
+ * to the payer. The charge.refunded webhook (handleSwapTopUpRefund) claws the
+ * complement back from the correct bucket idempotently. Once releaseHeldFunds has
+ * moved the funds to withdrawable balance (topUpReleasedAt set), no auto-refund
+ * happens here — manual moderation handles that case.
  */
 exports.openSwapDispute = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     if (!request.auth) {

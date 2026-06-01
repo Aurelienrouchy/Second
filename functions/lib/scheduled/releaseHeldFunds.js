@@ -270,6 +270,136 @@ exports.releaseHeldFunds = (0, scheduler_1.onSchedule)({
         }
         keepGoing = snap.size === MAX_TRANSACTIONS_PER_RUN;
     }
-    logger.info('[releaseHeldFunds] run complete', { released, skipped, errors });
+    // Second sweep: swap cash top-ups held after reception (same 7-day window).
+    const swapStats = await releaseSwapTopUpHeldFunds(now);
+    logger.info('[releaseHeldFunds] run complete', {
+        released,
+        skipped,
+        errors,
+        swapReleased: swapStats.released,
+        swapSkipped: swapStats.skipped,
+        swapErrors: swapStats.errors,
+    });
 });
+/**
+ * Release swap cash top-up funds that have cleared the 7-day post-reception
+ * window. EXACTLY mirrors the purchase release above: moves the payee's
+ * complement from heldBalance to withdrawable balance and stamps topUpReleasedAt
+ * on the swap (the idempotence + "no more auto-refund" marker also read by
+ * openSwapDispute).
+ *
+ * Query: swaps where status == 'completed' AND topUpFundsReleaseAt <= now.
+ * Composite index required: swaps (status ASC, topUpFundsReleaseAt ASC).
+ *
+ * A swap moved to 'disputed' (openSwapDispute) is excluded by the status filter,
+ * so funds in the window are never released out from under an open dispute. The
+ * inner transaction re-checks status + topUpReleasedAt for full idempotence.
+ */
+async function releaseSwapTopUpHeldFunds(now) {
+    var _a;
+    let released = 0;
+    let skipped = 0;
+    let errors = 0;
+    let lastReleaseAt = null;
+    let keepGoing = true;
+    while (keepGoing) {
+        let query = firebase_1.db
+            .collection('swaps')
+            .where('status', '==', 'completed')
+            .where('topUpFundsReleaseAt', '<=', now)
+            .orderBy('topUpFundsReleaseAt', 'asc')
+            .limit(MAX_TRANSACTIONS_PER_RUN);
+        if (lastReleaseAt) {
+            query = query.startAfter(lastReleaseAt);
+        }
+        const snap = await query.get();
+        if (snap.empty)
+            break;
+        for (const doc of snap.docs) {
+            const data = doc.data();
+            const swapId = doc.id;
+            lastReleaseAt = (_a = data.topUpFundsReleaseAt) !== null && _a !== void 0 ? _a : lastReleaseAt;
+            // Idempotence / guard: nothing to do if already released, never held, or
+            // no top-up at all.
+            if (data.topUpReleasedAt || !data.topUpFundsHeldAt || data.cashTopUp == null) {
+                skipped++;
+                continue;
+            }
+            const topUp = data.cashTopUp;
+            const payeeId = topUp.payerId === data.initiatorId ? data.receiverId : data.initiatorId;
+            const payoutCents = typeof topUp.amount === 'number' ? Math.round(topUp.amount) : 0;
+            if (!payeeId || payoutCents <= 0) {
+                logger.warn('[releaseHeldFunds] swap top-up missing payee/amount — skipping', { swapId });
+                skipped++;
+                continue;
+            }
+            const payeeWalletRef = firebase_1.db.collection('wallets').doc(payeeId);
+            try {
+                const moved = await firebase_1.db.runTransaction(async (tx) => {
+                    const swapSnap = await tx.get(doc.ref);
+                    if (!swapSnap.exists)
+                        return false;
+                    const sdata = swapSnap.data();
+                    // Re-check invariants inside the transaction (a dispute may have been
+                    // opened between the query and the commit).
+                    if (sdata.status !== 'completed')
+                        return false;
+                    if (!sdata.topUpFundsHeldAt)
+                        return false;
+                    if (sdata.topUpReleasedAt)
+                        return false; // idempotence
+                    const walletSnap = await tx.get(payeeWalletRef);
+                    if (!walletSnap.exists) {
+                        logger.warn('[releaseHeldFunds] swap payee wallet not found — skipping', {
+                            swapId,
+                            payeeId,
+                        });
+                        return false;
+                    }
+                    const walletData = walletSnap.data();
+                    // Move heldBalance -> balance, capped so heldBalance never goes
+                    // negative (defensive — should equal payoutCents).
+                    const heldNow = walletData.heldBalance || 0;
+                    const moveCents = Math.min(payoutCents, heldNow);
+                    if (moveCents > 0) {
+                        tx.update(payeeWalletRef, {
+                            heldBalance: firebase_1.FieldValue.increment(-moveCents),
+                            balance: firebase_1.FieldValue.increment(moveCents),
+                            updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                        });
+                        const ledgerRef = payeeWalletRef.collection('ledger').doc();
+                        tx.set(ledgerRef, {
+                            type: 'funds_released',
+                            amount: moveCents,
+                            balanceAfter: (walletData.balance || 0) + moveCents,
+                            description: 'Complément d\'échange — fenêtre de litige écoulée, fonds disponibles',
+                            swapId,
+                            createdAt: firebase_1.FieldValue.serverTimestamp(),
+                        });
+                    }
+                    tx.update(doc.ref, {
+                        topUpReleasedAt: firebase_1.FieldValue.serverTimestamp(),
+                        updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                    });
+                    return true;
+                });
+                if (moved) {
+                    released++;
+                }
+                else {
+                    skipped++;
+                }
+            }
+            catch (err) {
+                errors++;
+                logger.error('[releaseHeldFunds] error releasing swap top-up funds', {
+                    swapId,
+                    error: err instanceof Error ? err.message : err,
+                });
+            }
+        }
+        keepGoing = snap.size === MAX_TRANSACTIONS_PER_RUN;
+    }
+    return { released, skipped, errors };
+}
 //# sourceMappingURL=releaseHeldFunds.js.map

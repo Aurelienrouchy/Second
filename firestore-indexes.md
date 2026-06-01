@@ -420,6 +420,15 @@ Add these indexes to your `firestore.indexes.json` file or create them in the Fi
     {
       "collectionGroup": "swaps",
       "queryScope": "COLLECTION",
+      "comment": "releaseHeldFunds: swap top-up funds released after the 7-day post-reception window (status == 'completed' + topUpFundsReleaseAt <= now + orderBy topUpFundsReleaseAt asc + cursor)",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "topUpFundsReleaseAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "swaps",
+      "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "partyId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
