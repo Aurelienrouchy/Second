@@ -43,6 +43,24 @@ service cloud.firestore {
                viewerUid in get(/databases/$(database)/documents/users/$(ownerUid)).data.blockedUserIds);
     }
 
+    // Symmetric block check between two UIDs (neither may have blocked the
+    // other). Used wherever a message/chat write must be denied as soon as a
+    // block exists in EITHER direction — matching the Cloud Function trigger
+    // and services/moderationService.ts semantics.
+    function neitherBlocks(uidA, uidB) {
+      return isNotBlockedBy(uidA, uidB) && isNotBlockedBy(uidB, uidA);
+    }
+
+    // The "other" participant of a 2-party chat, derived from the SERVER chat
+    // doc (never from a client-supplied receiverId). Assumes the caller has
+    // already verified the chat exists with exactly 2 participants including
+    // senderUid. Returns the participant that is not senderUid.
+    function chatCounterparty(chatId, senderUid) {
+      return get(/databases/$(database)/documents/chats/$(chatId)).data.participants[0] == senderUid
+        ? get(/databases/$(database)/documents/chats/$(chatId)).data.participants[1]
+        : get(/databases/$(database)/documents/chats/$(chatId)).data.participants[0];
+    }
+
     function isValidString(str, minLen, maxLen) {
       return str is string && str.size() >= minLen && str.size() <= maxLen;
     }
