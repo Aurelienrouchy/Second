@@ -22,6 +22,7 @@ import { ProfileStats } from './ProfileStats';
 interface ProfileHeaderProps {
   profileImage: string | undefined;
   displayName: string | undefined;
+  username: string | undefined;
   bio: string | undefined;
   createdAt: Date | string | undefined;
   city: string | undefined;
