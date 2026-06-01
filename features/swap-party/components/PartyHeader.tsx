@@ -10,7 +10,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
+import { colors, spacing, radius, sizing, typography } from '@/constants/theme';
 import type { PartyHeaderProps } from '../types';
 
 export const PartyHeader = React.memo(function PartyHeader({
