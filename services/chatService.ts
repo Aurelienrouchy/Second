@@ -1162,22 +1162,76 @@ export class ChatService {
   }
 
   /**
-   * Signaler un no-show
+   * Résout la transaction meetup liée à ce chat pour le caller (acheteur OU
+   * vendeur). Les règles Firestore exigent que chaque doc retourné satisfasse
+   * `auth.uid == buyerId || auth.uid == sellerId`, donc on interroge selon le
+   * rôle du caller : d'abord en tant qu'acheteur, puis en tant que vendeur.
+   * Renvoie l'ID de la première transaction trouvée dans un des statuts donnés.
+   */
+  private static async findMeetupTransactionId(
+    chatId: string,
+    userId: string,
+    statuses: string[]
+  ): Promise<string | null> {
+    const txCol = collection(firestore, 'transactions');
+    // En tant qu'acheteur
+    const asBuyer = await getDocs(
+      query(
+        txCol,
+        where('chatId', '==', chatId),
+        where('buyerId', '==', userId),
+        where('status', 'in', statuses)
+      )
+    );
+    if (!asBuyer.empty) {
+      return asBuyer.docs[0].id;
+    }
+    // En tant que vendeur
+    const asSeller = await getDocs(
+      query(
+        txCol,
+        where('chatId', '==', chatId),
+        where('sellerId', '==', userId),
+        where('status', 'in', statuses)
+      )
+    );
+    if (!asSeller.empty) {
+      return asSeller.docs[0].id;
+    }
+    return null;
+  }
+
+  /**
+   * Signaler un no-show. Délègue à la Cloud Function `reportMeetupNoShow`
+   * (runTransaction) qui gèle la transaction en `disputed` et débloque
+   * l'article. Le simple flag cosmétique sur le message ne suffit plus.
    */
   static async reportNoShow(
     chatId: string,
     messageId: string,
     reporterId: string,
-    reason?: string
+    reason?: string,
+    details?: string
   ): Promise<void> {
     try {
-      const messageRef = doc(firestore, 'messages', messageId);
-      await updateDoc(messageRef, {
-        'offer.meetup.noShow': {
-          reportedBy: reporterId,
-          reportedAt: new Date(),
-          reason: reason || '',
-        },
+      const transactionId = await this.findMeetupTransactionId(chatId, reporterId, [
+        'meetup_pending',
+        'meetup_confirmed',
+      ]);
+
+      if (!transactionId) {
+        if (__DEV__) {
+          console.warn('[ChatService] reportNoShow: no reportable transaction for chatId', chatId);
+        }
+        throw new Error("Aucune transaction de rencontre à signaler n'a été trouvée.");
+      }
+
+      const reportMeetupNoShowFn = httpsCallable(functions, 'reportMeetupNoShow');
+      // Pas d'undefined vers la callable : on omet `details` s'il est vide.
+      await reportMeetupNoShowFn({
+        transactionId,
+        ...(reason ? { reason } : {}),
+        ...(details && details.trim().length > 0 ? { details: details.trim() } : {}),
       });
 
       await this.sendSystemMessage(
