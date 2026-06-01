@@ -1099,10 +1099,22 @@ export const confirmSwapShipping = onCall(
 );
 
 /**
+ * Buyer-protection window for a swap cash top-up after reception, mirroring the
+ * purchase dispute window (scheduled/releaseHeldFunds.ts DISPUTE_WINDOW_MS).
+ * The payee's top-up complement sits in heldBalance during this window so a
+ * post-reception dispute can still claw it back.
+ */
+const SWAP_TOPUP_HOLD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * Confirm reception for a swap — participant confirms they received the package.
  * When BOTH sides have received: transitions to 'completed', marks articles
- * sold, marks party items swapped + increments swapsCount, and RELEASES the
- * top-up funds to the payee (pending → available), calqued on a delivered sale.
+ * sold, marks party items swapped + increments swapsCount, and MOVES the top-up
+ * funds to the payee's heldBalance (pending → held) with a 7-day release
+ * deadline — EXACTLY like a delivered purchase (applyDeliveredHeldFunds). The
+ * funds are released to withdrawable `balance` by the releaseHeldFunds scheduled
+ * job once the window elapses, NOT here, so openSwapDispute can still refund the
+ * payer during the window (post-reception recourse).
  */
 export const confirmSwapReception = onCall(
   { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
