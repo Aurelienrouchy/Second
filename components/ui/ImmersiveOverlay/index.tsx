@@ -23,6 +23,7 @@ import Animated, {
   withTiming,
   withSequence,
   withRepeat,
+  withDelay,
   Easing,
   cancelAnimation,
   runOnJS,
@@ -32,7 +33,12 @@ import Animated, {
 import { useImmersiveOverlayStore } from '@/store/immersiveOverlayStore';
 
 import { Overlay } from './Overlay';
-import { ENTERING_TIME, EXITING_TIME } from './constants';
+import {
+  ENTERING_TIME,
+  EXITING_TIME,
+  CONTENT_REVEAL_DELAY,
+  CONTENT_REVEAL_TIME,
+} from './constants';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
