@@ -92,7 +92,9 @@ export const checkSavedSearchNotifications = onSchedule(
         // Skip users without FCM tokens
         const userData = userDataMap.get(userId);
         if (!userData) continue;
-        const { fcmTokens } = userData;
+        // Raw APNs tokens (iOS native tokens) are not sendable via FCM and must
+        // not be pruned on send failure — partition them out.
+        const { fcmTokens } = partitionTokens(userData.fcmTokens);
 
         searchesChecked++;
         const search = searchDoc.data();
