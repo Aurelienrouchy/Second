@@ -228,8 +228,8 @@ const styles = StyleSheet.create({
   // Price + brand on one line, single Text, same typo as the title.
   rowPriceBrand: {
     fontFamily: fonts.display,
-    fontSize: 14,
-    lineHeight: 17,
+    fontSize: 16,
+    lineHeight: 20,
     color: colors.sand,
     marginBottom: spacing.sm,
   },
