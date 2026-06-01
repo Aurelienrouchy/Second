@@ -51,6 +51,24 @@ async function setupAndroidChannels(): Promise<void> {
       importance: Notifications.AndroidImportance.DEFAULT,
       sound: null,
     }),
+    // Le backend (functions/src/scheduled/savedSearches.ts) envoie sur le
+    // channel 'saved_searches'. Sans channel correspondant, Android 8+ jette
+    // silencieusement la notif → le tap (et le reset du compteur) ne se produit
+    // jamais. Channel obligatoire pour que R1/M3 fonctionne.
+    Notifications.setNotificationChannelAsync('saved_searches', {
+      name: 'Recherches sauvegardées',
+      description: 'Nouveaux articles correspondant à vos recherches',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      sound: null,
+    }),
+    // Le backend (getAndroidChannel) route les notifs de commande sur 'orders'.
+    Notifications.setNotificationChannelAsync('orders', {
+      name: 'Commandes',
+      description: 'Ventes, expéditions, livraisons et remboursements',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: null,
+      enableVibrate: true,
+    }),
   ]);
 }
 
