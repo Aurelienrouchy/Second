@@ -236,8 +236,9 @@ const styles = StyleSheet.create({
   },
   handleIndicator: {
     backgroundColor: colors.borderStrong,
-    width: 40,
-    height: 4,
+    width: sizing.avatarMD,
+    height: spacing.xs,
+    borderRadius: radius.none,
   },
   header: {
     flexDirection: 'row',
