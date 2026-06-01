@@ -176,6 +176,114 @@ export const expireOrphanedTransactions = onSchedule(
     }
 
     // =========================================================================
+    // 1b. A3 — Expire abandoned meetup_confirmed transactions older than 7 days
+    //     The seller confirmed the appointment but neither party ever tapped
+    //     "completed" (completeMeetupTransaction). Without this branch the tx
+    //     sits in meetup_confirmed forever and the article stays unsellable
+    //     (toggleArticleSold/createTransaction treat meetup_confirmed as an
+    //     active blocking transaction). Auto-cancel + release the article.
+    //     Reuses the existing (status ASC, createdAt ASC) composite index.
+    // =========================================================================
+
+    try {
+      const meetupConfirmedCutoff = new Date(now - MEETUP_CONFIRMED_EXPIRY_MS);
+      const meetupConfirmedSnap = await db
+        .collection('transactions')
+        .where('status', '==', 'meetup_confirmed')
+        .where('createdAt', '<', meetupConfirmedCutoff)
+        .limit(MAX_PER_RUN)
+        .get();
+
+      if (!meetupConfirmedSnap.empty) {
+        let confirmedExpired = 0;
+
+        for (const doc of meetupConfirmedSnap.docs) {
+          const data = doc.data();
+          // Atomic per-doc: re-check status under the lock so this stays
+          // idempotent if a party completes/cancels between query and commit.
+          const expired = await db.runTransaction(async (tx) => {
+            const txSnap = await tx.get(doc.ref);
+            const txData = txSnap.data();
+            if (!txData || txData.status !== 'meetup_confirmed') {
+              return false;
+            }
+
+            let articleRef: FirebaseFirestore.DocumentReference | null = null;
+            let articleSnap: FirebaseFirestore.DocumentSnapshot | null = null;
+            if (typeof txData.articleId === 'string' && txData.articleId.length > 0) {
+              articleRef = db.collection('articles').doc(txData.articleId);
+              articleSnap = await tx.get(articleRef);
+            }
+
+            tx.update(doc.ref, {
+              status: 'cancelled',
+              cancelledAt: FieldValue.serverTimestamp(),
+              cancelReason: 'meetup_confirmed_expired_7d',
+            });
+
+            if (articleRef && articleSnap && articleSnap.exists) {
+              tx.update(articleRef, { isSold: false });
+            }
+            return true;
+          }).catch((err) => {
+            logger.error('[expireOrphanedTransactions] Error expiring a meetup_confirmed tx', {
+              transactionId: doc.id,
+              error: err instanceof Error ? err.message : err,
+            });
+            return false;
+          });
+
+          if (!expired) continue;
+          confirmedExpired++;
+          totalExpired++;
+
+          // Loi 25 art. 12.1 — journal the AUTOMATED expiry (best-effort) and
+          // notify BOTH parties that the abandoned meetup was auto-cancelled and
+          // can be contested. No money moved (cash-in-hand meetup).
+          const transactionId = doc.id;
+          await logAutomatedDecision({
+            transactionId,
+            userId: typeof data.buyerId === 'string' ? data.buyerId : (data.sellerId ?? ''),
+            decisionType: 'transaction_expired',
+            criteria: {
+              status: 'meetup_confirmed',
+              expiryWindowDays: 7,
+              cancelReason: 'meetup_confirmed_expired_7d',
+            },
+            result: 'Rencontre annulée automatiquement (non finalisée sous 7 jours)',
+          });
+
+          const articleTitle = data.articleTitle || 'votre rencontre';
+          const payload = { transactionId, articleId: data.articleId || '' };
+          for (const party of [data.buyerId, data.sellerId]) {
+            if (typeof party === 'string' && party.length > 0) {
+              sendPushNotification(
+                party,
+                'Rencontre annulée automatiquement',
+                `La rencontre pour « ${articleTitle} » a été annulée automatiquement : elle n'a pas été finalisée dans les délais (7 jours). Si vous contestez cette décision, vous pouvez nous le signaler.`,
+                payload,
+                'order_cancelled'
+              ).catch((err) => {
+                logger.warn('[expireOrphanedTransactions] Failed to notify party of meetup_confirmed expiry', {
+                  transactionId,
+                  error: err instanceof Error ? err.message : err,
+                });
+              });
+            }
+          }
+        }
+
+        logger.info(
+          `[expireOrphanedTransactions] Expired ${confirmedExpired}/${meetupConfirmedSnap.size} meetup_confirmed transactions (7d)`
+        );
+      }
+    } catch (error) {
+      logger.error('[expireOrphanedTransactions] Error expiring meetup_confirmed transactions', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
+    // =========================================================================
     // 2. Expire pending_payment transactions older than 1h
     // =========================================================================
 
