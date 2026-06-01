@@ -20,7 +20,26 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+      // Prefer the `admin` custom claim (set server-side via Admin SDK, not
+      // user-writable). Fall back to the Firestore `isAdmin` field for parity
+      // with the rest of the codebase (privacyIncidents / search / payments /
+      // wallet callables all use this same dual check). The `isAdmin` field on
+      // users/{uid} is itself write-protected by the users update rule, so the
+      // fallback cannot be self-granted.
+      return request.auth != null &&
+             (request.auth.token.admin == true ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+
+    // True when `viewerUid` is NOT blocked by `ownerUid`. Reads the owner's
+    // user doc via get() (which bypasses the users read rule). Enforcement is
+    // based on the flat `blockedUserIds` list (a list of plain UIDs). When that
+    // field is absent (doc not yet migrated) the check passes — defence in depth
+    // alongside the Cloud Function block guards; it never produces false blocks.
+    function isNotBlockedBy(ownerUid, viewerUid) {
+      return !(exists(/databases/$(database)/documents/users/$(ownerUid)) &&
+               'blockedUserIds' in get(/databases/$(database)/documents/users/$(ownerUid)).data &&
+               viewerUid in get(/databases/$(database)/documents/users/$(ownerUid)).data.blockedUserIds);
     }
 
     function isValidString(str, minLen, maxLen) {
