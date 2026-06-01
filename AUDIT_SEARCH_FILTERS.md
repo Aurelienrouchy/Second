@@ -21,11 +21,11 @@
 - **L7** ✅ `distanceResultField: '__distance__'` sur les 2 `findNearest` (visualSearch + getSimilarProducts).
 - **patterns** ✅ supprimé (types, services, matcher notif, hooks). `Article.pattern` (métadonnée) conservé.
 
-**⏳ PENDING — actions manuelles (NON exécutées, deploy/migration jamais auto)** — ordre **impératif** :
-1. `firebase deploy --only functions` (touchées : `products.ts`, `search.ts`, `home.ts`, `savedSearches.ts`) — **jamais `--force`** (orphelins prod dont `requestWithdrawal`).
+**⏳ PENDING — déploiement (NON exécuté ; bloqué garde-fou prod, à lancer côté fondateur)** :
+1. `firebase deploy --only "functions:updateSearchIndex,functions:createArticle,functions:updateArticle,functions:visualSearch,functions:getSimilarProducts,functions:getNewArrivals,functions:getPriceDrops,functions:getFeaturedSellers,functions:getHomeFeed,functions:checkSavedSearchNotifications,functions:generateStyleProfile"` — **ciblé par nom, jamais `--force`/blanket** (protège l'orphelin financier `requestWithdrawal`).
 2. `firebase deploy --only firestore:indexes` puis attendre statut `READY`.
-3. `node lib/scripts/migrateArticleSize.js` (dry-run d'abord) — **doit précéder toute recherche prod**, sinon le filtre tailles exclut tout (articles encore en `string`).
-4. `node lib/scripts/backfillSearchIndexCategoryIds.js`.
+
+**~~Migration de données~~ ANNULÉE (2026-06-01)** : wipe complet des comptes + articles prévu → aucune donnée existante à migrer. Les scripts `migrateArticleSize`/`backfillSearchIndexCategoryIds` ont été **supprimés**. Les nouveaux articles créés après le wipe auront directement `size: {value,system}` (via `createArticle` corrigé) et `search_index.categoryIds` (via le trigger `updateSearchIndex`).
 
 > Le verdict ci-dessous décrit l'état **avant** correctifs.
 
