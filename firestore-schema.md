@@ -1063,8 +1063,12 @@ interface SwapDocument {
   topUpPaymentIntentId?: string; // Stripe PaymentIntent id
   topUpChargeId?: string | null; // Stripe charge id (latest_charge)
   topUpFee?: number;             // application_fee_amount in CENTS
-  topUpPaidAt?: Timestamp;       // set on payment_intent.succeeded (swap_topup)
-  topUpReleasedAt?: Timestamp;   // set at confirmSwapReception (pending -> available)
+  topUpPaidAt?: Timestamp;       // set on payment_intent.succeeded (swap_topup): pendingBalance credited
+  // Post-reception buyer-protection window (7 days), mirrors a delivered purchase:
+  topUpFundsHeldAt?: Timestamp;  // set at confirmSwapReception: pendingBalance -> heldBalance
+  topUpFundsReleaseAt?: Timestamp; // = topUpFundsHeldAt + 7d; releaseHeldFunds sweeps when due
+  topUpReleasedAt?: Timestamp;   // set by releaseHeldFunds (held -> balance, withdrawable). While
+                                 // UNSET (pre-reception or in-window), openSwapDispute can refund the payer.
   topUpRefundId?: string;        // Stripe refund id (cancel/dispute)
   topUpRefundedAt?: Timestamp;
   topUpRefundReconciledAt?: Timestamp; // wallet debit reconciled via charge.refunded
