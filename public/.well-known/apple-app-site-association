@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appID": "TEAM_ID.com.seconde.app",
+        "appID": "REPLACE_WITH_APPLE_TEAM_ID.com.seconde.app",
         "paths": [
           "/article/*",
           "/chat/*",
