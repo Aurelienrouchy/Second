@@ -258,6 +258,11 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: colors.cream,
   },
+  rowSep: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.whiteTranslucent,
+  },
   rowPrice: {
     fontFamily: fonts.displayMedium,
     fontSize: 14,
