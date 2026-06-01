@@ -56,6 +56,23 @@ index.
 }
 ```
 
+## Report triage queue (`getPendingReports`)
+
+Admin moderation (B3). The `getPendingReports` callable lists open reports,
+most-recent first: `where status == 'pending'` + `orderBy createdAt desc`.
+Requires a composite index on the `reports` collection.
+
+```json
+{
+  "collectionGroup": "reports",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "status", "order": "ASCENDING" },
+    { "fieldPath": "createdAt", "order": "DESCENDING" }
+  ]
+}
+```
+
 ## Composite Indexes
 
 Add these indexes to your `firestore.indexes.json` file or create them in the Firebase Console:
