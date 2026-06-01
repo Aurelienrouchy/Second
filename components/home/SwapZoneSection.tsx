@@ -295,10 +295,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: 'flex-start',
   },
+  // Vertical stats group: rust count pill on its own line, fresh caption below.
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
   },
   countPill: {
     flexDirection: 'row',
