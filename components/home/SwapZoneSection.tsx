@@ -244,25 +244,38 @@ export const SwapZoneSection: React.FC<SwapZoneSectionProps> = ({
 
 const styles = StyleSheet.create({
   // Content shell: paddings define the inset; no background, no radius, no
-  // shadow — the surface comes from the wrapper's section.
+  // shadow — the surface comes from the wrapper's section. Asymmetric editorial
+  // rhythm: horizontal stays at the home gutter (lg) so the dark content aligns
+  // with every other section; a wide xl gap separates the tight header cluster
+  // from the stats + CTA action block (the deliberate compositional pause).
   shell: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.md,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
+    gap: spacing.xl,
   },
   shellPressed: {
     opacity: 0.9,
   },
 
-  // --- Title + tagline ---
+  // --- Eyebrow + title + tagline (one tight cluster) ---
   textBlock: {
-    gap: spacing.xs,
+    gap: spacing.sm,
+  },
+  // Uppercase magazine kicker — sand text-on-dark, never a fill.
+  eyebrow: {
+    fontFamily: typography.labelUppercase.fontFamily,
+    fontSize: typography.labelUppercase.fontSize,
+    lineHeight: typography.labelUppercase.lineHeight,
+    letterSpacing: typography.labelUppercase.letterSpacing,
+    color: colors.sand,
+    textTransform: 'uppercase',
   },
   title: {
     fontFamily: fonts.displaySemiBold,
-    fontSize: typography.hero.fontSize,
-    lineHeight: typography.hero.lineHeight,
-    letterSpacing: typography.hero.letterSpacing,
+    fontSize: typography.h1.fontSize,
+    lineHeight: typography.h1.lineHeight,
+    letterSpacing: typography.h1.letterSpacing,
     color: colors.cream,
   },
   titleAccent: {
@@ -270,11 +283,11 @@ const styles = StyleSheet.create({
     color: colors.rust,
   },
   tagline: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-    letterSpacing: typography.body.letterSpacing,
-    color: colors.whiteTranslucent,
+    fontFamily: typography.bodySmall.fontFamily,
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    letterSpacing: typography.bodySmall.letterSpacing,
+    color: colors.sand,
   },
 
   // --- Stats + CTA ---
