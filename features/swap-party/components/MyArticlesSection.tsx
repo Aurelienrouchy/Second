@@ -21,11 +21,11 @@ import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
-// Portrait 4/5 thumbnail footprint (64 / 80 = 0.8), echoing the previous tile
+// Portrait 4/5 thumbnail footprint (48 / 60 = 0.8), echoing the previous tile
 // ratio in a compact list-row form. Fixed named consts rather than aspectRatio
 // because the thumbnail is not flex-driven and needs a deterministic footprint.
-const THUMB_W = 64;
-const THUMB_H = 80;
+const THUMB_W = 48;
+const THUMB_H = 60;
 
 export const MyArticlesSection = React.memo(function MyArticlesSection({
   userItems,
