@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelPendingTransaction = exports.adminRefundTransaction = exports.completeMeetupTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
+exports.cancelPendingTransaction = exports.adminRefundTransaction = exports.reportMeetupNoShow = exports.completeMeetupTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
 exports.resolveSellerOriginAddress = resolveSellerOriginAddress;
 /**
  * Payment callable functions
@@ -52,6 +52,7 @@ const fees_1 = require("../utils/fees");
 const rateLimit_1 = require("../utils/rateLimit");
 const trackingTransition_1 = require("../utils/trackingTransition");
 const refund_1 = require("../utils/refund");
+const notifications_1 = require("../utils/notifications");
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -1483,14 +1484,20 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
 // COMPLETE MEETUP TRANSACTION — Buyer confirms receipt, credits seller
 // =============================================================================
 /**
- * Buyer confirms the meetup exchange was completed. This transitions the
+ * Either party confirms the meetup exchange was completed. This transitions the
  * transaction from `meetup_confirmed` → `meetup_completed`, sets
  * `meetupCompletedAt`, and thereby unlocks review eligibility.
  *
  * Meetup is a pure cash-in-hand exchange: NO money flows through the platform,
  * so this NEVER credits the seller wallet and writes NO ledger entry.
  *
- * Only the buyer can call this (the buyer confirms receipt).
+ * A3 FIX: completion was previously buyer-only. A meetup is a two-sided in-person
+ * exchange — if the buyer ghosts after the seller confirmed the appointment, the
+ * transaction would sit in `meetup_confirmed` forever (zombie) and the article
+ * stays locked (toggleArticleSold/createTransaction block on meetup_confirmed).
+ * Both the buyer AND the seller can now mark the meetup completed; the scheduler
+ * additionally auto-cancels abandoned `meetup_confirmed` transactions (see
+ * expireOrphanedTransactions), so the article can never be stuck unsellable.
  */
 exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     var _a, _b;
@@ -1517,9 +1524,12 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                 throw new https_1.HttpsError('not-found', 'Transaction not found');
             }
             const data = txSnap.data();
-            // Only the buyer can confirm receipt
-            if (data.buyerId !== callerUid) {
-                throw new https_1.HttpsError('permission-denied', 'Only the buyer can complete the meetup');
+            // A3 FIX: either party (buyer or seller) can confirm the in-person
+            // exchange happened. Both were physically present at the meetup, so
+            // either can release it — this prevents a zombie transaction when one
+            // side never taps "completed".
+            if (data.buyerId !== callerUid && data.sellerId !== callerUid) {
+                throw new https_1.HttpsError('permission-denied', 'Only the buyer or seller can complete the meetup');
             }
             // Must be in meetup_confirmed status
             if (data.status !== 'meetup_confirmed') {
@@ -1536,6 +1546,7 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
                 status: 'meetup_completed',
                 completedAt: firebase_1.FieldValue.serverTimestamp(),
                 meetupCompletedAt: firebase_1.FieldValue.serverTimestamp(),
+                meetupCompletedBy: callerUid,
             });
             return { chatId: data.chatId, sellerId };
         });
@@ -1572,6 +1583,149 @@ exports.completeMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-
         const message = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Error completing meetup transaction:', error);
         throw new https_1.HttpsError('internal', `Failed to complete meetup: ${message}`);
+    }
+});
+// =============================================================================
+// REPORT MEETUP NO-SHOW — A party signals the other never showed up
+// =============================================================================
+/** Reason codes accepted for a meetup no-show report. */
+const MEETUP_NO_SHOW_REASONS = new Set([
+    'other_party_no_show',
+    'cancelled_last_minute',
+    'unsafe_situation',
+    'other',
+]);
+/** A meetup no-show can only be reported while the meetup is still open. */
+const MEETUP_REPORTABLE_STATUSES = new Set(['meetup_pending', 'meetup_confirmed']);
+/**
+ * A2 FIX — server-side no-show handling for a meetup.
+ *
+ * Previously the client (chatService.reportNoShow) only wrote a cosmetic
+ * `offer.meetup.noShow` field on a chat message that NOTHING consumed: the
+ * article stayed locked (isSold=true), the transaction kept blocking re-listing
+ * (meetup_pending / meetup_confirmed are "active" in toggleArticleSold), and
+ * neither party had a real recourse.
+ *
+ * This callable gives the report teeth. A meetup is a PURE cash-in-hand exchange:
+ * NO money flows through the platform, so there is nothing to refund here. What a
+ * no-show needs is:
+ *   1. Unlock the article (isSold=false) so the seller can re-list / re-sell it.
+ *   2. Move the transaction to `disputed` (frozen, terminal-for-meetup) so it can
+ *      no longer be completed and no longer counts as an "active" transaction
+ *      blocking the article.
+ *   3. Open a `disputes` doc for human review — this is the recourse for BOTH
+ *      sides: the reporter states their case, and the accused party can contest
+ *      with the admin (Loi 25 human-review path). The dispute records both
+ *      parties + who reported whom.
+ *
+ * Either the buyer or the seller may file it (a no-show can be on either side).
+ * Idempotent: refuses a second report on an already-disputed/cancelled tx.
+ */
+exports.reportMeetupNoShow = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    var _a;
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'reportMeetupNoShow',
+        maxCallsAuthenticated: 5,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+    const { transactionId, reason, details } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
+    if (typeof transactionId !== 'string' || transactionId.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
+    }
+    const reportReason = typeof reason === 'string' && MEETUP_NO_SHOW_REASONS.has(reason)
+        ? reason
+        : 'other_party_no_show';
+    const trimmedDetails = typeof details === 'string' && details.trim().length > 0
+        ? details.trim().substring(0, 1000)
+        : null;
+    const callerUid = request.auth.uid;
+    const txRef = firebase_1.db.collection('transactions').doc(transactionId);
+    try {
+        const result = await firebase_1.db.runTransaction(async (tx) => {
+            var _a, _b, _c, _d, _e, _f, _g;
+            const snap = await tx.get(txRef);
+            if (!snap.exists) {
+                throw new https_1.HttpsError('not-found', 'Transaction not found');
+            }
+            const data = snap.data();
+            // Caller must be a party to the transaction.
+            const isBuyer = data.buyerId === callerUid;
+            const isSeller = data.sellerId === callerUid;
+            if (!isBuyer && !isSeller) {
+                throw new https_1.HttpsError('permission-denied', 'Only the buyer or seller can report a no-show');
+            }
+            // Only meetup transactions still in an open meetup state.
+            if (data.deliveryType !== 'meetup') {
+                throw new https_1.HttpsError('failed-precondition', 'Le signalement de no-show est réservé aux rencontres en personne.');
+            }
+            if (!MEETUP_REPORTABLE_STATUSES.has(data.status)) {
+                throw new https_1.HttpsError('failed-precondition', `Impossible de signaler un no-show pour une transaction au statut ${data.status}.`);
+            }
+            // Read the article BEFORE writing (Firestore: all reads first).
+            let articleRef = null;
+            let articleSnap = null;
+            if (typeof data.articleId === 'string' && data.articleId.length > 0) {
+                articleRef = firebase_1.db.collection('articles').doc(data.articleId);
+                articleSnap = await tx.get(articleRef);
+            }
+            const reportedAgainst = isBuyer ? data.sellerId : data.buyerId;
+            // 1. Freeze the transaction in `disputed`. No money moves (meetup =
+            //    cash-in-hand). statusBeforeDispute lets an admin restore context.
+            tx.update(txRef, {
+                status: 'disputed',
+                disputed: true,
+                statusBeforeDispute: data.status,
+                noShowReport: Object.assign(Object.assign({ reportedBy: callerUid, reportedAgainst: typeof reportedAgainst === 'string' ? reportedAgainst : null, reason: reportReason }, (trimmedDetails !== null ? { details: trimmedDetails } : {})), { reportedAt: firebase_1.FieldValue.serverTimestamp() }),
+                disputedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            // 2. Unlock the article so the seller can re-list / re-sell it.
+            if (articleRef && articleSnap && articleSnap.exists) {
+                tx.update(articleRef, { isSold: false });
+            }
+            // 3. Open a dispute doc for admin (human-review) — the recourse for both
+            //    sides. Records who reported whom so the accused can contest.
+            const disputeRef = firebase_1.db.collection('disputes').doc();
+            tx.set(disputeRef, Object.assign(Object.assign({ transactionId, type: 'meetup_no_show', buyerId: (_a = data.buyerId) !== null && _a !== void 0 ? _a : null, sellerId: (_b = data.sellerId) !== null && _b !== void 0 ? _b : null, articleId: (_c = data.articleId) !== null && _c !== void 0 ? _c : null, articleTitle: (_d = data.articleTitle) !== null && _d !== void 0 ? _d : null, reportedBy: callerUid, reportedAgainst: typeof reportedAgainst === 'string' ? reportedAgainst : null, reason: reportReason }, (trimmedDetails !== null ? { details: trimmedDetails } : {})), { status: 'open', statusBeforeDispute: data.status, createdAt: firebase_1.FieldValue.serverTimestamp() }));
+            return {
+                disputeId: disputeRef.id,
+                buyerId: data.buyerId,
+                sellerId: data.sellerId,
+                articleId: (_e = data.articleId) !== null && _e !== void 0 ? _e : '',
+                articleTitle: (_f = data.articleTitle) !== null && _f !== void 0 ? _f : 'la rencontre',
+                reportedAgainst: typeof reportedAgainst === 'string' ? reportedAgainst : null,
+                chatId: (_g = data.chatId) !== null && _g !== void 0 ? _g : null,
+            };
+        });
+        // Best-effort admin signal (ingested by the on-call dashboard).
+        logger.warn('ADMIN_REVIEW — meetup no-show reported', {
+            disputeId: result.disputeId,
+            transactionId,
+            reportedBy: callerUid,
+            reason: reportReason,
+        });
+        // Notify the reported party that a no-show was filed against them and that
+        // they can contest it (recourse / human review). Best-effort, non-blocking.
+        if (result.reportedAgainst) {
+            (0, notifications_1.sendPushNotification)(result.reportedAgainst, 'Signalement de rencontre manquée', `Un no-show a été signalé pour « ${result.articleTitle} ». Notre équipe va examiner la situation. Si vous contestez ce signalement, vous pouvez nous le signaler.`, { transactionId, articleId: result.articleId }, 'order_cancelled').catch((err) => {
+                logger.warn('[reportMeetupNoShow] Failed to notify reported party', {
+                    transactionId,
+                    error: err instanceof Error ? err.message : err,
+                });
+            });
+        }
+        return { success: true, disputeId: result.disputeId };
+    }
+    catch (error) {
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('Error reporting meetup no-show:', error);
+        throw new https_1.HttpsError('internal', `Failed to report no-show: ${message}`);
     }
 });
 // =============================================================================

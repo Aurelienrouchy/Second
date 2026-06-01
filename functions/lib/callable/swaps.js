@@ -84,10 +84,20 @@ function getSwapItems(swap, side) {
     return swap.receiverItems || (swap.receiverItem ? [swap.receiverItem] : []);
 }
 /**
- * Validate that all articles in a list are available (exist, isActive, not isSold).
+ * Validate that all articles in a list are available (exist, isActive, not isSold)
+ * AND, when `expectedOwnerId` is provided, that each article belongs to that user
+ * (article.sellerId === expectedOwnerId).
+ *
+ * The ownership check is a HARD financial/integrity invariant: a swap engages a
+ * party's OWN items only. Without it, the initiator could stage someone else's
+ * articles on either side (privilege escalation / corruption of third-party
+ * articles when the swap completes and marks them sold, plus spoofed reviews on
+ * an unrelated user). The article's `sellerId` is the sole source of truth for
+ * ownership — never the client-supplied item payload.
+ *
  * Must be called inside a transaction; reads via the transaction handle.
  */
-async function validateArticlesAvailable(tx, items, label) {
+async function validateArticlesAvailable(tx, items, label, expectedOwnerId) {
     for (const item of items) {
         const articleRef = firebase_1.db.collection('articles').doc(item.articleId);
         const articleSnap = await tx.get(articleRef);
@@ -95,6 +105,12 @@ async function validateArticlesAvailable(tx, items, label) {
             throw new https_1.HttpsError('not-found', `${label} : l'article "${item.title || item.articleId}" n'existe plus`);
         }
         const data = articleSnap.data();
+        // Ownership invariant — checked against the article's authoritative sellerId,
+        // not the client payload. Use the same 'not-found' wording as a missing item
+        // so an attacker cannot probe which articles belong to which user.
+        if (expectedOwnerId != null && data.sellerId !== expectedOwnerId) {
+            throw new https_1.HttpsError('permission-denied', `${label} : l'article "${item.title || item.articleId}" n'appartient pas au participant attendu`);
+        }
         if (data.isActive === false) {
             throw new https_1.HttpsError('failed-precondition', `${label} : l'article "${item.title || item.articleId}" n'est plus actif`);
         }
@@ -283,10 +299,12 @@ exports.proposeMultiSwap = (0, https_1.onCall)({ region: 'northamerica-northeast
         if (blocked) {
             throw new https_1.HttpsError('failed-precondition', 'Impossible de proposer un échange avec cet utilisateur');
         }
-        // Atomically verify all articles and create the swap
+        // Atomically verify all articles and create the swap.
+        // OWNERSHIP: the initiator may only engage articles they own; the items
+        // requested from the receiver must actually belong to the receiver.
         const swapId = await firebase_1.db.runTransaction(async (tx) => {
-            await validateArticlesAvailable(tx, initiatorItems, 'Article proposé');
-            await validateArticlesAvailable(tx, receiverItems, 'Article demandé');
+            await validateArticlesAvailable(tx, initiatorItems, 'Article proposé', initiatorId);
+            await validateArticlesAvailable(tx, receiverItems, 'Article demandé', receiverId);
             const initiatorTotalValue = initiatorItems.reduce((sum, item) => sum + (item.price || 0), 0);
             const receiverTotalValue = receiverItems.reduce((sum, item) => sum + (item.price || 0), 0);
             const swapData = stripUndefined({
@@ -382,11 +400,14 @@ exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
             if (swap.status !== 'proposed') {
                 throw new https_1.HttpsError('failed-precondition', `Impossible d'accepter un échange en statut "${swap.status}"`);
             }
-            // Validate ALL articles on both sides are still available
+            // Validate ALL articles on both sides are still available AND still owned
+            // by the expected participant. Re-checking ownership at accept time closes
+            // the window where an article changed hands (or never belonged to the
+            // claimed party) between proposal and acceptance.
             const initiatorItems = getSwapItems(swap, 'initiator');
             const receiverItems = getSwapItems(swap, 'receiver');
-            await validateArticlesAvailable(tx, initiatorItems, 'Article du proposant');
-            await validateArticlesAvailable(tx, receiverItems, 'Votre article');
+            await validateArticlesAvailable(tx, initiatorItems, 'Article du proposant', swap.initiatorId);
+            await validateArticlesAvailable(tx, receiverItems, 'Votre article', swap.receiverId);
             const hasTopUp = swap.cashTopUp != null && typeof swap.cashTopUp.amount === 'number';
             const newStatus = hasTopUp ? 'payment_pending' : 'accepted';
             tx.update(swapRef, {

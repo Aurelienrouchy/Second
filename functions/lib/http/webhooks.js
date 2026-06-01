@@ -698,12 +698,16 @@ async function handleSwapTopUpSucceeded(paymentIntent) {
     }
     const amountReceivedCents = paymentIntent.amount_received || paymentIntent.amount;
     const swapRef = firebase_1.db.collection('swaps').doc(swapId);
-    await firebase_1.db.runTransaction(async (tx) => {
+    // Terminal states a swap can never advance OUT of into the exchange flow. If a
+    // late top-up capture lands here while the swap already reached one of these,
+    // the payer was charged for an exchange that will never happen → refund.
+    const CANCELLED_LIKE = new Set(['cancelled', 'declined', 'expired', 'disputed']);
+    const result = await firebase_1.db.runTransaction(async (tx) => {
         const swapSnap = await tx.get(swapRef);
         const swap = swapSnap.data();
         if (!swap) {
             logger.error('Stripe webhook: swap_topup swap not found', { swapId });
-            return;
+            return { outcome: 'not_found' };
         }
         // SECURITY: verify the charged amount matches base + fee from the swap doc.
         const expectedTotalCents = baseAmountCents + (swap.topUpFee || 0);
@@ -715,13 +719,41 @@ async function handleSwapTopUpSucceeded(paymentIntent) {
             });
             throw new Error('Swap top-up amount does not match expected total');
         }
-        // IDEMPOTENCE: only advance a swap still awaiting payment.
+        // A1 (race capture vs cancellation/expiry): the swap was cancelled (by the
+        // initiator) or expired (expireStaleProposedSwaps) BEFORE this capture landed.
+        // The payer was debited but the exchange is dead → refund, mirroring the
+        // purchase `cancelled_needs_refund` path. The wallet was NEVER credited (we
+        // only credit on the payment_pending → accepted transition below), so there is
+        // nothing to reverse internally; the charge.refunded webhook reconciles
+        // defensively (min(amount, pendingBalance) = 0 here). We persist the PI/charge
+        // ids so the post-transaction refund and any reconciliation can resolve them.
+        if (CANCELLED_LIKE.has(swap.status)) {
+            logger.warn('Stripe webhook: swap_topup captured on a cancelled/expired swap — will refund', {
+                swapId,
+                currentStatus: swap.status,
+            });
+            // Pre-set topUpRefundReconciledAt so the upcoming charge.refunded webhook
+            // (handleSwapTopUpRefund) short-circuits and does NOT debit the payee wallet:
+            // we never credited it (we return before the pendingBalance increment), so a
+            // debit would wrongly drain an unrelated top-up sitting in the same wallet.
+            tx.update(swapRef, {
+                topUpPaidAt: firebase_1.FieldValue.serverTimestamp(),
+                topUpPaymentIntentId: paymentIntent.id,
+                topUpChargeId: paymentIntent.latest_charge || null,
+                topUpRefundReconciledAt: firebase_1.FieldValue.serverTimestamp(),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            return { outcome: 'cancelled_needs_refund' };
+        }
+        // IDEMPOTENCE: only advance a swap still awaiting payment. Any other status
+        // (accepted/photos_pending/shipping/completed…) means a prior delivery of a
+        // top-up capture already advanced this swap — do nothing.
         if (swap.status !== 'payment_pending') {
             logger.info('Stripe webhook: swap_topup already processed or not pending', {
                 swapId,
                 currentStatus: swap.status,
             });
-            return;
+            return { outcome: 'already_processed' };
         }
         // Credit payee wallet pendingBalance (escrow), auto-create if absent.
         const { walletRef, walletData, isNew } = await (0, wallet_1.getOrCreateSellerWallet)(tx, payeeId);
@@ -755,12 +787,83 @@ async function handleSwapTopUpSucceeded(paymentIntent) {
             topUpChargeId: paymentIntent.latest_charge || null,
             updatedAt: firebase_1.FieldValue.serverTimestamp(),
         });
+        return { outcome: 'accepted' };
     });
-    logger.info('Stripe webhook: swap top-up confirmed, swap advanced to accepted', {
-        swapId,
-        paymentIntentId: paymentIntent.id,
-        payeeId,
-    });
+    // A1 refund: issue an idempotent Stripe refund of the full top-up charge for a
+    // capture that landed on a dead (cancelled/expired) swap. The deterministic key
+    // `rf_swap_${swapId}` is SHARED with refundSwapTopUpIfPaid (cancel/dispute
+    // callables), so this can never double-refund regardless of which path runs
+    // first. On failure we dead-letter (replayed by retryFailedOperations) and ACK
+    // 200 — a captured charge on a dead swap cannot self-heal on a Stripe retry.
+    if (result.outcome === 'cancelled_needs_refund') {
+        const stripe = (0, stripe_1.getStripe)();
+        if (!stripe) {
+            logger.error('Stripe webhook: cannot auto-refund cancelled swap top-up — Stripe not configured', {
+                swapId,
+                paymentIntentId: paymentIntent.id,
+            });
+            await (0, failedOperations_1.writeFailedOperation)({
+                type: 'stripe_refund_failed',
+                refId: swapId,
+                // idempotencyKey MUST equal the original (`rf_swap_${swapId}`) so the
+                // retry never issues a second refund. isMixedCharge:true tells the retry
+                // handler to OMIT reverse_transfer/refund_application_fee — a swap top-up
+                // is a direct platform charge (no transfer_data), and Stripe rejects those
+                // flags on such a charge (see refundSwapTopUpIfPaid in swaps.ts).
+                payload: {
+                    paymentIntentId: paymentIntent.id,
+                    idempotencyKey: `rf_swap_${swapId}`,
+                    isMixedCharge: true,
+                    kind: 'swap_topup_cancelled_race',
+                },
+                error: 'Stripe not configured at swap top-up cancelled-race refund',
+            });
+            return;
+        }
+        try {
+            const refund = await stripe.refunds.create({
+                payment_intent: paymentIntent.id,
+                metadata: { type: 'swap_topup_refund', swapId, reason: 'cancelled_payment_succeeded_late' },
+            }, { idempotencyKey: `rf_swap_${swapId}` });
+            await swapRef.update({
+                topUpRefundId: refund.id,
+                topUpRefundedAt: firebase_1.FieldValue.serverTimestamp(),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            logger.warn('Stripe webhook: auto-refunded swap top-up on cancelled/expired swap', {
+                swapId,
+                paymentIntentId: paymentIntent.id,
+                refundId: refund.id,
+            });
+        }
+        catch (refundErr) {
+            await (0, failedOperations_1.writeFailedOperation)({
+                type: 'stripe_refund_failed',
+                refId: swapId,
+                // Same key + isMixedCharge contract as the not-configured branch above.
+                payload: {
+                    paymentIntentId: paymentIntent.id,
+                    idempotencyKey: `rf_swap_${swapId}`,
+                    isMixedCharge: true,
+                    kind: 'swap_topup_cancelled_race',
+                },
+                error: refundErr,
+            });
+            logger.error('CRITICAL Stripe webhook: swap top-up cancelled-race auto-refund FAILED', {
+                swapId,
+                paymentIntentId: paymentIntent.id,
+                error: refundErr instanceof Error ? refundErr.message : refundErr,
+            });
+        }
+        return;
+    }
+    if (result.outcome === 'accepted') {
+        logger.info('Stripe webhook: swap top-up confirmed, swap advanced to accepted', {
+            swapId,
+            paymentIntentId: paymentIntent.id,
+            payeeId,
+        });
+    }
 }
 // =============================================================================
 // HANDLER: payment_intent.payment_failed
