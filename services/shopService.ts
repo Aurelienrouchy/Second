@@ -1,4 +1,4 @@
-import { firestore } from '@/config/firebaseConfig';
+import { firestore, functions } from '@/config/firebaseConfig';
 import { Article, Shop } from '@/types';
 import {
   addDoc,
@@ -9,13 +9,20 @@ import {
   getDoc,
   getDocs,
   query,
-  QueryDocumentSnapshot,
   QuerySnapshot,
   serverTimestamp,
   updateDoc,
   where
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { geohashForLocation, geohashQueryBounds } from 'geofire-common';
+
+// Cloud Function return shape for the shop-moderation callables (B2).
+interface ShopModerationResponse {
+  ok: boolean;
+  shopId: string;
+  status: 'approved' | 'rejected' | 'suspended';
+}
 
 export class ShopService {
   private static readonly COLLECTION = 'shops';
