@@ -141,6 +141,19 @@ export {
   getAutomatedDecisionLog,
 } from './callable/automatedDecisions';
 
+// Shop & Report Moderation (admin-only; B2/B3). Shop status + report lifecycle
+// are admin-owned fields LOCKED by firestore.rules, so they mutate via these
+// Cloud Functions (Admin SDK bypasses rules) under runTransaction.
+// approve/reject/suspendShop set the shop validation status; getPendingReports
+// + triageReport process the reports collection.
+export {
+  approveShop,
+  rejectShop,
+  suspendShop,
+  getPendingReports,
+  triageReport,
+} from './callable/shopModeration';
+
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
