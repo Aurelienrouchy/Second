@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   rowSep: {
     fontFamily: fonts.sans,
-    fontSize: 12,
+    fontSize: 10,
     color: colors.whiteTranslucent,
   },
   rowPrice: {
