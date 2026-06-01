@@ -6,9 +6,7 @@
  *
  * Ref-based (show/hide), same @gorhom/bottom-sheet pattern as the app's other
  * sheets. Light editorial surface (sheets stay light even though the Swap Zone
- * screen is dark). Borders, type tokens and spacing rhythm are aligned on the
- * Swap Zone screen (square corners, h3 title, hairlines, spacing.lg gutter) —
- * colours stay on the sheet's existing light palette.
+ * screen is dark).
  */
 
 import {
@@ -32,15 +30,9 @@ import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, Caption } from '@/components/ui';
-import { colors, fonts, spacing, typography, sizing, radius } from '@/constants/theme';
+import { colors, fonts, spacing, typography, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { Article, SwapPartyItemExtended } from '@/types';
-
-// Portrait 4/5 thumbnail footprint (48 / 60 = 0.8), mirroring MyArticlesSection
-// on the Swap Zone screen. Fixed named consts (not aspectRatio) because the
-// thumbnail is not flex-driven and needs a deterministic footprint.
-const THUMB_W = 48;
-const THUMB_H = 60;
 
 export interface AddItemSheetProps {
   articles: Article[];
@@ -163,7 +155,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.closeButton}
           >
-            <Ionicons name="close" size={sizing.iconMD} color={colors.charcoal} />
+            <Ionicons name="close" size={22} color={colors.charcoal} />
           </TouchableOpacity>
         </View>
 
@@ -211,7 +203,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
                   </Text>
                   <Ionicons
                     name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={sizing.iconMD}
+                    size={24}
                     color={isSelected ? colors.sage : colors.borderStrong}
                     style={styles.checkIcon}
                   />
@@ -236,9 +228,8 @@ const styles = StyleSheet.create({
   },
   handleIndicator: {
     backgroundColor: colors.borderStrong,
-    width: sizing.avatarMD,
-    height: spacing.xs,
-    borderRadius: radius.none,
+    width: 40,
+    height: 4,
   },
   header: {
     flexDirection: 'row',
@@ -253,10 +244,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    fontFamily: typography.h3.fontFamily,
-    fontSize: typography.h3.fontSize,
-    lineHeight: typography.h3.lineHeight,
-    letterSpacing: typography.h3.letterSpacing,
+    fontFamily: fonts.displaySemiBold,
+    fontSize: typography.h2.fontSize,
+    lineHeight: typography.h2.lineHeight,
+    letterSpacing: typography.h2.letterSpacing,
     color: colors.charcoal,
   },
   subtitle: {
@@ -299,18 +290,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceWarm,
   },
   rowImage: {
-    width: THUMB_W,
-    height: THUMB_H,
+    width: 48,
+    height: 60,
     backgroundColor: colors.background,
-    borderRadius: radius.none,
   },
   rowInfo: {
     flex: 1,
   },
   rowTitle: {
-    fontFamily: fonts.display,
     color: colors.charcoal,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   rowPrice: {
     color: colors.rust,
@@ -330,15 +319,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.rust,
     paddingVertical: spacing.md,
     alignItems: 'center',
-    borderRadius: radius.none,
   },
   addButtonDisabled: {
     backgroundColor: colors.borderStrong,
   },
   addButtonText: {
-    fontFamily: typography.button.fontFamily,
+    fontFamily: fonts.sansMedium,
     fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
     letterSpacing: typography.button.letterSpacing,
     textTransform: 'uppercase',
     color: colors.cream,
