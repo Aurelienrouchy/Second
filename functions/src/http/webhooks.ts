@@ -1507,9 +1507,9 @@ async function handleChargeRefunded(charge: any): Promise<void> {
 
   if (txQuery.empty) {
     // Not a purchase — could be a swap cash top-up refund. Reconcile the payee
-    // wallet pendingBalance (the funds were never released to balance because a
-    // top-up is only released to balance at confirmSwapReception, and refunds
-    // only occur on cancel/dispute BEFORE release).
+    // wallet: the complement sits in pendingBalance (pre-reception), heldBalance
+    // (post-reception, inside the 7-day window) or balance (released by
+    // releaseHeldFunds). handleSwapTopUpRefund cascades across the buckets.
     const swapQuery = await db
       .collection('swaps')
       .where('topUpPaymentIntentId', '==', paymentIntentId)
