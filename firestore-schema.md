@@ -391,6 +391,36 @@ The `users/{uid}.preferences.aiProfilingConsent` boolean flag (opt-in AI
 profiling, default **false** / absent ⇒ disabled) is a SEPARATE preference,
 managed via the preferences flow — NOT written by `recordSignupConsent`.
 
+### `usernames/{username}`
+
+Uniqueness registry for the persistent, immutable `@handle`. The document ID **is**
+the username (e.g. `usernames/marie.dupont`). Acts as a lock: reserving the doc in
+a transaction guarantees a username is owned by exactly one user.
+
+**WRITTEN SERVER-SIDE ONLY** by the `assignUsername` callable (Admin SDK, inside a
+`runTransaction`). Firestore rules: `read, write: if false` — fully server-only
+(no client read either: this prevents username enumeration and the mapping leaks
+nothing useful client-side).
+
+```typescript
+interface UsernameDocument {
+  uid: string;          // The user that owns this username
+  createdAt: Timestamp; // serverTimestamp()
+}
+```
+
+**`assignUsername()`** (callable, region `northamerica-northeast1`, 512MiB): derives
+a slug from `displayName` (transliterate accents → lowercase → spaces to `.` → strip
+chars outside `[a-z0-9._-]` → collapse repeated separators → trim borders, bounded
+3–30 chars, deterministic `user.<uid6>` fallback for degenerate names). If the slug
+is taken, appends a numeric suffix (`.2`, `.3`, …). Within a single transaction it
+reserves `usernames/{final}` and writes `users/{uid}.username = final`.
+**Idempotent / immutable**: if `users/{uid}.username` already exists it is returned
+unchanged (no-op) — the function can never rename an assigned handle. Auth required;
+operates on the caller's own uid. Returns `{ ok: true, username, alreadyAssigned }`.
+Must be called right after the `users/{uid}` doc is created, for ALL providers
+(email + Google + Apple).
+
 ### `privacy_incidents/{incidentId}`
 
 Privacy/security incident register (Loi 25 / RGPD breach log). **WRITTEN
