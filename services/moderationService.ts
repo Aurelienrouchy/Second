@@ -160,7 +160,18 @@ export class ModerationService {
   // ============================================
 
   /**
-   * Bloquer un utilisateur
+   * Bloquer un utilisateur.
+   *
+   * Maintient DEUX champs en parallèle, par souci de cohérence avec
+   * l'application serveur :
+   * - `blockedUsers` : tableau d'objets `{ userId, userName, blockedAt }`
+   *   utilisé par l'UI (liste des bloqués) et par le trigger messages.ts.
+   * - `blockedUserIds` : liste plate d'UIDs, source de vérité consommée par
+   *   les Firestore rules (`isNotBlockedBy`) qui rejettent la création de
+   *   message/chat vers un bloqueur. Sans ce champ, la règle tombe en
+   *   fallback "passe" et le blocage n'est appliqué qu'a posteriori par le
+   *   trigger (le message landait brièvement). Le client ne décide PAS de
+   *   l'autorisation : il alimente seulement le champ que le serveur lit.
    */
   static async blockUser(
     userId: string,
@@ -174,6 +185,7 @@ export class ModerationService {
           userName: blockedUserName,
           blockedAt: new Date().toISOString(),
         }),
+        blockedUserIds: arrayUnion(blockedUserId),
       });
     } catch (error) {
       console.error('Error blocking user:', error);
