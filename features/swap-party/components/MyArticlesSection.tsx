@@ -154,6 +154,14 @@ const styles = StyleSheet.create({
     borderColor: colors.darkBorderStrong,
     borderRadius: radius.none,
   },
+  dropZoneTitle: {
+    fontFamily: typography.h3.fontFamily,
+    fontSize: typography.h3.fontSize,
+    lineHeight: typography.h3.lineHeight,
+    letterSpacing: typography.h3.letterSpacing,
+    color: colors.cream,
+    textAlign: 'center',
+  },
   dropZonePlus: {
     width: sizing.avatarMD,
     height: sizing.avatarMD,
