@@ -194,7 +194,12 @@ export class ModerationService {
   }
 
   /**
-   * Débloquer un utilisateur
+   * Débloquer un utilisateur.
+   *
+   * Retire l'entrée des DEUX champs maintenus par blockUser :
+   * `blockedUsers` (objet, pour l'UI) et `blockedUserIds` (UID plat, lu par
+   * les Firestore rules) — sinon la règle continuerait de bloquer alors que
+   * l'utilisateur a été retiré de la liste affichée.
    */
   static async unblockUser(
     userId: string,
@@ -211,11 +216,16 @@ export class ModerationService {
         (u: any) => u.userId === blockedUserId
       );
 
+      // Toujours retirer l'UID de la liste plate (source de vérité des rules),
+      // même si l'entrée objet est introuvable (doc partiellement migré).
+      const update: Record<string, unknown> = {
+        blockedUserIds: arrayRemove(blockedUserId),
+      };
       if (userToRemove) {
-        await updateDoc(doc(firestore, this.USERS_COLLECTION, userId), {
-          blockedUsers: arrayRemove(userToRemove),
-        });
+        update.blockedUsers = arrayRemove(userToRemove);
       }
+
+      await updateDoc(doc(firestore, this.USERS_COLLECTION, userId), update);
     } catch (error) {
       console.error('Error unblocking user:', error);
       throw new Error('Erreur lors du déblocage de l\'utilisateur');
