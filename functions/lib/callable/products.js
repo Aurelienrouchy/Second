@@ -43,6 +43,7 @@ const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const brands_1 = require("../services/brands");
 const normalizeBrand_1 = require("../utils/normalizeBrand");
+const article_1 = require("../shared/article");
 /**
  * Normalise a raw brand string for storage.
  *
@@ -318,8 +319,13 @@ exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     // Optional scalar fields
     if (sellerImage)
         article.sellerImage = sellerImage;
-    if (typeof data.size === 'string' && data.size.trim()) {
-        article.size = data.size.trim().substring(0, 50);
+    // Size — accept the ArticleSize object { value, system } (current client),
+    // or a legacy plain string (back-compat → defaults to system 'EU').
+    // On create there is no "erasure": a null/empty/malformed size simply omits
+    // the field (never write undefined).
+    const sanitizedSize = (0, article_1.sanitizeArticleSize)(data.size);
+    if (sanitizedSize) {
+        article.size = sanitizedSize;
     }
     if (typeof data.brand === 'string' && data.brand.trim()) {
         article.brand = await resolveBrand(data.brand);
@@ -523,8 +529,15 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         });
     }
     // Optional scalar fields
-    if ('size' in updates && typeof updates.size === 'string') {
-        sanitized.size = updates.size.trim().substring(0, 50);
+    // Size — only touch when the caller sent the key. Accept the ArticleSize
+    // object { value, system }, a legacy plain string (→ system 'EU'), or an
+    // explicit null (erasure → store null). A malformed/empty value is ignored
+    // (field left untouched, never write undefined).
+    if ('size' in updates) {
+        const sanitizedSize = (0, article_1.sanitizeArticleSize)(updates.size);
+        if (sanitizedSize !== undefined) {
+            sanitized.size = sanitizedSize; // ArticleSize object or null (erasure)
+        }
     }
     if ('brand' in updates && typeof updates.brand === 'string') {
         sanitized.brand = await resolveBrand(updates.brand);

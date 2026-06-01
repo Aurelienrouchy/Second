@@ -78,12 +78,14 @@ exports.generateStyleProfile = (0, https_1.onCall)({
     }
     try {
         // Build context for Gemini
+        // article.size is an ArticleSize object { value, system } (or null) —
+        // interpolate the `.value`, never the object (would render [object Object]).
         const likedContext = likedArticles
-            .map((a) => `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}, ${a.price} $`)
+            .map((a) => { var _a; return `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${((_a = a.size) === null || _a === void 0 ? void 0 : _a.value) || 'NC'}, ${a.price} $`; })
             .join('\n');
         const viewedContext = viewedArticles
             .slice(0, 20)
-            .map((a) => `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}`)
+            .map((a) => { var _a; return `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${((_a = a.size) === null || _a === void 0 ? void 0 : _a.value) || 'NC'}`; })
             .join('\n');
         const searchContext = searches.slice(0, 10).join(', ');
         const userDataPrompt = `
