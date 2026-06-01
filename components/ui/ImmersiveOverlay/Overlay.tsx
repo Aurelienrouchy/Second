@@ -54,6 +54,7 @@ const Content: React.FC<{
 const Overlay: React.FC<OverlayProps> = React.memo(function Overlay({
   progress,
   breathe,
+  contentReveal,
 }) {
   const contentComponent = useImmersiveOverlayStore(
     (s) => s.contentComponent
