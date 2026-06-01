@@ -643,8 +643,15 @@ export const updateArticle = onCall(
     }
 
     // Optional scalar fields
-    if ('size' in updates && typeof updates.size === 'string') {
-      sanitized.size = updates.size.trim().substring(0, 50);
+    // Size — only touch when the caller sent the key. Accept the ArticleSize
+    // object { value, system }, a legacy plain string (→ system 'EU'), or an
+    // explicit null (erasure → store null). A malformed/empty value is ignored
+    // (field left untouched, never write undefined).
+    if ('size' in updates) {
+      const sanitizedSize = sanitizeArticleSize(updates.size);
+      if (sanitizedSize !== undefined) {
+        sanitized.size = sanitizedSize; // ArticleSize object or null (erasure)
+      }
     }
     if ('brand' in updates && typeof updates.brand === 'string') {
       sanitized.brand = await resolveBrand(updates.brand);
