@@ -4,12 +4,14 @@
  * All callbacks are received via props from the screen.
  */
 
-import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text, Caption } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
+import { openSwapDispute } from '@/services/swapService';
 import type { SwapActionHandlers, SwapParticipantContext } from '../types';
 import type { SwapStatus } from '@/types';
 
