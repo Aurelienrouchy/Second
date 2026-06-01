@@ -7,6 +7,7 @@ import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { matchBrand, BRAND_MATCHING } from '../services/brands';
 import { brandDisplay } from '../utils/normalizeBrand';
+import { sanitizeArticleSize } from '../shared/article';
 
 /**
  * Normalise a raw brand string for storage.
