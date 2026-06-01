@@ -293,10 +293,10 @@ export default function ChatScreen() {
     }
   }, [chatId, user]);
 
-  const handleReportNoShow = useCallback(async (messageId: string, reason?: string) => {
+  const handleReportNoShow = useCallback(async (messageId: string, reason?: string, details?: string) => {
     if (!user || !chatId) return;
     try {
-      await ChatService.reportNoShow(chatId, messageId, user.id, reason);
+      await ChatService.reportNoShow(chatId, messageId, user.id, reason, details);
     } catch (error) {
       if (__DEV__) console.error('[Chat] Report no-show error:', error);
       Alert.alert('Erreur', "Impossible de signaler l'absence");
