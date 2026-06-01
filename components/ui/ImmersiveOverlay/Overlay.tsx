@@ -25,6 +25,8 @@ import { Gradient } from './Gradient';
 interface OverlayProps {
   progress: SharedValue<number>;
   breathe: SharedValue<number>;
+  /** Drives the content (camera) fade-in AFTER the entrance animation. */
+  contentReveal: SharedValue<number>;
 }
 
 // ─── Content sub-component ─────────────────────────────────────────────────
