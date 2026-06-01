@@ -470,11 +470,14 @@ export const acceptSwap = onCall(
           );
         }
 
-        // Validate ALL articles on both sides are still available
+        // Validate ALL articles on both sides are still available AND still owned
+        // by the expected participant. Re-checking ownership at accept time closes
+        // the window where an article changed hands (or never belonged to the
+        // claimed party) between proposal and acceptance.
         const initiatorItems = getSwapItems(swap, 'initiator');
         const receiverItems = getSwapItems(swap, 'receiver');
-        await validateArticlesAvailable(tx, initiatorItems, 'Article du proposant');
-        await validateArticlesAvailable(tx, receiverItems, 'Votre article');
+        await validateArticlesAvailable(tx, initiatorItems, 'Article du proposant', swap.initiatorId);
+        await validateArticlesAvailable(tx, receiverItems, 'Votre article', swap.receiverId);
 
         const hasTopUp = swap.cashTopUp != null && typeof swap.cashTopUp.amount === 'number';
         const newStatus = hasTopUp ? 'payment_pending' : 'accepted';
