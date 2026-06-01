@@ -86,93 +86,14 @@ export default function DeleteAccountScreen() {
       }
       // Apple on Android with password: already re-authed via handleReauthApplePassword
 
-      // Vérifier les transactions actives (acheteur ou vendeur)
-      const activeTransactions = await TransactionService.getActiveTransactionsForUser(user.id);
-      if (activeTransactions.length > 0) {
-        // Un litige actif (ou un échec de livraison / colis perdu, qui ouvrent
-        // un litige côté backend) prime : la suppression est bloquée tant que
-        // la résolution n'est pas terminée et les fonds régularisés.
-        const hasDispute = activeTransactions.some(
-          (t) =>
-            t.status === 'disputed' ||
-            t.status === 'delivery_failed' ||
-            t.status === 'lost'
-        );
-        if (hasDispute) {
-          Alert.alert(
-            'Litige en cours',
-            "Un litige est en cours sur l'une de vos transactions. Vous pourrez supprimer votre compte une fois ce litige résolu et les fonds régularisés.",
-            [{ text: 'Compris' }]
-          );
-          setLoading(false);
-          return;
-        }
-
-        Alert.alert(
-          'Transactions en cours',
-          'Vous avez des transactions non finalisées (achat ou vente en cours). Veuillez les terminer avant de supprimer votre compte.',
-          [{ text: 'Compris' }]
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Vérifier le solde du porte-monnaie avant suppression
-      try {
-        const walletInfo = await WalletService.getWalletInfo();
-
-        // Dette vendeur à régulariser : bloque la suppression.
-        if (walletInfo.hasWallet && (walletInfo.sellerDebt ?? 0) > 0) {
-          Alert.alert(
-            'Régularisation nécessaire',
-            'Un montant reste à régulariser sur votre compte. Vous pourrez le supprimer une fois ce solde réglé.',
-            [{ text: 'Compris' }]
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Solde disponible : à retirer avant suppression.
-        if (walletInfo.hasWallet && walletInfo.balance > 0) {
-          Alert.alert(
-            'Solde à retirer',
-            `Vous disposez de ${formatPrice(walletInfo.balance / 100)} sur votre porte-monnaie. Effectuez un retrait avant de supprimer votre compte.`,
-            [
-              { text: 'Annuler', style: 'cancel' },
-              { text: 'Voir mon porte-monnaie', onPress: () => router.push('/wallet') },
-            ]
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Fonds en attente (vente en cours) ou bientôt disponibles (fenêtre de
-        // protection acheteur de 7 jours après livraison) : attendre la
-        // finalisation avant de supprimer.
-        const pendingTotal =
-          walletInfo.pendingBalance + (walletInfo.heldBalance ?? 0);
-        if (walletInfo.hasWallet && pendingTotal > 0) {
-          Alert.alert(
-            'Fonds en attente',
-            `Vous avez ${formatPrice(pendingTotal / 100)} en attente de versement. Attendez que vos ventes soient finalisées avant de supprimer votre compte.`,
-            [{ text: 'Compris' }]
-          );
-          setLoading(false);
-          return;
-        }
-      } catch (walletError) {
-        if (__DEV__) console.error('Error checking wallet balance:', walletError);
-        Alert.alert(
-          'Erreur',
-          'Impossible de vérifier votre solde. Vérifiez votre connexion et réessayez.'
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Server-side deleteUserAccount callable handles all data cleanup
-      // (Firestore, Storage, Auth deletion) in a single server-side operation.
-      await AuthService.deleteAccount();
+      // The deletion gate (active transactions, open disputes, wallet balance /
+      // pending / held funds, seller debt) is enforced server-side inside the
+      // deleteUserAccount callable — client guards were bypassable. We call the
+      // callable directly (instead of AuthService.deleteAccount, which collapses
+      // the server message onto a generic auth error) so we can surface the
+      // precise blocker the backend returns via `functions/failed-precondition`.
+      const deleteUserAccountFn = httpsCallable(functions, 'deleteUserAccount');
+      await deleteUserAccountFn();
 
       // Reset stores and navigate immediately — onAuthStateChanged(null) would
       // redirect via layout anyway; doing it proactively avoids race conditions.
@@ -180,8 +101,28 @@ export default function DeleteAccountScreen() {
       router.replace('/');
     } catch (error: unknown) {
       if (__DEV__) console.error('Error deleting account:', error);
-      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la suppression du compte';
-      Alert.alert('Erreur', message);
+
+      // Firebase callable wraps server HttpsError into a FirebaseError with
+      // code = "functions/<code>". A `failed-precondition` means the backend
+      // refused the deletion (frozen/pending funds, seller debt, open dispute
+      // or active transaction) — its `message` is already a user-facing FR
+      // string, so we surface it verbatim instead of a generic error.
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? (error as { code?: unknown }).code
+          : undefined;
+      const serverMessage =
+        error instanceof Error && error.message ? error.message : undefined;
+
+      if (code === 'functions/failed-precondition' && serverMessage) {
+        Alert.alert('Suppression impossible', serverMessage, [{ text: 'Compris' }]);
+        return;
+      }
+
+      Alert.alert(
+        'Erreur',
+        serverMessage || 'Une erreur est survenue lors de la suppression du compte'
+      );
     } finally {
       setLoading(false);
     }
