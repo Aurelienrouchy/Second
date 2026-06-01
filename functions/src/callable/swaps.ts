@@ -20,9 +20,15 @@
  *    for the payer → payee's connected account, with application_fee_amount
  *  - stripeWebhook (payment_intent.succeeded, type=swap_topup) advances the swap
  *    to 'accepted' (exchange mode flow) and credits the payee wallet pendingBalance
- *  - confirmSwapReception releases payee funds (pending → available)
- *  - cancel/dispute after payment refund the payer via Stripe (charge.refunded
- *    webhook reconciles the wallet ledger)
+ *  - confirmSwapReception moves the payee funds pending → held with a 7-day
+ *    release deadline (topUpFundsReleaseAt), EXACTLY like a delivered purchase —
+ *    NOT straight to withdrawable balance
+ *  - releaseHeldFunds (scheduled) moves held → balance once the window elapses
+ *    and stamps topUpReleasedAt
+ *  - cancel/dispute BEFORE release (topUpReleasedAt unset: funds in pending OR
+ *    held) refund the payer via Stripe (charge.refunded webhook claws the
+ *    complement back from the right bucket). This makes the POST-RECEPTION
+ *    dispute window effective.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
