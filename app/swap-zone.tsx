@@ -265,10 +265,10 @@ export default function SwapZoneScreen() {
 
               try {
                 await removeItemFromParty(party.id, articleId, user.id);
-                // Success: UI is already correct via the optimistic update.
-                // Reconcile silently in the background (fire-and-forget) — do
-                // NOT await a heavy refetch that would re-introduce latency.
-                invalidatePartyData();
+                // Success: the optimistic cache update already reflects the
+                // deletion, so we deliberately do NOT refetch here — an
+                // invalidate would flip `isRefetching` and trigger the
+                // FlashList RefreshControl (the pull-to-refresh scroll jump).
               } catch (error) {
                 if (__DEV__) console.error('Error removing item:', error);
                 // Rollback: restore the snapshot, then surface the error.
