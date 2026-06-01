@@ -253,10 +253,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    fontFamily: fonts.displaySemiBold,
-    fontSize: typography.h2.fontSize,
-    lineHeight: typography.h2.lineHeight,
-    letterSpacing: typography.h2.letterSpacing,
+    fontFamily: typography.h3.fontFamily,
+    fontSize: typography.h3.fontSize,
+    lineHeight: typography.h3.lineHeight,
+    letterSpacing: typography.h3.letterSpacing,
     color: colors.charcoal,
   },
   subtitle: {
