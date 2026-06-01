@@ -704,8 +704,10 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   subtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    lineHeight: typography.body.lineHeight,
+    letterSpacing: typography.body.letterSpacing,
     color: colors.whiteTranslucent,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
