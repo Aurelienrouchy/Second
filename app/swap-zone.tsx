@@ -422,8 +422,6 @@ export default function SwapZoneScreen() {
   const listHeader = useMemo(
     () => (
       <View>
-        <Text style={styles.subtitle}>Échangez vos pièces, sans frais.</Text>
-
         {/* Always rendered (even logged-out) so the deposit affordance can never
             disappear; onAddPress routes through requireAuth when no user. */}
         <MyArticlesSection
