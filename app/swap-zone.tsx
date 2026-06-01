@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.whiteTranslucent,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.sm,
   },
   gridLabelSection: {
