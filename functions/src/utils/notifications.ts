@@ -321,8 +321,19 @@ export async function sendSwapNotification(
   if (!userDoc.exists) return;
 
   const userData = userDoc.data()!;
-  const fcmTokens = userData.fcmTokens || [];
+  const storedTokens: string[] = userData.fcmTokens || [];
 
+  if (storedTokens.length === 0) return;
+
+  // Skip raw APNs tokens (iOS native tokens) — not sendable via FCM.
+  const { fcmTokens, apnsTokens } = partitionTokens(storedTokens);
+  if (apnsTokens.length > 0) {
+    logger.warn('Skipping raw APNs tokens not sendable via FCM', {
+      userId,
+      notificationType: 'swap_update',
+      skippedCount: apnsTokens.length,
+    });
+  }
   if (fcmTokens.length === 0) return;
 
   const deepLink = `https://${DEEP_LINK_HOST}/swap/${swapId}`;
