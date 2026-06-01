@@ -280,7 +280,7 @@ export default function SwapZoneScreen() {
         ]
       );
     },
-    [user, party, partyId, queryClient, invalidatePartyData]
+    [user, party, partyId, queryClient]
   );
 
   // ── Multi-select (single-vendor) ──
