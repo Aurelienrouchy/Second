@@ -166,15 +166,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.none,
   },
   dropZoneLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.0,
+    fontFamily: typography.button.fontFamily,
+    fontSize: typography.button.fontSize,
+    lineHeight: typography.button.lineHeight,
+    letterSpacing: typography.button.letterSpacing,
     textTransform: 'uppercase',
     color: colors.cream,
   },
   dropZoneHint: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
+    fontFamily: typography.caption.fontFamily,
+    fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
+    letterSpacing: typography.caption.letterSpacing,
     color: colors.whiteTranslucent,
   },
   // ── POPULATED list (editorial, hairline-separated rows) ──
