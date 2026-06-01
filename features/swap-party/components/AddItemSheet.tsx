@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.price.lineHeight,
     letterSpacing: typography.price.letterSpacing,
     color: colors.charcoal,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
   },
   // Title line — title truncates, size trails right beside it.
   rowTitleLine: {
