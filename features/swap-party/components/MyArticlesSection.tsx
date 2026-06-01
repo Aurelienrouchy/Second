@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui';
-import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing, typography } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
