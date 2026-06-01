@@ -74,7 +74,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
               gabarit (48x60 thumb + two text lines), dark surfaces, hairline
               separated, non-interactive (no remove). Lead the real items. */}
           {skeletonRows.map((i) => (
-            <View key={`skeleton-${i}`} style={styles.row}>
+            <View key={`skeleton-${i}`} style={[styles.row, i === 0 && styles.rowFirst]}>
               <View style={styles.skeletonThumb} />
               <View style={styles.rowInfo}>
                 <View style={[styles.skeletonLine, styles.skeletonLinePrice]} />
