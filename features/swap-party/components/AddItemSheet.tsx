@@ -299,16 +299,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceWarm,
   },
   rowImage: {
-    width: 48,
-    height: 60,
+    width: THUMB_W,
+    height: THUMB_H,
     backgroundColor: colors.background,
+    borderRadius: radius.none,
   },
   rowInfo: {
     flex: 1,
   },
   rowTitle: {
+    fontFamily: fonts.display,
     color: colors.charcoal,
-    marginBottom: 2,
+    marginBottom: spacing.xs,
   },
   rowPrice: {
     color: colors.rust,
