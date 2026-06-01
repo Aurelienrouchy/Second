@@ -119,6 +119,11 @@ export { deleteUserAccount } from './callable/users';
 // prefs notifications marketing relues par les triggers).
 export { recordSignupConsent, setMarketingConsent } from './callable/consent';
 
+// Username assignment — génère + réserve + persiste le @handle unique, immuable,
+// dérivé du displayName, atomiquement (runTransaction). Idempotent: appelable
+// après la création du doc users pour les 3 providers (email/Google/Apple).
+export { assignUsername } from './callable/username';
+
 // Privacy Incident Register Functions (admin-only; Loi 25 / RGPD breach log)
 export {
   reportPrivacyIncident,
