@@ -228,20 +228,27 @@ const styles = StyleSheet.create({
   rowInfo: {
     flex: 1,
   },
-  // Title line — title truncates (flexShrink) so the price stays right next to
-  // it, left-aligned, instead of being pushed to the far edge. Size trails.
+  // Brand line — brand truncates (flexShrink) so the price stays right next to
+  // it, left-aligned, instead of being pushed to the far edge.
+  rowBrandLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  // Title line — title truncates, size trails right beside it.
   rowTitleLine: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: spacing.sm,
   },
   rowBrand: {
+    flexShrink: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 9,
     letterSpacing: 1.35,
     textTransform: 'uppercase',
     color: colors.sand,
-    marginBottom: spacing.xs,
   },
   rowTitle: {
     flexShrink: 1,
