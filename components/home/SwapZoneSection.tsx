@@ -408,12 +408,13 @@ const styles = StyleSheet.create({
     height: typography.label.lineHeight,
     width: '40%',
   },
-  // Content-width preview of the redesigned dark pill (token-derived width:
-  // avatarXXL 120 + avatarLG 56 = 176) — no layout jump from loading → loaded.
+  // Content-width preview of the redesigned dark square CTA (token-derived
+  // width: avatarXXL 120 + avatarLG 56 = 176) — matching radius.none so there is
+  // no shape jump from loading → loaded.
   skeletonCta: {
     width: sizing.avatarXXL + sizing.avatarLG,
     height: sizing.buttonHeight,
-    borderRadius: radius.full,
+    borderRadius: radius.none,
     backgroundColor: colors.darkSurface2,
   },
 });
