@@ -189,18 +189,31 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
                   style={[styles.row, isSelected && styles.rowSelected]}
                   onPress={() => toggle(item.id)}
                 >
-                  <Image source={{ uri: item.images?.[0]?.url }} style={styles.rowImage} />
-                  <View style={styles.rowInfo}>
-                    <Text variant="label" style={styles.rowTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text variant="caption" color="muted">
-                      {item.brand}
-                    </Text>
+                  <View style={styles.rowImageWrap}>
+                    <Image
+                      source={{ uri: item.images?.[0]?.url }}
+                      style={styles.rowImage}
+                      recyclingKey={item.id}
+                      contentFit="cover"
+                    />
                   </View>
-                  <Text variant="price" style={styles.rowPrice}>
-                    {formatPrice(item.price)}
-                  </Text>
+
+                  <View style={styles.rowInfo}>
+                    {/* Line 1: price + brand on one editorial line. */}
+                    <Text style={styles.rowPriceBrand} numberOfLines={1}>
+                      {formatPrice(item.price)} - {item.brand || 'MARQUE'}
+                    </Text>
+                    {/* Line 2: product title + size. */}
+                    <View style={styles.rowTitleLine}>
+                      <Text style={styles.rowTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      {item.size?.value ? (
+                        <Text style={styles.rowSize}>{item.size.value}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+
                   <Ionicons
                     name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                     size={24}
