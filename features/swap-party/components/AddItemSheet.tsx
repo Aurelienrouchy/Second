@@ -157,7 +157,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.closeButton}
           >
-            <Ionicons name="close" size={22} color={colors.charcoal} />
+            <Ionicons name="close" size={sizing.iconMD} color={colors.charcoal} />
           </TouchableOpacity>
         </View>
 
