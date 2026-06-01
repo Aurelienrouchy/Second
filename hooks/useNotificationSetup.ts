@@ -238,21 +238,36 @@ export function useNotificationSetup(userId: string | null): void {
     try {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== 'granted') {
-        console.log('Push notification permission denied');
+        if (__DEV__) console.log('Push notification permission denied');
         return;
       }
 
       const pushToken = await Notifications.getDevicePushTokenAsync();
       const deviceToken = pushToken.data as string;
+      if (!deviceToken) return;
 
-      if (deviceToken) {
-        await UserService.saveFcmToken(userIdRef.current, deviceToken);
-        fcmTokenRef.current = deviceToken;
-        setPushToken(deviceToken);
-        console.log('Push token registered');
+      // iOS renvoie un token APNs brut, non envoyable via FCM tel quel. Le
+      // backend l'ignore (partitionTokens) → l'enregistrer ne produit aucune
+      // notif. On évite de polluer la liste fcmTokens avec un token mort.
+      // TODO(push-ios): pour activer le push iOS, enregistrer un vrai FCM
+      // registration token. Nécessite une étape native (module messaging FCM)
+      // hors périmètre de ce hook — à traiter via app.config.js + prebuild.
+      if (!isFcmRegistrationToken(deviceToken)) {
+        if (__DEV__) {
+          console.log(
+            `[push] Token natif non-FCM (${pushToken.type}) ignoré — ` +
+              'le push iOS requiert un FCM registration token (étape native).'
+          );
+        }
+        return;
       }
+
+      await UserService.saveFcmToken(userIdRef.current, deviceToken);
+      fcmTokenRef.current = deviceToken;
+      setPushToken(deviceToken);
+      if (__DEV__) console.log('FCM token registered');
     } catch (error) {
-      console.log('Error registering push token:', error);
+      if (__DEV__) console.log('Error registering push token:', error);
     }
   }, [setPushToken]);
 
