@@ -424,14 +424,6 @@ firebase.ts, gemini.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, strip
 ### Utils backend — `functions/src/utils/`
 debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, search.ts (`normalizeSearchText` + `generateSearchKeywords` + `calculatePopularityScore`), labelFulfillment.ts (P1 : `creditSellerForSale` crédit vendeur après label réussi + `reconcileShippingCost` coût réel vs estimé, partagé webhook/wallet/sweep), trackingTransition.ts (P1 : `applyTrackingOutcome` machine à états tracking partagée poller/webhook/callable — label_created→shipped au 1er scan, DELIVERED→heldBalance, FAILURE→delivery_failed ; `DELIVERABLE_STATUSES` garde de statut), returnRefund.ts (B2 : `processReturnDelivered` — refund du retour partagé poller/webhook, déclenché au DELIVERED du colis retour ; status-guard `return_requested`, idempotent `rf_return_<txId>`, refund acheteur = `totalAmount - returnLabelCost` via `issueTransactionRefund` partiel carte/wallet, débit vendeur, status `refunded` + `returnDeliveredAt`), failedOperations.ts (P1 : `writeFailedOperation` — helper dead-letter `failed_operations`, best-effort jamais throw, schéma canonique type/refId/payload/error/attempts/status, consommé par `retryFailedOperations`)
 
-### Scripts admin — `functions/src/scripts/` (RUN MANUEL, NON DÉPLOYÉS)
-| Fichier | Rôle |
-|---------|------|
-| `backfillSearchIndexCategoryIds.ts` | Backfill `search_index.categoryIds` depuis l'article source (fix C1). `--dry-run` d'abord. |
-| `migrateArticleSize.ts` | Migration `articles.size` + `search_index.size` : string → `{ value, system: 'EU' }`. `--dry-run` d'abord. |
-
-> Scripts standalone admin SDK, NON exportés depuis `index.ts` → aucun orphelin déployé. Lancer via `node lib/scripts/<file>.js` après `npm run build`.
-
 ---
 
 ## Layers ESLint boundaries
