@@ -334,8 +334,11 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const isBuyer = !!sellerId && currentUserId !== sellerId;
   // Seller confirms meetup ("J'ai rencontre l'acheteur") — before confirmedAt is set
   const canConfirmMeetup = isSeller && status === 'accepted' && isMeetupOffer && meetup && !meetup.confirmedAt && !meetup.completedAt;
-  // Buyer completes meetup ("J'ai bien recu l'article") — after confirmedAt, before completedAt
-  const canCompleteMeetup = isBuyer && status === 'accepted' && isMeetupOffer && meetup && !!meetup.confirmedAt && !meetup.completedAt;
+  // Either party completes the meetup ("La transaction est terminée") — after
+  // confirmedAt, before completedAt. Backend `completeMeetupTransaction`
+  // accepts buyer OR seller, so we expose the action to both sides.
+  const canCompleteMeetup =
+    (isBuyer || isSeller) && status === 'accepted' && isMeetupOffer && meetup && !!meetup.confirmedAt && !meetup.completedAt;
   const expiryText = getTimeUntilExpiry(expiresAt, status);
 
   const handlePayment = () => {
