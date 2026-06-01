@@ -109,16 +109,20 @@ const Shell: React.FC<ShellProps> = ({ onPress, children }) => {
 // =============================================================================
 
 const ZoneTitle: React.FC = () => (
-  <Text style={styles.title}>
-    Swap <Text style={styles.titleAccent}>Zone</Text>
-  </Text>
+  <>
+    {/* Editorial kicker — sand uppercase micro-label sets the curated tone */}
+    <Text style={styles.eyebrow}>Zone d&apos;échange</Text>
+    <Text style={styles.title}>
+      Swap <Text style={styles.titleAccent}>Zone</Text>
+    </Text>
+  </>
 );
 
 const CtaRow: React.FC = () => (
   <View style={styles.ctaRow}>
     <Text style={styles.ctaText}>Entrer dans la zone</Text>
     <View style={styles.ctaChevron}>
-      <Ionicons name="arrow-forward" size={sizing.iconSM} color={colors.charcoal} />
+      <Ionicons name="arrow-forward" size={sizing.iconSM} color={colors.cream} />
     </View>
   </View>
 );
