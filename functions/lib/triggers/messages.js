@@ -46,21 +46,50 @@ const notifications_1 = require("../utils/notifications");
 /**
  * Check if either user has blocked the other.
  *
- * Source of truth is the `blockedUsers` array written by the client
- * moderationService (objects shaped `{ userId, userName, blockedAt }`).
- * We tolerate a flat-string shape too so the check stays correct if the
- * data model is ever migrated to plain UIDs.
+ * Reads BOTH the canonical flat `blockedUserIds` list (plain UIDs, the source
+ * of truth consumed by the Firestore rules) AND the legacy `blockedUsers`
+ * array of objects `{ userId, userName, blockedAt }` (written by the client
+ * moderationService for the UI). A flat-string shape on `blockedUsers` is
+ * tolerated too so the check stays correct if the data model is ever migrated
+ * to plain UIDs. The block is SYMMETRIC: if EITHER side blocks the other, the
+ * pair is considered blocked (matches services/moderationService.ts +
+ * firestore.rules chat-create semantics).
  */
 async function areUsersBlocked(userId1, userId2) {
-    var _a, _b;
     const [user1Snap, user2Snap] = await Promise.all([
         firebase_1.db.collection('users').doc(userId1).get(),
         firebase_1.db.collection('users').doc(userId2).get(),
     ]);
-    const blockedBy1 = (((_a = user1Snap.data()) === null || _a === void 0 ? void 0 : _a.blockedUsers) || []);
-    const blockedBy2 = (((_b = user2Snap.data()) === null || _b === void 0 ? void 0 : _b.blockedUsers) || []);
-    const matches = (list, target) => list.some((u) => typeof u === 'string' ? u === target : u.userId === target);
-    return matches(blockedBy1, userId2) || matches(blockedBy2, userId1);
+    const matches = (data, target) => {
+        const flat = ((data === null || data === void 0 ? void 0 : data.blockedUserIds) || []);
+        if (Array.isArray(flat) && flat.includes(target))
+            return true;
+        const legacy = ((data === null || data === void 0 ? void 0 : data.blockedUsers) || []);
+        return (Array.isArray(legacy) &&
+            legacy.some((u) => typeof u === 'string' ? u === target : u.userId === target));
+    };
+    return matches(user1Snap.data(), userId2) || matches(user2Snap.data(), userId1);
+}
+/**
+ * Resolve the authoritative "other participant" of a chat from the SERVER chat
+ * doc — never from the client-supplied `receiverId` on the message. Returns
+ * null if the chat is missing, malformed, or the sender is not actually a
+ * participant of it (in which case the message is illegitimate and must be
+ * neutralised regardless of any block relationship).
+ */
+async function resolveChatCounterparty(chatId, senderId) {
+    var _a;
+    const chatSnap = await firebase_1.db.collection('chats').doc(chatId).get();
+    if (!chatSnap.exists)
+        return null;
+    const participants = (_a = chatSnap.data()) === null || _a === void 0 ? void 0 : _a.participants;
+    if (!Array.isArray(participants) || participants.length !== 2)
+        return null;
+    // The sender MUST be a participant of the chat it writes into.
+    if (!participants.includes(senderId))
+        return null;
+    const other = participants.find((p) => p !== senderId);
+    return typeof other === 'string' ? other : null;
 }
 /**
  * Send push notification when a message is created
@@ -72,26 +101,51 @@ exports.sendMessageNotification = (0, firestore_1.onDocumentCreated)({ document:
         if (!snapshot)
             return;
         const message = snapshot.data();
-        const { chatId, senderId, receiverId, type, content } = message;
-        if (!receiverId || !senderId || !chatId) {
+        const { chatId, senderId, type, content } = message;
+        // `receiverId` from the message is CLIENT-SUPPLIED and falsifiable; it is
+        // used ONLY as a notification routing hint below and is RECONCILED against
+        // the authoritative chat participant for any security decision.
+        let receiverId = message.receiverId;
+        if (!senderId || !chatId) {
             console.log('Missing required fields for notification');
             return;
         }
-        // SECURITY (M2): server-side enforcement of user blocking.
-        // Messages are created client->Firestore directly (no send callable),
-        // so this trigger is the authoritative server-side guard: if either
-        // participant has blocked the other, delete the message and abort
-        // before any notification is computed. This guarantees the victim
-        // never receives the blocker's message even if the client bypasses
-        // its own (one-directional) block check.
+        // SECURITY (M2): server-side enforcement of user blocking — authoritative.
+        // Messages are created client->Firestore directly (no send callable), so
+        // this trigger is the authoritative server-side guard. The previous
+        // implementation trusted the client-supplied `receiverId` to decide who
+        // could be blocked, letting a blocked sender forge a bogus receiverId
+        // (e.g. an unrelated user who has NOT blocked them) and slip a message to
+        // the real victim inside a PRE-EXISTING chat. We now derive the real
+        // counterparty from the SERVER chat doc and verify the sender is actually
+        // a participant. If the sender isn't a participant, or either side has
+        // blocked the other, the message is deleted before any notification.
         if (senderId !== 'system') {
-            const blocked = await areUsersBlocked(senderId, receiverId);
+            const counterparty = await resolveChatCounterparty(chatId, senderId);
+            if (!counterparty) {
+                logger.warn('Message in chat with no resolvable counterparty rejected', {
+                    messageId: event.params.messageId,
+                    chatId,
+                    senderId,
+                    claimedReceiverId: message.receiverId,
+                });
+                await snapshot.ref.delete().catch((err) => logger.error('Failed to delete illegitimate message', {
+                    messageId: event.params.messageId,
+                    error: err,
+                }));
+                return;
+            }
+            // Always route the notification to the authoritative participant,
+            // ignoring any spoofed receiverId.
+            receiverId = counterparty;
+            const blocked = await areUsersBlocked(senderId, counterparty);
             if (blocked) {
                 logger.warn('Blocked message rejected server-side', {
                     messageId: event.params.messageId,
                     chatId,
                     senderId,
-                    receiverId,
+                    counterparty,
+                    claimedReceiverId: message.receiverId,
                 });
                 await snapshot.ref.delete().catch((err) => logger.error('Failed to delete blocked message', {
                     messageId: event.params.messageId,
@@ -99,6 +153,10 @@ exports.sendMessageNotification = (0, firestore_1.onDocumentCreated)({ document:
                 }));
                 return;
             }
+        }
+        if (!receiverId) {
+            console.log('No receiver resolved for notification');
+            return;
         }
         // Get receiver's FCM tokens
         const receiverDoc = await firebase_1.db.collection('users').doc(receiverId).get();
