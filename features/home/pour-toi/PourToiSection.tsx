@@ -92,7 +92,10 @@ export const PourToiSection = React.memo(PourToiSectionComponent);
 
 const styles = StyleSheet.create({
   horizontalScrollContent: {
-    paddingHorizontal: spacing.lg,
+    // Home gutter on the left only; the last card bleeds to the screen edge
+    // like the other rails (consistency).
+    paddingLeft: spacing.lg,
+    paddingRight: 0,
     gap: spacing.sm,
     paddingBottom: spacing.md,
   },
