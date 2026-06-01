@@ -334,13 +334,20 @@ const styles = StyleSheet.create({
     maxWidth: sizing.avatarXXL * 2, // 240 — token-derived
   },
 
-  // --- CTA (cream pill, full width) ---
+  // --- CTA (dark pill, content-width) ---
+  // INVERTED from the old cream-fill pill (which read as a RESET back to the
+  // warm home). Dark pill = darkSurface2 fill + darkBorderStrong hairline +
+  // cream label + rust chevron disc, so cream/sand survive ONLY as text/label,
+  // never a fill on charcoal. alignSelf flex-start shrinks it to a refined
+  // action instead of a full-bleed slab.
   ctaRow: {
-    alignSelf: 'stretch',
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.cream,
+    gap: spacing.sm,
+    backgroundColor: colors.darkSurface2,
+    borderWidth: 1,
+    borderColor: colors.darkBorderStrong,
     paddingLeft: spacing.lg,
     paddingRight: spacing.sm,
     paddingVertical: spacing.sm,
@@ -351,25 +358,29 @@ const styles = StyleSheet.create({
     fontSize: typography.button.fontSize,
     lineHeight: typography.button.lineHeight,
     letterSpacing: typography.button.letterSpacing,
-    color: colors.charcoal,
+    color: colors.cream,
     textTransform: 'uppercase',
   },
   ctaChevron: {
     width: sizing.avatarSM,
     height: sizing.avatarSM,
     borderRadius: radius.full,
-    backgroundColor: colors.sand,
+    backgroundColor: colors.rust,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   // --- Coming-soon (non-interactive teaser) ---
+  // Shares the live CTA's dark-pill language (darkSurface2 + hairline) so all
+  // Swap Zone states feel from the same refined dark system.
   comingSoonRow: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.overlay,
+    backgroundColor: colors.darkSurface2,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
