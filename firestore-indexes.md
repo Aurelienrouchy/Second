@@ -516,10 +516,17 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
 - **Recours acheteur (B2/B3)** : `requestReturn` / `reportTransactionProblem` /
   `requestRefund` (`callable/recourse.ts`) et `processReturnDelivered`
   (`utils/returnRefund.ts`) ne font que des accès `doc(id)` directs — aucune
-  requête `where`/`orderBy`. La collection `disputes` est uniquement écrite en
-  `.doc()` (création server-only), jamais listée → aucun index `disputes` requis.
-  Le poller `return_requested` réutilise l'index existant `transactions` (`status
-  ASC, createdAt ASC`) — **aucun nouvel index n'est ajouté** par ce chantier.
+  requête `where`/`orderBy`. Le poller `return_requested` réutilise l'index
+  existant `transactions` (`status ASC, createdAt ASC`) — **aucun nouvel index
+  n'est ajouté** par ce chantier de recours.
+
+  > **MISE À JOUR (gate suppression de compte)** : l'affirmation historique
+  > « la collection `disputes` n'est jamais listée → aucun index requis » est
+  > désormais **obsolète**. Le fix de `deleteUserAccount` interroge `disputes`
+  > avec deux égalités (`buyerId == uid && status == 'open'` et
+  > `sellerId == uid && status == 'open'`), ce qui exige deux index composites.
+  > Voir la section « Open-dispute deletion gate (`deleteUserAccount`) » plus
+  > haut.
 
 ## Single Field Indexes (Auto-created)
 
