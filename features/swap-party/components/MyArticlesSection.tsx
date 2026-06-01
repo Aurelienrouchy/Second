@@ -80,6 +80,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
                   <Text style={styles.rowBrand} numberOfLines={1}>
                     {item.brand || 'MARQUE'}
                   </Text>
+                  <Text style={styles.rowSep}>—</Text>
                   <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
                 </View>
                 {/* Line 2: product title + size. */}
