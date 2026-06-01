@@ -197,7 +197,7 @@ service cloud.firestore {
       // username, so it must be absent at create time.
       allow create: if isOwner(userId) &&
                        isValidUserData(request.resource.data) &&
-                       !request.resource.data.keys().hasAny(['isAdmin', 'role', 'customClaims', 'username']);
+                       !request.resource.data.keys().hasAny(protectedUserFields());
 
       // Allow update by owner — but never to fields that grant privileges.
       // SECURITY: previously a user could write { isAdmin: true } to their
@@ -208,7 +208,40 @@ service cloud.firestore {
       allow update: if isOwner(userId) &&
                        !request.resource.data.diff(resource.data)
                           .affectedKeys()
-                          .hasAny(['isAdmin', 'role', 'customClaims', 'username', 'onboardingCompleted', 'onboardingPreferences', 'createdAt', 'id']);
+                          .hasAny(protectedUserFields());
+
+      // Single source of truth for fields the CLIENT may never set or mutate on
+      // its own user doc — applied identically to create and update so a forged
+      // initial doc can't bypass the update lock.
+      //
+      // - isAdmin/role/customClaims : privilege escalation (see isAdmin()).
+      // - username                  : server-assigned, persistent, IMMUTABLE handle.
+      // - onboardingCompleted/onboardingPreferences/createdAt/id : server-managed
+      //   lifecycle/identity fields.
+      // - stripe*                   : the ONLY financial gates read by walletWithdraw /
+      //   createTransaction / swaps. Written EXCLUSIVELY by the Stripe webhook +
+      //   onboarding callables (Admin SDK, which bypasses these rules). Leaving them
+      //   client-writable let a seller redirect their real payout to a third party's
+      //   stripeAccountId and force charges/payouts booleans true to skip KYC.
+      // - dateOfBirth               : Loi 25 consent-gate + age-gate, set ONLY in the
+      //   server-side signup setDoc; a client must never self-set or alter it.
+      // - isVerified/rating/reviewCount/sellerLikesCount : trust signals served by
+      //   getUserPublicProfile; server-managed, never client-forgeable.
+      //
+      // NOTE: accountType ('user' | 'shop') is intentionally NOT protected — it is a
+      // legitimate client write (userService.updateAccountType) and is not a financial
+      // gate (the seller-active gate keys off stripeAccountId + stripeChargesEnabled).
+      function protectedUserFields() {
+        return [
+          'isAdmin', 'role', 'customClaims', 'username',
+          'onboardingCompleted', 'onboardingPreferences', 'createdAt', 'id',
+          'stripeAccountId', 'stripeChargesEnabled', 'stripePayoutsEnabled',
+          'stripeAccountStatus', 'stripeDetailsSubmitted', 'stripeBankAccountAdded',
+          'stripeBankAccountLast4',
+          'dateOfBirth',
+          'isVerified', 'rating', 'reviewCount', 'sellerLikesCount'
+        ];
+      }
 
       // No delete allowed (soft delete by setting isActive = false)
       allow delete: if false;
