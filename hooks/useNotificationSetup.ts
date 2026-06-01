@@ -336,7 +336,18 @@ export function useNotificationSetup(userId: string | null): void {
     const tokenSub = Notifications.addPushTokenListener(async (newPushToken) => {
       const newToken = newPushToken.data as string;
       const currentUserId = userIdRef.current;
-      if (!currentUserId) return;
+      if (!currentUserId || !newToken) return;
+
+      // Même garde qu'à l'enregistrement : ne pas persister un token natif
+      // non-FCM (APNs brut iOS) que le backend ne peut pas envoyer.
+      if (!isFcmRegistrationToken(newToken)) {
+        if (__DEV__) {
+          console.log(
+            `[push] Token rafraîchi non-FCM (${newPushToken.type}) ignoré.`
+          );
+        }
+        return;
+      }
 
       // Remove old token
       if (fcmTokenRef.current && fcmTokenRef.current !== newToken) {
@@ -347,7 +358,7 @@ export function useNotificationSetup(userId: string | null): void {
       await UserService.saveFcmToken(currentUserId, newToken);
       fcmTokenRef.current = newToken;
       setPushToken(newToken);
-      console.log('Push token refreshed');
+      if (__DEV__) console.log('FCM token refreshed');
     });
 
     return () => {
