@@ -154,8 +154,17 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
           withTiming(1, { duration: 300, easing: EASE_IN_OUT }),
           withTiming(0, { duration: 1500, easing: EASE_OUT_EXPO })
         );
+
+        // Content (camera) waits for the entrance gradient + blurred circles to
+        // finish (CONTENT_REVEAL_DELAY ≈ ENTERING_TIME) and only THEN fades in
+        // cleanly — instead of appearing on top of the circle animation.
+        contentReveal.value = 0;
+        contentReveal.value = withDelay(
+          CONTENT_REVEAL_DELAY,
+          withTiming(1, { duration: CONTENT_REVEAL_TIME, easing: EASE_OUT_EXPO })
+        );
       },
-      [overlayProgress, warpProgress, activate, startBreathing]
+      [overlayProgress, warpProgress, contentReveal, activate, startBreathing]
     );
 
     // ── Dismiss (exit) ──
