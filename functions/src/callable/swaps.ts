@@ -1433,8 +1433,14 @@ export const rateSwap = onCall(
 
 /**
  * Open a dispute on a swap — participant can dispute during shipping or after
- * completion. Transitions to 'disputed'. If a top-up was paid, it is refunded
- * to the payer (manual moderation may follow; refunding protects the buyer).
+ * completion (within the 7-day post-reception protection window). Transitions to
+ * 'disputed'. If a top-up was paid AND not yet released to the payee's
+ * withdrawable balance (topUpReleasedAt unset — i.e. the funds are still in
+ * pendingBalance pre-reception or heldBalance during the window), it is refunded
+ * to the payer. The charge.refunded webhook (handleSwapTopUpRefund) claws the
+ * complement back from the correct bucket idempotently. Once releaseHeldFunds has
+ * moved the funds to withdrawable balance (topUpReleasedAt set), no auto-refund
+ * happens here — manual moderation handles that case.
  */
 export const openSwapDispute = onCall(
   { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
