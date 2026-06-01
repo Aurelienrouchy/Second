@@ -18,11 +18,13 @@ export const PartyEmptyGrid = React.memo(function PartyEmptyGrid({
 }: PartyEmptyGridProps) {
   return (
     <View style={styles.emptyGrid}>
-      <Ionicons
-        name={hasActiveFilters ? 'funnel-outline' : 'swap-horizontal'}
-        size={sizing.iconLG + sizing.iconMD}
-        color={colors.sand}
-      />
+      {hasActiveFilters ? (
+        <Ionicons
+          name="funnel-outline"
+          size={sizing.iconLG + sizing.iconMD}
+          color={colors.sand}
+        />
+      ) : null}
       <Text style={styles.emptyGridTitle}>
         {hasActiveFilters
           ? 'Aucun article ne correspond aux filtres'
