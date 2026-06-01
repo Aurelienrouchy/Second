@@ -223,29 +223,41 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // Left-aligned info block, mirroring PartyItemCard productInfo (compacted).
+  // Left-aligned info block, mirroring PartyItemCard productInfo (compacted to
+  // two lines: brand+price, then title+size).
   rowInfo: {
     flex: 1,
   },
+  // Line 1 — brand pinned left, price pinned right, baseline-aligned so the
+  // uppercase brand caps sit on the same baseline as the price.
+  rowTopLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    marginBottom: 2,
+  },
+  // Line 2 — title flexes and truncates, size pinned right.
+  rowBottomLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
   rowBrand: {
+    flex: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 9,
     letterSpacing: 1.35,
     textTransform: 'uppercase',
     color: colors.sand,
-    marginBottom: 2,
   },
   rowTitle: {
+    flex: 1,
     fontFamily: fonts.display,
     fontSize: 14,
     lineHeight: 17,
     color: colors.cream,
-    marginBottom: spacing.xs,
-  },
-  rowFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   rowPrice: {
     fontFamily: fonts.displayMedium,
