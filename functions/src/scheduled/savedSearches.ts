@@ -225,7 +225,9 @@ export const checkSavedSearchNotifications = onSchedule(
             },
             data: {
               type: 'saved_search',
-              searchId,
+              // Client reads `savedSearchId` (hooks/useNotificationSetup.ts +
+              // buildDeepLink). Emitting `searchId` here broke tap routing.
+              savedSearchId: searchId,
               searchName: search.name || '',
               newItemsCount: matchingArticles.length.toString(),
               filters: JSON.stringify(filters),
