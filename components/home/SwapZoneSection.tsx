@@ -254,18 +254,9 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
 
-  // --- Eyebrow + title + tagline (one tight cluster) ---
+  // --- Title + tagline (one tight cluster) ---
   textBlock: {
-    gap: spacing.sm,
-  },
-  // Uppercase magazine kicker — sand text-on-dark, never a fill.
-  eyebrow: {
-    fontFamily: typography.labelUppercase.fontFamily,
-    fontSize: typography.labelUppercase.fontSize,
-    lineHeight: typography.labelUppercase.lineHeight,
-    letterSpacing: typography.labelUppercase.letterSpacing,
-    color: colors.sand,
-    textTransform: 'uppercase',
+    gap: spacing.xs,
   },
   title: {
     fontFamily: fonts.displaySemiBold,
