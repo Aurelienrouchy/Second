@@ -789,10 +789,16 @@ service cloud.firestore {
       allow read: if isAuthenticated() &&
                      (resource == null || request.auth.uid in resource.data.participants);
       
-      // Allow create for authenticated users
-      allow create: if isAuthenticated() && 
+      // Allow create for authenticated users.
+      // SECURITY (M2): a user who has been blocked cannot open a new chat with
+      // the person who blocked them. Both participants are checked symmetrically
+      // (neither may have blocked the other) via the flat blockedUserIds list;
+      // this is defence in depth alongside the Cloud Function / client guards.
+      allow create: if isAuthenticated() &&
                        request.auth.uid in request.resource.data.participants &&
-                       isValidChatData(request.resource.data);
+                       isValidChatData(request.resource.data) &&
+                       isNotBlockedBy(request.resource.data.participants[0], request.resource.data.participants[1]) &&
+                       isNotBlockedBy(request.resource.data.participants[1], request.resource.data.participants[0]);
       
       // Allow update only for unread count and last message fields.
       // SECURITY: without field restriction, a participant could overwrite
