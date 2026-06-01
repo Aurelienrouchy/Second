@@ -181,7 +181,9 @@ export default function SwapZoneScreen() {
 
   // ── Mutators ──
   const invalidatePartyData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.swapParties.detail(partyId) });
+    // Returns the promise so callers can await the refetch (keeps the add
+    // skeleton visible until the real item lands — no empty-gap flash).
+    return queryClient.invalidateQueries({ queryKey: queryKeys.swapParties.detail(partyId) });
   }, [queryClient, partyId]);
 
   const handleRefresh = useCallback(() => {

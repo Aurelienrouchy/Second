@@ -235,7 +235,7 @@ exports.getActiveSwapPartyInfo = (0, https_1.onCall)(
  *     party (the payee). Nothing is charged at proposal time — the charge
  *     happens after acceptance via createSwapTopUpCheckout.
  */
-exports.proposeMultiSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.proposeMultiSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -358,7 +358,7 @@ async function markPartyItemsPending(partyId, sellerId, items, pending) {
  * payer must complete the Stripe payment via createSwapTopUpCheckout before the
  * exchange proceeds). Otherwise it transitions to 'accepted' (unchanged flow).
  */
-exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -426,7 +426,7 @@ exports.acceptSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
  * Idempotent: if a PaymentIntent already exists for this swap, the existing
  * clientSecret is returned.
  */
-exports.createSwapTopUpCheckout = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+exports.createSwapTopUpCheckout = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
@@ -647,7 +647,7 @@ async function refundSwapTopUpIfPaid(swap, swapId) {
  * Decline a swap — either participant can decline while status is 'proposed'.
  * (Top-up swaps are never paid at 'proposed' stage, so no refund needed.)
  */
-exports.declineSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.declineSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -696,7 +696,7 @@ exports.declineSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', i
  * is NOT allowed here — the exchange is in progress; use the dispute flow.
  * For a paid-but-still-payment_pending edge case the refund helper is invoked.
  */
-exports.cancelSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+exports.cancelSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -743,7 +743,7 @@ exports.cancelSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', in
  * Set exchange mode for an accepted swap.
  * Transitions status from 'accepted' to 'photos_pending'.
  */
-exports.setSwapExchangeMode = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.setSwapExchangeMode = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -789,7 +789,7 @@ exports.setSwapExchangeMode = (0, https_1.onCall)({ region: 'northamerica-northe
  * Upload photo proof for a swap. Transitions to 'shipping' when both sides have
  * uploaded.
  */
-exports.uploadSwapPhotos = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.uploadSwapPhotos = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -851,7 +851,7 @@ exports.uploadSwapPhotos = (0, https_1.onCall)({ region: 'northamerica-northeast
 /**
  * Confirm shipping for a swap — participant confirms they sent their package.
  */
-exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -902,7 +902,7 @@ exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northe
  * sold, marks party items swapped + increments swapsCount, and RELEASES the
  * top-up funds to the payee (pending → available), calqued on a delivered sale.
  */
-exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1065,7 +1065,7 @@ exports.confirmSwapReception = (0, https_1.onCall)({ region: 'northamerica-north
 /**
  * Rate a completed swap — participant rates the exchange.
  */
-exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1163,7 +1163,7 @@ exports.rateSwap = (0, https_1.onCall)({ region: 'northamerica-northeast1', invo
  * completion. Transitions to 'disputed'. If a top-up was paid, it is refunded
  * to the payer (manual moderation may follow; refunding protects the buyer).
  */
-exports.openSwapDispute = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
+exports.openSwapDispute = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1225,7 +1225,7 @@ exports.openSwapDispute = (0, https_1.onCall)({ region: 'northamerica-northeast1
  * Add an item to the Swap Zone — atomic item creation + itemsCount increment.
  * Requires only: auth + ownership of the article (no participant check).
  */
-exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
@@ -1312,7 +1312,7 @@ exports.addItemToPartySecure = (0, https_1.onCall)({ region: 'northamerica-north
  * Remove an item from the Swap Zone — atomic item deletion + itemsCount
  * decrement. Requires only: auth + ownership of the item.
  */
-exports.removeItemFromPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' }, async (request) => {
+exports.removeItemFromPartySecure = (0, https_1.onCall)({ region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
     }
