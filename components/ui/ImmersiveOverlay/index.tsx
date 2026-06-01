@@ -184,7 +184,14 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
         duration: EXITING_TIME,
         easing: EASE_OUT_EXPO,
       });
-    }, [overlayProgress, warpProgress, deactivateOnJS, stopBreathing]);
+
+      // Fade the content out with the exit so it never lingers behind the
+      // collapsing overlay (and is reset to 0 for the next immerse).
+      contentReveal.value = withTiming(0, {
+        duration: EXITING_TIME,
+        easing: EASE_OUT_EXPO,
+      });
+    }, [overlayProgress, warpProgress, contentReveal, deactivateOnJS, stopBreathing]);
 
     // ── Register immerse/dismiss for the hook ──
     useEffect(() => {
