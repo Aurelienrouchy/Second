@@ -112,8 +112,9 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
         cancelAnimation(overlayProgress);
         cancelAnimation(warpProgress);
         cancelAnimation(breathe);
+        cancelAnimation(contentReveal);
       };
-    }, [overlayProgress, warpProgress, breathe]);
+    }, [overlayProgress, warpProgress, breathe, contentReveal]);
 
     // ── Breathing animation — runs while overlay is visible ──
     const startBreathing = useCallback(() => {
