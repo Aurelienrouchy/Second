@@ -240,9 +240,7 @@ export default function PreviewScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={{ paddingTop: insets.top }}>
-        <StepProgressBar currentStep={4} />
-      </View>
+      <View style={{ paddingTop: insets.top }} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
