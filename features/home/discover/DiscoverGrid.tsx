@@ -143,6 +143,9 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    // Inset the 2-col grid to the home gutter so it aligns with its
+    // SectionHeader and the loadMoreButton (which already insets marginHorizontal lg).
+    paddingHorizontal: spacing.lg,
   },
   gridItem: {
     width: '50%',
