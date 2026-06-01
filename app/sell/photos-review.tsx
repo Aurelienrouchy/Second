@@ -348,8 +348,6 @@ export default function PhotosReviewScreen() {
           </Text>
         }
       />
-      <StepProgressBar currentStep={1} />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
