@@ -31,18 +31,30 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
   userItems,
   onAddPress,
   onRemoveItem,
+  pendingCount = 0,
 }: MyArticlesSectionProps) {
   const hasItems = userItems.length > 0;
+  const isAdding = pendingCount > 0;
+  // While a deposit is in flight we surface the populated list layout (deposit
+  // button + skeleton placeholders) even if the user has no items yet, so the
+  // loading state is always visible — never the empty drop zone mid-add.
+  const showList = hasItems || isAdding;
+  // Count badge reflects items already deposited plus the ones landing.
+  const countLabel = userItems.length + pendingCount;
+  const skeletonRows = useMemo(
+    () => Array.from({ length: pendingCount }, (_, i) => i),
+    [pendingCount]
+  );
 
   return (
     <View style={styles.section}>
       <View style={styles.labelRow}>
         <Text style={styles.label}>
-          {hasItems ? `Mes pièces · ${userItems.length}` : 'Mes pièces'}
+          {showList ? `Mes pièces · ${countLabel}` : 'Mes pièces'}
         </Text>
       </View>
 
-      {hasItems ? (
+      {showList ? (
         <View style={styles.list}>
           {/* Deposit BUTTON leads the list so the deposit action is always the
               first thing in view. Real compact button (content-width) sharing
