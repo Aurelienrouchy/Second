@@ -48,7 +48,7 @@ describe('blocking rules — blocked user cannot message / open chat (M2)', () =
     });
   });
 
-  it('denies a blocked user (Bob) sending a message to the blocker (Alice)', async () => {
+  it('denies a blocked user (Bob) sending a message to the blocker (Alice) in a PRE-EXISTING chat', async () => {
     const env = await getTestEnv();
     const db = env.authenticatedContext(BOB).firestore();
     await assertFails(
@@ -59,6 +59,43 @@ describe('blocking rules — blocked user cannot message / open chat (M2)', () =
         chatId: CHAT_AB,
         participants: [ALICE, BOB],
         text: 'hello?',
+      }),
+    );
+  });
+
+  it('denies a blocked user (Bob) spoofing receiverId in a PRE-EXISTING chat with the blocker', async () => {
+    // Attack: Bob has been blocked by Alice. He writes into the real
+    // Alice<->Bob chat but forges receiverId=Carol (who has NOT blocked him)
+    // to try to defeat a receiverId-based block check. The rule now derives the
+    // authoritative counterparty from the SERVER chat doc, so the block between
+    // Alice and Bob still applies and the create is denied.
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      setDoc(doc(db, 'messages', 'msg-spoof-receiver'), {
+        senderId: BOB,
+        receiverId: CAROL,
+        type: 'text',
+        chatId: CHAT_AB,
+        participants: [ALICE, BOB],
+        text: 'hello again?',
+      }),
+    );
+  });
+
+  it('denies the blocker (Alice) messaging the blocked user (Bob) in a PRE-EXISTING chat', async () => {
+    // Symmetric: even though Alice is the one who blocked Bob, the block stops
+    // messages in BOTH directions inside the pre-existing chat.
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'messages', 'msg-blocker-to-blocked'), {
+        senderId: ALICE,
+        receiverId: BOB,
+        type: 'text',
+        chatId: CHAT_AB,
+        participants: [ALICE, BOB],
+        text: 'still here',
       }),
     );
   });
