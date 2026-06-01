@@ -16,6 +16,9 @@ export interface MyArticlesSectionProps {
   userItems: SwapPartyItemExtended[];
   onAddPress: () => void;
   onRemoveItem: (articleId: string) => void;
+  /** Number of articles currently being added (deposit in flight). Renders that
+   *  many skeleton rows at the head of the list until the refetch resolves. */
+  pendingCount?: number;
 }
 
 export interface PartyItemCardProps {
