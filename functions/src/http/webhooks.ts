@@ -800,10 +800,15 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
         swapId,
         currentStatus: swap.status,
       });
+      // Pre-set topUpRefundReconciledAt so the upcoming charge.refunded webhook
+      // (handleSwapTopUpRefund) short-circuits and does NOT debit the payee wallet:
+      // we never credited it (we return before the pendingBalance increment), so a
+      // debit would wrongly drain an unrelated top-up sitting in the same wallet.
       tx.update(swapRef, {
         topUpPaidAt: FieldValue.serverTimestamp(),
         topUpPaymentIntentId: paymentIntent.id,
         topUpChargeId: paymentIntent.latest_charge || null,
+        topUpRefundReconciledAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
       return { outcome: 'cancelled_needs_refund' as const };
