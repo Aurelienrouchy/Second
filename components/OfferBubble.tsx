@@ -288,7 +288,13 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           onPress: async () => {
             try {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              await onReportNoShow(message.id, "L'autre personne ne s'est pas présentée");
+              // `reason` doit être une valeur de l'enum backend ; le texte
+              // libre va dans `details`.
+              await onReportNoShow(
+                message.id,
+                'other_party_no_show',
+                "L'autre personne ne s'est pas présentée au meetup.",
+              );
             } catch (error) {
               if (__DEV__) console.error('Error reporting no-show:', error);
               Alert.alert('Erreur', 'Impossible de signaler le no-show');
