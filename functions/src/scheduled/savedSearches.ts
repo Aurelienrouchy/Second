@@ -6,6 +6,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import * as admin from 'firebase-admin';
 import { db, FieldValue } from '../config/firebase';
+import { partitionTokens } from '../utils/notifications';
 
 interface SavedSearchSize {
   value: string;
