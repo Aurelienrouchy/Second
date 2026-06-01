@@ -36,7 +36,8 @@ import { formatDisplayName } from '@/utils/formatName';
 
 const CARD_WIDTH = 120;
 const AVATAR_SIZE = 48;
-const CARD_GAP = spacing.md;
+// Inter-card rail gap aligned to the compliant PourToiSection reference.
+const CARD_GAP = spacing.sm;
 
 const SELLER_GRADIENTS: [string, string][] = [
   ['#C4603A', '#8B3A1A'],
