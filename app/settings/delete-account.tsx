@@ -4,14 +4,13 @@
 
 import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
-import { TransactionService } from '@/services/transactionService';
-import { WalletService } from '@/services/walletService';
+import { functions } from '@/config/firebaseConfig';
 import { resetAllStores } from '@/store/resetAllStores';
-import { formatPrice } from '@/utils/formatPrice';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
+import { httpsCallable } from 'firebase/functions';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
