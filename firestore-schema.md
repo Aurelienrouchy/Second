@@ -204,7 +204,14 @@ Same structure as `articles` plus:
 interface UserDocument {
   id: string;                    // Firebase Auth UID
   email: string;
-  displayName: string;
+  displayName: string;           // Freely editable; DECOUPLED from username.
+  // Persistent, unique, IMMUTABLE @handle (e.g. "marie.dupont"). Derived ONCE
+  // from displayName at account creation by the assignUsername callable (Admin
+  // SDK, runTransaction) and reserved in the usernames/{username} registry.
+  // Never chosen or editable by the user. Client cannot add/edit/remove it
+  // (protected in firestore.rules on both create and update). Optional to
+  // tolerate the brief transient state before assignment completes.
+  username?: string;
   profileImage?: string;
   authProvider: 'password' | 'google' | 'apple'; // Set by onUserCreated trigger
 
