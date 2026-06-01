@@ -310,33 +310,6 @@ export const walletWithdraw = onCall(
     }
 
     const stripeAccountId = userData.stripeAccountId;
-
-    // --- Defence in depth: confirm the Stripe account belongs to this caller ---
-    // The firestore.rules now lock stripe* fields against client writes, but we
-    // re-verify here at the moment of payout: the connected account's
-    // metadata.firebaseUserId (set at creation in createStripeConnectAccount) must
-    // match the caller. This makes a redirected payout impossible even if a field
-    // lock were ever bypassed — the transfer destination is authoritative.
-    let connectedAccount: { metadata?: Record<string, string> | null };
-    try {
-      connectedAccount = await stripe.accounts.retrieve(stripeAccountId);
-    } catch (e) {
-      logger.error('Wallet withdrawal: failed to retrieve Stripe account', {
-        userId,
-        stripeAccountId,
-        error: e instanceof Error ? e.message : String(e),
-      });
-      throw new HttpsError('failed-precondition', 'Compte de paiement introuvable.');
-    }
-    if (connectedAccount.metadata?.firebaseUserId !== userId) {
-      logger.error('Wallet withdrawal blocked: Stripe account ownership mismatch', {
-        userId,
-        stripeAccountId,
-        accountOwner: connectedAccount.metadata?.firebaseUserId ?? null,
-      });
-      throw new HttpsError('permission-denied', 'Ce compte de paiement ne vous appartient pas.');
-    }
-
     const walletRef = db.collection('wallets').doc(userId);
 
     // --- Dispute guard: refuse withdrawal while a dispute is active ---
