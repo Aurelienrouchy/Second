@@ -185,8 +185,13 @@ export const SwapActions = React.memo(function SwapActions({
         </Pressable>
       )}
 
-      {/* Shipping - dispute escape hatch (swap can stall here) */}
-      {status === 'shipping' && <DisputeButton disabled={isProcessing} />}
+      {/* Dispute escape hatch — available while shipping and during the
+          post-completion protection window. The backend (openSwapDispute,
+          which accepts both 'shipping' and 'completed') is the source of
+          truth on eligibility. */}
+      {(status === 'shipping' || status === 'completed') && (
+        <DisputeButton disabled={isProcessing} />
+      )}
 
       {/* Completed - Rate */}
       {status === 'completed' && !hasRated && (
