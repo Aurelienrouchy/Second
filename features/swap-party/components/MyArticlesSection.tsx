@@ -78,7 +78,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
                     not pushed to the far edge). */}
                 <View style={styles.rowBrandLine}>
                   <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
-                  <Text style={styles.rowSep}>—</Text>
+                  <Text style={styles.rowSep}>-</Text>
                   <Text style={styles.rowBrand} numberOfLines={1}>
                     {item.brand || 'MARQUE'}
                   </Text>
