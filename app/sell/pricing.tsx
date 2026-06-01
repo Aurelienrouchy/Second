@@ -212,8 +212,6 @@ export default function PricingScreen() {
         title="Prix & livraison"
         onBack={handleBack}
       />
-      <StepProgressBar currentStep={3} />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
