@@ -24,7 +24,7 @@ export const PartyHeader = React.memo(function PartyHeader({
         onPress={onBack}
         hitSlop={8}
       >
-        <Ionicons name="chevron-back" size={20} color={colors.cream} />
+        <Ionicons name="chevron-back" size={sizing.iconMD} color={colors.cream} />
       </Pressable>
 
       <Text style={styles.headerTitle}>{party.name}</Text>
