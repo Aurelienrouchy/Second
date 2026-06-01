@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     color: colors.cream,
   },
   // Full-width article row — frameless, fine, split from the row above by a
-  // single top hairline (uniform style, no index magic needed).
+  // single top hairline.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,6 +252,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.darkBorder,
+  },
+  // Leading row: no top hairline (avoids a stray line under the deposit button).
+  rowFirst: {
+    borderTopWidth: 0,
   },
   rowImageWrap: {
     width: THUMB_W,
