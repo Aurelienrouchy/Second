@@ -51,7 +51,7 @@ interface OfferBubbleProps {
   onCounterTime?: (messageId: string, newDateTime: Date, message?: string) => Promise<void>;
   // Meetup actions
   onConfirmMeetup?: (messageId: string) => Promise<void>;
-  onReportNoShow?: (messageId: string, reason?: string) => Promise<void>;
+  onReportNoShow?: (messageId: string, reason?: string, details?: string) => Promise<void>;
   onCompleteMeetup?: (messageId: string) => Promise<void>;
 }
 
