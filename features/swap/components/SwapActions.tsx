@@ -558,4 +558,22 @@ const styles = StyleSheet.create({
   ratingScore: {
     marginTop: 4,
   },
+  disputeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  disputeButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.rust,
+  },
 });
