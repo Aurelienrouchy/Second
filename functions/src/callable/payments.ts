@@ -1803,9 +1803,12 @@ export const completeMeetupTransaction = onCall(
 
         const data = txSnap.data()!;
 
-        // Only the buyer can confirm receipt
-        if (data.buyerId !== callerUid) {
-          throw new HttpsError('permission-denied', 'Only the buyer can complete the meetup');
+        // A3 FIX: either party (buyer or seller) can confirm the in-person
+        // exchange happened. Both were physically present at the meetup, so
+        // either can release it — this prevents a zombie transaction when one
+        // side never taps "completed".
+        if (data.buyerId !== callerUid && data.sellerId !== callerUid) {
+          throw new HttpsError('permission-denied', 'Only the buyer or seller can complete the meetup');
         }
 
         // Must be in meetup_confirmed status
