@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
-import StepProgressBar from '@/components/sell/StepProgressBar';
 import { ScreenHeader } from '@/components/ui';
 import {
   PriceCard,
