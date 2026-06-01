@@ -6,7 +6,9 @@
  *
  * Ref-based (show/hide), same @gorhom/bottom-sheet pattern as the app's other
  * sheets. Light editorial surface (sheets stay light even though the Swap Zone
- * screen is dark).
+ * screen is dark). Borders, type tokens and spacing rhythm are aligned on the
+ * Swap Zone screen (square corners, h3 title, hairlines, spacing.lg gutter) —
+ * colours stay on the sheet's existing light palette.
  */
 
 import {
