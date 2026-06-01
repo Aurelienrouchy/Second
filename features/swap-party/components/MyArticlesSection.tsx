@@ -170,32 +170,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.whiteTranslucent,
   },
-  // ── POPULATED list (vertical, full-width rows) ──
+  // ── POPULATED list (editorial, hairline-separated rows) ──
+  // No gap: rows touch and are split by a single top hairline each (the addRow
+  // leads with no border, so there is no leading/trailing line).
   list: {
-    gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  // Full-width deposit row leading the list (deep panel, hairline frame).
+  // Full-width deposit row leading the list — fine, frameless, action-legible.
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.darkSurface2,
-    borderWidth: 1,
-    borderColor: colors.darkBorderStrong,
-    borderRadius: radius.none,
+    paddingVertical: spacing.xs,
   },
   addRowIcon: {
     width: THUMB_W,
     height: THUMB_H,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.darkSurface1,
-    borderWidth: 1,
-    borderColor: colors.darkBorder,
-    borderRadius: radius.none,
+    backgroundColor: colors.darkSurface2,
+    overflow: 'hidden',
   },
   addRowLabel: {
     fontFamily: fonts.sansMedium,
@@ -204,17 +198,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.sand,
   },
-  // Full-width article row: surface + hairline frame, echoing productCardDark.
+  // Full-width article row — frameless, fine, split from the row above by a
+  // single top hairline (uniform style, no index magic needed).
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.darkSurface1,
-    borderWidth: 1,
-    borderColor: colors.darkBorder,
-    borderRadius: radius.none,
+    paddingVertical: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.darkBorder,
   },
   rowImageWrap: {
     width: THUMB_W,
