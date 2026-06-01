@@ -61,9 +61,9 @@ async function checkRateLimit(userId) {
  */
 exports.analyzeProductImage = (0, https_1.onCall)({
     region: 'northamerica-northeast1',
-    memory: '1GiB',
+    memory: '512MiB',
     timeoutSeconds: 120,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ['GEMINI_API_KEY'],
 }, async (request) => {
     var _a, _b, _c, _d;
