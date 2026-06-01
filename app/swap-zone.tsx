@@ -686,9 +686,10 @@ const styles = StyleSheet.create({
     borderColor: colors.rust,
   },
   retryButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.5,
+    fontFamily: typography.button.fontFamily,
+    fontSize: typography.button.fontSize,
+    lineHeight: typography.button.lineHeight,
+    letterSpacing: typography.button.letterSpacing,
     textTransform: 'uppercase',
     color: colors.rust,
   },
