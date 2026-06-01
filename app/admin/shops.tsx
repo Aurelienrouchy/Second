@@ -133,7 +133,7 @@ export default function AdminShopsScreen() {
     if (!user || !selectedShop) return;
 
     try {
-      await ShopService.rejectShop(selectedShop.id, reason, user.id);
+      await ShopService.rejectShop(selectedShop.id, reason);
       await NotificationService.notifyShopRejected(selectedShop.id, selectedShop.ownerId, reason);
       Alert.alert('Succès', 'La boutique a été rejetée');
       loadShops();
