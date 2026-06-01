@@ -557,7 +557,7 @@ export default function SwapZoneScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
+              refreshing={isManualRefreshing}
               onRefresh={handleRefresh}
               tintColor={colors.sand}
             />
