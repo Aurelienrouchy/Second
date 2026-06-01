@@ -910,7 +910,13 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
       await writeFailedOperation({
         type: 'stripe_refund_failed',
         refId: swapId,
-        payload: { paymentIntentId: paymentIntent.id, kind: 'swap_topup_cancelled_race' },
+        // Same key + isMixedCharge contract as the not-configured branch above.
+        payload: {
+          paymentIntentId: paymentIntent.id,
+          idempotencyKey: `rf_swap_${swapId}`,
+          isMixedCharge: true,
+          kind: 'swap_topup_cancelled_race',
+        },
         error: refundErr,
       });
       logger.error('CRITICAL Stripe webhook: swap top-up cancelled-race auto-refund FAILED', {
