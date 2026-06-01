@@ -69,13 +69,16 @@ export const SwapZoneWrapper = React.memo(SwapZoneWrapperComponent);
 // =============================================================================
 
 const styles = StyleSheet.create({
-  // Full-width dark section surface. Inner padding is owned by the content
-  // component (no card, no inner padding here).
+  // Full-bleed dark section band. Inner padding is owned by the content
+  // component (no card, no inner padding here). Symmetric xl margins above
+  // AND below let the dark universe read as an intentional editorial pause in
+  // the warm feed, not a jammed banner. No horizontal margin / no radius —
+  // full-bleed is the sanctioned exception.
   section: {
-    marginTop: spacing.sm,
-    // A soft white-alpha top edge reads as a subtle "lifted" highlight on the
-    // dark band (premium feel); the dark-band-vs-warm-white-feed luminance jump
-    // already provides the actual boundary.
+    marginTop: spacing.xl,
+    marginBottom: spacing.xl,
+    // Lifted white-alpha hairlines top + bottom are the only band chrome; the
+    // dark-band-vs-warm-white-feed luminance jump provides the boundary.
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.darkBorderStrong,
