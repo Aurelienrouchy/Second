@@ -85,6 +85,34 @@ function isGenericDisplayName(name: string | null | undefined): boolean {
 
 export class AuthService {
   /**
+   * Déclenche l'assignation du `username` persistant, unique et immuable côté
+   * serveur (callable `assignUsername`, région northamerica-northeast1).
+   *
+   * Le username est dérivé serveur du `displayName` et écrit UNE SEULE FOIS à
+   * la création du compte. La callable est IDEMPOTENTE : la rappeler sur un
+   * compte déjà doté d'un username est un no-op (`alreadyAssigned: true`).
+   * Précondition serveur : le doc users/{uid} doit déjà exister — n'appeler
+   * qu'APRÈS le setDoc de création.
+   *
+   * Best-effort : un échec ne doit JAMAIS faire échouer l'inscription ni la
+   * connexion (le compte Auth + doc users existent déjà). Le filet de sécurité
+   * au login rattrapera. On avale l'erreur (log __DEV__ uniquement).
+   */
+  static async ensureUsernameAssigned(): Promise<void> {
+    try {
+      const assignUsernameFn = httpsCallable<
+        Record<string, never>,
+        { ok: true; username: string; alreadyAssigned: boolean }
+      >(functions, 'assignUsername');
+      await assignUsernameFn({});
+    } catch (error) {
+      if (__DEV__) {
+        console.error('[AuthService] ensureUsernameAssigned failed (non-blocking):', error);
+      }
+    }
+  }
+
+  /**
    * Initialise les services d'authentification
    */
   static async initialize(): Promise<void> {
