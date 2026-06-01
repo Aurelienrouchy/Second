@@ -27,6 +27,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { Timestamp } from 'firebase-admin/firestore';
 import { getStripe } from '../config/stripe';
 import { calculateFees } from '../utils/fees';
 import { getOrCreateSellerWallet } from './wallet';
