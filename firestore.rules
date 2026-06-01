@@ -213,7 +213,17 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
     }
-    
+
+    // Usernames uniqueness registry — usernames/{username} -> { uid, createdAt }.
+    // Reserved and written EXCLUSIVELY server-side by the assignUsername callable
+    // (Admin SDK, within a runTransaction) to guarantee atomic uniqueness of the
+    // persistent, immutable @handle. Fully server-only: no client read (the
+    // mapping leaks nothing useful and a public read would enable username
+    // enumeration), no client write of any kind.
+    match /usernames/{username} {
+      allow read, write: if false;
+    }
+
     // Favorites Collection Rules
     // Unified structure: { userId, articleIds[], updatedAt }
     match /favorites/{userId} {
