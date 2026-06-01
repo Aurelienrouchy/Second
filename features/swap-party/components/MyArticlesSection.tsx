@@ -43,62 +43,61 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
       </View>
 
       {hasItems ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.rail}
-        >
-          {/* Add tile leads the rail so the deposit action is always the
-              first thing in view (no horizontal scroll needed to reach it). */}
+        <View style={styles.list}>
+          {/* Deposit row leads the list so the deposit action is always the
+              first thing in view. */}
           <Pressable
-            style={({ pressed }) => [styles.addTile, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.addRow, pressed && styles.pressed]}
             onPress={onAddPress}
           >
-            <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
-            <Text style={styles.addTileLabel}>Déposer</Text>
+            <View style={styles.addRowIcon}>
+              <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
+            </View>
+            <Text style={styles.addRowLabel}>Déposer un article</Text>
           </Pressable>
 
           {userItems.map((item) => (
             <Animated.View
               key={item.id}
-              style={styles.tileCard}
+              style={styles.row}
               entering={FadeIn.duration(200)}
               exiting={FadeOut.duration(160)}
               layout={LinearTransition.duration(220)}
             >
-              <View style={styles.tileImageWrap}>
+              <View style={styles.rowImageWrap}>
                 <Image
                   source={{ uri: item.imageUrl }}
-                  style={styles.tileImage}
+                  style={styles.rowImage}
                   recyclingKey={item.id}
                   contentFit="cover"
                 />
-                <Pressable
-                  style={({ pressed }) => [styles.removeTile, pressed && styles.pressed]}
-                  onPress={() => onRemoveItem(item.articleId)}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close" size={sizing.iconSM} color={colors.cream} />
-                </Pressable>
               </View>
 
-              <View style={styles.tileInfo}>
-                <Text style={styles.tileBrand} numberOfLines={1}>
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowBrand} numberOfLines={1}>
                   {item.brand || 'MARQUE'}
                 </Text>
-                <Text style={styles.tileTitle} numberOfLines={1}>
+                <Text style={styles.rowTitle} numberOfLines={1}>
                   {item.title}
                 </Text>
-                <View style={styles.tileFooter}>
-                  <Text style={styles.tilePrice}>{formatPrice(item.price)}</Text>
+                <View style={styles.rowFooter}>
+                  <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
                   {item.size?.value ? (
-                    <Text style={styles.tileSize}>{item.size.value}</Text>
+                    <Text style={styles.rowSize}>{item.size.value}</Text>
                   ) : null}
                 </View>
               </View>
+
+              <Pressable
+                style={({ pressed }) => [styles.removeRow, pressed && styles.pressed]}
+                onPress={() => onRemoveItem(item.articleId)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={sizing.iconSM} color={colors.cream} />
+              </Pressable>
             </Animated.View>
           ))}
-        </ScrollView>
+        </View>
       ) : (
         <Pressable
           style={({ pressed }) => [styles.dropZone, pressed && styles.pressed]}
