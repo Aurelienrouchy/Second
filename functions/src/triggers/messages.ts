@@ -37,10 +37,24 @@ export const sendMessageNotification = onDocumentCreated(
       }
 
       const receiverData = receiverDoc.data()!;
-      const fcmTokens = receiverData.fcmTokens || [];
+      const storedTokens: string[] = receiverData.fcmTokens || [];
 
-      if (fcmTokens.length === 0) {
+      if (storedTokens.length === 0) {
         console.log(`No FCM tokens found for user ${receiverId}`);
+        return;
+      }
+
+      // Raw APNs tokens (iOS native tokens) are not sendable via FCM and must
+      // not be pruned on send failure — partition them out before sending.
+      const { fcmTokens, apnsTokens } = partitionTokens(storedTokens);
+      if (apnsTokens.length > 0) {
+        logger.warn('Skipping raw APNs tokens not sendable via FCM', {
+          receiverId,
+          skippedCount: apnsTokens.length,
+        });
+      }
+      if (fcmTokens.length === 0) {
+        console.log(`No FCM-routable tokens for user ${receiverId}`);
         return;
       }
 
