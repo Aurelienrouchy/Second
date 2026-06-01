@@ -330,12 +330,12 @@ const styles = StyleSheet.create({
     maxWidth: sizing.avatarXXL * 2, // 240 — token-derived
   },
 
-  // --- CTA (dark pill, content-width) ---
-  // INVERTED from the old cream-fill pill (which read as a RESET back to the
-  // warm home). Dark pill = darkSurface2 fill + darkBorderStrong hairline +
-  // cream label + rust chevron disc, so cream/sand survive ONLY as text/label,
-  // never a fill on charcoal. alignSelf flex-start shrinks it to a refined
-  // action instead of a full-bleed slab.
+  // --- CTA (dark SQUARE action, content-width) — SwapZone DA ---
+  // Aligned on the Swap Zone page language: square corners (radius.none), a
+  // darkSurface2 fill behind a darkBorderStrong hairline, cream uppercase label.
+  // The chevron is a SQUARE rust-filled tile (echoing the addRowIcon / dropZone
+  // square pattern) but in full rust accent to mark this as the PRIMARY CTA.
+  // alignSelf flex-start shrinks it to a refined action, never a full-bleed slab.
   ctaRow: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.lg,
     paddingRight: spacing.sm,
     paddingVertical: spacing.sm,
-    borderRadius: radius.full,
+    borderRadius: radius.none,
   },
   ctaText: {
     fontFamily: typography.button.fontFamily,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   ctaChevron: {
     width: sizing.avatarSM,
     height: sizing.avatarSM,
-    borderRadius: radius.full,
+    borderRadius: radius.none,
     backgroundColor: colors.rust,
     justifyContent: 'center',
     alignItems: 'center',
