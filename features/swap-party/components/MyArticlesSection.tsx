@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     color: colors.sand,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   // Title line — title truncates, size trails right beside it.
   rowTitleLine: {
