@@ -202,6 +202,10 @@ export class AuthService {
 
       await setDoc(doc(firestore, 'users', firebaseUser.uid), firestoreData);
 
+      // Assigne le username persistant/immuable (dérivé serveur du displayName).
+      // Non-bloquant : un échec ne fait pas échouer l'inscription.
+      await this.ensureUsernameAssigned();
+
       // Persister dateOfBirth + consents côté serveur (source de vérité).
       // recordSignupConsent revalide l'âge et écrit la sous-collection consents.
       const recordConsentFn = httpsCallable<
