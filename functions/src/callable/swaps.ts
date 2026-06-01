@@ -53,13 +53,24 @@ function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
 }
 
 /**
- * Validate that all articles in a list are available (exist, isActive, not isSold).
+ * Validate that all articles in a list are available (exist, isActive, not isSold)
+ * AND, when `expectedOwnerId` is provided, that each article belongs to that user
+ * (article.sellerId === expectedOwnerId).
+ *
+ * The ownership check is a HARD financial/integrity invariant: a swap engages a
+ * party's OWN items only. Without it, the initiator could stage someone else's
+ * articles on either side (privilege escalation / corruption of third-party
+ * articles when the swap completes and marks them sold, plus spoofed reviews on
+ * an unrelated user). The article's `sellerId` is the sole source of truth for
+ * ownership — never the client-supplied item payload.
+ *
  * Must be called inside a transaction; reads via the transaction handle.
  */
 async function validateArticlesAvailable(
   tx: FirebaseFirestore.Transaction,
   items: { articleId: string; title?: string }[],
-  label: string
+  label: string,
+  expectedOwnerId?: string
 ): Promise<void> {
   for (const item of items) {
     const articleRef = db.collection('articles').doc(item.articleId);
@@ -73,6 +84,15 @@ async function validateArticlesAvailable(
     }
 
     const data = articleSnap.data()!;
+    // Ownership invariant — checked against the article's authoritative sellerId,
+    // not the client payload. Use the same 'not-found' wording as a missing item
+    // so an attacker cannot probe which articles belong to which user.
+    if (expectedOwnerId != null && data.sellerId !== expectedOwnerId) {
+      throw new HttpsError(
+        'permission-denied',
+        `${label} : l'article "${item.title || item.articleId}" n'appartient pas au participant attendu`
+      );
+    }
     if (data.isActive === false) {
       throw new HttpsError(
         'failed-precondition',
