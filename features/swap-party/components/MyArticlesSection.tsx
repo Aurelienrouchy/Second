@@ -4,12 +4,14 @@
  * to an authenticated user (the zone is open to all — no join gate).
  *
  * EMPTY state: a full-width tappable drop zone (the only CTA).
- * POPULATED state: a horizontal rail of portrait photo tiles so the user
- * recognizes their garments instantly, ending in a "+" add tile.
+ * POPULATED state: a vertical list of full-width rows (deterministic thumbnail
+ * on the left, info block on the right) so the user recognizes their garments
+ * instantly, led by a full-width "+" deposit row. Rendered inside a scrollable
+ * parent (the Swap Zone): no nested scroll view — a plain column View only.
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -19,12 +21,11 @@ import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
-// Portrait 4/5 tile footprint (128 / 160 = 0.8). Fixed named consts rather than
-// aspectRatio because rail children are not flex-driven and need a deterministic
-// footprint. The leading "+" tile carries no fixed height: the rail stretches it
-// to the cards' height (alignItems: 'stretch'), staying flush without a magic value.
-const TILE_W = 128;
-const IMG_H = 160;
+// Portrait 4/5 thumbnail footprint (64 / 80 = 0.8), echoing the previous tile
+// ratio in a compact list-row form. Fixed named consts rather than aspectRatio
+// because the thumbnail is not flex-driven and needs a deterministic footprint.
+const THUMB_W = 64;
+const THUMB_H = 80;
 
 export const MyArticlesSection = React.memo(function MyArticlesSection({
   userItems,
