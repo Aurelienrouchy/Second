@@ -267,8 +267,15 @@ export class ModerationService {
       if (!userDoc.exists()) return false;
 
       const userData = userDoc.data();
-      const blockedUsers = userData?.blockedUsers || [];
 
+      // Canonical field read by the Firestore rules (`isNotBlockedBy`): flat
+      // list of plain UIDs. We check it first so the client UX matches exactly
+      // what the server authorizes. Fall back to the object array for any doc
+      // not yet carrying the flat list.
+      const blockedUserIds = (userData?.blockedUserIds || []) as string[];
+      if (blockedUserIds.includes(targetUserId)) return true;
+
+      const blockedUsers = userData?.blockedUsers || [];
       return blockedUsers.some((u: any) => u.userId === targetUserId);
     } catch (error) {
       console.error('Error checking blocked status:', error);
