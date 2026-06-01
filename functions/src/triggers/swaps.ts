@@ -9,7 +9,7 @@ import {
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
-import { sendSwapNotification } from '../utils/notifications';
+import { partitionTokens, sendSwapNotification } from '../utils/notifications';
 
 /** Resolve items arrays with backward compat for legacy single-item swaps */
 function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
