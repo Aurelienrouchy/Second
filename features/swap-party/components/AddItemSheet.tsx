@@ -296,32 +296,59 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: spacing.xs,
   },
+  // Fine, hairline-separated selection row mirroring MyArticlesSection's row
+  // gabarit (48x60 thumb + two text lines), adapted to the sheet's LIGHT palette.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   rowSelected: {
     backgroundColor: colors.surfaceWarm,
   },
-  rowImage: {
-    width: 48,
-    height: 60,
+  rowImageWrap: {
+    width: THUMB_W,
+    height: THUMB_H,
     backgroundColor: colors.background,
+    overflow: 'hidden',
+  },
+  rowImage: {
+    width: '100%',
+    height: '100%',
   },
   rowInfo: {
     flex: 1,
   },
-  rowTitle: {
+  // Price + brand on one line — the prominent editorial price line.
+  rowPriceBrand: {
+    fontFamily: typography.price.fontFamily,
+    fontSize: typography.price.fontSize,
+    lineHeight: typography.price.lineHeight,
+    letterSpacing: typography.price.letterSpacing,
     color: colors.charcoal,
-    marginBottom: 2,
+    marginBottom: spacing.xs,
   },
-  rowPrice: {
-    color: colors.rust,
+  // Title line — title truncates, size trails right beside it.
+  rowTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
+  rowTitle: {
+    flexShrink: 1,
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 17,
+    color: colors.charcoal,
+  },
+  rowSize: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.muted,
   },
   checkIcon: {
     marginLeft: spacing.xs,
