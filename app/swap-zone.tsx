@@ -433,6 +433,7 @@ export default function SwapZoneScreen() {
           userItems={userItems}
           onAddPress={handleShowMyArticles}
           onRemoveItem={handleRemoveItem}
+          pendingCount={pendingAddCount}
         />
 
         {/* Filter chips (dark tone) */}
