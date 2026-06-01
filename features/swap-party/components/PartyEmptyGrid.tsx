@@ -28,12 +28,12 @@ export const PartyEmptyGrid = React.memo(function PartyEmptyGrid({
       <Text style={styles.emptyGridTitle}>
         {hasActiveFilters
           ? 'Aucun article ne correspond aux filtres'
-          : 'Aucun article dans la Swap Zone pour l’instant.'}
+          : 'Aucun article disponible pour l’instant.'}
       </Text>
       <Text style={styles.emptyGridText}>
         {hasActiveFilters
           ? 'Essayez de modifier vos critères de recherche'
-          : 'Soyez la première personne à en déposer un.'}
+          : 'Reviens bientôt, de nouvelles pièces vont arriver.'}
       </Text>
       {hasActiveFilters && (
         <Pressable
