@@ -858,8 +858,8 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
                        request.auth.uid in request.resource.data.participants &&
                        isValidChatData(request.resource.data) &&
-                       isNotBlockedBy(request.resource.data.participants[0], request.resource.data.participants[1]) &&
-                       isNotBlockedBy(request.resource.data.participants[1], request.resource.data.participants[0]);
+                       neitherBlocks(request.resource.data.participants[0],
+                                     request.resource.data.participants[1]);
       
       // Allow update only for unread count and last message fields.
       // SECURITY: without field restriction, a participant could overwrite
