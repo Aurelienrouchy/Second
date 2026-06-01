@@ -84,28 +84,58 @@ export const sendMessageNotification = onDocumentCreated(
       if (!snapshot) return;
 
       const message = snapshot.data();
-      const { chatId, senderId, receiverId, type, content } = message;
+      const { chatId, senderId, type, content } = message;
+      // `receiverId` from the message is CLIENT-SUPPLIED and falsifiable; it is
+      // used ONLY as a notification routing hint below and is RECONCILED against
+      // the authoritative chat participant for any security decision.
+      let receiverId: string = message.receiverId;
 
-      if (!receiverId || !senderId || !chatId) {
+      if (!senderId || !chatId) {
         console.log('Missing required fields for notification');
         return;
       }
 
-      // SECURITY (M2): server-side enforcement of user blocking.
-      // Messages are created client->Firestore directly (no send callable),
-      // so this trigger is the authoritative server-side guard: if either
-      // participant has blocked the other, delete the message and abort
-      // before any notification is computed. This guarantees the victim
-      // never receives the blocker's message even if the client bypasses
-      // its own (one-directional) block check.
+      // SECURITY (M2): server-side enforcement of user blocking — authoritative.
+      // Messages are created client->Firestore directly (no send callable), so
+      // this trigger is the authoritative server-side guard. The previous
+      // implementation trusted the client-supplied `receiverId` to decide who
+      // could be blocked, letting a blocked sender forge a bogus receiverId
+      // (e.g. an unrelated user who has NOT blocked them) and slip a message to
+      // the real victim inside a PRE-EXISTING chat. We now derive the real
+      // counterparty from the SERVER chat doc and verify the sender is actually
+      // a participant. If the sender isn't a participant, or either side has
+      // blocked the other, the message is deleted before any notification.
       if (senderId !== 'system') {
-        const blocked = await areUsersBlocked(senderId, receiverId);
+        const counterparty = await resolveChatCounterparty(chatId, senderId);
+
+        if (!counterparty) {
+          logger.warn('Message in chat with no resolvable counterparty rejected', {
+            messageId: event.params.messageId,
+            chatId,
+            senderId,
+            claimedReceiverId: message.receiverId,
+          });
+          await snapshot.ref.delete().catch((err) =>
+            logger.error('Failed to delete illegitimate message', {
+              messageId: event.params.messageId,
+              error: err,
+            })
+          );
+          return;
+        }
+
+        // Always route the notification to the authoritative participant,
+        // ignoring any spoofed receiverId.
+        receiverId = counterparty;
+
+        const blocked = await areUsersBlocked(senderId, counterparty);
         if (blocked) {
           logger.warn('Blocked message rejected server-side', {
             messageId: event.params.messageId,
             chatId,
             senderId,
-            receiverId,
+            counterparty,
+            claimedReceiverId: message.receiverId,
           });
           await snapshot.ref.delete().catch((err) =>
             logger.error('Failed to delete blocked message', {
@@ -115,6 +145,11 @@ export const sendMessageNotification = onDocumentCreated(
           );
           return;
         }
+      }
+
+      if (!receiverId) {
+        console.log('No receiver resolved for notification');
+        return;
       }
 
       // Get receiver's FCM tokens
