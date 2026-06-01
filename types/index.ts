@@ -63,6 +63,14 @@ export interface User {
   id: string;
   email: string;
   displayName?: string;
+  /**
+   * Persistent, unique, immutable @handle (e.g. "marie.dupont"). Derived once
+   * from displayName at account creation and assigned EXCLUSIVELY server-side by
+   * the assignUsername callable (Admin SDK). Never chosen or editable by the
+   * user; decoupled from displayName (which stays freely editable). Optional to
+   * tolerate the brief transient state before assignment completes.
+   */
+  username?: string;
   bio?: string;
   profileImage?: string;
   /** ISO "YYYY-MM-DD" — stored as a string (no Date/object) to avoid timezone drift. Set server-side via recordSignupConsent. */
