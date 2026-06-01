@@ -111,18 +111,29 @@ export const generateStyleProfile = onCall(
 
     try {
       // Build context for Gemini
+      // article.size is an ArticleSize object { value, system } (or null) —
+      // interpolate the `.value`, never the object (would render [object Object]).
       const likedContext = likedArticles
         .map(
-          (a: { category?: string; brand?: string; size?: string; price?: number }) =>
-            `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}, ${a.price} $`
+          (a: {
+            category?: string;
+            brand?: string;
+            size?: { value?: string; system?: string } | null;
+            price?: number;
+          }) =>
+            `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size?.value || 'NC'}, ${a.price} $`
         )
         .join('\n');
 
       const viewedContext = viewedArticles
         .slice(0, 20)
         .map(
-          (a: { category?: string; brand?: string; size?: string }) =>
-            `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size || 'NC'}`
+          (a: {
+            category?: string;
+            brand?: string;
+            size?: { value?: string; system?: string } | null;
+          }) =>
+            `- ${a.category || 'Article'}: ${a.brand || 'Sans marque'}, taille ${a.size?.value || 'NC'}`
         )
         .join('\n');
 
