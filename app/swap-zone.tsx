@@ -212,6 +212,7 @@ export default function SwapZoneScreen() {
         Alert.alert('Erreur', "Impossible d'ajouter les articles");
       } finally {
         setIsAddingItem(false);
+        setPendingAddCount(0);
       }
     },
     [user, party, isAddingItem, invalidatePartyData, queryClient]
