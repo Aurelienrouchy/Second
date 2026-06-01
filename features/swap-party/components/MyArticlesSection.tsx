@@ -54,9 +54,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
             accessibilityRole="button"
             accessibilityLabel="Déposer un article"
           >
-            <View style={styles.addButtonIcon}>
-              <Ionicons name="add" size={sizing.iconSM} color={colors.cream} />
-            </View>
+            <Ionicons name="add" size={sizing.iconMD} color={colors.cream} />
             <Text style={styles.addButtonLabel}>Déposer un article</Text>
           </Pressable>
 
