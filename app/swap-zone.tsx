@@ -70,6 +70,18 @@ import {
 } from '@/features/swap-party';
 
 // =============================================================================
+// TYPES
+// =============================================================================
+
+// Shape of the React Query cache entry for queryKeys.swapParties.detail(partyId)
+// — mirrors the queryFn return below. Typed explicitly so getQueryData /
+// setQueryData (optimistic removal + rollback) are type-safe, no `any`.
+type PartyDetailData = {
+  party: Awaited<ReturnType<typeof getSwapParty>>;
+  items: SwapPartyItemExtended[];
+};
+
+// =============================================================================
 // HELPERS
 // =============================================================================
 
