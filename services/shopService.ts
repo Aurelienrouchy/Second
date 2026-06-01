@@ -312,18 +312,20 @@ export class ShopService {
   }
 
   /**
-   * Approuver une boutique (admin uniquement)
+   * Approuver une boutique (admin uniquement).
+   *
+   * Le status / verificationDetails d'une boutique sont verrouillés côté
+   * firestore.rules (admin-owned). La mutation passe par la Cloud Function
+   * callable `approveShop` (Admin SDK + runTransaction), qui dérive l'admin
+   * depuis request.auth — aucun adminId n'est envoyé par le client.
    */
-  static async approveShop(id: string, adminId: string): Promise<void> {
+  static async approveShop(id: string): Promise<void> {
     try {
-      await updateDoc(doc(firestore, this.COLLECTION, id), {
-        status: 'approved',
-        verificationDetails: {
-          verifiedAt: serverTimestamp(),
-          verifiedBy: adminId,
-        },
-        updatedAt: serverTimestamp(),
-      });
+      const callable = httpsCallable<{ shopId: string }, ShopModerationResponse>(
+        functions,
+        'approveShop',
+      );
+      await callable({ shopId: id });
     } catch (error) {
       console.error('Error approving shop:', error);
       throw new Error('Erreur lors de l\'approbation de la boutique');
@@ -331,19 +333,15 @@ export class ShopService {
   }
 
   /**
-   * Rejeter une boutique (admin uniquement)
+   * Rejeter une boutique (admin uniquement) via la callable `rejectShop`.
    */
-  static async rejectShop(id: string, reason: string, adminId: string): Promise<void> {
+  static async rejectShop(id: string, reason: string): Promise<void> {
     try {
-      await updateDoc(doc(firestore, this.COLLECTION, id), {
-        status: 'rejected',
-        verificationDetails: {
-          reason,
-          verifiedAt: serverTimestamp(),
-          verifiedBy: adminId,
-        },
-        updatedAt: serverTimestamp(),
-      });
+      const callable = httpsCallable<
+        { shopId: string; reason: string },
+        ShopModerationResponse
+      >(functions, 'rejectShop');
+      await callable({ shopId: id, reason });
     } catch (error) {
       console.error('Error rejecting shop:', error);
       throw new Error('Erreur lors du rejet de la boutique');
@@ -351,19 +349,15 @@ export class ShopService {
   }
 
   /**
-   * Suspendre une boutique (admin uniquement)
+   * Suspendre une boutique (admin uniquement) via la callable `suspendShop`.
    */
-  static async suspendShop(id: string, reason: string, adminId: string): Promise<void> {
+  static async suspendShop(id: string, reason: string): Promise<void> {
     try {
-      await updateDoc(doc(firestore, this.COLLECTION, id), {
-        status: 'suspended',
-        verificationDetails: {
-          reason,
-          verifiedAt: serverTimestamp(),
-          verifiedBy: adminId,
-        },
-        updatedAt: serverTimestamp(),
-      });
+      const callable = httpsCallable<
+        { shopId: string; reason: string },
+        ShopModerationResponse
+      >(functions, 'suspendShop');
+      await callable({ shopId: id, reason });
     } catch (error) {
       console.error('Error suspending shop:', error);
       throw new Error('Erreur lors de la suspension de la boutique');
