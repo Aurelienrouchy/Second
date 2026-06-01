@@ -10,6 +10,7 @@
 | 4 | `users/{uid}/savedSearches` | Sub-collection | User's saved search alerts |
 | 5 | `users/{uid}/searchHistory` | Sub-collection | User's recent search queries |
 | 5b | `users/{uid}/consents` | Sub-collection | Legal consent records (CGU, privacy policy, marketing) — server-write only |
+| 5c | `usernames` | Root | Uniqueness registry for the immutable `@handle` (doc id = username) — server-only |
 | 6 | `favorites` | Root | Per-user favorite article IDs |
 | 7 | `chats` | Root | Chat threads between two users |
 | 8 | `messages` | Root | Individual chat messages |
