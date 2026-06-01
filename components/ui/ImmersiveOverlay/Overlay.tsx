@@ -80,7 +80,7 @@ const Overlay: React.FC<OverlayProps> = React.memo(function Overlay({
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.contentLayer]}
         >
-          <Content progress={progress} contentComponent={contentComponent} />
+          <Content reveal={contentReveal} contentComponent={contentComponent} />
         </Animated.View>
       )}
     </Animated.View>
