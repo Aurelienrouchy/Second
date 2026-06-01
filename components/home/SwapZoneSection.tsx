@@ -109,13 +109,9 @@ const Shell: React.FC<ShellProps> = ({ onPress, children }) => {
 // =============================================================================
 
 const ZoneTitle: React.FC = () => (
-  <>
-    {/* Editorial kicker — sand uppercase micro-label sets the curated tone */}
-    <Text style={styles.eyebrow}>Zone d&apos;échange</Text>
-    <Text style={styles.title}>
-      Swap <Text style={styles.titleAccent}>Zone</Text>
-    </Text>
-  </>
+  <Text style={styles.title}>
+    Swap <Text style={styles.titleAccent}>Zone</Text>
+  </Text>
 );
 
 const CtaRow: React.FC = () => (
