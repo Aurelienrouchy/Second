@@ -207,7 +207,10 @@ export default function SwapZoneScreen() {
             )
           )
         );
-        invalidatePartyData();
+        // Await the party refetch so the skeleton rows stay until the real
+        // items are loaded — the skeleton swaps straight to the article with
+        // no intermediate empty gap.
+        await invalidatePartyData();
         queryClient.invalidateQueries({ queryKey: queryKeys.articles.userList(user.id) });
       } catch (error) {
         if (__DEV__) console.error('Error adding items:', error);
