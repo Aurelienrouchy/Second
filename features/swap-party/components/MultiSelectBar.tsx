@@ -21,7 +21,7 @@ export const MultiSelectBar = React.memo(function MultiSelectBar({
   return (
     <View style={styles.multiSelectBar}>
       <Pressable
-        style={({ pressed }) => [styles.cancelSelectButton, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [styles.cancelSelectButton, pressed && styles.pressed]}
         onPress={onCancel}
       >
         <Text style={styles.cancelButtonText}>Annuler</Text>
