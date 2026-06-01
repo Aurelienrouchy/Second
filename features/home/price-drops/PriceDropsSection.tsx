@@ -45,7 +45,8 @@ import { fixStorageUrl } from '@/utils/fixStorageUrl';
 const CARD_WIDTH = 140;
 const CARD_HEIGHT = CARD_WIDTH * 1.25;
 const IMAGE_HEIGHT = CARD_HEIGHT * 0.75;
-const CARD_GAP = spacing.md;
+// Inter-card rail gap aligned to the compliant PourToiSection reference.
+const CARD_GAP = spacing.sm;
 
 // =============================================================================
 // PRICE DROP CARD — consumes favorites at card level
