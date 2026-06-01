@@ -70,6 +70,7 @@ export {
   checkTrackingStatus,
   cancelPendingTransaction,
   completeMeetupTransaction,
+  reportMeetupNoShow,
   adminRefundTransaction,
 } from './callable/payments';
 
