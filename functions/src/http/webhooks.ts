@@ -873,7 +873,17 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
       await writeFailedOperation({
         type: 'stripe_refund_failed',
         refId: swapId,
-        payload: { paymentIntentId: paymentIntent.id, kind: 'swap_topup_cancelled_race' },
+        // idempotencyKey MUST equal the original (`rf_swap_${swapId}`) so the
+        // retry never issues a second refund. isMixedCharge:true tells the retry
+        // handler to OMIT reverse_transfer/refund_application_fee — a swap top-up
+        // is a direct platform charge (no transfer_data), and Stripe rejects those
+        // flags on such a charge (see refundSwapTopUpIfPaid in swaps.ts).
+        payload: {
+          paymentIntentId: paymentIntent.id,
+          idempotencyKey: `rf_swap_${swapId}`,
+          isMixedCharge: true,
+          kind: 'swap_topup_cancelled_race',
+        },
         error: 'Stripe not configured at swap top-up cancelled-race refund',
       });
       return;
