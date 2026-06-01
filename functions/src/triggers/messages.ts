@@ -9,7 +9,7 @@ import {
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
-import { sendPushNotification } from '../utils/notifications';
+import { partitionTokens, sendPushNotification } from '../utils/notifications';
 
 /**
  * Send push notification when a message is created
