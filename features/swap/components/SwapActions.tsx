@@ -185,11 +185,91 @@ export const SwapActions = React.memo(function SwapActions({
         </Pressable>
       )}
 
+      {/* Shipping - dispute escape hatch (swap can stall here) */}
+      {status === 'shipping' && <DisputeButton disabled={isProcessing} />}
+
       {/* Completed - Rate */}
       {status === 'completed' && !hasRated && (
         <RatingSection onRate={handlers.onRate} isProcessing={isProcessing} />
       )}
     </View>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Dispute button — self-contained: resolves the swapId from the route and
+// calls the `openSwapDispute` callable with a predefined reason. Kept local
+// so it does not need a new handler threaded through the screen.
+// ---------------------------------------------------------------------------
+
+interface DisputeButtonProps {
+  disabled: boolean;
+}
+
+/** Predefined dispute reasons (the backend requires a non-empty reason). */
+const DISPUTE_REASONS: readonly string[] = [
+  "Je n'ai pas reçu l'article",
+  "L'article ne correspond pas à la proposition",
+  "L'article est endommagé",
+  'Autre problème',
+];
+
+const DisputeButton = React.memo(function DisputeButton({ disabled }: DisputeButtonProps) {
+  const { id: swapId } = useLocalSearchParams<{ id: string }>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const submitDispute = useCallback(
+    async (reason: string) => {
+      if (!swapId) return;
+      setIsSubmitting(true);
+      try {
+        await openSwapDispute(swapId, reason);
+        Alert.alert(
+          'Litige ouvert',
+          "Notre équipe va examiner l'échange. Le complément éventuel est remboursé."
+        );
+      } catch (error) {
+        if (__DEV__) console.error('Error opening swap dispute:', error);
+        Alert.alert('Erreur', "Impossible d'ouvrir le litige. Réessaie plus tard.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [swapId]
+  );
+
+  const handlePress = useCallback(() => {
+    Alert.alert(
+      'Ouvrir un litige',
+      'Quel est le problème avec cet échange ?',
+      [
+        ...DISPUTE_REASONS.map((reason) => ({
+          text: reason,
+          onPress: () => submitDispute(reason),
+        })),
+        { text: 'Annuler', style: 'cancel' as const },
+      ],
+      { cancelable: true }
+    );
+  }, [submitDispute]);
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.disputeButton, pressed && { opacity: 0.7 }]}
+      onPress={handlePress}
+      disabled={disabled || isSubmitting}
+    >
+      {isSubmitting ? (
+        <ActivityIndicator size="small" color={colors.rust} />
+      ) : (
+        <>
+          <Ionicons name="alert-circle-outline" size={20} color={colors.rust} />
+          <Text variant="body" style={styles.disputeButtonText}>
+            Ouvrir un litige
+          </Text>
+        </>
+      )}
+    </Pressable>
   );
 });
 
