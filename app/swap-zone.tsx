@@ -43,7 +43,7 @@ import {
 } from '@/services/swapService';
 import { ArticlesService } from '@/services/articlesService';
 import { SwapPartyItemExtended, Article, SwapItemInfo } from '@/types';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { Text } from '@/components/ui';
 
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
