@@ -70,6 +70,19 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
             <Text style={styles.addButtonLabel}>Déposer un article</Text>
           </Pressable>
 
+          {/* Skeleton placeholders for articles being deposited — same row
+              gabarit (48x60 thumb + two text lines), dark surfaces, hairline
+              separated, non-interactive (no remove). Lead the real items. */}
+          {skeletonRows.map((i) => (
+            <View key={`skeleton-${i}`} style={styles.row}>
+              <View style={styles.skeletonThumb} />
+              <View style={styles.rowInfo}>
+                <View style={[styles.skeletonLine, styles.skeletonLinePrice]} />
+                <View style={[styles.skeletonLine, styles.skeletonLineTitle]} />
+              </View>
+            </View>
+          ))}
+
           {userItems.map((item) => (
             <Animated.View
               key={item.id}
