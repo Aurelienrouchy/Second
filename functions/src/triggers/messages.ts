@@ -12,6 +12,41 @@ import { db } from '../config/firebase';
 import { partitionTokens, sendPushNotification } from '../utils/notifications';
 
 /**
+ * Check if either user has blocked the other.
+ *
+ * Source of truth is the `blockedUsers` array written by the client
+ * moderationService (objects shaped `{ userId, userName, blockedAt }`).
+ * We tolerate a flat-string shape too so the check stays correct if the
+ * data model is ever migrated to plain UIDs.
+ */
+async function areUsersBlocked(
+  userId1: string,
+  userId2: string
+): Promise<boolean> {
+  const [user1Snap, user2Snap] = await Promise.all([
+    db.collection('users').doc(userId1).get(),
+    db.collection('users').doc(userId2).get(),
+  ]);
+
+  const blockedBy1 = (user1Snap.data()?.blockedUsers || []) as Array<
+    { userId?: string } | string
+  >;
+  const blockedBy2 = (user2Snap.data()?.blockedUsers || []) as Array<
+    { userId?: string } | string
+  >;
+
+  const matches = (
+    list: Array<{ userId?: string } | string>,
+    target: string
+  ) =>
+    list.some((u) =>
+      typeof u === 'string' ? u === target : u.userId === target
+    );
+
+  return matches(blockedBy1, userId2) || matches(blockedBy2, userId1);
+}
+
+/**
  * Send push notification when a message is created
  */
 export const sendMessageNotification = onDocumentCreated(
@@ -27,6 +62,32 @@ export const sendMessageNotification = onDocumentCreated(
       if (!receiverId || !senderId || !chatId) {
         console.log('Missing required fields for notification');
         return;
+      }
+
+      // SECURITY (M2): server-side enforcement of user blocking.
+      // Messages are created client->Firestore directly (no send callable),
+      // so this trigger is the authoritative server-side guard: if either
+      // participant has blocked the other, delete the message and abort
+      // before any notification is computed. This guarantees the victim
+      // never receives the blocker's message even if the client bypasses
+      // its own (one-directional) block check.
+      if (senderId !== 'system') {
+        const blocked = await areUsersBlocked(senderId, receiverId);
+        if (blocked) {
+          logger.warn('Blocked message rejected server-side', {
+            messageId: event.params.messageId,
+            chatId,
+            senderId,
+            receiverId,
+          });
+          await snapshot.ref.delete().catch((err) =>
+            logger.error('Failed to delete blocked message', {
+              messageId: event.params.messageId,
+              error: err,
+            })
+          );
+          return;
+        }
       }
 
       // Get receiver's FCM tokens
