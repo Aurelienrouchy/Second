@@ -32,20 +32,16 @@ interface OverlayProps {
 // ─── Content sub-component ─────────────────────────────────────────────────
 
 const Content: React.FC<{
-  progress: SharedValue<number>;
+  reveal: SharedValue<number>;
   contentComponent: React.ReactNode;
-}> = React.memo(function Content({ progress, contentComponent }) {
+}> = React.memo(function Content({ reveal, contentComponent }) {
+  // Clean fade-in (with a subtle settle) driven by `reveal`, which only starts
+  // once the entrance gradient + blurred circles have finished. No entrance
+  // warp here — the content simply fades in over the settled backdrop.
   const animatedStyles = useAnimatedStyle(() => ({
     flex: 1,
-    opacity: interpolate(progress.value, [0, 0.3, 1], [0, 0, 1]),
-    transform: [
-      { perspective: 1000 },
-      { rotateX: `${interpolate(progress.value, [0, 1], [-5, 0])}deg` },
-      { skewY: `${interpolate(progress.value, [0, 1], [-1.5, 0])}deg` },
-      { scaleY: interpolate(progress.value, [0, 1], [2, 1]) },
-      { scaleX: interpolate(progress.value, [0, 1], [0.4, 1]) },
-      { translateY: interpolate(progress.value, [0, 1], [100, 0]) },
-    ],
+    opacity: reveal.value,
+    transform: [{ scale: interpolate(reveal.value, [0, 1], [1.03, 1]) }],
   }));
 
   return (
