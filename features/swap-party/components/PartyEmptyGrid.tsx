@@ -85,9 +85,10 @@ const styles = StyleSheet.create({
     borderColor: colors.rust,
   },
   clearFiltersText: {
-    fontSize: 12,
-    fontFamily: fonts.sansMedium,
-    letterSpacing: 1.5,
+    fontFamily: typography.button.fontFamily,
+    fontSize: typography.button.fontSize,
+    lineHeight: typography.button.lineHeight,
+    letterSpacing: typography.button.letterSpacing,
     textTransform: 'uppercase',
     color: colors.rust,
   },
