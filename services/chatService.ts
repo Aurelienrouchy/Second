@@ -1259,20 +1259,14 @@ export class ChatService {
         'offer.status': 'completed',
       });
 
-      // Find the transaction linked to this chat and call the CF
-      // to credit the seller's balance.
-      // We scope the query with buyerId == userId so Firestore security rules
-      // can verify access (rules require auth.uid == resource.data.buyerId).
-      const txSnap = await getDocs(
-        query(
-          collection(firestore, 'transactions'),
-          where('chatId', '==', chatId),
-          where('buyerId', '==', userId),
-          where('status', 'in', ['meetup_confirmed', 'meetup_pending'])
-        )
-      );
-      if (!txSnap.empty) {
-        const transactionId = txSnap.docs[0].id;
+      // Find the transaction linked to this chat and call the CF.
+      // L'acheteur OU le vendeur peut compléter (les deux étaient présents),
+      // donc on résout la transaction selon le rôle du caller. Le backend
+      // (`completeMeetupTransaction`) exige le statut `meetup_confirmed`.
+      const transactionId = await this.findMeetupTransactionId(chatId, userId, [
+        'meetup_confirmed',
+      ]);
+      if (transactionId) {
         const completeMeetupFn = httpsCallable(functions, 'completeMeetupTransaction');
         await completeMeetupFn({ transactionId });
       } else {
