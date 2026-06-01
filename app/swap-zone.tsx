@@ -198,8 +198,18 @@ export default function SwapZoneScreen() {
     return queryClient.invalidateQueries({ queryKey: queryKeys.swapParties.detail(partyId) });
   }, [queryClient, partyId]);
 
-  const handleRefresh = useCallback(() => {
-    refetchParty();
+  // Dedicated pull-to-refresh state. The RefreshControl is bound to THIS, not to
+  // React Query's generic `isRefetching`, so programmatic refetches (after an
+  // add / delete / filter) don't pop the refresh spinner and jolt the scroll —
+  // only an explicit user pull shows it.
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsManualRefreshing(true);
+    try {
+      await refetchParty();
+    } finally {
+      setIsManualRefreshing(false);
+    }
   }, [refetchParty]);
 
   const handleAddItems = useCallback(
