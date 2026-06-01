@@ -192,6 +192,7 @@ export default function SwapZoneScreen() {
     async (articles: Article[]) => {
       if (!user || !party || isAddingItem || articles.length === 0) return;
       setIsAddingItem(true);
+      setPendingAddCount(articles.length);
       try {
         await Promise.all(
           articles.map((article) =>
