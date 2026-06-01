@@ -1831,6 +1831,7 @@ export const completeMeetupTransaction = onCall(
           status: 'meetup_completed',
           completedAt: FieldValue.serverTimestamp(),
           meetupCompletedAt: FieldValue.serverTimestamp(),
+          meetupCompletedBy: callerUid,
         });
 
         return { chatId: data.chatId, sellerId };
