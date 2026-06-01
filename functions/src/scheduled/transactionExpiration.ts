@@ -4,6 +4,8 @@
  *
  * Expires orphaned transactions that were never completed:
  * 1. meetup_pending transactions older than 48h (seller never confirmed)
+ * 1b. meetup_confirmed transactions older than 7 days (A3: neither party ever
+ *     tapped "completed" → zombie tx leaving the article unsellable forever)
  * 2. pending_payment transactions older than 1h (buyer never paid)
  * 3. paid transactions older than 7 days (seller never shipped)
  *
@@ -11,6 +13,9 @@
  * - Status is set to 'cancelled'
  * - The article's isSold flag is reset to false
  * - For paid-not-shipped: buyer is notified via push notification
+ *
+ * Meetups are pure cash-in-hand exchanges — NO money flows through the platform,
+ * so meetup expiries never refund / never touch the wallet ledger.
  *
  * Runs every hour.
  */
