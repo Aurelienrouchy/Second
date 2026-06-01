@@ -330,13 +330,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.rust,
     paddingVertical: spacing.md,
     alignItems: 'center',
+    borderRadius: radius.none,
   },
   addButtonDisabled: {
     backgroundColor: colors.borderStrong,
   },
   addButtonText: {
-    fontFamily: fonts.sansMedium,
+    fontFamily: typography.button.fontFamily,
     fontSize: typography.button.fontSize,
+    lineHeight: typography.button.lineHeight,
     letterSpacing: typography.button.letterSpacing,
     textTransform: 'uppercase',
     color: colors.cream,
