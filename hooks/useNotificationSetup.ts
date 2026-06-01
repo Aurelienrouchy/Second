@@ -72,6 +72,33 @@ async function setupAndroidChannels(): Promise<void> {
   ]);
 }
 
+// ─── Token classification ──────────────────────────────────────────────────
+
+/**
+ * Détecte un FCM registration token (envoyable via `admin.messaging()`).
+ *
+ * `Notifications.getDevicePushTokenAsync()` renvoie le token NATIF :
+ *  - Android → FCM registration token (contient un ':' — ex "xxxx:APA91b…").
+ *  - iOS     → token APNs BRUT (64+ caractères hex, sans ':').
+ *
+ * Le backend envoie via `admin.messaging().sendEach()`, qui n'accepte QUE des
+ * FCM registration tokens. Un token APNs brut n'est PAS envoyable tel quel et
+ * est ignoré côté serveur (cf. functions/src/utils/notifications.ts
+ * `partitionTokens`). Ce miroir client évite d'enregistrer un token APNs comme
+ * s'il était un token FCM exploitable.
+ *
+ * Obtenir un VRAI FCM registration token sur iOS nécessite le module natif
+ * `@react-native-firebase/messaging` (banni par les règles projet) ou une
+ * étape native non configurable dans ce hook. Voir le TODO dans
+ * `registerPushToken`.
+ */
+function isFcmRegistrationToken(token: string): boolean {
+  // Les FCM registration tokens contiennent toujours ':'.
+  // Les tokens APNs bruts sont du hex pur (>= 64 chars).
+  if (token.includes(':')) return true;
+  return !/^[0-9a-fA-F]{64,}$/.test(token);
+}
+
 // ─── Routing logic ─────────────────────────────────────────────────────────
 
 async function routeFromNotificationData(
