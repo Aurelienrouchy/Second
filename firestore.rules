@@ -60,16 +60,41 @@ service cloud.firestore {
     match /shops/{shopId} {
       // Allow read for everyone (to find shops near them)
       allow read: if true;
-      
-      // Allow create for authenticated users
-      allow create: if isAuthenticated() && 
-                       request.auth.uid == request.resource.data.ownerId;
-      
-      // Allow update only by owner
-      allow update: if isAuthenticated() && 
-                       request.auth.uid == resource.data.ownerId;
-      
-      // No delete allowed
+
+      // Allow create for authenticated users — but the owner can NEVER
+      // self-approve at creation. SECURITY (B1): the validation/moderation
+      // status and verification metadata are admin-owned. A new shop must
+      // start as 'pending' (or omit status entirely; the service defaults to
+      // 'pending'); it may never be created already 'approved'. The paid
+      // forfait/plan fields are also admin/Cloud-Function owned: a client must
+      // not grant itself a paid tier (which lowers buyer fees) at create time.
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == request.resource.data.ownerId &&
+                       (!('status' in request.resource.data) ||
+                        request.resource.data.status == 'pending') &&
+                       !request.resource.data.keys().hasAny(
+                         ['verificationDetails', 'plan', 'forfait', 'tier',
+                          'feesTier', 'buyerFeePercent', 'isVerified']);
+
+      // Allow update either by an admin (full moderation: approve / reject /
+      // suspend, set the paid forfait) OR by the owner for non-sensitive
+      // fields only. SECURITY (B1/B2/B3): a shop owner can edit their profile
+      // (name, description, images, hours, contact…) but can NEVER mutate the
+      // validation status, the verification metadata, or the paid forfait /
+      // fee tier. Self-approval and self-upgrade are rejected; those mutations
+      // are reserved to admins (and Cloud Functions, which bypass these rules).
+      allow update: if isAuthenticated() &&
+                       (
+                         isAdmin() ||
+                         (request.auth.uid == resource.data.ownerId &&
+                          request.auth.uid == request.resource.data.ownerId &&
+                          !request.resource.data.diff(resource.data).affectedKeys()
+                             .hasAny(['ownerId', 'status', 'verificationDetails',
+                                      'plan', 'forfait', 'tier', 'feesTier',
+                                      'buyerFeePercent', 'isVerified']))
+                       );
+
+      // No delete allowed (admins suspend via status; hard delete is CF-only).
       allow delete: if false;
     }
 
