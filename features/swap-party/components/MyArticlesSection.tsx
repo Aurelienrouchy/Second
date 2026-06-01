@@ -77,11 +77,11 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
                 {/* Line 1: brand with the price right beside it (left-aligned,
                     not pushed to the far edge). */}
                 <View style={styles.rowBrandLine}>
+                  <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
+                  <Text style={styles.rowSep}>—</Text>
                   <Text style={styles.rowBrand} numberOfLines={1}>
                     {item.brand || 'MARQUE'}
                   </Text>
-                  <Text style={styles.rowSep}>—</Text>
-                  <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
                 </View>
                 {/* Line 2: product title + size. */}
                 <View style={styles.rowTitleLine}>
