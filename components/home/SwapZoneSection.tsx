@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.darkSurface2,
   },
   skeletonTitle: {
-    height: typography.hero.lineHeight,
+    height: typography.h1.lineHeight,
     width: '60%',
   },
   skeletonTagline: {
