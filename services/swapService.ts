@@ -417,6 +417,20 @@ export async function rateSwap(
 }
 
 /**
+ * Open a dispute on a swap — delegates to Cloud Function `openSwapDispute`.
+ * Callable by either participant while the swap is in `shipping` or
+ * `completed`. The function transitions the swap to `disputed` (via
+ * runTransaction) and refunds any paid cash top-up to the payer.
+ */
+export async function openSwapDispute(swapId: string, reason: string): Promise<void> {
+  const disputeFn = httpsCallable<{ swapId: string; reason: string }, { success: boolean }>(
+    functions,
+    'openSwapDispute'
+  );
+  await disputeFn({ swapId, reason });
+}
+
+/**
  * Get a swap by ID
  */
 export async function getSwap(swapId: string): Promise<Swap | null> {
