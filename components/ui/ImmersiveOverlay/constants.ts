@@ -11,6 +11,16 @@ export const ENTERING_TIME = 750;
 export const EXITING_TIME = 500;
 
 /**
+ * Delay (ms) before the overlay content (e.g. the sell camera) starts its
+ * fade-in. Anchored to ENTERING_TIME so the content waits for the entrance
+ * gradient + blurred circles to finish their animation, then fades in cleanly.
+ */
+export const CONTENT_REVEAL_DELAY = ENTERING_TIME;
+
+/** Duration (ms) of the content fade-in once it is revealed. */
+export const CONTENT_REVEAL_TIME = 420;
+
+/**
  * DS-aligned palette for the overlay gradients.
  * Charcoal button → Cream/Sand/Warm white (app signature tones).
  */
