@@ -15,7 +15,6 @@ import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search
 import ConditionSelector from '@/components/ConditionSelector';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
 import FormFieldGroup from '@/components/sell/FormFieldGroup';
-import StepProgressBar from '@/components/sell/StepProgressBar';
 import { ScreenHeader } from '@/components/ui';
 import {
   PhotoStripPreview,
