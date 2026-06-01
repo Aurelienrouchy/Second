@@ -34,20 +34,77 @@ export const deleteUserAccount = onCall(
 
     logger.info('[deleteUserAccount] Starting cleanup', { uid });
 
-    // 0. Pre-check: reject if the wallet has a remaining balance (W3 — Loi 25 compliance)
+    // 0. SERVER-SIDE deletion gate (W3 — Loi 25 / RGPD). Client guards are
+    //    bypassable, so the authoritative checks live here. We refuse the
+    //    deletion if the user still has ANY financial obligation or an active
+    //    flow tying buyer↔seller. These are read-only precondition checks run
+    //    BEFORE any mutation (the destructive teardown is a bulkWriter, which
+    //    cannot share a Firestore transaction — so a transaction would add no
+    //    atomicity here; a strict pre-mutation gate is the correct shape).
+
+    // 0a. Wallet: any non-zero bucket blocks deletion.
+    //   - balance / pendingBalance: withdrawable or in-transit (already checked).
+    //   - heldBalance: delivered funds inside the 7-day dispute window.
+    //   - sellerDebt: shortfall owed to the platform after a refund/lost dispute.
     const walletDoc = await db.collection('wallets').doc(uid).get();
     if (walletDoc.exists) {
       const walletData = walletDoc.data();
       const walletBalance = walletData?.balance ?? 0;
       const walletPending = walletData?.pendingBalance ?? 0;
-      if (walletBalance > 0 || walletPending > 0) {
-        // Wallet amounts are in cents — convert to dollars for the message
-        const walletTotal = ((walletBalance + walletPending) / 100).toFixed(2);
+      const walletHeld = walletData?.heldBalance ?? 0;
+      const walletDebt = walletData?.sellerDebt ?? 0;
+
+      if (walletDebt > 0) {
+        const debtTotal = (walletDebt / 100).toFixed(2);
         throw new HttpsError(
           'failed-precondition',
-          `Votre porte-monnaie contient ${walletTotal} $. Veuillez effectuer un retrait avant de supprimer votre compte.`,
+          `Vous avez une dette de ${debtTotal} $ envers la plateforme. Veuillez la régler avant de supprimer votre compte.`,
         );
       }
+
+      if (walletBalance > 0 || walletPending > 0 || walletHeld > 0) {
+        // Wallet amounts are in cents — convert to dollars for the message
+        const walletTotal = ((walletBalance + walletPending + walletHeld) / 100).toFixed(2);
+        throw new HttpsError(
+          'failed-precondition',
+          `Votre porte-monnaie contient ${walletTotal} $ (dont des fonds en attente de libération). Veuillez attendre leur libération et effectuer un retrait avant de supprimer votre compte.`,
+        );
+      }
+    }
+
+    // 0b. Open disputes (buyer or seller side) block deletion — these are
+    //     human-review tickets that freeze the linked transaction. Deleting an
+    //     account mid-dispute would orphan the recourse for the other party.
+    const [openDisputesBuyer, openDisputesSeller] = await Promise.all([
+      db.collection('disputes').where('buyerId', '==', uid).where('status', '==', 'open').limit(1).get(),
+      db.collection('disputes').where('sellerId', '==', uid).where('status', '==', 'open').limit(1).get(),
+    ]);
+    if (!openDisputesBuyer.empty || !openDisputesSeller.empty) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Un litige est en cours sur votre compte. Veuillez attendre sa résolution avant de supprimer votre compte.',
+      );
+    }
+
+    // 0c. Active transactions (any non-terminal status, buyer or seller side)
+    //     block deletion. Terminal statuses = completed | cancelled | refunded.
+    //     Everything else is a live obligation between buyer and seller
+    //     (in transit, awaiting meetup, in the dispute window, refund in
+    //     progress, return requested, etc.) and must be resolved first.
+    const TERMINAL_TX_STATUSES = ['completed', 'cancelled', 'refunded'];
+    const [txAsBuyer, txAsSeller] = await Promise.all([
+      db.collection('transactions').where('buyerId', '==', uid).get(),
+      db.collection('transactions').where('sellerId', '==', uid).get(),
+    ]);
+    const hasActiveTransaction = [...txAsBuyer.docs, ...txAsSeller.docs].some((d) => {
+      const status = d.data().status;
+      return typeof status === 'string' && !TERMINAL_TX_STATUSES.includes(status);
+    });
+    if (hasActiveTransaction) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Vous avez une transaction en cours. Veuillez attendre sa finalisation (livraison, rencontre ou remboursement) avant de supprimer votre compte.',
+      );
     }
 
     const bulkWriter = db.bulkWriter();
