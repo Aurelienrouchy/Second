@@ -56,7 +56,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     timeoutSeconds: 120,
     secrets: ['STRIPE_SECRET_KEY'],
 }, async (request) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     // 1. Auth check — only the authenticated user can delete their own account
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
@@ -157,6 +157,20 @@ exports.deleteUserAccount = (0, https_1.onCall)({
             bulkWriter.delete(d.ref);
     }
     bulkWriter.delete(firebase_1.db.collection('users').doc(uid));
+    // 1b. Release the persistent @username reservation in usernames/{username}.
+    // assignUsername reserves usernames/{username} = { uid } permanently; without
+    // this the handle stays orphaned (pointing at a deleted uid) and is never
+    // re-attributable. Verify ownership (.exists && .uid === uid) before deleting
+    // so a stale/mismatched mapping is never clobbered. NOTE: when userDoc.exists
+    // was false (early return above), userData is unavailable so the handle cannot
+    // be located — an accepted limitation of the doc-already-deleted path.
+    if ((userData === null || userData === void 0 ? void 0 : userData.username) && typeof userData.username === 'string') {
+        const usernameRef = firebase_1.db.collection('usernames').doc(userData.username);
+        const usernameSnap = await usernameRef.get();
+        if (usernameSnap.exists && ((_e = usernameSnap.data()) === null || _e === void 0 ? void 0 : _e.uid) === uid) {
+            bulkWriter.delete(usernameRef);
+        }
+    }
     // 2. Soft-delete articles (sellerId == uid)
     const articlesSnap = await firebase_1.db.collection('articles').where('sellerId', '==', uid).get();
     for (const d of articlesSnap.docs) {
@@ -333,7 +347,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
             try {
                 await bucket.deleteFiles({ prefix: `articles/${articleId}/` });
             }
-            catch ( /* ignore individual article cleanup errors */_e) { /* ignore individual article cleanup errors */ }
+            catch ( /* ignore individual article cleanup errors */_f) { /* ignore individual article cleanup errors */ }
         }
     }
     catch (e) {

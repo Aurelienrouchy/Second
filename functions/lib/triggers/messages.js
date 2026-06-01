@@ -44,6 +44,25 @@ const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const notifications_1 = require("../utils/notifications");
 /**
+ * Check if either user has blocked the other.
+ *
+ * Source of truth is the `blockedUsers` array written by the client
+ * moderationService (objects shaped `{ userId, userName, blockedAt }`).
+ * We tolerate a flat-string shape too so the check stays correct if the
+ * data model is ever migrated to plain UIDs.
+ */
+async function areUsersBlocked(userId1, userId2) {
+    var _a, _b;
+    const [user1Snap, user2Snap] = await Promise.all([
+        firebase_1.db.collection('users').doc(userId1).get(),
+        firebase_1.db.collection('users').doc(userId2).get(),
+    ]);
+    const blockedBy1 = (((_a = user1Snap.data()) === null || _a === void 0 ? void 0 : _a.blockedUsers) || []);
+    const blockedBy2 = (((_b = user2Snap.data()) === null || _b === void 0 ? void 0 : _b.blockedUsers) || []);
+    const matches = (list, target) => list.some((u) => typeof u === 'string' ? u === target : u.userId === target);
+    return matches(blockedBy1, userId2) || matches(blockedBy2, userId1);
+}
+/**
  * Send push notification when a message is created
  */
 exports.sendMessageNotification = (0, firestore_1.onDocumentCreated)({ document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
@@ -57,6 +76,29 @@ exports.sendMessageNotification = (0, firestore_1.onDocumentCreated)({ document:
         if (!receiverId || !senderId || !chatId) {
             console.log('Missing required fields for notification');
             return;
+        }
+        // SECURITY (M2): server-side enforcement of user blocking.
+        // Messages are created client->Firestore directly (no send callable),
+        // so this trigger is the authoritative server-side guard: if either
+        // participant has blocked the other, delete the message and abort
+        // before any notification is computed. This guarantees the victim
+        // never receives the blocker's message even if the client bypasses
+        // its own (one-directional) block check.
+        if (senderId !== 'system') {
+            const blocked = await areUsersBlocked(senderId, receiverId);
+            if (blocked) {
+                logger.warn('Blocked message rejected server-side', {
+                    messageId: event.params.messageId,
+                    chatId,
+                    senderId,
+                    receiverId,
+                });
+                await snapshot.ref.delete().catch((err) => logger.error('Failed to delete blocked message', {
+                    messageId: event.params.messageId,
+                    error: err,
+                }));
+                return;
+            }
         }
         // Get receiver's FCM tokens
         const receiverDoc = await firebase_1.db.collection('users').doc(receiverId).get();
