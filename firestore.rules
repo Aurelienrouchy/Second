@@ -405,11 +405,20 @@ service cloud.firestore {
                request.auth.uid in data.participants &&
                // Verify the referenced chat exists and the caller is a participant
                exists(/databases/$(database)/documents/chats/$(data.chatId)) &&
+               get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants is list &&
+               get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants.size() == 2 &&
                request.auth.uid in get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants &&
                // SECURITY (M2): a blocked user cannot message someone who has
-               // blocked them. The receiver must not list the sender among its
-               // blocked UIDs (defence in depth with the Cloud Function guards).
-               isNotBlockedBy(data.receiverId, data.senderId) &&
+               // blocked them — IN A PRE-EXISTING CHAT TOO. The block check is
+               // based on the AUTHORITATIVE counterparty derived from the server
+               // chat doc, NOT the client-supplied `receiverId` (which a blocked
+               // sender could forge to a third party who hasn't blocked them to
+               // slip a message to the real victim). Symmetric: neither side may
+               // have blocked the other. The Cloud Function trigger
+               // (sendMessageNotification) is the authoritative belt-and-braces
+               // guard that also covers any client/rule mismatch.
+               neitherBlocks(data.senderId,
+                             chatCounterparty(data.chatId, data.senderId)) &&
                // Offer messages must have a valid amount
                (data.type != 'offer' || (data.offer.amount is number && data.offer.amount > 0 && data.offer.amount <= 50000));
       }
