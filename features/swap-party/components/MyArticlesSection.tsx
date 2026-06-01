@@ -107,6 +107,7 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
           style={({ pressed }) => [styles.dropZone, pressed && styles.pressed]}
           onPress={onAddPress}
         >
+          <Text style={styles.dropZoneTitle}>Échangez vos pièces, sans frais.</Text>
           <View style={styles.dropZonePlus}>
             <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
           </View>
