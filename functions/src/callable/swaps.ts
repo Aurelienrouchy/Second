@@ -339,10 +339,12 @@ export const proposeMultiSwap = onCall(
         );
       }
 
-      // Atomically verify all articles and create the swap
+      // Atomically verify all articles and create the swap.
+      // OWNERSHIP: the initiator may only engage articles they own; the items
+      // requested from the receiver must actually belong to the receiver.
       const swapId = await db.runTransaction(async (tx) => {
-        await validateArticlesAvailable(tx, initiatorItems, 'Article proposé');
-        await validateArticlesAvailable(tx, receiverItems, 'Article demandé');
+        await validateArticlesAvailable(tx, initiatorItems, 'Article proposé', initiatorId);
+        await validateArticlesAvailable(tx, receiverItems, 'Article demandé', receiverId);
 
         const initiatorTotalValue = initiatorItems.reduce(
           (sum: number, item: any) => sum + (item.price || 0),
