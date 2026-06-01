@@ -149,6 +149,19 @@ export const useAuthStore = create<AuthStore>()(
           }
           set({ user: fresh, isLoading: false });
           await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
+
+          // ── Filet de sécurité username ──
+          // Le username persistant/immuable est assigné serveur à la création
+          // du compte. Pour rattraper les comptes créés avant ce câblage, on
+          // (re)déclenche l'assignation si absente. La callable est idempotente
+          // (no-op si déjà assigné), donc rappelable sans danger. Fire-and-forget :
+          // ne bloque pas le rendu. On rafraîchit le user local au succès pour
+          // que le @pseudo apparaisse sans redémarrage.
+          if (!fresh.username) {
+            void AuthService.ensureUsernameAssigned().then(() => {
+              void get().refreshUser();
+            });
+          }
           return;
         }
       }
