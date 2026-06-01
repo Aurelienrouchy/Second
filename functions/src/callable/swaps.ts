@@ -240,7 +240,7 @@ export const getActiveSwapPartyInfo = onCall(
  *     happens after acceptance via createSwapTopUpCheckout.
  */
 export const proposeMultiSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -413,7 +413,7 @@ async function markPartyItemsPending(
  * exchange proceeds). Otherwise it transitions to 'accepted' (unchanged flow).
  */
 export const acceptSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -755,7 +755,7 @@ async function refundSwapTopUpIfPaid(swap: FirebaseFirestore.DocumentData, swapI
  * (Top-up swaps are never paid at 'proposed' stage, so no refund needed.)
  */
 export const declineSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -881,7 +881,7 @@ export const cancelSwap = onCall(
  * Transitions status from 'accepted' to 'photos_pending'.
  */
 export const setSwapExchangeMode = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -940,7 +940,7 @@ export const setSwapExchangeMode = onCall(
  * uploaded.
  */
 export const uploadSwapPhotos = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1018,7 +1018,7 @@ export const uploadSwapPhotos = onCall(
  * Confirm shipping for a swap — participant confirms they sent their package.
  */
 export const confirmSwapShipping = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1080,7 +1080,7 @@ export const confirmSwapShipping = onCall(
  * top-up funds to the payee (pending → available), calqued on a delivered sale.
  */
 export const confirmSwapReception = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1262,7 +1262,7 @@ export const confirmSwapReception = onCall(
  * Rate a completed swap — participant rates the exchange.
  */
 export const rateSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1463,7 +1463,7 @@ export const openSwapDispute = onCall(
  * Requires only: auth + ownership of the article (no participant check).
  */
 export const addItemToPartySecure = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1562,7 +1562,7 @@ export const addItemToPartySecure = onCall(
  * decrement. Requires only: auth + ownership of the item.
  */
 export const removeItemFromPartySecure = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB' },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
