@@ -124,7 +124,6 @@ export default function SwapZoneScreen() {
     isLoading: isPartyLoading,
     isError,
     refetch: refetchParty,
-    isRefetching,
   } = useQuery({
     queryKey: queryKeys.swapParties.detail(partyId),
     queryFn: async () => {
