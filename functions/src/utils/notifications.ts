@@ -6,7 +6,52 @@
  * Each notification includes a `deepLink` field for client-side routing.
  */
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+
+// ─── Token classification ─────────────────────────────────────────────────────
+
+/**
+ * Detect a raw APNs device token.
+ *
+ * `Notifications.getDevicePushTokenAsync()` returns the *native* token: on
+ * Android that is an FCM registration token (long, contains a ':' separator),
+ * but on iOS it is a RAW APNs device token (typically 64 hex chars, no ':').
+ * A raw APNs token is NOT a valid FCM registration token — feeding it to
+ * `admin.messaging().sendEach()` always fails, and the failure code
+ * (`invalid-registration-token`) would otherwise cause us to delete a token
+ * that is perfectly valid for APNs. We therefore detect and skip these here
+ * instead of sending them or pruning them.
+ *
+ * The proper fix (registering a real FCM registration token on iOS) lives in
+ * the client; this guard keeps the server from breaking iOS push and from
+ * wiping good tokens in the meantime.
+ */
+function isRawApnsToken(token: string): boolean {
+  // FCM registration tokens always contain ':' (e.g. "xxxx:APA91b...").
+  // Raw APNs tokens are pure hex (32 bytes = 64 chars, some variants 64-200).
+  return !token.includes(':') && /^[0-9a-fA-F]{64,}$/.test(token);
+}
+
+/**
+ * Split a token list into FCM registration tokens (sendable via FCM) and
+ * raw APNs tokens (must NOT be sent through FCM as-is, nor pruned on failure).
+ */
+function partitionTokens(tokens: string[]): {
+  fcmTokens: string[];
+  apnsTokens: string[];
+} {
+  const fcmTokens: string[] = [];
+  const apnsTokens: string[] = [];
+  for (const token of tokens) {
+    if (isRawApnsToken(token)) {
+      apnsTokens.push(token);
+    } else {
+      fcmTokens.push(token);
+    }
+  }
+  return { fcmTokens, apnsTokens };
+}
 
 // ─── Deep link builder ──────────────────────────────────────────────────────
 
