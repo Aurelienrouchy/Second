@@ -499,7 +499,7 @@ export const acceptSwap = onCall(
  * clientSecret is returned.
  */
 export const createSwapTopUpCheckout = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -819,7 +819,7 @@ export const declineSwap = onCall(
  * For a paid-but-still-payment_pending edge case the refund helper is invoked.
  */
 export const cancelSwap = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
@@ -1384,7 +1384,7 @@ export const rateSwap = onCall(
  * to the payer (manual moderation may follow; refunding protects the buyer).
  */
 export const openSwapDispute = onCall(
-  { region: 'northamerica-northeast1', invoker: 'private', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
