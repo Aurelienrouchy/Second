@@ -27,7 +27,6 @@ import { Image } from 'expo-image';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
-import StepProgressBar from '@/components/sell/StepProgressBar';
 import {
   AnalysisCard,
   ProgressStepsList,
