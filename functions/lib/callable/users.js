@@ -56,7 +56,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     timeoutSeconds: 120,
     secrets: ['STRIPE_SECRET_KEY'],
 }, async (request) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     // 1. Auth check — only the authenticated user can delete their own account
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
@@ -64,17 +64,60 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     const uid = request.auth.uid;
     const DELETED_NAME = 'Utilisateur supprime';
     logger.info('[deleteUserAccount] Starting cleanup', { uid });
-    // 0. Pre-check: reject if the wallet has a remaining balance (W3 — Loi 25 compliance)
+    // 0. SERVER-SIDE deletion gate (W3 — Loi 25 / RGPD). Client guards are
+    //    bypassable, so the authoritative checks live here. We refuse the
+    //    deletion if the user still has ANY financial obligation or an active
+    //    flow tying buyer↔seller. These are read-only precondition checks run
+    //    BEFORE any mutation (the destructive teardown is a bulkWriter, which
+    //    cannot share a Firestore transaction — so a transaction would add no
+    //    atomicity here; a strict pre-mutation gate is the correct shape).
+    // 0a. Wallet: any non-zero bucket blocks deletion.
+    //   - balance / pendingBalance: withdrawable or in-transit (already checked).
+    //   - heldBalance: delivered funds inside the 7-day dispute window.
+    //   - sellerDebt: shortfall owed to the platform after a refund/lost dispute.
     const walletDoc = await firebase_1.db.collection('wallets').doc(uid).get();
     if (walletDoc.exists) {
         const walletData = walletDoc.data();
         const walletBalance = (_a = walletData === null || walletData === void 0 ? void 0 : walletData.balance) !== null && _a !== void 0 ? _a : 0;
         const walletPending = (_b = walletData === null || walletData === void 0 ? void 0 : walletData.pendingBalance) !== null && _b !== void 0 ? _b : 0;
-        if (walletBalance > 0 || walletPending > 0) {
-            // Wallet amounts are in cents — convert to dollars for the message
-            const walletTotal = ((walletBalance + walletPending) / 100).toFixed(2);
-            throw new https_1.HttpsError('failed-precondition', `Votre porte-monnaie contient ${walletTotal} $. Veuillez effectuer un retrait avant de supprimer votre compte.`);
+        const walletHeld = (_c = walletData === null || walletData === void 0 ? void 0 : walletData.heldBalance) !== null && _c !== void 0 ? _c : 0;
+        const walletDebt = (_d = walletData === null || walletData === void 0 ? void 0 : walletData.sellerDebt) !== null && _d !== void 0 ? _d : 0;
+        if (walletDebt > 0) {
+            const debtTotal = (walletDebt / 100).toFixed(2);
+            throw new https_1.HttpsError('failed-precondition', `Vous avez une dette de ${debtTotal} $ envers la plateforme. Veuillez la régler avant de supprimer votre compte.`);
         }
+        if (walletBalance > 0 || walletPending > 0 || walletHeld > 0) {
+            // Wallet amounts are in cents — convert to dollars for the message
+            const walletTotal = ((walletBalance + walletPending + walletHeld) / 100).toFixed(2);
+            throw new https_1.HttpsError('failed-precondition', `Votre porte-monnaie contient ${walletTotal} $ (dont des fonds en attente de libération). Veuillez attendre leur libération et effectuer un retrait avant de supprimer votre compte.`);
+        }
+    }
+    // 0b. Open disputes (buyer or seller side) block deletion — these are
+    //     human-review tickets that freeze the linked transaction. Deleting an
+    //     account mid-dispute would orphan the recourse for the other party.
+    const [openDisputesBuyer, openDisputesSeller] = await Promise.all([
+        firebase_1.db.collection('disputes').where('buyerId', '==', uid).where('status', '==', 'open').limit(1).get(),
+        firebase_1.db.collection('disputes').where('sellerId', '==', uid).where('status', '==', 'open').limit(1).get(),
+    ]);
+    if (!openDisputesBuyer.empty || !openDisputesSeller.empty) {
+        throw new https_1.HttpsError('failed-precondition', 'Un litige est en cours sur votre compte. Veuillez attendre sa résolution avant de supprimer votre compte.');
+    }
+    // 0c. Active transactions (any non-terminal status, buyer or seller side)
+    //     block deletion. Terminal statuses = completed | cancelled | refunded.
+    //     Everything else is a live obligation between buyer and seller
+    //     (in transit, awaiting meetup, in the dispute window, refund in
+    //     progress, return requested, etc.) and must be resolved first.
+    const TERMINAL_TX_STATUSES = ['completed', 'cancelled', 'refunded'];
+    const [txAsBuyer, txAsSeller] = await Promise.all([
+        firebase_1.db.collection('transactions').where('buyerId', '==', uid).get(),
+        firebase_1.db.collection('transactions').where('sellerId', '==', uid).get(),
+    ]);
+    const hasActiveTransaction = [...txAsBuyer.docs, ...txAsSeller.docs].some((d) => {
+        const status = d.data().status;
+        return typeof status === 'string' && !TERMINAL_TX_STATUSES.includes(status);
+    });
+    if (hasActiveTransaction) {
+        throw new https_1.HttpsError('failed-precondition', 'Vous avez une transaction en cours. Veuillez attendre sa finalisation (livraison, rencontre ou remboursement) avant de supprimer votre compte.');
     }
     const bulkWriter = firebase_1.db.bulkWriter();
     const articleIds = [];
@@ -290,7 +333,7 @@ exports.deleteUserAccount = (0, https_1.onCall)({
             try {
                 await bucket.deleteFiles({ prefix: `articles/${articleId}/` });
             }
-            catch ( /* ignore individual article cleanup errors */_c) { /* ignore individual article cleanup errors */ }
+            catch ( /* ignore individual article cleanup errors */_e) { /* ignore individual article cleanup errors */ }
         }
     }
     catch (e) {

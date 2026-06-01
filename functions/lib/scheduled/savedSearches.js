@@ -42,6 +42,7 @@ const scheduler_1 = require("firebase-functions/v2/scheduler");
 const logger = __importStar(require("firebase-functions/logger"));
 const admin = __importStar(require("firebase-admin"));
 const firebase_1 = require("../config/firebase");
+const notifications_1 = require("../utils/notifications");
 /**
  * Check saved searches and notify users of new matching articles
  * Runs every 15 minutes
@@ -102,7 +103,12 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
             const userData = userDataMap.get(userId);
             if (!userData)
                 continue;
-            const { fcmTokens } = userData;
+            // Raw APNs tokens (iOS native tokens) are not sendable via FCM and must
+            // not be pruned on send failure — partition them out.
+            const { fcmTokens } = (0, notifications_1.partitionTokens)(userData.fcmTokens);
+            // No FCM-routable tokens (e.g. iOS-only with raw APNs token): skip.
+            if (fcmTokens.length === 0)
+                continue;
             searchesChecked++;
             const search = searchDoc.data();
             const searchId = searchDoc.id;
@@ -192,7 +198,9 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
                     },
                     data: {
                         type: 'saved_search',
-                        searchId,
+                        // Client reads `savedSearchId` (hooks/useNotificationSetup.ts +
+                        // buildDeepLink). Emitting `searchId` here broke tap routing.
+                        savedSearchId: searchId,
                         searchName: search.name || '',
                         newItemsCount: matchingArticles.length.toString(),
                         filters: JSON.stringify(filters),

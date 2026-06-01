@@ -166,7 +166,11 @@ interface ArticleDocument {
   isActive: boolean;             // Visible in listings
   isSold: boolean;               // Has been sold
   isPromoted?: boolean;          // Sponsored listing
-  moderationStatus?: 'approved'; // Auto-approved on creation (no moderation flow yet)
+  // Auto-approved on creation (no moderation flow yet). ABSENT on legacy
+  // articles created before this field existed; the search-index trigger and
+  // the backfill script treat absent === approved and only de-index on an
+  // explicit 'pending' | 'rejected'.
+  moderationStatus?: 'approved' | 'pending' | 'rejected';
 
   // Engagement
   views?: number;

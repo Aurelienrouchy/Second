@@ -63,8 +63,15 @@ exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'arti
         const articleData = event.data.after.data();
         if (!articleData)
             return;
-        // Only index active, approved articles
-        if (!articleData.isActive || articleData.moderationStatus !== 'approved') {
+        // Only index active, non-rejected articles.
+        // IMPORTANT: legacy articles predate the `moderationStatus` field, so an
+        // ABSENT value must be treated as approved (legacy). We only de-index on
+        // an EXPLICIT moderation block ('pending' | 'rejected'); never on absence,
+        // otherwise the pre-existing catalogue would be wiped from search at the
+        // next write (R3).
+        const moderationStatus = articleData.moderationStatus;
+        const isModerationBlocked = moderationStatus === 'pending' || moderationStatus === 'rejected';
+        if (!articleData.isActive || isModerationBlocked) {
             await firebase_1.db.collection('search_index').doc(articleId).delete();
             return;
         }

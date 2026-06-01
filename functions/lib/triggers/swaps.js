@@ -72,9 +72,22 @@ exports.onSwapCreated = (0, firestore_1.onDocumentCreated)({ document: 'swaps/{s
             return;
         }
         const receiverData = receiverDoc.data();
-        const fcmTokens = receiverData.fcmTokens || [];
-        if (fcmTokens.length === 0) {
+        const storedTokens = receiverData.fcmTokens || [];
+        if (storedTokens.length === 0) {
             logger.info('No FCM tokens for user', { userId: swap.receiverId });
+            return;
+        }
+        // Raw APNs tokens (iOS native tokens) are not sendable via FCM and must
+        // not be pruned on send failure — partition them out before sending.
+        const { fcmTokens, apnsTokens } = (0, notifications_1.partitionTokens)(storedTokens);
+        if (apnsTokens.length > 0) {
+            logger.warn('Skipping raw APNs tokens not sendable via FCM', {
+                userId: swap.receiverId,
+                skippedCount: apnsTokens.length,
+            });
+        }
+        if (fcmTokens.length === 0) {
+            logger.info('No FCM-routable tokens for user', { userId: swap.receiverId });
             return;
         }
         // Build notification

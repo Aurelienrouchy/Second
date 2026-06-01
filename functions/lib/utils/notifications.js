@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.partitionTokens = partitionTokens;
 exports.buildDeepLink = buildDeepLink;
 exports.createInAppNotification = createInAppNotification;
 exports.sendPushNotification = sendPushNotification;
@@ -45,7 +46,47 @@ exports.sendSwapNotification = sendSwapNotification;
  * Each notification includes a `deepLink` field for client-side routing.
  */
 const admin = __importStar(require("firebase-admin"));
+const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+// ─── Token classification ─────────────────────────────────────────────────────
+/**
+ * Detect a raw APNs device token.
+ *
+ * `Notifications.getDevicePushTokenAsync()` returns the *native* token: on
+ * Android that is an FCM registration token (long, contains a ':' separator),
+ * but on iOS it is a RAW APNs device token (typically 64 hex chars, no ':').
+ * A raw APNs token is NOT a valid FCM registration token — feeding it to
+ * `admin.messaging().sendEach()` always fails, and the failure code
+ * (`invalid-registration-token`) would otherwise cause us to delete a token
+ * that is perfectly valid for APNs. We therefore detect and skip these here
+ * instead of sending them or pruning them.
+ *
+ * The proper fix (registering a real FCM registration token on iOS) lives in
+ * the client; this guard keeps the server from breaking iOS push and from
+ * wiping good tokens in the meantime.
+ */
+function isRawApnsToken(token) {
+    // FCM registration tokens always contain ':' (e.g. "xxxx:APA91b...").
+    // Raw APNs tokens are pure hex (32 bytes = 64 chars, some variants 64-200).
+    return !token.includes(':') && /^[0-9a-fA-F]{64,}$/.test(token);
+}
+/**
+ * Split a token list into FCM registration tokens (sendable via FCM) and
+ * raw APNs tokens (must NOT be sent through FCM as-is, nor pruned on failure).
+ */
+function partitionTokens(tokens) {
+    const fcmTokens = [];
+    const apnsTokens = [];
+    for (const token of tokens) {
+        if (isRawApnsToken(token)) {
+            apnsTokens.push(token);
+        }
+        else {
+            fcmTokens.push(token);
+        }
+    }
+    return { fcmTokens, apnsTokens };
+}
 // ─── Deep link builder ──────────────────────────────────────────────────────
 const DEEP_LINK_HOST = 'seconde.app';
 /**
@@ -164,7 +205,7 @@ async function sendPushNotification(userId, title, body, data, notificationType)
             return { success: false, sentCount: 0 };
         }
         const userData = userDoc.data();
-        const fcmTokens = userData.fcmTokens || [];
+        const storedTokens = userData.fcmTokens || [];
         // Check notification preferences
         const prefs = (_a = userData.preferences) === null || _a === void 0 ? void 0 : _a.notifications;
         if ((prefs === null || prefs === void 0 ? void 0 : prefs.push) === false) {
@@ -175,8 +216,23 @@ async function sendPushNotification(userId, title, body, data, notificationType)
         }
         // Create in-app notification regardless of push
         await createInAppNotification(userId, notificationType, title, body, data);
-        if (fcmTokens.length === 0) {
+        if (storedTokens.length === 0) {
             console.log(`No FCM tokens for user ${userId}`);
+            return { success: true, sentCount: 0 };
+        }
+        // Only FCM registration tokens can be sent through FCM. Raw APNs device
+        // tokens (iOS, current client) must be skipped — sending them fails and
+        // would otherwise trigger deletion of valid tokens.
+        const { fcmTokens, apnsTokens } = partitionTokens(storedTokens);
+        if (apnsTokens.length > 0) {
+            logger.warn('Skipping raw APNs tokens not sendable via FCM', {
+                userId,
+                notificationType,
+                skippedCount: apnsTokens.length,
+            });
+        }
+        if (fcmTokens.length === 0) {
+            console.log(`No FCM-routable tokens for user ${userId}`);
             return { success: true, sentCount: 0 };
         }
         // Build deep link for this notification
@@ -242,7 +298,18 @@ async function sendSwapNotification(userId, swapId, title, body, swapData) {
     if (!userDoc.exists)
         return;
     const userData = userDoc.data();
-    const fcmTokens = userData.fcmTokens || [];
+    const storedTokens = userData.fcmTokens || [];
+    if (storedTokens.length === 0)
+        return;
+    // Skip raw APNs tokens (iOS native tokens) — not sendable via FCM.
+    const { fcmTokens, apnsTokens } = partitionTokens(storedTokens);
+    if (apnsTokens.length > 0) {
+        logger.warn('Skipping raw APNs tokens not sendable via FCM', {
+            userId,
+            notificationType: 'swap_update',
+            skippedCount: apnsTokens.length,
+        });
+    }
     if (fcmTokens.length === 0)
         return;
     const deepLink = `https://${DEEP_LINK_HOST}/swap/${swapId}`;
