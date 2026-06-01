@@ -184,38 +184,27 @@ const styles = StyleSheet.create({
   list: {
     paddingVertical: spacing.xs,
   },
-  // Compact deposit BUTTON leading the list — content-width, square, hairline.
-  // Shares the home Swap Zone CtaRow language (darkSurface2 fill + darkBorderStrong
-  // hairline + rust square icon tile) so the deposit action reads as the zone's
-  // signature action, not a list row.
+  // Full-width deposit BUTTON leading the list — square, darkSurface2 fill +
+  // darkBorderStrong hairline, inline "+" icon and cream label, centered. A real,
+  // discreet button (not a list row) that opens the deposit flow.
   addButton: {
-    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
     backgroundColor: colors.darkSurface2,
     borderWidth: 1,
     borderColor: colors.darkBorderStrong,
     borderRadius: radius.none,
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  addButtonIcon: {
-    width: sizing.avatarSM,
-    height: sizing.avatarSM,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.rust,
-    borderRadius: radius.none,
-  },
   addButtonLabel: {
-    fontFamily: typography.button.fontFamily,
-    fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
-    letterSpacing: typography.button.letterSpacing,
-    textTransform: 'uppercase',
+    fontFamily: typography.label.fontFamily,
+    fontSize: typography.label.fontSize,
+    lineHeight: typography.label.lineHeight,
+    letterSpacing: typography.label.letterSpacing,
     color: colors.cream,
   },
   // Full-width article row — frameless, fine, split from the row above by a
