@@ -1756,14 +1756,20 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 // =============================================================================
 
 /**
- * Buyer confirms the meetup exchange was completed. This transitions the
+ * Either party confirms the meetup exchange was completed. This transitions the
  * transaction from `meetup_confirmed` → `meetup_completed`, sets
  * `meetupCompletedAt`, and thereby unlocks review eligibility.
  *
  * Meetup is a pure cash-in-hand exchange: NO money flows through the platform,
  * so this NEVER credits the seller wallet and writes NO ledger entry.
  *
- * Only the buyer can call this (the buyer confirms receipt).
+ * A3 FIX: completion was previously buyer-only. A meetup is a two-sided in-person
+ * exchange — if the buyer ghosts after the seller confirmed the appointment, the
+ * transaction would sit in `meetup_confirmed` forever (zombie) and the article
+ * stays locked (toggleArticleSold/createTransaction block on meetup_confirmed).
+ * Both the buyer AND the seller can now mark the meetup completed; the scheduler
+ * additionally auto-cancels abandoned `meetup_confirmed` transactions (see
+ * expireOrphanedTransactions), so the article can never be stuck unsellable.
  */
 export const completeMeetupTransaction = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
