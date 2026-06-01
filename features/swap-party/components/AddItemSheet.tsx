@@ -36,6 +36,12 @@ import { colors, fonts, spacing, typography, sizing, radius } from '@/constants/
 import { formatPrice } from '@/utils/formatPrice';
 import type { Article, SwapPartyItemExtended } from '@/types';
 
+// Portrait 4/5 thumbnail footprint (48 / 60 = 0.8), mirroring MyArticlesSection
+// on the Swap Zone screen. Fixed named consts (not aspectRatio) because the
+// thumbnail is not flex-driven and needs a deterministic footprint.
+const THUMB_W = 48;
+const THUMB_H = 60;
+
 export interface AddItemSheetProps {
   articles: Article[];
   userItems: SwapPartyItemExtended[];
