@@ -225,12 +225,12 @@ const styles = StyleSheet.create({
   rowInfo: {
     flex: 1,
   },
-  // Brand line — brand truncates (flexShrink) so the price stays right next to
-  // it, left-aligned, instead of being pushed to the far edge.
-  rowBrandLine: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.sm,
+  // Price + brand on one line, single Text, same typo as the title.
+  rowPriceBrand: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 17,
+    color: colors.sand,
     marginBottom: spacing.sm,
   },
   // Title line — title truncates, size trails right beside it.
@@ -239,31 +239,12 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: spacing.sm,
   },
-  rowBrand: {
-    flexShrink: 1,
-    fontFamily: fonts.display,
-    fontSize: 14,
-    lineHeight: 17,
-    color: colors.sand,
-  },
   rowTitle: {
     flexShrink: 1,
     fontFamily: fonts.display,
     fontSize: 14,
     lineHeight: 17,
     color: colors.cream,
-  },
-  rowSep: {
-    fontFamily: fonts.display,
-    fontSize: 14,
-    lineHeight: 17,
-    color: colors.whiteTranslucent,
-  },
-  rowPrice: {
-    fontFamily: fonts.display,
-    fontSize: 14,
-    lineHeight: 17,
-    color: colors.sand,
   },
   rowSize: {
     fontFamily: fonts.sans,
