@@ -90,7 +90,7 @@ export default function AdminShopDetailScreen() {
     if (!user || !shop) return;
 
     try {
-      await ShopService.rejectShop(shop.id, reason, user.id);
+      await ShopService.rejectShop(shop.id, reason);
       await NotificationService.notifyShopRejected(shop.id, shop.ownerId, reason);
       Alert.alert('Succès', 'La boutique a été rejetée', [
         { text: 'OK', onPress: () => router.back() },
