@@ -245,10 +245,9 @@ const styles = StyleSheet.create({
   },
   rowBrand: {
     flexShrink: 1,
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.35,
-    textTransform: 'uppercase',
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 17,
     color: colors.sand,
   },
   rowTitle: {
