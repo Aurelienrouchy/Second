@@ -34,6 +34,12 @@ import { colors, fonts, spacing, typography, sizing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { Article, SwapPartyItemExtended } from '@/types';
 
+// Portrait 4/5 thumbnail footprint (48 / 60 = 0.8), echoing MyArticlesSection's
+// compact list-row thumbnail. Fixed named consts (not aspectRatio) because the
+// thumbnail is not flex-driven and needs a deterministic footprint.
+const THUMB_W = 48;
+const THUMB_H = 60;
+
 export interface AddItemSheetProps {
   articles: Article[];
   userItems: SwapPartyItemExtended[];
