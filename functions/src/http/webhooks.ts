@@ -1717,10 +1717,12 @@ async function handleChargeRefunded(charge: any): Promise<void> {
 /**
  * Reconcile a swap top-up refund on the payee wallet.
  *
- * The refund was issued via stripe.refunds.create({ reverse_transfer: true })
- * in the swap callable (cancelSwap / openSwapDispute). This handler debits the
- * payee's wallet pendingBalance (the escrow that was credited on payment) and
- * writes a refund_debit ledger entry. Idempotent via topUpRefundReconciledAt.
+ * The refund was issued via stripe.refunds.create(...) in the swap callable
+ * (cancelSwap / openSwapDispute) or the cancelled-race auto-refund above. This
+ * handler claws the complement back from wherever it currently sits, cascading
+ * pendingBalance -> heldBalance -> balance (the three escrow buckets), and writes
+ * a refund_debit ledger entry. Any shortfall becomes sellerDebt. Idempotent via
+ * topUpRefundReconciledAt.
  */
 async function handleSwapTopUpRefund(swapDoc: FirebaseFirestore.QueryDocumentSnapshot): Promise<void> {
   const swapId = swapDoc.id;
