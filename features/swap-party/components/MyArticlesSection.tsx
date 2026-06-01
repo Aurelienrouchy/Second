@@ -44,16 +44,20 @@ export const MyArticlesSection = React.memo(function MyArticlesSection({
 
       {hasItems ? (
         <View style={styles.list}>
-          {/* Deposit row leads the list so the deposit action is always the
-              first thing in view. */}
+          {/* Deposit BUTTON leads the list so the deposit action is always the
+              first thing in view. Real compact button (content-width) sharing
+              the home Swap Zone CtaRow language: square darkSurface2 + hairline,
+              rust square "+" tile inside, cream uppercase button label. */}
           <Pressable
-            style={({ pressed }) => [styles.addRow, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
             onPress={onAddPress}
+            accessibilityRole="button"
+            accessibilityLabel="Déposer un article"
           >
-            <View style={styles.addRowIcon}>
-              <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
+            <View style={styles.addButtonIcon}>
+              <Ionicons name="add" size={sizing.iconSM} color={colors.cream} />
             </View>
-            <Text style={styles.addRowLabel}>Déposer un article</Text>
+            <Text style={styles.addButtonLabel}>Déposer un article</Text>
           </Pressable>
 
           {userItems.map((item) => (
