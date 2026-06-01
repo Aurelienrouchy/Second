@@ -40,6 +40,7 @@ interface ProfileHeaderProps {
 const ProfileHeader = React.memo(function ProfileHeader({
   profileImage,
   displayName,
+  username,
   bio,
   createdAt,
   city,
@@ -57,6 +58,15 @@ const ProfileHeader = React.memo(function ProfileHeader({
       year: 'numeric',
     })}`;
   }, [createdAt]);
+
+  // Le @pseudo lit le username persistant/immuable (découplé du displayName).
+  // Fallback gracieux : dérivation legacy du displayName tant que le username
+  // n'est pas encore assigné (état transitoire), pour ne jamais afficher @vide.
+  const userHandle = useMemo(() => {
+    if (username) return `@${username}`;
+    if (displayName) return `@${displayName.toLowerCase().replace(/\s+/g, '.')}`;
+    return '';
+  }, [username, displayName]);
 
   return (
     <>
