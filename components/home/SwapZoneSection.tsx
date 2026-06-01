@@ -412,8 +412,10 @@ const styles = StyleSheet.create({
     height: typography.label.lineHeight,
     width: '40%',
   },
+  // Content-width preview of the redesigned dark pill (token-derived width:
+  // avatarXXL 120 + avatarLG 56 = 176) — no layout jump from loading → loaded.
   skeletonCta: {
-    alignSelf: 'stretch',
+    width: sizing.avatarXXL + sizing.avatarLG,
     height: sizing.buttonHeight,
     borderRadius: radius.full,
     backgroundColor: colors.darkSurface2,
