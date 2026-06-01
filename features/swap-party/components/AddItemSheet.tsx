@@ -205,7 +205,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
                   </Text>
                   <Ionicons
                     name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={24}
+                    size={sizing.iconMD}
                     color={isSelected ? colors.sage : colors.borderStrong}
                     style={styles.checkIcon}
                   />
