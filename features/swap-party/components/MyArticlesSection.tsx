@@ -10,7 +10,7 @@
  * parent (the Swap Zone): no nested scroll view — a plain column View only.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
