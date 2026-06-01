@@ -135,6 +135,9 @@ export default function SwapZoneScreen() {
   // ── UI state ──
   const [depositOpened, setDepositOpened] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  // Count of articles currently being deposited — drives the skeleton rows in
+  // MyArticlesSection until invalidatePartyData refetch surfaces the real items.
+  const [pendingAddCount, setPendingAddCount] = useState(0);
 
   // ── Multi-select state (scoped to one seller) ──
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
