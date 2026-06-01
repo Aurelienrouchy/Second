@@ -170,51 +170,67 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.whiteTranslucent,
   },
-  // ── POPULATED rail ──
-  rail: {
+  // ── POPULATED list (vertical, full-width rows) ──
+  list: {
     gap: spacing.sm,
     paddingVertical: spacing.xs,
-    // Stretch so the leading "+" add tile matches the cards' height (no magic const).
-    alignItems: 'stretch',
   },
-  // Card surface + full hairline frame, echoing productCardDark from PartyItemCard.
-  tileCard: {
-    width: TILE_W,
+  // Full-width deposit row leading the list (deep panel, hairline frame).
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.darkSurface2,
+    borderWidth: 1,
+    borderColor: colors.darkBorderStrong,
+    borderRadius: radius.none,
+  },
+  addRowIcon: {
+    width: THUMB_W,
+    height: THUMB_H,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: colors.darkSurface1,
     borderWidth: 1,
     borderColor: colors.darkBorder,
     borderRadius: radius.none,
+  },
+  addRowLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
+    color: colors.sand,
+  },
+  // Full-width article row: surface + hairline frame, echoing productCardDark.
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.darkSurface1,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: radius.none,
+  },
+  rowImageWrap: {
+    width: THUMB_W,
+    height: THUMB_H,
+    backgroundColor: colors.darkSurface2,
     overflow: 'hidden',
   },
-  // Image fills the card width (minus hairlines); the card owns the frame now.
-  tileImageWrap: {
-    position: 'relative',
-    width: '100%',
-    height: IMG_H,
-    backgroundColor: colors.darkSurface2,
-  },
-  tileImage: {
+  rowImage: {
     width: '100%',
     height: '100%',
   },
-  removeTile: {
-    position: 'absolute',
-    top: spacing.xs,
-    right: spacing.xs,
-    width: sizing.iconMD,
-    height: sizing.iconMD,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.overlay,
-    borderRadius: radius.full,
-  },
   // Left-aligned info block, mirroring PartyItemCard productInfo (compacted).
-  tileInfo: {
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.xs + 2,
-    paddingBottom: spacing.sm,
+  rowInfo: {
+    flex: 1,
   },
-  tileBrand: {
+  rowBrand: {
     fontFamily: fonts.sansMedium,
     fontSize: 9,
     letterSpacing: 1.35,
@@ -222,44 +238,34 @@ const styles = StyleSheet.create({
     color: colors.sand,
     marginBottom: 2,
   },
-  tileTitle: {
+  rowTitle: {
     fontFamily: fonts.display,
     fontSize: 14,
     lineHeight: 17,
     color: colors.cream,
     marginBottom: spacing.xs,
   },
-  tileFooter: {
+  rowFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  tilePrice: {
+  rowPrice: {
     fontFamily: fonts.displayMedium,
     fontSize: 14,
     color: colors.sand,
   },
-  tileSize: {
+  rowSize: {
     fontFamily: fonts.sans,
     fontSize: 10,
     color: colors.whiteTranslucent,
   },
-  // Empty "deposit" slot mirroring the card silhouette (deep panel, no faked product).
-  addTile: {
-    width: TILE_W,
+  removeRow: {
+    width: sizing.iconMD,
+    height: sizing.iconMD,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.darkSurface2,
-    borderWidth: 1,
-    borderColor: colors.darkBorderStrong,
-    borderRadius: radius.none,
-  },
-  addTileLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.0,
-    textTransform: 'uppercase',
-    color: colors.sand,
+    backgroundColor: colors.overlay,
+    borderRadius: radius.full,
   },
 });
