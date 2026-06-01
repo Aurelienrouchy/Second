@@ -137,9 +137,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   label: {
-    fontSize: 10,
-    fontFamily: fonts.sansMedium,
-    letterSpacing: 1.5,
+    fontFamily: typography.labelUppercase.fontFamily,
+    fontSize: typography.labelUppercase.fontSize,
+    lineHeight: typography.labelUppercase.lineHeight,
+    letterSpacing: typography.labelUppercase.letterSpacing,
     textTransform: 'uppercase',
     color: colors.sand,
   },
