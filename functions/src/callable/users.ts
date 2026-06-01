@@ -148,6 +148,21 @@ export const deleteUserAccount = onCall(
     }
     bulkWriter.delete(db.collection('users').doc(uid));
 
+    // 1b. Release the persistent @username reservation in usernames/{username}.
+    // assignUsername reserves usernames/{username} = { uid } permanently; without
+    // this the handle stays orphaned (pointing at a deleted uid) and is never
+    // re-attributable. Verify ownership (.exists && .uid === uid) before deleting
+    // so a stale/mismatched mapping is never clobbered. NOTE: when userDoc.exists
+    // was false (early return above), userData is unavailable so the handle cannot
+    // be located — an accepted limitation of the doc-already-deleted path.
+    if (userData?.username && typeof userData.username === 'string') {
+      const usernameRef = db.collection('usernames').doc(userData.username);
+      const usernameSnap = await usernameRef.get();
+      if (usernameSnap.exists && usernameSnap.data()?.uid === uid) {
+        bulkWriter.delete(usernameRef);
+      }
+    }
+
     // 2. Soft-delete articles (sellerId == uid)
     const articlesSnap = await db.collection('articles').where('sellerId', '==', uid).get();
     for (const d of articlesSnap.docs) {
