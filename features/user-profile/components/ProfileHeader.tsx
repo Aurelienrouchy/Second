@@ -38,10 +38,14 @@ export const ProfileHeader = React.memo(function ProfileHeader({
     })}`;
   }, [user.createdAt]);
 
+  // Le @pseudo lit le username persistant/immuable (découplé du displayName).
+  // Fallback gracieux : dérivation legacy du displayName tant que le username
+  // n'est pas encore assigné (état transitoire), pour ne jamais afficher @vide.
   const userHandle = useMemo(() => {
-    if (!user.displayName) return '';
-    return `@${user.displayName.toLowerCase().replace(/\s+/g, '.')}`;
-  }, [user.displayName]);
+    if (user.username) return `@${user.username}`;
+    if (user.displayName) return `@${user.displayName.toLowerCase().replace(/\s+/g, '.')}`;
+    return '';
+  }, [user.username, user.displayName]);
 
   const locationLabel = user.address?.city ?? null;
 
