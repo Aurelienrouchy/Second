@@ -84,11 +84,11 @@ const ProfileHeader = React.memo(function ProfileHeader({
           <Text style={styles.userName}>
             {formatDisplayName(displayName)}
           </Text>
-          {displayName && (
+          {userHandle ? (
             <Text style={styles.userHandle}>
-              @{displayName.toLowerCase().replace(/\s+/g, '.')}
+              {userHandle}
             </Text>
-          )}
+          ) : null}
           <View style={styles.metaRow}>
             <Ionicons name="time-outline" size={12} color={colors.muted} />
             <Text style={styles.metaText}>{memberSince}</Text>
