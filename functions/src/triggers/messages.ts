@@ -14,10 +14,14 @@ import { partitionTokens, sendPushNotification } from '../utils/notifications';
 /**
  * Check if either user has blocked the other.
  *
- * Source of truth is the `blockedUsers` array written by the client
- * moderationService (objects shaped `{ userId, userName, blockedAt }`).
- * We tolerate a flat-string shape too so the check stays correct if the
- * data model is ever migrated to plain UIDs.
+ * Reads BOTH the canonical flat `blockedUserIds` list (plain UIDs, the source
+ * of truth consumed by the Firestore rules) AND the legacy `blockedUsers`
+ * array of objects `{ userId, userName, blockedAt }` (written by the client
+ * moderationService for the UI). A flat-string shape on `blockedUsers` is
+ * tolerated too so the check stays correct if the data model is ever migrated
+ * to plain UIDs. The block is SYMMETRIC: if EITHER side blocks the other, the
+ * pair is considered blocked (matches services/moderationService.ts +
+ * firestore.rules chat-create semantics).
  */
 async function areUsersBlocked(
   userId1: string,
@@ -28,22 +32,45 @@ async function areUsersBlocked(
     db.collection('users').doc(userId2).get(),
   ]);
 
-  const blockedBy1 = (user1Snap.data()?.blockedUsers || []) as Array<
-    { userId?: string } | string
-  >;
-  const blockedBy2 = (user2Snap.data()?.blockedUsers || []) as Array<
-    { userId?: string } | string
-  >;
-
-  const matches = (
-    list: Array<{ userId?: string } | string>,
-    target: string
-  ) =>
-    list.some((u) =>
-      typeof u === 'string' ? u === target : u.userId === target
+  const matches = (data: FirebaseFirestore.DocumentData | undefined, target: string) => {
+    const flat = (data?.blockedUserIds || []) as string[];
+    if (Array.isArray(flat) && flat.includes(target)) return true;
+    const legacy = (data?.blockedUsers || []) as Array<
+      { userId?: string } | string
+    >;
+    return (
+      Array.isArray(legacy) &&
+      legacy.some((u) =>
+        typeof u === 'string' ? u === target : u.userId === target
+      )
     );
+  };
 
-  return matches(blockedBy1, userId2) || matches(blockedBy2, userId1);
+  return matches(user1Snap.data(), userId2) || matches(user2Snap.data(), userId1);
+}
+
+/**
+ * Resolve the authoritative "other participant" of a chat from the SERVER chat
+ * doc — never from the client-supplied `receiverId` on the message. Returns
+ * null if the chat is missing, malformed, or the sender is not actually a
+ * participant of it (in which case the message is illegitimate and must be
+ * neutralised regardless of any block relationship).
+ */
+async function resolveChatCounterparty(
+  chatId: string,
+  senderId: string
+): Promise<string | null> {
+  const chatSnap = await db.collection('chats').doc(chatId).get();
+  if (!chatSnap.exists) return null;
+
+  const participants = chatSnap.data()?.participants;
+  if (!Array.isArray(participants) || participants.length !== 2) return null;
+
+  // The sender MUST be a participant of the chat it writes into.
+  if (!participants.includes(senderId)) return null;
+
+  const other = participants.find((p: string) => p !== senderId);
+  return typeof other === 'string' ? other : null;
 }
 
 /**
