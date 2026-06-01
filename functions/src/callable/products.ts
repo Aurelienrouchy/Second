@@ -368,8 +368,13 @@ export const createArticle = onCall(
 
     // Optional scalar fields
     if (sellerImage) article.sellerImage = sellerImage;
-    if (typeof data.size === 'string' && data.size.trim()) {
-      article.size = data.size.trim().substring(0, 50);
+    // Size — accept the ArticleSize object { value, system } (current client),
+    // or a legacy plain string (back-compat → defaults to system 'EU').
+    // On create there is no "erasure": a null/empty/malformed size simply omits
+    // the field (never write undefined).
+    const sanitizedSize = sanitizeArticleSize(data.size);
+    if (sanitizedSize) {
+      article.size = sanitizedSize;
     }
     if (typeof data.brand === 'string' && data.brand.trim()) {
       article.brand = await resolveBrand(data.brand);
