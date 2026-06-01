@@ -527,10 +527,17 @@ service cloud.firestore {
         // targetId / targetType / reason. The reason is stored as a
         // ReportReason key (e.g. 'spam', 'harassment') — short strings,
         // bound 1-100 chars.
+        // SECURITY (B3): the moderation lifecycle (status / reviewedBy /
+        // reviewedAt / resolution) is admin-owned. A reporter must not be able
+        // to create a report that is already 'resolved'/'dismissed', nor stamp
+        // a fake reviewer. The report must start as 'pending' (or omit status;
+        // moderationService defaults to 'pending') and carry no review fields.
         return data.keys().hasAll(['reporterId', 'targetId', 'targetType', 'reason']) &&
                data.reporterId == request.auth.uid &&
                isValidString(data.reason, 1, 100) &&
-               data.targetType in ['user', 'article', 'message', 'review'];
+               data.targetType in ['user', 'article', 'message', 'review'] &&
+               (!('status' in data) || data.status == 'pending') &&
+               !data.keys().hasAny(['reviewedBy', 'reviewedAt', 'resolution']);
       }
     }
     
