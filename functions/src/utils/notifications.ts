@@ -37,7 +37,7 @@ function isRawApnsToken(token: string): boolean {
  * Split a token list into FCM registration tokens (sendable via FCM) and
  * raw APNs tokens (must NOT be sent through FCM as-is, nor pruned on failure).
  */
-function partitionTokens(tokens: string[]): {
+export function partitionTokens(tokens: string[]): {
   fcmTokens: string[];
   apnsTokens: string[];
 } {
