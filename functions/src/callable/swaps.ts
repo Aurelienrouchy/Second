@@ -1156,9 +1156,13 @@ export const confirmSwapReception = onCall(
         const otherSideReceived = isInitiator ? !!swap.receiverReceivedAt : !!swap.initiatorReceivedAt;
         const bothReceived = otherSideReceived;
 
-        // Determine top-up release target (the payee) before any writes.
+        // Determine top-up hold target (the payee) before any writes.
+        // topUpFundsHeldAt is the idempotence marker for the pending → held move
+        // performed here; topUpReleasedAt (held → balance) is set LATER by the
+        // releaseHeldFunds scheduled job once the 7-day window elapses.
         const topUp = swap.cashTopUp;
-        const topUpPaid = topUp != null && !!swap.topUpPaidAt && !swap.topUpReleasedAt;
+        const topUpPaid =
+          topUp != null && !!swap.topUpPaidAt && !swap.topUpFundsHeldAt && !swap.topUpReleasedAt;
         let payeeWalletRef: FirebaseFirestore.DocumentReference | null = null;
         let payeeWalletData: FirebaseFirestore.DocumentData | null = null;
         let payeeId: string | null = null;
@@ -1185,26 +1189,37 @@ export const confirmSwapReception = onCall(
           updateData.status = 'completed';
           updateData.completedAt = FieldValue.serverTimestamp();
           if (topUpPaid) {
-            updateData.topUpReleasedAt = FieldValue.serverTimestamp();
+            // Mark the pending → held move + stamp the release deadline. NOTE:
+            // we DO NOT set topUpReleasedAt here — that marks "released to
+            // withdrawable balance" and is owned by releaseHeldFunds. Keeping it
+            // unset is what makes the post-reception dispute window effective.
+            updateData.topUpFundsHeldAt = FieldValue.serverTimestamp();
+            updateData.topUpFundsReleaseAt = Timestamp.fromMillis(
+              Date.now() + SWAP_TOPUP_HOLD_WINDOW_MS
+            );
           }
         }
 
-        // Release top-up funds: pending → available on the payee wallet.
+        // Move top-up funds pending → held on the payee wallet (delivered, inside
+        // the 7-day dispute window), EXACTLY like a delivered purchase. The funds
+        // become withdrawable (held → balance) only when releaseHeldFunds runs
+        // after topUpFundsReleaseAt.
         if (bothReceived && topUpPaid && payeeWalletRef && payeeWalletData && payeeId) {
           const payoutCents = Math.round(topUp.amount); // top-up amount is already in cents, fee kept by platform
           tx.update(payeeWalletRef, {
             pendingBalance: FieldValue.increment(-payoutCents),
-            balance: FieldValue.increment(payoutCents),
+            heldBalance: FieldValue.increment(payoutCents),
             updatedAt: FieldValue.serverTimestamp(),
           });
           const ledgerRef = payeeWalletRef.collection('ledger').doc();
           tx.set(ledgerRef, {
-            type: 'sale_available',
+            type: 'funds_held',
             amount: payoutCents,
-            balanceAfter: (payeeWalletData.balance || 0) + payoutCents,
-            description: 'Complément d\'échange — fonds disponibles',
+            balanceAfter: (payeeWalletData.heldBalance || 0) + payoutCents,
+            description: 'Complément d\'échange — fonds en attente (fenêtre de litige 7 jours)',
             swapId,
             createdAt: FieldValue.serverTimestamp(),
+            status: 'held',
           });
         }
 
