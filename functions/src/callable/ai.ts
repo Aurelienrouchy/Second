@@ -76,9 +76,9 @@ async function checkRateLimit(userId: string): Promise<void> {
 export const analyzeProductImage = onCall(
   {
     region: 'northamerica-northeast1',
-    memory: '1GiB',
+    memory: '512MiB',
     timeoutSeconds: 120,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ['GEMINI_API_KEY'],
   },
   async (request) => {
