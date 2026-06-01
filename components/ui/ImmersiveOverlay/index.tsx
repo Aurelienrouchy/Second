@@ -229,7 +229,11 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
         </Animated.View>
 
         {/* Overlay layer (iOS only — Android uses standard navigation) */}
-        <Overlay progress={overlayProgress} breathe={breathe} />
+        <Overlay
+          progress={overlayProgress}
+          breathe={breathe}
+          contentReveal={contentReveal}
+        />
       </Animated.View>
     );
   }
