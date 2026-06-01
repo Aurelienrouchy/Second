@@ -67,7 +67,7 @@ export default function AdminShopDetailScreen() {
           style: 'default',
           onPress: async () => {
             try {
-              await ShopService.approveShop(shop.id, user.id);
+              await ShopService.approveShop(shop.id);
               await NotificationService.notifyShopApproved(shop.id, shop.ownerId);
               Alert.alert('Succès', 'La boutique a été approuvée', [
                 { text: 'OK', onPress: () => router.back() },
