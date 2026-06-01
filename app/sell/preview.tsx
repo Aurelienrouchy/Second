@@ -14,7 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import PhotoCarousel from '@/components/PhotoCarousel';
-import StepProgressBar from '@/components/sell/StepProgressBar';
 import SuccessModal from '@/components/sell/SuccessModal';
 import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
