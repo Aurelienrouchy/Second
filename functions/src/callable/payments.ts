@@ -1135,12 +1135,19 @@ export const createStripeCheckout = onCall(
       const totalChargeCents = Math.round(txResult.fees.buyerTotal * 100);
       const applicationFeeInCents = Math.round(txResult.fees.serviceFee * 100);
 
-      if (txResult.walletDebited && walletAmount > 0) {
+      // P2-10: use the AUTHORITATIVE wallet amount returned by the transaction
+      // (freshly-debited, or the previously-recorded amount on a retry) — never
+      // the raw request `walletAmount`. A retry that omits walletAmount would
+      // otherwise fall into the full card-charge branch while the wallet stays
+      // debited, double-charging the buyer.
+      const effectiveWalletAmount = txResult.effectiveWalletAmount;
+
+      if (txResult.walletDebited && effectiveWalletAmount > 0) {
         // --- MIXED WALLET + CARD PAYMENT ---
         // Platform receives the card portion (no destination charge).
         // The wallet portion was already debited. Seller will be credited
         // after delivery via explicit transfer.
-        const stripeChargeCents = totalChargeCents - walletAmount;
+        const stripeChargeCents = totalChargeCents - effectiveWalletAmount;
 
         // The application fee applies to the full purchase, but since the
         // wallet portion was already collected, the Stripe portion just needs
