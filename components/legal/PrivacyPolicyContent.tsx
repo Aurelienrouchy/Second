@@ -54,7 +54,7 @@ function PrivacyPolicyContentComponent() {
 
       <Text variant="h3" style={styles.sectionTitle}>1. Responsable de la protection des renseignements personnels</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        Second a désigné un responsable de la protection des renseignements personnels,
+        Seconde a désigné un responsable de la protection des renseignements personnels,
         conformément à l'article 3.1 de la Loi 25. Pour toute question relative à vos
         renseignements personnels ou pour exercer vos droits : privacy@seconde.app.
       </Text>
