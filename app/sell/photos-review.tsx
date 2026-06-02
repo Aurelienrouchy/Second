@@ -246,6 +246,9 @@ export default function PhotosReviewScreen() {
         },
       });
 
+      // User left or aborted while the analysis was running — drop the result.
+      if (!isMountedRef.current || controller.signal.aborted) return;
+
       if (response.success && response.result) {
         const urls = response.storageUrls || [];
         setStorageUrls(urls);
@@ -259,6 +262,8 @@ export default function PhotosReviewScreen() {
         setAnalysisState('error');
       }
     } catch (error: unknown) {
+      // Ignore cancellations triggered by unmount / leaving the screen.
+      if (!isMountedRef.current || controller.signal.aborted) return;
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
       setErrorMessage(message);
       setAnalysisState('error');
