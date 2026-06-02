@@ -94,6 +94,7 @@ export default function EditArticleScreen() {
     colors: [],
     materials: [],
     size: null,
+    sizeSystem: 'EU',
     brand: '',
     price: 0,
     // Quand le shipping est désactivé, on force le main-à-main par défaut.
