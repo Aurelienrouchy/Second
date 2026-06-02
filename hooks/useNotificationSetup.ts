@@ -325,9 +325,22 @@ export function useNotificationSetup(userId: string | null): void {
     if (!userIdRef.current) return;
 
     try {
-      const { status } = await Notifications.requestPermissionsAsync();
+      // Don't re-prompt if the OS won't show the dialog again (canAskAgain
+      // false). Re-enabling then requires the system settings — surfaced by
+      // the notification settings UI (C14), not an auto re-prompt here.
+      const existing = await Notifications.getPermissionsAsync();
+      let status = existing.status;
+      if (status !== 'granted' && existing.canAskAgain) {
+        const requested = await Notifications.requestPermissionsAsync();
+        status = requested.status;
+      }
       if (status !== 'granted') {
-        if (__DEV__) console.log('Push notification permission denied');
+        if (__DEV__) {
+          console.log(
+            `[push] permission non accordée (status=${status}, ` +
+              `canAskAgain=${existing.canAskAgain})`
+          );
+        }
         return;
       }
 
