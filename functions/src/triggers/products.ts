@@ -185,6 +185,87 @@ export const updateSearchIndex = onDocumentWritten(
 );
 
 /**
+ * Maintain `shops/{shopId}.articlesCount` (boutiques-admin P1-2).
+ *
+ * No writer existed for this counter — the shop read path
+ * (`shopService.getShopArticles`) lists articles where
+ * `shopId == X AND isActive == true AND isSold == false`, and the UI gates the
+ * shop display on `articlesCount > 0`. We mirror that exact predicate: an
+ * article contributes +1 to its shop's count iff it has a `shopId`, is active,
+ * and is not sold.
+ *
+ * The trigger applies the DELTA between the before/after contributions per
+ * shop, so it is correct across create, delete, sold toggle, deactivation, and
+ * a `shopId` change (old shop -1, new shop +1). Increments are idempotent by
+ * delta and each shop write is isolated in its own try/catch (the boutique may
+ * have been deleted) so one missing shop never aborts the others.
+ */
+export const updateShopArticlesCount = onDocumentWritten(
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' },
+  async (event) => {
+    const articleId = event.params.articleId;
+
+    try {
+      const before = event.data?.before?.exists ? event.data.before.data() : null;
+      const after = event.data?.after?.exists ? event.data.after.data() : null;
+
+      // Does this article state count toward a shop's `articlesCount`?
+      // Returns the shopId it contributes to, or null if it counts for none.
+      const countedShopId = (
+        data: FirebaseFirestore.DocumentData | null,
+      ): string | null => {
+        if (!data) return null;
+        const shopId = data.shopId;
+        if (typeof shopId !== 'string' || shopId.length === 0) return null;
+        // Mirror getShopArticles: active AND not sold.
+        if (data.isActive !== true) return null;
+        if (data.isSold === true) return null;
+        return shopId;
+      };
+
+      const beforeShopId = countedShopId(before);
+      const afterShopId = countedShopId(after);
+
+      // No change in shop membership → nothing to do (idempotent no-op).
+      if (beforeShopId === afterShopId) return;
+
+      // Compute per-shop deltas. A shopId change yields -1 on the old shop and
+      // +1 on the new one; create/delete/toggle yields a single +/-1.
+      const deltas = new Map<string, number>();
+      if (beforeShopId) {
+        deltas.set(beforeShopId, (deltas.get(beforeShopId) || 0) - 1);
+      }
+      if (afterShopId) {
+        deltas.set(afterShopId, (deltas.get(afterShopId) || 0) + 1);
+      }
+
+      await Promise.all(
+        Array.from(deltas.entries()).map(async ([shopId, delta]) => {
+          if (delta === 0) return;
+          try {
+            await db
+              .collection('shops')
+              .doc(shopId)
+              .update({ articlesCount: FieldValue.increment(delta) });
+            logger.info(
+              `Adjusted articlesCount for shop ${shopId} by ${delta} (article ${articleId})`,
+            );
+          } catch (error) {
+            // Shop may have been deleted — never abort sibling updates.
+            logger.warn(
+              `Could not update articlesCount for shop ${shopId}`,
+              { articleId, delta, error: error instanceof Error ? error.message : String(error) },
+            );
+          }
+        }),
+      );
+    } catch (error) {
+      logger.error(`Error updating shop articlesCount for article ${articleId}`, { error });
+    }
+  }
+);
+
+/**
  * Update user stats when article is created/updated/sold
  */
 export const updateUserStats = onDocumentWritten(
