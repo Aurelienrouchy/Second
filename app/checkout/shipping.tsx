@@ -48,6 +48,20 @@ const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
 const CA_POSTAL_RE = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
 
 /**
+ * Transaction statuses that confirm the buyer's payment has been captured
+ * server-side (set by stripeWebhook). Any of these means it is safe to show
+ * the confirmation screen.
+ */
+const PAID_STATUSES = new Set<Article['isSold'] extends never ? never : string>([
+  'paid', 'label_created', 'shipped', 'delivered', 'completed',
+]);
+
+/** How long to wait for the webhook to flip status before proceeding anyway. */
+const PAYMENT_CONFIRM_TIMEOUT_MS = 12000;
+/** Delay between transaction status polls. */
+const PAYMENT_CONFIRM_POLL_MS = 1500;
+
+/**
  * Resolve a Firebase callable error into its stable code suffix.
  * httpsCallable wraps server HttpsError into FirebaseError with
  * code = "functions/<code>" (e.g. "functions/failed-precondition").
