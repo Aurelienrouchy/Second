@@ -263,7 +263,7 @@ export default function NotificationsSettingsScreen() {
               </View>
               <Switch
                 value={settings[item.id]}
-                onValueChange={() => toggleSetting(item.id)}
+                onValueChange={() => handleToggle(item.id)}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.white}
                 ios_backgroundColor={colors.border}
