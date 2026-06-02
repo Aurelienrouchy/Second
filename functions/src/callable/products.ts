@@ -290,6 +290,20 @@ export const createArticle = onCall(
       );
     }
 
+    // Delivery options (P3-7): at least one delivery mode is required. The
+    // client gates `isShipping` behind the `SHIPPING_ENABLED` flag and always
+    // sets `isHandDelivery: true` when shipping is off, so this guard only ever
+    // fires on a malformed payload (both false) — and naturally re-allows
+    // shipping when the flag flips back on (isShipping then satisfies it).
+    const wantsHandDelivery = data.isHandDelivery === true;
+    const wantsShipping = data.isShipping === true;
+    if (!wantsHandDelivery && !wantsShipping) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Au moins une option de livraison requise',
+      );
+    }
+
     // ── 3. Sanitise text fields ──
     const stripHtml = (s: string): string =>
       s.replace(/<[^>]*>/g, '').trim();
