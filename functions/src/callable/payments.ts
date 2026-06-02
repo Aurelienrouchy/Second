@@ -1890,12 +1890,12 @@ export const acceptMeetupOffer = onCall(
           throw new HttpsError('permission-denied', 'Vous n\'êtes pas le vendeur de cet article');
         }
 
-        // Idempotency: if a live meetup transaction already exists for this chat,
-        // return it instead of creating a duplicate. We query OUTSIDE-of-write
-        // reads by scanning the chat-linked transactions via a tx.get on a
-        // deterministic query is not possible inside runTransaction; instead we
-        // rely on the article lock below + offer.status guard to prevent races,
-        // and detect an already-accepted offer via offer.status above.
+        // Idempotency / anti-duplication: re-accepting is blocked by the
+        // `offer.status === 'pending'` guard above (a second call sees
+        // 'accepted' and throws), and a concurrent second buyer is blocked by
+        // the article lock (`isSold`) written below within the same
+        // runTransaction. Together they guarantee exactly one meetup
+        // transaction per accepted offer.
         const amount = offer.amount;
         if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
           throw new HttpsError('failed-precondition', 'Montant de l\'offre invalide');
