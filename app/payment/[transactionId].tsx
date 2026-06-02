@@ -406,7 +406,7 @@ export default function PaymentScreen() {
       </ScrollView>
 
       {/* Footer — Pay button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Pressable
           style={[styles.payButton, isCreatingCheckout && styles.payButtonDisabled]}
           onPress={handlePay}
