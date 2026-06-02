@@ -98,9 +98,11 @@ interface ErrorStateProps {
   onBack: () => void;
   /** true when useQuery caught a network/fetch error (vs article simply not found) */
   isNetworkError?: boolean;
+  /** Retries the failed query. Provided only for the network error case. */
+  onRetry?: () => void;
 }
 
-function ErrorStateComponent({ onBack, isNetworkError = false }: ErrorStateProps) {
+function ErrorStateComponent({ onBack, isNetworkError = false, onRetry }: ErrorStateProps) {
   const icon = isNetworkError ? 'cloud-offline-outline' : 'bag-remove-outline';
   const title = isNetworkError
     ? 'Erreur de connexion'
@@ -117,14 +119,38 @@ function ErrorStateComponent({ onBack, isNetworkError = false }: ErrorStateProps
         </View>
         <Text style={styles.errorTitle}>{title}</Text>
         <Text style={styles.errorText}>{subtitle}</Text>
-        <Pressable style={styles.errorButton} onPress={onBack}>
-          <Text style={styles.errorButtonText}>
-            {isNetworkError ? 'Retour' : 'Retour à l’accueil'}
-          </Text>
-        </Pressable>
+        {isNetworkError && onRetry ? (
+          <>
+            <Pressable style={styles.errorButton} onPress={onRetry}>
+              <Text style={styles.errorButtonText}>Réessayer</Text>
+            </Pressable>
+            <Pressable style={errorStyles.secondaryButton} onPress={onBack}>
+              <Text style={errorStyles.secondaryButtonText}>Retour</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable style={styles.errorButton} onPress={onBack}>
+            <Text style={styles.errorButtonText}>
+              {isNetworkError ? 'Retour' : 'Retour à l’accueil'}
+            </Text>
+          </Pressable>
+        )}
       </Animated.View>
     </SafeAreaView>
   );
 }
+
+const errorStyles = StyleSheet.create({
+  secondaryButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  secondaryButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.muted,
+  },
+});
 
 export const ErrorState = React.memo(ErrorStateComponent);
