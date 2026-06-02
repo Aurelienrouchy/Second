@@ -141,11 +141,21 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
             return (
               <TouchableOpacity
                 key={item.id}
-                style={styles.categoryItem}
+                style={[
+                  styles.categoryItem,
+                  darkMode && { borderBottomColor: colors.darkBorder },
+                ]}
                 onPress={() => categoryNav.selectCategory(item)}
               >
                 <View style={styles.itemContent}>
-                  <Text style={styles.categoryItemText}>{item.label}</Text>
+                  <Text
+                    style={[
+                      styles.categoryItemText,
+                      darkMode && { color: colors.cream },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
                   {isSuggested && (
                     <View style={styles.suggestedBadge}>
                       <Text style={styles.suggestedBadgeText}>Suggéré</Text>
@@ -154,7 +164,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
                 </View>
 
                 {item.children && item.children.length > 0 && (
-                  <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                  <Ionicons name="chevron-forward" size={18} color={mutedColor} />
                 )}
               </TouchableOpacity>
             );
