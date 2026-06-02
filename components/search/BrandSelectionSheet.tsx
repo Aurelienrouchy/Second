@@ -435,8 +435,14 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         enablePanDownToClose
         onClose={() => setMounted(false)}
         topInset={insets.top}
-        handleIndicatorStyle={styles.handleIndicator}
-        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={[
+          styles.handleIndicator,
+          darkMode && { backgroundColor: colors.darkBorderStrong },
+        ]}
+        backgroundStyle={[
+          styles.sheetBackground,
+          darkMode && { backgroundColor: colors.deep },
+        ]}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="none"
