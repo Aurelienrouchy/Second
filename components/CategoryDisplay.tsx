@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.foreground,
   },
   context: {
     fontSize: 13,
