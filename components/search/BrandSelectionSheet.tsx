@@ -45,6 +45,8 @@ interface BrandSelectionSheetProps {
   onSelectSingle?: (brand: string) => void;
   initialSearchQuery?: string;
   singleSelect?: boolean;
+  /** Render the sheet on the dark Swap Zone palette. Defaults to the light DS. */
+  darkMode?: boolean;
 }
 
 const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionSheetProps>(
