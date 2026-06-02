@@ -221,10 +221,21 @@ export default function PreviewScreen() {
       if (!isMountedRef.current) return;
       setIsPublishing(false);
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la publication';
+      // Le gate serveur createArticle exige email_verified. Le claim JWT ne se
+      // rafraîchit qu'au prochain refresh (~1h), donc un vendeur fraîchement
+      // vérifié peut encore être refusé ici malgré le pré-check du flow vente :
+      // on lui offre un raccourci vers l'écran de vérification plutôt qu'un
+      // refus générique en cul-de-sac.
+      const isEmailGate = message.includes('verifier votre adresse e-mail');
       Alert.alert(
         'Erreur',
         message,
-        [{ text: 'OK' }]
+        isEmailGate
+          ? [
+              { text: 'Annuler', style: 'cancel' },
+              { text: 'Vérifier mon email', onPress: () => router.push('/settings/verify-email') },
+            ]
+          : [{ text: 'OK' }]
       );
     } finally {
       publishingRef.current = false;
