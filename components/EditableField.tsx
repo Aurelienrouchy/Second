@@ -79,7 +79,11 @@ export default function EditableField({
 
   const handleConfirm = () => {
     Keyboard.dismiss();
-    onSave(editValue.trim());
+    // Sur clavier décimal FR/CA l'utilisateur saisit une virgule : on la normalise
+    // en point pour que parseFloat côté appelant ne tronque pas la partie décimale.
+    const isDecimal = keyboardType === 'decimal-pad' || keyboardType === 'numeric';
+    const trimmed = editValue.trim();
+    onSave(isDecimal ? trimmed.replace(',', '.') : trimmed);
     setIsEditing(false);
   };
 
