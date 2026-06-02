@@ -241,7 +241,7 @@ export default function AddressSettingsScreen() {
                 style={({ pressed }) => [styles.manualToggle, pressed && { opacity: 0.7 }]}
               >
                 <Ionicons name="create-outline" size={18} color={colors.primary} />
-                <Text style={styles.manualToggleText}>Saisir l'adresse manuellement</Text>
+                <Text style={styles.manualToggleText}>Saisir l&apos;adresse manuellement</Text>
               </Pressable>
             </>
           ) : (
