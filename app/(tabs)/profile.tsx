@@ -117,6 +117,14 @@ export default function ProfileScreen() {
         action: () => router.push('/my-sales'),
       },
       {
+        id: 'my-swaps',
+        title: 'Mes échanges',
+        icon: 'swap-horizontal-outline',
+        iconColor: colors.warning,
+        iconBg: colors.warningLight,
+        action: () => router.push('/my-swaps'),
+      },
+      {
         id: 'wallet',
         title: 'Porte-monnaie',
         subtitle: wallet?.hasWallet
