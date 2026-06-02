@@ -41,6 +41,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 // Import services
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
+import { ModerationService } from '@/services/moderationService';
 import { TransactionService } from '@/services/transactionService';
 
 // Import query keys
