@@ -583,8 +583,8 @@ export default function SwapZoneScreen() {
           pointerEvents="box-none"
         >
           <MultiSelectBar
-            selectedCount={selectedItemIds.size}
-            canPropose={selectedItemIds.size > 0}
+            selectedCount={selectedCount}
+            canPropose={selectedCount > 0}
             onCancel={handleCancelMultiSelect}
             onPropose={handleProposeMultipleSwaps}
           />
