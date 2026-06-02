@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { formatPrice } from '@/utils/formatPrice';
+import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
 import { TransactionDeliveryType } from '@/types';
 
 // =============================================================================
