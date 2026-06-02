@@ -211,6 +211,8 @@ export function useArticleActions({
 
     requireAuth(
       () => {
+        if (isTransitioning.current) return;
+        isTransitioning.current = true;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         router.push({
           pathname: '/propose-swap',
