@@ -71,10 +71,12 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
       'Suspicion de fraude',
     ];
 
+    if (!isOpen) return null;
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        index={-1}
+        index={0}
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
         enablePanDownToClose
@@ -82,6 +84,7 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
         keyboardBehavior="interactive"
         keyboardBlurBehavior="none"
         android_keyboardInputMode="adjustResize"
+        onChange={(index) => { if (index === -1) setIsOpen(false); }}
       >
         <BottomSheetView style={styles.container}>
           {/* Header */}
