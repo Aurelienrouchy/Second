@@ -61,8 +61,8 @@ export default function MyArticlesScreen() {
 
   const handleDeleteArticle = (article: Article) => {
     Alert.alert(
-      'Supprimer l\'article',
-      `Êtes-vous sûr de vouloir supprimer "${article.title}" ?`,
+      'Supprimer définitivement',
+      `"${article.title}" sera supprimé définitivement. Cette action est irréversible.`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
