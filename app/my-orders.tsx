@@ -122,6 +122,12 @@ export default function MyOrdersScreen() {
   const user = useUser();
   const { showAuthSheet } = useAuthRequired();
   const router = useRouter();
+  // Deep-link target from order_* / funds_released push notifications
+  // (functions/src/utils/notifications.ts builds `/my-orders?transactionId=…`).
+  const { transactionId: deepLinkTransactionId } = useLocalSearchParams<{
+    transactionId?: string;
+  }>();
+  const handledDeepLinkRef = useRef<string | null>(null);
 
   const {
     data: orders = [],
