@@ -46,7 +46,7 @@ export function debounceUpdate(
       await updateFn();
       updateQueues.delete(key);
     } catch (error) {
-      console.error(`Debounced update failed for ${key}:`, error);
+      logger.error(`Debounced update failed for ${key}`, { error });
       updateQueues.delete(key);
     }
   }, delay);
