@@ -258,10 +258,3 @@ export function useArticleSearch({
 }
 
 export type UseArticleSearchReturn = ReturnType<typeof useArticleSearch>;
-
-export const useUserLocation = () => {
-  const [location, setLocation] = useState<GeolocationCenter | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  return { location, locationError };
-};
