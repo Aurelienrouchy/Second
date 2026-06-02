@@ -26,13 +26,15 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
     const bottomSheetRef = useRef<BottomSheet>(null);
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
     const snapPoints = React.useMemo(() => ['60%'], []);
 
     useImperativeHandle(ref, () => ({
       show: () => {
-        bottomSheetRef.current?.expand();
         setReason('');
+        setIsSubmitting(false);
+        setIsOpen(true);
       },
       hide: () => {
         bottomSheetRef.current?.close();
