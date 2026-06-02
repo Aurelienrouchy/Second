@@ -1166,7 +1166,7 @@ export const createStripeCheckout = onCall(
                 transactionId,
                 sellerId: txResult.sellerId,
                 buyerId: request.auth!.uid,
-                walletAmountUsed: String(walletAmount),
+                walletAmountUsed: String(effectiveWalletAmount),
                 paymentType: 'wallet_and_card',
               },
             },
@@ -1178,7 +1178,7 @@ export const createStripeCheckout = onCall(
           // F05: Stripe PI creation failed — revert the wallet debit
           logger.error('Stripe PaymentIntent creation failed (mixed) — reverting wallet debit', {
             transactionId,
-            walletAmount,
+            walletAmount: effectiveWalletAmount,
             error: stripeError instanceof Error ? stripeError.message : stripeError,
           });
 
@@ -1189,15 +1189,15 @@ export const createStripeCheckout = onCall(
 
             const walletData = walletSnap.data()!;
             revertTx.update(buyerWalletRef, {
-              balance: FieldValue.increment(walletAmount),
+              balance: FieldValue.increment(effectiveWalletAmount),
               updatedAt: FieldValue.serverTimestamp(),
             });
 
             const revertLedgerRef = buyerWalletRef.collection('ledger').doc();
             revertTx.set(revertLedgerRef, {
               type: 'refund_credit',
-              amount: walletAmount,
-              balanceAfter: (walletData.balance || 0) + walletAmount,
+              amount: effectiveWalletAmount,
+              balanceAfter: (walletData.balance || 0) + effectiveWalletAmount,
               description: 'Remboursement — echec creation paiement',
               transactionId,
               createdAt: FieldValue.serverTimestamp(),
