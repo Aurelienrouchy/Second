@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   resumeButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
