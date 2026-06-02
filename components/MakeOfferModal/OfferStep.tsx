@@ -31,8 +31,13 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
   const handleNext = () => {
     const amount = parseFloat(offerAmount);
 
-    if (!amount || amount <= 0) {
+    if (!amount || amount < MIN_OFFER_AMOUNT) {
       Alert.alert('Erreur', 'Veuillez entrer un montant valide');
+      return;
+    }
+
+    if (amount > MAX_OFFER_AMOUNT) {
+      Alert.alert('Montant trop élevé', `Maximum ${MAX_OFFER_AMOUNT} $ CA`);
       return;
     }
 
