@@ -282,6 +282,7 @@ function getAndroidChannel(notificationType: string): string {
   switch (notificationType) {
     case 'chat':
     case 'message':
+    case 'new_message':
       return 'messages';
 
     case 'offer':
@@ -300,6 +301,7 @@ function getAndroidChannel(notificationType: string): string {
     case 'order_delivered':
     case 'order_cancelled':
     case 'order_refunded':
+    case 'funds_released':
       return 'orders';
 
     case 'review_received':
