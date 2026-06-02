@@ -282,6 +282,9 @@ export function useArticleActions({
 
   const handleMarkAsSold = useCallback(async () => {
     if (!article) return;
+    // Ignore taps while a toggle for this article is already in-flight.
+    if (togglingArticles.current.has(article.id)) return;
+    togglingArticles.current.add(article.id);
 
     try {
       const toggleSold = httpsCallable(functions, 'toggleArticleSold');
@@ -295,6 +298,8 @@ export function useArticleActions({
       if (__DEV__) console.error('Erreur mise à jour:', error);
       const message = error instanceof Error ? error.message : 'Impossible de mettre à jour l\'article';
       Alert.alert('Erreur', message);
+    } finally {
+      togglingArticles.current.delete(article.id);
     }
   }, [article, setArticle, queryClient]);
 
