@@ -324,8 +324,23 @@ export default function SwapZoneScreen() {
 
   const handleItemPress = useCallback(
     (item: SwapPartyItemExtended) => {
+      // Single tap on someone else's item → start a scoped swap proposal.
+      const proposeSwap = () =>
+        router.push({
+          pathname: '/propose-swap',
+          params: {
+            partyId,
+            receiverId: item.sellerId,
+            receiverName: item.sellerName || '',
+            receiverImage: item.sellerImage || '',
+            receiverItems: JSON.stringify([toSwapItemInfo(item)]),
+          },
+        });
+
       if (!user) {
-        requireAuth(() => {}, AUTH_MESSAGES.swapParty);
+        // Logged-out tap routes through the auth gate, then completes the swap
+        // proposal once authenticated (no second tap required).
+        requireAuth(proposeSwap, AUTH_MESSAGES.swapParty);
         return;
       }
 
@@ -336,17 +351,7 @@ export default function SwapZoneScreen() {
         return;
       }
 
-      // Single tap on someone else's item → start a scoped swap proposal.
-      router.push({
-        pathname: '/propose-swap',
-        params: {
-          partyId,
-          receiverId: item.sellerId,
-          receiverName: item.sellerName || '',
-          receiverImage: item.sellerImage || '',
-          receiverItems: JSON.stringify([toSwapItemInfo(item)]),
-        },
-      });
+      proposeSwap();
     },
     [user, isMultiSelectMode, selectedSellerId, toggleItemSelection, requireAuth, partyId]
   );
