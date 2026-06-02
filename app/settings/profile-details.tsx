@@ -285,6 +285,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontFamily: fonts.sansMedium,
   },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  visibilityText: {
+    color: colors.muted,
+  },
   formSection: {
     gap: spacing.lg,
     marginBottom: spacing.lg,
