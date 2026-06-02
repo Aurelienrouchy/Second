@@ -445,14 +445,19 @@ export default function SwapDetailScreen() {
           />
         )}
 
-        {/* Action buttons based on status */}
-        <SwapActions
-          status={swap.status}
-          participant={participant}
-          handlers={actionHandlers}
-          isProcessing={isProcessing}
-          exchangeMode={swap.exchangeMode}
-        />
+        {/* Action buttons based on status.
+            The proposed-receiver case is owned exclusively by the sticky bar
+            below, so we skip the in-flow Accept/Decline to avoid duplicating
+            the same actions on two surfaces. */}
+        {!(swap.status === 'proposed' && !participant.isInitiator) && (
+          <SwapActions
+            status={swap.status}
+            participant={participant}
+            handlers={actionHandlers}
+            isProcessing={isProcessing}
+            exchangeMode={swap.exchangeMode}
+          />
+        )}
 
         {/* Contact button */}
         {swap.status !== 'declined' && swap.status !== 'cancelled' && (
