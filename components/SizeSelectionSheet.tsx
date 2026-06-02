@@ -55,6 +55,15 @@ const DEMOGRAPHIC_OPTIONS: { id: SizeDemographic; label: string }[] = [
   { id: 'kids', label: 'Enfant' },
 ];
 
+/** Buckets incoming sizes into per-system value lists (US / EU). */
+const groupBySystem = (sizes: ArticleSize[]): Record<SizeSystem, string[]> => {
+  const grouped: Record<SizeSystem, string[]> = { US: [], EU: [] };
+  for (const s of sizes) {
+    grouped[s.system].push(s.value);
+  }
+  return grouped;
+};
+
 const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetProps>(
   ({ selectedSizes, onConfirm, categoryPath }, ref) => {
     const insets = useSafeAreaInsets();
