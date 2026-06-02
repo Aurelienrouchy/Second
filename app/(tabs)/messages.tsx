@@ -138,11 +138,14 @@ export default function MessagesScreen() {
   const unreadByType = useMemo<Record<ConversationType, number>>(() => {
     const acc: Record<ConversationType, number> = { ventes: 0, achats: 0, autres: 0 };
     for (const c of chats) {
+      // Muted: a blocked counterpart can't send, so its unread count must
+      // not inflate the tab badge.
+      if (isChatBlocked(c)) continue;
       const unread = user ? c.unreadCount?.[user.id] || 0 : 0;
       acc[getConversationType(c)] += unread;
     }
     return acc;
-  }, [chats, user, getConversationType]);
+  }, [chats, user, getConversationType, isChatBlocked]);
 
   if (!user) {
     return (
