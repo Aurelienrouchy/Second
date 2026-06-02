@@ -390,6 +390,20 @@ export default function SwapZoneScreen() {
     setSelectedItemIds(new Set());
   }, []);
 
+  // Android hardware back: while multi-select is active, the back button cancels
+  // the selection instead of leaving the screen (mirrors the in-bar Annuler /
+  // PartyHeader back). Returning true consumes the event; when not in
+  // multi-select we return false so navigation handles back as usual. Listener
+  // is re-subscribed when isMultiSelectMode flips and torn down on unmount.
+  useEffect(() => {
+    if (!isMultiSelectMode) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleCancelMultiSelect();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isMultiSelectMode, handleCancelMultiSelect]);
+
   const handleBack = useCallback(() => {
     handleCancelMultiSelect();
     router.back();
