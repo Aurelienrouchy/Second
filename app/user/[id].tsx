@@ -57,6 +57,7 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const currentUser = useUser();
+  const queryClient = useQueryClient();
   const showAuthSheet = useAuthSheetStore((state) => state.show);
   const reportSheetRef = useRef<ReportBottomSheetRef>(null);
 
