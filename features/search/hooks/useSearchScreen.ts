@@ -129,10 +129,13 @@ export function useSearchScreen() {
 
   // ─── Init ────────────────────────────────────────────────────────
   useEffect(() => {
+    let task: ReturnType<typeof InteractionManager.runAfterInteractions> | undefined;
     if (!hasInitialContext) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+      // Focus after the navigation/mount interactions settle (no magic timeout).
+      task = InteractionManager.runAfterInteractions(() => inputRef.current?.focus());
     }
     loadRecentSearches();
+    return () => task?.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
