@@ -297,8 +297,13 @@ function SwapCard({
   const myItems = isInitiator ? getSwapItems(swap, 'initiator') : getSwapItems(swap, 'receiver');
   const theirItems = isInitiator ? getSwapItems(swap, 'receiver') : getSwapItems(swap, 'initiator');
 
-  const myTotal = getTotalValue(myItems);
-  const theirTotal = getTotalValue(theirItems);
+  // Attribute the cash top-up (stored in cents) to whichever side pays it.
+  const cashDollars = swap.cashTopUp ? swap.cashTopUp.amount / 100 : 0;
+  const myCash = swap.cashTopUp?.payerId === currentUserId ? cashDollars : 0;
+  const theirCash = swap.cashTopUp && swap.cashTopUp.payerId !== currentUserId ? cashDollars : 0;
+
+  const myTotal = getTotalValue(myItems, myCash);
+  const theirTotal = getTotalValue(theirItems, theirCash);
 
   const isMultiArticle = myItems.length > 1 || theirItems.length > 1;
 
