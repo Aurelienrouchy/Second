@@ -204,6 +204,42 @@ export class ShopService {
   }
 
   /**
+   * Récupérer toutes les boutiques suspendues
+   */
+  static async getSuspendedShops(): Promise<Shop[]> {
+    try {
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        where('status', '==', 'suspended')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const shops: Shop[] = [];
+
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data() as any;
+        shops.push({
+          ...data,
+          id: docSnapshot.id,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+          verificationDetails: data.verificationDetails
+            ? {
+                ...data.verificationDetails,
+                verifiedAt: data.verificationDetails.verifiedAt?.toDate(),
+              }
+            : undefined,
+        } as Shop);
+      });
+
+      return shops;
+    } catch (error) {
+      console.error('Error fetching suspended shops:', error);
+      return [];
+    }
+  }
+
+  /**
    * Récupérer les boutiques à proximité d'une localisation
    * @param lat Latitude
    * @param lng Longitude
