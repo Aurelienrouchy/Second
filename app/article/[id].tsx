@@ -137,6 +137,11 @@ export default function ArticleDetailScreen() {
       }
     };
     trackView();
+
+    // Guests: also record the view locally to feed on-device recommendations.
+    if (!user?.id) {
+      guestPreferencesService.trackView(toArticleMeta(article));
+    }
   }, [article, user]);
 
   // ─── Render states ───
