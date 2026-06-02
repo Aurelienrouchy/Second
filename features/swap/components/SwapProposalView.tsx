@@ -33,6 +33,8 @@ export const SwapProposalView = React.memo(function SwapProposalView({
   myItems,
   cashTopUp,
 }: SwapProposalViewProps) {
+  // cashTopUp.amount is stored in cents; convert to dollars for display.
+  const cashTopUpDollars = cashTopUp ? cashTopUp.amount / 100 : undefined;
   return (
     <>
       {/* Sender Profile Row */}
