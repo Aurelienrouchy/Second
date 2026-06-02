@@ -21,7 +21,7 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, radius } from '@/constants/theme';
