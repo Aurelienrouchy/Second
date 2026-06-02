@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
+import { router, useRootNavigationState } from 'expo-router';
 
 /**
  * Maps deep link URLs to app routes.
