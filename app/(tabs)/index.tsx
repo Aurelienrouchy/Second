@@ -86,6 +86,9 @@ export default function HomeScreen() {
 
   const listRef = useRef<FlashListRef<SectionId>>(null);
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
+  const tabBarHeight = useBottomTabOverflow();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Scroll-to-top on tab re-press while already on Home.
   React.useEffect(() => {
@@ -94,6 +97,16 @@ export default function HomeScreen() {
     });
     return unsubscribe;
   }, [navigation]);
+
+  // Pull-to-refresh: refetch every active home section in one pass.
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: homeKeys.all });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient]);
 
   const renderItem = useCallback(({ item }: { item: SectionId }) => {
     const Section = SectionComponent[item];
