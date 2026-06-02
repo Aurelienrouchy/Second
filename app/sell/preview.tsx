@@ -119,6 +119,9 @@ export default function PreviewScreen() {
   }, [isResuming]);
 
   const handleBack = () => {
+    // Block navigation while a publish request is in flight so the user
+    // cannot leave (and unmount the screen) mid-createArticle.
+    if (isPublishing) return;
     router.back();
   };
 
