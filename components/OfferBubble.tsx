@@ -106,6 +106,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   sellerId,
   articleId,
   articlePrice: listedPrice,
+  otherAvatar,
   onAcceptOffer,
   onRejectOffer,
   onCounterPrice,
