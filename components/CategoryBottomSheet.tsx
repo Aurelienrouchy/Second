@@ -25,10 +25,13 @@ export interface CategoryBottomSheetRef {
 }
 
 const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomSheetProps>(
-  ({ onSelect, selectedCategoryIds, suggestedCategoryId }, ref) => {
+  ({ onSelect, selectedCategoryIds, suggestedCategoryId, darkMode = false }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['85%'], []);
+    // Dark palette overrides (Swap Zone). Light values come from the static styles.
+    const headerIconColor = darkMode ? colors.cream : colors.charcoal;
+    const mutedColor = darkMode ? colors.whiteTranslucent : colors.muted;
     // Mount-on-open: the sheet is only rendered while open, so its backdrop can
     // never leak a residual veil when closed (gorhom #701 on New Architecture).
     const [mounted, setMounted] = React.useState(false);
