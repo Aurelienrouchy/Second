@@ -219,6 +219,11 @@ export default function ReviewScreen() {
         articleId: transaction.articleId,
       });
 
+      // Refresh the buyer (orders) and seller (sales) lists so the "Laisser un
+      // avis" CTA flips to "Avis laisse" when the user returns. Both lists key
+      // off queryKeys.orders.* so a single `orders` invalidation covers them.
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         'Merci pour votre avis !',
@@ -227,16 +232,12 @@ export default function ReviewScreen() {
       );
     } catch (err: unknown) {
       hasSubmittedRef.current = false;
-      const message =
-        err instanceof Error && err.message.includes('already')
-          ? 'Vous avez deja laisse un avis pour cette transaction.'
-          : 'Une erreur est survenue. Veuillez reessayer.';
-      Alert.alert('Erreur', message);
+      Alert.alert('Erreur', getReviewErrorMessage(err));
       if (__DEV__) console.error('Error submitting review:', err);
     } finally {
       setIsSubmitting(false);
     }
-  }, [currentUser, data, rating, comment, isSubmitting, router, showAuthSheet, transactionId]);
+  }, [currentUser, data, rating, comment, isSubmitting, router, showAuthSheet, transactionId, queryClient]);
 
   // ── Auth guard ──
 
