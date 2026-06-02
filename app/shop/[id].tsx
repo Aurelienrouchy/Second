@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   verifiedText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#34C759',
+    color: colors.success,
   },
   typeBadge: {
     alignSelf: 'flex-start',
