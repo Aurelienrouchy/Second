@@ -123,20 +123,6 @@ export default function MessagesScreen() {
     [handleChatPress, user, isChatBlocked]
   );
 
-  const getConversationType = useCallback(
-    (chat: Chat): ConversationType => {
-      // Contact-profile chats are created without a sellerId (see
-      // createOrGetChat: sellerId is only set for article-scoped chats), so a
-      // missing sellerId means the conversation isn't tied to a sale/purchase.
-      if (!chat.sellerId) return 'autres';
-      if (!user) return 'autres';
-      // Current user is the article owner → "vente" (sale); otherwise "achat".
-      if (chat.sellerId === user.id) return 'ventes';
-      return 'achats';
-    },
-    [user],
-  );
-
   const filteredChats = useMemo(
     () => chats.filter((chat) => getConversationType(chat) === activeTab),
     [chats, activeTab, getConversationType],
