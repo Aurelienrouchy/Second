@@ -361,6 +361,7 @@ export default function ReviewScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
