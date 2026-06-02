@@ -240,6 +240,8 @@ export default function SavedSearches() {
 
   const [searches, setSearches] = useState<SavedSearch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Gate behind auth
   useEffect(() => {
@@ -260,12 +262,16 @@ export default function SavedSearches() {
     const load = async () => {
       try {
         setIsLoading(true);
+        setHasError(false);
         const results = await SavedSearchService.getSavedSearches(user.id);
         if (!cancelled) {
           setSearches(results);
         }
       } catch (error) {
         if (__DEV__) console.error('Failed to load saved searches:', error);
+        if (!cancelled) {
+          setHasError(true);
+        }
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -278,7 +284,11 @@ export default function SavedSearches() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, reloadKey]);
+
+  const handleRetry = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
 
   // Navigate to search with restored params
   const handlePress = useCallback(
