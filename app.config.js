@@ -98,6 +98,11 @@ export default {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleAllowMixedLocalizations": true,
         "UIBackgroundModes": ["fetch", "remote-notification"],
+        // FR purpose strings (Loi 25 / App Store review) — config-driven so
+        // they survive `expo prebuild` instead of being hand-edited in Info.plist.
+        "NSLocationWhenInUseUsageDescription": "Seconde utilise votre position pour afficher les articles et les points de rencontre à proximité.",
+        "NSPhotoLibraryUsageDescription": "Seconde accède à vos photos pour ajouter des images à vos articles à vendre.",
+        "NSCameraUsageDescription": "Seconde utilise l'appareil photo pour prendre des photos de vos articles à vendre.",
         // URL schemes for deep linking (app + Expo Dev Client + Google)
         "CFBundleURLTypes": [
           {
