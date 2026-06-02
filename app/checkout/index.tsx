@@ -44,7 +44,12 @@ export default function CheckoutScreen() {
 
   const user = useAuthStore(selectUser);
 
-  const { data: article = null, isLoading: loading } = useQuery({
+  const {
+    data: article = null,
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: queryKeys.articles.detail(articleId),
     queryFn: () => ArticlesService.getArticleById(articleId),
     enabled: !!articleId,
