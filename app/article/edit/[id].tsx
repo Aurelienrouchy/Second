@@ -63,6 +63,8 @@ interface EditedFields {
   colors: string[];
   materials: string[];
   size: string | null;
+  /** Sizing system of the original article — preserved so a US size is never republished as EU. */
+  sizeSystem: import('@/types').SizeSystem;
   brand: string;
   price: number;
   isHandDelivery: boolean;
