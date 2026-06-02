@@ -80,12 +80,18 @@ export default function AdminShopsScreen() {
         case 'rejected':
           fetchedShops = await ShopService.getRejectedShops();
           break;
+        case 'suspended':
+          fetchedShops = await ShopService.getSuspendedShops();
+          break;
         case 'all':
           // Get all shops
-          const pending = await ShopService.getPendingShops();
-          const approved = await ShopService.getApprovedShops();
-          const rejected = await ShopService.getRejectedShops();
-          fetchedShops = [...pending, ...approved, ...rejected];
+          const [pending, approved, rejected, suspended] = await Promise.all([
+            ShopService.getPendingShops(),
+            ShopService.getApprovedShops(),
+            ShopService.getRejectedShops(),
+            ShopService.getSuspendedShops(),
+          ]);
+          fetchedShops = [...pending, ...approved, ...rejected, ...suspended];
           break;
       }
 
