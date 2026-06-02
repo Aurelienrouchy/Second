@@ -553,8 +553,50 @@ export const requestReturn = onCall(
       },
     };
 
-    // --- Buy the return label (NOT idempotent in ShipEngine; precondition above
-    // short-circuits if a label already exists). Buyer -> seller. ---
+    // --- Atomically RESERVE the return BEFORE buying the (paid, non-idempotent)
+    // label. createReturnLabel has no ShipEngine idempotency key, so two
+    // concurrent calls racing past the pre-read could each buy a label. Setting
+    // returnLabelPending under the lock makes the loser of the race abort
+    // *before* purchasing — only the reservation winner buys exactly one label.
+    // The flag is cleared on success (final commit) or on a failed purchase. ---
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(txRef);
+        if (!snap.exists) throw new HttpsError('not-found', 'Transaction not found');
+        const data = snap.data()!;
+
+        if (data.buyerId !== buyerUid) {
+          throw new HttpsError('permission-denied', 'Only the buyer can request a return');
+        }
+        if (
+          data.returnLabelId ||
+          data.returnTrackingNumber ||
+          data.status === 'return_requested' ||
+          data.returnLabelPending === true
+        ) {
+          throw new HttpsError('aborted', 'Un retour est déjà en cours pour cette commande.');
+        }
+        if (data.status !== 'delivered') {
+          throw new HttpsError(
+            'failed-precondition',
+            'Un retour ne peut être demandé que pour une commande livrée.'
+          );
+        }
+        tx.update(txRef, { returnLabelPending: true });
+      });
+    } catch (error: unknown) {
+      if (error instanceof HttpsError && error.code === 'aborted') {
+        logger.warn('[requestReturn] concurrent reservation — no label bought', {
+          transactionId,
+          buyerId: buyerUid,
+        });
+        return { success: true, alreadyRequested: true };
+      }
+      throw error;
+    }
+
+    // --- Buy the return label (NOT idempotent in ShipEngine; the reservation
+    // above guarantees exactly one in-flight purchase). Buyer -> seller. ---
     let label;
     try {
       label = await shipEngine.createReturnLabel(buyerAddress, sellerAddress, parcel);
@@ -565,6 +607,10 @@ export const requestReturn = onCall(
         buyerId: buyerUid,
         error: message,
       });
+      // Release the reservation so the buyer can retry (no label was bought).
+      await txRef
+        .update({ returnLabelPending: FieldValue.delete() })
+        .catch(() => undefined);
       throw new HttpsError(
         'unavailable',
         'Impossible de générer l\'étiquette de retour pour le moment. Veuillez réessayer.'
