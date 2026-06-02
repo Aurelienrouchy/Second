@@ -123,7 +123,7 @@ export function usePersonalizedFeed({
       }
 
       if (sizes.length > 0) {
-        filters.sizes = sizes;
+        filters.sizes = toArticleSizeFilters(sizes);
       }
 
       const { articles: results } = await ArticlesService.searchArticles(
