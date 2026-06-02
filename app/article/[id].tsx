@@ -74,12 +74,17 @@ export default function ArticleDetailScreen() {
     data: article = null,
     isLoading,
     isError,
+    refetch,
   } = useQuery<Article | null>({
     queryKey: queryKeys.articles.detail(id ?? ''),
     queryFn: () => ArticlesService.getArticleById(id!),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
+
+  const handleRetry = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   // Optimistic setter for useArticleActions (handleMarkAsSold).
   // Updates the query cache in-place instead of calling a React setState.
