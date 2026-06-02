@@ -78,6 +78,7 @@ export default function ChatScreen() {
     chat,
     isLoading,
     error,
+    isSending,
     sendMessage,
     sendImage,
     acceptOffer,
