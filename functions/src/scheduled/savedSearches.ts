@@ -141,9 +141,13 @@ export const checkSavedSearchNotifications = onSchedule(
           ...doc.data(),
         }));
 
-        // Filter by text query if present
+        // Filter by text query if present. Title/description stay substring
+        // (free-text). Brand is matched EXACT on brandKey() to mirror the client
+        // (articlesService matchesClientSideFilters) so e.g. a query of "gap"
+        // never matches the brand "Gap Kids" via substring.
         if (searchQuery) {
           const queryLower = searchQuery.toLowerCase();
+          const queryBrandKey = brandKey(searchQuery);
           matchingArticles = matchingArticles.filter((article: any) => {
             const matchesTitle = article.title
               ?.toLowerCase()
@@ -151,10 +155,9 @@ export const checkSavedSearchNotifications = onSchedule(
             const matchesDesc = article.description
               ?.toLowerCase()
               .includes(queryLower);
-            const brands = article.brands || (article.brand ? [article.brand] : []);
-            const matchesBrand = brands.some((b: string) =>
-              b.toLowerCase().includes(queryLower)
-            );
+            const articleBrand = article.brand as string | undefined;
+            const matchesBrand =
+              !!articleBrand && brandKey(articleBrand) === queryBrandKey;
             return matchesTitle || matchesDesc || matchesBrand;
           });
         }
