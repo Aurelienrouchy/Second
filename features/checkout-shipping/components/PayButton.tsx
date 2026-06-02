@@ -8,7 +8,7 @@ import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fonts, radius } from '@/constants/theme';
-import { formatPrice } from '@/utils/formatPrice';
+import { formatPriceWithCurrency } from '@/utils/formatPrice';
 
 // =============================================================================
 // TYPES
