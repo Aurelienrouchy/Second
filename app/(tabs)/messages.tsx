@@ -51,8 +51,10 @@ export default function MessagesScreen() {
   const { showAuthSheet } = useAuthRequired();
   const router = useRouter();
   const { chats, isLoading, error } = useChats(user?.id || null);
-  const [activeTab, setActiveTab] = useState<ConversationType>('ventes');
-  const hasSetInitialTab = useRef(false);
+  // `null` = no explicit choice yet → fall back to the derived default below.
+  // Set only when the user taps a tab, so the default can stay reactive while
+  // chats stream in (no empty-tab flash) without a setState-in-effect.
+  const [pickedTab, setPickedTab] = useState<ConversationType | null>(null);
   // Tab bar is absolute on iOS — pad the list so the last row clears it.
   const tabBarHeight = useBottomTabOverflow();
 
