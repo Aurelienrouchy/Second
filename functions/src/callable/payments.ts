@@ -993,10 +993,35 @@ export const createStripeCheckout = onCall(
         );
 
         // --- Wallet debit (if applicable) ---
+        // P2-10 (idempotence): the wallet debit lives INSIDE this runTransaction,
+        // but `stripePaymentIntentId` (the existing-checkout guard above) is only
+        // stamped AFTER this transaction commits, when the Stripe PI is created
+        // out-of-band. That leaves a window where a retry / double-tap re-enters
+        // here with no PaymentIntent yet recorded. Without a second guard the
+        // wallet would be debited TWICE. We therefore treat an already-recorded
+        // `walletAmountUsed` (set atomically alongside the first debit below) as
+        // proof the debit already happened: we skip a fresh debit and RE-USE the
+        // recorded amount so the downstream Stripe charge math stays consistent.
         let walletDebited = false;
         const totalChargeCents = Math.round(calculatedFees.buyerTotal * 100);
+        const alreadyDebitedAmount =
+          typeof transaction.walletAmountUsed === 'number' && transaction.walletAmountUsed > 0
+            ? transaction.walletAmountUsed
+            : 0;
 
-        if (walletAmount > 0) {
+        if (alreadyDebitedAmount > 0) {
+          // A previous (committed) call already debited the wallet for this
+          // transaction. Do NOT debit again — re-use the recorded amount. The
+          // requested walletAmount must match the recorded one (a mismatched
+          // retry is a client bug, not a new authorization to debit more).
+          if (walletAmount > 0 && walletAmount !== alreadyDebitedAmount) {
+            throw new HttpsError(
+              'failed-precondition',
+              'Un paiement partiel par porte-monnaie a déjà été enregistré pour cette transaction avec un montant différent.'
+            );
+          }
+          walletDebited = true;
+        } else if (walletAmount > 0) {
           if (walletAmount >= totalChargeCents) {
             throw new HttpsError(
               'invalid-argument',
@@ -1040,6 +1065,10 @@ export const createStripeCheckout = onCall(
           walletDebited = true;
         }
 
+        // The authoritative wallet amount for the downstream Stripe charge: the
+        // freshly-debited amount, or the previously-recorded one on a retry.
+        const effectiveWalletAmount = alreadyDebitedAmount > 0 ? alreadyDebitedAmount : walletAmount;
+
         // Update fee fields atomically + wallet info
         const updateData: Record<string, any> = {
           serviceFee: calculatedFees.serviceFee,
@@ -1048,8 +1077,11 @@ export const createStripeCheckout = onCall(
           sellerPayout: calculatedFees.sellerPayout,
         };
 
-        if (walletDebited) {
-          updateData.walletAmountUsed = walletAmount;
+        // Only (re)stamp the wallet fields on a FRESH debit. On a retry the
+        // fields are already persisted — re-writing them is harmless but
+        // unnecessary, and we never overwrite with a smaller/zero value.
+        if (walletDebited && alreadyDebitedAmount === 0) {
+          updateData.walletAmountUsed = effectiveWalletAmount;
           updateData.paidVia = 'wallet_and_card';
         }
 
@@ -1061,6 +1093,7 @@ export const createStripeCheckout = onCall(
           existingPaymentIntentId: null as string | null,
           sellerId: transaction.sellerId as string,
           walletDebited,
+          effectiveWalletAmount,
         };
       });
 
