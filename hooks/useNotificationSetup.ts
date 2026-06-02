@@ -24,11 +24,13 @@ async function setupAndroidChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
 
   await Promise.all([
+    // Canaux critiques (HIGH) : son par défaut pour que la notif soit
+    // perçue (messages, offres, commandes). Les canaux DEFAULT restent muets.
     Notifications.setNotificationChannelAsync('messages', {
       name: 'Messages',
       description: 'Notifications de nouveaux messages',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: null,
+      sound: 'default',
       vibrationPattern: [0, 250, 250, 250],
       enableLights: true,
       enableVibrate: true,
@@ -37,7 +39,7 @@ async function setupAndroidChannels(): Promise<void> {
       name: 'Offres',
       description: 'Notifications d\'offres et propositions',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: null,
+      sound: 'default',
       enableVibrate: true,
     }),
     Notifications.setNotificationChannelAsync('notifications', {
