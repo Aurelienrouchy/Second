@@ -757,11 +757,13 @@ export const updateArticle = onCall(
 
     // Neighborhoods — same shape validation as create (P2-8). An empty array is
     // a legitimate erasure (no meetup neighborhoods); a non-empty array with any
-    // malformed entry is rejected.
+    // malformed entry is rejected. Erasure removes the fields entirely
+    // (FieldValue.delete), mirroring how colors/materials clear (P3-15), rather
+    // than leaving an empty array / null behind.
     if ('neighborhoods' in updates && Array.isArray(updates.neighborhoods)) {
       if (updates.neighborhoods.length === 0) {
-        sanitized.neighborhoods = [];
-        sanitized.neighborhood = null;
+        sanitized.neighborhoods = FieldValue.delete();
+        sanitized.neighborhood = FieldValue.delete();
       } else {
         const cleaned = updates.neighborhoods
           .slice(0, 10)
