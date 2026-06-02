@@ -54,7 +54,7 @@ function PriceRangeInputsComponent({
             placeholderTextColor={colors.muted}
             value={maxPriceText}
             onChangeText={onMaxChange}
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             returnKeyType="done"
           />
           <Text style={styles.priceCurrency}>$</Text>
