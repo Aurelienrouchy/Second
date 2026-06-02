@@ -366,7 +366,9 @@ const ConversationItem = React.memo(function ConversationItem({
         {/* Header: Name + Blocked / Article Tag */}
         <View style={styles.headerRow}>
           <Text style={styles.userName} numberOfLines={1}>
-            {formatDisplayName(otherParticipant?.userName)}
+            {formatDisplayName(
+              liveProfile?.displayName || otherParticipant?.userName,
+            )}
           </Text>
           {isBlocked ? (
             <View style={styles.blockedBadge}>
