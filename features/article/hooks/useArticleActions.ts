@@ -7,8 +7,8 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useRef } from 'react';
 import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
 
 import type { MakeOfferModalRef } from '@/components/MakeOfferModal';
