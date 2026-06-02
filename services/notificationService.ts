@@ -103,8 +103,10 @@ export class NotificationService {
 
       return notifications;
     } catch (error) {
-      console.error('Error fetching user notifications:', error);
-      return [];
+      if (__DEV__) console.error('Error fetching user notifications:', error);
+      // Propagate so React Query exposes `isError` (the screen surfaces a
+      // distinct error state + Réessayer instead of an empty list).
+      throw new Error('Erreur lors du chargement des notifications');
     }
   }
 
