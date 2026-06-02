@@ -58,6 +58,20 @@ export default function CaptureScreen() {
   const hasPhotos = photos.length > 0;
   const showThumbStrip = hasPhotos || canTakeMore;
 
+  // ── Camera fade-in on ready (parity with iOS SellOverlayCapture) ──
+  const cameraOpacity = useSharedValue(0);
+
+  const cameraFadeStyle = useAnimatedStyle(() => ({
+    opacity: cameraOpacity.value,
+  }));
+
+  const handleCameraReady = useCallback(() => {
+    cameraOpacity.value = withTiming(1, {
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, []);
+
   // ── Thumb container height animation ──
   const thumbContainerHeight = useSharedValue(0);
 
