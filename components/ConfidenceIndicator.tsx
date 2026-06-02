@@ -102,7 +102,7 @@ export default function ConfidenceIndicator({
             <Ionicons
               name="pricetag"
               size={isSmall ? 10 : 12}
-              color="#6D28D9"
+              color={themeColors.secondary}
             />
           </View>
         )}
