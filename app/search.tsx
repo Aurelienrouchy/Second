@@ -61,7 +61,9 @@ export default function SearchScreen() {
   const sortSheetRef = useRef<SelectionBottomSheetRef>(null);
 
   const filterChips: FilterChip[] = [
-    { key: 'sort', label: screen.getSortLabel(), active: screen.isSortActive, onPress: () => sortSheetRef.current?.show(), onRemove: screen.handleSortRemove },
+    // In text mode the sort is locked to relevance, so the chip neither opens
+    // the (1-item) sheet nor offers a remove action.
+    { key: 'sort', label: screen.getSortLabel(), active: screen.isSortActive, onPress: () => { if (!screen.isSortLocked) sortSheetRef.current?.show(); }, onRemove: screen.isSortLocked ? undefined : screen.handleSortRemove },
     { key: 'category', label: screen.getCategoryLabel(), active: screen.isCategoryActive, onPress: () => categorySheetRef.current?.show(), onRemove: screen.handleCategoryRemove },
     { key: 'colors', label: screen.getColorLabel(), active: screen.isColorActive, onPress: () => colorSheetRef.current?.show(), onRemove: () => screen.handleFilterRemove('colors') },
     { key: 'sizes', label: screen.getSizeLabel(), active: screen.isSizeActive, onPress: () => sizeSheetRef.current?.show(), onRemove: () => screen.handleFilterRemove('sizes') },
