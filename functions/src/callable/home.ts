@@ -126,24 +126,30 @@ async function _getPriceDrops(): Promise<PriceDropArticle[]> {
     snapshot.docs.map((d) => d.data().sellerId)
   );
 
-  const items: PriceDropArticle[] = snapshot.docs.map((doc) => {
-    const data = doc.data();
-    const originalPrice = data.originalPrice || data.price;
-    const reductionPercent = Math.round(
-      ((originalPrice - data.price) / originalPrice) * 100
-    );
-    return {
-      id: doc.id,
-      title: data.title,
-      brand: data.brand,
-      price: data.price,
-      originalPrice,
-      reduction: `-${reductionPercent}%`,
-      images: data.images || [],
-      sellerId: data.sellerId,
-      sellerName: sellerMap.get(data.sellerId) || 'Unknown',
-    };
-  });
+  const items: PriceDropArticle[] = snapshot.docs.reduce<PriceDropArticle[]>(
+    (acc, doc) => {
+      const data = doc.data();
+      const originalPrice = data.originalPrice || data.price;
+      // Guard: only surface a price-drop badge when there is a real reduction.
+      if (!originalPrice || originalPrice <= data.price) return acc;
+      const reductionPercent = Math.round(
+        ((originalPrice - data.price) / originalPrice) * 100
+      );
+      acc.push({
+        id: doc.id,
+        title: data.title,
+        brand: data.brand,
+        price: data.price,
+        originalPrice,
+        reduction: `-${reductionPercent}%`,
+        images: data.images || [],
+        sellerId: data.sellerId,
+        sellerName: sellerMap.get(data.sellerId) || 'Unknown',
+      });
+      return acc;
+    },
+    []
+  );
 
   return items.sort((a, b) => {
     const aP = parseInt(a.reduction.replace(/[^0-9]/g, ''), 10) || 0;
