@@ -68,7 +68,7 @@ const SwapItemCard: React.FC<SwapItemCardProps> = ({
       {showValue && (
         <View style={styles.valueSection}>
           <Text style={styles.valueLabel}>Valeur</Text>
-          <Text style={styles.valueAmount}>${item.price}</Text>
+          <Text style={styles.valueAmount}>{formatPrice(item.price)}</Text>
         </View>
       )}
 
