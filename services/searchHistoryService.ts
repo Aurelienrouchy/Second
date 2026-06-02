@@ -342,8 +342,9 @@ export class SearchHistoryService {
       if (sortLabel) parts.push(sortLabel);
     }
 
-    // Fallback to the first active filter label rather than a generic word.
-    return parts.join(' • ') || parts[0] || 'Recherche';
+    // All active filters are collected above; the generic word is only a
+    // last resort when nothing is set (e.g. an empty history entry).
+    return parts.join(' • ') || 'Recherche';
   }
 }
 
