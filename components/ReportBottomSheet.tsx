@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '@/constants/theme';
 
 export interface ReportBottomSheetRef {
   open: (type: ReportType, targetId: string, targetOwnerId?: string) => void;
