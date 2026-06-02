@@ -147,6 +147,7 @@ export default function NotificationsScreen() {
   const {
     data: notifications = [],
     isLoading,
+    isError,
     isRefetching,
     refetch,
   } = useQuery<Notification[]>({
