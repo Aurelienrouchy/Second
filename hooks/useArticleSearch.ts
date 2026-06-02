@@ -97,7 +97,8 @@ export function useArticleSearch({
       (filters.brands?.length ?? 0) > 0 ||
       !!filters.condition ||
       filters.minPrice !== undefined ||
-      filters.maxPrice !== undefined,
+      filters.maxPrice !== undefined ||
+      (!!filters.sortBy && filters.sortBy !== 'recent'),
     [filters]
   );
 
