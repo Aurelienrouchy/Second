@@ -108,14 +108,9 @@ export default function ChatScreen() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messages.length > 0 && flatListRef.current) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages.length]);
+  // Scroll-to-end is driven solely by the FlashList's onContentSizeChange
+  // (fires on initial layout + whenever a new message grows the content),
+  // avoiding the double-scroll race with a separate length-watching effect.
 
   // ─── Other participant info ───
   const otherParticipant = chat && user
