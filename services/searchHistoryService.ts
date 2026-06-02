@@ -24,14 +24,12 @@ export interface SearchHistoryItem {
   query: string;
   filters: Partial<SearchFilters>;
   timestamp: Date;
-  resultCount?: number;
 }
 
 interface SearchHistoryDocument {
   query: string;
   filters: Partial<SearchFilters>;
   timestamp: Timestamp;
-  resultCount?: number;
 }
 
 const MAX_HISTORY_ITEMS = 20;
