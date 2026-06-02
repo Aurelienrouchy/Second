@@ -255,9 +255,11 @@ export function useSearchScreen() {
     (sortId: string) => {
       setSelectedSort(sortId as SortBy);
       setFilters({ ...filters, sortBy: sortId as SortBy });
+      // A sort-only selection (no text/filters) must still reveal results.
+      if (!isSearching) setIsSearching(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
-    [filters, setFilters]
+    [filters, setFilters, isSearching]
   );
 
   // H5/H6 — with a text term, the server result order is popularity/relevance.
