@@ -768,19 +768,29 @@ export const updateArticle = onCall(
         );
       }
 
-      // Price drop tracking: if price has decreased, record it
-      if (
-        sanitized.price !== undefined &&
-        typeof sanitized.price === 'number' &&
-        sanitized.price < existing.price
-      ) {
-        const originalPrice = existing.originalPrice || existing.price;
-        const priceDropPercent = Math.round(
-          ((originalPrice - (sanitized.price as number)) / originalPrice) * 100,
-        );
-        sanitized.originalPrice = originalPrice;
-        sanitized.priceDropPercent = priceDropPercent;
-        sanitized.lastPriceDropAt = FieldValue.serverTimestamp();
+      // Price drop tracking
+      if (sanitized.price !== undefined && typeof sanitized.price === 'number') {
+        const newPrice = sanitized.price as number;
+        if (newPrice < existing.price) {
+          // Price decreased → record (or refresh) the drop against the baseline.
+          const originalPrice = existing.originalPrice || existing.price;
+          const priceDropPercent = Math.round(
+            ((originalPrice - newPrice) / originalPrice) * 100,
+          );
+          sanitized.originalPrice = originalPrice;
+          sanitized.priceDropPercent = priceDropPercent;
+          sanitized.lastPriceDropAt = FieldValue.serverTimestamp();
+        } else if (
+          existing.originalPrice !== undefined &&
+          newPrice >= existing.originalPrice
+        ) {
+          // Price raised back to (or above) the original baseline → the drop no
+          // longer holds. Clear the tracking fields so we never show a stale or
+          // negative reduction. (delete() is a no-op if the field is absent.)
+          sanitized.originalPrice = FieldValue.delete();
+          sanitized.priceDropPercent = FieldValue.delete();
+          sanitized.lastPriceDropAt = FieldValue.delete();
+        }
       }
 
       // Always set updatedAt
