@@ -161,13 +161,43 @@ const LEDGER_ICON_MAP: Record<
   },
   withdrawal_failed: {
     name: 'alert-circle',
+    color: colors.warning,
+    bg: colors.warningLight,
+  },
+  funds_held: {
+    name: 'lock-closed-outline',
+    color: colors.warning,
+    bg: colors.warningLight,
+  },
+  funds_released: {
+    name: 'lock-open-outline',
+    color: colors.success,
+    bg: colors.successLight,
+  },
+  dispute_hold: {
+    name: 'alert-circle-outline',
+    color: colors.warning,
+    bg: colors.warningLight,
+  },
+  refund_debit: {
+    name: 'arrow-up-circle-outline',
     color: colors.danger,
     bg: colors.dangerLight,
   },
 };
 
+/**
+ * Credit-side entries are rendered with a leading "+" in success green.
+ * Includes funds_released (protection window unlock) and withdrawal_failed
+ * (a failed payout re-credited to the available balance).
+ */
 function isCredit(type: WalletLedgerEntry['type']): boolean {
-  return type === 'sale_credit' || type === 'refund_credit';
+  return (
+    type === 'sale_credit' ||
+    type === 'refund_credit' ||
+    type === 'funds_released' ||
+    type === 'withdrawal_failed'
+  );
 }
 
 // =============================================================================
