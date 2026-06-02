@@ -57,7 +57,7 @@ function SignInFormComponent({
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
       {/* Social auth */}
-      {Platform.OS === 'ios' && (
+      {Platform.OS === 'ios' ? (
         <Pressable
           style={styles.appleButton}
           onPress={() => onSocialAuth('Apple')}
@@ -68,6 +68,11 @@ function SignInFormComponent({
           <Ionicons name="logo-apple" size={20} color={colors.white} />
           <Text style={styles.appleButtonText}>Continuer avec Apple</Text>
         </Pressable>
+      ) : (
+        <Text style={styles.message}>
+          Compte créé avec Apple ? Connectez-vous depuis un iPhone, ou ajoutez
+          un mot de passe depuis iOS pour vous connecter ici.
+        </Text>
       )}
 
       <Pressable
