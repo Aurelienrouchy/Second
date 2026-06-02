@@ -57,6 +57,80 @@ const notifications_1 = require("../utils/notifications");
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 // =============================================================================
+// HELPERS — Shop tier → buyer-fee reduction (Paid shop model)
+// =============================================================================
+/**
+ * Maps a paid-shop `tier` to the buyer-fee reduction fraction applied at
+ * checkout (Paid shop model). The reduction lowers ONLY the buyer protection
+ * fee — the seller still receives 100% of the article price (0% seller
+ * commission). The forfait pricing/percentages are not yet frozen ("à
+ * calibrer"), so we map to round, bounded fractions that `normalizeFeeReduction`
+ * (utils/fees) clamps into [0, 1]:
+ *   - basic   (L'Atelier) → 0    (standard fees)
+ *   - pro     (Le Comptoir) → 0.5 (~half the standard buyer fee)
+ *   - premium (La Maison) → 1    (0% buyer fee — Second monetizes via the
+ *                                  subscription only)
+ *
+ * Any unknown/absent tier yields 0 (full fee). Deterministic — no I/O — so it
+ * is safe to call inside runTransaction.
+ */
+function feeReductionForShopTier(tier) {
+    switch (tier) {
+        case 'pro':
+            return 0.5;
+        case 'premium':
+            return 1;
+        default:
+            return 0;
+    }
+}
+/**
+ * Resolves the buyer-fee reduction for a purchase from the SELLER's approved
+ * shop tier, read 100% server-side (never trusted from the client). Resolution
+ * order, both OUTSIDE runTransaction (no I/O inside a Firestore transaction):
+ *   1. The article's denormalized `shopId` (stamped at creation in products.ts)
+ *      → read that shop doc, use its `tier` only when `status === 'approved'`.
+ *   2. Fallback: query the seller's shops by `ownerId`, pick the approved one.
+ *
+ * Best-effort: any lookup failure returns 0 (full fee) — a shop-tier read must
+ * never block a paid order. Returns a bounded fraction in [0, 1].
+ */
+async function resolveBuyerFeeReduction(params) {
+    var _a;
+    const { shopId, sellerId } = params;
+    try {
+        if (typeof shopId === 'string' && shopId.length > 0) {
+            const shopSnap = await firebase_1.db.collection('shops').doc(shopId).get();
+            if (shopSnap.exists) {
+                const shop = shopSnap.data();
+                if (shop.status === 'approved') {
+                    return feeReductionForShopTier(shop.tier);
+                }
+            }
+            // shopId present but shop missing/not approved → no reduction.
+            return 0;
+        }
+        // No denormalized shopId on the article: resolve via the seller's shops.
+        // Single equality filter on ownerId → covered by the automatic single-field
+        // index. Approved-status filtering is done in memory (no composite index).
+        const shopsSnap = await firebase_1.db
+            .collection('shops')
+            .where('ownerId', '==', sellerId)
+            .get();
+        const approvedShop = shopsSnap.docs.find((d) => { var _a; return ((_a = d.data()) === null || _a === void 0 ? void 0 : _a.status) === 'approved'; });
+        if (approvedShop) {
+            return feeReductionForShopTier((_a = approvedShop.data()) === null || _a === void 0 ? void 0 : _a.tier);
+        }
+    }
+    catch (error) {
+        logger.warn('createTransaction: shop tier lookup failed, applying full buyer fee', {
+            sellerId,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
+    return 0;
+}
+// =============================================================================
 // HELPERS — Seller origin address resolution
 // =============================================================================
 const CA_POSTAL_RE = /^[A-Z]\d[A-Z]\d[A-Z]\d$/;
@@ -433,12 +507,21 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
     // invariant; this only blocks fabricated low amounts).
     //
     // Reads are OUTSIDE runTransaction (no I/O inside a Firestore transaction).
+    //
+    // Buyer-fee reduction (Paid shop model, P1-1): resolved here, server-side,
+    // from the SELLER's approved shop tier (never the client). The reduction
+    // lowers ONLY the buyer protection fee — the seller still receives 100% of
+    // the article price. It is deterministic once resolved, so it is applied
+    // inside runTransaction below without any further I/O. Defaults to 0 (full
+    // fee) when the seller has no approved shop / on any lookup failure.
+    let buyerFeeReduction = 0;
     {
         const articlePriceSnap = await articleRef.get();
         if (!articlePriceSnap.exists) {
             throw new https_1.HttpsError('not-found', 'Cet article n\'existe plus');
         }
-        const listedPrice = articlePriceSnap.data().price;
+        const articlePriceData = articlePriceSnap.data();
+        const listedPrice = articlePriceData.price;
         if (typeof listedPrice === 'number' && amount !== listedPrice) {
             const matchedOfferId = await verifyAcceptedOfferForNegotiatedAmount({
                 articleId,
@@ -450,6 +533,10 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
                 articleId, buyerId, amount, listedPrice, matchedOfferId,
             });
         }
+        buyerFeeReduction = await resolveBuyerFeeReduction({
+            shopId: articlePriceData.shopId,
+            sellerId: articlePriceData.sellerId,
+        });
     }
     // --- Server-side shipping re-pricing (never trust client shippingCost) ----
     //
@@ -596,7 +683,13 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
             // Build transaction data — server-side fee calculation (never trust client)
             // Meetup transactions have NO platform fee (aligned with frontend
             // messaging "Aucun frais de plateforme") and no shipping cost.
-            const fee = deliveryType === 'meetup' ? 0 : (0, fees_1.calculateServiceFee)(amount);
+            // Shipping transactions apply the seller's paid-shop tier reduction to
+            // the buyer protection fee (resolved server-side above; deterministic
+            // here). `calculateServiceFee` clamps the reduction into [0, 1] and the
+            // seller payout is unaffected (still 100% of `amount`).
+            const fee = deliveryType === 'meetup'
+                ? 0
+                : (0, fees_1.calculateServiceFee)(amount, buyerFeeReduction);
             // Shipping cost is the SERVER re-priced value, never the client input.
             const shipping = deliveryType === 'shipping' ? serverShippingCost : 0;
             const totalAmount = amount + shipping + fee;
@@ -607,6 +700,11 @@ exports.createTransaction = (0, https_1.onCall)({ region: 'northamerica-northeas
                 amount,
                 shippingCost: shipping,
                 serviceFee: fee,
+                // Persisted so createStripeCheckout re-applies the SAME reduction when
+                // it recomputes the authoritative charge (otherwise it would revert to
+                // the full buyer fee). Always a bounded number (0 = full fee), never
+                // undefined. Meetup has no fee, so 0 there too.
+                buyerFeeReduction: deliveryType === 'meetup' ? 0 : buyerFeeReduction,
                 totalAmount,
                 sellerPayout: amount,
                 deliveryType,
@@ -718,7 +816,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
             // Idempotent: if a PaymentIntent already exists, retrieve clientSecret from Stripe
             // (never store client_secret in Firestore — it's a sensitive credential)
             if (transaction.stripePaymentIntentId) {
-                const existingFees = (0, fees_1.calculateFees)(transaction.amount, transaction.shippingCost || 0);
+                const existingFees = (0, fees_1.calculateFees)(transaction.amount, transaction.shippingCost || 0, transaction.buyerFeeReduction);
                 return {
                     existingCheckout: true,
                     fees: existingFees,
@@ -727,8 +825,12 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                     walletDebited: false,
                 };
             }
-            // Always recalculate fees server-side for correctness
-            const calculatedFees = (0, fees_1.calculateFees)(transaction.amount, transaction.shippingCost || 0);
+            // Always recalculate fees server-side for correctness. Re-apply the
+            // paid-shop buyer-fee reduction persisted by createTransaction so the
+            // authoritative charge matches the reduced fee (clamped into [0, 1] by
+            // calculateFees; defaults to full fee when absent). Seller payout is
+            // unaffected (still 100% of amount).
+            const calculatedFees = (0, fees_1.calculateFees)(transaction.amount, transaction.shippingCost || 0, transaction.buyerFeeReduction);
             // --- Wallet debit (if applicable) ---
             let walletDebited = false;
             const totalChargeCents = Math.round(calculatedFees.buyerTotal * 100);

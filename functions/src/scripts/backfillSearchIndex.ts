@@ -58,6 +58,7 @@ import {
   generateSearchKeywords,
   calculatePopularityScore,
 } from '../utils/search';
+import { sanitizeArticleSize } from '../shared/article';
 
 // ── Admin init (explicit, standalone — NOT the functions runtime singleton) ──
 if (!admin.apps.length) {
