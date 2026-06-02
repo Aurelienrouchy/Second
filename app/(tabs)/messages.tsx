@@ -276,6 +276,7 @@ interface ConversationItemProps {
   onPress: (chatId: string) => void;
   isUnread: boolean;
   unreadCount: number;
+  isBlocked: boolean;
 }
 
 const ConversationItem = React.memo(function ConversationItem({
@@ -283,6 +284,7 @@ const ConversationItem = React.memo(function ConversationItem({
   onPress,
   isUnread,
   unreadCount,
+  isBlocked,
 }: ConversationItemProps) {
   const user = useUser();
   const otherParticipant = user
