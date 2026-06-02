@@ -22,6 +22,7 @@ import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useBottomTabOverflow } from '@/components/ui/TabBarBackground';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
 import { formatDisplayName } from '@/utils/formatName';
 
