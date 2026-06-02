@@ -252,6 +252,27 @@ export default function NotificationsScreen() {
     );
   }
 
+  if (isError) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <ScreenHeader title="Notifications" onBack={() => router.back()} />
+          <View style={styles.emptyState}>
+            <Ionicons name="cloud-offline-outline" size={64} color={colors.muted} />
+            <Text style={styles.emptyTitle}>Impossible de charger</Text>
+            <Text style={styles.emptySubtitle}>
+              Une erreur est survenue lors du chargement de vos notifications.
+            </Text>
+            <Pressable onPress={() => refetch()} style={styles.retryButton}>
+              <Text style={styles.retryText}>Réessayer</Text>
+            </Pressable>
+          </View>
+        </View>
+      </>
+    );
+  }
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
