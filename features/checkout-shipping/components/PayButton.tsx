@@ -24,6 +24,11 @@ interface PayButtonProps {
   walletCoversAll?: boolean;
   /** True when wallet balance is being applied (partial or full). */
   useWallet?: boolean;
+  /**
+   * Extra disable condition (e.g. the Stripe sheet is already presented).
+   * Combined with the internal `!canPay || submitting` guard.
+   */
+  disabled?: boolean;
 }
 
 // =============================================================================
