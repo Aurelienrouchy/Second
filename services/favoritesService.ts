@@ -128,17 +128,24 @@ export class FavoritesService {
       const snapshot = await getDocs(qRef);
 
       snapshot.forEach((d: QueryDocumentSnapshot) => {
-        if (d.exists()) {
-          articles.push({
-            id: d.id,
-            ...d.data(),
-            createdAt: d.data().createdAt?.toDate?.() ?? new Date(),
-          } as Article);
-        }
+        if (!d.exists()) return;
+        const data = d.data();
+        // Skip soft-deleted / sold articles: a soft delete (isActive:false) leaves
+        // the doc in place, so without this filter a deleted item would stay
+        // visible in every favoriter's list forever. These IDs are treated as
+        // orphans below so they get cleaned up via arrayRemove.
+        if (data.isActive === false || data.isSold === true) return;
+        articles.push({
+          id: d.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() ?? new Date(),
+        } as Article);
       });
     }
 
-    // 4. Detect orphaned IDs (articles that were deleted but still in favorites)
+    // 4. Detect orphaned IDs: an ID is orphaned when its article was hard-deleted
+    // (doc missing) OR soft-deleted/sold (filtered out above). Both are removed
+    // from the user's favorites so they stop counting against the cap.
     const returnedIds = new Set(articles.map((a) => a.id));
     const orphanedIds = pageIds.filter((id) => !returnedIds.has(id));
 
