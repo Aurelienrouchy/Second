@@ -176,7 +176,7 @@ export default function NotificationsScreen() {
     if (deepLink) {
       const path = Linking.parse(deepLink).path;
       if (path) {
-        router.push(`/${path}` as never);
+        router.push(`/${path}`);
         return;
       }
     }
