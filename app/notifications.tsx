@@ -176,7 +176,9 @@ export default function NotificationsScreen() {
     if (deepLink) {
       const path = Linking.parse(deepLink).path;
       if (path) {
-        router.push(`/${path}`);
+        // Dynamic deep-link path: not statically typeable against typed routes.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        router.push(`/${path}` as any);
         return;
       }
     }
