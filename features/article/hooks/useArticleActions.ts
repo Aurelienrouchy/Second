@@ -52,6 +52,16 @@ export function useArticleActions({
   const { requireAuth } = useAuthRequired();
   const queryClient = useQueryClient();
 
+  // Navigation guard against double-taps on Buy / Offer / Swap: a synchronous
+  // ref flips to true before the first router.push and blocks any further push
+  // until the screen regains focus (i.e. the user navigates back).
+  const isTransitioning = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      isTransitioning.current = false;
+    }, [])
+  );
+
   const handleToggleFavorite = useCallback(() => {
     if (!article) return;
     if (article.isSold) return;
