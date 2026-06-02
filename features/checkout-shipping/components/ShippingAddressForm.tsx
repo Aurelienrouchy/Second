@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   fieldError: {
     fontFamily: fonts.sans,
     fontSize: 11,
-    color: colors.error,
+    color: colors.danger,
     marginTop: 6,
   },
   formFieldRow: {
