@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   previewTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.charcoal,
     marginBottom: 8,
   },
   previewMeta: {
