@@ -203,41 +203,6 @@ export default function PreferencesScreen() {
             )}
           </View>
 
-          {/* Location Section */}
-          <View style={styles.section}>
-            <Label style={styles.sectionHeader}>Ma localisation</Label>
-            <Caption style={styles.sectionSubtitle}>
-              Activez la localisation pour voir les articles près de chez vous
-            </Caption>
-            {location ? (
-              <View style={styles.locationCard}>
-                <View style={styles.locationInfo}>
-                  <Ionicons name="location" size={24} color={colors.primary} />
-                  <Text variant="body" style={styles.locationText}>{location.city}</Text>
-                </View>
-                <Pressable onPress={clearLocation} hitSlop={10}>
-                  <Ionicons name="close-circle" size={24} color={colors.muted} />
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                style={styles.selectorButton}
-                onPress={handleGetLocation}
-                disabled={isLoadingLocation}
-              >
-                {isLoadingLocation ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Ionicons name="location-outline" size={20} color={colors.muted} />
-                )}
-                <Text variant="body" style={styles.selectorButtonText}>
-                  {isLoadingLocation ? 'Localisation en cours...' : 'Activer la localisation'}
-                </Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-              </Pressable>
-            )}
-          </View>
-
           {/* Notifications Section */}
           <View style={styles.section}>
             <Label style={styles.sectionHeader}>Notifications</Label>
