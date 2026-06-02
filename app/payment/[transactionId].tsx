@@ -34,7 +34,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { WalletService } from '@/services/walletService';
 import { TransactionService } from '@/services/transactionService';
 import { queryKeys } from '@/lib/queryKeys';
-import { formatPrice } from '@/utils/formatPrice';
+import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
 
 // =============================================================================
 // CONSTANTS
