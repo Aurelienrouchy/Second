@@ -288,6 +288,11 @@ export const checkSavedSearchNotifications = onSchedule(
               ? `Résultats pour "${searchQuery}"`
               : 'De nouveaux articles correspondent à votre recherche';
 
+          // Real APNs badge = unread notifications + unread chat messages
+          // (NOT the per-search new-items count, which would clobber the badge
+          // with an unrelated value).
+          const badge = await computeBadgeCount(userId);
+
           // Send notification to all user's devices
           const messages = fcmTokens.map((token: string) => ({
             token,
