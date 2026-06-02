@@ -60,7 +60,7 @@ export const PriceBreakdown = React.memo(function PriceBreakdown({
         <View style={styles.priceRowTotal}>
           <Text style={styles.priceTotalLabel}>Total</Text>
           <Text style={styles.priceTotalValue}>
-            {formatPrice(totalAmount)}
+            {formatPriceWithCurrency(totalAmount)}
           </Text>
         </View>
       </View>
