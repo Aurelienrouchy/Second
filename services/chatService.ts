@@ -586,24 +586,47 @@ export class ChatService {
     userId: string
   ): Promise<void> {
     try {
-      // P1-4 / P1-7: server-authoritative acceptance. The callable
-      // `acceptMeetupOffer` runs a single runTransaction that (1) flips the
-      // offer to 'accepted', (2) locks the article (isSold), and (3) creates
-      // the meetup transaction — deriving buyer/seller from the offer + chat
-      // participants server-side (never from a client-supplied receiverId).
-      // The previous client `updateDoc('offer.status','accepted')` left an
-      // orphaned 'accepted' offer if the follow-up tx creation failed, and
-      // derived seller from the message's receiverId which could be wrong.
-      const acceptMeetupOfferFn = httpsCallable<
-        { chatId: string; messageId: string },
-        { success: boolean; transactionId: string }
-      >(functions, 'acceptMeetupOffer');
-      await acceptMeetupOfferFn({ chatId, messageId });
+      const messageRef = doc(firestore, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
 
-      // System confirmation message (informational only; the financial/status
-      // mutation is already committed atomically by the callable above).
-      const messageDoc = await getDoc(doc(firestore, 'messages', messageId));
-      const offerData = messageDoc.exists() ? messageDoc.data() : null;
+      if (!messageDoc.exists()) {
+        throw new Error('Message non trouve');
+      }
+
+      const offerData = messageDoc.data();
+
+      if (offerData?.offer?.meetup) {
+        // P1-4 / P1-7: server-authoritative meetup acceptance. The callable
+        // `acceptMeetupOffer` runs a single runTransaction that (1) flips the
+        // offer to 'accepted', (2) locks the article (isSold), and (3) creates
+        // the meetup transaction — deriving buyer/seller from the offer + chat
+        // participants server-side (never from a client-supplied receiverId).
+        // The previous client `updateDoc('offer.status','accepted')` left an
+        // orphaned 'accepted' offer if the follow-up tx creation failed, and
+        // derived seller from the message's receiverId which could be wrong.
+        const acceptMeetupOfferFn = httpsCallable<
+          { chatId: string; messageId: string },
+          { success: boolean; transactionId: string }
+        >(functions, 'acceptMeetupOffer');
+        await acceptMeetupOfferFn({ chatId, messageId });
+      } else {
+        // Non-meetup (legacy shipping) offer: no transaction / article lock is
+        // created on accept — the buyer pays separately via the checkout flow.
+        // H9: enforce offer expiry before flipping the status.
+        if (offerData?.offer?.expiresAt) {
+          const expiresAt = offerData.offer.expiresAt.toDate
+            ? offerData.offer.expiresAt.toDate()
+            : new Date(offerData.offer.expiresAt);
+          if (expiresAt < new Date()) {
+            await updateDoc(messageRef, { 'offer.status': 'expired' });
+            throw new Error('Cette offre a expire');
+          }
+        }
+        await updateDoc(messageRef, { 'offer.status': 'accepted' });
+      }
+
+      // System confirmation message (informational only; for meetup offers the
+      // financial/status mutation is already committed atomically above).
       if (offerData?.offer) {
         await this.sendSystemMessage(
           chatId,
