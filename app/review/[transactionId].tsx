@@ -266,6 +266,11 @@ export default function ReviewScreen() {
     <View style={styles.container}>
       <ScreenHeader title="Laisser un avis" onBack={handleBack} />
 
+      <KeyboardAvoidingView
+        style={styles.scrollView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      >
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
