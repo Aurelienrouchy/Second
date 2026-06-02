@@ -730,8 +730,9 @@ export class ArticlesService {
    * All matching is strict equality on canonical IDs (no substring), so e.g.
    * `bleu` no longer matches `bleu-marine`, `or` no longer matches `bordeaux`,
    * `cuir` no longer matches `cuir-synthetique`, and `Gap` no longer matches
-   * `Gap Kids`. Sizes match exactly on both value AND system so US/EU never
-   * collide. Articles missing the filtered attribute are excluded.
+   * `Gap Kids`. Object sizes ({ value, system }) match exactly on both fields
+   * so US/EU never collide; legacy string sizes match by value only.
+   * Articles missing the filtered attribute are excluded.
    */
   private static matchesClientSideFilters(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
