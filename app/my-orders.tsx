@@ -38,6 +38,20 @@ interface OrderItem {
   hasReview: boolean;
 }
 
+/**
+ * Terminal statuses eligible for a review. Mirrors the backend gate in
+ * `functions/src/callable/reviews.ts` (`terminalStatuses`): a shipping order is
+ * reviewable once `delivered` and stays reviewable after it flips to
+ * `completed` (J+7 dispute window), and a meetup order once `meetup_completed`.
+ */
+function isReviewableStatus(status: TransactionStatus): boolean {
+  return (
+    status === 'delivered' ||
+    status === 'completed' ||
+    status === 'meetup_completed'
+  );
+}
+
 function OrderCard({
   item,
   onPress,
