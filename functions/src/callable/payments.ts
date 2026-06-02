@@ -477,6 +477,16 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
 // =============================================================================
 
 export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+  // Light rate limit: no external API here (pure fee computation), so the cap
+  // is generous — it only guards against abusive bursts. Unauthenticated cap 0.
+  const { callerKey, isAuthenticated } = resolveCallerKey(request);
+  await checkRateLimit(callerKey, isAuthenticated, {
+    functionName: 'getServiceFee',
+    maxCallsAuthenticated: 60,
+    maxCallsUnauthenticated: 0,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  });
+
   const { articlePrice } = request.data;
 
   if (!articlePrice || articlePrice <= 0) {
