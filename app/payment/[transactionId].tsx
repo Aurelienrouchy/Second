@@ -173,6 +173,7 @@ export default function PaymentScreen() {
     async (result: StripePaymentResult) => {
       setShowStripePayment(false);
       setClientSecret(null);
+      setServerBuyerTotal(null);
 
       if (!result.success) {
         if (result.error !== 'cancelled') {
@@ -182,13 +183,45 @@ export default function PaymentScreen() {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Paiement confirmé !',
-        'L\'étiquette d\'expédition sera générée automatiquement. Le vendeur sera notifié.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+
+      const confirmAndExit = () => {
+        Alert.alert(
+          'Paiement confirmé !',
+          'L\'étiquette d\'expédition sera générée automatiquement. Le vendeur sera notifié.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      };
+
+      // The Payment Sheet succeeded on Stripe's side, but the transaction is
+      // only marked 'paid' once stripeWebhook fires server-side. Poll the
+      // status before confirming so we never claim success while still
+      // pending_payment.
+      if (!transactionId) {
+        confirmAndExit();
+        return;
+      }
+
+      setConfirmingPayment(true);
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < PAYMENT_CONFIRM_TIMEOUT_MS) {
+        try {
+          const trans = await TransactionService.getTransaction(transactionId);
+          if (trans && PAID_STATUSES.has(trans.status)) {
+            setConfirmingPayment(false);
+            confirmAndExit();
+            return;
+          }
+        } catch (e) {
+          if (__DEV__) console.error('Error polling transaction status:', e);
+        }
+        await new Promise((r) => setTimeout(r, PAYMENT_CONFIRM_POLL_MS));
+      }
+
+      // Webhook lagging — confirm anyway; the order detail reflects final status.
+      setConfirmingPayment(false);
+      confirmAndExit();
     },
-    [router]
+    [router, transactionId]
   );
 
   // =============================================================================
