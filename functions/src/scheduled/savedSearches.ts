@@ -114,7 +114,12 @@ export const checkSavedSearchNotifications = onSchedule(
           .where('isSold', '==', false)
           .where('createdAt', '>', lastNotifiedAt);
 
-        // Apply filters (only first filter due to Firestore limitations)
+        // Apply the single server-side equality filter we can index cheaply
+        // (only the first filter, due to Firestore single-array-membership and
+        // index limitations). Brand is intentionally NOT pushed server-side:
+        // articles store a single `brand` STRING (not a `brands` array), so an
+        // `array-contains-any` would match nothing and would also require an
+        // extra composite index. The brand filter is applied in memory below.
         if (filters.categoryIds && filters.categoryIds.length > 0) {
           const mostSpecificCategory =
             filters.categoryIds[filters.categoryIds.length - 1];
@@ -122,12 +127,6 @@ export const checkSavedSearchNotifications = onSchedule(
             'categoryIds',
             'array-contains',
             mostSpecificCategory
-          );
-        } else if (filters.brands && filters.brands.length > 0) {
-          articlesQuery = articlesQuery.where(
-            'brands',
-            'array-contains-any',
-            filters.brands.slice(0, 10)
           );
         }
 
