@@ -752,13 +752,22 @@ export class ArticlesService {
 
     if (filters?.sizes && filters.sizes.length > 0) {
       const articleSize = data.size;
-      // Size is an ArticleSize object { value, system }; require exact match
-      // on both fields. Articles without a size are excluded.
-      if (!articleSize || typeof articleSize !== 'object') return false;
-      const matches = filters.sizes.some(
-        (f) => f.value === articleSize.value && f.system === articleSize.system,
-      );
-      if (!matches) return false;
+      if (!articleSize) return false;
+      if (typeof articleSize === 'object') {
+        // Canonical ArticleSize { value, system }: match on both fields so
+        // US/EU never collide.
+        const matches = filters.sizes.some(
+          (f) => f.value === articleSize.value && f.system === articleSize.system,
+        );
+        if (!matches) return false;
+      } else {
+        // Legacy size stored as a bare string: compare by value only (the
+        // system is unknown), so legacy docs and personalized-feed string
+        // filters still match.
+        const articleSizeValue = String(articleSize);
+        const matches = filters.sizes.some((f) => f.value === articleSizeValue);
+        if (!matches) return false;
+      }
     }
 
     if (filters?.materials && filters.materials.length > 0) {
