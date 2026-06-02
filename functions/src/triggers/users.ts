@@ -4,7 +4,7 @@
  *
  * Propagates displayName and profileImage changes to denormalized data:
  * - articles.sellerName / articles.sellerImage
- * - chats.participantsInfo[uid].userName / .profileImage
+ * - chats.participantsInfo[].userName / .userImage (array format)
  */
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
