@@ -396,6 +396,12 @@ export class AuthService {
         throw new Error('Configuration Google Sign-In incorrecte. Vérifiez le SHA-1 dans Firebase Console.');
       }
 
+      if (error?.code === 'auth/account-exists-with-different-credential') {
+        throw new Error(
+          'Un compte existe déjà avec cette adresse e-mail via une autre méthode de connexion. Connectez-vous avec votre e-mail et mot de passe.',
+        );
+      }
+
       if (__DEV__) console.error('[AuthService] Google Sign-In error:', error?.code, error?.message);
       throw new Error('Erreur lors de la connexion Google. Veuillez réessayer.');
     }
