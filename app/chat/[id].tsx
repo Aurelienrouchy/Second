@@ -437,6 +437,18 @@ export default function ChatScreen() {
         // it stays correct across notched / non-notched devices.
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + CHAT_HEADER_HEIGHT : 0}
       >
+        {/* Shipping → full tracker. Meetup → ShipmentTracking self-limits to
+            the Loi 25 automated-decision transparency + contestation block
+            (e.g. annulation automatique du meetup), or renders nothing.
+            Rendered as a sibling (not ListHeaderComponent) so the tracker is
+            visible even before any message exists in the thread. */}
+        {transaction && transaction.status !== 'pending_payment' && (
+          <ShipmentTracking
+            transaction={transaction}
+            onStatusUpdate={() => { refetchTransaction(); }}
+          />
+        )}
+
         {messages.length === 0 ? (
           <ChatEmptyState otherParticipantName={otherParticipant?.userName} />
         ) : (
@@ -449,17 +461,6 @@ export default function ChatScreen() {
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() =>
               flatListRef.current?.scrollToEnd({ animated: false })
-            }
-            ListHeaderComponent={
-              // Shipping → full tracker. Meetup → ShipmentTracking self-limits to
-              // the Loi 25 automated-decision transparency + contestation block
-              // (e.g. annulation automatique du meetup), or renders nothing.
-              transaction && transaction.status !== 'pending_payment' ? (
-                <ShipmentTracking
-                  transaction={transaction}
-                  onStatusUpdate={() => { refetchTransaction(); }}
-                />
-              ) : null
             }
           />
         )}
