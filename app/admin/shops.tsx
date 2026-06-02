@@ -430,6 +430,22 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
   },
+  suspendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: -4,
+    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: colors.warningLight,
+  },
+  suspendButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.warning,
+  },
   skeletonContainer: {
     flex: 1,
     padding: 16,
