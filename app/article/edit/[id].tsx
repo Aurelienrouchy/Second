@@ -187,6 +187,8 @@ export default function EditArticleScreen() {
         colors: loadedColors,
         materials: loadedMaterials,
         size: articleData.size?.value || null,
+        // Keep the article's original sizing system so US sizes are never silently rewritten as EU.
+        sizeSystem: articleData.size?.system || 'EU',
         brand: articleData.brand || '',
         price: articleData.price || 0,
         // Shipping désactivé : un article legacy en shipping est ramené au main-à-main.
