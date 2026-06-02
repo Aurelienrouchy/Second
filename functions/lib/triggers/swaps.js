@@ -201,6 +201,14 @@ exports.onSwapStatusUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'sw
         let body;
         switch (newStatus) {
             case 'accepted':
+                // When the transition comes from 'payment_pending', the receiver
+                // accepted by settling the cash top-up — notify BOTH parties so the
+                // receiver also gets confirmation, not just the initiator.
+                if (before.status === 'payment_pending') {
+                    await (0, notifications_1.sendSwapNotification)(after.initiatorId, swapId, 'Échange accepté !', `${after.receiverName} a accepté ${getSwapDescription(after)}`, after);
+                    await (0, notifications_1.sendSwapNotification)(after.receiverId, swapId, 'Échange accepté !', `Tu as accepté ${getSwapDescription(after)}`, after);
+                    return;
+                }
                 targetUserId = after.initiatorId;
                 title = 'Échange accepté !';
                 body = `${after.receiverName} a accepté ${getSwapDescription(after)}`;

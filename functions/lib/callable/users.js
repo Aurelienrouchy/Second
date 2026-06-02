@@ -207,19 +207,14 @@ exports.deleteUserAccount = (0, https_1.onCall)({
     const notifsSnap = await firebase_1.db.collection('notifications').where('userId', '==', uid).get();
     for (const d of notifsSnap.docs)
         bulkWriter.delete(d.ref);
-    // 7. Anonymise chats
+    // 7. Anonymise chats. participantsInfo is always an array of
+    //    { userId, userName, userImage } (chatService writes only this shape).
     const chatsSnap = await firebase_1.db.collection('chats').where('participants', 'array-contains', uid).get();
     for (const d of chatsSnap.docs) {
         const info = d.data().participantsInfo;
         if (Array.isArray(info)) {
             const updated = info.map((p) => p.userId === uid ? Object.assign(Object.assign({}, p), { userName: DELETED_NAME, userImage: null }) : p);
             bulkWriter.update(d.ref, { participantsInfo: updated, updatedAt: firebase_1.FieldValue.serverTimestamp() });
-        }
-        else if (info && typeof info === 'object') {
-            if (info[uid]) {
-                info[uid] = Object.assign(Object.assign({}, info[uid]), { userName: DELETED_NAME, profileImage: null });
-            }
-            bulkWriter.update(d.ref, { participantsInfo: info, updatedAt: firebase_1.FieldValue.serverTimestamp() });
         }
     }
     // 7b. Anonymise messages sent by the user (batch 500)

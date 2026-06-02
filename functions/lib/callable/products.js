@@ -252,6 +252,16 @@ exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         data.categoryIds.length === 0) {
         throw new https_1.HttpsError('invalid-argument', 'Au moins une categorie est requise');
     }
+    // Delivery options (P3-7): at least one delivery mode is required. The
+    // client gates `isShipping` behind the `SHIPPING_ENABLED` flag and always
+    // sets `isHandDelivery: true` when shipping is off, so this guard only ever
+    // fires on a malformed payload (both false) — and naturally re-allows
+    // shipping when the flag flips back on (isShipping then satisfies it).
+    const wantsHandDelivery = data.isHandDelivery === true;
+    const wantsShipping = data.isShipping === true;
+    if (!wantsHandDelivery && !wantsShipping) {
+        throw new https_1.HttpsError('invalid-argument', 'Au moins une option de livraison requise');
+    }
     // ── 3. Sanitise text fields ──
     const stripHtml = (s) => s.replace(/<[^>]*>/g, '').trim();
     const sanitizedTitle = stripHtml(data.title).substring(0, 200);
@@ -360,9 +370,9 @@ exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     if (typeof data.brand === 'string' && data.brand.trim()) {
         article.brand = await resolveBrand(data.brand);
     }
-    if (typeof data.pattern === 'string' && data.pattern.trim()) {
-        article.pattern = data.pattern.trim().substring(0, 100);
-    }
+    // `pattern`: legacy field, lecture seule, plus ecrit (P3-5). The pattern
+    // concept was removed (data/patterns.ts has no importers); existing docs
+    // keep the field for back-compat reads but new writes no longer set it.
     // Colors — multi-select + backward compat single value
     if (Array.isArray(data.colors) && data.colors.length > 0) {
         article.colors = data.colors
@@ -584,9 +594,8 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     if ('brand' in updates && typeof updates.brand === 'string') {
         sanitized.brand = await resolveBrand(updates.brand);
     }
-    if ('pattern' in updates && typeof updates.pattern === 'string') {
-        sanitized.pattern = updates.pattern.trim().substring(0, 100);
-    }
+    // `pattern`: legacy field, lecture seule, plus ecrit (P3-5). Updates that
+    // carry a `pattern` key are intentionally ignored (the concept was removed).
     // Colors
     if ('colors' in updates && Array.isArray(updates.colors)) {
         sanitized.colors = updates.colors
@@ -623,11 +632,13 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     }
     // Neighborhoods — same shape validation as create (P2-8). An empty array is
     // a legitimate erasure (no meetup neighborhoods); a non-empty array with any
-    // malformed entry is rejected.
+    // malformed entry is rejected. Erasure removes the fields entirely
+    // (FieldValue.delete), mirroring how colors/materials clear (P3-15), rather
+    // than leaving an empty array / null behind.
     if ('neighborhoods' in updates && Array.isArray(updates.neighborhoods)) {
         if (updates.neighborhoods.length === 0) {
-            sanitized.neighborhoods = [];
-            sanitized.neighborhood = null;
+            sanitized.neighborhoods = firebase_1.FieldValue.delete();
+            sanitized.neighborhood = firebase_1.FieldValue.delete();
         }
         else {
             const cleaned = updates.neighborhoods
@@ -684,6 +695,21 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         // Block editing deactivated articles (task #14)
         if (existing.isActive === false) {
             throw new https_1.HttpsError('failed-precondition', 'Impossible de modifier un article desactive');
+        }
+        // Delivery options (P3-7): the resulting article must keep at least one
+        // delivery mode. We only need to re-check when the caller actually touched
+        // a delivery flag; the merged state (sanitized overrides existing) must
+        // not leave both modes off. Symmetric to the createArticle guard.
+        if ('isHandDelivery' in sanitized || 'isShipping' in sanitized) {
+            const resultHandDelivery = 'isHandDelivery' in sanitized
+                ? sanitized.isHandDelivery === true
+                : existing.isHandDelivery === true;
+            const resultShipping = 'isShipping' in sanitized
+                ? sanitized.isShipping === true
+                : existing.isShipping === true;
+            if (!resultHandDelivery && !resultShipping) {
+                throw new https_1.HttpsError('invalid-argument', 'Au moins une option de livraison requise');
+            }
         }
         // Price drop tracking
         if (sanitized.price !== undefined && typeof sanitized.price === 'number') {

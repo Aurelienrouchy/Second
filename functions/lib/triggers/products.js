@@ -75,6 +75,12 @@ exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'arti
             await firebase_1.db.collection('search_index').doc(articleId).delete();
             return;
         }
+        // Sold articles must leave the search index (P3-14): drop them server-side
+        // instead of relying on 100% client-side masking of `isSold` results.
+        if (articleData.isSold === true) {
+            await firebase_1.db.collection('search_index').doc(articleId).delete();
+            return;
+        }
         // Generate geohash for location
         let geohash = '';
         if ((_c = articleData.location) === null || _c === void 0 ? void 0 : _c.coordinates) {

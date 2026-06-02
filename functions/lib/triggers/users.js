@@ -40,7 +40,7 @@ exports.onUserProfileUpdated = void 0;
  *
  * Propagates displayName and profileImage changes to denormalized data:
  * - articles.sellerName / articles.sellerImage
- * - chats.participantsInfo[uid].userName / .profileImage
+ * - chats.participantsInfo[].userName / .userImage (array format)
  */
 const firestore_1 = require("firebase-functions/v2/firestore");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -99,7 +99,9 @@ exports.onUserProfileUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'u
         if (batchCount > 0)
             await batch.commit();
     }
-    // 2. Update participantsInfo[uid] in all chats where user participates
+    // 2. Update participantsInfo[uid] in all chats where user participates.
+    //    participantsInfo is always an array of { userId, userName, userImage }
+    //    (chatService writes only this shape; the client reads it with .find).
     const chatsSnap = await firebase_1.db
         .collection('chats')
         .where('participants', 'array-contains', uid)
@@ -125,19 +127,6 @@ exports.onUserProfileUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'u
                     batchCount++;
                     chatsUpdated++;
                 }
-            }
-            else if (info && typeof info === 'object' && info[uid]) {
-                const updatedInfo = Object.assign({}, info);
-                if (nameChanged)
-                    updatedInfo[uid] = Object.assign(Object.assign({}, updatedInfo[uid]), { userName: newName });
-                if (imageChanged)
-                    updatedInfo[uid] = Object.assign(Object.assign({}, updatedInfo[uid]), { profileImage: newImage });
-                batch.update(doc.ref, {
-                    participantsInfo: updatedInfo,
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                });
-                batchCount++;
-                chatsUpdated++;
             }
             if (batchCount >= 499) {
                 await batch.commit();

@@ -19,7 +19,10 @@ const VALID_SEX_VALUES = ['femme', 'homme', 'les-deux', 'enfant'];
  *
  * Can be called by:
  * - Authenticated users: saves to their user doc
- * - Guests: saves to a guest_preferences collection (keyed by guestId or device)
+ * - Guests: no-op server-side. Guest prefs already live in AsyncStorage
+ *   (fire-and-forget on the client) and are replayed at sign-in by
+ *   mergeGuestDataIntoUser, so persisting a guest_preferences doc here only
+ *   created an orphan (never read, purged after 90d by retentionPurge).
  *
  * The data feeds into the personalized "Pour Toi" feed via usePersonalizedFeed.
  */
@@ -58,8 +61,9 @@ exports.saveOnboardingPreferences = (0, https_1.onCall)({ region: 'northamerica-
             return { success: true, saved: 'user', userId: request.auth.uid };
         }
         else {
-            const docRef = await firebase_1.db.collection('guest_preferences').add(Object.assign(Object.assign({}, cleanData), { createdAt: firebase_1.FieldValue.serverTimestamp() }));
-            return { success: true, saved: 'guest', guestPrefId: docRef.id };
+            // Guest: no server-side persistence. AsyncStorage holds the prefs and
+            // mergeGuestDataIntoUser replays them at sign-in — no orphan doc.
+            return { success: true, saved: 'guest' };
         }
     }
     catch (error) {

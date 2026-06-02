@@ -260,6 +260,12 @@ exports.generateEmbeddingOnCreate = (0, firestore_1.onDocumentCreated)({ documen
     const article = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!article)
         return;
+    // Mirror the search_index filter (P3-8): never embed inactive or rejected
+    // articles. (`moderationStatus` absent === legacy approved.)
+    if (!article.isActive || article.moderationStatus === 'rejected') {
+        logger.info('[embeddings] Inactive/rejected new article, skipping', { articleId });
+        return;
+    }
     // Only process active articles with images
     if (!((_c = (_b = article.images) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.url)) {
         logger.info('[embeddings] No image for new article, skipping', { articleId });
@@ -285,6 +291,14 @@ exports.generateEmbeddingOnUpdate = (0, firestore_1.onDocumentUpdated)({ documen
             await embeddingRef.update({ isActive: false, updatedAt: firebase_1.FieldValue.serverTimestamp() });
             logger.info('[embeddings] Deactivated embedding', { articleId });
         }
+        return;
+    }
+    // Mirror the search_index filter (P3-8): never (re)generate or refresh an
+    // embedding for an inactive or rejected article. The deactivation case above
+    // already flipped the flag; this guards remaining transitions (e.g. created
+    // inactive then edited, or moderation-rejected) so we don't index them.
+    if (!after.isActive || after.moderationStatus === 'rejected') {
+        logger.info('[embeddings] Inactive/rejected article on update, skipping', { articleId });
         return;
     }
     // Check if main image changed

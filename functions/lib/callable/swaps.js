@@ -958,7 +958,7 @@ exports.confirmSwapShipping = (0, https_1.onCall)({ region: 'northamerica-northe
             if (swap.initiatorId !== uid && swap.receiverId !== uid) {
                 throw new https_1.HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
             }
-            if (!['shipping', 'photos_pending'].includes(swap.status)) {
+            if (swap.status !== 'shipping') {
                 throw new https_1.HttpsError('failed-precondition', 'Le swap n\'est pas en cours d\'expédition.');
             }
             const updateData = {

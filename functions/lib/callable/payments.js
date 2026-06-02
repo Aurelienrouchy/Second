@@ -317,6 +317,17 @@ async function verifyAcceptedOfferForNegotiatedAmount(params) {
 // =============================================================================
 exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
     var _a, _b, _c, _d;
+    // Rate limit: this endpoint hits the paid ShipEngine rating API on every
+    // call. Keep the unauthenticated cap at 0 (estimates are requested from the
+    // authenticated checkout flow) and bound authenticated callers to a sane
+    // browsing rate.
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'getShippingEstimate',
+        maxCallsAuthenticated: 30,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { fromAddress, toAddress, weight, dimensions } = request.data;
     if (!fromAddress || !toAddress) {
         throw new https_1.HttpsError('invalid-argument', 'From and to addresses are required');
@@ -416,6 +427,15 @@ exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northe
 // GET SERVICE FEE — Returns fee info for client display
 // =============================================================================
 exports.getServiceFee = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    // Light rate limit: no external API here (pure fee computation), so the cap
+    // is generous — it only guards against abusive bursts. Unauthenticated cap 0.
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'getServiceFee',
+        maxCallsAuthenticated: 60,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { articlePrice } = request.data;
     if (!articlePrice || articlePrice <= 0) {
         throw new https_1.HttpsError('invalid-argument', 'Article price is required');
@@ -1531,6 +1551,15 @@ exports.getStripeAccountStatus = (0, https_1.onCall)({ region: 'northamerica-nor
 // FIND PICKUP POINTS — ShipEngine PUDO search
 // =============================================================================
 exports.findPickupPoints = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
+    // Rate limit: PUDO search hits the paid ShipEngine API on every call.
+    // Unauthenticated cap stays at 0; authenticated callers get a browsing rate.
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'findPickupPoints',
+        maxCallsAuthenticated: 30,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
     const { postalCode } = request.data;
     if (!postalCode) {
         throw new https_1.HttpsError('invalid-argument', 'Postal code is required');

@@ -131,7 +131,7 @@ function getCategoryIcon(path) {
  * Converts label strings to structured objects for frontend
  */
 async function validateAndNormalizeResponse(response) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     console.log('   [normalize] Starting validation & normalization...');
     const globalConfidence = response.confidence || 0.7;
     const topLevelCategory = ((_a = response._analysisMetadata) === null || _a === void 0 ? void 0 : _a.topLevelCategory) || 'women';
@@ -267,49 +267,54 @@ async function validateAndNormalizeResponse(response) {
     // ========================================
     // BUILD FINAL RESPONSE (matching frontend AIAnalysisResult type)
     // ========================================
+    // NOTE: `confidence` is emitted as a numeric score in [0..1] (Option A).
+    // The client (types/ai.ts → createConfidenceScore) recomposes the
+    // 'high'|'medium'|'low' level from this number, so the server must NOT send
+    // a pre-baked { level } object — doing so breaks createConfidenceScore (it
+    // expects a number) and pins every field to 'low'.
     // Build colors object for frontend
     const colorsForFrontend = colorsResult.length > 0
         ? {
             primaryColorId: colorsResult[0].id || null,
             colorIds: colorsResult.map((c) => c.id).filter(Boolean),
-            confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+            confidence: globalConfidence,
         }
         : {
             primaryColorId: null,
             colorIds: [],
-            confidence: { level: 'low' },
+            confidence: 0,
         };
     // Build materials object for frontend
     const materialsForFrontend = materialsResult.length > 0
         ? {
             primaryMaterialId: materialsResult[0].id || null,
             materialIds: materialsResult.map((m) => m.id).filter(Boolean),
-            confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+            confidence: globalConfidence,
         }
         : {
             primaryMaterialId: null,
             materialIds: [],
-            confidence: { level: 'low' },
+            confidence: 0,
         };
     // Build size object for frontend
     const sizeForFrontend = response.size
         ? {
             detected: response.size,
-            confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+            confidence: globalConfidence,
         }
         : null;
     // Build brand object for frontend
     const brandForFrontend = brandResult
         ? {
             detected: brandResult.matchedName || brandResult.detectedName || response.brand,
-            confidence: { level: brandResult.confidence >= 0.7 ? 'high' : brandResult.confidence >= 0.4 ? 'medium' : 'low' },
+            confidence: (_d = brandResult.confidence) !== null && _d !== void 0 ? _d : globalConfidence,
             matchType: brandResult.matchType,
         }
         : null;
     // Build condition object for frontend
     const conditionForFrontend = {
         conditionId: condition,
-        confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+        confidence: globalConfidence,
     };
     return {
         title: response.title,
