@@ -342,26 +342,6 @@ export const animations = {
     verySlow: 500,
   },
 
-  // Spring configs for react-native-reanimated
-  spring: {
-    gentle: {
-      damping: 20,
-      stiffness: 200,
-    },
-    bouncy: {
-      damping: 12,
-      stiffness: 180,
-    },
-    snappy: {
-      damping: 15,
-      stiffness: 300,
-    },
-    smooth: {
-      damping: 20,
-      stiffness: 250,
-    },
-  },
-
   // Transition — cubic bezier equivalent
   transition: {
     duration: 250,
@@ -372,7 +352,6 @@ export const animations = {
   scale: {
     pressed: 0.97,
     pressedCard: 0.98,
-    bounce: 1.2,
   },
 } as const;
 
