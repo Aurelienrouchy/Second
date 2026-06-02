@@ -8,11 +8,12 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
   FadeIn,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { colors, fonts, radius, spacing, animations } from '@/constants/theme';
