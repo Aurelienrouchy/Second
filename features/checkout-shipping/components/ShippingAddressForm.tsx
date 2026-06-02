@@ -39,6 +39,8 @@ interface ShippingAddressFormProps {
     field: K,
     value: AddressFormValues[K],
   ) => void;
+  /** When true, surfaces an inline error on the postal code field. */
+  postalCodeError?: boolean;
 }
 
 // =============================================================================
