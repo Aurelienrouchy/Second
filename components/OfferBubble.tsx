@@ -354,8 +354,13 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       // Transaction already exists — go straight to payment
       router.push(`/payment/${transactionId}`);
     } else if (articleId) {
-      // Shipping offer accepted but no transaction yet — start checkout flow
-      router.push({ pathname: '/checkout' as '/checkout', params: { articleId, chatId } });
+      // Shipping offer accepted but no transaction yet — start checkout flow.
+      // Transmettre le montant négocié (en dollars, comme `amount`) pour que le
+      // checkout facture le prix de l'offre acceptée et non le prix affiché.
+      router.push({
+        pathname: '/checkout' as '/checkout',
+        params: { articleId, chatId, negotiatedPrice: String(amount) },
+      });
     } else {
       Alert.alert('Erreur', 'Impossible de procéder au paiement');
     }
