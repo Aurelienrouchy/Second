@@ -442,9 +442,27 @@ export default function ShippingCheckoutScreen() {
     router.back();
   }, [pendingTransactionId, router]);
 
+  const navigateToSuccess = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: homeKeys.all });
+    router.replace({
+      pathname: '/checkout/success' as any,
+      params: {
+        transactionId: pendingTransactionId || '',
+        deliveryType: 'shipping',
+        articleTitle: article?.title || '',
+        amount: String(finalPrice),
+        shippingCost: String(selectedEstimate?.amount || 0),
+        serviceFee: String(serviceFee),
+        totalAmount: String(totalAmount),
+        chatId: pendingChatId || '',
+      },
+    });
+  }, [queryClient, router, pendingTransactionId, article, finalPrice, selectedEstimate, serviceFee, totalAmount, pendingChatId]);
+
   const handlePaymentResult = useCallback(async (result: StripePaymentResult) => {
     setShowStripePayment(false);
     setClientSecret(null);
+    setServerBuyerTotal(null);
 
     if (!result.success) {
       // User explicitly cancelled the payment sheet — do nothing
@@ -463,21 +481,37 @@ export default function ShippingCheckoutScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    queryClient.invalidateQueries({ queryKey: homeKeys.all });
-    router.replace({
-      pathname: '/checkout/success' as any,
-      params: {
-        transactionId: pendingTransactionId || '',
-        deliveryType: 'shipping',
-        articleTitle: article?.title || '',
-        amount: String(finalPrice),
-        shippingCost: String(selectedEstimate?.amount || 0),
-        serviceFee: String(serviceFee),
-        totalAmount: String(totalAmount),
-        chatId: pendingChatId || '',
-      },
-    });
-  }, [pendingTransactionId, pendingChatId, article, selectedEstimate, serviceFee, totalAmount, finalPrice, router, retryStripePayment, cancelPendingTransaction]);
+
+    // The Payment Sheet succeeded on Stripe's side, but the transaction is
+    // only marked 'paid' once the stripeWebhook fires server-side. Poll the
+    // transaction status before showing the confirmation screen so we never
+    // claim "Paiement confirmé" while the order is still pending_payment.
+    if (!pendingTransactionId) {
+      navigateToSuccess();
+      return;
+    }
+
+    setConfirmingPayment(true);
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < PAYMENT_CONFIRM_TIMEOUT_MS) {
+      try {
+        const trans = await TransactionService.getTransaction(pendingTransactionId);
+        if (trans && PAID_STATUSES.has(trans.status)) {
+          setConfirmingPayment(false);
+          navigateToSuccess();
+          return;
+        }
+      } catch (e) {
+        if (__DEV__) console.error('Error polling transaction status:', e);
+      }
+      await new Promise((r) => setTimeout(r, PAYMENT_CONFIRM_POLL_MS));
+    }
+
+    // Webhook is lagging — proceed to the confirmation screen anyway (the
+    // payment did succeed; the order detail will reflect the final status).
+    setConfirmingPayment(false);
+    navigateToSuccess();
+  }, [pendingTransactionId, retryStripePayment, cancelPendingTransaction, navigateToSuccess]);
 
   // --- Render ----------------------------------------------------------------
 
