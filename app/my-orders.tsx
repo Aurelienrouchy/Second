@@ -171,6 +171,9 @@ export default function MyOrdersScreen() {
         router.push(`/payment/${transaction.id}`);
         return;
       }
+      // The chat hosts the automated-decision transparency + contestation
+      // surface (ShipmentTracking, Loi 25 art. 12.1) — the natural landing for
+      // an order whose status was changed by an automated decision.
       if (transaction.chatId) {
         router.push(`/chat/${transaction.chatId}`);
         return;
@@ -181,6 +184,22 @@ export default function MyOrdersScreen() {
     },
     [router],
   );
+
+  // Consume the deep-link param once orders are loaded: route the buyer to the
+  // targeted order's chat, where the "Pourquoi cette décision ? / Contester"
+  // surface lives. Falls back to the plain list when the chat is unavailable.
+  useEffect(() => {
+    if (!deepLinkTransactionId || loading) return;
+    if (handledDeepLinkRef.current === deepLinkTransactionId) return;
+
+    const target = orders.find(
+      (o) => o.transaction.id === deepLinkTransactionId,
+    );
+    if (!target) return;
+
+    handledDeepLinkRef.current = deepLinkTransactionId;
+    handleOrderPress(target);
+  }, [deepLinkTransactionId, loading, orders, handleOrderPress]);
 
   const handleReview = useCallback(
     (transactionId: string) => {
