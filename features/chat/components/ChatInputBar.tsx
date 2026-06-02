@@ -12,6 +12,10 @@ import {
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import type { ChatInputBarProps } from '../types';
 
+// `isSending` is a local-only extension (text-message send in flight). Declared
+// here to avoid touching the shared feature types barrel for an optional prop.
+type ChatInputBarComponentProps = ChatInputBarProps & { isSending?: boolean };
+
 export const ChatInputBar = React.memo(function ChatInputBar({
   messageText,
   onChangeText,
@@ -20,8 +24,10 @@ export const ChatInputBar = React.memo(function ChatInputBar({
   onMakeOffer,
   isSendingImage,
   hasArticle,
-}: ChatInputBarProps) {
-  const canSend = messageText.trim().length > 0;
+  isSending = false,
+}: ChatInputBarComponentProps) {
+  // Block double-sends while a text message is still mid-flight.
+  const canSend = messageText.trim().length > 0 && !isSending;
 
   return (
     <View style={styles.inputContainer}>
