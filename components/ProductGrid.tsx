@@ -29,7 +29,6 @@ import {
 } from 'react-native';
 
 import ProductCard, { SkeletonCard } from '@/components/ProductCard';
-import { CARD_WIDTH } from '@/components/ProductCard.constants';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
 import type { Article, ArticleWithLocation } from '@/types';
 
