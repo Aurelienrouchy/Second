@@ -49,7 +49,7 @@ import { queryKeys } from '@/lib/queryKeys';
 
 // Import types
 import { Message, MeetupSpot } from '@/types';
-import { colors, spacing } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
 // Module-level so the FlashList prop identity stays stable across renders.
