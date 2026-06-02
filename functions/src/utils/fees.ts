@@ -46,8 +46,12 @@ export interface FeeBreakdown {
   articlePrice: number;
   /** Frais de livraison */
   shippingCost: number;
-  /** Frais de protection acheteur (% + fixe) */
+  /** Frais de protection acheteur effectifs (après réduction boutique) */
   serviceFee: number;
+  /** Frais de protection au tarif plein, avant réduction boutique */
+  serviceFeeBeforeReduction: number;
+  /** Fraction de réduction appliquée (0 = plein tarif, 1 = gratuit) */
+  feeReduction: number;
   /** Pourcentage appliqué */
   serviceFeePercent: number;
   /** Partie fixe des frais */
