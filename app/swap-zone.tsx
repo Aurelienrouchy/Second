@@ -683,6 +683,7 @@ export default function SwapZoneScreen() {
       {openSheet?.name === 'brands' && (
         <BrandSelectionSheet
           ref={brandSheetRef}
+          darkMode
           selectedBrands={f.filters.brands || []}
           onConfirm={(b) => {
             f.handleBrandsConfirm(b);
