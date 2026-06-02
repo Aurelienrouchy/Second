@@ -226,6 +226,24 @@ export default function PaymentScreen() {
     );
   }
 
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Paiement" onBack={() => router.back()} />
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.muted} />
+          <Text style={styles.errorTitle}>Erreur de connexion</Text>
+          <Text style={styles.errorSubtitle}>
+            Impossible de charger cette transaction. Vérifiez votre connexion et réessayez.
+          </Text>
+          <Pressable style={styles.errorButton} onPress={() => refetch()}>
+            <Text style={styles.errorButtonText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   if (!transaction) return null;
 
   return (
