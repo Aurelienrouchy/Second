@@ -326,6 +326,13 @@ export const toggleSellerLike = onCall(
       );
     }
 
+    if (sellerId === userId) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Vous ne pouvez pas vous abonner à vous-même'
+      );
+    }
+
     try {
       const userRef = db.collection('users').doc(userId);
       const sellerRef = db.collection('users').doc(sellerId);
