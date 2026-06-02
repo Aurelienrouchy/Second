@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ArticlesService } from '@/services/articlesService';
-import { Article, User } from '@/types';
+import { Article, ArticleSize, SizeSystem, User } from '@/types';
+
+/** Size systems a bare personalization value (unknown system) may belong to. */
+const PERSONALIZATION_SIZE_SYSTEMS: SizeSystem[] = ['US', 'EU'];
+
+/**
+ * Personalization sizes (styleProfile.suggestedSizes, preferences.sizes) are
+ * bare strings with no system. The articles filter expects ArticleSize
+ * ({ value, system }); expand each value across known systems so it matches an
+ * article regardless of how its size system is stored (legacy bare-string
+ * articles still match on value only, server-side).
+ */
+function toArticleSizeFilters(values: string[]): ArticleSize[] {
+  return values.flatMap((value) =>
+    PERSONALIZATION_SIZE_SYSTEMS.map((system) => ({ value, system })),
+  );
+}
 
 interface UsePersonalizedFeedOptions {
   user: User | null;
