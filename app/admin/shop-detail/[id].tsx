@@ -29,6 +29,7 @@ import { colors, radius } from '@/constants/theme';
 export default function AdminShopDetailScreen() {
   const router = useRouter();
   const user = useUser();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [shop, setShop] = useState<Shop | null>(null);
   const [isLoading, setIsLoading] = useState(true);
