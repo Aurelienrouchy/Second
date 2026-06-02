@@ -654,8 +654,9 @@ export const requestReturn = onCall(
           returnLabelCost,
           returnReason: reason,
           returnRequestedAt: FieldValue.serverTimestamp(),
-          // Reservation fulfilled — clear the in-flight flag.
-          returnLabelPending: FieldValue.delete(),
+          // Reservation fulfilled — clear the in-flight flag (null, not delete,
+          // to keep idempotence checks `=== true` correct and stay Firestore-safe).
+          returnLabelPending: null,
         });
       });
     } catch (error: unknown) {
