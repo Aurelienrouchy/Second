@@ -270,7 +270,7 @@ export default function AdminShopDetailScreen() {
             <View style={styles.mapContainer}>
               <MapView
                 style={styles.map}
-                provider={PROVIDER_GOOGLE}
+                provider={PROVIDER_DEFAULT}
                 initialRegion={{
                   latitude: shop.location.latitude,
                   longitude: shop.location.longitude,
