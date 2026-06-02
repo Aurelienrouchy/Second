@@ -20,6 +20,7 @@ import { useAuthStore } from '@/store/authStore';
 import { prefetchHome } from '@/features/home';
 import { colors } from '@/constants/theme';
 import { queryClient } from '@/lib/queryClient';
+import { draftService } from '@/services/draftService';
 import { STRIPE_PUBLISHABLE_KEY } from '@/config/stripeConfig';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
