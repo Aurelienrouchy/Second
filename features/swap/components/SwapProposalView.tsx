@@ -56,11 +56,7 @@ export const SwapProposalView = React.memo(function SwapProposalView({
         </View>
         <View style={styles.senderInfoColumn}>
           <Text style={styles.senderUsername}>{senderName}</Text>
-          <Text style={styles.senderSubtext}>
-            Villeray · 2.8 km · <Ionicons name="star" size={10} color="#FFD700" /> 4.9 · 22 swaps
-          </Text>
         </View>
-        <Text style={styles.senderTime}>il y a 2h</Text>
       </View>
 
       {/* Message Bubble (if exists) */}
