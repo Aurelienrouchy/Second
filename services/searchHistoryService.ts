@@ -177,28 +177,6 @@ export class SearchHistoryService {
   }
 
   /**
-   * Clear all search history for a user.
-   */
-  static async clearHistory(userId: string): Promise<void> {
-    try {
-      const historyRef = collection(firestore, 'users', userId, 'searchHistory');
-      const snapshot = await getDocs(historyRef);
-
-      if (snapshot.empty) return;
-
-      const batch = writeBatch(firestore);
-      snapshot.forEach((docSnap: any) => {
-        batch.delete(docSnap.ref);
-      });
-
-      await batch.commit();
-    } catch (error: any) {
-      console.error('Error clearing search history:', error);
-      throw new Error(`Erreur lors de la suppression de l'historique: ${error.message}`);
-    }
-  }
-
-  /**
    * Remove old entries if exceeding MAX_HISTORY_ITEMS.
    */
   private static async cleanupOldEntries(userId: string): Promise<void> {
