@@ -260,11 +260,16 @@ export default function CaptureScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        facing={facing}
-      />
+      <StatusBar style="light" />
+
+      <Animated.View style={[StyleSheet.absoluteFill, cameraFadeStyle]}>
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing={facing}
+          onCameraReady={handleCameraReady}
+        />
+      </Animated.View>
 
       <BlurOverlay position="top" height={topOverlayHeight} intensity={0.6} />
 
