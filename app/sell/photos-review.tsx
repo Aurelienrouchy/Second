@@ -184,7 +184,8 @@ export default function PhotosReviewScreen() {
     if (result.brand?.detected) pills.push(result.brand.detected);
     if (result.materials?.primaryMaterialId) pills.push(result.materials.primaryMaterialId);
     if (result.colors?.primaryColorId) pills.push(result.colors.primaryColorId);
-    if (result.size?.normalized) pills.push('Taille ' + result.size.normalized);
+    const sizeValue = result.size?.normalized || result.size?.detected;
+    if (sizeValue) pills.push('Taille ' + sizeValue);
     if (result.condition?.conditionId) {
       const display = CONDITION_DISPLAY[result.condition.conditionId];
       if (display) pills.push(display);
