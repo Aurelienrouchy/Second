@@ -147,13 +147,15 @@ export {
 // are admin-owned fields LOCKED by firestore.rules, so they mutate via these
 // Cloud Functions (Admin SDK bypasses rules) under runTransaction.
 // approve/reject/suspendShop set the shop validation status; getPendingReports
-// + triageReport process the reports collection.
+// + triageReport process the reports collection. submitReport (B7) creates a
+// report with server-side anti-spam dedup (1 per reporter/target/type).
 export {
   approveShop,
   rejectShop,
   suspendShop,
   getPendingReports,
   triageReport,
+  submitReport,
 } from './callable/shopModeration';
 
 // ============================================================
