@@ -144,7 +144,7 @@ export function usePersonalizedFeed({
     (personalizationData.brands.length > 0 || personalizationData.sizes.length > 0);
 
   const query = useQuery({
-    queryKey: [...homeKeys.all, 'pour-toi', user?.id ?? null, limit] as const,
+    queryKey: [...POUR_TOI_KEY_ROOT, user?.id ?? null, limit] as const,
     queryFn: () => fetchPersonalizedFeed(personalizationData!, user!.id, limit),
     enabled: canQuery,
     staleTime: POUR_TOI_STALE_TIME,
