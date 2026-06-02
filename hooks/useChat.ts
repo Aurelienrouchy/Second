@@ -26,7 +26,8 @@ export const useChat = (chatId: string | null, userId: string | null) => {
   useEffect(() => {
     if (!chatId || !userId) {
       setIsLoading(false);
-      setMessages([]);
+      setServerMessages([]);
+      setOptimisticMessages([]);
       setChat(null);
       return;
     }
