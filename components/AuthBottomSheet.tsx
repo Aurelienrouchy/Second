@@ -132,12 +132,23 @@ const AuthBottomSheet: React.FC = () => {
     handleClose();
   }, [onSuccessCallback, handleClose]);
 
+  // During the mandatory social consent step the sheet is "locked": a stray
+  // backdrop tap / pan-down would silently roll back (delete) the freshly
+  // created social account. Block those gestures and require an explicit
+  // resolution (submit or the visible back-out, which both confirm intent).
+  const isConsentLocked = authType === 'socialConsent';
+
   const renderBackdrop = useCallback(
     (props: React.ComponentProps<typeof BottomSheetBackdrop>) =>
       isVisible ? (
-        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+        <BottomSheetBackdrop
+          {...props}
+          disappearsOnIndex={-1}
+          appearsOnIndex={0}
+          pressBehavior={isConsentLocked ? 'none' : 'close'}
+        />
       ) : null,
-    [isVisible],
+    [isVisible, isConsentLocked],
   );
 
   const handleSocialAuth = async (provider: 'Google' | 'Apple') => {
