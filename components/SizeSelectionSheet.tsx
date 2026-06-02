@@ -219,14 +219,14 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.title}>Taille</Text>
-            {localSelectedSizes.length > 0 && (
+            {totalSelectedCount > 0 && (
               <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{localSelectedSizes.length}</Text>
+                <Text style={styles.countBadgeText}>{totalSelectedCount}</Text>
               </View>
             )}
           </View>
           <View style={styles.headerRight}>
-            {localSelectedSizes.length > 0 && (
+            {totalSelectedCount > 0 && (
               <TouchableOpacity
                 onPress={handleClear}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
