@@ -158,7 +158,7 @@ function PrivacyPolicyContentComponent() {
 
       <Text variant="h3" style={styles.sectionTitle}>5. Profilage et technologies (art. 8.1)</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        Second peut utiliser une technologie d'analyse par intelligence artificielle pour vous
+        Seconde peut utiliser une technologie d'analyse par intelligence artificielle pour vous
         proposer des recommandations personnalisées (profilage). Cette fonction est désactivée
         par défaut. Vous pouvez l'activer ou la désactiver à tout moment dans Réglages {'>'} Confidentialité.
         Nous n'utilisons pas votre localisation à des fins de profilage sans votre consentement.
