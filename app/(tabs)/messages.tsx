@@ -549,6 +549,20 @@ const styles = StyleSheet.create({
     color: colors.muted,
     flexShrink: 1,
   },
+  blockedBadge: {
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  blockedBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: 0.4,
+    color: colors.danger,
+    textTransform: 'uppercase',
+  },
   messagePreview: {
     fontFamily: fonts.sans,
     fontSize: 13,
