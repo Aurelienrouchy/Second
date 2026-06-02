@@ -131,6 +131,10 @@ export default function ChatScreen() {
 
   const handleSendMessage = useCallback(async () => {
     if (!messageText.trim() || !user) return;
+    if (isOtherBlocked) {
+      Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour lui envoyer un message.');
+      return;
+    }
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await sendMessage(messageText.trim());
