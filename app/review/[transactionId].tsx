@@ -141,6 +141,7 @@ export default function ReviewScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
   const router = useRouter();
   const currentUser = useUser();
+  const queryClient = useQueryClient();
   const showAuthSheet = useAuthSheetStore((state) => state.show);
 
   // State
