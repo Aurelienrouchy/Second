@@ -367,7 +367,11 @@ export default function PreviewScreen() {
           )}
         </Pressable>
 
-        <Pressable style={({ pressed }) => [styles.modifyButton, pressed && { opacity: 0.7 }]} onPress={handleBack}>
+        <Pressable
+          style={({ pressed }) => [styles.modifyButton, pressed && { opacity: 0.7 }]}
+          onPress={handleBack}
+          disabled={isPublishing}
+        >
           <Text style={styles.modifyButtonText}>Modifier</Text>
         </Pressable>
       </View>
