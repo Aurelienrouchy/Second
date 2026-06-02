@@ -12,6 +12,11 @@ interface State {
   errorMessage: string | null;
 }
 
+// Number of automatic recovery attempts before the fallback UI sticks.
+// One silent retry absorbs transient render errors (e.g. a flaky chunk /
+// data shape) without forcing the user to tap "Réessayer".
+const MAX_AUTO_RETRIES = 1;
+
 /**
  * Top-level Error Boundary mounted in the root layout.
  *
