@@ -322,7 +322,7 @@ export const checkSavedSearchNotifications = onSchedule(
               payload: {
                 aps: {
                   sound: 'default',
-                  badge: matchingArticles.length,
+                  badge,
                 },
               },
             },
