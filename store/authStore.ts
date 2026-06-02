@@ -235,6 +235,7 @@ export const useAuthStore = create<AuthStore>()(
       // authStore). Self-reset uses local `set` so we don't loop.
       useNotificationStore.getState().reset();
       useChatStore.getState().reset();
+      useImmersiveOverlayStore.getState().reset();
       queryClient.clear();
       await AuthService.signOut();
       await AsyncStorage.removeItem(USER_DATA_KEY);
