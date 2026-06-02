@@ -286,6 +286,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
             testID={`like-button-${product.id}`}
           />
 
+          {/* Likes count — bottom-left */}
+          {typeof product.likes === 'number' && product.likes > 0 && (
+            <View style={styles.likesBadge}>
+              <Ionicons name="heart" size={11} color={colors.primary} />
+              <Text style={styles.likesText}>{product.likes}</Text>
+            </View>
+          )}
+
           {/* Sold overlay */}
           {product.isSold && (
             <View style={styles.soldOverlay}>
