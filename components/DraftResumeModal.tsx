@@ -244,13 +244,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginHorizontal: 20,
     padding: 10,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningLight,
     borderRadius: 10,
   },
   expirationText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#D97706',
+    color: colors.warning,
   },
   actions: {
     padding: 20,
