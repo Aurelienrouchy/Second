@@ -84,12 +84,20 @@ export default function PreviewScreen() {
   const [fields, setFields] = useState<EditedFields>(fieldsFromParams);
   const [pricing, setPricing] = useState<PricingData>(pricingFromParams);
   const publishingRef = useRef(false);
+  const isMountedRef = useRef(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [publishedArticleId, setPublishedArticleId] = useState<string | null>(null);
 
   // Photo carousel active index
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Load draft on resume
   useEffect(() => {
