@@ -19,7 +19,7 @@ export function useSellerLike(sellerId: string) {
   const toggleLike = useCallback(() => {
     requireAuth(() => {
       globalToggle(sellerId);
-    }, AUTH_MESSAGES.like);
+    }, AUTH_MESSAGES.follow);
   }, [requireAuth, globalToggle, sellerId]);
 
   return { isLiked, toggleLike };
