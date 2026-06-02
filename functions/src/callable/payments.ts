@@ -344,6 +344,18 @@ async function verifyAcceptedOfferForNegotiatedAmount(params: {
 // =============================================================================
 
 export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
+  // Rate limit: this endpoint hits the paid ShipEngine rating API on every
+  // call. Keep the unauthenticated cap at 0 (estimates are requested from the
+  // authenticated checkout flow) and bound authenticated callers to a sane
+  // browsing rate.
+  const { callerKey, isAuthenticated } = resolveCallerKey(request);
+  await checkRateLimit(callerKey, isAuthenticated, {
+    functionName: 'getShippingEstimate',
+    maxCallsAuthenticated: 30,
+    maxCallsUnauthenticated: 0,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  });
+
   const { fromAddress, toAddress, weight, dimensions } = request.data;
 
   if (!fromAddress || !toAddress) {
