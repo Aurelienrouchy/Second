@@ -1061,8 +1061,15 @@ export class ChatService {
 
   /**
    * Confirmer un meetup (après acceptation de l'offre).
-   * Also transitions the linked transaction from meetup_pending → meetup_confirmed.
-   * Firestore rules enforce that only the seller can make this transition.
+   * Délègue à la callable `confirmMeetupTransaction` (runTransaction) qui, dans
+   * une seule transaction atomique : (1) passe la transaction liée de
+   * meetup_pending → meetup_confirmed et (2) écrit `offer.meetup.confirmedAt`
+   * sur le message. Seul le vendeur (dérivé du doc de transaction côté serveur)
+   * peut confirmer.
+   *
+   * P1-5 / P1-6 : remplace l'ancienne double écriture client non atomique
+   * (updateDoc message + updateDoc transaction) qui pouvait diverger si l'une
+   * des deux échouait.
    */
   static async confirmMeetup(
     chatId: string,
@@ -1084,29 +1091,23 @@ export class ChatService {
         throw new Error('Détails du meetup non trouvés');
       }
 
-      await updateDoc(messageRef, {
-        'offer.meetup.confirmedAt': new Date(),
-      });
+      // Résout la transaction meetup_pending pour ce chat (en tant que vendeur :
+      // seul le vendeur peut confirmer, et la callable revérifie ce rôle).
+      const transactionId = await this.findMeetupTransactionId(chatId, userId, [
+        'meetup_pending',
+      ]);
 
-      // Transition the linked transaction to meetup_confirmed.
-      // Firestore rules only allow the seller (request.auth.uid == oldData.sellerId)
-      // to perform meetup_pending → meetup_confirmed.
-      // We scope the query with sellerId == userId so Firestore security rules
-      // can verify access (rules require auth.uid == resource.data.sellerId).
-      const txSnap = await getDocs(
-        query(
-          collection(firestore, 'transactions'),
-          where('chatId', '==', chatId),
-          where('sellerId', '==', userId),
-          where('status', '==', 'meetup_pending')
-        )
-      );
-      if (!txSnap.empty) {
-        const txRef = doc(firestore, 'transactions', txSnap.docs[0].id);
-        await updateDoc(txRef, { status: 'meetup_confirmed' });
-      } else {
+      if (!transactionId) {
         if (__DEV__) console.warn('[ChatService] confirmMeetup: no meetup_pending transaction found for chatId', chatId);
+        throw new Error('Aucune transaction de rencontre à confirmer.');
       }
+
+      // Transition atomique tx + message via la callable server-authoritative.
+      const confirmMeetupTransactionFn = httpsCallable<
+        { transactionId: string; messageId: string },
+        { success: boolean; chatId: string | null }
+      >(functions, 'confirmMeetupTransaction');
+      await confirmMeetupTransactionFn({ transactionId, messageId });
 
       const dateTimeInfo = offer.meetup.dateTime
         ? `le ${new Date(offer.meetup.dateTime).toLocaleDateString('fr-CA')} a ${new Date(offer.meetup.dateTime).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`
