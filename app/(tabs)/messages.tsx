@@ -201,7 +201,7 @@ export default function MessagesScreen() {
                 {unreadByType[tab] > 0 && (
                   <View style={styles.tabBadge}>
                     <Text style={styles.tabBadgeText}>
-                      {unreadByType[tab]}
+                      {formatBadgeCount(unreadByType[tab])}
                     </Text>
                   </View>
                 )}
