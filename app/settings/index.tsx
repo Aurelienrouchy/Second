@@ -68,9 +68,19 @@ const SettingSection = ({ title, children }: { title: string; children: React.Re
 export default function SettingsScreen() {
   const router = useRouter();
   const user = useUser();
-  const authProvider = AuthService.getAuthProvider();
-  const hasPassword = AuthService.hasPasswordProvider();
-  const isEmailVerified = AuthService.isEmailVerified();
+  // Dérivé de Firebase Auth (providerData/emailVerified), pas de l'observable
+  // Firestore. Recalculé au focus pour refléter l'état après retour de
+  // add-password / email / verify-email (sinon valeurs périmées).
+  const [hasPassword, setHasPassword] = React.useState(() => AuthService.hasPasswordProvider());
+  const [isEmailVerified, setIsEmailVerified] = React.useState(() => AuthService.isEmailVerified());
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setHasPassword(AuthService.hasPasswordProvider());
+      setIsEmailVerified(AuthService.isEmailVerified());
+    }, [])
+  );
+
   const { data: isAdmin = false } = useQuery({
     queryKey: ['user', 'isAdmin', user?.id],
     queryFn: () => UserService.isUserAdmin(user!.id),
