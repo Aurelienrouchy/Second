@@ -265,6 +265,7 @@ export default function PreviewScreen() {
           <Pressable
             style={({ pressed }) => [styles.heroBackButton, { top: insets.top + 8 }, pressed && { opacity: 0.7 }]}
             onPress={handleBack}
+            disabled={isPublishing}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="chevron-back" size={22} color={colors.cream} />
