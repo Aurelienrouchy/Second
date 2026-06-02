@@ -224,6 +224,55 @@ function isNotificationTypeDisabled(
   return prefs[key] === false;
 }
 
+// ─── Badge count ──────────────────────────────────────────────────────────────
+
+/**
+ * Compute the user's REAL unread badge count for the APNs payload:
+ * unread in-app notifications + unread chat messages.
+ *
+ * - Unread notifications: `notifications` docs where userId == uid && !isRead.
+ * - Unread messages: sum of `chats/{id}.unreadCount[uid]` across the user's
+ *   chats (server-maintained map; see chatService + firestore-schema.md).
+ *
+ * `array-contains` on `participants` is a single-field query (auto-indexed, no
+ * composite index needed). Best-effort: on any read error we fall back to 1 so
+ * the push still surfaces a badge rather than crashing the send.
+ */
+async function computeBadgeCount(userId: string): Promise<number> {
+  try {
+    const [notifSnap, chatsSnap] = await Promise.all([
+      db
+        .collection('notifications')
+        .where('userId', '==', userId)
+        .where('isRead', '==', false)
+        .count()
+        .get(),
+      db
+        .collection('chats')
+        .where('participants', 'array-contains', userId)
+        .get(),
+    ]);
+
+    const unreadNotifications = notifSnap.data().count;
+
+    let unreadMessages = 0;
+    chatsSnap.forEach((doc) => {
+      const raw = doc.data()?.unreadCount?.[userId];
+      if (typeof raw === 'number' && raw > 0) {
+        unreadMessages += raw;
+      }
+    });
+
+    return unreadNotifications + unreadMessages;
+  } catch (error) {
+    logger.warn('Failed to compute badge count, falling back to 1', {
+      userId,
+      error: error instanceof Error ? error.message : error,
+    });
+    return 1;
+  }
+}
+
 // ─── FCM push notification ──────────────────────────────────────────────────
 
 /**
