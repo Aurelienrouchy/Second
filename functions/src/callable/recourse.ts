@@ -293,6 +293,26 @@ export const reportTransactionProblem = onCall(
         );
       }
 
+      // 7-day dispute window: the report freezes funds while they still sit in
+      // the seller's heldBalance. Once the funds have been released
+      // (fundsReleasedAt set) or the release deadline has passed, the window is
+      // closed — refuse and route the buyer to admin support (no auto re-freeze
+      // of already-withdrawable funds here).
+      if (data.fundsReleasedAt) {
+        throw new HttpsError(
+          'failed-precondition',
+          'La fenêtre de réclamation de 7 jours est écoulée pour cette commande. Contactez le support.'
+        );
+      }
+      const releaseAtMs =
+        data.fundsReleaseAt instanceof Timestamp ? data.fundsReleaseAt.toMillis() : null;
+      if (releaseAtMs !== null && releaseAtMs <= Date.now()) {
+        throw new HttpsError(
+          'failed-precondition',
+          'La fenêtre de réclamation de 7 jours est écoulée pour cette commande. Contactez le support.'
+        );
+      }
+
       // Freeze funds + flag dispute. NO money movement here.
       tx.update(txRef, {
         status: 'disputed',
