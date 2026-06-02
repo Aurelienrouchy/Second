@@ -5,22 +5,16 @@ import { useCallback, useMemo, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
-import { Article, ArticleSize, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
+import { Article, ArticleSize, SearchFilters, SortBy } from '@/types';
 
 const SEARCH_DEBOUNCE_MS = 350;
 const PAGE_SIZE = 20;
 const SEARCH_STALE_TIME = 5 * 60 * 1000;
 
-interface GeolocationCenter {
-  lat: number;
-  lon: number;
-}
-
 interface UseArticleSearchArgs {
   initialFilters?: Partial<SearchFilters>;
   initialQuery?: string;
   initialCategoryPath?: string[];
-  center?: GeolocationCenter;
   excludeUserId?: string;
   sellerId?: string;
 }
@@ -33,82 +27,6 @@ interface SearchPage {
   // of its fetched docs client-side (H4). Until the service ships this field,
   // tsc will flag it — that is expected and owned by firebase-backend.
   hasMore: boolean;
-}
-
-const calculateDistance = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number => {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-function transformArticlesWithLocation(
-  articles: Article[],
-  center?: GeolocationCenter
-): ArticleWithLocation[] {
-  return articles.map((article) => {
-    const { location: articleLocation, ...restArticle } = article;
-    const articleWithLocation: ArticleWithLocation = restArticle;
-
-    if (center && articleLocation && typeof articleLocation === 'object') {
-      const location = articleLocation as { lat?: number; lon?: number; address?: string };
-      if (location.lat && location.lon) {
-        const distance = calculateDistance(
-          center.lat,
-          center.lon,
-          location.lat,
-          location.lon
-        );
-        articleWithLocation.location = {
-          lat: location.lat,
-          lon: location.lon,
-          distance,
-          address: location.address,
-        };
-      }
-    }
-
-    return articleWithLocation;
-  });
-}
-
-function sortArticles(
-  articles: ArticleWithLocation[],
-  sortBy: SortBy | undefined,
-  center?: GeolocationCenter
-): ArticleWithLocation[] {
-  return [...articles].sort((a, b) => {
-    if (center && a.location?.distance !== undefined && b.location?.distance !== undefined) {
-      const distanceDiff = a.location.distance - b.location.distance;
-      if (Math.abs(distanceDiff) > 0.1) {
-        return distanceDiff;
-      }
-    }
-
-    if (sortBy === 'price_asc' && a.price !== undefined && b.price !== undefined) {
-      return a.price - b.price;
-    }
-    if (sortBy === 'price_desc' && a.price !== undefined && b.price !== undefined) {
-      return b.price - a.price;
-    }
-    if (sortBy === 'popular') {
-      return (b.likes || 0) - (a.likes || 0);
-    }
-
-    return b.createdAt.getTime() - a.createdAt.getTime();
-  });
 }
 
 const DEFAULT_FILTERS: SearchFilters = {
