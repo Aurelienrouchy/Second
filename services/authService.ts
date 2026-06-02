@@ -225,6 +225,18 @@ export class AuthService {
         marketingOptIn: consent.marketingOptIn,
       });
 
+      // Envoie l'email de vérification (le gate serveur createArticle exige
+      // email_verified). Non-bloquant : un échec d'envoi ne doit pas faire
+      // échouer l'inscription — l'utilisateur peut le renvoyer depuis
+      // l'écran « Vérifier mon email ».
+      try {
+        await firebaseSendEmailVerification(firebaseUser);
+      } catch (verificationError) {
+        if (__DEV__) {
+          console.error('[AuthService] signUpWithEmail sendEmailVerification failed:', verificationError);
+        }
+      }
+
       return userData;
     } catch (error: any) {
       if (__DEV__) {
