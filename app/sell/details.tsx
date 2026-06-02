@@ -206,7 +206,16 @@ export default function DetailsScreen() {
   };
 
   const handleContinue = () => {
-    if (!fields.title.trim()) return;
+    // Same gate as isFormValid below — keep details/preview validation aligned
+    // so the footer's disabled state and the action never diverge.
+    const missing: string[] = [];
+    if (!fields.title.trim()) missing.push('Le titre');
+    if (!fields.description.trim()) missing.push('La description');
+    if (fields.categoryIds.length === 0) missing.push('La catégorie');
+    if (missing.length > 0) {
+      Alert.alert('Informations manquantes', `${missing.join('\n')}`);
+      return;
+    }
     router.push({
       pathname: '/sell/pricing',
       params: {
