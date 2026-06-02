@@ -87,6 +87,15 @@ export default function RootLayout() {
 
   const fontsReady = fontsLoaded || !!fontError;
 
+  // A font failure is non-fatal (system fonts take over) but must be
+  // surfaced — otherwise a missing/renamed asset silently degrades the DS.
+  // Reporter hook point: forward to Sentry/Crashlytics once wired.
+  useEffect(() => {
+    if (fontError && __DEV__) {
+      console.error('[RootLayout] font loading error:', fontError);
+    }
+  }, [fontError]);
+
   return (
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
