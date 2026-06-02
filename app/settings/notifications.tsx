@@ -160,6 +160,42 @@ export default function NotificationsSettingsScreen() {
     },
   });
 
+  // Réconcilie le toggle « push » avec la permission OS : activer la préférence
+  // sans permission système laisserait le toggle « on » sans aucune notif reçue.
+  // L'enregistrement effectif du token FCM est géré par useNotificationSetup
+  // (qui ré-appelle registerPushToken quand la permission devient accordée).
+  const handleToggle = useCallback(
+    async (key: NotificationType) => {
+      if (key !== 'push' || settings.push) {
+        // Désactivation ou autre préférence : pas de gate permission.
+        toggleSetting(key);
+        return;
+      }
+
+      const current = await Notifications.getPermissionsAsync();
+      let granted = current.granted;
+      if (!granted && current.canAskAgain) {
+        const requested = await Notifications.requestPermissionsAsync();
+        granted = requested.granted;
+      }
+
+      if (!granted) {
+        Alert.alert(
+          'Notifications désactivées',
+          'Les notifications sont désactivées au niveau du système. Activez-les dans les réglages de votre appareil pour recevoir les notifications push.',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Ouvrir les réglages', onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
+
+      toggleSetting('push');
+    },
+    [settings.push, toggleSetting]
+  );
+
   if (isLoading) {
     return (
       <View style={styles.container}>
