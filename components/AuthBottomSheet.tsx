@@ -422,7 +422,7 @@ const AuthBottomSheet: React.FC = () => {
       index={-1}
       snapPoints={snapPoints}
       backdropComponent={renderBackdrop}
-      enablePanDownToClose
+      enablePanDownToClose={!isConsentLocked}
       enableDynamicSizing={false}
       onClose={handleClose}
       topInset={insets.top}
@@ -432,11 +432,15 @@ const AuthBottomSheet: React.FC = () => {
       keyboardBlurBehavior="none"
       android_keyboardInputMode="adjustResize"
     >
-      <BottomSheetView style={styles.content}>
+      <BottomSheetScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Animated.View key={authType} entering={FadeIn.duration(200)}>
           {renderBody()}
         </Animated.View>
-      </BottomSheetView>
+      </BottomSheetScrollView>
     </BottomSheet>
   );
 };
