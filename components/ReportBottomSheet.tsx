@@ -238,7 +238,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
             )}
 
             <View style={styles.infoBox}>
-              <Ionicons name="information-circle" size={20} color="#666" />
+              <Ionicons name="information-circle" size={20} color={colors.foregroundSecondary} />
               <Text style={styles.infoText}>
                 Les signalements abusifs peuvent entraîner la suspension de votre compte.
               </Text>
