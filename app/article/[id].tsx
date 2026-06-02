@@ -151,7 +151,8 @@ export default function ArticleDetailScreen() {
 
   // ─── Render states ───
   if (isLoading) return <LoadingState />;
-  if (isError) return <ErrorState onBack={handleBack} isNetworkError />;
+  if (isError)
+    return <ErrorState onBack={handleGoHome} isNetworkError onRetry={handleRetry} />;
   if (!article) return <ErrorState onBack={handleGoHome} />;
 
   const isOwnArticle = !!(user && user.id === article.sellerId);
