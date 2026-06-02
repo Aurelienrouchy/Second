@@ -98,6 +98,8 @@ export default function ShippingCheckoutScreen() {
   const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
   const [pendingChatId, setPendingChatId] = useState<string | null>(null);
   const [serviceFee, setServiceFee] = useState(0);
+  /** True while polling Firestore for the webhook to flip status to 'paid'. */
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   // ── Wallet ──────────────────────────────────────────────────────────────────
   const { wallet } = useWallet(!!auth.currentUser);
