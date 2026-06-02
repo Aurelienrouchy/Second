@@ -1457,9 +1457,12 @@ export class ChatService {
       const updatePromises: Promise<void>[] = [];
 
       querySnapshot.forEach((docSnap) => {
+        // Also flip status → 'read' so the read-receipt state is actually
+        // produced. Only these two fields are written; never undefined.
         updatePromises.push(
           updateDoc(doc(firestore, 'messages', docSnap.id), {
             isRead: true,
+            status: 'read' as MessageStatus,
           })
         );
       });
