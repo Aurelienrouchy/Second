@@ -212,7 +212,7 @@ export default function LikedSellersScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="Vendeurs aimés"
+        title="Vendeurs suivis"
         onBack={() => router.back()}
         rightContent={
           <View style={styles.headerRight}>
