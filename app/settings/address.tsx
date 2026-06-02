@@ -215,7 +215,7 @@ export default function AddressSettingsScreen() {
           {!manualMode ? (
             <>
               <View style={styles.formSection}>
-                <Text style={styles.label}>Changer d'adresse</Text>
+                <Text style={styles.label}>Changer d&apos;adresse</Text>
                 <View style={[styles.inputContainer, styles.inputContainerElevated]}>
                   <GooglePlacesAutocomplete
                     ref={addressRef}
