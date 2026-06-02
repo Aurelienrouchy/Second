@@ -7,6 +7,8 @@ import * as logger from 'firebase-functions/logger';
 import * as admin from 'firebase-admin';
 import { db, FieldValue } from '../config/firebase';
 import { partitionTokens } from '../utils/notifications';
+import { brandKey } from '../utils/normalizeBrand';
+import { sanitizeArticleSize } from '../shared/article';
 
 interface SavedSearchSize {
   value: string;
