@@ -1223,7 +1223,7 @@ export const createStripeCheckout = onCall(
           transactionId,
           paymentIntentId: paymentIntent.id,
           totalCents: totalChargeCents,
-          walletCents: walletAmount,
+          walletCents: effectiveWalletAmount,
           stripeCents: stripeChargeCents,
         });
 
@@ -1236,7 +1236,7 @@ export const createStripeCheckout = onCall(
             serviceFee: txResult.fees.serviceFee,
             serviceFeePercent: txResult.fees.serviceFeePercent,
             buyerTotal: txResult.fees.buyerTotal,
-            walletAmountUsed: walletAmount,
+            walletAmountUsed: effectiveWalletAmount,
             stripeAmount: stripeChargeCents,
           },
         };
