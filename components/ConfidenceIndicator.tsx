@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   confidenceBarText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.foreground,
     textAlign: 'center',
     zIndex: 1,
   },
