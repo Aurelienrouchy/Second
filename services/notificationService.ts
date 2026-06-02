@@ -129,13 +129,24 @@ export class NotificationService {
    */
   static async markAllAsRead(userId: string): Promise<void> {
     try {
-      const notifications = await this.getUserNotifications(userId);
-      const unreadNotifications = notifications.filter((n) => !n.isRead);
+      // Read only the unread docs, then flip them in a single atomic batch
+      // (one round-trip) instead of N independent updateDoc calls.
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        where('userId', '==', userId),
+        where('isRead', '==', false)
+      );
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return;
 
-      const promises = unreadNotifications.map((n) => this.markAsRead(n.id));
-      await Promise.all(promises);
+      const batch = writeBatch(firestore);
+      snapshot.forEach((docSnapshot) => {
+        batch.update(docSnapshot.ref, { isRead: true });
+      });
+      await batch.commit();
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      if (__DEV__) console.error('Error marking all notifications as read:', error);
+      throw new Error('Erreur lors du marquage des notifications');
     }
   }
 
