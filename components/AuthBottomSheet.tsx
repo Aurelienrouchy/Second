@@ -117,6 +117,24 @@ const AuthBottomSheet: React.FC = () => {
     useAuthSheetStore.getState().hide();
   }, [resetForm, rollbackSocialSignIn]);
 
+  // Android hardware back: while the sheet is visible, route through the same
+  // close path (so the consent rollback + store hide fire) and consume the
+  // event so it never falls through to the underlying navigator. During the
+  // consent lock, consume without closing — a back-tap must not silently
+  // delete the freshly created social account.
+  useEffect(() => {
+    if (!isVisible) return;
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (authType === 'socialConsent') return true;
+        handleClose();
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [isVisible, authType, handleClose]);
+
   const handleToggleTerms = useCallback(() => setAcceptedTerms((v) => !v), []);
   const handleTogglePrivacy = useCallback(
     () => setAcceptedPrivacy((v) => !v),
