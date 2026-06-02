@@ -167,6 +167,96 @@ export default {
               "scheme": "https",
               "host": "seconde.app",
               "pathPrefix": "/search"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/favorites"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/messages"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/profile"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/sell"
+            },
+            {
+              "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/settings"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/article"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/chat"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/user"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/shop"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/swap-party"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/swap"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/notifications"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/search"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/favorites"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/messages"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/profile"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/sell"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/settings"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
