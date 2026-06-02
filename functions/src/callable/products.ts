@@ -709,10 +709,23 @@ export const updateArticle = onCall(
       sanitized.packageSize = updates.packageSize;
     }
 
-    // Neighborhoods
+    // Neighborhoods — same shape validation as create (P2-8). An empty array is
+    // a legitimate erasure (no meetup neighborhoods); a non-empty array with any
+    // malformed entry is rejected.
     if ('neighborhoods' in updates && Array.isArray(updates.neighborhoods)) {
-      sanitized.neighborhoods = updates.neighborhoods.slice(0, 10);
-      sanitized.neighborhood = updates.neighborhoods[0] || null;
+      if (updates.neighborhoods.length === 0) {
+        sanitized.neighborhoods = [];
+        sanitized.neighborhood = null;
+      } else {
+        const cleaned = updates.neighborhoods
+          .slice(0, 10)
+          .map(sanitizeNeighborhood);
+        if (cleaned.some((n: MeetupNeighborhood | null) => n === null)) {
+          throw new HttpsError('invalid-argument', 'Quartier invalide');
+        }
+        sanitized.neighborhoods = cleaned;
+        sanitized.neighborhood = cleaned[0];
+      }
     }
 
     // isActive (allow seller to deactivate/reactivate)
