@@ -45,8 +45,9 @@ const ChatBubble = React.memo(function ChatBubble({
         return <Ionicons name="time-outline" size={10} color={iconColor} />;
       case 'sent':
         return <Ionicons name="checkmark" size={10} color={iconColor} />;
-      case 'delivered':
-        return <Ionicons name="checkmark-done" size={10} color={iconColor} />;
+      // 'read' is written by markMessagesAsRead once the recipient opens the
+      // thread (iconColor switches to primary above). No 'delivered' path is
+      // ever written for chat messages, so that case is intentionally omitted.
       case 'read':
         return <Ionicons name="checkmark-done" size={10} color={iconColor} />;
       default:
