@@ -31,7 +31,8 @@ export const useChat = (chatId: string | null, userId: string | null) => {
         setIsLoading(true);
         setError(null);
         // Reset messages/chat to avoid showing previous chat's data while loading
-        setMessages([]);
+        setServerMessages([]);
+        setOptimisticMessages([]);
         setChat(null);
 
         // Load chat info
@@ -45,7 +46,11 @@ export const useChat = (chatId: string | null, userId: string | null) => {
           userId,
           (updatedMessages) => {
             if (cancelled) return;
-            setMessages(updatedMessages);
+            setServerMessages(updatedMessages);
+            // Reconcile: drop any optimistic message now confirmed by the server.
+            setOptimisticMessages((prev) =>
+              prev.filter((o) => !updatedMessages.some((m) => m.id === o.serverId))
+            );
             setIsLoading(false);
           },
           (err) => {
