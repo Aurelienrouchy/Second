@@ -129,6 +129,24 @@ export default function CheckoutScreen() {
     );
   }
 
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Commander" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.muted} />
+          <Text style={styles.guardTitle}>Erreur de connexion</Text>
+          <Text style={styles.guardSubtitle}>
+            Impossible de charger cet article. Vérifiez votre connexion et réessayez.
+          </Text>
+          <Pressable style={styles.backButton} onPress={() => refetch()}>
+            <Text style={styles.backButtonText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   if (!article) {
     return (
       <View style={[styles.container, styles.centered]}>
