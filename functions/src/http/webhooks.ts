@@ -777,6 +777,15 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
     }
 
     // SECURITY: verify the charged amount matches base + fee from the swap doc.
+    //
+    // P1 (dead-letter, not throw): a swap top-up amount mismatch is a
+    // DETERMINISTIC error (the captured charge and the stored base+fee will not
+    // change on a Stripe retry). Throwing here propagated to a 500, which (a) made
+    // Stripe re-deliver the same event for ~3 days to no effect, and (b) left the
+    // charge captured while the swap never advanced and the payee was never
+    // credited — a silent loss with no audit trail. Instead we RETURN a structured
+    // outcome; the caller persists a dead-letter (and auto-refunds idempotently if
+    // the payer OVERPAID) and ACKs 200, mirroring the purchase amount_mismatch path.
     const expectedTotalCents = baseAmountCents + (swap.topUpFee || 0);
     if (Math.abs(amountReceivedCents - expectedTotalCents) > 1) {
       logger.error('Stripe webhook: swap_topup amount mismatch', {
@@ -784,7 +793,26 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
         received: amountReceivedCents,
         expected: expectedTotalCents,
       });
-      throw new Error('Swap top-up amount does not match expected total');
+      // Pre-set topUpRefundReconciledAt so a later charge.refunded webhook
+      // (handleSwapTopUpRefund) short-circuits and does NOT debit the payee wallet:
+      // we never credited it (we return before the pendingBalance increment), so a
+      // debit would wrongly drain an unrelated top-up sitting in the same wallet.
+      tx.update(swapRef, {
+        topUpPaymentIntentId: paymentIntent.id,
+        topUpChargeId: paymentIntent.latest_charge || null,
+        topUpRefundReconciledAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return {
+        outcome: 'amount_mismatch' as const,
+        mismatch: {
+          received: amountReceivedCents,
+          expected: expectedTotalCents,
+          // Payer overpaid → a full refund of the (direct platform) charge makes
+          // them whole; underpaid → a human decides (refund vs chase the balance).
+          payerOverpaid: amountReceivedCents - expectedTotalCents > 1,
+        },
+      };
     }
 
     // A1 (race capture vs cancellation/expiry): the swap was cancelled (by the
