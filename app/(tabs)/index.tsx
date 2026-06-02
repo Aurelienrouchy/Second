@@ -161,7 +161,8 @@ export default function HomeScreen() {
         getItemType={keyExtractor}
         showsVerticalScrollIndicator={false}
         drawDistance={500}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={contentContainerStyle}
+        refreshControl={refreshControl}
       />
 
       <Modal
