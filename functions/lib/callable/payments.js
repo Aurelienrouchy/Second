@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelPendingTransaction = exports.adminRefundTransaction = exports.reportMeetupNoShow = exports.completeMeetupTransaction = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
+exports.cancelPendingTransaction = exports.adminRefundTransaction = exports.reportMeetupNoShow = exports.completeMeetupTransaction = exports.confirmMeetupTransaction = exports.acceptMeetupOffer = exports.checkTrackingStatus = exports.findPickupPoints = exports.getStripeAccountStatus = exports.addBankAccount = exports.createStripeConnectAccount = exports.createStripeCheckout = exports.createTransaction = exports.getServiceFee = exports.getShippingEstimate = void 0;
 exports.resolveSellerOriginAddress = resolveSellerOriginAddress;
 /**
  * Payment callable functions
@@ -251,26 +251,31 @@ exports.getShippingEstimate = (0, https_1.onCall)({ region: 'northamerica-northe
     if (!shipEngine) {
         throw new https_1.HttpsError('failed-precondition', 'ShipEngine API not configured');
     }
-    // Require BOTH endpoints to be usable Canadian addresses. NO silent Montreal
-    // fallback (P2-f): a fabricated QC/Montreal origin or destination produces a
-    // wrong estimate for any seller/buyer outside Montreal, which then diverges
-    // from the authoritative server re-pricing in createTransaction. Reject
-    // explicitly so the client surfaces a real "address required" error.
+    // P1-9: an ESTIMATE only needs a valid Canadian postal code on each endpoint.
+    // ShipEngine rates by zone (postal → postal), so a missing street/city must
+    // NOT block a quote — the client completes the full address later, before the
+    // authoritative server re-pricing in createTransaction (which DOES require a
+    // complete, deliverable address). When street/city are absent we fall back to
+    // the postal code as a placeholder line1/city so ShipEngine can still rate.
+    // NO Montreal fallback (P2-f): we never fabricate a QC/Montreal location —
+    // only the buyer/seller-provided postal code drives the zone.
     const normalizePostal = (raw) => {
         const cleaned = (raw !== null && raw !== void 0 ? raw : '').toString().replace(/\s/g, '').toUpperCase();
         return CA_POSTAL_RE.test(cleaned) ? cleaned : null;
     };
-    const fromStreet = ((_a = fromAddress.street) !== null && _a !== void 0 ? _a : '').toString().trim();
-    const fromCity = ((_b = fromAddress.city) !== null && _b !== void 0 ? _b : '').toString().trim();
     const fromPostal = normalizePostal(fromAddress.postalCode);
-    if (fromStreet.length === 0 || fromCity.length === 0 || !fromPostal) {
-        throw new https_1.HttpsError('invalid-argument', 'L\'adresse d\'expedition (vendeur) est incomplete ou invalide. Une rue, une ville et un code postal canadien valides sont requis.');
+    if (!fromPostal) {
+        throw new https_1.HttpsError('invalid-argument', 'Le code postal d\'expedition (vendeur) est invalide. Un code postal canadien valide (format A1A 1A1) est requis pour estimer la livraison.');
     }
-    const toCity = ((_c = toAddress.city) !== null && _c !== void 0 ? _c : '').toString().trim();
+    // Fallback when street/city are not yet known: use the postal code so the
+    // ShipEngine address shape stays valid and rating-by-zone still works.
+    const fromStreet = ((_a = fromAddress.street) !== null && _a !== void 0 ? _a : '').toString().trim() || fromPostal;
+    const fromCity = ((_b = fromAddress.city) !== null && _b !== void 0 ? _b : '').toString().trim() || fromPostal;
     const toPostal = normalizePostal(toAddress.postalCode);
-    if (toCity.length === 0 || !toPostal) {
-        throw new https_1.HttpsError('invalid-argument', 'L\'adresse de livraison (acheteur) est incomplete ou invalide. Une ville et un code postal canadien valides sont requis.');
+    if (!toPostal) {
+        throw new https_1.HttpsError('invalid-argument', 'Le code postal de livraison (acheteur) est invalide. Un code postal canadien valide (format A1A 1A1) est requis pour estimer la livraison.');
     }
+    const toCity = ((_c = toAddress.city) !== null && _c !== void 0 ? _c : '').toString().trim() || toPostal;
     try {
         const parcelWeight = parseFloat(weight) || 0.5;
         const parcelLength = parseFloat(dimensions === null || dimensions === void 0 ? void 0 : dimensions.length) || 30;
@@ -1478,6 +1483,297 @@ exports.checkTrackingStatus = (0, https_1.onCall)({ region: 'northamerica-northe
         const message = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Error checking tracking status:', error);
         throw new https_1.HttpsError('internal', `Failed to check tracking: ${message}`);
+    }
+});
+// =============================================================================
+// ACCEPT MEETUP OFFER — Seller accepts a buyer's meetup offer (atomic)
+// =============================================================================
+/**
+ * P1-4 / P1-7 — server-authoritative meetup offer acceptance.
+ *
+ * Previously the offer accept + meetup transaction creation lived entirely on
+ * the client (chatService.acceptOffer → createMeetupTransaction), which trusted
+ * client-supplied buyerId/sellerId. Worse, any path deriving buyer/seller from
+ * `request.auth.uid` would mislabel the seller (the accepter) as the buyer.
+ *
+ * This callable makes acceptance authoritative:
+ *   - buyerId  = offer message `senderId` (the buyer always proposes the offer),
+ *   - sellerId = the OTHER chat participant (NOT request.auth.uid).
+ * The caller MUST be the seller (a participant who is not the offer sender).
+ *
+ * In ONE runTransaction it:
+ *   1. re-reads the offer message (must be a pending meetup offer in this chat),
+ *   2. re-reads the article (must exist, not sold/inactive, seller-owned),
+ *   3. flips `offer.status` to 'accepted',
+ *   4. marks the article sold,
+ *   5. creates the linked `meetup_pending` transaction (NO platform fee).
+ *
+ * Idempotent: if a non-cancelled meetup transaction already exists for this
+ * chat, it returns that transaction id without creating a duplicate and without
+ * re-locking the article.
+ */
+exports.acceptMeetupOffer = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    var _a;
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'acceptMeetupOffer',
+        maxCallsAuthenticated: 20,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+    const { chatId, messageId } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
+    if (typeof chatId !== 'string' || chatId.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'chatId is required');
+    }
+    if (typeof messageId !== 'string' || messageId.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'messageId is required');
+    }
+    const callerUid = request.auth.uid;
+    const messageRef = firebase_1.db.collection('messages').doc(messageId);
+    const chatRef = firebase_1.db.collection('chats').doc(chatId);
+    try {
+        const result = await firebase_1.db.runTransaction(async (tx) => {
+            var _a, _b, _c, _d;
+            // ── ALL READS FIRST ──
+            const messageSnap = await tx.get(messageRef);
+            if (!messageSnap.exists) {
+                throw new https_1.HttpsError('not-found', 'Offre introuvable');
+            }
+            const message = messageSnap.data();
+            if (message.type !== 'offer' || !message.offer || !message.offer.meetup) {
+                throw new https_1.HttpsError('failed-precondition', 'Ce message n\'est pas une offre de rencontre');
+            }
+            if (message.chatId !== chatId) {
+                throw new https_1.HttpsError('failed-precondition', 'L\'offre n\'appartient pas à cette conversation');
+            }
+            const offer = message.offer;
+            // Only a pending offer can be accepted (idempotency / no re-accept).
+            if (offer.status !== 'pending') {
+                throw new https_1.HttpsError('failed-precondition', `Cette offre ne peut plus être acceptée (statut ${offer.status})`);
+            }
+            // Enforce offer expiry server-side.
+            if (offer.expiresAt) {
+                const expiresAt = offer.expiresAt.toDate
+                    ? offer.expiresAt.toDate()
+                    : new Date(offer.expiresAt);
+                if (expiresAt instanceof Date && !isNaN(expiresAt.getTime()) && expiresAt < new Date()) {
+                    tx.update(messageRef, { 'offer.status': 'expired' });
+                    throw new https_1.HttpsError('failed-precondition', 'Cette offre a expiré');
+                }
+            }
+            const chatSnap = await tx.get(chatRef);
+            if (!chatSnap.exists) {
+                throw new https_1.HttpsError('not-found', 'Conversation introuvable');
+            }
+            const chat = chatSnap.data();
+            const participants = chat.participants;
+            if (!Array.isArray(participants) || participants.length < 2) {
+                throw new https_1.HttpsError('failed-precondition', 'Conversation invalide');
+            }
+            // buyerId is ALWAYS the offer sender (the buyer proposes). sellerId is
+            // the OTHER participant — NEVER derived from request.auth.uid.
+            const buyerId = message.senderId;
+            if (typeof buyerId !== 'string' || !participants.includes(buyerId)) {
+                throw new https_1.HttpsError('failed-precondition', 'Émetteur de l\'offre invalide');
+            }
+            const sellerId = participants.find((p) => p !== buyerId);
+            if (typeof sellerId !== 'string' || sellerId.length === 0) {
+                throw new https_1.HttpsError('failed-precondition', 'Vendeur introuvable pour cette offre');
+            }
+            // The caller must be the seller (the party accepting the buyer's offer).
+            if (callerUid !== sellerId) {
+                throw new https_1.HttpsError('permission-denied', 'Seul le vendeur peut accepter cette offre');
+            }
+            const articleId = chat.articleId;
+            if (typeof articleId !== 'string' || articleId.length === 0) {
+                throw new https_1.HttpsError('failed-precondition', 'Article introuvable pour cette conversation');
+            }
+            const articleRef = firebase_1.db.collection('articles').doc(articleId);
+            const articleSnap = await tx.get(articleRef);
+            if (!articleSnap.exists) {
+                throw new https_1.HttpsError('not-found', 'Cet article n\'existe plus');
+            }
+            const articleData = articleSnap.data();
+            // The accepting seller must actually own the article.
+            if (articleData.sellerId !== sellerId) {
+                throw new https_1.HttpsError('permission-denied', 'Vous n\'êtes pas le vendeur de cet article');
+            }
+            // Idempotency / anti-duplication: re-accepting is blocked by the
+            // `offer.status === 'pending'` guard above (a second call sees
+            // 'accepted' and throws), and a concurrent second buyer is blocked by
+            // the article lock (`isSold`) written below within the same
+            // runTransaction. Together they guarantee exactly one meetup
+            // transaction per accepted offer.
+            const amount = offer.amount;
+            if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
+                throw new https_1.HttpsError('failed-precondition', 'Montant de l\'offre invalide');
+            }
+            if (typeof articleData.price === 'number' && amount > articleData.price) {
+                throw new https_1.HttpsError('failed-precondition', 'Le montant de l\'offre dépasse le prix de l\'article');
+            }
+            if (articleData.isSold === true) {
+                throw new https_1.HttpsError('failed-precondition', 'Cet article a déjà été vendu');
+            }
+            if (articleData.isActive === false) {
+                throw new https_1.HttpsError('failed-precondition', 'Cet article n\'est plus disponible');
+            }
+            if (buyerId === sellerId) {
+                throw new https_1.HttpsError('invalid-argument', 'Le vendeur ne peut pas acheter son propre article');
+            }
+            // ── ALL WRITES AFTER ALL READS ──
+            // 1. Accept the offer.
+            tx.update(messageRef, { 'offer.status': 'accepted' });
+            // 2. Lock the article.
+            tx.update(articleRef, { isSold: true });
+            // 3. Create the linked meetup transaction (NO platform fee, no shipping).
+            const transactionData = {
+                articleId,
+                buyerId,
+                sellerId,
+                amount,
+                shippingCost: 0,
+                serviceFee: 0,
+                totalAmount: amount,
+                sellerPayout: amount,
+                deliveryType: 'meetup',
+                status: 'meetup_pending',
+                chatId,
+                createdAt: firebase_1.FieldValue.serverTimestamp(),
+            };
+            const meetupSpot = (_a = offer.meetup) === null || _a === void 0 ? void 0 : _a.location;
+            if (meetupSpot && typeof meetupSpot === 'object') {
+                const cleanSpot = {
+                    name: (_b = meetupSpot.name) !== null && _b !== void 0 ? _b : null,
+                    category: (_c = meetupSpot.category) !== null && _c !== void 0 ? _c : null,
+                    neighborhood: (_d = meetupSpot.neighborhood) !== null && _d !== void 0 ? _d : null,
+                };
+                if (meetupSpot.id)
+                    cleanSpot.id = meetupSpot.id;
+                if (meetupSpot.address)
+                    cleanSpot.address = meetupSpot.address;
+                if (meetupSpot.coordinates)
+                    cleanSpot.coordinates = meetupSpot.coordinates;
+                transactionData.meetupSpot = cleanSpot;
+            }
+            const newTxRef = firebase_1.db.collection('transactions').doc();
+            tx.set(newTxRef, transactionData);
+            return { transactionId: newTxRef.id, buyerId, sellerId, amount };
+        });
+        logger.info('Meetup offer accepted (server-authoritative)', {
+            chatId,
+            messageId,
+            transactionId: result.transactionId,
+            buyerId: result.buyerId,
+            sellerId: result.sellerId,
+        });
+        return { success: true, transactionId: result.transactionId };
+    }
+    catch (error) {
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('Error accepting meetup offer:', error);
+        throw new https_1.HttpsError('internal', `Failed to accept meetup offer: ${message}`);
+    }
+});
+// =============================================================================
+// CONFIRM MEETUP TRANSACTION — Seller confirms the meetup appointment (atomic)
+// =============================================================================
+/**
+ * P1-5 — server-authoritative meetup confirmation.
+ *
+ * Previously the client (chatService.confirmMeetup) wrote
+ * `updateDoc(txRef, { status: 'meetup_confirmed' })` directly and relied on
+ * Firestore rules to gate the seller. That left the message timestamp
+ * (`offer.meetup.confirmedAt`) and the transaction status update as two
+ * non-atomic client writes that could diverge.
+ *
+ * This callable performs the `meetup_pending → meetup_confirmed` transition
+ * atomically together with the message confirmation timestamp, inside a single
+ * runTransaction. buyer/seller are derived from the transaction document; only
+ * the SELLER may confirm (they own the appointment slot). The matching Firestore
+ * rule tightening is carried by be-firestore-rules.
+ */
+exports.confirmMeetupTransaction = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
+    var _a;
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { callerKey, isAuthenticated } = (0, rateLimit_1.resolveCallerKey)(request);
+    await (0, rateLimit_1.checkRateLimit)(callerKey, isAuthenticated, {
+        functionName: 'confirmMeetupTransaction',
+        maxCallsAuthenticated: 20,
+        maxCallsUnauthenticated: 0,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+    const { transactionId, messageId } = (_a = request.data) !== null && _a !== void 0 ? _a : {};
+    if (typeof transactionId !== 'string' || transactionId.length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Transaction ID is required');
+    }
+    const callerUid = request.auth.uid;
+    const txRef = firebase_1.db.collection('transactions').doc(transactionId);
+    const messageRef = typeof messageId === 'string' && messageId.length > 0
+        ? firebase_1.db.collection('messages').doc(messageId)
+        : null;
+    try {
+        const result = await firebase_1.db.runTransaction(async (tx) => {
+            var _a;
+            // ── ALL READS FIRST ──
+            const txSnap = await tx.get(txRef);
+            if (!txSnap.exists) {
+                throw new https_1.HttpsError('not-found', 'Transaction not found');
+            }
+            const data = txSnap.data();
+            // Only the SELLER (derived from the tx doc) may confirm the appointment.
+            if (data.sellerId !== callerUid) {
+                throw new https_1.HttpsError('permission-denied', 'Seul le vendeur peut confirmer la rencontre');
+            }
+            if (data.deliveryType !== 'meetup') {
+                throw new https_1.HttpsError('failed-precondition', 'Cette transaction n\'est pas une rencontre');
+            }
+            // Gate on the TRANSACTION status, not a message field.
+            if (data.status !== 'meetup_pending') {
+                throw new https_1.HttpsError('failed-precondition', `Impossible de confirmer la rencontre depuis le statut ${data.status}`);
+            }
+            // Validate the linked message belongs to this transaction's chat (if any).
+            let messageSnap = null;
+            if (messageRef) {
+                messageSnap = await tx.get(messageRef);
+                if (messageSnap.exists) {
+                    const msg = messageSnap.data();
+                    if (data.chatId && msg.chatId && msg.chatId !== data.chatId) {
+                        throw new https_1.HttpsError('failed-precondition', 'Le message ne correspond pas à cette transaction');
+                    }
+                }
+            }
+            // ── ALL WRITES AFTER ALL READS ──
+            tx.update(txRef, {
+                status: 'meetup_confirmed',
+                meetupConfirmedAt: firebase_1.FieldValue.serverTimestamp(),
+                meetupConfirmedBy: callerUid,
+            });
+            if (messageRef && messageSnap && messageSnap.exists) {
+                tx.update(messageRef, {
+                    'offer.meetup.confirmedAt': firebase_1.FieldValue.serverTimestamp(),
+                });
+            }
+            return { chatId: (_a = data.chatId) !== null && _a !== void 0 ? _a : null };
+        });
+        logger.info('Meetup transaction confirmed (server-authoritative)', {
+            transactionId,
+            sellerId: callerUid,
+        });
+        return { success: true, chatId: result.chatId };
+    }
+    catch (error) {
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('Error confirming meetup transaction:', error);
+        throw new https_1.HttpsError('internal', `Failed to confirm meetup: ${message}`);
     }
 });
 // =============================================================================

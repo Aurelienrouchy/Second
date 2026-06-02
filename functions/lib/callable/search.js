@@ -190,6 +190,11 @@ exports.visualSearch = (0, https_1.onCall)({
         const article = articlesMap.get(doc.id);
         if (!article)
             continue;
+        // The embeddings collection only tracks `isActive`, not `isSold`, so a
+        // sold (but still active) article would otherwise leak into results.
+        // Filter it out post-fetch using the freshly loaded article doc.
+        if (article.isSold === true || article.isActive === false)
+            continue;
         // Cosine distance to similarity percentage (1 - distance) * 100
         const distance = doc.get('__distance__') || 0;
         // Skip results below similarity threshold
@@ -291,6 +296,11 @@ exports.getSimilarProducts = (0, https_1.onCall)({ region: 'northamerica-northea
             break;
         const article = articlesMap.get(doc.id);
         if (!article)
+            continue;
+        // The embeddings collection only tracks `isActive`, not `isSold`, so a
+        // sold (but still active) article would otherwise leak into results.
+        // Filter it out post-fetch using the freshly loaded article doc.
+        if (article.isSold === true || article.isActive === false)
             continue;
         const distance = doc.get('__distance__') || 0;
         // Skip results below similarity threshold

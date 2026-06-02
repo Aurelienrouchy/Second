@@ -78,7 +78,8 @@ async function validateArticlesAvailable(
   items: { articleId: string; title?: string }[],
   label: string,
   expectedOwnerId?: string
-): Promise<void> {
+): Promise<Record<string, number>> {
+  const prices: Record<string, number> = {};
   for (const item of items) {
     const articleRef = db.collection('articles').doc(item.articleId);
     const articleSnap = await tx.get(articleRef);

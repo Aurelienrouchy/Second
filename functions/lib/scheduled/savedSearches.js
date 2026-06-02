@@ -43,6 +43,8 @@ const logger = __importStar(require("firebase-functions/logger"));
 const admin = __importStar(require("firebase-admin"));
 const firebase_1 = require("../config/firebase");
 const notifications_1 = require("../utils/notifications");
+const normalizeBrand_1 = require("../utils/normalizeBrand");
+const article_1 = require("../shared/article");
 /**
  * Check saved searches and notify users of new matching articles
  * Runs every 15 minutes
@@ -121,28 +123,34 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
                 .where('isActive', '==', true)
                 .where('isSold', '==', false)
                 .where('createdAt', '>', lastNotifiedAt);
-            // Apply filters (only first filter due to Firestore limitations)
+            // Apply the single server-side equality filter we can index cheaply
+            // (only the first filter, due to Firestore single-array-membership and
+            // index limitations). Brand is intentionally NOT pushed server-side:
+            // articles store a single `brand` STRING (not a `brands` array), so an
+            // `array-contains-any` would match nothing and would also require an
+            // extra composite index. The brand filter is applied in memory below.
             if (filters.categoryIds && filters.categoryIds.length > 0) {
                 const mostSpecificCategory = filters.categoryIds[filters.categoryIds.length - 1];
                 articlesQuery = articlesQuery.where('categoryIds', 'array-contains', mostSpecificCategory);
-            }
-            else if (filters.brands && filters.brands.length > 0) {
-                articlesQuery = articlesQuery.where('brands', 'array-contains-any', filters.brands.slice(0, 10));
             }
             // Limit results
             articlesQuery = articlesQuery.limit(50);
             const matchingArticlesSnapshot = await articlesQuery.get();
             // Apply additional filters in memory
             let matchingArticles = matchingArticlesSnapshot.docs.map((doc) => (Object.assign({ id: doc.id }, doc.data())));
-            // Filter by text query if present
+            // Filter by text query if present. Title/description stay substring
+            // (free-text). Brand is matched EXACT on brandKey() to mirror the client
+            // (articlesService matchesClientSideFilters) so e.g. a query of "gap"
+            // never matches the brand "Gap Kids" via substring.
             if (searchQuery) {
                 const queryLower = searchQuery.toLowerCase();
+                const queryBrandKey = (0, normalizeBrand_1.brandKey)(searchQuery);
                 matchingArticles = matchingArticles.filter((article) => {
                     var _a, _b;
                     const matchesTitle = (_a = article.title) === null || _a === void 0 ? void 0 : _a.toLowerCase().includes(queryLower);
                     const matchesDesc = (_b = article.description) === null || _b === void 0 ? void 0 : _b.toLowerCase().includes(queryLower);
-                    const brands = article.brands || (article.brand ? [article.brand] : []);
-                    const matchesBrand = brands.some((b) => b.toLowerCase().includes(queryLower));
+                    const articleBrand = article.brand;
+                    const matchesBrand = !!articleBrand && (0, normalizeBrand_1.brandKey)(articleBrand) === queryBrandKey;
                     return matchesTitle || matchesDesc || matchesBrand;
                 });
             }
@@ -154,11 +162,14 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
                 matchingArticles = matchingArticles.filter((article) => article.price <= filters.maxPrice);
             }
             // Filter by sizes (ArticleSize objects { value, system } — exact match
-            // on both value and system so US/EU sizes never collide).
+            // on both value and system so US/EU sizes never collide). Legacy sizes
+            // stored as a plain string are normalised via sanitizeArticleSize
+            // (back-compat → { value, system: 'EU' }) so they are not silently
+            // excluded before the real data migration (be-migration-sizes) lands.
             if (filters.sizes && filters.sizes.length > 0) {
                 matchingArticles = matchingArticles.filter((article) => {
-                    const articleSize = article.size;
-                    if (!articleSize || typeof articleSize !== 'object')
+                    const articleSize = (0, article_1.sanitizeArticleSize)(article.size);
+                    if (!articleSize)
                         return false;
                     return filters.sizes.some((f) => f.value === articleSize.value && f.system === articleSize.system);
                 });
@@ -168,6 +179,20 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
                 matchingArticles = matchingArticles.filter((article) => {
                     const articleColors = article.colors || (article.color ? [article.color] : []);
                     return filters.colors.some((filterColor) => articleColors.includes(filterColor));
+                });
+            }
+            // Filter by brand (structured `filters.brands`). Articles store a single
+            // `brand` string; mirror the client filter (articlesService
+            // matchesClientSideFilters) which compares with brandKey() exact-match
+            // (lowercase + trim) so `Gap` never matches `Gap Kids`. Articles without
+            // a brand are excluded.
+            if (filters.brands && filters.brands.length > 0) {
+                const wantedBrandKeys = filters.brands.map((b) => (0, normalizeBrand_1.brandKey)(b));
+                matchingArticles = matchingArticles.filter((article) => {
+                    if (!article.brand)
+                        return false;
+                    const docKey = (0, normalizeBrand_1.brandKey)(article.brand);
+                    return wantedBrandKeys.some((k) => k === docKey);
                 });
             }
             // Filter by materials

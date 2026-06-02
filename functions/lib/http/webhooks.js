@@ -675,7 +675,7 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
  * The top-up `amount` in metadata is in CENTS (base amount, fee excluded).
  */
 async function handleSwapTopUpSucceeded(paymentIntent) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f, _g;
     const swapId = (_a = paymentIntent.metadata) === null || _a === void 0 ? void 0 : _a.swapId;
     if (typeof swapId !== 'string' ||
         swapId.length === 0 ||
@@ -710,6 +710,15 @@ async function handleSwapTopUpSucceeded(paymentIntent) {
             return { outcome: 'not_found' };
         }
         // SECURITY: verify the charged amount matches base + fee from the swap doc.
+        //
+        // P1 (dead-letter, not throw): a swap top-up amount mismatch is a
+        // DETERMINISTIC error (the captured charge and the stored base+fee will not
+        // change on a Stripe retry). Throwing here propagated to a 500, which (a) made
+        // Stripe re-deliver the same event for ~3 days to no effect, and (b) left the
+        // charge captured while the swap never advanced and the payee was never
+        // credited — a silent loss with no audit trail. Instead we RETURN a structured
+        // outcome; the caller persists a dead-letter (and auto-refunds idempotently if
+        // the payer OVERPAID) and ACKs 200, mirroring the purchase amount_mismatch path.
         const expectedTotalCents = baseAmountCents + (swap.topUpFee || 0);
         if (Math.abs(amountReceivedCents - expectedTotalCents) > 1) {
             logger.error('Stripe webhook: swap_topup amount mismatch', {
@@ -717,7 +726,26 @@ async function handleSwapTopUpSucceeded(paymentIntent) {
                 received: amountReceivedCents,
                 expected: expectedTotalCents,
             });
-            throw new Error('Swap top-up amount does not match expected total');
+            // Pre-set topUpRefundReconciledAt so a later charge.refunded webhook
+            // (handleSwapTopUpRefund) short-circuits and does NOT debit the payee wallet:
+            // we never credited it (we return before the pendingBalance increment), so a
+            // debit would wrongly drain an unrelated top-up sitting in the same wallet.
+            tx.update(swapRef, {
+                topUpPaymentIntentId: paymentIntent.id,
+                topUpChargeId: paymentIntent.latest_charge || null,
+                topUpRefundReconciledAt: firebase_1.FieldValue.serverTimestamp(),
+                updatedAt: firebase_1.FieldValue.serverTimestamp(),
+            });
+            return {
+                outcome: 'amount_mismatch',
+                mismatch: {
+                    received: amountReceivedCents,
+                    expected: expectedTotalCents,
+                    // Payer overpaid → a full refund of the (direct platform) charge makes
+                    // them whole; underpaid → a human decides (refund vs chase the balance).
+                    payerOverpaid: amountReceivedCents - expectedTotalCents > 1,
+                },
+            };
         }
         // A1 (race capture vs cancellation/expiry): the swap was cancelled (by the
         // initiator) or expired (expireStaleProposedSwaps) BEFORE this capture landed.
@@ -789,6 +817,90 @@ async function handleSwapTopUpSucceeded(paymentIntent) {
         });
         return { outcome: 'accepted' };
     });
+    // P1 (amount mismatch — deterministic): the captured top-up amount does not
+    // match base+fee from the swap doc. This cannot self-heal on a Stripe retry, so
+    // we MUST NOT 500. We always persist a dead-letter for audit/reconciliation. If
+    // the payer OVERPAID we additionally auto-refund the full (direct platform)
+    // charge idempotently — a defensive, payer-favourable action. An UNDERPAYMENT is
+    // left for a human (refunding the full charge vs chasing the balance is a
+    // business decision). Either way we ACK 200 so Stripe stops retrying.
+    if (result.outcome === 'amount_mismatch') {
+        const mismatch = 'mismatch' in result ? result.mismatch : undefined;
+        const payerOverpaid = (mismatch === null || mismatch === void 0 ? void 0 : mismatch.payerOverpaid) === true;
+        const stripe = (0, stripe_1.getStripe)();
+        if (payerOverpaid && stripe) {
+            try {
+                // DIRECT PLATFORM CHARGE: no transfer_data → must NOT pass reverse_transfer
+                // / refund_application_fee (Stripe rejects them). Deterministic key
+                // `rf_swap_${swapId}` is SHARED with refundSwapTopUpIfPaid + the
+                // cancelled-race branch below, so this can never double-refund.
+                const refund = await stripe.refunds.create({
+                    payment_intent: paymentIntent.id,
+                    metadata: { type: 'swap_topup_refund', swapId, reason: 'amount_mismatch_payer_overpaid' },
+                }, { idempotencyKey: `rf_swap_${swapId}` });
+                await swapRef.update({
+                    topUpRefundId: refund.id,
+                    topUpRefundedAt: firebase_1.FieldValue.serverTimestamp(),
+                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
+                });
+                logger.warn('Stripe webhook: swap_topup amount mismatch (payer overpaid) — auto-refunded', {
+                    swapId,
+                    paymentIntentId: paymentIntent.id,
+                    refundId: refund.id,
+                });
+            }
+            catch (refundErr) {
+                // Replayable dead-letter. type 'stripe_refund_failed' + isMixedCharge:true
+                // makes retryFailedOperations re-issue refunds.create WITHOUT
+                // reverse_transfer (direct charge), reusing the SAME `rf_swap_${swapId}`
+                // key so a later replay never double-refunds. kind tags the swap mismatch.
+                await (0, failedOperations_1.writeFailedOperation)({
+                    type: 'stripe_refund_failed',
+                    refId: swapId,
+                    payload: {
+                        paymentIntentId: paymentIntent.id,
+                        idempotencyKey: `rf_swap_${swapId}`,
+                        isMixedCharge: true,
+                        kind: 'swap_topup_amount_mismatch',
+                        received: (_d = mismatch === null || mismatch === void 0 ? void 0 : mismatch.received) !== null && _d !== void 0 ? _d : amountReceivedCents,
+                        expected: (_e = mismatch === null || mismatch === void 0 ? void 0 : mismatch.expected) !== null && _e !== void 0 ? _e : null,
+                    },
+                    error: refundErr,
+                });
+                logger.error('CRITICAL Stripe webhook: swap_topup mismatch auto-refund FAILED', {
+                    swapId,
+                    paymentIntentId: paymentIntent.id,
+                    error: refundErr instanceof Error ? refundErr.message : refundErr,
+                });
+            }
+        }
+        else {
+            // Underpaid (or Stripe not configured): no safe auto-action. Persist an audit
+            // dead-letter for manual reconciliation. amount_mismatch with autoRefund:false
+            // keeps it visible (retryFailedOperations logs CRITICAL until it exhausts)
+            // without taking a money-moving action a human must decide.
+            await (0, failedOperations_1.writeFailedOperation)({
+                type: 'amount_mismatch',
+                refId: swapId,
+                payload: {
+                    paymentIntentId: paymentIntent.id,
+                    received: (_f = mismatch === null || mismatch === void 0 ? void 0 : mismatch.received) !== null && _f !== void 0 ? _f : amountReceivedCents,
+                    expected: (_g = mismatch === null || mismatch === void 0 ? void 0 : mismatch.expected) !== null && _g !== void 0 ? _g : null,
+                    isMixedCharge: true,
+                    autoRefund: false,
+                    kind: 'swap_topup_amount_mismatch',
+                },
+                error: 'Swap top-up amount does not match expected base+fee total',
+            });
+            logger.error('CRITICAL Stripe webhook: swap_topup amount underpaid — dead-lettered for manual reconciliation', {
+                swapId,
+                paymentIntentId: paymentIntent.id,
+                stripeConfigured: !!stripe,
+            });
+        }
+        // ACK 200 (return normally): the outer handler responds received:true.
+        return;
+    }
     // A1 refund: issue an idempotent Stripe refund of the full top-up charge for a
     // capture that landed on a dead (cancelled/expired) swap. The deterministic key
     // `rf_swap_${swapId}` is SHARED with refundSwapTopUpIfPaid (cancel/dispute
