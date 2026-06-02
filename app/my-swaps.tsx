@@ -54,8 +54,8 @@ const STATUS_COLORS: Record<SwapStatus, string> = {
 };
 
 
-const getTotalValue = (items: SwapItemInfo[]): number => {
-  return items.reduce((sum, item) => sum + (item.price || 0), 0);
+const getTotalValue = (items: SwapItemInfo[], cashDollars = 0): number => {
+  return items.reduce((sum, item) => sum + (item.price || 0), 0) + cashDollars;
 };
 
 type FilterType = 'all' | 'pending' | 'active' | 'completed';
