@@ -95,6 +95,18 @@ export default function PhotosReviewScreen() {
   // Guard against double navigation (timer + manual click)
   const hasNavigated = useRef(false);
 
+  // Abort in-flight analysis on unmount / when leaving the screen
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const canAddMore = photos.length < MAX_PHOTOS;
   const remainingSlots = MAX_PHOTOS - photos.length;
   const isAnalyzing = analysisState === 'loading';
