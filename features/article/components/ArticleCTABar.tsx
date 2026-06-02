@@ -77,7 +77,11 @@ function ArticleCTABarComponent({
           </Pressable>
           <Pressable style={styles.buyButton} onPress={onBuy}>
             <Ionicons name="bag-handle-outline" size={16} color={colors.cream} />
-            <Text style={styles.buyButtonText}>ACHETER · {formatPrice(price)}</Text>
+            <Text style={styles.buyButtonText}>
+              {shippingEnabled
+                ? `ACHETER · ${formatPrice(price)}`
+                : 'PROPOSER UN ACHAT'}
+            </Text>
           </Pressable>
         </View>
       )}
