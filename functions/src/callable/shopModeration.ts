@@ -59,6 +59,12 @@ async function assertAdmin(uid: string, claimAdmin: boolean): Promise<void> {
   }
 }
 
+/** Owner info needed to notify after a status change. */
+type ShopMutationResult = {
+  ownerId: string | null;
+  shopName: string | null;
+};
+
 /**
  * Internal helper: mutate a shop's validation status atomically.
  *
@@ -66,24 +72,29 @@ async function assertAdmin(uid: string, claimAdmin: boolean): Promise<void> {
  * (reason? / verifiedAt / verifiedBy) so existing readers keep working. The
  * `reason` field is only set for reject/suspend (omitted entirely for approve —
  * never written as `undefined`).
+ *
+ * Returns the shop owner's id + name so the caller can notify them server-side.
+ * `ownerId` is `null` on an idempotent no-op (already in the requested state):
+ * a replay of the same moderation action MUST NOT re-notify the owner.
  */
 async function mutateShopStatus(
   shopId: string,
   nextStatus: ShopStatus,
   adminUid: string,
   reason: string | null,
-): Promise<void> {
-  await db.runTransaction(async (tx) => {
+): Promise<ShopMutationResult> {
+  return db.runTransaction(async (tx) => {
     const ref = db.collection('shops').doc(shopId);
     const snap = await tx.get(ref);
     if (!snap.exists) {
       throw new HttpsError('not-found', 'Boutique introuvable');
     }
 
-    const currentStatus = snap.data()?.status as ShopStatus | undefined;
+    const data = snap.data() ?? {};
+    const currentStatus = data.status as ShopStatus | undefined;
     if (currentStatus === nextStatus) {
-      // Idempotent no-op: already in the requested state.
-      return;
+      // Idempotent no-op: already in the requested state, no re-notify.
+      return { ownerId: null, shopName: null };
     }
 
     const verificationDetails: Record<string, unknown> = {
@@ -100,7 +111,77 @@ async function mutateShopStatus(
       verificationDetails,
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+    const ownerId = typeof data.ownerId === 'string' ? data.ownerId : null;
+    const shopName = typeof data.name === 'string' ? data.name : null;
+    return { ownerId, shopName };
   });
+}
+
+/**
+ * Notify a shop owner of a moderation outcome (in-app notification + FCM push,
+ * created server-side via the Admin SDK — `notifications` create is locked to
+ * Cloud Functions in firestore.rules, so the old client-side addDoc is gone).
+ *
+ * Best-effort: a notification failure must never roll back the (already
+ * committed) status change, so we log and swallow. `shop_suspended` reuses the
+ * `shop_rejected` client type (same negative outcome the notifications screen
+ * already renders) to avoid an unmapped type.
+ */
+async function notifyShopOwner(
+  result: ShopMutationResult,
+  shopId: string,
+  outcome: ShopStatus,
+  reason: string | null,
+): Promise<void> {
+  if (!result.ownerId) {
+    return; // idempotent no-op or missing owner — nothing to notify.
+  }
+
+  const shopLabel = result.shopName ?? 'Votre boutique';
+  let type: string;
+  let title: string;
+  let message: string;
+  switch (outcome) {
+    case 'approved':
+      type = 'shop_approved';
+      title = 'Boutique approuvée';
+      message = `${shopLabel} a été approuvée et est maintenant en ligne.`;
+      break;
+    case 'rejected':
+      type = 'shop_rejected';
+      title = 'Boutique refusée';
+      message = reason
+        ? `${shopLabel} a été refusée : ${reason}`
+        : `${shopLabel} a été refusée.`;
+      break;
+    case 'suspended':
+      type = 'shop_rejected';
+      title = 'Boutique suspendue';
+      message = reason
+        ? `${shopLabel} a été suspendue : ${reason}`
+        : `${shopLabel} a été suspendue.`;
+      break;
+    default:
+      return;
+  }
+
+  try {
+    await sendPushNotification(
+      result.ownerId,
+      title,
+      message,
+      { shopId },
+      type,
+    );
+  } catch (error) {
+    logger.error('[shopModeration] failed to notify shop owner', {
+      shopId,
+      ownerId: result.ownerId,
+      outcome,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 /**
