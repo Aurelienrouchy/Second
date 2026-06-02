@@ -272,8 +272,20 @@ export function useFavorites() {
   });
 
   const toggleFavorite = useCallback(
-    (articleId: string) => mutation.mutate(articleId),
-    [mutation]
+    (articleId: string) => {
+      // Block adding beyond the cap so the Firestore write can't reject
+      // silently and roll back the optimistic update without feedback.
+      const isAdding = !favoriteIds.includes(articleId);
+      if (isAdding && favoriteIds.length >= FAVORITES_CAP) {
+        Alert.alert(
+          'Limite atteinte',
+          `Vous avez atteint la limite de ${FAVORITES_CAP} favoris. Retirez-en quelques-uns pour en ajouter de nouveaux.`
+        );
+        return;
+      }
+      mutation.mutate(articleId);
+    },
+    [mutation, favoriteIds]
   );
 
   const isFavorite = useCallback(
