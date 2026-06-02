@@ -166,7 +166,7 @@ export default function MessagesScreen() {
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
-        {(['ventes', 'achats'] as const).map((tab) => (
+        {CONVERSATION_TABS.map((tab) => (
           <React.Fragment key={tab}>
             <Pressable
               style={[
@@ -182,7 +182,7 @@ export default function MessagesScreen() {
                     activeTab === tab && styles.tabLabelActive,
                   ]}
                 >
-                  {tab.toUpperCase()}
+                  {TAB_LABELS[tab]}
                 </Text>
                 {unreadByType[tab] > 0 && (
                   <View style={styles.tabBadge}>
