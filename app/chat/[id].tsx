@@ -212,7 +212,7 @@ export default function ChatScreen() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
-  }, [article?.price, article?.isSold, article?.isActive, chat?.articlePrice, messages, user?.id]);
+  }, [article?.price, article?.isSold, article?.isActive, chat?.articlePrice, messages, user?.id, isOtherBlocked]);
 
   const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
