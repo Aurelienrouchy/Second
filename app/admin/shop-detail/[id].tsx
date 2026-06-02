@@ -327,7 +327,7 @@ export default function AdminShopDetailScreen() {
 
       {/* Actions Footer (only for pending shops) */}
       {shop.status === 'pending' && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(20, insets.bottom) }]}>
           <Pressable style={styles.rejectButton} onPress={handleReject}>
             <Ionicons name="close-circle-outline" size={20} color="#FF3B30" />
             <Text style={styles.rejectButtonText}>Rejeter</Text>
