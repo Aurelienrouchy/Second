@@ -10,6 +10,7 @@ import {
 
 import { SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 
 export interface SwapItemCardProps {
   item: SwapItemInfo;
