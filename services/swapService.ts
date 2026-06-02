@@ -197,18 +197,25 @@ export async function getRecentPartyItems(
 export async function getPartyItemsExtended(partyId: string): Promise<SwapPartyItemExtended[]> {
   const items = await getPartyItems(partyId);
 
-  // Fetch full article data for each item
+  // Fetch full article data for each item. Items whose backing article no
+  // longer exists, has been sold, or has been deactivated are dropped so the
+  // zone never surfaces stale/unavailable stock (a server-side cleanup trigger
+  // is the durable fix; this is the client-side safety net).
   const enrichedItems = await Promise.all(
-    items.map(async (item) => {
+    items.map(async (item): Promise<SwapPartyItemExtended | null> => {
       try {
         const articleRef = doc(firestore, 'articles', item.articleId);
         const articleSnap = await getDoc(articleRef);
 
         if (!articleSnap.exists()) {
-          return item as SwapPartyItemExtended;
+          return null;
         }
 
         const articleData = articleSnap.data();
+        if (articleData.isSold === true || articleData.isActive === false) {
+          return null;
+        }
+
         return {
           ...item,
           categoryIds: articleData.categoryIds,
@@ -221,12 +228,13 @@ export async function getPartyItemsExtended(partyId: string): Promise<SwapPartyI
         } as SwapPartyItemExtended;
       } catch (error) {
         if (__DEV__) console.error(`Error enriching item ${item.id}:`, error);
+        // On a transient read error, keep the item rather than hiding valid stock.
         return item as SwapPartyItemExtended;
       }
     })
   );
 
-  return enrichedItems;
+  return enrichedItems.filter((item): item is SwapPartyItemExtended => item !== null);
 }
 
 // ============================================
