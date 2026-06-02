@@ -409,4 +409,52 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     marginBottom: spacing.sm,
   },
+  fieldLabel: {
+    color: colors.foregroundSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  manualInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    fontSize: 16,
+    fontFamily: fonts.sans,
+    color: colors.foreground,
+    backgroundColor: colors.surface,
+  },
+  manualRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  manualRowItem: {
+    flex: 1,
+  },
+  manualToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.sm,
+  },
+  manualToggleText: {
+    fontSize: 14,
+    fontFamily: fonts.sansMedium,
+    color: colors.primary,
+  },
+  saveButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.sansMedium,
+    color: colors.white,
+  },
 });
