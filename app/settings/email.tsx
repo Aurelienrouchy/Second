@@ -181,6 +181,8 @@ export default function EmailSettingsScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                textContentType="emailAddress"
+                autoComplete="email"
               />
             </View>
 
