@@ -102,7 +102,7 @@ export default {
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#F5F0E8"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
