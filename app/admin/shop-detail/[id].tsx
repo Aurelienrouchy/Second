@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FF3B30',
+    color: colors.danger,
   },
   statusContainer: {
     alignItems: 'center',
