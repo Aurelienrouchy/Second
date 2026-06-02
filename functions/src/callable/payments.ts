@@ -276,34 +276,39 @@ export const getShippingEstimate = onCall({ region: 'northamerica-northeast1', m
     throw new HttpsError('failed-precondition', 'ShipEngine API not configured');
   }
 
-  // Require BOTH endpoints to be usable Canadian addresses. NO silent Montreal
-  // fallback (P2-f): a fabricated QC/Montreal origin or destination produces a
-  // wrong estimate for any seller/buyer outside Montreal, which then diverges
-  // from the authoritative server re-pricing in createTransaction. Reject
-  // explicitly so the client surfaces a real "address required" error.
+  // P1-9: an ESTIMATE only needs a valid Canadian postal code on each endpoint.
+  // ShipEngine rates by zone (postal → postal), so a missing street/city must
+  // NOT block a quote — the client completes the full address later, before the
+  // authoritative server re-pricing in createTransaction (which DOES require a
+  // complete, deliverable address). When street/city are absent we fall back to
+  // the postal code as a placeholder line1/city so ShipEngine can still rate.
+  // NO Montreal fallback (P2-f): we never fabricate a QC/Montreal location —
+  // only the buyer/seller-provided postal code drives the zone.
   const normalizePostal = (raw: unknown): string | null => {
     const cleaned = (raw ?? '').toString().replace(/\s/g, '').toUpperCase();
     return CA_POSTAL_RE.test(cleaned) ? cleaned : null;
   };
 
-  const fromStreet = (fromAddress.street ?? '').toString().trim();
-  const fromCity = (fromAddress.city ?? '').toString().trim();
   const fromPostal = normalizePostal(fromAddress.postalCode);
-  if (fromStreet.length === 0 || fromCity.length === 0 || !fromPostal) {
+  if (!fromPostal) {
     throw new HttpsError(
       'invalid-argument',
-      'L\'adresse d\'expedition (vendeur) est incomplete ou invalide. Une rue, une ville et un code postal canadien valides sont requis.'
+      'Le code postal d\'expedition (vendeur) est invalide. Un code postal canadien valide (format A1A 1A1) est requis pour estimer la livraison.'
     );
   }
+  // Fallback when street/city are not yet known: use the postal code so the
+  // ShipEngine address shape stays valid and rating-by-zone still works.
+  const fromStreet = (fromAddress.street ?? '').toString().trim() || fromPostal;
+  const fromCity = (fromAddress.city ?? '').toString().trim() || fromPostal;
 
-  const toCity = (toAddress.city ?? '').toString().trim();
   const toPostal = normalizePostal(toAddress.postalCode);
-  if (toCity.length === 0 || !toPostal) {
+  if (!toPostal) {
     throw new HttpsError(
       'invalid-argument',
-      'L\'adresse de livraison (acheteur) est incomplete ou invalide. Une ville et un code postal canadien valides sont requis.'
+      'Le code postal de livraison (acheteur) est invalide. Un code postal canadien valide (format A1A 1A1) est requis pour estimer la livraison.'
     );
   }
+  const toCity = (toAddress.city ?? '').toString().trim() || toPostal;
 
   try {
     const parcelWeight = parseFloat(weight) || 0.5;
