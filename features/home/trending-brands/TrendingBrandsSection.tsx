@@ -16,10 +16,11 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { SectionHeader } from '@/components/home/SectionHeader';
