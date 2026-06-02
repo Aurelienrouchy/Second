@@ -41,6 +41,7 @@ import type { ProfileTab, ProfileReview } from '@/features/user-profile';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
 import { queryKeys } from '@/lib/queryKeys';
 import { ChatService } from '@/services/chatService';
+import { ModerationService } from '@/services/moderationService';
 import {
   getUserPublicProfile,
   getUserReviews,
