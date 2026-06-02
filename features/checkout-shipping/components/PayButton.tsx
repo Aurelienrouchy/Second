@@ -53,9 +53,9 @@ export const PayButton = React.memo(function PayButton({
     label = 'PAYER AVEC LE PORTE-MONNAIE';
     iconName = 'wallet-outline';
   } else if (useWallet) {
-    label = `PAYER ${formatPrice(totalAmount)} PAR CARTE`;
+    label = `PAYER ${formatPriceWithCurrency(totalAmount)} PAR CARTE`;
   } else {
-    label = `PAYER ${formatPrice(totalAmount)}`;
+    label = `PAYER ${formatPriceWithCurrency(totalAmount)}`;
   }
 
   return (
