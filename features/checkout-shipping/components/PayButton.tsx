@@ -63,10 +63,10 @@ export const PayButton = React.memo(function PayButton({
       <Pressable
         style={[
           styles.ctaButton,
-          (!canPay || submitting) && styles.ctaButtonDisabled,
+          isDisabled && styles.ctaButtonDisabled,
         ]}
         onPress={onPress}
-        disabled={!canPay || submitting}
+        disabled={isDisabled}
       >
         {submitting ? (
           <ActivityIndicator size="small" color={colors.cream} />
