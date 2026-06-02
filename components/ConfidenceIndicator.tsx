@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   labelBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F3FF',
+    backgroundColor: colors.secondaryLight,
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: colors.secondaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -388,11 +388,11 @@ const styles = StyleSheet.create({
   labelBannerTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#5B21B6',
+    color: colors.secondary,
     marginBottom: 2,
   },
   labelBannerSubtitle: {
     fontSize: 12,
-    color: '#7C3AED',
+    color: colors.foregroundSecondary,
   },
 });
