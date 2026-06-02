@@ -10,6 +10,7 @@ import { Keyboard, TextInput } from 'react-native';
 
 import { CATEGORIES, getCategoryLabelFromIds } from '@/data/categories-v2';
 import { colors as colorData } from '@/data/colors';
+import { getMaterialName } from '@/data/materials';
 
 import { useUser } from '@/contexts/AuthContext';
 import { useArticleSearch } from '@/hooks/useArticleSearch';
