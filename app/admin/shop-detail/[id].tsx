@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   },
   hoursText: {
     fontSize: 15,
-    color: '#34C759',
+    color: colors.success,
     fontWeight: '600',
   },
   closedText: {
