@@ -356,8 +356,9 @@ export function useSearchScreen() {
   );
 
   const handlePriceApply = useCallback(() => {
-    const parsedMin = parseFloat(minPriceText);
-    const parsedMax = parseFloat(maxPriceText);
+    // FR keyboards emit a comma as the decimal separator; normalize before parse.
+    const parsedMin = parseFloat(minPriceText.replace(',', '.'));
+    const parsedMax = parseFloat(maxPriceText.replace(',', '.'));
     let minPrice = (!isNaN(parsedMin) && parsedMin >= 0) ? parsedMin : undefined;
     let maxPrice = (!isNaN(parsedMax) && parsedMax >= 0) ? parsedMax : undefined;
     // Ensure min <= max when both are provided
