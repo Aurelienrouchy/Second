@@ -312,6 +312,10 @@ export default function PhotosReviewScreen() {
           const remaining = MAX_PHOTOS - prev.length;
           return [...prev, ...uris.slice(0, remaining)];
         });
+        // New photos have no uploaded Storage URL yet. Drop the stale set so
+        // publishing falls back to the local photos (re-uploaded at publish)
+        // instead of silently dropping the freshly added images.
+        setStorageUrls([]);
       }
     } catch (error) {
       if (__DEV__) console.error('Error picking images:', error);
