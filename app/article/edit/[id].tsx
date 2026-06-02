@@ -308,8 +308,8 @@ export default function EditArticleScreen() {
       articleData.materials = fields.materials;
       articleData.material = fields.materials.length > 0 ? fields.materials[0] : null;
 
-      // Vendor input stays on the EU grid; tag the system. null clears it.
-      articleData.size = fields.size ? { value: fields.size, system: 'EU' as const } : null;
+      // Preserve the article's original sizing system; never force EU. null clears it.
+      articleData.size = fields.size ? { value: fields.size, system: fields.sizeSystem } : null;
       const trimmedBrand = fields.brand.trim();
       articleData.brand = trimmedBrand || null;
 
