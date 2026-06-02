@@ -120,6 +120,13 @@ export default function ChatScreen() {
   const { data: otherProfile } = useUserProfile(otherParticipant?.userId);
   const otherAvatar = otherProfile?.profileImage || otherParticipant?.profileImage || otherParticipant?.userImage;
 
+  // ─── Block guard: refuse sending when the counterpart is blocked ───
+  // Consistent with messages.tsx (flags blocked conversations) and the
+  // server-side rules. The thread stays readable; only sending is disabled.
+  const isOtherBlocked = otherParticipant
+    ? blockedUsers.some((b) => b.blockedUserId === otherParticipant.userId)
+    : false;
+
   // ─── Handlers ───
 
   const handleSendMessage = useCallback(async () => {
