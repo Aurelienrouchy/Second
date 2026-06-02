@@ -27,7 +27,7 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, Button, ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDisplayName } from '@/utils/formatName';
-import { formatPrice } from '@/utils/formatPrice';
+import { formatPriceWithCurrency } from '@/utils/formatPrice';
 
 const STATUS_LABELS: Record<SwapStatus, string> = {
   proposed: 'En attente',
