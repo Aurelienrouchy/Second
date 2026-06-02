@@ -68,6 +68,7 @@ export function buildDeepLink(
   switch (notificationType) {
     case 'chat':
     case 'message':
+    case 'new_message':
       return data.chatId ? `https://${DEEP_LINK_HOST}/chat/${data.chatId}` : '';
 
     case 'offer':
