@@ -290,41 +290,72 @@ export class SearchHistoryService {
    */
   static formatSearchDisplay(item: SearchHistoryItem): string {
     const parts: string[] = [];
+    const { filters } = item;
 
     if (item.query) {
       parts.push(`"${item.query}"`);
     }
 
-    if (item.filters.categoryIds && item.filters.categoryIds.length > 0) {
-      // Just show that category filter is applied
-      parts.push('dans catégorie');
+    if (filters.categoryIds && filters.categoryIds.length > 0) {
+      // Resolve the leaf category to a human label (falls back gracefully).
+      const label = getLeafCategoryLabel(filters.categoryIds);
+      if (label) parts.push(label);
     }
 
-    if (item.filters.brands && item.filters.brands.length > 0) {
-      parts.push(item.filters.brands.slice(0, 2).join(', '));
+    if (filters.brands && filters.brands.length > 0) {
+      parts.push(filters.brands.slice(0, 2).join(', '));
     }
 
-    if (item.filters.sizes && item.filters.sizes.length > 0) {
+    if (filters.colors && filters.colors.length > 0) {
+      parts.push(filters.colors.slice(0, 2).map(getColorName).join(', '));
+    }
+
+    if (filters.sizes && filters.sizes.length > 0) {
       // Sizes are ArticleSize objects { value, system }; render value + system.
-      const sizeLabels = item.filters.sizes
+      const sizeLabels = filters.sizes
         .slice(0, 2)
         .map((s) => `${s.value} ${s.system}`)
         .join(', ');
       parts.push(`taille ${sizeLabels}`);
     }
 
-    if (item.filters.minPrice !== undefined || item.filters.maxPrice !== undefined) {
-      if (item.filters.minPrice && item.filters.maxPrice) {
-        parts.push(`${item.filters.minPrice}-${item.filters.maxPrice} $`);
-      } else if (item.filters.minPrice) {
-        parts.push(`>${item.filters.minPrice} $`);
-      } else if (item.filters.maxPrice) {
-        parts.push(`<${item.filters.maxPrice} $`);
+    if (filters.materials && filters.materials.length > 0) {
+      parts.push(filters.materials.slice(0, 2).map(getMaterialName).join(', '));
+    }
+
+    if (filters.condition) {
+      parts.push(getConditionLabel(filters.condition));
+    }
+
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      if (filters.minPrice && filters.maxPrice) {
+        parts.push(`${filters.minPrice}-${filters.maxPrice} $`);
+      } else if (filters.minPrice) {
+        parts.push(`>${filters.minPrice} $`);
+      } else if (filters.maxPrice) {
+        parts.push(`<${filters.maxPrice} $`);
       }
     }
 
-    return parts.join(' • ') || 'Recherche';
+    if (filters.sortBy) {
+      const sortLabel = SORT_LABELS[filters.sortBy];
+      if (sortLabel) parts.push(sortLabel);
+    }
+
+    // Fallback to the first active filter label rather than a generic word.
+    return parts.join(' • ') || parts[0] || 'Recherche';
   }
 }
+
+/**
+ * Human-readable labels for sort options (mirrors the search UI).
+ * Kept local to avoid the service (core layer) importing from a feature.
+ */
+const SORT_LABELS: Record<NonNullable<SearchFilters['sortBy']>, string> = {
+  recent: 'Plus récents',
+  popular: 'Populaires',
+  price_asc: 'Prix croissant',
+  price_desc: 'Prix décroissant',
+};
 
 export default SearchHistoryService;
