@@ -161,19 +161,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.charcoal,
     lineHeight: 18,
-    marginBottom: 2,
-  },
-  senderSubtext: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.muted,
-    lineHeight: 14,
-  },
-  senderTime: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.muted,
-    lineHeight: 14,
   },
   messageBubble: {
     marginHorizontal: 24,
