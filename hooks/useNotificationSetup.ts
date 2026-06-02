@@ -69,7 +69,7 @@ async function setupAndroidChannels(): Promise<void> {
       name: 'Commandes',
       description: 'Ventes, expéditions, livraisons et remboursements',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: null,
+      sound: 'default',
       enableVibrate: true,
     }),
   ]);
