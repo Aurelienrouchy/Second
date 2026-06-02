@@ -335,15 +335,21 @@ const ConversationItem = React.memo(function ConversationItem({
 
       {/* Content */}
       <View style={styles.contentContainer}>
-        {/* Header: Name + Article Tag */}
+        {/* Header: Name + Blocked / Article Tag */}
         <View style={styles.headerRow}>
           <Text style={styles.userName} numberOfLines={1}>
             {formatDisplayName(otherParticipant?.userName)}
           </Text>
-          {chat.articleTitle && (
-            <Text style={styles.articleTag} numberOfLines={1}>
-              {chat.articleTitle}
-            </Text>
+          {isBlocked ? (
+            <View style={styles.blockedBadge}>
+              <Text style={styles.blockedBadgeText}>Bloqué</Text>
+            </View>
+          ) : (
+            chat.articleTitle && (
+              <Text style={styles.articleTag} numberOfLines={1}>
+                {chat.articleTitle}
+              </Text>
+            )
           )}
         </View>
 
