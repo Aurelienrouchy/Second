@@ -144,6 +144,13 @@ const GlobalListeners = React.memo(function GlobalListeners() {
   // ── Deep linking : custom URL patterns (Expo Router gère le reste) ──
   useDeepLinking();
 
+  // ── Sell drafts : prune expired drafts + orphaned local images once at
+  // startup so stale FileSystem/Storage artifacts don't accumulate. Fire-
+  // and-forget; failures are swallowed (draftService logs in dev). ──
+  useEffect(() => {
+    void draftService.cleanupExpiredDrafts();
+  }, []);
+
   return null;
 });
 
