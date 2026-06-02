@@ -99,11 +99,11 @@ export const HandDeliveryCard = React.memo(function HandDeliveryCard({
           </View>
           {/* Extra selected neighborhoods not in quick tags */}
           {selectedNeighborhoods.filter(
-            (n) => !NEIGHBORHOOD_TAGS.includes(n.name),
+            (n) => !QUICK_TAG_ID_SET.has(n.id),
           ).length > 0 && (
             <View style={[styles.deliveryTagRow, { marginTop: 6 }]}>
               {selectedNeighborhoods
-                .filter((n) => !NEIGHBORHOOD_TAGS.includes(n.name))
+                .filter((n) => !QUICK_TAG_ID_SET.has(n.id))
                 .map((n) => (
                   <Pressable
                     key={n.id}
