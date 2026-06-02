@@ -120,7 +120,7 @@ export function useArticleSearch({
     queryFn: async ({ pageParam }) => {
       const cursor = pageParam as QueryDocumentSnapshot | undefined;
       const result = await ArticlesService.searchArticles(
-        debouncedSearchQuery.trim() || undefined,
+        activeSearchQuery.trim() || undefined,
         searchFilters,
         PAGE_SIZE,
         cursor
