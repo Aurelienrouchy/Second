@@ -9,14 +9,34 @@ import { SavedSearchService } from '@/services/savedSearchService';
 import { UserService } from '@/services/userService';
 import { useNotificationStore, PushNotificationData } from '@/store/notificationStore';
 
+// ─── Active chat tracking ───────────────────────────────────────────────────
+// The chat screen sets this on focus/blur so the foreground notification
+// handler can suppress the banner for the conversation the user is already
+// looking at (a banner over the open thread is pure noise). Module-level ref
+// because `setNotificationHandler` runs outside React.
+let activeChatId: string | null = null;
+
+/** Called by the chat screen on focus (uid) / blur (null). */
+export function setActiveChatId(chatId: string | null): void {
+  activeChatId = chatId;
+}
+
 // ─── Notification handler (configuré au niveau module, une seule fois) ──────
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as PushNotificationData | undefined;
+    // Already in the matching chat → no banner/sound, just keep the list/badge
+    // in sync (the chat listener already shows the message in-thread).
+    const inActiveChat =
+      data?.chatId != null && data.chatId === activeChatId;
+
+    return {
+      shouldPlaySound: !inActiveChat,
+      shouldSetBadge: true,
+      shouldShowBanner: !inActiveChat,
+      shouldShowList: true,
+    };
+  },
 });
 
 // ─── Android notification channels ─────────────────────────────────────────
