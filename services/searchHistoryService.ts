@@ -14,6 +14,10 @@ import {
 } from 'firebase/firestore';
 import { firestore } from '../config/firebaseConfig';
 import { SearchFilters } from '../types';
+import { getColorName } from '@/data/colors';
+import { getMaterialName } from '@/data/materials';
+import { getConditionLabel } from '@/data/conditions';
+import { getLeafCategoryLabel } from '@/data/categories-v2';
 
 export interface SearchHistoryItem {
   id: string;
