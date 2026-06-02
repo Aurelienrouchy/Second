@@ -296,14 +296,18 @@ export const createArticle = onCall(
     // (no boutique linked === no shopId, never `undefined`).
     let shopId: string | null = null;
     try {
+      // Single equality filter on ownerId → covered by the automatic
+      // single-field index (no composite index required). Approved-status
+      // filtering is done in memory to avoid a composite index.
       const shopSnap = await db
         .collection('shops')
         .where('ownerId', '==', uid)
-        .where('status', '==', 'approved')
-        .limit(1)
         .get();
-      if (!shopSnap.empty) {
-        shopId = shopSnap.docs[0].id;
+      const approvedShop = shopSnap.docs.find(
+        (d) => d.data()?.status === 'approved',
+      );
+      if (approvedShop) {
+        shopId = approvedShop.id;
       }
     } catch (error) {
       logger.warn('createArticle: shop lookup failed, publishing without shopId', {
