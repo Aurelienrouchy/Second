@@ -189,10 +189,11 @@ export function useSearchScreen() {
     }
     if (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0) {
       setIsSearching(true);
-      setActiveSearchQuery(trimmedQuery);
+      // Explicit OK/Enter: commit immediately, bypassing the 350ms debounce.
+      commitSearchQuery(trimmedQuery);
       Keyboard.dismiss();
     }
-  }, [searchQuery, filters, selectedCategoryPath, hasActiveFilters, user, setActiveSearchQuery]);
+  }, [searchQuery, filters, selectedCategoryPath, hasActiveFilters, user, commitSearchQuery]);
 
   const handleRecentSearchTap = useCallback((item: SearchHistoryItem) => {
     setSearchQueryLocal(item.query);
