@@ -170,15 +170,36 @@ export default function DetailsScreen() {
     }));
   }, []);
 
+  // Allows the back action to proceed once the user confirmed the leave alert,
+  // so the beforeRemove guard does not re-trigger the alert in a loop.
+  const allowLeaveRef = useRef(false);
+
+  // Intercept native back (iOS swipe-back + Android hardware button) in addition
+  // to the header back button, so leaving never silently bypasses the draft alert.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (allowLeaveRef.current) return;
+      e.preventDefault();
+      Alert.alert(
+        'Quitter ?',
+        'Tes modifications seront sauvegardées dans le brouillon.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Quitter',
+            onPress: () => {
+              allowLeaveRef.current = true;
+              navigation.dispatch(e.data.action);
+            },
+          },
+        ],
+      );
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const handleBack = () => {
-    Alert.alert(
-      'Quitter ?',
-      'Tes modifications seront sauvegardées dans le brouillon.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Quitter', onPress: () => router.back() },
-      ],
-    );
+    router.back();
   };
 
   const handleContinue = () => {
