@@ -173,30 +173,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Récupérer tous les IDs des utilisateurs admin
-   */
-  private static async getAdminUsers(): Promise<string[]> {
-    try {
-      const q = query(
-        collection(firestore, 'users'),
-        where('isAdmin', '==', true)
-      );
-
-      const querySnapshot = await getDocs(q);
-      const adminIds: string[] = [];
-
-      querySnapshot.forEach((docSnapshot: any) => {
-        adminIds.push(docSnapshot.id);
-      });
-
-      return adminIds;
-    } catch (error) {
-      console.error('Error fetching admin users:', error);
-      return [];
-    }
-  }
-
   // ============================================
   // NOTIFICATION METHODS FOR NEW FEATURES
   // ============================================
