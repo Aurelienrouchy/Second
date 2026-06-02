@@ -1477,6 +1477,7 @@ export class ChatService {
       );
 
       const querySnapshot = await getDocs(q);
+      const numMarked = querySnapshot.size;
       const updatePromises: Promise<void>[] = [];
 
       querySnapshot.forEach((docSnap) => {
@@ -1492,11 +1493,20 @@ export class ChatService {
 
       await Promise.all(updatePromises);
 
-      // Reset unread count
-      const chatRef = doc(firestore, 'chats', chatId);
-      await updateDoc(chatRef, {
-        [`unreadCount.${userId}`]: 0,
-      });
+      // Decrement the unread counter by the number of messages actually marked
+      // read, inside a transaction. A blind `= 0` would clobber any increment(s)
+      // from messages that arrived between the read query and this write; the
+      // relative decrement (clamped at 0) preserves those concurrent updates.
+      if (numMarked > 0) {
+        const chatRef = doc(firestore, 'chats', chatId);
+        await runTransaction(firestore, async (tx) => {
+          const chatSnap = await tx.get(chatRef);
+          if (!chatSnap.exists()) return;
+          const current = (chatSnap.data()?.unreadCount?.[userId] as number | undefined) ?? 0;
+          const next = Math.max(0, current - numMarked);
+          tx.update(chatRef, { [`unreadCount.${userId}`]: next });
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Erreur lors du marquage comme lu: ${message}`);
