@@ -185,7 +185,7 @@ function TermsContentComponent() {
 
       <View style={styles.footer}>
         <Caption style={styles.footerText}>
-          © 2026 Seconde SAS - Tous droits réservés
+          © 2026 Seconde Inc. - Tous droits réservés
         </Caption>
       </View>
     </ScrollView>
