@@ -579,4 +579,19 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
   },
+
+  // Error state
+  retryButton: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+  },
+  retryButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.white,
+    letterSpacing: 0.3,
+  },
 });
