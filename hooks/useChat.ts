@@ -7,9 +7,18 @@ import { useShallow } from 'zustand/react/shallow';
 /** Temp prefix for optimistic (not-yet-confirmed) messages. */
 const OPTIMISTIC_ID_PREFIX = 'optimistic:';
 
+/**
+ * Optimistic messages carry two extra local-only fields:
+ * - `serverId`: the Firestore doc id once the write resolves, used to drop the
+ *   optimistic copy as soon as the real-time listener echoes it back.
+ * - `failed`: flips to true when the write rejects so the bubble can show a
+ *   retryable error state instead of staying stuck in 'sending'.
+ */
+type OptimisticMessage = Message & { serverId?: string; failed?: boolean };
+
 export const useChat = (chatId: string | null, userId: string | null) => {
   const [serverMessages, setServerMessages] = useState<Message[]>([]);
-  const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
+  const [optimisticMessages, setOptimisticMessages] = useState<OptimisticMessage[]>([]);
   const [chat, setChat] = useState<Chat | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
