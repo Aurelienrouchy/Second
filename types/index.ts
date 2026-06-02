@@ -916,11 +916,15 @@ export interface Swap {
 // ============================================
 
 export type WalletLedgerType =
-  | 'sale_credit'
-  | 'purchase_debit'
-  | 'withdrawal'
-  | 'withdrawal_failed'
-  | 'refund_credit';
+  | 'sale_credit'        // Crédit suite à une vente (livraison confirmée)
+  | 'purchase_debit'     // Débit suite à un achat depuis le wallet
+  | 'withdrawal'         // Retrait vers le compte bancaire
+  | 'withdrawal_failed'  // Retrait échoué → re-crédité au solde
+  | 'refund_credit'      // Crédit suite à un remboursement reçu
+  | 'funds_held'         // Fonds mis en attente (fenêtre de protection 7j)
+  | 'funds_released'     // Fonds libérés après la fenêtre de protection
+  | 'dispute_hold'       // Fonds gelés suite à l'ouverture d'un litige
+  | 'refund_debit';      // Débit du vendeur suite à un remboursement acheteur
 
 export interface WalletLedgerEntry {
   id: string;
