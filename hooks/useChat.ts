@@ -1,11 +1,15 @@
 import { ChatService } from '@/services/chatService';
 import { useChatStore } from '@/store/chatStore';
 import { Chat, Message, ShippingAddress, ShippingEstimate } from '@/types';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
+/** Temp prefix for optimistic (not-yet-confirmed) messages. */
+const OPTIMISTIC_ID_PREFIX = 'optimistic:';
+
 export const useChat = (chatId: string | null, userId: string | null) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [serverMessages, setServerMessages] = useState<Message[]>([]);
+  const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const [chat, setChat] = useState<Chat | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
