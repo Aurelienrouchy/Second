@@ -204,7 +204,7 @@ export default function ShopDetailScreen() {
               <Text style={styles.shopName}>{shop.name}</Text>
               {shop.status === 'approved' && (
                 <View style={styles.verifiedBadge}>
-                  <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+                  <Ionicons name="checkmark-circle" size={16} color={colors.success} />
                   <Text style={styles.verifiedText}>Boutique vérifiée</Text>
                 </View>
               )}
