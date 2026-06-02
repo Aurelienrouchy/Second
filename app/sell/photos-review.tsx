@@ -125,10 +125,35 @@ export default function PhotosReviewScreen() {
   // =============================================================================
 
   useEffect(() => {
-    if (photos.length > 0 && !analysisTriggered.current) {
-      analysisTriggered.current = true;
+    if (photos.length === 0 || analysisTriggered.current) return;
+    analysisTriggered.current = true;
+
+    // On resume, the draft may already hold an AI result for these exact
+    // photos. Re-running the analysis would waste the Gemini quota, so hydrate
+    // from the draft instead and only run a fresh analysis when there is none.
+    const hydrateOrAnalyze = async () => {
+      try {
+        const draft = await draftService.loadDraft();
+        if (
+          draft?.aiResult &&
+          draft.photos.length === photos.length &&
+          draft.storageUrls.length > 0
+        ) {
+          if (__DEV__) console.log('[PhotosReview] Hydrating AI result from draft');
+          setStorageUrls(draft.storageUrls);
+          setAiResult(draft.aiResult);
+          buildFinalPills(draft.aiResult);
+          setProgressSteps((prev) => prev.map((s) => ({ ...s, state: 'done' as const })));
+          setAnalysisState('complete');
+          return;
+        }
+      } catch (e) {
+        if (__DEV__) console.error('[PhotosReview] Failed to read draft for hydration:', e);
+      }
       runAnalysis();
-    }
+    };
+
+    hydrateOrAnalyze();
   }, [photos.length]);
 
   // =============================================================================
