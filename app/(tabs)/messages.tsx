@@ -72,6 +72,20 @@ export default function MessagesScreen() {
     [user, blockedIds],
   );
 
+  const getConversationType = useCallback(
+    (chat: Chat): ConversationType => {
+      // Contact-profile chats are created without a sellerId (see
+      // createOrGetChat: sellerId is only set for article-scoped chats), so a
+      // missing sellerId means the conversation isn't tied to a sale/purchase.
+      if (!chat.sellerId) return 'autres';
+      if (!user) return 'autres';
+      // Current user is the article owner → "vente" (sale); otherwise "achat".
+      if (chat.sellerId === user.id) return 'ventes';
+      return 'achats';
+    },
+    [user],
+  );
+
   // Pick the best default tab once chats are loaded: land on the first
   // non-empty tab in display order (ventes → achats → autres).
   useEffect(() => {
