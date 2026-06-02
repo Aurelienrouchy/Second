@@ -62,6 +62,10 @@ export function useArticleActions({
     }, [])
   );
 
+  // Per-article lock against double-taps on "Marquer comme vendu" / "Remettre
+  // en vente": holds the ids of articles whose toggle request is in-flight.
+  const togglingArticles = useRef<Set<string>>(new Set());
+
   const handleToggleFavorite = useCallback(() => {
     if (!article) return;
     if (article.isSold) return;
