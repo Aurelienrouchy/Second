@@ -113,14 +113,13 @@ export default function ProposeSwapScreen() {
   }, [userArticlesRaw]);
 
   // Derive available items from receiver articles query (receiver side).
-  // Prefer items the receiver has deposited in the zone; fall back to their
-  // full active inventory when they have nothing deposited.
+  // Restrict to items the receiver has actually deposited in the zone — a swap
+  // can only target zone stock, so never fall back to their full inventory.
   const receiverAvailableItems = useMemo<SwapItemInfo[]>(() => {
     if (!receiverArticlesRaw) return [];
     const active = receiverArticlesRaw.filter((a) => a.isActive !== false && !a.isSold);
     const inZone = active.filter((a) => receiverZoneArticleIds.has(a.id));
-    const source = inZone.length > 0 ? inZone : active;
-    return source.map((a) => ({
+    return inZone.map((a) => ({
       articleId: a.id,
       title: a.title,
       price: a.price,
