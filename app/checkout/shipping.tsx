@@ -674,7 +674,18 @@ export default function ShippingCheckoutScreen() {
           totalAmount={serverBuyerTotal ?? totalAmount}
         />
       )}
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      {confirmingPayment && (
+        <View style={styles.confirmOverlay}>
+          <ActivityIndicator size="large" color={colors.rust} />
+          <Text style={styles.confirmTitle}>Confirmation du paiement…</Text>
+          <Text style={styles.confirmSubtitle}>
+            Ne fermez pas l'application, nous finalisons votre commande.
+          </Text>
+        </View>
+      )}
+    </View>
   );
 }
 
