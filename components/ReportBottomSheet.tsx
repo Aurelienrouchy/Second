@@ -186,7 +186,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
                       <Text style={styles.reasonText}>
                         {ReportReasonLabels[reason]}
                       </Text>
-                      <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                      <Ionicons name="chevron-forward" size={20} color={colors.muted} />
                     </TouchableOpacity>
                   ))}
                 </View>
