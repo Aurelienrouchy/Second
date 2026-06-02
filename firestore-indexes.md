@@ -538,6 +538,53 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
   > Voir la section « Open-dispute deletion gate (`deleteUserAccount`) » plus
   > haut.
 
+## Boutiques — articles d'une boutique (`getShopArticles`)
+
+> Source de vérité = `firestore.indexes.json`. Déploiement manuel :
+> `firebase deploy --only firestore:indexes` (JAMAIS `--force` : la prod a des
+> orphelins absents du local, dont des fonctions financières).
+
+`ShopService.getShopArticles` (`services/shopService.ts`) liste les articles
+actifs et non vendus d'une boutique :
+`where shopId == X && isActive == true && isSold == false` (trois égalités, sans
+`orderBy`). Trois égalités sur trois champs distincts exigent un index composite
+(Firestore ne fusionne pas les index mono-champ pour des égalités multiples).
+`Article.shopId` est renseigné à la création par `createArticle`
+(`functions/src/callable/products.ts`, champ posé uniquement si une boutique
+approuvée est liée — jamais `undefined`).
+
+```json
+{
+  "collectionGroup": "articles",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "shopId", "order": "ASCENDING" },
+    { "fieldPath": "isActive", "order": "ASCENDING" },
+    { "fieldPath": "isSold", "order": "ASCENDING" }
+  ]
+}
+```
+
+### Index volontairement NON ajoutés (audit P1 recherche / messagerie)
+
+Pour éviter des index orphelins, seuls les index réellement consommés par les
+voies retenues sont créés :
+
+- **P1-3 recherche par marque** : aucune requête `articles` /
+  `search_index` n'utilise `brands array-contains` (voie 100 % filtre mémoire
+  retenue, cf. `functions/src/callable/search.ts`). Pas d'index
+  `isActive + isSold + brands CONTAINS + createdAt DESC`.
+- **P1-4 recherche par boutique côté recherche** : la recherche n'interroge pas
+  `articles` par `sellerId` (`search.ts` filtre sur `isActive` / `categoryIds` /
+  `priceRange`, le reste client-side). Pas de composites
+  `sellerId + isActive + isSold + (categoryIds|condition|price) + createdAt`.
+- **Tri messagerie** : `ChatService.listenToUserChats`
+  (`services/chatService.ts`) trie par `orderBy('updatedAt', 'desc')`, déjà servi
+  par l'index existant `chats { participants CONTAINS, updatedAt DESC }`. Aucune
+  requête ne trie `chats` par `lastMessageTimestamp` (ce champ n'est lu que pour
+  l'affichage, `app/(tabs)/messages.tsx`). Pas d'index
+  `chats { participants CONTAINS, lastMessageTimestamp DESC }`.
+
 ## Single Field Indexes (Auto-created)
 
 These are automatically created by Firestore:
