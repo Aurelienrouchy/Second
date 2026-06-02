@@ -408,9 +408,9 @@ export default function PaymentScreen() {
       {/* Footer — Pay button */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Pressable
-          style={[styles.payButton, isCreatingCheckout && styles.payButtonDisabled]}
+          style={[styles.payButton, (isCreatingCheckout || showStripePayment) && styles.payButtonDisabled]}
           onPress={handlePay}
-          disabled={isCreatingCheckout}
+          disabled={isCreatingCheckout || showStripePayment}
         >
           {isCreatingCheckout ? (
             <ActivityIndicator size="small" color={colors.cream} />
