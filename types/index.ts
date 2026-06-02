@@ -617,7 +617,17 @@ export type NotificationType =
   | 'swap_completed'
   | 'swap_party_starting'
   | 'swap_party_ending'
-  | 'swap_match_found';
+  | 'swap_match_found'
+  | 'swap_update'          // Mise à jour générique d'un swap (serveur)
+  // Order lifecycle (émis serveur via sendPushNotification)
+  | 'new_sale'             // Nouvelle vente côté vendeur
+  | 'order_shipped'        // Colis expédié
+  | 'order_delivered'      // Colis livré
+  | 'order_cancelled'      // Commande annulée
+  | 'order_refunded'       // Commande remboursée
+  | 'funds_released'       // Fonds libérés au vendeur (fin fenêtre protection)
+  | 'review_received'      // Nouvel avis reçu
+  | 'privacy_incident';    // Incident de confidentialité (Loi 25)
 
 export interface NotificationData {
   articleId?: string;
