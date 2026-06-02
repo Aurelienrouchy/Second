@@ -10,7 +10,7 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
