@@ -212,28 +212,120 @@ export default function AddressSettingsScreen() {
             </View>
           )}
 
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Changer d'adresse</Text>
-            <View style={[styles.inputContainer, styles.inputContainerElevated]}>
-              <GooglePlacesAutocomplete
-                ref={addressRef}
-                placeholder="Rechercher une adresse..."
-                onPress={(data, details = null) => {
-                  handleUpdateAddress(details as PlaceDetails | null);
-                }}
-                query={{
-                  key: GOOGLE_PLACES_API_KEY,
-                  language: 'fr',
-                  types: 'address',
-                  components: 'country:ca',
-                }}
-                fetchDetails={true}
-                styles={PLACES_STYLES}
-                enablePoweredByContainer={false}
-              />
+          {!manualMode ? (
+            <>
+              <View style={styles.formSection}>
+                <Text style={styles.label}>Changer d'adresse</Text>
+                <View style={[styles.inputContainer, styles.inputContainerElevated]}>
+                  <GooglePlacesAutocomplete
+                    ref={addressRef}
+                    placeholder="Rechercher une adresse..."
+                    onPress={(data, details = null) => {
+                      handleUpdateAddress(details as PlaceDetails | null);
+                    }}
+                    query={{
+                      key: GOOGLE_PLACES_API_KEY,
+                      language: 'fr',
+                      types: 'address',
+                      components: 'country:ca',
+                    }}
+                    fetchDetails={true}
+                    styles={PLACES_STYLES}
+                    enablePoweredByContainer={false}
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={() => setManualMode(true)}
+                style={({ pressed }) => [styles.manualToggle, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="create-outline" size={18} color={colors.primary} />
+                <Text style={styles.manualToggleText}>Saisir l'adresse manuellement</Text>
+              </Pressable>
+            </>
+          ) : (
+            <View style={styles.formSection}>
+              <Text style={styles.label}>Saisir l'adresse manuellement</Text>
+
+              <View style={styles.inputContainer}>
+                <Label style={styles.fieldLabel}>Adresse</Label>
+                <TextInput
+                  style={styles.manualInput}
+                  value={manualStreet}
+                  onChangeText={setManualStreet}
+                  placeholder="123 rue Sainte-Catherine"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="words"
+                  textContentType="streetAddressLine1"
+                  autoComplete="street-address"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Label style={styles.fieldLabel}>Ville</Label>
+                <TextInput
+                  style={styles.manualInput}
+                  value={manualCity}
+                  onChangeText={setManualCity}
+                  placeholder="Montréal"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="words"
+                  textContentType="addressCity"
+                  autoComplete="postal-address-locality"
+                />
+              </View>
+
+              <View style={styles.manualRow}>
+                <View style={[styles.inputContainer, styles.manualRowItem]}>
+                  <Label style={styles.fieldLabel}>Province</Label>
+                  <TextInput
+                    style={styles.manualInput}
+                    value={manualProvince}
+                    onChangeText={(value) => setManualProvince(value.toUpperCase())}
+                    placeholder="QC"
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
+                    maxLength={2}
+                    textContentType="addressState"
+                    autoComplete="postal-address-region"
+                  />
+                </View>
+                <View style={[styles.inputContainer, styles.manualRowItem]}>
+                  <Label style={styles.fieldLabel}>Code postal</Label>
+                  <TextInput
+                    style={styles.manualInput}
+                    value={manualPostalCode}
+                    onChangeText={(value) => setManualPostalCode(value.toUpperCase())}
+                    placeholder="H2X 1Y4"
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
+                    textContentType="postalCode"
+                    autoComplete="postal-code"
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={handleManualSave}
+                disabled={isSaving}
+                style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? 'Enregistrement...' : 'Enregistrer l\'adresse'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setManualMode(false)}
+                style={({ pressed }) => [styles.manualToggle, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="search-outline" size={18} color={colors.primary} />
+                <Text style={styles.manualToggleText}>Rechercher une adresse</Text>
+              </Pressable>
             </View>
-          </View>
-        </View>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
