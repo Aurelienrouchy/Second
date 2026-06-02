@@ -293,6 +293,11 @@ service cloud.firestore {
         // Allow create by owner
         allow create: if isOwner(userId);
 
+        // Allow update by owner — the recent-search dedup path re-stamps an
+        // existing entry (e.g. searchedAt) via updateDoc; without this the
+        // dedup write is denied. Mirrors the savedSearches update rule above.
+        allow update: if isOwner(userId);
+
         // Allow delete by owner
         allow delete: if isOwner(userId);
       }
