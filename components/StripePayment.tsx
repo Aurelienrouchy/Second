@@ -109,6 +109,11 @@ function StripePaymentComponent({
     if (visible && clientSecret) {
       handlePayment();
     }
+    // When the sheet is hidden, reset the guard so a future re-open
+    // (e.g. retry after a failed payment) presents the sheet again.
+    if (!visible) {
+      isPresentingRef.current = false;
+    }
   }, [visible, clientSecret, handlePayment]);
 
   // Headless component — Stripe SDK presents the sheet natively
