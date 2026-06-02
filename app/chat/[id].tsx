@@ -461,15 +461,23 @@ export default function ChatScreen() {
           />
         )}
 
-        <ChatInputBar
-          messageText={messageText}
-          onChangeText={setMessageText}
-          onSend={handleSendMessage}
-          onPickImage={handlePickImage}
-          onMakeOffer={handleMakeOffer}
-          isSendingImage={isSendingImage}
-          hasArticle={!!chat?.articleId && article !== null}
-        />
+        {isOtherBlocked ? (
+          <View style={styles.blockedBanner}>
+            <Text style={styles.blockedBannerText}>
+              Vous avez bloqué cet utilisateur. Débloquez-le pour reprendre la conversation.
+            </Text>
+          </View>
+        ) : (
+          <ChatInputBar
+            messageText={messageText}
+            onChangeText={setMessageText}
+            onSend={handleSendMessage}
+            onPickImage={handlePickImage}
+            onMakeOffer={handleMakeOffer}
+            isSendingImage={isSendingImage}
+            hasArticle={!!chat?.articleId && article !== null}
+          />
+        )}
       </KeyboardAvoidingView>
 
       {(article?.price ?? chat?.articlePrice) && (
