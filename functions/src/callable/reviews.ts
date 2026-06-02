@@ -357,6 +357,7 @@ export const getUserPublicProfile = onCall(
       const profile = {
         id: userId,
         displayName: userData.displayName || 'Utilisateur',
+        username: userData.username || null,
         profileImage: showPhoto === false ? null : (userData.profileImage || null),
         bio: userData.bio || null,
         createdAt: userData.createdAt?.toDate?.()?.toISOString(),
