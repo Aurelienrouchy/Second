@@ -52,6 +52,15 @@ const notificationIcons: Record<NotificationType, { name: keyof typeof Ionicons.
   swap_party_starting: { name: 'people', color: colors.warning },
   swap_party_ending: { name: 'time', color: colors.warning },
   swap_match_found: { name: 'flash', color: colors.success },
+  swap_update: { name: 'sync', color: colors.primary },
+  new_sale: { name: 'bag-check', color: colors.success },
+  order_shipped: { name: 'send', color: colors.primary },
+  order_delivered: { name: 'cube', color: colors.success },
+  order_cancelled: { name: 'close-circle', color: colors.danger },
+  order_refunded: { name: 'card', color: colors.warning },
+  funds_released: { name: 'cash', color: colors.success },
+  review_received: { name: 'star', color: colors.warning },
+  privacy_incident: { name: 'shield-checkmark', color: colors.danger },
 };
 
 // Strip leading emoji from notification titles/messages.
