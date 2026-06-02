@@ -392,6 +392,8 @@ export default function SavedSearches() {
 
       {isLoading ? (
         <LoadingSkeleton />
+      ) : hasError ? (
+        <ErrorState onRetry={handleRetry} />
       ) : searches.length === 0 ? (
         <EmptyState />
       ) : (
