@@ -55,6 +55,10 @@ import { SHIPPING_ENABLED } from '@/config/featureFlags';
 // Module-level so the FlashList prop identity stays stable across renders.
 const messageKeyExtractor = (item: Message): string => item.id;
 
+// ChatHeader intrinsic height: 36 (button) + 2 * spacing.md (vertical padding)
+// + 1 (bottom border). Used to derive the keyboard offset below.
+const CHAT_HEADER_HEIGHT = 36 + spacing.md * 2 + 1;
+
 export default function ChatScreen() {
   const [messageText, setMessageText] = useState('');
   const [isSendingImage, setIsSendingImage] = useState(false);
