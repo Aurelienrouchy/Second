@@ -1425,6 +1425,10 @@ export class ChatService {
     onError?: (error: Error) => void
   ): () => void {
       const chatsRef = collection(firestore, 'chats');
+      // Sort on `updatedAt`: the only field guaranteed present on every chat
+      // (set at creation, before any message exists). Ordering on
+      // `lastMessageTimestamp` would drop message-less chats, since Firestore
+      // excludes docs missing the orderBy field.
       const q = query(
         chatsRef,
         where('participants', 'array-contains', userId),
@@ -1438,12 +1442,16 @@ export class ChatService {
         querySnapshot.forEach((docSnap) => {
           const chatData = docSnap.data();
           if (chatData) {
+            const updatedAt = chatData.updatedAt?.toDate() || new Date();
             chats.push({
               id: docSnap.id,
               ...chatData,
               createdAt: chatData.createdAt?.toDate() || new Date(),
-              updatedAt: chatData.updatedAt?.toDate() || new Date(),
-              lastMessageTimestamp: chatData.lastMessageTimestamp?.toDate(),
+              updatedAt,
+              // The list is sorted by `updatedAt`, so the displayed timestamp
+              // must follow it. Fall back to `updatedAt` when no message has
+              // been sent yet, keeping displayed value ↔ sort order coherent.
+              lastMessageTimestamp: chatData.lastMessageTimestamp?.toDate() || updatedAt,
             } as Chat);
           }
         });
