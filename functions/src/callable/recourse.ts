@@ -619,11 +619,10 @@ export const requestReturn = onCall(
 
     const returnLabelCost = (label.shipmentCost || 0) + (label.insuranceCost || 0);
 
-    // --- Atomically persist the return-leg fields + freeze the funds ---
-    // Re-check the precondition under the lock so two concurrent calls (the 2nd
-    // racing past the pre-read) cannot both flip the status. The 1st commit wins;
-    // the 2nd sees status !== 'delivered' and aborts (its already-bought label is
-    // logged for manual cleanup — rate-limited 3/min keeps this rare).
+    // --- Atomically persist the return-leg fields + freeze the funds, clearing
+    // the reservation flag. We hold the reservation (returnLabelPending=true set
+    // above), so the only way it is gone here is an out-of-band write — in that
+    // case the label we bought is logged for manual cleanup (rare). ---
     try {
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(txRef);
@@ -634,7 +633,7 @@ export const requestReturn = onCall(
           throw new HttpsError('permission-denied', 'Only the buyer can request a return');
         }
         if (data.returnLabelId || data.returnTrackingNumber || data.status === 'return_requested') {
-          // Lost the race — another call already registered a return.
+          // A return was already registered out-of-band — abort.
           throw new HttpsError('aborted', 'Un retour est déjà en cours pour cette commande.');
         }
         if (data.status !== 'delivered') {
@@ -655,16 +654,21 @@ export const requestReturn = onCall(
           returnLabelCost,
           returnReason: reason,
           returnRequestedAt: FieldValue.serverTimestamp(),
+          // Reservation fulfilled — clear the in-flight flag.
+          returnLabelPending: FieldValue.delete(),
         });
       });
     } catch (error: unknown) {
+      // The label was bought but could not be persisted (out-of-band change).
+      // Log it for manual reconciliation; rate-limited 3/min keeps this rare.
+      logger.error('[requestReturn] label bought but commit failed — manual cleanup needed', {
+        transactionId,
+        returnLabelId: label.labelId,
+        returnTrackingNumber: label.trackingNumber,
+        error: error instanceof Error ? error.message : error,
+      });
       if (error instanceof HttpsError && error.code === 'aborted') {
-        // Concurrent winner already registered a return — surface as idempotent.
-        logger.warn('[requestReturn] concurrent return — label bought but not used', {
-          transactionId,
-          returnLabelId: label.labelId,
-          returnTrackingNumber: label.trackingNumber,
-        });
+        // Surface as idempotent (a return already exists for this tx).
         return { success: true, alreadyRequested: true };
       }
       throw error;
