@@ -581,21 +581,30 @@ export function subscribeToSwap(
 ): () => void {
   const swapRef = doc(firestore, 'swaps', swapId);
 
-  return onSnapshot(swapRef, (snap) => {
-    if (!snap.exists()) {
-      callback(null);
-      return;
-    }
+  return onSnapshot(
+    swapRef,
+    (snap) => {
+      if (!snap.exists()) {
+        callback(null);
+        return;
+      }
 
-    const data = snap.data();
-    callback({
-      id: snap.id,
-      ...data,
-      createdAt: data?.createdAt?.toDate(),
-      updatedAt: data?.updatedAt?.toDate(),
-      acceptedAt: data?.acceptedAt?.toDate(),
-      completedAt: data?.completedAt?.toDate(),
-      paidAt: data?.paidAt?.toDate(),
-    } as Swap);
-  });
+      const data = snap.data();
+      callback({
+        id: snap.id,
+        ...data,
+        createdAt: data?.createdAt?.toDate(),
+        updatedAt: data?.updatedAt?.toDate(),
+        acceptedAt: data?.acceptedAt?.toDate(),
+        completedAt: data?.completedAt?.toDate(),
+        paidAt: data?.paidAt?.toDate(),
+      } as Swap);
+    },
+    (error) => {
+      // Permission denied (non-participant) or session expired: surface to the
+      // screen so it can render an error/empty state instead of an infinite skeleton.
+      if (__DEV__) console.error(`Error subscribing to swap ${swapId}:`, error);
+      callback(null);
+    }
+  );
 }
