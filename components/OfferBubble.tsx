@@ -11,7 +11,7 @@ import {
   Message,
   MessageOfferWithMeetup,
 } from '@/types';
-import { colors, radius, sizing } from '@/constants/theme';
+import { colors, radius, spacing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
