@@ -259,6 +259,21 @@ export default function MyArticlesScreen() {
 
   const keyExtractor = useCallback((item: Article) => item.id, []);
 
+  const listEmptyComponent = useMemo(() => {
+    const message =
+      filter === 'sold'
+        ? 'Aucun article vendu pour le moment.'
+        : filter === 'active'
+          ? 'Aucun article en vente pour le moment.'
+          : 'Aucun article à afficher.';
+    return (
+      <View style={styles.listEmptyContainer}>
+        <Ionicons name="cube-outline" size={40} color={colors.muted} style={styles.emptyIcon} />
+        <Text style={styles.emptyText}>{message}</Text>
+      </View>
+    );
+  }, [filter]);
+
   if (!user) {
     return (
       <View style={styles.container}>
