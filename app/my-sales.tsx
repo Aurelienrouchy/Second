@@ -244,8 +244,6 @@ export default function MySalesScreen() {
               onReview={() => handleReview(item.transaction.id)}
             />
           )}
-          // @ts-expect-error estimatedItemSize valid at runtime
-          estimatedItemSize={100}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.listContent}
           refreshControl={
