@@ -95,6 +95,14 @@ export default function ChatScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
+  // ─── Blocked users (same key as messages.tsx so the cache is shared) ───
+  const { data: blockedUsers = [] } = useQuery({
+    queryKey: ['blockedUsers', user?.id],
+    queryFn: () => ModerationService.getBlockedUsers(user!.id),
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
+  });
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0 && flatListRef.current) {
