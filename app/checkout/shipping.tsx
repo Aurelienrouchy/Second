@@ -534,7 +534,11 @@ export default function ShippingCheckoutScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <ShippingAddressForm values={addressForm} onChangeField={handleAddressChange} />
+        <ShippingAddressForm
+          values={addressForm}
+          onChangeField={handleAddressChange}
+          postalCodeError={addressForm.postalCode.trim().length > 0 && !postalCodeValid}
+        />
         <ShippingEstimateList
           estimates={estimates}
           selectedEstimate={selectedEstimate}
