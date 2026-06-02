@@ -53,7 +53,12 @@ const auth = getApps().length <= 1
     })
   : getAuth(app);
 
-const firestore = getFirestore(app);
+// Persistent local cache so authenticated Firestore data (incl. the user
+// doc) is available at cold start while offline — otherwise the user can
+// appear as a guest until the network round-trip resolves.
+const firestore = initializeFirestore(app, {
+  localCache: persistentLocalCache({ cacheSizeBytes: 40 * 1024 * 1024 }),
+});
 const storage = getStorage(app);
 const functions = getFunctions(app, 'northamerica-northeast1');
 
