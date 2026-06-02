@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   tooltipText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#4B5563',
+    color: colors.foregroundSecondary,
     marginBottom: 16,
   },
   confidenceBar: {
