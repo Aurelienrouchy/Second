@@ -15,46 +15,6 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
-// Counter-offer amount bounds — the upper bound mirrors the server-side ceiling
-// enforced in firestore.rules (offer.amount <= 50000). Kept in sync manually.
-const MIN_OFFER_AMOUNT = 1;
-const MAX_OFFER_AMOUNT = 50000;
-
-// Strict parse of the `AAAA-MM-JJ HH:MM` meetup format (local time). Returns a
-// valid Date or null — avoids the engine-dependent behaviour of `new Date(str)`
-// for non-ISO inputs. Rejects out-of-range / overflowing components.
-const MEETUP_DATETIME_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/;
-
-function parseMeetupDateTime(raw: string): Date | null {
-  const match = MEETUP_DATETIME_RE.exec(raw);
-  if (!match) return null;
-
-  const [, yearStr, monthStr, dayStr, hourStr, minuteStr] = match;
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-  const hour = Number(hourStr);
-  const minute = Number(minuteStr);
-
-  if (month < 1 || month > 12) return null;
-  if (day < 1 || day > 31) return null;
-  if (hour > 23 || minute > 59) return null;
-
-  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
-  // Guard against overflow normalisation (e.g. 2026-02-31 -> March).
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day ||
-    date.getHours() !== hour ||
-    date.getMinutes() !== minute
-  ) {
-    return null;
-  }
-
-  return date;
-}
-
 import { CounterLocationInput } from './offer-bubble/CounterLocationInput';
 import { CounterPriceInput } from './offer-bubble/CounterPriceInput';
 import { CounterTimeInput } from './offer-bubble/CounterTimeInput';
