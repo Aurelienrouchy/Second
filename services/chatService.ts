@@ -1344,11 +1344,16 @@ export class ChatService {
     // Legacy messages without a `participants` field won't appear — but new messages
     // (including system messages) always include it since the fix.
     const messagesRef = collection(firestore, 'messages');
+    // Bounded window: load the most recent MESSAGES_WINDOW messages
+    // (orderBy timestamp desc + limit), then reverse to ascending order for
+    // display. Avoids loading the entire history on every snapshot. Full
+    // incremental load-more pagination is tracked separately.
     const q = query(
       messagesRef,
       where('chatId', '==', chatId),
       where('participants', 'array-contains', userId),
-      orderBy('timestamp', 'asc')
+      orderBy('timestamp', 'desc'),
+      limit(MESSAGES_WINDOW)
     );
 
     return onSnapshot(
@@ -1363,6 +1368,8 @@ export class ChatService {
             timestamp: data.timestamp?.toDate() || new Date(),
           } as Message);
         });
+        // Query is desc (newest first); reverse to ascending for the UI.
+        messages.reverse();
         onUpdate(messages);
       },
       (error) => {
