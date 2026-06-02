@@ -239,13 +239,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     color: colors.charcoal,
   },
-  itemSubtext: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    letterSpacing: 0.2,
-    color: colors.muted,
-    marginTop: 2,
-  },
   deleteButton: {
     padding: spacing.sm,
   },
