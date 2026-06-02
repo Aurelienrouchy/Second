@@ -31,17 +31,31 @@ const MAX_AUTO_RETRIES = 1;
 export class AppErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, errorMessage: null };
 
+  private autoRetries = 0;
+
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, errorMessage: error.message };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // Report first (so the error reaches Sentry/Crashlytics before any
+    // recovery hides it), then log in dev. The reporter hook lives here:
+    // wire captureException once a crash reporter is added.
     if (__DEV__) {
       console.error('[AppErrorBoundary] uncaught error:', error, info);
+    }
+
+    // Attempt one silent recovery before sticking on the fallback UI.
+    if (this.autoRetries < MAX_AUTO_RETRIES) {
+      this.autoRetries += 1;
+      this.setState({ hasError: false, errorMessage: null });
     }
   }
 
   private handleRetry = () => {
+    // Manual retry resets the auto-retry budget so a subsequent transient
+    // failure can again recover silently.
+    this.autoRetries = 0;
     this.setState({ hasError: false, errorMessage: null });
   };
 
