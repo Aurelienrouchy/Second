@@ -412,4 +412,15 @@ const styles = StyleSheet.create({
     color: colors.foregroundSecondary,
     textAlign: 'center',
   },
+  retryButton: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+  },
+  retryText: {
+    ...typography.label,
+    color: colors.white,
+  },
 });
