@@ -832,24 +832,18 @@ service cloud.firestore {
     }
 
     // Automated-decision contestations (Loi 25 art. 12.1 right to human review)
-    // — opened by contestAutomatedDecision (Admin SDK). A client CREATE is also
-    // permitted, scoped to the authenticated author being a party (buyer or
-    // seller) of the underlying transaction and tagging themselves as the
-    // author (userId == uid). Reading is restricted to the author and admins.
-    // Updates/resolution are CF/admin-only — the contestation reverses NOTHING
-    // automatically; a human agent decides the outcome out-of-band.
+    // — opened EXCLUSIVELY by contestAutomatedDecision (Admin SDK). No client
+    // CREATE: routing the contestation through the callable guarantees the
+    // mandatory side-effects (recordPrivacyIncident admin alert + structured
+    // ADMIN_REVIEW log) always fire, which a direct client write would bypass.
+    // Reading is restricted to the author and admins. Updates/resolution are
+    // CF/admin-only — the contestation reverses NOTHING automatically; a human
+    // agent decides the outcome out-of-band.
     match /automated_decision_contestations/{contestationId} {
       allow read: if isAuthenticated() &&
                      (request.auth.uid == resource.data.userId ||
                       request.auth.token.admin == true);
-      allow create: if isAuthenticated() &&
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.transactionId is string &&
-                       (request.auth.uid ==
-                          get(/databases/$(database)/documents/transactions/$(request.resource.data.transactionId)).data.buyerId ||
-                        request.auth.uid ==
-                          get(/databases/$(database)/documents/transactions/$(request.resource.data.transactionId)).data.sellerId);
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
 
     // Rate Limit counters — written by the rate-limiter helper (Admin SDK).
