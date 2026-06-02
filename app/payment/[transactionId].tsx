@@ -58,7 +58,12 @@ export default function PaymentScreen() {
   // LOAD TRANSACTION
   // =============================================================================
 
-  const { data: transaction = null, isLoading } = useQuery({
+  const {
+    data: transaction = null,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: queryKeys.payments.transaction(transactionId ?? ''),
     queryFn: async () => {
       const trans = await TransactionService.getTransaction(transactionId!);
