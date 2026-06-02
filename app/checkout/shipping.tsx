@@ -93,6 +93,8 @@ export default function ShippingCheckoutScreen() {
   const [selectedEstimate, setSelectedEstimate] = useState<ShippingEstimate | null>(null);
   const [showStripePayment, setShowStripePayment] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  /** Server-authoritative buyer total (from createStripeCheckout feeBreakdown). */
+  const [serverBuyerTotal, setServerBuyerTotal] = useState<number | null>(null);
   const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
   const [pendingChatId, setPendingChatId] = useState<string | null>(null);
   const [serviceFee, setServiceFee] = useState(0);
