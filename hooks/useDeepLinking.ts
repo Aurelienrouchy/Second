@@ -97,25 +97,42 @@ function handleDeepLink(url: string): void {
  * Doit être appelé UNE SEULE FOIS dans le root layout.
  */
 export function useDeepLinking(): void {
+  // `useRootNavigationState()` is undefined until the root navigator has
+  // mounted; `router.push/replace` are no-ops before that. We gate the cold
+  // start URL on it instead of an arbitrary 500ms timeout (which could fire
+  // before mount on slow devices, or waste time on fast ones).
+  const navigationState = useRootNavigationState();
+  const navigatorReady = navigationState?.key != null;
+
+  // Defer the cold-start URL until the navigator is ready, then consume once.
+  const pendingInitialUrlRef = useRef<string | null>(null);
+  const initialUrlHandledRef = useRef(false);
+
   useEffect(() => {
-    // Handle deep link that opened the app (cold start)
-    const handleInitialURL = async () => {
-      const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        // Small delay to let navigator mount
-        setTimeout(() => handleDeepLink(initialUrl), 500);
-      }
-    };
+    let isActive = true;
 
-    handleInitialURL();
+    Linking.getInitialURL().then((initialUrl) => {
+      if (isActive && initialUrl) pendingInitialUrlRef.current = initialUrl;
+    });
 
-    // Handle deep links while app is running (warm start)
+    // Handle deep links while app is running (warm start). The navigator is
+    // already mounted by then, so route immediately.
     const subscription = Linking.addEventListener('url', (event) => {
       handleDeepLink(event.url);
     });
 
     return () => {
+      isActive = false;
       subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!navigatorReady || initialUrlHandledRef.current) return;
+    const url = pendingInitialUrlRef.current;
+    if (url) {
+      initialUrlHandledRef.current = true;
+      handleDeepLink(url);
+    }
+  }, [navigatorReady]);
 }
