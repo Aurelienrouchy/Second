@@ -209,6 +209,14 @@ export default function TabLayout() {
               // 16-17 ans : achat/navigation OK, mais vente bloquée (18+ Stripe).
               e.preventDefault();
               Alert.alert('Vente non disponible', COPY_SELL_GATE);
+            } else if (AuthService.hasPasswordProvider() && !AuthService.isEmailVerified()) {
+              // Gate email_verified appliqué côté serveur dans createArticle :
+              // pré-check ici pour éviter de remplir tout le formulaire de vente
+              // (capture, IA, upload images) avant un refus en fin de flow. Ne
+              // concerne que les comptes email — Google/Apple sont toujours
+              // email_verified. Redirige vers l'écran de vérification.
+              e.preventDefault();
+              router.push('/settings/verify-email');
             } else if (Platform.OS === 'ios') {
               e.preventDefault();
               // Detect an in-progress draft first. If one exists, surface the
