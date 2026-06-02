@@ -73,6 +73,8 @@ const DiscoverGridComponent: React.FC = () => {
   const {
     data,
     isLoading,
+    isError,
+    refetch,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
@@ -87,6 +89,10 @@ const DiscoverGridComponent: React.FC = () => {
     fetchNextPage();
   }, [fetchNextPage]);
 
+  const handleRetry = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
   return (
     <View>
       <SectionHeader title="Découvrez" />
@@ -95,6 +101,14 @@ const DiscoverGridComponent: React.FC = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
+        </View>
+      ) : isError && allArticles.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cloud-offline-outline" size={48} color={colors.muted} />
+          <Text style={styles.emptyText}>Impossible de charger les articles</Text>
+          <Pressable style={styles.retryButton} onPress={handleRetry}>
+            <Text style={styles.retryText}>Réessayer</Text>
+          </Pressable>
         </View>
       ) : allArticles.length === 0 ? (
         <View style={styles.emptyContainer}>
