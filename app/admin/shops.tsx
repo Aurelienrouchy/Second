@@ -307,11 +307,11 @@ export default function AdminShopsScreen() {
         />
       )}
 
-      {/* Modal de rejet */}
+      {/* Modal de rejet / suspension */}
       <RejectionModal
         ref={rejectionModalRef}
         shopName={selectedShop?.name || ''}
-        onConfirm={handleConfirmReject}
+        onConfirm={handleConfirmModal}
       />
     </SafeAreaView>
   );
