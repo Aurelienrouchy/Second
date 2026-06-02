@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   selector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
