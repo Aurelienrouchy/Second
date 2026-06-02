@@ -148,8 +148,9 @@ export default function AdminShopsScreen() {
 
     if (modalMode === 'suspend') {
       try {
+        // La callable `suspendShop` notifie le propriétaire côté serveur
+        // (notifyShopOwner — Admin SDK), pas de notification client ici.
         await ShopService.suspendShop(selectedShop.id, reason);
-        await NotificationService.notifyShopSuspended(selectedShop.id, selectedShop.ownerId, reason);
         Alert.alert('Succès', 'La boutique a été suspendue');
         loadShops();
       } catch (error) {
