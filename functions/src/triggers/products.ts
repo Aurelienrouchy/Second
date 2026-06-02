@@ -206,8 +206,8 @@ export const updateShopArticlesCount = onDocumentWritten(
     const articleId = event.params.articleId;
 
     try {
-      const before = event.data?.before?.exists ? event.data.before.data() : null;
-      const after = event.data?.after?.exists ? event.data.after.data() : null;
+      const before = event.data?.before?.exists ? event.data.before.data() ?? null : null;
+      const after = event.data?.after?.exists ? event.data.after.data() ?? null : null;
 
       // Does this article state count toward a shop's `articlesCount`?
       // Returns the shopId it contributes to, or null if it counts for none.
