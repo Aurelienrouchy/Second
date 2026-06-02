@@ -637,7 +637,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     paddingTop: spacing.md,
     paddingHorizontal: 20,
-    paddingBottom: 32,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
