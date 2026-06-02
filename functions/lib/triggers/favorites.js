@@ -9,7 +9,17 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const firebase_1 = require("../config/firebase");
 const notifications_1 = require("../utils/notifications");
 /**
- * When someone adds an article to favorites, notify the seller
+ * Canonical writer of article engagement counters (P1-3 / P1-5).
+ *
+ * The `favorites/{userId}.articleIds` array is the single source of truth for
+ * likes. This trigger reacts to changes on that array and is the ONLY writer of
+ * `articles.favoritesCount`, `articles.likes` and `search_index.likes`, applied
+ * via `FieldValue.increment` so concurrent (un)favorites stay consistent. The
+ * `toggleProductLike` callable and the client `toggleFavorite` therefore mutate
+ * ONLY the favorites doc — writing the counters there too would double-count.
+ *
+ * On top of counter maintenance, it notifies the seller of newly added
+ * favorites.
  */
 exports.onArticleFavorited = (0, firestore_1.onDocumentUpdated)({ document: 'favorites/{userId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
     var _a, _b, _c, _d, _e, _f, _g;
@@ -20,10 +30,47 @@ exports.onArticleFavorited = (0, firestore_1.onDocumentUpdated)({ document: 'fav
             return;
         const beforeIds = (beforeData === null || beforeData === void 0 ? void 0 : beforeData.articleIds) || [];
         const afterIds = (afterData === null || afterData === void 0 ? void 0 : afterData.articleIds) || [];
-        // Find newly added article IDs
-        const newFavoriteIds = afterIds.filter((id) => !beforeIds.includes(id));
+        const beforeSet = new Set(beforeIds);
+        const afterSet = new Set(afterIds);
+        // Find newly added / removed article IDs (the array is the source of truth)
+        const newFavoriteIds = afterIds.filter((id) => !beforeSet.has(id));
+        const removedFavoriteIds = beforeIds.filter((id) => !afterSet.has(id));
+        // ── Maintain engagement counters (canonical writer) ──
+        // Apply +1 / -1 increments per touched article on both the article doc
+        // (favoritesCount + likes) and its search_index mirror (likes). Using
+        // FieldValue.increment keeps counters correct under concurrent toggles.
+        // Each article is updated independently so one missing/deleted doc cannot
+        // break the others.
+        await Promise.all([
+            ...newFavoriteIds.map((id) => ({ id, delta: 1 })),
+            ...removedFavoriteIds.map((id) => ({ id, delta: -1 })),
+        ].map(async ({ id, delta }) => {
+            try {
+                await firebase_1.db
+                    .collection('articles')
+                    .doc(id)
+                    .update({
+                    favoritesCount: firebase_1.FieldValue.increment(delta),
+                    likes: firebase_1.FieldValue.increment(delta),
+                });
+            }
+            catch (err) {
+                // Article may have been hard-deleted; counter is moot then.
+                console.error(`Failed to update favoritesCount for article ${id}:`, err);
+            }
+            try {
+                await firebase_1.db
+                    .collection('search_index')
+                    .doc(id)
+                    .update({ likes: firebase_1.FieldValue.increment(delta) });
+            }
+            catch (err) {
+                // No search_index entry (e.g. sold/deleted article) — non-fatal.
+                console.error(`Failed to update search_index likes for article ${id}:`, err);
+            }
+        }));
         if (newFavoriteIds.length === 0) {
-            return; // No new favorites added
+            return; // No new favorites to notify about
         }
         const buyerUserId = event.params.userId;
         // Get buyer info

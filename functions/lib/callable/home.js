@@ -72,11 +72,14 @@ async function _getPriceDrops() {
         return [];
     // Single batch read for all sellers — no N+1
     const sellerMap = await batchFetchSellerNames(snapshot.docs.map((d) => d.data().sellerId));
-    const items = snapshot.docs.map((doc) => {
+    const items = snapshot.docs.reduce((acc, doc) => {
         const data = doc.data();
         const originalPrice = data.originalPrice || data.price;
+        // Guard: only surface a price-drop badge when there is a real reduction.
+        if (!originalPrice || originalPrice <= data.price)
+            return acc;
         const reductionPercent = Math.round(((originalPrice - data.price) / originalPrice) * 100);
-        return {
+        acc.push({
             id: doc.id,
             title: data.title,
             brand: data.brand,
@@ -86,8 +89,9 @@ async function _getPriceDrops() {
             images: data.images || [],
             sellerId: data.sellerId,
             sellerName: sellerMap.get(data.sellerId) || 'Unknown',
-        };
-    });
+        });
+        return acc;
+    }, []);
     return items.sort((a, b) => {
         const aP = parseInt(a.reduction.replace(/[^0-9]/g, ''), 10) || 0;
         const bP = parseInt(b.reduction.replace(/[^0-9]/g, ''), 10) || 0;
@@ -227,6 +231,9 @@ exports.toggleSellerLike = (0, https_1.onCall)({ region: 'northamerica-northeast
     const userId = request.auth.uid;
     if (!sellerId || typeof isLiked !== 'boolean') {
         throw new https_1.HttpsError('invalid-argument', 'sellerId and isLiked status are required');
+    }
+    if (sellerId === userId) {
+        throw new https_1.HttpsError('invalid-argument', 'Vous ne pouvez pas vous abonner à vous-même');
     }
     try {
         const userRef = firebase_1.db.collection('users').doc(userId);

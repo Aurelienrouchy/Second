@@ -241,19 +241,29 @@ async function validateAndNormalizeResponse(response) {
         console.log(`   [normalize] Brand match result: ${brandMatch.matchType} (${brandMatch.confidence.toFixed(2)})`);
     }
     // ========================================
-    // 5. CONDITION: Normalize to standard values
+    // 5. CONDITION: Normalize to ConditionId (français-kebab) for frontend parity
+    // Frontend indexes CONDITION_DISPLAY[conditionId] with these exact keys
+    // (types/ai.ts ConditionId), so we must NOT convert to English here.
     // ========================================
     const conditionMap = {
-        neuf: 'new_with_tags',
-        'tres-bon-etat': 'very_good',
-        'très bon état': 'very_good',
-        'bon-etat': 'good',
-        'bon état': 'good',
-        satisfaisant: 'satisfactory',
+        // français-kebab (canonical ConditionId — passthrough)
+        neuf: 'neuf',
+        'tres-bon-etat': 'tres-bon-etat',
+        'bon-etat': 'bon-etat',
+        satisfaisant: 'satisfaisant',
+        // accented variants the LLM may produce
+        'très bon état': 'tres-bon-etat',
+        'tres bon etat': 'tres-bon-etat',
+        'bon état': 'bon-etat',
+        'bon etat': 'bon-etat',
+        // English fallbacks (legacy / defensive)
+        new_with_tags: 'neuf',
+        very_good: 'tres-bon-etat',
+        good: 'bon-etat',
+        satisfactory: 'satisfaisant',
     };
     const condition = conditionMap[(_c = response.condition) === null || _c === void 0 ? void 0 : _c.toLowerCase()] ||
-        response.condition ||
-        'good';
+        'tres-bon-etat';
     // ========================================
     // BUILD FINAL RESPONSE (matching frontend AIAnalysisResult type)
     // ========================================

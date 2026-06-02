@@ -51,7 +51,7 @@ const debounce_1 = require("../utils/debounce");
  * Migrate to search_index queries for better performance.
  */
 exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' }, async (event) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     const articleId = event.params.articleId;
     try {
         // If document was deleted, remove from search index
@@ -158,17 +158,32 @@ exports.updateSearchIndex = (0, firestore_1.onDocumentWritten)({ document: 'arti
             popularityScore,
             lastIndexed: firebase_1.FieldValue.serverTimestamp(),
         };
-        // Update search index with debouncing
+        // Write search index. On the INITIAL creation we must await the write
+        // directly: debounceUpdate is a fire-and-forget setTimeout, and on
+        // Cloud Functions v2 (Cloud Run) the instance can be frozen/terminated
+        // as soon as the handler returns — the timer would never fire and the
+        // article would never be indexed (P1-7). We only debounce subsequent
+        // updates (frequent metric writes: views/likes/popularity).
         const updateKey = `search_index_${articleId}`;
-        (0, debounce_1.debounceUpdate)(updateKey, async () => {
+        const isCreation = !((_k = event.data.before) === null || _k === void 0 ? void 0 : _k.exists);
+        if (isCreation) {
             await firebase_1.db
                 .collection('search_index')
                 .doc(articleId)
                 .set(searchIndexData, { merge: true });
-            logger.info(`Updated search index for article ${articleId}`);
-        });
+            logger.info(`Indexed new article ${articleId}`);
+        }
+        else {
+            (0, debounce_1.debounceUpdate)(updateKey, async () => {
+                await firebase_1.db
+                    .collection('search_index')
+                    .doc(articleId)
+                    .set(searchIndexData, { merge: true });
+                logger.info(`Updated search index for article ${articleId}`);
+            });
+        }
         // Update article with geohash if not present
-        if (geohash && !((_k = articleData.location) === null || _k === void 0 ? void 0 : _k.geohash)) {
+        if (geohash && !((_l = articleData.location) === null || _l === void 0 ? void 0 : _l.geohash)) {
             const geoKey = `article_geohash_${articleId}`;
             (0, debounce_1.debounceUpdate)(geoKey, async () => {
                 await firebase_1.db.collection('articles').doc(articleId).update({

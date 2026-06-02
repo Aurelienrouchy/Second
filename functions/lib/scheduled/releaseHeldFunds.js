@@ -219,8 +219,15 @@ exports.releaseHeldFunds = (0, scheduler_1.onSchedule)({
                         transactionId,
                         createdAt: firebase_1.FieldValue.serverTimestamp(),
                     });
+                    // Stamp completedAt alongside status:'completed' to match every
+                    // other writer of this transition (webhooks/payments/reconcile/
+                    // swaps). reviews.ts anchors its 60-day review window on
+                    // completedAt, so this is the "reviewable" marker for the
+                    // delivered -> completed transition once 'completed' is added to
+                    // the reviews terminalStatuses (be-reviews-callable).
                     tx.update(doc.ref, {
                         status: 'completed',
+                        completedAt: firebase_1.FieldValue.serverTimestamp(),
                         fundsReleasedAt: firebase_1.FieldValue.serverTimestamp(),
                     });
                     return true;

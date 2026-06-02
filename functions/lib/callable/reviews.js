@@ -98,8 +98,11 @@ exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', 
             throw new https_1.HttpsError('not-found', 'Transaction not found');
         }
         const txData = txDoc.data();
-        // Only real terminal statuses — 'completed' does not exist in TransactionStatus
-        const terminalStatuses = new Set(['delivered', 'meetup_completed']);
+        // Terminal/completed statuses eligible for reviews:
+        // - 'delivered': shipping order delivered (funds held during dispute window)
+        // - 'completed': shipping order finalized after the dispute window
+        // - 'meetup_completed': both parties confirmed an in-person exchange
+        const terminalStatuses = new Set(['delivered', 'completed', 'meetup_completed']);
         if (!terminalStatuses.has(txData.status)) {
             throw new https_1.HttpsError('failed-precondition', 'Transaction must be completed before reviewing');
         }
@@ -287,6 +290,7 @@ exports.getUserPublicProfile = (0, https_1.onCall)({ region: 'northamerica-north
         const profile = {
             id: userId,
             displayName: userData.displayName || 'Utilisateur',
+            username: userData.username || null,
             profileImage: showPhoto === false ? null : (userData.profileImage || null),
             bio: userData.bio || null,
             createdAt: (_f = (_e = (_d = userData.createdAt) === null || _d === void 0 ? void 0 : _d.toDate) === null || _e === void 0 ? void 0 : _e.call(_d)) === null || _f === void 0 ? void 0 : _f.toISOString(),

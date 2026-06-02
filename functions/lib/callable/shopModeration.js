@@ -65,6 +65,7 @@ exports.triageReport = exports.getPendingReports = exports.suspendShop = exports
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
+const notifications_1 = require("../utils/notifications");
 const REGION = 'northamerica-northeast1';
 const REPORT_OUTCOMES = new Set([
     'reviewed',
@@ -94,19 +95,24 @@ async function assertAdmin(uid, claimAdmin) {
  * (reason? / verifiedAt / verifiedBy) so existing readers keep working. The
  * `reason` field is only set for reject/suspend (omitted entirely for approve —
  * never written as `undefined`).
+ *
+ * Returns the shop owner's id + name so the caller can notify them server-side.
+ * `ownerId` is `null` on an idempotent no-op (already in the requested state):
+ * a replay of the same moderation action MUST NOT re-notify the owner.
  */
 async function mutateShopStatus(shopId, nextStatus, adminUid, reason) {
-    await firebase_1.db.runTransaction(async (tx) => {
+    return firebase_1.db.runTransaction(async (tx) => {
         var _a;
         const ref = firebase_1.db.collection('shops').doc(shopId);
         const snap = await tx.get(ref);
         if (!snap.exists) {
             throw new https_1.HttpsError('not-found', 'Boutique introuvable');
         }
-        const currentStatus = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.status;
+        const data = (_a = snap.data()) !== null && _a !== void 0 ? _a : {};
+        const currentStatus = data.status;
         if (currentStatus === nextStatus) {
-            // Idempotent no-op: already in the requested state.
-            return;
+            // Idempotent no-op: already in the requested state, no re-notify.
+            return { ownerId: null, shopName: null };
         }
         const verificationDetails = {
             verifiedAt: firebase_1.FieldValue.serverTimestamp(),
@@ -121,7 +127,64 @@ async function mutateShopStatus(shopId, nextStatus, adminUid, reason) {
             verificationDetails,
             updatedAt: firebase_1.FieldValue.serverTimestamp(),
         });
+        const ownerId = typeof data.ownerId === 'string' ? data.ownerId : null;
+        const shopName = typeof data.name === 'string' ? data.name : null;
+        return { ownerId, shopName };
     });
+}
+/**
+ * Notify a shop owner of a moderation outcome (in-app notification + FCM push,
+ * created server-side via the Admin SDK — `notifications` create is locked to
+ * Cloud Functions in firestore.rules, so the old client-side addDoc is gone).
+ *
+ * Best-effort: a notification failure must never roll back the (already
+ * committed) status change, so we log and swallow. `shop_suspended` reuses the
+ * `shop_rejected` client type (same negative outcome the notifications screen
+ * already renders) to avoid an unmapped type.
+ */
+async function notifyShopOwner(result, shopId, outcome, reason) {
+    var _a;
+    if (!result.ownerId) {
+        return; // idempotent no-op or missing owner — nothing to notify.
+    }
+    const shopLabel = (_a = result.shopName) !== null && _a !== void 0 ? _a : 'Votre boutique';
+    let type;
+    let title;
+    let message;
+    switch (outcome) {
+        case 'approved':
+            type = 'shop_approved';
+            title = 'Boutique approuvée';
+            message = `${shopLabel} a été approuvée et est maintenant en ligne.`;
+            break;
+        case 'rejected':
+            type = 'shop_rejected';
+            title = 'Boutique refusée';
+            message = reason
+                ? `${shopLabel} a été refusée : ${reason}`
+                : `${shopLabel} a été refusée.`;
+            break;
+        case 'suspended':
+            type = 'shop_rejected';
+            title = 'Boutique suspendue';
+            message = reason
+                ? `${shopLabel} a été suspendue : ${reason}`
+                : `${shopLabel} a été suspendue.`;
+            break;
+        default:
+            return;
+    }
+    try {
+        await (0, notifications_1.sendPushNotification)(result.ownerId, title, message, { shopId }, type);
+    }
+    catch (error) {
+        logger.error('[shopModeration] failed to notify shop owner', {
+            shopId,
+            ownerId: result.ownerId,
+            outcome,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
 }
 /**
  * Reads + validates a required `shopId` string from the callable payload.
@@ -169,7 +232,8 @@ exports.approveShop = (0, https_1.onCall)({ region: REGION, memory: '512MiB' }, 
     }
     await assertAdmin(request.auth.uid, request.auth.token.admin === true);
     const shopId = requireShopId(request.data);
-    await mutateShopStatus(shopId, 'approved', request.auth.uid, null);
+    const result = await mutateShopStatus(shopId, 'approved', request.auth.uid, null);
+    await notifyShopOwner(result, shopId, 'approved', null);
     logger.info('[approveShop] shop approved', {
         shopId,
         adminUid: request.auth.uid,
@@ -186,7 +250,8 @@ exports.rejectShop = (0, https_1.onCall)({ region: REGION, memory: '512MiB' }, a
     await assertAdmin(request.auth.uid, request.auth.token.admin === true);
     const shopId = requireShopId(request.data);
     const reason = readReason(request.data, true);
-    await mutateShopStatus(shopId, 'rejected', request.auth.uid, reason);
+    const result = await mutateShopStatus(shopId, 'rejected', request.auth.uid, reason);
+    await notifyShopOwner(result, shopId, 'rejected', reason);
     logger.info('[rejectShop] shop rejected', {
         shopId,
         adminUid: request.auth.uid,
@@ -203,7 +268,8 @@ exports.suspendShop = (0, https_1.onCall)({ region: REGION, memory: '512MiB' }, 
     await assertAdmin(request.auth.uid, request.auth.token.admin === true);
     const shopId = requireShopId(request.data);
     const reason = readReason(request.data, true);
-    await mutateShopStatus(shopId, 'suspended', request.auth.uid, reason);
+    const result = await mutateShopStatus(shopId, 'suspended', request.auth.uid, reason);
+    await notifyShopOwner(result, shopId, 'suspended', reason);
     logger.info('[suspendShop] shop suspended', {
         shopId,
         adminUid: request.auth.uid,

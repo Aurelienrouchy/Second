@@ -118,12 +118,18 @@ exports.incrementProductView = (0, https_1.onCall)({ region: 'northamerica-north
     }
 });
 /**
- * Toggle article like/unlike
+ * Toggle article like/unlike.
  *
- * Updates atomically in a single transaction:
- * 1. articles/{productId} — likes counter + likedBy array + favoritesCount
- * 2. search_index/{productId} — likes for ranking
- * 3. favorites/{userId} — articleIds array (unified structure)
+ * Canonical write contract (P1-3 / P1-4): the `favorites/{userId}.articleIds`
+ * array is the single source of truth. The `onArticleFavorited` trigger reacts
+ * to changes on that array and is the ONLY writer of the article engagement
+ * counters (`favoritesCount` / `likes`) and the `search_index` likes, via
+ * `FieldValue.increment`. This callable therefore mutates ONLY the favorites
+ * doc — writing the counters here too would double-count against the trigger.
+ *
+ * The standard client path is `toggleFavorite` (which writes the same favorites
+ * doc directly). This callable is kept as a server-side equivalent and must
+ * stay aligned with that contract.
  */
 exports.toggleProductLike = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
     const { productId, isLiked } = request.data;
@@ -135,51 +141,16 @@ exports.toggleProductLike = (0, https_1.onCall)({ region: 'northamerica-northeas
     }
     const userId = request.auth.uid;
     try {
-        const articleRef = firebase_1.db.collection('articles').doc(productId);
-        const searchIndexRef = firebase_1.db.collection('search_index').doc(productId);
         const favoritesRef = firebase_1.db.collection('favorites').doc(userId);
-        await firebase_1.db.runTransaction(async (transaction) => {
-            const articleDoc = await transaction.get(articleRef);
-            if (!articleDoc.exists) {
-                throw new https_1.HttpsError('not-found', 'Article not found');
-            }
-            const articleData = articleDoc.data();
-            const currentLikes = articleData.likes || 0;
-            const likedBy = articleData.likedBy || [];
-            let newLikes = currentLikes;
-            let newLikedBy = [...likedBy];
-            if (isLiked && !likedBy.includes(userId)) {
-                newLikes = currentLikes + 1;
-                newLikedBy.push(userId);
-            }
-            else if (!isLiked && likedBy.includes(userId)) {
-                newLikes = Math.max(0, currentLikes - 1);
-                newLikedBy = likedBy.filter((id) => id !== userId);
-            }
-            // 1. Update article likes + likedBy + favoritesCount
-            transaction.update(articleRef, {
-                likes: newLikes,
-                likedBy: newLikedBy,
-                favoritesCount: newLikes,
-            });
-            // 2. Update search index for ranking (set+merge in case doc doesn't exist yet)
-            transaction.set(searchIndexRef, { likes: newLikes }, { merge: true });
-            // 3. Unified favorites — articleIds array only
-            if (isLiked) {
-                transaction.set(favoritesRef, {
-                    userId,
-                    articleIds: firebase_1.FieldValue.arrayUnion(productId),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                }, { merge: true });
-            }
-            else {
-                transaction.set(favoritesRef, {
-                    userId,
-                    articleIds: firebase_1.FieldValue.arrayRemove(productId),
-                    updatedAt: firebase_1.FieldValue.serverTimestamp(),
-                }, { merge: true });
-            }
-        });
+        // Favorites doc only — arrayUnion/arrayRemove are idempotent, so no read is
+        // needed. The onArticleFavorited trigger owns counter propagation.
+        await favoritesRef.set({
+            userId,
+            articleIds: isLiked
+                ? firebase_1.FieldValue.arrayUnion(productId)
+                : firebase_1.FieldValue.arrayRemove(productId),
+            updatedAt: firebase_1.FieldValue.serverTimestamp(),
+        }, { merge: true });
         return { success: true, message: 'Like status updated' };
     }
     catch (error) {
@@ -282,6 +253,32 @@ exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     // createStripeConnectAccount (identity, address, bank account) before
     // their shipping articles can be purchased. The createTransaction
     // callable enforces this check at purchase time.
+    // ── 4b. Link to the seller's shop (P1-2) ──
+    // If this seller owns an approved shop, stamp its id on the article so it
+    // shows under the shop and feeds the shop's articlesCount trigger. Resolved
+    // server-side from the trusted uid (never from client input). Best-effort:
+    // a lookup failure must never block publishing — the field is simply omitted
+    // (no boutique linked === no shopId, never `undefined`).
+    let shopId = null;
+    try {
+        // Single equality filter on ownerId → covered by the automatic
+        // single-field index (no composite index required). Approved-status
+        // filtering is done in memory to avoid a composite index.
+        const shopSnap = await firebase_1.db
+            .collection('shops')
+            .where('ownerId', '==', uid)
+            .get();
+        const approvedShop = shopSnap.docs.find((d) => { var _a; return ((_a = d.data()) === null || _a === void 0 ? void 0 : _a.status) === 'approved'; });
+        if (approvedShop) {
+            shopId = approvedShop.id;
+        }
+    }
+    catch (error) {
+        logger.warn('createArticle: shop lookup failed, publishing without shopId', {
+            sellerId: uid,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
     // ── 5. Build sanitised images array ──
     const sanitizedImages = data.images.map((img) => {
         const entry = {
@@ -319,6 +316,9 @@ exports.createArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
     // Optional scalar fields
     if (sellerImage)
         article.sellerImage = sellerImage;
+    // Shop link (P1-2) — only when the seller has an approved boutique.
+    if (shopId)
+        article.shopId = shopId;
     // Size — accept the ArticleSize object { value, system } (current client),
     // or a legacy plain string (back-compat → defaults to system 'EU').
     // On create there is no "erasure": a null/empty/malformed size simply omits
@@ -629,15 +629,26 @@ exports.updateArticle = (0, https_1.onCall)({ region: 'northamerica-northeast1',
         if (existing.isActive === false) {
             throw new https_1.HttpsError('failed-precondition', 'Impossible de modifier un article desactive');
         }
-        // Price drop tracking: if price has decreased, record it
-        if (sanitized.price !== undefined &&
-            typeof sanitized.price === 'number' &&
-            sanitized.price < existing.price) {
-            const originalPrice = existing.originalPrice || existing.price;
-            const priceDropPercent = Math.round(((originalPrice - sanitized.price) / originalPrice) * 100);
-            sanitized.originalPrice = originalPrice;
-            sanitized.priceDropPercent = priceDropPercent;
-            sanitized.lastPriceDropAt = firebase_1.FieldValue.serverTimestamp();
+        // Price drop tracking
+        if (sanitized.price !== undefined && typeof sanitized.price === 'number') {
+            const newPrice = sanitized.price;
+            if (newPrice < existing.price) {
+                // Price decreased → record (or refresh) the drop against the baseline.
+                const originalPrice = existing.originalPrice || existing.price;
+                const priceDropPercent = Math.round(((originalPrice - newPrice) / originalPrice) * 100);
+                sanitized.originalPrice = originalPrice;
+                sanitized.priceDropPercent = priceDropPercent;
+                sanitized.lastPriceDropAt = firebase_1.FieldValue.serverTimestamp();
+            }
+            else if (existing.originalPrice !== undefined &&
+                newPrice >= existing.originalPrice) {
+                // Price raised back to (or above) the original baseline → the drop no
+                // longer holds. Clear the tracking fields so we never show a stale or
+                // negative reduction. (delete() is a no-op if the field is absent.)
+                sanitized.originalPrice = firebase_1.FieldValue.delete();
+                sanitized.priceDropPercent = firebase_1.FieldValue.delete();
+                sanitized.lastPriceDropAt = firebase_1.FieldValue.delete();
+            }
         }
         // Always set updatedAt
         sanitized.updatedAt = firebase_1.FieldValue.serverTimestamp();

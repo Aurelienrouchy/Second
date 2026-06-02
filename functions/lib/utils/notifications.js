@@ -97,6 +97,7 @@ function buildDeepLink(notificationType, data) {
     switch (notificationType) {
         case 'chat':
         case 'message':
+        case 'new_message':
             return data.chatId ? `https://${DEEP_LINK_HOST}/chat/${data.chatId}` : '';
         case 'offer':
         case 'offer_received':
@@ -126,9 +127,10 @@ function buildDeepLink(notificationType, data) {
         case 'order_delivered':
         case 'order_cancelled':
         case 'order_refunded':
+        case 'funds_released':
             return data.transactionId
-                ? `https://${DEEP_LINK_HOST}/my-orders`
-                : '';
+                ? `https://${DEEP_LINK_HOST}/my-orders?transactionId=${data.transactionId}`
+                : `https://${DEEP_LINK_HOST}/my-orders`;
         case 'review_received':
             return `https://${DEEP_LINK_HOST}/notifications`;
         case 'privacy_incident':
@@ -160,6 +162,111 @@ async function createInAppNotification(userId, type, title, message, data) {
     await docRef.update({ id: docRef.id });
     return docRef.id;
 }
+// ─── Notification preferences ─────────────────────────────────────────────────
+/**
+ * Map a server notification type to the matching key in
+ * `users/{uid}.preferences.notifications` (see UserPreferences in types/index.ts).
+ *
+ * Returns `null` for types that have NO dedicated per-type toggle — those are
+ * treated as ALWAYS-ON (default allow). This deliberately covers transactional
+ * / safety-critical notifications (review_received, privacy_incident, and any
+ * unmapped type): a missing toggle must never silently drop a notification the
+ * user can't re-enable.
+ */
+function getPreferenceKey(notificationType) {
+    switch (notificationType) {
+        case 'chat':
+        case 'message':
+        case 'new_message':
+            return 'newMessages';
+        case 'offer':
+        case 'offer_received':
+            return 'offerReceived';
+        case 'offer_accepted':
+        case 'offer_rejected':
+        case 'offer_counter':
+            return 'offerResponse';
+        case 'new_sale':
+        case 'order_shipped':
+        case 'order_delivered':
+        case 'order_cancelled':
+        case 'order_refunded':
+        case 'funds_released':
+            return 'newOrders';
+        case 'article_favorited':
+            return 'articleFavorited';
+        case 'price_drop':
+            return 'priceDrops';
+        case 'swap_zone_reminder':
+            return 'swapZoneReminder';
+        default:
+            // review_received, privacy_incident, shop_*, swap_update, and any unknown
+            // type → no dedicated toggle → always delivered.
+            return null;
+    }
+}
+/**
+ * Whether the user opted OUT of a given notification type.
+ *
+ * A type is suppressed ONLY when it maps to a known preference key AND that key
+ * is explicitly `false`. Absent prefs, absent key, or unmapped types default to
+ * ALLOW (privacy-by-default opt-outs are encoded in the client defaults, not by
+ * silently swallowing notifications here).
+ */
+function isNotificationTypeDisabled(prefs, notificationType) {
+    if (!prefs)
+        return false;
+    const key = getPreferenceKey(notificationType);
+    if (!key)
+        return false;
+    return prefs[key] === false;
+}
+// ─── Badge count ──────────────────────────────────────────────────────────────
+/**
+ * Compute the user's REAL unread badge count for the APNs payload:
+ * unread in-app notifications + unread chat messages.
+ *
+ * - Unread notifications: `notifications` docs where userId == uid && !isRead.
+ * - Unread messages: sum of `chats/{id}.unreadCount[uid]` across the user's
+ *   chats (server-maintained map; see chatService + firestore-schema.md).
+ *
+ * `array-contains` on `participants` is a single-field query (auto-indexed, no
+ * composite index needed). Best-effort: on any read error we fall back to 1 so
+ * the push still surfaces a badge rather than crashing the send.
+ */
+async function computeBadgeCount(userId) {
+    try {
+        const [notifSnap, chatsSnap] = await Promise.all([
+            firebase_1.db
+                .collection('notifications')
+                .where('userId', '==', userId)
+                .where('isRead', '==', false)
+                .count()
+                .get(),
+            firebase_1.db
+                .collection('chats')
+                .where('participants', 'array-contains', userId)
+                .get(),
+        ]);
+        const unreadNotifications = notifSnap.data().count;
+        let unreadMessages = 0;
+        chatsSnap.forEach((doc) => {
+            var _a, _b;
+            const raw = (_b = (_a = doc.data()) === null || _a === void 0 ? void 0 : _a.unreadCount) === null || _b === void 0 ? void 0 : _b[userId];
+            if (typeof raw === 'number' && raw > 0) {
+                unreadMessages += raw;
+            }
+        });
+        return unreadNotifications + unreadMessages;
+    }
+    catch (error) {
+        logger.warn('Failed to compute badge count, falling back to 1', {
+            userId,
+            error: error instanceof Error ? error.message : error,
+        });
+        return 1;
+    }
+}
 // ─── FCM push notification ──────────────────────────────────────────────────
 /**
  * Resolve Android notification channel from notification type
@@ -168,6 +275,7 @@ function getAndroidChannel(notificationType) {
     switch (notificationType) {
         case 'chat':
         case 'message':
+        case 'new_message':
             return 'messages';
         case 'offer':
         case 'offer_received':
@@ -183,6 +291,7 @@ function getAndroidChannel(notificationType) {
         case 'order_delivered':
         case 'order_cancelled':
         case 'order_refunded':
+        case 'funds_released':
             return 'orders';
         case 'review_received':
             return 'notifications';
@@ -206,8 +315,21 @@ async function sendPushNotification(userId, title, body, data, notificationType)
         }
         const userData = userDoc.data();
         const storedTokens = userData.fcmTokens || [];
-        // Check notification preferences
+        // Check notification preferences (preferences.notifications.*)
         const prefs = (_a = userData.preferences) === null || _a === void 0 ? void 0 : _a.notifications;
+        // Per-type opt-out: if the user disabled THIS category, suppress BOTH the
+        // in-app notification and the FCM push. Safety-critical / unmapped types
+        // (review_received, privacy_incident, …) have no toggle and are never
+        // suppressed here (see getPreferenceKey).
+        if (isNotificationTypeDisabled(prefs, notificationType)) {
+            logger.info('Notification type disabled by user preference — skipped', {
+                userId,
+                notificationType,
+            });
+            return { success: true, sentCount: 0 };
+        }
+        // Global push toggle: still create the in-app notification (bell badge /
+        // unread count) but skip the FCM push.
         if ((prefs === null || prefs === void 0 ? void 0 : prefs.push) === false) {
             console.log(`User ${userId} has push notifications disabled`);
             // Still create in-app notification
@@ -238,6 +360,10 @@ async function sendPushNotification(userId, title, body, data, notificationType)
         // Build deep link for this notification
         const deepLink = buildDeepLink(notificationType, data);
         const channelId = getAndroidChannel(notificationType);
+        // Real APNs badge = unread notifications (incl. the one just created above)
+        // + unread chat messages. Computed after createInAppNotification so the
+        // freshly-created notification is reflected in the count.
+        const badge = await computeBadgeCount(userId);
         // Build FCM messages
         const messages = fcmTokens.map((token) => ({
             token,
@@ -255,7 +381,7 @@ async function sendPushNotification(userId, title, body, data, notificationType)
                 payload: {
                     aps: {
                         sound: 'default',
-                        badge: 1,
+                        badge,
                     },
                 },
             },
@@ -313,6 +439,8 @@ async function sendSwapNotification(userId, swapId, title, body, swapData) {
     if (fcmTokens.length === 0)
         return;
     const deepLink = `https://${DEEP_LINK_HOST}/swap/${swapId}`;
+    // Real APNs badge = unread notifications + unread chat messages.
+    const badge = await computeBadgeCount(userId);
     const messages = fcmTokens.map((token) => ({
         token,
         notification: {
@@ -337,7 +465,7 @@ async function sendSwapNotification(userId, swapId, title, body, swapData) {
             payload: {
                 aps: {
                     sound: 'default',
-                    badge: 1,
+                    badge,
                 },
             },
         },

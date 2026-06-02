@@ -105,6 +105,7 @@ function getSwapItems(swap, side) {
  * Must be called inside a transaction; reads via the transaction handle.
  */
 async function validateArticlesAvailable(tx, items, label, expectedOwnerId) {
+    const prices = {};
     for (const item of items) {
         const articleRef = firebase_1.db.collection('articles').doc(item.articleId);
         const articleSnap = await tx.get(articleRef);
@@ -123,6 +124,46 @@ async function validateArticlesAvailable(tx, items, label, expectedOwnerId) {
         }
         if (data.isSold === true) {
             throw new https_1.HttpsError('failed-precondition', `${label} : l'article "${item.title || item.articleId}" a déjà été vendu`);
+        }
+        // Authoritative server price — never the client payload (P1-6).
+        prices[item.articleId] = typeof data.price === 'number' ? data.price : 0;
+    }
+    return prices;
+}
+/**
+ * Swap statuses that still ENGAGE the articles on both sides (the exchange is
+ * live and the items are reserved). Used to enforce the "one article = one
+ * active swap" lock (P1-7): an article already engaged in any of these states
+ * may not be staged into a new proposal. Terminal states ('completed',
+ * 'cancelled', 'declined') release the articles.
+ */
+const ACTIVE_SWAP_STATUSES = [
+    'proposed',
+    'payment_pending',
+    'accepted',
+    'photos_pending',
+    'shipping',
+    'disputed',
+];
+/**
+ * Reject the proposal if ANY of the given articles is already engaged in another
+ * active swap (P1-7 — prevents double-engagement of the same item in concurrent
+ * swaps). Must run inside the transaction so the transactional query participates
+ * in serializable isolation: a competing proposal that committed first is seen on
+ * retry and the second proposal is rejected.
+ *
+ * Each swap doc carries a denormalized flat `articleIds` array (written at
+ * proposal time) so a single `array-contains` query suffices — auto-indexed by
+ * Firestore single-field indexing, no composite index required. Active-status
+ * filtering is done in memory (array-contains + status `in` cannot be combined).
+ */
+async function assertArticlesNotEngaged(tx, articleIds, titleById) {
+    for (const articleId of articleIds) {
+        const q = firebase_1.db.collection('swaps').where('articleIds', 'array-contains', articleId);
+        const snap = await tx.get(q);
+        const engaged = snap.docs.some((d) => ACTIVE_SWAP_STATUSES.includes(d.data().status));
+        if (engaged) {
+            throw new https_1.HttpsError('failed-precondition', `L'article "${titleById[articleId] || articleId}" est déjà engagé dans un autre échange en cours`);
         }
     }
 }
@@ -310,10 +351,25 @@ exports.proposeMultiSwap = (0, https_1.onCall)({ region: 'northamerica-northeast
         // OWNERSHIP: the initiator may only engage articles they own; the items
         // requested from the receiver must actually belong to the receiver.
         const swapId = await firebase_1.db.runTransaction(async (tx) => {
-            await validateArticlesAvailable(tx, initiatorItems, 'Article proposé', initiatorId);
-            await validateArticlesAvailable(tx, receiverItems, 'Article demandé', receiverId);
-            const initiatorTotalValue = initiatorItems.reduce((sum, item) => sum + (item.price || 0), 0);
-            const receiverTotalValue = receiverItems.reduce((sum, item) => sum + (item.price || 0), 0);
+            // NOTE: run ALL transactional reads (validation + engagement lock) BEFORE
+            // any write — the Firestore transaction API forbids reads after a write.
+            const initiatorPrices = await validateArticlesAvailable(tx, initiatorItems, 'Article proposé', initiatorId);
+            const receiverPrices = await validateArticlesAvailable(tx, receiverItems, 'Article demandé', receiverId);
+            // P1-7: refuse to engage an article already live in another swap.
+            const titleById = {};
+            for (const it of [...initiatorItems, ...receiverItems]) {
+                if (it === null || it === void 0 ? void 0 : it.articleId)
+                    titleById[it.articleId] = it.title;
+            }
+            const allArticleIds = [
+                ...initiatorItems.map((i) => i.articleId),
+                ...receiverItems.map((i) => i.articleId),
+            ].filter((id) => typeof id === 'string' && id.length > 0);
+            await assertArticlesNotEngaged(tx, allArticleIds, titleById);
+            // P1-6: value the swap from authoritative server prices, never the
+            // client-supplied item.price (which is manipulable).
+            const initiatorTotalValue = initiatorItems.reduce((sum, item) => sum + (initiatorPrices[item.articleId] || 0), 0);
+            const receiverTotalValue = receiverItems.reduce((sum, item) => sum + (receiverPrices[item.articleId] || 0), 0);
             const swapData = stripUndefined({
                 initiatorId,
                 initiatorName,
@@ -325,6 +381,9 @@ exports.proposeMultiSwap = (0, https_1.onCall)({ region: 'northamerica-northeast
                 receiverImage,
                 receiverItems: receiverItems.map(stripUndefined),
                 receiverTotalValue,
+                // Denormalized flat article-id list powering the engagement lock query
+                // (array-contains). Both sides combined.
+                articleIds: allArticleIds,
                 status: 'proposed',
                 message,
                 cashTopUp: validatedTopUp,
