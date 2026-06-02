@@ -146,6 +146,7 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => bottomSheetRef.current?.close()}
+              disabled={isSubmitting}
               activeOpacity={0.7}
             >
               <Text style={styles.cancelButtonText}>Annuler</Text>
@@ -154,13 +155,17 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
             <TouchableOpacity
               style={[
                 styles.confirmButton,
-                !reason.trim() && styles.confirmButtonDisabled,
+                (!reason.trim() || isSubmitting) && styles.confirmButtonDisabled,
               ]}
               onPress={handleConfirm}
-              disabled={!reason.trim()}
+              disabled={!reason.trim() || isSubmitting}
               activeOpacity={0.7}
             >
-              <Text style={styles.confirmButtonText}>Rejeter</Text>
+              {isSubmitting ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.confirmButtonText}>Rejeter</Text>
+              )}
             </TouchableOpacity>
           </View>
         </BottomSheetView>
