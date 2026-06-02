@@ -206,6 +206,11 @@ export default function PhotosReviewScreen() {
   };
 
   const runAnalysis = async () => {
+    // Abort any previous in-flight analysis before starting a new one.
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setAnalysisState('loading');
     setErrorMessage('');
     setDetectedPills([]);
@@ -215,6 +220,7 @@ export default function PhotosReviewScreen() {
     try {
       const draft = await draftService.loadDraft();
       if (!draft) {
+        if (!isMountedRef.current || controller.signal.aborted) return;
         setErrorMessage('Brouillon introuvable');
         setAnalysisState('error');
         return;
@@ -222,6 +228,7 @@ export default function PhotosReviewScreen() {
 
       const response = await analyzeProductImage(photos, {
         draftId: draft.id,
+        signal: controller.signal,
         onProgress: (p) => {
           progressWidth.value = withTiming(p, { duration: 300 });
         },
