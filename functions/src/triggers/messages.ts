@@ -6,10 +6,9 @@ import {
   onDocumentCreated,
   onDocumentUpdated,
 } from 'firebase-functions/v2/firestore';
-import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
-import { partitionTokens, sendPushNotification } from '../utils/notifications';
+import { sendPushNotification } from '../utils/notifications';
 
 /**
  * Check if either user has blocked the other.
