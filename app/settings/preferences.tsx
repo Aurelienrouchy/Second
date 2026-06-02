@@ -80,38 +80,6 @@ export default function PreferencesScreen() {
     setSelectedBrands(brands);
   }, []);
 
-  const handleGetLocation = async () => {
-    setIsLoadingLocation(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission refusée', "L'accès à la localisation est nécessaire");
-        return;
-      }
-
-      const currentLocation = await Location.getCurrentPositionAsync({});
-      const [reverseGeocode] = await Location.reverseGeocodeAsync({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      });
-
-      setLocation({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-        city: reverseGeocode?.city || reverseGeocode?.subregion || 'Ma position',
-      });
-    } catch (error) {
-      if (__DEV__) console.error('Error getting location:', error);
-      Alert.alert('Erreur', 'Impossible de récupérer votre position');
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  };
-
-  const clearLocation = () => {
-    setLocation(null);
-  };
-
   if (isLoading) {
     return (
       <View style={styles.container}>
