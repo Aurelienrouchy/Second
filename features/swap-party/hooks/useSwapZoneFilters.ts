@@ -123,8 +123,6 @@ export function useSwapZoneFilters(items: SwapPartyItemExtended[]) {
   // ── Label helpers (same conventions as useSearchScreen) ──
   const getSortLabel = useCallback((): string => {
     switch (selectedSort) {
-      case 'popular':
-        return 'Populaires';
       case 'price_asc':
         return 'Prix croissant';
       case 'price_desc':
