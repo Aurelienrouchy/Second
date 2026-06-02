@@ -61,25 +61,19 @@ export const HandDeliveryCard = React.memo(function HandDeliveryCard({
             {selectedNeighborhoods.length > 1 ? 's' : ''})
           </Text>
           <View style={styles.deliveryTagRow}>
-            {NEIGHBORHOOD_TAGS.map((tag) => {
+            {QUICK_TAGS.map((tag) => {
               const isTagActive = selectedNeighborhoods.some(
-                (n) => n.name === tag,
+                (n) => n.id === tag.id,
               );
               return (
                 <Pressable
-                  key={tag}
+                  key={tag.id}
                   style={({ pressed }) => [
                     styles.deliveryTag,
                     isTagActive && styles.deliveryTagActive,
                     pressed && { opacity: 0.7 },
                   ]}
-                  onPress={() =>
-                    onNeighborhoodToggle({
-                      id: tag.toLowerCase().replace(/\s/g, '-'),
-                      name: tag,
-                      borough: '',
-                    } as MeetupNeighborhood)
-                  }
+                  onPress={() => onNeighborhoodToggle(tag)}
                 >
                   <Text
                     style={[
@@ -87,7 +81,7 @@ export const HandDeliveryCard = React.memo(function HandDeliveryCard({
                       isTagActive && styles.deliveryTagTextActive,
                     ]}
                   >
-                    {tag}
+                    {tag.name}
                   </Text>
                 </Pressable>
               );
