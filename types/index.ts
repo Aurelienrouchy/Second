@@ -199,6 +199,12 @@ export interface Article {
   sellerId: string;
   sellerName: string;
   sellerImage?: string;
+  /**
+   * ID de la boutique propriétaire (Paid shop model). Présent uniquement sur
+   * les articles publiés par une boutique ; omis (jamais écrit) pour les
+   * particuliers. Indexé pour la requête shopService.getShopArticles.
+   */
+  shopId?: string;
   createdAt: Date;
   isActive: boolean;
   isSold: boolean;
