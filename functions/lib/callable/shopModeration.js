@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.triageReport = exports.getPendingReports = exports.suspendShop = exports.rejectShop = exports.approveShop = void 0;
+exports.submitReport = exports.triageReport = exports.getPendingReports = exports.suspendShop = exports.rejectShop = exports.approveShop = void 0;
 /**
  * Shop & Report Moderation — admin-only callables (B2 / B3).
  *
@@ -67,6 +67,12 @@ const logger = __importStar(require("firebase-functions/logger"));
 const firebase_1 = require("../config/firebase");
 const notifications_1 = require("../utils/notifications");
 const REGION = 'northamerica-northeast1';
+const REPORT_TARGET_TYPES = new Set([
+    'user',
+    'article',
+    'message',
+    'review',
+]);
 const REPORT_OUTCOMES = new Set([
     'reviewed',
     'resolved',
@@ -383,5 +389,120 @@ exports.triageReport = (0, https_1.onCall)({ region: REGION, memory: '512MiB' },
         adminUid,
     });
     return { ok: true, reportId, status: outcome };
+});
+// ============================================================
+// B7 — REPORT SUBMISSION (anti-spam, server-side dedup)
+// ============================================================
+/**
+ * submitReport — authenticated. Creates a moderation report for a target.
+ *
+ * ANTI-SPAM (Msg finding 39): the `reports` collection used to be created
+ * client-side via addDoc, so a single reporter could spam unlimited reports
+ * against the same target (a client-side hasUserReported() check is advisory
+ * and racy). This callable enforces "1 report per reporter/target/type" with a
+ * deterministic doc id (`${reporterId}_${targetType}_${targetId}`) checked
+ * inside runTransaction — same atomic-dedup pattern as createReview. A replay
+ * or repeated submission hits the existing doc and is rejected with
+ * 'already-exists', so the client can map it to a "déjà signalé" message.
+ *
+ * Fields mirror the shape moderationService.createReport wrote and that
+ * getPendingReports / the admin reports screen read (reporterId, reporterName,
+ * targetType, targetId, targetOwnerId?, reason, description?, status,
+ * createdAt). The moderation lifecycle (status/reviewedBy/reviewedAt/
+ * resolution) stays admin-owned: the report always starts 'pending'.
+ *
+ * Input:
+ *   targetType    ('user' | 'article' | 'message' | 'review', required)
+ *   targetId      (string, required)
+ *   reason        (string, required — ReportReason key, bound 1-100)
+ *   description   (string, optional — bound 1-2000; omitted when absent)
+ *   targetOwnerId (string, optional — omitted when absent)
+ */
+exports.submitReport = (0, https_1.onCall)({ region: REGION, memory: '512MiB' }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentification requise');
+    }
+    const reporterId = request.auth.uid;
+    const data = ((_a = request.data) !== null && _a !== void 0 ? _a : {});
+    if (typeof data.targetType !== 'string' ||
+        !REPORT_TARGET_TYPES.has(data.targetType)) {
+        throw new https_1.HttpsError('invalid-argument', 'targetType must be one of user | article | message | review');
+    }
+    if (typeof data.targetId !== 'string' || data.targetId.trim().length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'targetId is required');
+    }
+    if (typeof data.reason !== 'string' ||
+        data.reason.trim().length === 0 ||
+        data.reason.trim().length > 100) {
+        throw new https_1.HttpsError('invalid-argument', 'reason is required (max 100)');
+    }
+    const targetType = data.targetType;
+    const targetId = data.targetId.trim();
+    const reason = data.reason.trim();
+    // Optional fields — never written as undefined to Firestore.
+    let description = null;
+    if (data.description !== undefined &&
+        data.description !== null &&
+        data.description !== '') {
+        if (typeof data.description !== 'string') {
+            throw new https_1.HttpsError('invalid-argument', 'description must be a string');
+        }
+        const trimmed = data.description.trim();
+        if (trimmed.length > 2000) {
+            throw new https_1.HttpsError('invalid-argument', 'description too long (max 2000)');
+        }
+        description = trimmed.length > 0 ? trimmed : null;
+    }
+    let targetOwnerId = null;
+    if (data.targetOwnerId !== undefined &&
+        data.targetOwnerId !== null &&
+        data.targetOwnerId !== '') {
+        if (typeof data.targetOwnerId !== 'string') {
+            throw new https_1.HttpsError('invalid-argument', 'targetOwnerId must be a string');
+        }
+        const trimmed = data.targetOwnerId.trim();
+        targetOwnerId = trimmed.length > 0 ? trimmed : null;
+    }
+    // Reporter display name (read-only, outside the transaction).
+    const reporterSnap = await firebase_1.db.collection('users').doc(reporterId).get();
+    const reporterName = (_d = (reporterSnap.exists && typeof ((_b = reporterSnap.data()) === null || _b === void 0 ? void 0 : _b.displayName) === 'string'
+        ? (_c = reporterSnap.data()) === null || _c === void 0 ? void 0 : _c.displayName
+        : null)) !== null && _d !== void 0 ? _d : 'Utilisateur';
+    // Deterministic id enforces "1 per reporter/target/type" atomically:
+    // concurrent or repeated submissions converge on the same doc and only the
+    // first wins (existence checked inside the transaction).
+    const reportId = `${reporterId}_${targetType}_${targetId}`;
+    const ref = firebase_1.db.collection('reports').doc(reportId);
+    await firebase_1.db.runTransaction(async (tx) => {
+        const existing = await tx.get(ref);
+        if (existing.exists) {
+            throw new https_1.HttpsError('already-exists', 'Vous avez déjà signalé cet élément.');
+        }
+        const report = {
+            id: reportId,
+            reporterId,
+            reporterName,
+            targetType,
+            targetId,
+            reason,
+            status: 'pending',
+            createdAt: firebase_1.FieldValue.serverTimestamp(),
+        };
+        if (description !== null) {
+            report.description = description;
+        }
+        if (targetOwnerId !== null) {
+            report.targetOwnerId = targetOwnerId;
+        }
+        tx.set(ref, report);
+    });
+    logger.info('[submitReport] report created', {
+        reportId,
+        reporterId,
+        targetType,
+        targetId,
+    });
+    return { ok: true, reportId, status: 'pending' };
 });
 //# sourceMappingURL=shopModeration.js.map

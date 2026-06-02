@@ -113,7 +113,10 @@ exports.createReview = (0, https_1.onCall)({ region: 'northamerica-northeast1', 
         if (completionDate) {
             const daysSinceCompletion = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60 * 24);
             if (daysSinceCompletion > 60) {
-                throw new https_1.HttpsError('deadline-exceeded', 'La période pour laisser un avis est expirée (60 jours).');
+                // 'failed-precondition' (distinct from 'already-exists' for duplicates
+                // and 'invalid-argument' for profanity) so the client (C-REVIEW) can
+                // map this to a specific "review window expired" message.
+                throw new https_1.HttpsError('failed-precondition', 'La période pour laisser un avis est expirée (60 jours).');
             }
         }
         if (txData.buyerId !== reviewerId && txData.sellerId !== reviewerId) {

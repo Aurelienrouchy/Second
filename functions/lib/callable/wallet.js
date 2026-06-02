@@ -184,7 +184,7 @@ exports.activateWallet = (0, https_1.onCall)({ region: 'northamerica-northeast1'
  * If no wallet exists, returns { hasWallet: false }.
  */
 exports.getWalletInfo = (0, https_1.onCall)({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -215,6 +215,39 @@ exports.getWalletInfo = (0, https_1.onCall)({ region: 'northamerica-northeast1',
                 createdAt: ((_c = (_b = (_a = data.createdAt) === null || _a === void 0 ? void 0 : _a.toDate) === null || _b === void 0 ? void 0 : _b.call(_a)) === null || _c === void 0 ? void 0 : _c.toISOString()) || null,
             };
         });
+        // heldReleaseAt: the EARLIEST date held funds become withdrawable — the
+        // min fundsReleaseAt across the seller's delivered, not-yet-released,
+        // not-disputed transactions. Powers the "Disponible le {date}" label in
+        // app/wallet.tsx. Only computed when the seller actually holds funds.
+        // Two equality filters + no orderBy → served by single-field indexes, no
+        // composite index required.
+        let heldReleaseAt = null;
+        if (((_a = walletData.heldBalance) !== null && _a !== void 0 ? _a : 0) > 0) {
+            const heldSnap = await firebase_1.db
+                .collection('transactions')
+                .where('sellerId', '==', userId)
+                .where('status', '==', 'delivered')
+                .limit(100)
+                .get();
+            let minReleaseMs = null;
+            for (const doc of heldSnap.docs) {
+                const tx = doc.data();
+                // Released or disputed funds are no longer "held & pending release".
+                if (tx.fundsReleasedAt || tx.disputed === true)
+                    continue;
+                const releaseAt = tx.fundsReleaseAt;
+                const ms = releaseAt && typeof releaseAt.toMillis === 'function'
+                    ? releaseAt.toMillis()
+                    : null;
+                if (ms === null)
+                    continue;
+                if (minReleaseMs === null || ms < minReleaseMs)
+                    minReleaseMs = ms;
+            }
+            if (minReleaseMs !== null) {
+                heldReleaseAt = new Date(minReleaseMs).toISOString();
+            }
+        }
         return {
             hasWallet: true,
             balance: walletData.balance,
@@ -222,12 +255,14 @@ exports.getWalletInfo = (0, https_1.onCall)({ region: 'northamerica-northeast1',
             // 3-bucket model: heldBalance = livré, dans la fenêtre de protection 7j
             // (non retirable) ; sellerDebt = dû après litige perdu/refund insuffisant
             // (bloque les retraits). Exposés pour l'UI porte-monnaie.
-            heldBalance: (_a = walletData.heldBalance) !== null && _a !== void 0 ? _a : 0,
-            sellerDebt: (_b = walletData.sellerDebt) !== null && _b !== void 0 ? _b : 0,
+            heldBalance: (_b = walletData.heldBalance) !== null && _b !== void 0 ? _b : 0,
+            sellerDebt: (_c = walletData.sellerDebt) !== null && _c !== void 0 ? _c : 0,
+            // Earliest date held funds become withdrawable (ISO string or null).
+            heldReleaseAt,
             currency: walletData.currency,
             status: walletData.status,
-            activatedAt: ((_e = (_d = (_c = walletData.activatedAt) === null || _c === void 0 ? void 0 : _c.toDate) === null || _d === void 0 ? void 0 : _d.call(_c)) === null || _e === void 0 ? void 0 : _e.toISOString()) || null,
-            updatedAt: ((_h = (_g = (_f = walletData.updatedAt) === null || _f === void 0 ? void 0 : _f.toDate) === null || _g === void 0 ? void 0 : _g.call(_f)) === null || _h === void 0 ? void 0 : _h.toISOString()) || null,
+            activatedAt: ((_f = (_e = (_d = walletData.activatedAt) === null || _d === void 0 ? void 0 : _d.toDate) === null || _e === void 0 ? void 0 : _e.call(_d)) === null || _f === void 0 ? void 0 : _f.toISOString()) || null,
+            updatedAt: ((_j = (_h = (_g = walletData.updatedAt) === null || _g === void 0 ? void 0 : _g.toDate) === null || _h === void 0 ? void 0 : _h.call(_g)) === null || _j === void 0 ? void 0 : _j.toISOString()) || null,
             ledger: ledgerEntries,
         };
     }

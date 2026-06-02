@@ -88,8 +88,18 @@ const REPORT_REASONS = new Set([
     'damaged',
     'other',
 ]);
-/** Statuses from which a buyer may file a "delivered but problem" report. */
-const REPORTABLE_STATUSES = new Set(['shipped', 'delivered', 'completed']);
+/**
+ * Statuses from which a buyer may file a "delivered but problem" report.
+ *
+ * ONLY `delivered`: the report freezes funds inside the 7-day dispute window
+ * while they still sit in the seller's `heldBalance`. `shipped` is in-transit
+ * (a lost/failed parcel goes through requestRefund instead); `completed` means
+ * the window has elapsed and funds were already released to (and possibly
+ * withdrawn from) the seller's withdrawable `balance` — re-freezing then would
+ * require a balance->heldBalance claw-back coordinated with releaseHeldFunds
+ * (out of scope here), so a post-window report is refused and routed to admin.
+ */
+const REPORTABLE_STATUSES = new Set(['delivered']);
 // =============================================================================
 // requestRefund — Buyer auto-refund on a carrier-confirmed failed/lost parcel
 // =============================================================================
@@ -258,6 +268,18 @@ exports.reportTransactionProblem = (0, https_1.onCall)(
         if (!REPORTABLE_STATUSES.has(data.status)) {
             throw new https_1.HttpsError('failed-precondition', `Cette commande ne peut pas faire l'objet d'une réclamation (statut ${data.status})`);
         }
+        // 7-day dispute window: the report freezes funds while they still sit in
+        // the seller's heldBalance. Once the funds have been released
+        // (fundsReleasedAt set) or the release deadline has passed, the window is
+        // closed — refuse and route the buyer to admin support (no auto re-freeze
+        // of already-withdrawable funds here).
+        if (data.fundsReleasedAt) {
+            throw new https_1.HttpsError('failed-precondition', 'La fenêtre de réclamation de 7 jours est écoulée pour cette commande. Contactez le support.');
+        }
+        const releaseAtMs = data.fundsReleaseAt instanceof firestore_1.Timestamp ? data.fundsReleaseAt.toMillis() : null;
+        if (releaseAtMs !== null && releaseAtMs <= Date.now()) {
+            throw new https_1.HttpsError('failed-precondition', 'La fenêtre de réclamation de 7 jours est écoulée pour cette commande. Contactez le support.');
+        }
         // Freeze funds + flag dispute. NO money movement here.
         tx.update(txRef, {
             status: 'disputed',
@@ -341,10 +363,13 @@ exports.requestReturn = (0, https_1.onCall)({
     if (preData.buyerId !== buyerUid) {
         throw new https_1.HttpsError('permission-denied', 'Only the buyer can request a return');
     }
-    // Idempotence: a return is already in progress / done — no-op.
+    // Idempotence: a return is already in progress / done — no-op. Also short-
+    // circuit if another concurrent call has already RESERVED the return
+    // (returnLabelPending) and is mid-purchase, so we never buy a 2nd label.
     if (preData.status === 'return_requested' ||
         preData.returnLabelId ||
-        preData.returnTrackingNumber) {
+        preData.returnTrackingNumber ||
+        preData.returnLabelPending === true) {
         return {
             success: true,
             alreadyRequested: true,
@@ -426,8 +451,45 @@ exports.requestReturn = (0, https_1.onCall)({
             unit: 'centimeter',
         },
     };
-    // --- Buy the return label (NOT idempotent in ShipEngine; precondition above
-    // short-circuits if a label already exists). Buyer -> seller. ---
+    // --- Atomically RESERVE the return BEFORE buying the (paid, non-idempotent)
+    // label. createReturnLabel has no ShipEngine idempotency key, so two
+    // concurrent calls racing past the pre-read could each buy a label. Setting
+    // returnLabelPending under the lock makes the loser of the race abort
+    // *before* purchasing — only the reservation winner buys exactly one label.
+    // The flag is cleared on success (final commit) or on a failed purchase. ---
+    try {
+        await firebase_1.db.runTransaction(async (tx) => {
+            const snap = await tx.get(txRef);
+            if (!snap.exists)
+                throw new https_1.HttpsError('not-found', 'Transaction not found');
+            const data = snap.data();
+            if (data.buyerId !== buyerUid) {
+                throw new https_1.HttpsError('permission-denied', 'Only the buyer can request a return');
+            }
+            if (data.returnLabelId ||
+                data.returnTrackingNumber ||
+                data.status === 'return_requested' ||
+                data.returnLabelPending === true) {
+                throw new https_1.HttpsError('aborted', 'Un retour est déjà en cours pour cette commande.');
+            }
+            if (data.status !== 'delivered') {
+                throw new https_1.HttpsError('failed-precondition', 'Un retour ne peut être demandé que pour une commande livrée.');
+            }
+            tx.update(txRef, { returnLabelPending: true });
+        });
+    }
+    catch (error) {
+        if (error instanceof https_1.HttpsError && error.code === 'aborted') {
+            logger.warn('[requestReturn] concurrent reservation — no label bought', {
+                transactionId,
+                buyerId: buyerUid,
+            });
+            return { success: true, alreadyRequested: true };
+        }
+        throw error;
+    }
+    // --- Buy the return label (NOT idempotent in ShipEngine; the reservation
+    // above guarantees exactly one in-flight purchase). Buyer -> seller. ---
     let label;
     try {
         label = await shipEngine.createReturnLabel(buyerAddress, sellerAddress, parcel);
@@ -439,14 +501,17 @@ exports.requestReturn = (0, https_1.onCall)({
             buyerId: buyerUid,
             error: message,
         });
+        // Release the reservation so the buyer can retry (no label was bought).
+        await txRef
+            .update({ returnLabelPending: null })
+            .catch(() => undefined);
         throw new https_1.HttpsError('unavailable', 'Impossible de générer l\'étiquette de retour pour le moment. Veuillez réessayer.');
     }
     const returnLabelCost = (label.shipmentCost || 0) + (label.insuranceCost || 0);
-    // --- Atomically persist the return-leg fields + freeze the funds ---
-    // Re-check the precondition under the lock so two concurrent calls (the 2nd
-    // racing past the pre-read) cannot both flip the status. The 1st commit wins;
-    // the 2nd sees status !== 'delivered' and aborts (its already-bought label is
-    // logged for manual cleanup — rate-limited 3/min keeps this rare).
+    // --- Atomically persist the return-leg fields + freeze the funds, clearing
+    // the reservation flag. We hold the reservation (returnLabelPending=true set
+    // above), so the only way it is gone here is an out-of-band write — in that
+    // case the label we bought is logged for manual cleanup (rare). ---
     try {
         await firebase_1.db.runTransaction(async (tx) => {
             var _a, _b, _c;
@@ -458,7 +523,7 @@ exports.requestReturn = (0, https_1.onCall)({
                 throw new https_1.HttpsError('permission-denied', 'Only the buyer can request a return');
             }
             if (data.returnLabelId || data.returnTrackingNumber || data.status === 'return_requested') {
-                // Lost the race — another call already registered a return.
+                // A return was already registered out-of-band — abort.
                 throw new https_1.HttpsError('aborted', 'Un retour est déjà en cours pour cette commande.');
             }
             if (data.status !== 'delivered') {
@@ -475,17 +540,23 @@ exports.requestReturn = (0, https_1.onCall)({
                 returnLabelCost,
                 returnReason: reason,
                 returnRequestedAt: firebase_1.FieldValue.serverTimestamp(),
+                // Reservation fulfilled — clear the in-flight flag (null, not delete,
+                // to keep idempotence checks `=== true` correct and stay Firestore-safe).
+                returnLabelPending: null,
             });
         });
     }
     catch (error) {
+        // The label was bought but could not be persisted (out-of-band change).
+        // Log it for manual reconciliation; rate-limited 3/min keeps this rare.
+        logger.error('[requestReturn] label bought but commit failed — manual cleanup needed', {
+            transactionId,
+            returnLabelId: label.labelId,
+            returnTrackingNumber: label.trackingNumber,
+            error: error instanceof Error ? error.message : error,
+        });
         if (error instanceof https_1.HttpsError && error.code === 'aborted') {
-            // Concurrent winner already registered a return — surface as idempotent.
-            logger.warn('[requestReturn] concurrent return — label bought but not used', {
-                transactionId,
-                returnLabelId: label.labelId,
-                returnTrackingNumber: label.trackingNumber,
-            });
+            // Surface as idempotent (a return already exists for this tx).
             return { success: true, alreadyRequested: true };
         }
         throw error;
