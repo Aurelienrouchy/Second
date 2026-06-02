@@ -21,8 +21,17 @@ import {
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Image } from 'expo-image';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Platform } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { colors } from '@/constants/theme';
+
+// react-native-maps : Android utilise toujours Google Maps nativement (provider ignoré).
+// Sur iOS, PROVIDER_GOOGLE exige une clé Maps ; sans clé la carte est cassée.
+// On retombe sur Apple Maps (PROVIDER_DEFAULT) quand la clé iOS est absente.
+const mapProvider =
+  Platform.OS === 'ios' && !process.env.EXPO_PUBLIC_IOS_GOOGLE_MAPS_API_KEY
+    ? PROVIDER_DEFAULT
+    : PROVIDER_GOOGLE;
 
 export default function ShopDetailScreen() {
   const router = useRouter();
