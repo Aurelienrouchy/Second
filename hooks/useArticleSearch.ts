@@ -85,13 +85,13 @@ export function useArticleSearch({
   const queryKey = useMemo(
     () =>
       queryKeys.articles.search({
-        query: debouncedSearchQuery.trim(),
+        query: activeSearchQuery.trim(),
         categoryPath: selectedCategoryPath,
         filters: searchFilters as unknown as Record<string, unknown>,
         excludeUserId,
         sellerId,
       }),
-    [debouncedSearchQuery, selectedCategoryPath, searchFilters, excludeUserId, sellerId]
+    [activeSearchQuery, selectedCategoryPath, searchFilters, excludeUserId, sellerId]
   );
 
   const hasNonDefaultFilters = useMemo(
