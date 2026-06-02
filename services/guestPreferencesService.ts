@@ -40,6 +40,23 @@ export interface LocalPreferences {
   topCategories: string[];
 }
 
+/**
+ * Build the lightweight `ArticleMeta` used by the guest tracker from a full
+ * `Article`. The `timestamp` is (re)stamped by the tracking methods at write
+ * time, so the value here is only a placeholder. `category` falls back to the
+ * deprecated flat field when no hierarchical ids are present.
+ */
+export function toArticleMeta(article: Article): ArticleMeta {
+  return {
+    id: article.id,
+    brand: article.brand,
+    size: article.size?.value,
+    price: article.price,
+    category: article.categoryIds?.[0] ?? article.category ?? '',
+    timestamp: new Date().toISOString(),
+  };
+}
+
 class GuestPreferencesService {
   /**
    * Create a new guest session
