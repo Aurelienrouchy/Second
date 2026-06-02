@@ -417,7 +417,7 @@ export function useSearchScreen() {
   const getMaterialLabel = (): string => {
     const sel = filters.materials || [];
     if (sel.length === 0) return 'Matière';
-    if (sel.length === 1) return sel[0];
+    if (sel.length === 1) return getMaterialName(sel[0]);
     return `${sel.length} matières`;
   };
 
