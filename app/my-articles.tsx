@@ -534,6 +534,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
+  listEmptyContainer: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing['2xl'],
+  },
   emptyIcon: {
     marginBottom: spacing.md,
   },
