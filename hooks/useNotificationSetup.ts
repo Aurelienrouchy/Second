@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { InteractionManager, Platform } from 'react-native';
+import { AppState, type AppStateStatus, InteractionManager, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import { router, type Href } from 'expo-router';
