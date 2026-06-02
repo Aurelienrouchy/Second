@@ -646,9 +646,9 @@ export default function EditArticleScreen() {
           <EditableField
             label="Prix"
             value={fields.price > 0 ? fields.price.toString() : ''}
-            onSave={(value) => updateField('price', parseFloat(value) || 0)}
+            onSave={(value) => updateField('price', parseFloat(value.replace(',', '.')) || 0)}
             placeholder="0"
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             suffix="$"
             required
           />
