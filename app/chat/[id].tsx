@@ -144,9 +144,13 @@ export default function ChatScreen() {
       const msg = err instanceof Error ? err.message : '';
       Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer le message");
     }
-  }, [messageText, user, sendMessage]);
+  }, [messageText, user, sendMessage, isOtherBlocked]);
 
   const handlePickImage = useCallback(async () => {
+    if (isOtherBlocked) {
+      Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour lui envoyer une image.');
+      return;
+    }
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
