@@ -54,6 +54,7 @@ export interface ProductCardProduct {
   size?: string;
   brand?: string;
   condition?: string;
+  likes?: number;
   isSold?: boolean;
 }
 
