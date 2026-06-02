@@ -69,6 +69,8 @@ export {
   findPickupPoints,
   checkTrackingStatus,
   cancelPendingTransaction,
+  acceptMeetupOffer,
+  confirmMeetupTransaction,
   completeMeetupTransaction,
   reportMeetupNoShow,
   adminRefundTransaction,
