@@ -511,4 +511,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
+  blockedBanner: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surfaceWarm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  blockedBannerText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+  },
 });
