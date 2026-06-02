@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center' },
   confirmOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.surfaceWarm,
     justifyContent: 'center',
     alignItems: 'center',
