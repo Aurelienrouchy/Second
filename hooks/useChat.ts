@@ -195,11 +195,27 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     }
   };
 
+  // Merge confirmed server messages with still-pending optimistic ones.
+  // Guard against the brief window where the listener has echoed a message
+  // back but the reconcile setState hasn't flushed yet (dedupe by serverId).
+  const messages = useMemo<Message[]>(() => {
+    if (optimisticMessages.length === 0) return serverMessages;
+    const serverIds = new Set(serverMessages.map((m) => m.id));
+    const pending = optimisticMessages.filter(
+      (o) => !(o.serverId && serverIds.has(o.serverId))
+    );
+    return pending.length === 0 ? serverMessages : [...serverMessages, ...pending];
+  }, [serverMessages, optimisticMessages]);
+
+  // True while at least one message is mid-flight (not yet confirmed/failed).
+  const isSending = optimisticMessages.some((o) => o.status === 'sending' && !o.failed);
+
   return {
     messages,
     chat,
     isLoading,
     error,
+    isSending,
     sendMessage,
     sendImage,
     sendOffer,
