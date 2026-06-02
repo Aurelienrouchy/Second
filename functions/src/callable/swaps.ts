@@ -113,6 +113,57 @@ async function validateArticlesAvailable(
         `${label} : l'article "${item.title || item.articleId}" a déjà été vendu`
       );
     }
+    // Authoritative server price — never the client payload (P1-6).
+    prices[item.articleId] = typeof data.price === 'number' ? data.price : 0;
+  }
+  return prices;
+}
+
+/**
+ * Swap statuses that still ENGAGE the articles on both sides (the exchange is
+ * live and the items are reserved). Used to enforce the "one article = one
+ * active swap" lock (P1-7): an article already engaged in any of these states
+ * may not be staged into a new proposal. Terminal states ('completed',
+ * 'cancelled', 'declined') release the articles.
+ */
+const ACTIVE_SWAP_STATUSES = [
+  'proposed',
+  'payment_pending',
+  'accepted',
+  'photos_pending',
+  'shipping',
+  'disputed',
+] as const;
+
+/**
+ * Reject the proposal if ANY of the given articles is already engaged in another
+ * active swap (P1-7 — prevents double-engagement of the same item in concurrent
+ * swaps). Must run inside the transaction so the transactional query participates
+ * in serializable isolation: a competing proposal that committed first is seen on
+ * retry and the second proposal is rejected.
+ *
+ * Each swap doc carries a denormalized flat `articleIds` array (written at
+ * proposal time) so a single `array-contains` query suffices — auto-indexed by
+ * Firestore single-field indexing, no composite index required. Active-status
+ * filtering is done in memory (array-contains + status `in` cannot be combined).
+ */
+async function assertArticlesNotEngaged(
+  tx: FirebaseFirestore.Transaction,
+  articleIds: string[],
+  titleById: Record<string, string | undefined>
+): Promise<void> {
+  for (const articleId of articleIds) {
+    const q = db.collection('swaps').where('articleIds', 'array-contains', articleId);
+    const snap = await tx.get(q);
+    const engaged = snap.docs.some((d) =>
+      (ACTIVE_SWAP_STATUSES as readonly string[]).includes(d.data().status)
+    );
+    if (engaged) {
+      throw new HttpsError(
+        'failed-precondition',
+        `L'article "${titleById[articleId] || articleId}" est déjà engagé dans un autre échange en cours`
+      );
+    }
   }
 }
 
