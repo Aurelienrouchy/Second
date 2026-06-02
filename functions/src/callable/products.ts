@@ -402,13 +402,25 @@ export const createArticle = onCall(
       article.material = data.material.trim();
     }
 
-    // Neighborhoods (meetup locations)
+    // Neighborhoods (meetup locations) — server-validate the MeetupNeighborhood
+    // shape (P2-8). Each entry must carry non-empty id/name/borough strings;
+    // anything malformed is rejected so we never persist garbage meetup data.
     if (Array.isArray(data.neighborhoods) && data.neighborhoods.length > 0) {
-      article.neighborhoods = data.neighborhoods.slice(0, 10);
-      article.neighborhood = data.neighborhoods[0];
+      const cleaned = data.neighborhoods
+        .slice(0, 10)
+        .map(sanitizeNeighborhood);
+      if (cleaned.some((n: MeetupNeighborhood | null) => n === null)) {
+        throw new HttpsError('invalid-argument', 'Quartier invalide');
+      }
+      article.neighborhoods = cleaned;
+      article.neighborhood = cleaned[0];
     } else if (data.neighborhood && typeof data.neighborhood === 'object') {
-      article.neighborhood = data.neighborhood;
-      article.neighborhoods = [data.neighborhood];
+      const cleaned = sanitizeNeighborhood(data.neighborhood);
+      if (cleaned === null) {
+        throw new HttpsError('invalid-argument', 'Quartier invalide');
+      }
+      article.neighborhood = cleaned;
+      article.neighborhoods = [cleaned];
     }
 
     // Package size
