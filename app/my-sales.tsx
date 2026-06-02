@@ -143,9 +143,7 @@ export default function MySalesScreen() {
       // Check which completed transactions already have reviews
       const reviewChecks = await Promise.all(
         sellerTx.map((tx) => {
-          const isCompleted =
-            tx.status === 'delivered' || tx.status === 'meetup_completed';
-          if (!isCompleted) return Promise.resolve(false);
+          if (!isReviewableStatus(tx.status)) return Promise.resolve(false);
           return hasUserReviewedTransaction(user!.id, tx.id);
         }),
       );
