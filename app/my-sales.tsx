@@ -69,9 +69,8 @@ function SaleCard({
     year: 'numeric',
   });
 
-  const isReviewable =
-    (transaction.status === 'delivered' || transaction.status === 'meetup_completed') &&
-    !hasReview;
+  const isReviewable = isReviewableStatus(transaction.status) && !hasReview;
+  const isReviewed = isReviewableStatus(transaction.status) && hasReview;
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
