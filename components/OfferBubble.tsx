@@ -14,6 +14,11 @@ import { colors } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
+// Counter-offer amount bounds — the upper bound mirrors the server-side ceiling
+// enforced in firestore.rules (offer.amount <= 50000). Kept in sync manually.
+const MIN_OFFER_AMOUNT = 1;
+const MAX_OFFER_AMOUNT = 50000;
+
 import { CounterLocationInput } from './offer-bubble/CounterLocationInput';
 import { CounterPriceInput } from './offer-bubble/CounterPriceInput';
 import { CounterTimeInput } from './offer-bubble/CounterTimeInput';
