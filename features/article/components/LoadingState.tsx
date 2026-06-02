@@ -9,7 +9,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Skeleton } from '@/components/ui/Skeleton';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 
 import { articleStyles as styles } from '../styles';
 
