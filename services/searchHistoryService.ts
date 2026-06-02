@@ -59,7 +59,7 @@ export class SearchHistoryService {
       const sanitizedFilters = this.sanitizeFilters(filters);
 
       // M8: dedupe — if an entry already exists for the same query + filters,
-      // refresh its timestamp/resultCount instead of creating a duplicate.
+      // refresh its timestamp instead of creating a duplicate.
       const existingId = await this.findDuplicate(
         userId,
         trimmedQuery,
@@ -70,7 +70,6 @@ export class SearchHistoryService {
           doc(firestore, 'users', userId, 'searchHistory', existingId),
           {
             timestamp: serverTimestamp(),
-            resultCount: resultCount ?? null,
           }
         );
         return existingId;
@@ -81,7 +80,6 @@ export class SearchHistoryService {
         query: trimmedQuery,
         filters: sanitizedFilters,
         timestamp: serverTimestamp(),
-        resultCount: resultCount ?? null,
       });
 
       // Clean up old entries if needed
