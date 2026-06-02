@@ -134,7 +134,7 @@ export default function DraftResumeModal({
               style={({ pressed }) => [styles.resumeButton, pressed && { opacity: 0.8 }]}
               onPress={onResume}
             >
-              <Ionicons name="play" size={18} color="#FFFFFF" />
+              <Ionicons name="play" size={18} color={colors.white} />
               <Text style={styles.resumeButtonText}>Reprendre</Text>
             </Pressable>
 
