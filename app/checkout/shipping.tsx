@@ -609,6 +609,7 @@ export default function ShippingCheckoutScreen() {
         bottomInset={insets.bottom}
         walletCoversAll={walletCoversAll}
         useWallet={useWalletBalance}
+        disabled={showStripePayment}
       />
 
       {clientSecret && (
