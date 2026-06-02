@@ -425,6 +425,13 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
           <View style={[styles.statusIcon, { backgroundColor: getStatusIconBackground(status) }]}>
             <Ionicons name={getStatusIcon(status)} size={16} color={statusColor} />
           </View>
+          {!isOwnMessage && otherAvatar && (
+            <Image
+              source={{ uri: otherAvatar }}
+              style={avatarStyles.otherAvatar}
+              contentFit="cover"
+            />
+          )}
           <Text style={styles.headerLabel}>
             {isOwnMessage ? 'VOTRE OFFRE' : 'OFFRE RECUE'}
           </Text>
