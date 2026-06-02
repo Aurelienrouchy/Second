@@ -591,6 +591,8 @@ export default function SwapZoneScreen() {
               refreshing={isManualRefreshing}
               onRefresh={handleRefresh}
               tintColor={colors.sand}
+              colors={[colors.sand]}
+              progressBackgroundColor={colors.darkSurface2}
             />
           }
         />
