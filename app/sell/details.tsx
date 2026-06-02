@@ -167,6 +167,9 @@ export default function DetailsScreen() {
         name: categoryIds[categoryIds.length - 1]?.split('_').pop() || 'Article',
         context: categoryIds.slice(0, -1).join(' · '),
       },
+      // The size grid depends on the category (getSizesForCategory). A size
+      // detected for the previous category is no longer guaranteed valid.
+      size: null,
     }));
   }, []);
 
