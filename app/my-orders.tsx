@@ -56,6 +56,7 @@ function OrderCard({
   });
 
   const isReviewable = isReviewableStatus(transaction.status) && !hasReview;
+  const isReviewed = isReviewableStatus(transaction.status) && hasReview;
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
