@@ -127,6 +127,7 @@ export default function PhoneSettingsScreen() {
                   placeholder="(514) 555-1234"
                   keyboardType="phone-pad"
                   autoComplete="tel"
+                  textContentType="telephoneNumber"
                   maxLength={14}
                 />
               </View>
