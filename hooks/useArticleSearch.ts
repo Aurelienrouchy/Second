@@ -44,7 +44,6 @@ export function useArticleSearch({
   initialFilters,
   initialQuery,
   initialCategoryPath,
-  center,
   excludeUserId,
   sellerId,
 }: UseArticleSearchArgs = {}) {
