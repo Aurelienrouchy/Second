@@ -154,11 +154,6 @@ export default function RecentSearches({
               <Text style={styles.itemText} numberOfLines={1}>
                 {SearchHistoryService.formatSearchDisplay(item)}
               </Text>
-              {item.resultCount !== undefined && item.resultCount > 0 && (
-                <Text style={styles.itemSubtext}>
-                  {item.resultCount} article{item.resultCount > 1 ? 's' : ''}
-                </Text>
-              )}
             </View>
 
             <Pressable
