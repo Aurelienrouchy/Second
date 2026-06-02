@@ -398,6 +398,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+
+  // Error state
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  errorTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 18,
+    color: colors.charcoal,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  errorButton: {
+    marginTop: spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+  },
+  errorButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    letterSpacing: 1.5,
+    color: colors.cream,
+    textTransform: 'uppercase',
+  },
+
   skeletonContent: {
     padding: 20,
   },
