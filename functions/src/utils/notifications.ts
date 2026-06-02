@@ -285,8 +285,25 @@ export async function sendPushNotification(
     const userData = userDoc.data()!;
     const storedTokens: string[] = userData.fcmTokens || [];
 
-    // Check notification preferences
-    const prefs = userData.preferences?.notifications;
+    // Check notification preferences (preferences.notifications.*)
+    const prefs = userData.preferences?.notifications as
+      | Record<string, unknown>
+      | undefined;
+
+    // Per-type opt-out: if the user disabled THIS category, suppress BOTH the
+    // in-app notification and the FCM push. Safety-critical / unmapped types
+    // (review_received, privacy_incident, …) have no toggle and are never
+    // suppressed here (see getPreferenceKey).
+    if (isNotificationTypeDisabled(prefs, notificationType)) {
+      logger.info('Notification type disabled by user preference — skipped', {
+        userId,
+        notificationType,
+      });
+      return { success: true, sentCount: 0 };
+    }
+
+    // Global push toggle: still create the in-app notification (bell badge /
+    // unread count) but skip the FCM push.
     if (prefs?.push === false) {
       console.log(`User ${userId} has push notifications disabled`);
       // Still create in-app notification
