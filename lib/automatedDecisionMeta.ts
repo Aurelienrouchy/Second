@@ -94,22 +94,37 @@ export function getDecisionExplanation(
   );
 }
 
-/** FR labels for the technical criteria keys written by the backend log. */
+/**
+ * FR labels for the technical criteria keys written by the backend log.
+ *
+ * Keys MUST match the verbatim strings emitted by the backend automated-decision
+ * jobs, otherwise the contestation UI falls back to a neutral label:
+ *   - funds_released      (functions/src/scheduled/releaseHeldFunds.ts):
+ *       status, disputed, fundsReleaseAt, disputeWindowDays
+ *   - transaction_expired (functions/src/scheduled/transactionExpiration.ts):
+ *       status, expiryWindowHours, expiryWindowDays, cancelReason
+ *   - label_refund        (functions/src/scheduled/sweepPendingLabels.ts):
+ *       status, labelCreationPending, maxAttempts, cancelReason
+ */
 const CRITERIA_KEY_LABELS: Record<string, string> = {
   status: 'Statut de la commande',
   disputed: 'Litige ouvert',
   fundsReleaseAt: 'Date de libération prévue',
   disputeWindowDays: 'Délai de réclamation (jours)',
-  expiredAfterHours: 'Délai dépassé (heures)',
-  expiredAfterDays: 'Délai dépassé (jours)',
+  expiryWindowHours: 'Délai imparti (heures)',
+  expiryWindowDays: 'Délai imparti (jours)',
   labelCreationPending: "Création d'étiquette en attente",
   maxAttempts: "Tentatives d'étiquette",
   cancelReason: "Motif d'annulation",
 };
 
-/** Human-readable label for a criteria key. */
+/**
+ * Human-readable label for a criteria key. Falls back to a neutral generic
+ * label (never the raw technical key) so an unmapped backend key can't leak
+ * into the Loi 25 contestation UI.
+ */
 export function getCriteriaKeyLabel(key: string): string {
-  return CRITERIA_KEY_LABELS[key] ?? key;
+  return CRITERIA_KEY_LABELS[key] ?? 'Critère';
 }
 
 /**
