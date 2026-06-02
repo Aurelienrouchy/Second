@@ -359,13 +359,19 @@ export default function DeleteAccountScreen() {
     <View style={styles.container}>
       <ScreenHeader title="Supprimer mon compte" onBack={() => router.back()} />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
       >
-        {step === 'info' ? renderInfoStep() : renderConfirmStep()}
-      </ScrollView>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 'info' ? renderInfoStep() : renderConfirmStep()}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
