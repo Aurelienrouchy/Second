@@ -82,7 +82,7 @@ function handleDeepLink(url: string): void {
     // e.g. seconde://article/abc123 → app/article/[id].tsx
     // No manual intervention needed.
   } catch (error) {
-    console.error('Error handling deep link:', error);
+    if (__DEV__) console.error('Error handling deep link:', error);
   }
 }
 
