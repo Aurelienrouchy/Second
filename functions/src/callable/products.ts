@@ -840,6 +840,27 @@ export const updateArticle = onCall(
         );
       }
 
+      // Delivery options (P3-7): the resulting article must keep at least one
+      // delivery mode. We only need to re-check when the caller actually touched
+      // a delivery flag; the merged state (sanitized overrides existing) must
+      // not leave both modes off. Symmetric to the createArticle guard.
+      if ('isHandDelivery' in sanitized || 'isShipping' in sanitized) {
+        const resultHandDelivery =
+          'isHandDelivery' in sanitized
+            ? sanitized.isHandDelivery === true
+            : existing.isHandDelivery === true;
+        const resultShipping =
+          'isShipping' in sanitized
+            ? sanitized.isShipping === true
+            : existing.isShipping === true;
+        if (!resultHandDelivery && !resultShipping) {
+          throw new HttpsError(
+            'invalid-argument',
+            'Au moins une option de livraison requise',
+          );
+        }
+      }
+
       // Price drop tracking
       if (sanitized.price !== undefined && typeof sanitized.price === 'number') {
         const newPrice = sanitized.price as number;
