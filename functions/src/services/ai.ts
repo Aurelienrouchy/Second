@@ -302,17 +302,23 @@ export async function validateAndNormalizeResponse(
   // BUILD FINAL RESPONSE (matching frontend AIAnalysisResult type)
   // ========================================
 
+  // NOTE: `confidence` is emitted as a numeric score in [0..1] (Option A).
+  // The client (types/ai.ts → createConfidenceScore) recomposes the
+  // 'high'|'medium'|'low' level from this number, so the server must NOT send
+  // a pre-baked { level } object — doing so breaks createConfidenceScore (it
+  // expects a number) and pins every field to 'low'.
+
   // Build colors object for frontend
   const colorsForFrontend = colorsResult.length > 0
     ? {
         primaryColorId: colorsResult[0].id || null,
         colorIds: colorsResult.map((c) => c.id).filter(Boolean),
-        confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+        confidence: globalConfidence,
       }
     : {
         primaryColorId: null,
         colorIds: [],
-        confidence: { level: 'low' },
+        confidence: 0,
       };
 
   // Build materials object for frontend
@@ -320,19 +326,19 @@ export async function validateAndNormalizeResponse(
     ? {
         primaryMaterialId: materialsResult[0].id || null,
         materialIds: materialsResult.map((m) => m.id).filter(Boolean),
-        confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+        confidence: globalConfidence,
       }
     : {
         primaryMaterialId: null,
         materialIds: [],
-        confidence: { level: 'low' },
+        confidence: 0,
       };
 
   // Build size object for frontend
   const sizeForFrontend = response.size
     ? {
         detected: response.size as string,
-        confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+        confidence: globalConfidence,
       }
     : null;
 
@@ -340,7 +346,7 @@ export async function validateAndNormalizeResponse(
   const brandForFrontend = brandResult
     ? {
         detected: brandResult.matchedName || brandResult.detectedName || response.brand,
-        confidence: { level: (brandResult.confidence as number) >= 0.7 ? 'high' : (brandResult.confidence as number) >= 0.4 ? 'medium' : 'low' },
+        confidence: (brandResult.confidence as number) ?? globalConfidence,
         matchType: brandResult.matchType,
       }
     : null;
@@ -348,7 +354,7 @@ export async function validateAndNormalizeResponse(
   // Build condition object for frontend
   const conditionForFrontend = {
     conditionId: condition as string,
-    confidence: { level: globalConfidence >= 0.7 ? 'high' : globalConfidence >= 0.4 ? 'medium' : 'low' },
+    confidence: globalConfidence,
   };
 
   return {
