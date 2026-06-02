@@ -126,17 +126,14 @@ export default function MessagesScreen() {
     [chats, activeTab, getConversationType],
   );
 
-  const unreadByType = useMemo(
-    () => ({
-      achats: chats
-        .filter((c) => getConversationType(c) === 'achats')
-        .reduce((sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0), 0),
-      ventes: chats
-        .filter((c) => getConversationType(c) === 'ventes')
-        .reduce((sum, c) => sum + (user ? c.unreadCount?.[user.id] || 0 : 0), 0),
-    }),
-    [chats, user, getConversationType],
-  );
+  const unreadByType = useMemo<Record<ConversationType, number>>(() => {
+    const acc: Record<ConversationType, number> = { ventes: 0, achats: 0, autres: 0 };
+    for (const c of chats) {
+      const unread = user ? c.unreadCount?.[user.id] || 0 : 0;
+      acc[getConversationType(c)] += unread;
+    }
+    return acc;
+  }, [chats, user, getConversationType]);
 
   if (!user) {
     return (
