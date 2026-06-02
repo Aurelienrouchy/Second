@@ -55,6 +55,7 @@ export default function DraftResumeModal({
       transparent
       animationType="fade"
       statusBarTranslucent
+      onRequestClose={onResume}
     >
       <View style={styles.overlay}>
         <View style={styles.modal}>
