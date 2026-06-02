@@ -39,6 +39,12 @@ const TAB_LABELS: Record<ConversationType, string> = {
 // FlashList prop identity doesn't change across renders).
 const chatKeyExtractor = (item: Chat): string => item.id;
 
+// Clamp an unread counter so a large badge stays compact ("99+" max).
+// Shared by both badge sites (tab + conversation row) for visual parity.
+function formatBadgeCount(count: number, max = 99): string {
+  return count > max ? `${max}+` : String(count);
+}
+
 export default function MessagesScreen() {
   const user = useUser();
   const { showAuthSheet } = useAuthRequired();
