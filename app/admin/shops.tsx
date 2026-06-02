@@ -280,6 +280,15 @@ export default function AdminShopsScreen() {
         </Pressable>
 
         <Pressable
+          style={[styles.tab, selectedTab === 'suspended' && styles.tabActive]}
+          onPress={() => setSelectedTab('suspended')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'suspended' && styles.tabTextActive]}>
+            Suspendues
+          </Text>
+        </Pressable>
+
+        <Pressable
           style={[styles.tab, selectedTab === 'all' && styles.tabActive]}
           onPress={() => setSelectedTab('all')}
         >
