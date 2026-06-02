@@ -543,7 +543,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         {isLoading ? (
           <View style={styles.loadingContent}>
             <ActivityIndicator size="large" color={colors.rust} />
-            <Text style={styles.loadingText}>Chargement des marques...</Text>
+            <Text style={[styles.loadingText, darkMode && { color: mutedColor }]}>Chargement des marques...</Text>
           </View>
         ) : (
           <BottomSheetFlatList
