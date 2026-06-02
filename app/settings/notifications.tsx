@@ -8,11 +8,11 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, ScreenHeader } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import { Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Switch,
