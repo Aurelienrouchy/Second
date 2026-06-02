@@ -80,7 +80,7 @@ export default function DetailsScreen() {
     condition: getConditionDisplay(aiResult?.condition?.conditionId),
     colors: aiResult?.colors?.colorIds || (aiResult?.colors?.primaryColorId ? [aiResult.colors.primaryColorId] : []),
     materials: aiResult?.materials?.materialIds || (aiResult?.materials?.primaryMaterialId ? [aiResult.materials.primaryMaterialId] : []),
-    size: aiResult?.size?.detected || null,
+    size: aiResult?.size?.normalized || aiResult?.size?.detected || null,
     brand: aiResult?.brand?.detected || '',
   });
 
