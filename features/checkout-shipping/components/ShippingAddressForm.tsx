@@ -176,6 +176,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  formFieldLast: {
+    borderBottomWidth: 0,
+  },
+  fieldError: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.error,
+    marginTop: 6,
+  },
   formFieldRow: {
     flexDirection: 'row',
   },
