@@ -364,7 +364,13 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
         return (
           <BottomSheetFooter {...props}>
-            <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+            <View
+              style={[
+                styles.footer,
+                { paddingBottom: insets.bottom + 16 },
+                darkMode && { backgroundColor: colors.deep, borderTopColor: colors.darkBorder },
+              ]}
+            >
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
@@ -384,7 +390,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           </BottomSheetFooter>
         );
       },
-      [selectedBrands, insets.bottom, handleConfirm, singleSelect]
+      [selectedBrands, insets.bottom, handleConfirm, singleSelect, darkMode]
     );
 
     const handleLoadMore = useCallback(() => {
