@@ -713,12 +713,22 @@ service cloud.firestore {
         // which unlocks the review. The status field is in the sensitive list
         // above, so when a meetup confirmation happens we permit ONLY the exact
         // key set {status, meetupConfirmedAt, updatedAt} and re-validate it.
+        //
+        // SECURITY (P1-5): `meetupConfirmedAt` is MANDATORY and must be a
+        // timestamp. The canonical path is the confirmMeetupTransaction callable
+        // (Admin SDK, runTransaction) which stamps meetupConfirmedAt +
+        // meetupConfirmedBy server-side; the client-side fallback must at least
+        // carry the confirmation timestamp so a seller cannot flip the status to
+        // meetup_confirmed without an auditable confirmation time (which the 7d
+        // expiry sweep and the review unlock both key off).
         let isMeetupConfirmation =
           oldData.status == 'meetup_pending' &&
           newData.status == 'meetup_confirmed' &&
           request.auth.uid == oldData.sellerId &&
           newData.diff(oldData).affectedKeys()
-            .hasOnly(['status', 'meetupConfirmedAt', 'updatedAt']);
+            .hasOnly(['status', 'meetupConfirmedAt', 'updatedAt']) &&
+          'meetupConfirmedAt' in newData &&
+          newData.meetupConfirmedAt is timestamp;
 
         // Path A: no sensitive field touched (e.g. updatedAt-only writes).
         // Path B: the single legitimate meetup confirmation by the seller.
