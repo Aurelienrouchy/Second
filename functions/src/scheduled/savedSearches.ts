@@ -175,11 +175,14 @@ export const checkSavedSearchNotifications = onSchedule(
         }
 
         // Filter by sizes (ArticleSize objects { value, system } — exact match
-        // on both value and system so US/EU sizes never collide).
+        // on both value and system so US/EU sizes never collide). Legacy sizes
+        // stored as a plain string are normalised via sanitizeArticleSize
+        // (back-compat → { value, system: 'EU' }) so they are not silently
+        // excluded before the real data migration (be-migration-sizes) lands.
         if (filters.sizes && filters.sizes.length > 0) {
           matchingArticles = matchingArticles.filter((article: any) => {
-            const articleSize = article.size;
-            if (!articleSize || typeof articleSize !== 'object') return false;
+            const articleSize = sanitizeArticleSize(article.size);
+            if (!articleSize) return false;
             return filters.sizes!.some(
               (f) =>
                 f.value === articleSize.value && f.system === articleSize.system
