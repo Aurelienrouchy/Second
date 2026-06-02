@@ -939,7 +939,7 @@ function generateArticle(def, index) {
   const price = randomInRange(def.price[0], def.price[1]);
   const brand = def.brandOverride || randomItem(BRANDS[def.brandPool] || BRANDS.women_mid);
   const sizeArr = SIZES[def.sizePool] || SIZES.women_clothing;
-  const size = randomItem(sizeArr);
+  const size = toArticleSize(randomItem(sizeArr));
   const color = def.colors ? randomItem(def.colors) : randomItem(COLORS);
   const material = def.material || randomItem(MATERIALS);
   const images = IMAGES[def.imageKey] || IMAGES.women_dress;
