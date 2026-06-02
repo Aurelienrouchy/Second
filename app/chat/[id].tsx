@@ -179,9 +179,13 @@ export default function ChatScreen() {
     } finally {
       setIsSendingImage(false);
     }
-  }, [sendImage]);
+  }, [sendImage, isOtherBlocked]);
 
   const handleMakeOffer = useCallback(() => {
+    if (isOtherBlocked) {
+      Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour faire une offre.');
+      return;
+    }
     const currentPrice = article?.price ?? chat?.articlePrice;
     if (!currentPrice) {
       Alert.alert('Erreur', 'Aucun article associe a cette conversation');
