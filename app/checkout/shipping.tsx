@@ -695,7 +695,30 @@ export default function ShippingCheckoutScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surfaceWarm },
+  flex: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center' },
+  confirmOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.surfaceWarm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: spacing.sm,
+  },
+  confirmTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 18,
+    color: colors.charcoal,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  confirmSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   errorText: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted },
   guardContainer: {
     flex: 1,
