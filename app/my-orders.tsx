@@ -8,7 +8,7 @@ import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { ArticlesService } from '@/services/articlesService';
 import { hasUserReviewedTransaction } from '@/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
-import { Article, Transaction } from '@/types';
+import { Article, Transaction, TransactionStatus } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
