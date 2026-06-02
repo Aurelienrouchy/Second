@@ -220,7 +220,7 @@ export default function ConfidenceIndicator({
 export function LabelBadge({ style }: { style?: any }) {
   return (
     <View style={[styles.labelBadgeStandalone, style]}>
-      <Ionicons name="pricetag" size={12} color="#6D28D9" />
+      <Ionicons name="pricetag" size={12} color={themeColors.secondary} />
       <Text style={styles.labelBadgeText}>Etiquette</Text>
     </View>
   );
