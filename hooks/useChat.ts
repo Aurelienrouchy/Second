@@ -101,19 +101,44 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     };
   }, [chatId, userId]);
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = useCallback(async (content: string) => {
     if (!chatId || !userId || !chat) return;
 
     const receiverId = chat.participants.find((id) => id !== userId);
     if (!receiverId) return;
 
+    // Optimistic insert: show the message immediately with a 'sending' status.
+    const tempId = `${OPTIMISTIC_ID_PREFIX}${Date.now()}`;
+    const optimistic: OptimisticMessage = {
+      id: tempId,
+      chatId,
+      senderId: userId,
+      receiverId,
+      type: 'text',
+      content,
+      timestamp: new Date(),
+      status: 'sending',
+      isRead: false,
+    };
+    setOptimisticMessages((prev) => [...prev, optimistic]);
+
     try {
-      await ChatService.sendMessage(chatId, userId, receiverId, content);
+      const serverId = await ChatService.sendMessage(chatId, userId, receiverId, content);
+      // Tag the optimistic copy with its server id so the listener echo can
+      // reconcile (drop) it. If the listener already delivered it, the next
+      // reconcile pass removes it; otherwise we keep showing 'sent' meanwhile.
+      setOptimisticMessages((prev) =>
+        prev.map((o) => (o.id === tempId ? { ...o, serverId, status: 'sent' } : o))
+      );
     } catch (err) {
       if (__DEV__) console.error('Error sending message:', err);
+      // Rollback: mark the optimistic message as failed so the UI can react.
+      setOptimisticMessages((prev) =>
+        prev.map((o) => (o.id === tempId ? { ...o, failed: true } : o))
+      );
       throw err;
     }
-  };
+  }, [chatId, userId, chat]);
 
   const sendImage = async (imageUri: string) => {
     if (!chatId || !userId || !chat) return;
