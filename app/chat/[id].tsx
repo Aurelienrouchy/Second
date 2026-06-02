@@ -69,6 +69,7 @@ export default function ChatScreen() {
 
   const { id: chatId } = useLocalSearchParams<{ id: string }>();
   const user = useUser();
+  const insets = useSafeAreaInsets();
 
   // ─── ALL hooks MUST be called before any conditional return ───
 
