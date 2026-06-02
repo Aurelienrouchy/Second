@@ -411,6 +411,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // ── Likes badge — bottom-left ──
+  likesBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(245, 240, 232, 0.90)',
+  },
+  likesText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    color: colors.foreground,
+  },
+
   // ── Content ──
   content: {
     paddingHorizontal: 10,
