@@ -473,6 +473,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  confirmOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: spacing.sm,
+  },
+  confirmTitle: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 18,
+    color: colors.charcoal,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  confirmSubtitle: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 
   // Error state
   errorContainer: {
