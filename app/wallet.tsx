@@ -44,6 +44,7 @@ import {
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useWallet } from '@/hooks/useWallet';
 import type { WalletLedgerEntry } from '@/types';
+import { formatCents } from '@/utils/formatPrice';
 
 // =============================================================================
 // COPY (spec UX_PAIEMENT_LIVRAISON — telle quelle)
