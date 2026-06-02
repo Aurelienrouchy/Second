@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   confirmOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
