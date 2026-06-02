@@ -609,7 +609,7 @@ export const requestReturn = onCall(
       });
       // Release the reservation so the buyer can retry (no label was bought).
       await txRef
-        .update({ returnLabelPending: FieldValue.delete() })
+        .update({ returnLabelPending: null })
         .catch(() => undefined);
       throw new HttpsError(
         'unavailable',
