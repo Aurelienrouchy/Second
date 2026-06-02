@@ -157,6 +157,19 @@ export function useArticleSearch({
     }
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
+  // Typing resets to debounced mode; an explicit commit re-engages the bypass.
+  const updateSearchQuery = useCallback((next: string) => {
+    setForcedSearchQuery(null);
+    setSearchQuery(next);
+  }, []);
+
+  // Commit the query immediately (OK / Enter), bypassing the debounce so the
+  // results refresh on this term without the 350ms wait.
+  const commitSearchQuery = useCallback((next: string) => {
+    setSearchQuery(next);
+    setForcedSearchQuery(next);
+  }, []);
+
   const hasActiveFilters = useMemo(
     () =>
       (filters.colors?.length ?? 0) > 0 ||
