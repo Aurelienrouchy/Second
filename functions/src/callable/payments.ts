@@ -830,6 +830,11 @@ export const createTransaction = onCall(
           amount,
           shippingCost: shipping,
           serviceFee: fee,
+          // Persisted so createStripeCheckout re-applies the SAME reduction when
+          // it recomputes the authoritative charge (otherwise it would revert to
+          // the full buyer fee). Always a bounded number (0 = full fee), never
+          // undefined. Meetup has no fee, so 0 there too.
+          buyerFeeReduction: deliveryType === 'meetup' ? 0 : buyerFeeReduction,
           totalAmount,
           sellerPayout: amount,
           deliveryType,
