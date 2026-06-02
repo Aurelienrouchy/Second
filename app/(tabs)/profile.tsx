@@ -129,7 +129,7 @@ export default function ProfileScreen() {
         id: 'wallet',
         title: 'Porte-monnaie',
         subtitle: wallet?.hasWallet
-          ? `${(wallet.balance / 100).toFixed(2).replace('.', ',')} $`
+          ? formatCents(wallet.balance)
           : wallet?.hasWallet === false
             ? 'Non activé'
             : undefined,
