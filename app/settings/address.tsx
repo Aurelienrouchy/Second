@@ -246,7 +246,7 @@ export default function AddressSettingsScreen() {
             </>
           ) : (
             <View style={styles.formSection}>
-              <Text style={styles.label}>Saisir l'adresse manuellement</Text>
+              <Text style={styles.label}>Saisir l&apos;adresse manuellement</Text>
 
               <View style={styles.inputContainer}>
                 <Label style={styles.fieldLabel}>Adresse</Label>
