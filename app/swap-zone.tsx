@@ -20,6 +20,7 @@ import {
   Pressable,
   RefreshControl,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
