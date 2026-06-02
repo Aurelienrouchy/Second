@@ -62,7 +62,7 @@ export default function DraftResumeModal({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="document-text" size={28} color={colors.warning} />
+              <Ionicons name="document-text" size={28} color={colors.primary} />
             </View>
             <Text style={styles.title}>Brouillon trouvé</Text>
             <Text style={styles.subtitle}>
