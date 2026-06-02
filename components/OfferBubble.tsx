@@ -83,6 +83,8 @@ interface OfferBubbleProps {
   articleId?: string;
   /** Original listed price of the article (used for context display) */
   articlePrice?: number;
+  /** Avatar (photo URL) of the other participant — shown on received offers */
+  otherAvatar?: string;
   // Legacy actions
   onAcceptOffer: (messageId: string, offerId: string) => Promise<void>;
   onRejectOffer: (messageId: string, offerId: string) => Promise<void>;
