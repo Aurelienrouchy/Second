@@ -152,14 +152,37 @@ export default function OnboardingScreen() {
       await AsyncStorage.setItem('@onboarding_preferences', JSON.stringify(preferences));
       await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
 
-      // Save to Firebase (non-blocking for guest, blocking for logged-in user)
+      // Save to Firebase
       const savePrefs = httpsCallable(functions, 'saveOnboardingPreferences');
-      savePrefs({
+      const payload = {
         ...preferences,
         userId: user?.id || null,
-      }).catch((err: unknown) => {
-        if (__DEV__) console.error('Error saving onboarding preferences to Firebase:', err);
-      });
+      };
+
+      if (user) {
+        // Logged-in user: await persistence so prefs are not silently lost.
+        // On failure, surface a retry (AsyncStorage already holds the prefs).
+        try {
+          await savePrefs(payload);
+        } catch (err) {
+          if (__DEV__) console.error('Error saving onboarding preferences to Firebase:', err);
+          setIsSaving(false);
+          Alert.alert(
+            'Échec de l’enregistrement',
+            'Tes préférences n’ont pas pu être enregistrées. Réessayer ?',
+            [
+              { text: 'Plus tard', style: 'cancel', onPress: () => router.replace('/(tabs)') },
+              { text: 'Réessayer', onPress: () => { void handleValidate(); } },
+            ]
+          );
+          return;
+        }
+      } else {
+        // Guest: fire-and-forget, prefs live in AsyncStorage until sign-in.
+        savePrefs(payload).catch((err: unknown) => {
+          if (__DEV__) console.error('Error saving onboarding preferences to Firebase:', err);
+        });
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)');
