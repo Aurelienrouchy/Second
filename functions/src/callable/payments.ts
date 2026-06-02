@@ -22,6 +22,85 @@ import { sendPushNotification } from '../utils/notifications';
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 // =============================================================================
+// HELPERS — Shop tier → buyer-fee reduction (Paid shop model)
+// =============================================================================
+
+/**
+ * Maps a paid-shop `tier` to the buyer-fee reduction fraction applied at
+ * checkout (Paid shop model). The reduction lowers ONLY the buyer protection
+ * fee — the seller still receives 100% of the article price (0% seller
+ * commission). The forfait pricing/percentages are not yet frozen ("à
+ * calibrer"), so we map to round, bounded fractions that `normalizeFeeReduction`
+ * (utils/fees) clamps into [0, 1]:
+ *   - basic   (L'Atelier) → 0    (standard fees)
+ *   - pro     (Le Comptoir) → 0.5 (~half the standard buyer fee)
+ *   - premium (La Maison) → 1    (0% buyer fee — Second monetizes via the
+ *                                  subscription only)
+ *
+ * Any unknown/absent tier yields 0 (full fee). Deterministic — no I/O — so it
+ * is safe to call inside runTransaction.
+ */
+function feeReductionForShopTier(tier: unknown): number {
+  switch (tier) {
+    case 'pro':
+      return 0.5;
+    case 'premium':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Resolves the buyer-fee reduction for a purchase from the SELLER's approved
+ * shop tier, read 100% server-side (never trusted from the client). Resolution
+ * order, both OUTSIDE runTransaction (no I/O inside a Firestore transaction):
+ *   1. The article's denormalized `shopId` (stamped at creation in products.ts)
+ *      → read that shop doc, use its `tier` only when `status === 'approved'`.
+ *   2. Fallback: query the seller's shops by `ownerId`, pick the approved one.
+ *
+ * Best-effort: any lookup failure returns 0 (full fee) — a shop-tier read must
+ * never block a paid order. Returns a bounded fraction in [0, 1].
+ */
+async function resolveBuyerFeeReduction(params: {
+  shopId?: unknown;
+  sellerId: string;
+}): Promise<number> {
+  const { shopId, sellerId } = params;
+  try {
+    if (typeof shopId === 'string' && shopId.length > 0) {
+      const shopSnap = await db.collection('shops').doc(shopId).get();
+      if (shopSnap.exists) {
+        const shop = shopSnap.data()!;
+        if (shop.status === 'approved') {
+          return feeReductionForShopTier(shop.tier);
+        }
+      }
+      // shopId present but shop missing/not approved → no reduction.
+      return 0;
+    }
+
+    // No denormalized shopId on the article: resolve via the seller's shops.
+    // Single equality filter on ownerId → covered by the automatic single-field
+    // index. Approved-status filtering is done in memory (no composite index).
+    const shopsSnap = await db
+      .collection('shops')
+      .where('ownerId', '==', sellerId)
+      .get();
+    const approvedShop = shopsSnap.docs.find((d) => d.data()?.status === 'approved');
+    if (approvedShop) {
+      return feeReductionForShopTier(approvedShop.data()?.tier);
+    }
+  } catch (error) {
+    logger.warn('createTransaction: shop tier lookup failed, applying full buyer fee', {
+      sellerId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return 0;
+}
+
+// =============================================================================
 // HELPERS — Seller origin address resolution
 // =============================================================================
 
