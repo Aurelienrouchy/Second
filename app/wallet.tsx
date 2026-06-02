@@ -83,12 +83,6 @@ const WALLET_COPY = {
 // HELPERS
 // =============================================================================
 
-/** Format cents to Canadian French display: "45,00 $" */
-function formatCents(cents: number): string {
-  const dollars = cents / 100;
-  return `${dollars.toFixed(2).replace('.', ',')} $`;
-}
-
 /** Substitute {montant} placeholder in copy strings. */
 function withMontant(template: string, cents: number): string {
   return template.replace('{montant}', formatCents(cents));
