@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -14,6 +15,7 @@ import { useUser } from '@/contexts/AuthContext';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useChats } from '@/hooks/useChat';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { ModerationService } from '@/services/moderationService';
 import { Chat } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { APP_LOCALE } from '@/constants/locale';
@@ -23,7 +25,15 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
 import { formatDisplayName } from '@/utils/formatName';
 
-type ConversationType = 'achats' | 'ventes';
+type ConversationType = 'achats' | 'ventes' | 'autres';
+
+const CONVERSATION_TABS = ['ventes', 'achats', 'autres'] as const;
+
+const TAB_LABELS: Record<ConversationType, string> = {
+  ventes: 'VENTES',
+  achats: 'ACHATS',
+  autres: 'AUTRES',
+};
 
 // Stable references for FlashList (defined at module scope so the
 // FlashList prop identity doesn't change across renders).
