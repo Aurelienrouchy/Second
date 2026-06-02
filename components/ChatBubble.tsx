@@ -173,9 +173,11 @@ const ChatBubble = React.memo(function ChatBubble({
             isOwnMessage && styles.ownTimestampRow,
           ]}
         >
-          <Text style={[styles.timestampText, isOwnMessage && styles.ownTimestampText]}>
-            {formatTime(message.timestamp)}
-          </Text>
+          {hasResolvedTime && (
+            <Text style={[styles.timestampText, isOwnMessage && styles.ownTimestampText]}>
+              {formatTime(message.timestamp)}
+            </Text>
+          )}
           {renderStatusIcon()}
         </View>
       </View>
