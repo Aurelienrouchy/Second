@@ -197,7 +197,7 @@ export const checkSavedSearchNotifications = onSchedule(
 
         // Filter by brand (structured `filters.brands`). Articles store a single
         // `brand` string; mirror the client filter (articlesService
-        // matchesClientSideFilters) which compares with brandK() exact-match
+        // matchesClientSideFilters) which compares with brandKey() exact-match
         // (lowercase + trim) so `Gap` never matches `Gap Kids`. Articles without
         // a brand are excluded.
         if (filters.brands && filters.brands.length > 0) {
