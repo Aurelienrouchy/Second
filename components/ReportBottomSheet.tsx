@@ -226,10 +226,10 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
                   disabled={loading}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={colors.white} />
                   ) : (
                     <>
-                      <Ionicons name="send" size={18} color="#fff" />
+                      <Ionicons name="send" size={18} color={colors.white} />
                       <Text style={styles.submitButtonText}>Envoyer le signalement</Text>
                     </>
                   )}
