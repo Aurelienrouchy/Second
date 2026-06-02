@@ -50,7 +50,7 @@ function TermsContentComponent() {
 
       <Text variant="h3" style={styles.sectionTitle}>3. Admissibilité / Âge</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        Vous devez avoir au moins 16 ans pour créer un compte et utiliser Second. La vente
+        Vous devez avoir au moins 16 ans pour créer un compte et utiliser Seconde. La vente
         d'articles est réservée aux personnes de 18 ans et plus, en raison des exigences de
         notre partenaire de paiement. En créant un compte, vous confirmez avoir l'âge requis.
       </Text>
