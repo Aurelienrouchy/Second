@@ -596,13 +596,20 @@ export class ArticlesService {
   ): Promise<SearchPage> {
     const articlesRef = collection(firestore, 'articles');
 
+    // Shop-scoped search (sellerId present): keep the server query to
+    // isActive + isSold + sellerId + createdAt DESC (which has a simple index)
+    // and apply categoryIds / category / condition / price client-side, exactly
+    // like colors/sizes/materials/brands already are. This avoids requiring a
+    // new composite index per attribute combination on top of sellerId.
+    const isShopScoped = !!filters?.sellerId;
+
     const hasPriceFilter =
       filters?.minPrice !== undefined || filters?.maxPrice !== undefined;
 
-    // C2: when a price inequality is present, Firestore REQUIRES the inequality
-    // field to lead the ordering. So `price` must be the first orderBy, with
-    // `createdAt DESC` as a stable secondary. Direction: price_desc -> desc,
-    // everything else (price_asc / recent / popular) -> asc.
+    // C2: when a price inequality is present (and not shop-scoped), Firestore
+    // REQUIRES the inequality field to lead the ordering. So `price` must be the
+    // first orderBy, with `createdAt DESC` as a stable secondary. Direction:
+    // price_desc -> desc, everything else (price_asc / recent / popular) -> asc.
     const priceDir: 'asc' | 'desc' = sortBy === 'price_desc' ? 'desc' : 'asc';
 
     const buildConstraints = (
@@ -616,8 +623,16 @@ export class ArticlesService {
         where('isSold', '==', false),
       ];
 
-      if (filters?.sellerId) {
-        constraints.push(where('sellerId', '==', filters.sellerId));
+      if (isShopScoped) {
+        // Shop-scoped: only sellerId server-side, ordered by recency. All other
+        // attribute filters (category / condition / price) run client-side.
+        constraints.push(where('sellerId', '==', filters!.sellerId));
+        constraints.push(orderBy('createdAt', 'desc'));
+        constraints.push(firestoreLimit(fetchLimit));
+        if (cursor) {
+          constraints.push(startAfter(cursor));
+        }
+        return constraints;
       }
 
       if (filters?.categoryIds && filters.categoryIds.length > 0) {
@@ -668,13 +683,48 @@ export class ArticlesService {
       return constraints;
     };
 
+    // Filters resolved client-side. When shop-scoped, category / condition /
+    // price join the always-client-side attribute filters.
+    const hasShopAttributeFilter =
+      isShopScoped &&
+      !!(
+        (filters?.categoryIds && filters.categoryIds.length > 0) ||
+        filters?.category ||
+        filters?.condition ||
+        hasPriceFilter
+      );
+
     const hasClientSideFilter = !!(
       (filters?.colors && filters.colors.length > 0) ||
       (filters?.sizes && filters.sizes.length > 0) ||
       (filters?.materials && filters.materials.length > 0) ||
-      (filters?.brands && filters.brands.length > 0)
+      (filters?.brands && filters.brands.length > 0) ||
+      hasShopAttributeFilter
     );
     const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount;
+
+    // Shop-scoped category / condition / price predicates, applied per doc.
+    const matchesShopAttributes = (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: Record<string, any>,
+    ): boolean => {
+      if (!isShopScoped) return true;
+
+      if (filters?.categoryIds && filters.categoryIds.length > 0) {
+        const targetCategoryId = filters.categoryIds[filters.categoryIds.length - 1];
+        const docCategoryIds: string[] = Array.isArray(data.categoryIds) ? data.categoryIds : [];
+        if (!docCategoryIds.includes(targetCategoryId)) return false;
+      } else if (filters?.category) {
+        if (data.category !== filters.category) return false;
+      }
+
+      if (filters?.condition && data.condition !== filters.condition) return false;
+
+      if (filters?.minPrice !== undefined && data.price < filters.minPrice) return false;
+      if (filters?.maxPrice !== undefined && data.price > filters.maxPrice) return false;
+
+      return true;
+    };
 
     const matches: Article[] = [];
     let cursor = lastVisible;
