@@ -136,10 +136,13 @@ export default function ChatScreen() {
       Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour lui envoyer un message.');
       return;
     }
+    const trimmed = messageText.trim();
+    // Clear the input immediately: the optimistic bubble already echoes the
+    // text, so the field should feel instantly responsive.
+    setMessageText('');
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await sendMessage(messageText.trim());
-      setMessageText('');
+      await sendMessage(trimmed);
     } catch (err: unknown) {
       if (__DEV__) console.error('Error sending message:', err);
       const msg = err instanceof Error ? err.message : '';
