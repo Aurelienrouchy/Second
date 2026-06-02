@@ -3,9 +3,13 @@ import { subscribeWithSelector } from 'zustand/middleware';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+// Mirrors the server producer union (functions/src/utils/notifications.ts
+// `buildDeepLink`). Keep in sync so the client routing never sees an
+// unhandled type.
 export type PushNotificationType =
   | 'chat'
   | 'message'
+  | 'new_message'
   | 'saved_search'
   | 'shop_approved'
   | 'shop_rejected'
@@ -18,7 +22,15 @@ export type PushNotificationType =
   | 'offer_received'
   | 'offer_accepted'
   | 'offer_rejected'
-  | 'offer_counter';
+  | 'offer_counter'
+  | 'new_sale'
+  | 'order_shipped'
+  | 'order_delivered'
+  | 'order_cancelled'
+  | 'order_refunded'
+  | 'funds_released'
+  | 'review_received'
+  | 'privacy_incident';
 
 export interface PushNotificationData {
   // Routing
@@ -27,6 +39,14 @@ export interface PushNotificationData {
   partyId?: string;
   swapId?: string;
   savedSearchId?: string;
+  transactionId?: string;
+  reviewId?: string;
+  /**
+   * Full universal-link URL built by the server
+   * (functions/src/utils/notifications.ts `buildDeepLink`), e.g.
+   * `https://seconde.app/my-orders?transactionId=…`. Preferred routing source.
+   */
+  deepLink?: string;
 
   // Display
   savedSearchName?: string;
