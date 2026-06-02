@@ -40,8 +40,8 @@ function sortItems(items: SwapPartyItemExtended[], sortBy: SortBy | undefined): 
   } else if (sortBy === 'price_desc') {
     next.sort((a, b) => (b.price || 0) - (a.price || 0));
   } else {
-    // 'recent' (default) and 'popular' both fall back to addedAt desc — the
-    // zone items carry no popularity signal.
+    // 'recent' (default) falls back to addedAt desc — the zone items carry no
+    // popularity signal, so 'popular' is not offered in the Swap Zone.
     next.sort((a, b) => {
       const ta = a.addedAt instanceof Date ? a.addedAt.getTime() : 0;
       const tb = b.addedAt instanceof Date ? b.addedAt.getTime() : 0;
