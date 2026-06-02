@@ -6,7 +6,7 @@
  */
 
 import { Tabs, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -19,7 +19,10 @@ import {
   UserIcon,
 } from '@/components/ui/TabBarIcons';
 import { ImmersiveOverlay, useImmersiveOverlay } from '@/components/ui/ImmersiveOverlay';
+import { EXITING_TIME } from '@/components/ui/ImmersiveOverlay/constants';
 import { SellOverlayCapture } from '@/features/sell';
+import DraftResumeModal from '@/components/DraftResumeModal';
+import draftService, { ArticleDraft } from '@/services/draftService';
 import { colors, fonts, radius } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
 import { useAuthStore } from '@/store/authStore';
@@ -27,6 +30,14 @@ import { useAuthSheetStore } from '@/store/authSheetStore';
 import { AUTH_MESSAGES, COPY_SELL_GATE } from '@/constants/authMessages';
 import { useChatStore, selectUnreadChatCount } from '@/store/chatStore';
 import { canSell } from '@/utils/age';
+
+/**
+ * Delay before pushing the next screen after the immersive overlay is
+ * dismissed. Anchored to the overlay exit animation (EXITING_TIME) plus a
+ * small buffer so the push fires once the overlay has fully collapsed —
+ * pushing earlier would race the closing animation and flash the camera.
+ */
+const OVERLAY_DISMISS_PUSH_DELAY = EXITING_TIME + 50;
 
 // ── Badge component for tab icons ──
 function TabBadge({ count }: { count: number }) {
