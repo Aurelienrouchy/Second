@@ -224,6 +224,9 @@ export default function EmailSettingsScreen() {
                     placeholder="Votre mot de passe"
                     placeholderTextColor={colors.muted}
                     secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="password"
+                    autoComplete="current-password"
                   />
                   <Pressable
                     onPress={() => setShowPassword(!showPassword)}
@@ -251,6 +254,9 @@ export default function EmailSettingsScreen() {
                     placeholder="Votre mot de passe"
                     placeholderTextColor={colors.muted}
                     secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="password"
+                    autoComplete="current-password"
                   />
                   <Pressable
                     onPress={() => setShowPassword(!showPassword)}
