@@ -5,10 +5,11 @@
 
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 
 interface SwapStickyActionsProps {
   onAccept: () => void;
@@ -21,8 +22,12 @@ export const SwapStickyActions = React.memo(function SwapStickyActions({
   onDecline,
   isProcessing,
 }: SwapStickyActionsProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.stickyBottom}>
+    <View
+      style={[styles.stickyBottom, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+    >
       <Pressable
         style={({ pressed }) => [styles.declineBtn, pressed && { opacity: 0.7 }]}
         onPress={onDecline}
