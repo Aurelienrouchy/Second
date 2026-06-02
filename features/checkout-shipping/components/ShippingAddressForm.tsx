@@ -129,7 +129,7 @@ export const ShippingAddressForm = React.memo(function ShippingAddressForm({
             </ScrollView>
           </View>
         </View>
-        <View style={styles.formField}>
+        <View style={[styles.formField, styles.formFieldLast]}>
           <Text style={styles.fieldLabel}>CODE POSTAL</Text>
           <TextInput
             style={styles.fieldInput}
@@ -138,7 +138,11 @@ export const ShippingAddressForm = React.memo(function ShippingAddressForm({
             placeholder="H2J 2K1"
             placeholderTextColor={colors.muted}
             autoCapitalize="characters"
+            maxLength={7}
           />
+          {postalCodeError ? (
+            <Text style={styles.fieldError}>Format attendu : A1A 1A1</Text>
+          ) : null}
         </View>
       </View>
     </>
