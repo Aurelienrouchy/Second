@@ -82,7 +82,7 @@ export default function MySwapsScreen() {
       case 'pending':
         return swap.status === 'proposed';
       case 'active':
-        return ['payment_pending', 'accepted', 'photos_pending', 'shipping'].includes(swap.status);
+        return ['payment_pending', 'accepted', 'photos_pending', 'shipping', 'disputed'].includes(swap.status);
       case 'completed':
         return ['completed', 'declined', 'cancelled'].includes(swap.status);
       default:
