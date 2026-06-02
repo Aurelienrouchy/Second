@@ -140,17 +140,11 @@ export function useArticleSearch({
     ),
   });
 
-  const articles = useMemo(() => {
+  const articles = useMemo<Article[]>(() => {
     if (!data?.pages) return [];
-    const flat = data.pages.flatMap((page) => page.articles);
-    const transformed = transformArticlesWithLocation(flat, center);
-    // Only re-sort client-side when geolocation center is provided (distance sort)
-    // Otherwise the service already sorted the results
-    if (center) {
-      return sortArticles(transformed, filters.sortBy, center);
-    }
-    return transformed;
-  }, [data, center, filters.sortBy]);
+    // The service already applies the requested sort server-side.
+    return data.pages.flatMap((page) => page.articles);
+  }, [data]);
 
   const loadMore = useCallback(() => {
     if (!isFetchingNextPage && hasNextPage) {
