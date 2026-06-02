@@ -812,7 +812,13 @@ export const createTransaction = onCall(
         // Build transaction data — server-side fee calculation (never trust client)
         // Meetup transactions have NO platform fee (aligned with frontend
         // messaging "Aucun frais de plateforme") and no shipping cost.
-        const fee = deliveryType === 'meetup' ? 0 : calculateServiceFee(amount);
+        // Shipping transactions apply the seller's paid-shop tier reduction to
+        // the buyer protection fee (resolved server-side above; deterministic
+        // here). `calculateServiceFee` clamps the reduction into [0, 1] and the
+        // seller payout is unaffected (still 100% of `amount`).
+        const fee = deliveryType === 'meetup'
+          ? 0
+          : calculateServiceFee(amount, buyerFeeReduction);
         // Shipping cost is the SERVER re-priced value, never the client input.
         const shipping = deliveryType === 'shipping' ? serverShippingCost : 0;
         const totalAmount = amount + shipping + fee;
