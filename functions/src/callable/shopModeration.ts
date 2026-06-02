@@ -37,6 +37,15 @@ type ShopStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 
 type ReportStatus = 'pending' | 'reviewed' | 'resolved' | 'dismissed';
 
+type ReportTargetType = 'user' | 'article' | 'message' | 'review';
+
+const REPORT_TARGET_TYPES: ReadonlySet<ReportTargetType> = new Set([
+  'user',
+  'article',
+  'message',
+  'review',
+]);
+
 const REPORT_OUTCOMES: ReadonlySet<ReportStatus> = new Set([
   'reviewed',
   'resolved',
