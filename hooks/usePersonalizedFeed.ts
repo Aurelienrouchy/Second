@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
+import { homeKeys } from '@/features/home/query-keys';
 import { ArticlesService } from '@/services/articlesService';
 import { Article, ArticleSize, SizeSystem, User } from '@/types';
 
 /** Size systems a bare personalization value (unknown system) may belong to. */
 const PERSONALIZATION_SIZE_SYSTEMS: SizeSystem[] = ['US', 'EU'];
+
+/** Personalized feed shares the home staleTime budget (10 min, low volatility). */
+const POUR_TOI_STALE_TIME = 10 * 60 * 1000;
 
 /**
  * Personalization sizes (styleProfile.suggestedSizes, preferences.sizes) are
@@ -19,6 +24,76 @@ function toArticleSizeFilters(values: string[]): ArticleSize[] {
   );
 }
 
+interface PersonalizationData {
+  brands: string[];
+  sizes: string[];
+  styleTags: string[];
+  source: 'styleProfile' | 'preferences';
+}
+
+/**
+ * Extract personalization inputs from styleProfile (AI-generated) or manual
+ * preferences. Priority: styleProfile > preferences. Returns null when the
+ * user has nothing usable (no profile).
+ */
+function getPersonalizationData(user: User | null): PersonalizationData | null {
+  if (!user) return null;
+
+  // Priority 1: AI-generated style profile
+  if (user.styleProfile && user.styleProfile.confidence > 0) {
+    const { recommendedBrands, suggestedSizes, styleTags } = user.styleProfile;
+    const brands = recommendedBrands?.length > 0 ? recommendedBrands : [];
+    const sizes: string[] = [];
+
+    if (suggestedSizes?.top) sizes.push(suggestedSizes.top);
+    if (suggestedSizes?.bottom && suggestedSizes.bottom !== suggestedSizes.top) {
+      sizes.push(suggestedSizes.bottom);
+    }
+
+    if (brands.length > 0 || sizes.length > 0) {
+      return { brands, sizes, styleTags: styleTags || [], source: 'styleProfile' };
+    }
+  }
+
+  // Priority 2: Manual user preferences
+  if (user.preferences) {
+    const { favoriteBrands, sizes } = user.preferences;
+    if ((favoriteBrands && favoriteBrands.length > 0) || (sizes && sizes.length > 0)) {
+      return {
+        brands: favoriteBrands || [],
+        sizes: sizes || [],
+        styleTags: [],
+        source: 'preferences',
+      };
+    }
+  }
+
+  return null;
+}
+
+async function fetchPersonalizedFeed(
+  data: PersonalizationData,
+  userId: string,
+  limit: number,
+): Promise<Article[]> {
+  const { brands, sizes } = data;
+
+  // Typed against the service signature (no `any`).
+  const filters: Parameters<typeof ArticlesService.searchArticles>[1] = {
+    excludeUserId: userId, // Don't show the user's own articles.
+  };
+
+  if (brands.length > 0) {
+    filters.brands = brands;
+  }
+  if (sizes.length > 0) {
+    filters.sizes = toArticleSizeFilters(sizes);
+  }
+
+  const { articles } = await ArticlesService.searchArticles(undefined, filters, limit);
+  return articles;
+}
+
 interface UsePersonalizedFeedOptions {
   user: User | null;
   limit?: number;
@@ -30,13 +105,16 @@ interface UsePersonalizedFeedReturn {
   error: string | null;
   styleTags: string[];
   hasProfile: boolean;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<unknown>;
 }
 
 /**
  * Hook for fetching personalized "Pour Toi" articles based on user preferences.
  * Uses AI-generated styleProfile (from Gemini) or manual preferences.
  * Priority: styleProfile > preferences
+ *
+ * Backed by React Query under homeKeys ('home' > 'pour-toi') so it participates
+ * in the home-wide invalidation (pull-to-refresh invalidates homeKeys.all).
  *
  * @example
  * ```tsx
@@ -47,112 +125,30 @@ export function usePersonalizedFeed({
   user,
   limit = 10,
 }: UsePersonalizedFeedOptions): UsePersonalizedFeedReturn {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Extract personalization data from styleProfile or preferences
-  const getPersonalizationData = useCallback(() => {
-    if (!user) return null;
-
-    // Priority 1: AI-generated style profile
-    if (user.styleProfile && user.styleProfile.confidence > 0) {
-      const { recommendedBrands, suggestedSizes, styleTags } = user.styleProfile;
-      const brands = recommendedBrands?.length > 0 ? recommendedBrands : [];
-      const sizes: string[] = [];
-
-      // Add sizes from suggestedSizes
-      if (suggestedSizes?.top) sizes.push(suggestedSizes.top);
-      if (suggestedSizes?.bottom && suggestedSizes.bottom !== suggestedSizes.top) {
-        sizes.push(suggestedSizes.bottom);
-      }
-
-      if (brands.length > 0 || sizes.length > 0) {
-        return { brands, sizes, styleTags: styleTags || [], source: 'styleProfile' };
-      }
-    }
-
-    // Priority 2: Manual user preferences
-    if (user.preferences) {
-      const { favoriteBrands, sizes } = user.preferences;
-      if ((favoriteBrands && favoriteBrands.length > 0) || (sizes && sizes.length > 0)) {
-        return {
-          brands: favoriteBrands || [],
-          sizes: sizes || [],
-          styleTags: [],
-          source: 'preferences',
-        };
-      }
-    }
-
-    return null;
-  }, [user]);
-
-  const personalizationData = getPersonalizationData();
+  const personalizationData = useMemo(() => getPersonalizationData(user), [user]);
   const hasProfile = personalizationData !== null;
-  const styleTags = personalizationData?.styleTags || [];
+  const styleTags = personalizationData?.styleTags ?? [];
 
-  const fetchPersonalizedFeed = useCallback(async () => {
-    const data = getPersonalizationData();
+  // A profile with neither brands nor sizes yields no query (empty feed).
+  const canQuery =
+    !!personalizationData &&
+    !!user &&
+    (personalizationData.brands.length > 0 || personalizationData.sizes.length > 0);
 
-    // No personalization data available
-    if (!data || !user) {
-      setArticles([]);
-      return;
-    }
-
-    const { brands, sizes } = data;
-
-    // If no brands or sizes, return empty
-    if (brands.length === 0 && sizes.length === 0) {
-      setArticles([]);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Build filters from personalization data
-      const filters: any = {
-        excludeUserId: user.id, // Don't show user's own articles
-      };
-
-      if (brands.length > 0) {
-        filters.brands = brands;
-      }
-
-      if (sizes.length > 0) {
-        filters.sizes = toArticleSizeFilters(sizes);
-      }
-
-      const { articles: results } = await ArticlesService.searchArticles(
-        undefined, // No text query
-        filters,
-        limit
-      );
-
-      setArticles(results);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erreur de chargement';
-      setError(errorMessage);
-      console.error('Error fetching personalized feed:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, limit, getPersonalizationData]);
-
-  useEffect(() => {
-    fetchPersonalizedFeed();
-  }, [fetchPersonalizedFeed]);
+  const query = useQuery({
+    queryKey: [...homeKeys.all, 'pour-toi', user?.id ?? null, limit] as const,
+    queryFn: () => fetchPersonalizedFeed(personalizationData!, user!.id, limit),
+    enabled: canQuery,
+    staleTime: POUR_TOI_STALE_TIME,
+  });
 
   return {
-    articles,
-    isLoading,
-    error,
+    articles: query.data ?? [],
+    isLoading: query.isLoading && canQuery,
+    error: query.error instanceof Error ? query.error.message : null,
     styleTags,
     hasProfile,
-    refresh: fetchPersonalizedFeed,
+    refresh: () => query.refetch(),
   };
 }
 
