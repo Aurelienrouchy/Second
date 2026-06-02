@@ -144,15 +144,29 @@ export const updateSearchIndex = onDocumentWritten(
         lastIndexed: FieldValue.serverTimestamp(),
       };
 
-      // Update search index with debouncing
+      // Write search index. On the INITIAL creation we must await the write
+      // directly: debounceUpdate is a fire-and-forget setTimeout, and on
+      // Cloud Functions v2 (Cloud Run) the instance can be frozen/terminated
+      // as soon as the handler returns — the timer would never fire and the
+      // article would never be indexed (P1-7). We only debounce subsequent
+      // updates (frequent metric writes: views/likes/popularity).
       const updateKey = `search_index_${articleId}`;
-      debounceUpdate(updateKey, async () => {
+      const isCreation = !event.data.before?.exists;
+      if (isCreation) {
         await db
           .collection('search_index')
           .doc(articleId)
           .set(searchIndexData, { merge: true });
-        logger.info(`Updated search index for article ${articleId}`);
-      });
+        logger.info(`Indexed new article ${articleId}`);
+      } else {
+        debounceUpdate(updateKey, async () => {
+          await db
+            .collection('search_index')
+            .doc(articleId)
+            .set(searchIndexData, { merge: true });
+          logger.info(`Updated search index for article ${articleId}`);
+        });
+      }
 
       // Update article with geohash if not present
       if (geohash && !articleData.location?.geohash) {
