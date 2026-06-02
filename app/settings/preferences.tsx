@@ -346,25 +346,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     color: colors.primary,
   },
-  locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.sm,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  locationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  locationText: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foreground,
-  },
   notificationLink: {
     flexDirection: 'row',
     alignItems: 'center',
