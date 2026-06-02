@@ -981,8 +981,16 @@ export const createStripeCheckout = onCall(
           };
         }
 
-        // Always recalculate fees server-side for correctness
-        const calculatedFees = calculateFees(transaction.amount, transaction.shippingCost || 0);
+        // Always recalculate fees server-side for correctness. Re-apply the
+        // paid-shop buyer-fee reduction persisted by createTransaction so the
+        // authoritative charge matches the reduced fee (clamped into [0, 1] by
+        // calculateFees; defaults to full fee when absent). Seller payout is
+        // unaffected (still 100% of amount).
+        const calculatedFees = calculateFees(
+          transaction.amount,
+          transaction.shippingCost || 0,
+          transaction.buyerFeeReduction,
+        );
 
         // --- Wallet debit (if applicable) ---
         let walletDebited = false;
