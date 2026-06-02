@@ -357,6 +357,8 @@ export const createArticle = onCall(
 
     // Optional scalar fields
     if (sellerImage) article.sellerImage = sellerImage;
+    // Shop link (P1-2) — only when the seller has an approved boutique.
+    if (shopId) article.shopId = shopId;
     // Size — accept the ArticleSize object { value, system } (current client),
     // or a legacy plain string (back-compat → defaults to system 'EU').
     // On create there is no "erasure": a null/empty/malformed size simply omits
