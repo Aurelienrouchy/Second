@@ -43,7 +43,9 @@ export const PayButton = React.memo(function PayButton({
   bottomInset,
   walletCoversAll = false,
   useWallet = false,
+  disabled = false,
 }: PayButtonProps) {
+  const isDisabled = !canPay || submitting || disabled;
   let label: string;
   let iconName: keyof typeof Ionicons.glyphMap = 'lock-closed-outline';
 
