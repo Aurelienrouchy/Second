@@ -105,6 +105,24 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isSold",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "isActive",
           "order": "ASCENDING"
         },
