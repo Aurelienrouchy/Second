@@ -177,8 +177,6 @@ function ProductGridComponent({
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         numColumns={2}
-        // @ts-expect-error estimatedItemSize valid at runtime
-        estimatedItemSize={CARD_WIDTH * 1.5 + 100}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.8}
         extraData={extraData}
