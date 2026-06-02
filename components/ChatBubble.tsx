@@ -35,6 +35,10 @@ const ChatBubble = React.memo(function ChatBubble({
     });
   };
 
+  // While the message is still in flight ('sending'), its timestamp is not yet
+  // server-confirmed — show no time rather than a misleading device-clock value.
+  const hasResolvedTime = message.status !== 'sending';
+
   const renderStatusIcon = (): React.ReactNode => {
     if (!isOwnMessage) return null;
 
