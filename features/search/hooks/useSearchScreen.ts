@@ -253,7 +253,11 @@ export function useSearchScreen() {
 
   const handleVisualSearchCapture = useCallback((imageUri: string) => {
     setShowVisualSearch(false);
-    router.push({ pathname: '/visual-search-results', params: { imageUri } });
+    // Defer the push until the Modal dismiss interaction settles, otherwise the
+    // Modal close and router.push race and the navigation can be dropped.
+    InteractionManager.runAfterInteractions(() => {
+      router.push({ pathname: '/visual-search-results', params: { imageUri } });
+    });
   }, []);
 
   // ─── Sort handler ───────────────────────────────────────────────
