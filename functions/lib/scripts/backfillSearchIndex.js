@@ -90,6 +90,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const admin = __importStar(require("firebase-admin"));
 const geohash_1 = require("../utils/geohash");
 const search_1 = require("../utils/search");
+const article_1 = require("../shared/article");
 // ── Admin init (explicit, standalone — NOT the functions runtime singleton) ──
 if (!admin.apps.length) {
     // Uses GOOGLE_APPLICATION_CREDENTIALS / ADC. Project is inferred from the
@@ -171,7 +172,13 @@ function buildSearchIndexData(articleId, articleData) {
         brand: brands[0] || null,
         color: colors[0] || null,
         material: materials[0] || null,
-        size: (_d = articleData.size) !== null && _d !== void 0 ? _d : null,
+        // Normalize legacy/hybrid sizes to the {value, system} contract before
+        // writing. sanitizeArticleSize preserves an existing object verbatim, maps a
+        // legacy bare string to its back-compat default (system: 'EU' — the same
+        // default used by the callable/trigger, never a hardcoded system at write),
+        // and yields undefined for empty/malformed input → store null (never
+        // undefined to Firestore).
+        size: (_d = (0, article_1.sanitizeArticleSize)(articleData.size)) !== null && _d !== void 0 ? _d : null,
         condition: articleData.condition,
         price: articleData.price,
         location: {
