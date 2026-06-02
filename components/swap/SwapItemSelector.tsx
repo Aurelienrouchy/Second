@@ -104,6 +104,7 @@ const SwapItemSelector: React.FC<SwapItemSelectorProps> = ({
     <Modal
       visible={visible}
       transparent
+      statusBarTranslucent
       animationType="slide"
       onRequestClose={onClose}
     >
