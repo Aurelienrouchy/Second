@@ -397,7 +397,9 @@ const ConversationItem = React.memo(function ConversationItem({
         <Text style={styles.timestamp}>{timestamp}</Text>
         {unreadCount > 0 && (
           <View style={styles.unreadBadge}>
-            <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+            <Text style={styles.unreadBadgeText}>
+              {formatBadgeCount(unreadCount)}
+            </Text>
           </View>
         )}
       </View>
