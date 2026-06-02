@@ -48,6 +48,20 @@ export function useAuthListener(): void {
             await useAuthStore.getState().hydrateFromFirebase(currentUser);
           } catch (error) {
             if (__DEV__) console.error('[useAuthListener] foreground reload error:', error);
+            // With the Web SDK, onAuthStateChanged does NOT re-fire on a
+            // server-side revocation/deletion/disable. reload() is the only
+            // foreground detector and throws these codes. Without a signOut the
+            // store keeps a ghost user (authed screens + writes that fail
+            // permission-denied) until the token next refreshes. Trigger a
+            // clean signOut so the session resets immediately.
+            const code = (error as { code?: string } | null)?.code;
+            if (
+              code === 'auth/user-token-expired' ||
+              code === 'auth/user-disabled' ||
+              code === 'auth/user-not-found'
+            ) {
+              await useAuthStore.getState().signOut();
+            }
           }
         }
       }
