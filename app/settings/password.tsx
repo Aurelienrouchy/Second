@@ -153,6 +153,9 @@ export default function PasswordSettingsScreen() {
                   placeholder="Confirmez votre mot de passe"
                   placeholderTextColor={colors.muted}
                   secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  textContentType="newPassword"
+                  autoComplete="new-password"
                 />
                 <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
                   <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={24} color={colors.muted} />
