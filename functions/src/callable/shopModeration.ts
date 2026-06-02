@@ -236,7 +236,13 @@ export const approveShop = onCall(
     await assertAdmin(request.auth.uid, request.auth.token.admin === true);
 
     const shopId = requireShopId(request.data);
-    await mutateShopStatus(shopId, 'approved', request.auth.uid, null);
+    const result = await mutateShopStatus(
+      shopId,
+      'approved',
+      request.auth.uid,
+      null,
+    );
+    await notifyShopOwner(result, shopId, 'approved', null);
 
     logger.info('[approveShop] shop approved', {
       shopId,
