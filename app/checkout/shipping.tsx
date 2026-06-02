@@ -247,9 +247,12 @@ export default function ShippingCheckoutScreen() {
     ? Math.min(walletBalanceCents, totalAmountCents)
     : 0;
 
+  /** Postal code is required and must match the Canadian format. */
+  const postalCodeValid = CA_POSTAL_RE.test(addressForm.postalCode.trim());
+
   const canPay = !!(
     addressForm.fullName && addressForm.address && addressForm.city
-    && addressForm.postalCode && selectedEstimate
+    && addressForm.province && postalCodeValid && selectedEstimate
   );
 
   // --- Payment ---------------------------------------------------------------
