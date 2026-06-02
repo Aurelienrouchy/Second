@@ -26,7 +26,10 @@ interface OnboardingData {
  *
  * Can be called by:
  * - Authenticated users: saves to their user doc
- * - Guests: saves to a guest_preferences collection (keyed by guestId or device)
+ * - Guests: no-op server-side. Guest prefs already live in AsyncStorage
+ *   (fire-and-forget on the client) and are replayed at sign-in by
+ *   mergeGuestDataIntoUser, so persisting a guest_preferences doc here only
+ *   created an orphan (never read, purged after 90d by retentionPurge).
  *
  * The data feeds into the personalized "Pour Toi" feed via usePersonalizedFeed.
  */
