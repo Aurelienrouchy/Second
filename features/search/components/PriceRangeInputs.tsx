@@ -40,7 +40,7 @@ function PriceRangeInputsComponent({
             placeholderTextColor={colors.muted}
             value={minPriceText}
             onChangeText={onMinChange}
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             returnKeyType="done"
           />
           <Text style={styles.priceCurrency}>$</Text>
