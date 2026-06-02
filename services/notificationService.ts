@@ -180,10 +180,16 @@ export class NotificationService {
    */
   static async countUnreadNotifications(userId: string): Promise<number> {
     try {
-      const notifications = await this.getUserNotifications(userId);
-      return notifications.filter((n) => !n.isRead).length;
+      // Aggregation query: counts server-side without downloading every doc.
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        where('userId', '==', userId),
+        where('isRead', '==', false)
+      );
+      const snapshot = await getCountFromServer(q);
+      return snapshot.data().count;
     } catch (error) {
-      console.error('Error counting unread notifications:', error);
+      if (__DEV__) console.error('Error counting unread notifications:', error);
       return 0;
     }
   }
