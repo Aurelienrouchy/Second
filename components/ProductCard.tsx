@@ -51,13 +51,9 @@ export interface ProductCardProduct {
     url: string;
     blurhash?: string;
   }>;
-  location?: {
-    distance?: number;
-  };
   size?: string;
   brand?: string;
   condition?: string;
-  likes?: number;
   isSold?: boolean;
 }
 
