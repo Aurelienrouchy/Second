@@ -2,6 +2,7 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/botto
 import { Ionicons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
@@ -17,13 +18,14 @@ export interface RejectionModalRef {
 
 interface RejectionModalProps {
   shopName: string;
-  onConfirm: (reason: string) => void;
+  onConfirm: (reason: string) => void | Promise<void>;
 }
 
 const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
   ({ shopName, onConfirm }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const [reason, setReason] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const snapPoints = React.useMemo(() => ['60%'], []);
 
@@ -37,10 +39,18 @@ const RejectionModal = forwardRef<RejectionModalRef, RejectionModalProps>(
       },
     }));
 
-    const handleConfirm = () => {
-      if (reason.trim()) {
-        onConfirm(reason.trim());
+    const handleConfirm = async () => {
+      const trimmed = reason.trim();
+      if (!trimmed || isSubmitting) return;
+
+      setIsSubmitting(true);
+      try {
+        await onConfirm(trimmed);
         bottomSheetRef.current?.close();
+      } catch (error) {
+        if (__DEV__) console.error('Error confirming rejection:', error);
+      } finally {
+        setIsSubmitting(false);
       }
     };
 
