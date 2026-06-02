@@ -586,68 +586,29 @@ export class ChatService {
     userId: string
   ): Promise<void> {
     try {
-      const messageRef = doc(firestore, 'messages', messageId);
-      const messageDoc = await getDoc(messageRef);
+      // P1-4 / P1-7: server-authoritative acceptance. The callable
+      // `acceptMeetupOffer` runs a single runTransaction that (1) flips the
+      // offer to 'accepted', (2) locks the article (isSold), and (3) creates
+      // the meetup transaction — deriving buyer/seller from the offer + chat
+      // participants server-side (never from a client-supplied receiverId).
+      // The previous client `updateDoc('offer.status','accepted')` left an
+      // orphaned 'accepted' offer if the follow-up tx creation failed, and
+      // derived seller from the message's receiverId which could be wrong.
+      const acceptMeetupOfferFn = httpsCallable<
+        { chatId: string; messageId: string },
+        { success: boolean; transactionId: string }
+      >(functions, 'acceptMeetupOffer');
+      await acceptMeetupOfferFn({ chatId, messageId });
 
-      if (!messageDoc.exists()) {
-        throw new Error('Message non trouve');
-      }
-
-      const offerData = messageDoc.data();
-
-      // H9: Enforce offer expiry — reject if past expiresAt
-      if (offerData?.offer?.expiresAt) {
-        const expiresAt = offerData.offer.expiresAt.toDate
-          ? offerData.offer.expiresAt.toDate()
-          : new Date(offerData.offer.expiresAt);
-        if (expiresAt < new Date()) {
-          await updateDoc(messageRef, {
-            'offer.status': 'expired',
-          });
-          throw new Error('Cette offre a expire');
-        }
-      }
-
-      await updateDoc(messageRef, {
-        'offer.status': 'accepted',
-      });
-
-      // Send system message
+      // System confirmation message (informational only; the financial/status
+      // mutation is already committed atomically by the callable above).
+      const messageDoc = await getDoc(doc(firestore, 'messages', messageId));
+      const offerData = messageDoc.exists() ? messageDoc.data() : null;
       if (offerData?.offer) {
         await this.sendSystemMessage(
           chatId,
           `Offre de ${offerData.offer.amount} $ acceptee`
         );
-      }
-
-      // Create meetup transaction if one does not already exist for this chat.
-      // When an offer is made via checkout/meetup.tsx the transaction is already
-      // created before sendMeetupOffer. When made from the chat directly, no
-      // transaction exists yet — we must create it on accept so the article is
-      // marked sold and a proper transaction record exists.
-      if (offerData?.offer?.meetup) {
-        const existingTx = await TransactionService.getTransactionByChat(chatId, userId);
-        if (!existingTx) {
-          // Retrieve articleId from the chat document
-          const chatDoc = await getDoc(doc(firestore, 'chats', chatId));
-          const articleId = chatDoc.data()?.articleId;
-
-          if (articleId) {
-            const buyerId = offerData.senderId;
-            const sellerId = offerData.receiverId;
-            const amount = offerData.offer.amount;
-            const meetupSpot: MeetupSpot | null = offerData.offer.meetup?.location || null;
-
-            await TransactionService.createMeetupTransaction(
-              articleId,
-              buyerId,
-              sellerId,
-              amount,
-              meetupSpot,
-              chatId
-            );
-          }
-        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
