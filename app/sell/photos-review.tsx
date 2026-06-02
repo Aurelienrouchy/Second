@@ -326,11 +326,23 @@ export default function PhotosReviewScreen() {
       newPhotos.unshift(photo);
       return newPhotos;
     });
+    // Keep uploaded Storage URLs aligned with the new photo order so the
+    // published article does not carry a stale/misordered primary image.
+    setStorageUrls((prev) => {
+      if (prev.length <= index) return prev;
+      const newUrls = [...prev];
+      const [url] = newUrls.splice(index, 1);
+      newUrls.unshift(url);
+      return newUrls;
+    });
   }, [isAnalyzing]);
 
   const handleRemovePhoto = useCallback((index: number) => {
     if (isAnalyzing) return;
     setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setStorageUrls((prev) =>
+      prev.length > index ? prev.filter((_, i) => i !== index) : prev,
+    );
   }, [isAnalyzing]);
 
   // =============================================================================
