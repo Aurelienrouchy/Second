@@ -481,6 +481,9 @@ export async function sendSwapNotification(
 
   const deepLink = `https://${DEEP_LINK_HOST}/swap/${swapId}`;
 
+  // Real APNs badge = unread notifications + unread chat messages.
+  const badge = await computeBadgeCount(userId);
+
   const messages = fcmTokens.map((token: string) => ({
     token,
     notification: {
@@ -505,7 +508,7 @@ export async function sendSwapNotification(
       payload: {
         aps: {
           sound: 'default',
-          badge: 1,
+          badge,
         },
       },
     },
