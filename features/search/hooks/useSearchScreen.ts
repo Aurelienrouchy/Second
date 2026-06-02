@@ -106,6 +106,7 @@ export function useSearchScreen() {
     refetch,
     setFilters,
     setSearchQuery: setActiveSearchQuery,
+    commitSearchQuery,
     setSelectedCategoryPath,
     loadMore,
     clearAllFilters,
