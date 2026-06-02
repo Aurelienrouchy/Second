@@ -457,7 +457,12 @@ export function useSearchScreen() {
     return 'Prix';
   };
 
+  // In text mode only one sort is valid (relevance), so the sort chip can't
+  // change anything — surface that explicitly instead of opening a 1-item sheet.
+  const isSortLocked = availableSortItems.length === 1;
+
   const getSortLabel = (): string => {
+    if (isSortLocked) return 'Tri automatique';
     const item = SORT_ITEMS.find((s) => s.value === selectedSort);
     return item ? item.label : 'Trier';
   };
