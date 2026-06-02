@@ -27,6 +27,10 @@ import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
+import {
+  guestPreferencesService,
+  toArticleMeta,
+} from '@/services/guestPreferencesService';
 import type { Article } from '@/types';
 
 import {
