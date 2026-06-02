@@ -72,17 +72,19 @@ export default function MessagesScreen() {
     [user, blockedIds],
   );
 
-  // Pick the best default tab once chats are loaded: show "ventes" if the
-  // user has at least one sale conversation, otherwise fall back to "achats".
+  // Pick the best default tab once chats are loaded: land on the first
+  // non-empty tab in display order (ventes → achats → autres).
   useEffect(() => {
     if (!hasSetInitialTab.current && chats.length > 0 && user) {
-      const hasVentes = chats.some((c) => c.sellerId === user.id);
-      if (!hasVentes) {
-        setActiveTab('achats');
+      const firstNonEmpty = CONVERSATION_TABS.find((tab) =>
+        chats.some((c) => getConversationType(c) === tab),
+      );
+      if (firstNonEmpty) {
+        setActiveTab(firstNonEmpty);
       }
       hasSetInitialTab.current = true;
     }
-  }, [chats, user]);
+  }, [chats, user, getConversationType]);
 
   const handleChatPress = useCallback(
     (chatId: string) => {
