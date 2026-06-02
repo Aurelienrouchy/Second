@@ -13,6 +13,7 @@ import { Text } from '@/components/ui';
 import SwapItemCard from '@/components/swap/SwapItemCard';
 import SwapSummaryBox from '@/components/swap/SwapSummaryBox';
 import { colors, fonts } from '@/constants/theme';
+import { formatPrice } from '@/utils/formatPrice';
 import { SwapItemInfo } from '@/types';
 
 interface SwapProposalViewProps {
