@@ -61,8 +61,18 @@ const REPORT_REASONS = new Set([
   'other',
 ]);
 
-/** Statuses from which a buyer may file a "delivered but problem" report. */
-const REPORTABLE_STATUSES = new Set(['shipped', 'delivered', 'completed']);
+/**
+ * Statuses from which a buyer may file a "delivered but problem" report.
+ *
+ * ONLY `delivered`: the report freezes funds inside the 7-day dispute window
+ * while they still sit in the seller's `heldBalance`. `shipped` is in-transit
+ * (a lost/failed parcel goes through requestRefund instead); `completed` means
+ * the window has elapsed and funds were already released to (and possibly
+ * withdrawn from) the seller's withdrawable `balance` — re-freezing then would
+ * require a balance->heldBalance claw-back coordinated with releaseHeldFunds
+ * (out of scope here), so a post-window report is refused and routed to admin.
+ */
+const REPORTABLE_STATUSES = new Set(['delivered']);
 
 // =============================================================================
 // requestRefund — Buyer auto-refund on a carrier-confirmed failed/lost parcel
