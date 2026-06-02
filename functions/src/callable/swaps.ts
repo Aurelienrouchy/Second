@@ -1151,7 +1151,7 @@ export const confirmSwapShipping = onCall(
           throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
         }
 
-        if (!['shipping', 'photos_pending'].includes(swap.status)) {
+        if (swap.status !== 'shipping') {
           throw new HttpsError('failed-precondition', 'Le swap n\'est pas en cours d\'expédition.');
         }
 
