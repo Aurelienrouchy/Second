@@ -302,7 +302,7 @@ export default function UserProfileScreen() {
               await ModerationService.blockUser(
                 currentUser.id,
                 id,
-                profileUser.displayName,
+                profileUser.displayName ?? '',
               );
               queryClient.invalidateQueries({
                 queryKey: ['blockedUsers', currentUser.id],
