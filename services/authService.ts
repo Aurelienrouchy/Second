@@ -498,6 +498,12 @@ export class AuthService {
       if (error.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Connexion Apple annulée');
       }
+      if (error?.code === 'auth/account-exists-with-different-credential') {
+        throw new Error(
+          'Un compte existe déjà avec cette adresse e-mail via une autre méthode de connexion. Connectez-vous avec votre e-mail et mot de passe.',
+        );
+      }
+      if (__DEV__) console.error('[AuthService] Apple Sign-In error:', error?.code, error?.message);
       throw new Error('Erreur lors de la connexion Apple');
     }
   }
