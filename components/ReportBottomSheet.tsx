@@ -251,12 +251,12 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
 
 const styles = StyleSheet.create({
   bottomSheetBackground: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   handleIndicator: {
-    backgroundColor: '#ddd',
+    backgroundColor: colors.border,
     width: 40,
   },
   content: {
@@ -271,16 +271,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.foreground,
     marginLeft: 10,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: colors.foregroundSecondary,
     marginBottom: 20,
   },
   reasonsList: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -290,29 +290,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.border,
   },
   reasonText: {
     fontSize: 15,
-    color: '#333',
+    color: colors.foreground,
   },
   selectedReasonBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: colors.dangerLight,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#ffe0e0',
+    borderColor: colors.dangerLight,
   },
   selectedReasonLabel: {
     fontSize: 12,
-    color: '#999',
+    color: colors.muted,
     marginBottom: 4,
   },
   selectedReasonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#ff4757',
+    color: colors.danger,
   },
   changeButton: {
     position: 'absolute',
@@ -321,28 +321,28 @@ const styles = StyleSheet.create({
   },
   changeButtonText: {
     fontSize: 13,
-    color: '#09B1BA',
+    color: colors.primary,
     fontWeight: '500',
   },
   descriptionLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: colors.foreground,
     marginBottom: 8,
   },
   descriptionInput: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
-    color: '#333',
+    color: colors.foreground,
     minHeight: 100,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border,
   },
   submitButton: {
-    backgroundColor: '#ff4757',
+    backgroundColor: colors.danger,
     borderRadius: 8,
     padding: 16,
     flexDirection: 'row',
@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: colors.muted,
   },
   submitButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
@@ -361,14 +361,14 @@ const styles = StyleSheet.create({
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.surfaceWarm,
     borderRadius: 8,
     padding: 12,
     marginTop: 20,
   },
   infoText: {
     fontSize: 12,
-    color: '#666',
+    color: colors.foregroundSecondary,
     marginLeft: 8,
     flex: 1,
     lineHeight: 18,
