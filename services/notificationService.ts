@@ -53,66 +53,27 @@ export class NotificationService {
   }
 
   /**
-   * Notifier l'admin qu'une nouvelle boutique a été créée
+   * @deprecated No-op. Les notifications de modération de boutique sont créées
+   * 100% côté serveur (callables `approveShop`/`rejectShop` → `notifyShopOwner`).
+   * La création client est refusée par les rules (`notifications.create: if false`).
+   * Conservé sans corps pour ne pas casser les appelants historiques.
    */
-  static async notifyAdminNewShop(shopId: string): Promise<void> {
-    try {
-      // Récupérer tous les admins
-      const admins = await this.getAdminUsers();
-
-      // Créer une notification pour chaque admin
-      const promises = admins.map((adminId) =>
-        this.createNotification(
-          adminId,
-          'shop_created',
-          'Nouvelle boutique à valider',
-          'Une nouvelle boutique attend votre validation',
-          { shopId }
-        )
-      );
-
-      await Promise.all(promises);
-    } catch (error) {
-      console.error('Error notifying admin new shop:', error);
-    }
+  static async notifyShopApproved(_shopId: string, _ownerId: string): Promise<void> {
+    // Intentionnellement vide : création serveur uniquement.
   }
 
   /**
-   * Notifier une boutique qu'elle a été approuvée
-   */
-  static async notifyShopApproved(shopId: string, ownerId: string): Promise<void> {
-    try {
-      await this.createNotification(
-        ownerId,
-        'shop_approved',
-        'Boutique approuvée !',
-        'Votre boutique a été validée. Vous pouvez maintenant publier vos articles.',
-        { shopId }
-      );
-    } catch (error) {
-      console.error('Error notifying shop approved:', error);
-    }
-  }
-
-  /**
-   * Notifier une boutique qu'elle a été rejetée
+   * @deprecated No-op. Les notifications de modération de boutique sont créées
+   * 100% côté serveur (callables `approveShop`/`rejectShop` → `notifyShopOwner`).
+   * La création client est refusée par les rules (`notifications.create: if false`).
+   * Conservé sans corps pour ne pas casser les appelants historiques.
    */
   static async notifyShopRejected(
-    shopId: string,
-    ownerId: string,
-    reason: string
+    _shopId: string,
+    _ownerId: string,
+    _reason: string
   ): Promise<void> {
-    try {
-      await this.createNotification(
-        ownerId,
-        'shop_rejected',
-        'Boutique refusée',
-        `Votre boutique n'a pas été approuvée. Raison : ${reason}`,
-        { shopId, reason }
-      );
-    } catch (error) {
-      console.error('Error notifying shop rejected:', error);
-    }
+    // Intentionnellement vide : création serveur uniquement.
   }
 
   /**
