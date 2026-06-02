@@ -243,7 +243,7 @@ export function LabelDetectedBanner({
       activeOpacity={0.8}
     >
       <View style={styles.labelBannerIcon}>
-        <Ionicons name="pricetag" size={20} color="#6D28D9" />
+        <Ionicons name="pricetag" size={20} color={themeColors.secondary} />
       </View>
       <View style={styles.labelBannerContent}>
         <Text style={styles.labelBannerTitle}>Etiquette detectee</Text>
@@ -251,7 +251,7 @@ export function LabelDetectedBanner({
           Des informations ont ete extraites de l'etiquette du produit
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#A78BFA" />
+      <Ionicons name="chevron-forward" size={20} color={themeColors.secondary} />
     </TouchableOpacity>
   );
 }
