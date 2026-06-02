@@ -85,17 +85,26 @@ const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.95, animations.spring.snappy);
+    scale.value = withTiming(0.95, {
+      duration: animations.duration.fast,
+      easing: Easing.out(Easing.ease),
+    });
   };
   const handlePressOut = () => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, {
+      duration: animations.duration.normal,
+      easing: Easing.out(Easing.ease),
+    });
   };
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/user/${seller.id}`);
   };
   const handleLikePress = () => {
-    heartScale.value = withSpring(1.3, animations.spring.bouncy);
+    heartScale.value = withTiming(1.3, {
+      duration: animations.duration.normal,
+      easing: Easing.out(Easing.ease),
+    });
     toggleLike();
   };
 
