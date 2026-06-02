@@ -217,7 +217,17 @@ export function useFavorites() {
   const mutation = useMutation<void, Error, string, ToggleContext>({
     mutationFn: (articleId: string) => {
       const isCurrentlyFav = favoriteIds.includes(articleId);
-      return toggleFavoriteMutation({ articleId, isCurrentlyFav, userId });
+      // Pull the article from cache (present when liking from the detail
+      // screen) to enrich the guest like; absent for unlikes / cards.
+      const articleMeta = queryClient.getQueryData<Article | null>(
+        queryKeys.articles.detail(articleId)
+      );
+      return toggleFavoriteMutation({
+        articleId,
+        isCurrentlyFav,
+        userId,
+        articleMeta: articleMeta ?? undefined,
+      });
     },
     onMutate: async (articleId: string): Promise<ToggleContext> => {
       // Cancel in-flight fetches so they don't overwrite our optimistic update
