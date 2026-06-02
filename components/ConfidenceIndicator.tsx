@@ -21,21 +21,21 @@ interface ConfidenceIndicatorProps {
   style?: any;
 }
 
-// Color scheme for confidence levels
+// Color scheme for confidence levels (DS semantic tokens)
 const CONFIDENCE_COLORS = {
   high: {
-    background: '#DCFCE7',
-    text: '#166534',
+    background: colors.successLight,
+    text: colors.success,
     border: colors.success,
   },
   medium: {
-    background: '#FEF3C7',
-    text: '#92400E',
-    border: '#F59E0B',
+    background: colors.warningLight,
+    text: colors.warning,
+    border: colors.warning,
   },
   low: {
-    background: '#FEE2E2',
-    text: '#991B1B',
+    background: colors.dangerLight,
+    text: colors.danger,
     border: colors.danger,
   },
 };
