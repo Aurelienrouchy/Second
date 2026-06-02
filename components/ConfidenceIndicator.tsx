@@ -11,6 +11,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { ConfidenceLevel, ConfidenceScore } from '@/types/ai';
 import { colors } from '@/constants/theme';
 
+// Stable alias: inside the component `colors` is shadowed by the per-level
+// confidence palette, so DS tokens are referenced through `themeColors`.
+const themeColors = colors;
+
 interface ConfidenceIndicatorProps {
   confidence?: ConfidenceScore | null;
   confidenceLevel?: ConfidenceLevel;
