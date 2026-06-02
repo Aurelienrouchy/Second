@@ -466,11 +466,22 @@ export function useNotificationSetup(userId: string | null): void {
       if (__DEV__) console.log('FCM token refreshed');
     });
 
+    // 8. Listener: app foregrounded → re-sync badge (notifications may have
+    // arrived while backgrounded, or been read on another device).
+    const appStateRef = { current: AppState.currentState as AppStateStatus };
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+        refreshBadgeCount();
+      }
+      appStateRef.current = nextState;
+    });
+
     return () => {
       isActive = false;
       receivedSub.remove();
       responseSub.remove();
       tokenSub.remove();
+      appStateSub.remove();
     };
   }, [userId, refreshBadgeCount, registerPushToken, setSetupComplete, setPushToken, incrementUnreadCount]);
 
