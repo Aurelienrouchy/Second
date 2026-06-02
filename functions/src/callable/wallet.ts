@@ -210,6 +210,39 @@ export const getWalletInfo = onCall(
         };
       });
 
+      // heldReleaseAt: the EARLIEST date held funds become withdrawable — the
+      // min fundsReleaseAt across the seller's delivered, not-yet-released,
+      // not-disputed transactions. Powers the "Disponible le {date}" label in
+      // app/wallet.tsx. Only computed when the seller actually holds funds.
+      // Two equality filters + no orderBy → served by single-field indexes, no
+      // composite index required.
+      let heldReleaseAt: string | null = null;
+      if ((walletData.heldBalance ?? 0) > 0) {
+        const heldSnap = await db
+          .collection('transactions')
+          .where('sellerId', '==', userId)
+          .where('status', '==', 'delivered')
+          .limit(100)
+          .get();
+
+        let minReleaseMs: number | null = null;
+        for (const doc of heldSnap.docs) {
+          const tx = doc.data();
+          // Released or disputed funds are no longer "held & pending release".
+          if (tx.fundsReleasedAt || tx.disputed === true) continue;
+          const releaseAt = tx.fundsReleaseAt;
+          const ms =
+            releaseAt && typeof releaseAt.toMillis === 'function'
+              ? releaseAt.toMillis()
+              : null;
+          if (ms === null) continue;
+          if (minReleaseMs === null || ms < minReleaseMs) minReleaseMs = ms;
+        }
+        if (minReleaseMs !== null) {
+          heldReleaseAt = new Date(minReleaseMs).toISOString();
+        }
+      }
+
       return {
         hasWallet: true,
         balance: walletData.balance,
@@ -219,6 +252,8 @@ export const getWalletInfo = onCall(
         // (bloque les retraits). Exposés pour l'UI porte-monnaie.
         heldBalance: walletData.heldBalance ?? 0,
         sellerDebt: walletData.sellerDebt ?? 0,
+        // Earliest date held funds become withdrawable (ISO string or null).
+        heldReleaseAt,
         currency: walletData.currency,
         status: walletData.status,
         activatedAt: walletData.activatedAt?.toDate?.()?.toISOString() || null,
