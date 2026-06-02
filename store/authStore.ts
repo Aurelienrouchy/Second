@@ -164,6 +164,41 @@ export const useAuthStore = create<AuthStore>()(
           }
           return;
         }
+
+        // ── Cold start offline : Firestore injoignable (getCurrentUser a avalé
+        // l'erreur → null) alors qu'un token Firebase valide existe. Sans cela,
+        // un utilisateur authentifié serait vu comme invité hors-ligne. On
+        // ré-hydrate l'état optimiste depuis USER_DATA_KEY, mais UNIQUEMENT si :
+        //  - le cache porte le même uid que le token (jamais ressusciter un
+        //    autre compte après un switch d'uid), ET
+        //  - le cache contient dateOfBirth (garde Loi 25 : ce cache n'est écrit
+        //    que pour un compte déjà consenté, cf. set USER_DATA_KEY plus haut,
+        //    et supprimé au gate de consentement). Son absence ⇒ on n'optimise
+        //    pas et on retombe sur la branche invité.
+        // Le cache Firestore persistant (be-firestore-config-cache) prendra le
+        // relais dès qu'une lecture aboutira ; refreshUser remplacera l'état
+        // optimiste au prochain réseau disponible. ──
+        const fbUser = firebaseUser as { uid?: string };
+        try {
+          const cached = await AsyncStorage.getItem(USER_DATA_KEY);
+          if (cached) {
+            const parsed = JSON.parse(cached) as User;
+            if (parsed?.id && parsed.id === fbUser.uid && parsed.dateOfBirth) {
+              set({
+                user: {
+                  ...parsed,
+                  // createdAt est sérialisé en string ISO dans AsyncStorage :
+                  // on le ré-hydrate en Date pour respecter le type User.
+                  createdAt: parsed.createdAt ? new Date(parsed.createdAt) : new Date(),
+                },
+                isLoading: false,
+              });
+              return;
+            }
+          }
+        } catch (cacheError) {
+          if (__DEV__) console.log('[authStore] offline cache hydrate skipped:', cacheError);
+        }
       }
       set({ user: null, isLoading: false });
       await AsyncStorage.removeItem(USER_DATA_KEY);
