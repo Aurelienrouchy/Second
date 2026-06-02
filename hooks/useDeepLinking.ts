@@ -105,14 +105,27 @@ export function useDeepLinking(): void {
   const navigatorReady = navigationState?.key != null;
 
   // Defer the cold-start URL until the navigator is ready, then consume once.
+  const navigatorReadyRef = useRef(navigatorReady);
+  navigatorReadyRef.current = navigatorReady;
   const pendingInitialUrlRef = useRef<string | null>(null);
   const initialUrlHandledRef = useRef(false);
+
+  const consumeInitialUrl = () => {
+    if (initialUrlHandledRef.current) return;
+    const url = pendingInitialUrlRef.current;
+    if (!navigatorReadyRef.current || !url) return;
+    initialUrlHandledRef.current = true;
+    handleDeepLink(url);
+  };
 
   useEffect(() => {
     let isActive = true;
 
     Linking.getInitialURL().then((initialUrl) => {
-      if (isActive && initialUrl) pendingInitialUrlRef.current = initialUrl;
+      if (!isActive || !initialUrl) return;
+      pendingInitialUrlRef.current = initialUrl;
+      // The navigator may already be ready by the time this resolves.
+      consumeInitialUrl();
     });
 
     // Handle deep links while app is running (warm start). The navigator is
@@ -125,14 +138,12 @@ export function useDeepLinking(): void {
       isActive = false;
       subscription.remove();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Or the URL was captured before the navigator finished mounting.
   useEffect(() => {
-    if (!navigatorReady || initialUrlHandledRef.current) return;
-    const url = pendingInitialUrlRef.current;
-    if (url) {
-      initialUrlHandledRef.current = true;
-      handleDeepLink(url);
-    }
+    consumeInitialUrl();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigatorReady]);
 }
