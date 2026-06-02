@@ -70,9 +70,6 @@ const CustomNavigationTheme = {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    // Legacy font
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-
     // Design System Fonts - Cormorant Garamond (Serif)
     'Cormorant-Garamond': require('../assets/fonts/CormorantGaramond-Regular.ttf'),
     'Cormorant-Garamond-Medium': require('../assets/fonts/CormorantGaramond-Medium.ttf'),
