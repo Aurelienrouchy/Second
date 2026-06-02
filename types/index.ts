@@ -567,6 +567,12 @@ export interface Shop {
   logo?: string;
   images: string[];
   status: ShopStatus;
+  /**
+   * Forfait payant de la boutique (Paid shop model). Détermine la réduction
+   * des frais acheteur appliquée 100% serveur (jamais le client). Optionnel :
+   * omettre (ne pas écrire) tant que le forfait n'est pas souscrit.
+   */
+  tier?: 'basic' | 'pro' | 'premium';
   verificationDetails?: ShopVerificationDetails;
   legalInfo?: ShopLegalInfo;
   rating?: number;
