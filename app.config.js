@@ -40,7 +40,8 @@ export default {
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app accesses your photos to let you share them."
+          "photosPermission": "Seconde accède à vos photos pour ajouter des images à vos articles à vendre.",
+          "cameraPermission": "Seconde utilise l'appareil photo pour prendre des photos de vos articles à vendre."
         }
       ],
       [
