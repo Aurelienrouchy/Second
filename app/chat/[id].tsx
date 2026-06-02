@@ -480,6 +480,7 @@ export default function ChatScreen() {
             onPickImage={handlePickImage}
             onMakeOffer={handleMakeOffer}
             isSendingImage={isSendingImage}
+            isSending={isSending}
             hasArticle={!!chat?.articleId && article !== null}
           />
         )}
