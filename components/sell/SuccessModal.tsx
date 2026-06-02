@@ -62,7 +62,13 @@ export default function SuccessModal({
   }));
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={onReturnHome}
+    >
       <Animated.View style={[styles.overlay, overlayStyle]}>
         <Animated.View style={[styles.card, cardStyle]}>
           {/* Checkmark */}
