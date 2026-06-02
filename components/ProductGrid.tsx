@@ -69,14 +69,6 @@ export interface ProductGridProps {
 
 /** Convert an Article/ArticleWithLocation to ProductCard product shape */
 function toProductCardProduct(article: Article | ArticleWithLocation) {
-  const location =
-    'location' in article &&
-    article.location &&
-    typeof article.location === 'object' &&
-    'distance' in article.location
-      ? { distance: (article.location as any).distance }
-      : undefined;
-
   return {
     id: article.id,
     title: article.title,
@@ -85,9 +77,7 @@ function toProductCardProduct(article: Article | ArticleWithLocation) {
     size: article.size?.value,
     brand: article.brand,
     condition: article.condition,
-    likes: article.likes,
     isSold: article.isSold,
-    location,
   };
 }
 
