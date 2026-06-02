@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { homeKeys } from '@/features/home/query-keys';
 import { ArticlesService } from '@/services/articlesService';
 import { Article, ArticleSize, SizeSystem, User } from '@/types';
 
@@ -10,6 +9,15 @@ const PERSONALIZATION_SIZE_SYSTEMS: SizeSystem[] = ['US', 'EU'];
 
 /** Personalized feed shares the home staleTime budget (10 min, low volatility). */
 const POUR_TOI_STALE_TIME = 10 * 60 * 1000;
+
+/**
+ * Query key kept under the 'home' root (mirrors homeKeys.all = ['home']) so a
+ * home-wide invalidation (pull-to-refresh on the Home screen) cascades to this
+ * feed. The root is inlined as a literal rather than imported from
+ * features/home/query-keys to respect the core → features layer boundary
+ * (this hook lives in the core layer).
+ */
+const POUR_TOI_KEY_ROOT = ['home', 'pour-toi'] as const;
 
 /**
  * Personalization sizes (styleProfile.suggestedSizes, preferences.sizes) are
