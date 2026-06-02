@@ -254,7 +254,7 @@ export default function PhotosReviewScreen() {
         aiResult.brand?.detected,
         aiResult.category?.categoryId,
         aiResult.condition?.conditionId,
-        aiResult.size?.normalized,
+        aiResult.size?.normalized || aiResult.size?.detected,
         aiResult.colors?.colorIds?.length > 0,
         aiResult.materials?.materialIds?.length > 0,
       ].filter(Boolean).length
