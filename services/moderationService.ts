@@ -107,32 +107,6 @@ export class ModerationService {
   }
 
   /**
-   * Récupérer les signalements d'un utilisateur
-   */
-  static async getUserReports(userId: string): Promise<Report[]> {
-    try {
-      const q = query(
-        collection(firestore, this.REPORTS_COLLECTION),
-        where('reporterId', '==', userId)
-      );
-      const snapshot = await getDocs(q);
-
-      return snapshot.docs.map((docSnapshot: any) => {
-        const data = docSnapshot.data();
-        return {
-          id: docSnapshot.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          reviewedAt: data.reviewedAt?.toDate(),
-        } as Report;
-      });
-    } catch (error) {
-      console.error('Error fetching user reports:', error);
-      return [];
-    }
-  }
-
-  /**
    * Vérifier si un utilisateur a déjà signalé une cible
    */
   static async hasUserReported(
