@@ -135,6 +135,28 @@ export default function MySwapsScreen() {
     );
   }
 
+  if (isError) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <ScreenHeader title="Mes échanges" onBack={() => router.back()} />
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cloud-offline-outline" size={60} color={colors.muted} />
+          <Text variant="h3" style={styles.emptyTitle}>Impossible de charger tes échanges</Text>
+          <Caption style={styles.emptyText}>
+            Vérifie ta connexion et réessaie.
+          </Caption>
+          <Button
+            variant="primary"
+            onPress={() => refetch()}
+            style={styles.ctaButton}
+          >
+            Réessayer
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Mes échanges" onBack={() => router.back()} />
