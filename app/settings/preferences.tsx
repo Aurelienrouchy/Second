@@ -36,12 +36,6 @@ export default function PreferencesScreen() {
   const brandSelectionRef = useRef<BrandSelectionSheetRef>(null);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [location, setLocation] = useState<{
-    latitude: number;
-    longitude: number;
-    city: string;
-  } | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isFormInitialized, setIsFormInitialized] = useState(false);
 
   const { data: preferences, isLoading } = useQuery({
