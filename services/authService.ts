@@ -869,13 +869,25 @@ export class AuthService {
   }
 
   /**
-   * Recharger l'utilisateur pour mettre à jour le statut de vérification
+   * Recharger l'utilisateur pour mettre à jour le statut de vérification.
+   *
+   * Si l'email vient d'être vérifié, force un refresh du token (getIdToken(true))
+   * pour que le claim JWT `email_verified` — lu par le gate serveur createArticle —
+   * soit rafraîchi immédiatement plutôt qu'au prochain refresh automatique (~1h).
    */
   static async reloadUser(): Promise<void> {
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
 
     await reload(user);
+
+    if (user.emailVerified) {
+      try {
+        await user.getIdToken(true);
+      } catch (error) {
+        if (__DEV__) console.error('[AuthService] reloadUser force token refresh failed:', error);
+      }
+    }
   }
 
   /**
