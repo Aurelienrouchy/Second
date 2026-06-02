@@ -108,9 +108,12 @@ export default function MessagesScreen() {
 
   const getConversationType = useCallback(
     (chat: Chat): ConversationType => {
-      if (!user) return 'achats';
-      // If the current user is the seller of the article, it's a "vente" (sale)
-      // If the current user is the buyer, it's an "achat" (purchase)
+      // Contact-profile chats are created without a sellerId (see
+      // createOrGetChat: sellerId is only set for article-scoped chats), so a
+      // missing sellerId means the conversation isn't tied to a sale/purchase.
+      if (!chat.sellerId) return 'autres';
+      if (!user) return 'autres';
+      // Current user is the article owner → "vente" (sale); otherwise "achat".
       if (chat.sellerId === user.id) return 'ventes';
       return 'achats';
     },
