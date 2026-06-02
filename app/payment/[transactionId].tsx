@@ -425,8 +425,8 @@ export default function PaymentScreen() {
                 {walletCoversAll
                   ? 'PAYER AVEC LE PORTE-MONNAIE'
                   : useWalletBalance
-                    ? `PAYER ${formatPrice(cardAmountDollars)} PAR CARTE`
-                    : `PAYER ${formatPrice(totalAmount)}`}
+                    ? `PAYER ${formatPriceWithCurrency(cardAmountDollars)} PAR CARTE`
+                    : `PAYER ${formatPriceWithCurrency(totalAmount)}`}
               </Text>
             </>
           )}
