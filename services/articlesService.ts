@@ -46,7 +46,18 @@ export function normalizeSearchText(input: string): string {
     .trim();
 }
 
-/** Max Firestore batches fetched while refilling a client-filtered page. */
+/**
+ * Max Firestore batches fetched while refilling a client-filtered page.
+ *
+ * When a page applies client-side filters (colors/sizes/materials/brands, or
+ * the popular-browse / shop-scoped paths where category/condition/price run
+ * client-side), each batch over-fetches `limitCount * 5` docs and the loop runs
+ * at most MAX_REFILL_BATCHES times. The bounded worst case is therefore
+ * `limitCount * 5 * MAX_REFILL_BATCHES` document reads per page; if the page
+ * still isn't full after the cap, `hasMore` lets the UI keep paging from the
+ * last fetched cursor. A future server-side index (B2) could push these
+ * predicates into Firestore and remove the over-fetch entirely.
+ */
 const MAX_REFILL_BATCHES = 5;
 
 /** A page of search results plus pagination metadata. */
