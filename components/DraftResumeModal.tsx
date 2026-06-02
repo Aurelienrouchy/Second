@@ -121,7 +121,7 @@ export default function DraftResumeModal({
           {/* Expiration warning */}
           {daysLeft <= 3 && (
             <View style={styles.expirationWarning}>
-              <Ionicons name="warning" size={16} color="#D97706" />
+              <Ionicons name="warning" size={16} color={colors.warning} />
               <Text style={styles.expirationText}>
                 Expire dans {daysLeft} jour{daysLeft > 1 ? 's' : ''}
               </Text>
