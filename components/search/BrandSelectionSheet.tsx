@@ -55,7 +55,6 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
     // Dark palette overrides (Swap Zone). Light values come from the static styles.
     const textColor = darkMode ? colors.cream : colors.charcoal;
     const mutedColor = darkMode ? colors.whiteTranslucent : colors.muted;
-    const borderColor = darkMode ? colors.darkBorder : colors.border;
     const bottomSheetRef = useRef<BottomSheet>(null);
     const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
     const [brands, setBrands] = useState<Brand[]>([]);
