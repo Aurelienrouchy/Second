@@ -183,12 +183,24 @@ export default function AdminShopsScreen() {
   };
 
   const renderShopItem = ({ item }: { item: Shop }) => (
-    <ShopValidationCard
-      shop={item}
-      onApprove={() => handleApprove(item)}
-      onReject={() => handleReject(item)}
-      onViewDetails={() => handleViewDetails(item)}
-    />
+    <View>
+      <ShopValidationCard
+        shop={item}
+        onApprove={() => handleApprove(item)}
+        onReject={() => handleReject(item)}
+        onViewDetails={() => handleViewDetails(item)}
+      />
+      {item.status === 'approved' && (
+        <Pressable
+          style={styles.suspendButton}
+          onPress={() => handleSuspend(item)}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="pause-circle-outline" size={18} color={colors.warning} />
+          <Text style={styles.suspendButtonText}>Suspendre</Text>
+        </Pressable>
+      )}
+    </View>
   );
 
   const renderEmpty = () => (
