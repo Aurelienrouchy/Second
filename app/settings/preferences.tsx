@@ -50,7 +50,6 @@ export default function PreferencesScreen() {
     if (preferences && !isFormInitialized) {
       setSelectedSizes(preferences.sizes || []);
       setSelectedBrands(preferences.favoriteBrands || []);
-      setLocation(preferences.location || null);
       setIsFormInitialized(true);
     }
   }, [preferences, isFormInitialized]);
@@ -60,7 +59,6 @@ export default function PreferencesScreen() {
       UserService.updateUserPreferences(user!.id, {
         sizes: selectedSizes,
         favoriteBrands: selectedBrands,
-        location: location ?? null,
       } as Partial<UserPreferences>),
     onSuccess: () => {
       Alert.alert('Succès', 'Vos préférences ont été enregistrées', [
