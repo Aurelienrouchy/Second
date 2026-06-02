@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: colors.charcoal,
     marginBottom: 6,
   },
   subtitle: {
