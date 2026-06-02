@@ -17,6 +17,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, Ea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { StatusBar } from 'expo-status-bar';
 
 import { BlurView } from 'expo-blur';
 import { colors, fonts } from '@/constants/theme';
