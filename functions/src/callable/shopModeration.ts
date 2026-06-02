@@ -265,7 +265,13 @@ export const rejectShop = onCall(
 
     const shopId = requireShopId(request.data);
     const reason = readReason(request.data, true);
-    await mutateShopStatus(shopId, 'rejected', request.auth.uid, reason);
+    const result = await mutateShopStatus(
+      shopId,
+      'rejected',
+      request.auth.uid,
+      reason,
+    );
+    await notifyShopOwner(result, shopId, 'rejected', reason);
 
     logger.info('[rejectShop] shop rejected', {
       shopId,
