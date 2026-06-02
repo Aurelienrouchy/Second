@@ -164,6 +164,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange 
         onRequestClose={handleCloseZoom}
       >
         <View style={styles.modalContainer}>
+          <StatusBar style="light" />
           <View style={styles.modalHeader}>
             <Text style={styles.modalCounter}>
               {currentIndex + 1} / {images.length}
