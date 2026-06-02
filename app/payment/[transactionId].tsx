@@ -445,9 +445,20 @@ export default function PaymentScreen() {
           onClose={() => {
             setShowStripePayment(false);
             setClientSecret(null);
+            setServerBuyerTotal(null);
           }}
-          totalAmount={totalAmount}
+          totalAmount={serverBuyerTotal ?? totalAmount}
         />
+      )}
+
+      {confirmingPayment && (
+        <View style={styles.confirmOverlay}>
+          <ActivityIndicator size="large" color={colors.rust} />
+          <Text style={styles.confirmTitle}>Confirmation du paiement…</Text>
+          <Text style={styles.confirmSubtitle}>
+            Ne fermez pas l'application, nous finalisons votre commande.
+          </Text>
+        </View>
       )}
     </View>
   );
