@@ -50,6 +50,39 @@ async function resolveBrand(rawBrand: string): Promise<string> {
 }
 
 /**
+ * Meetup neighborhood shape persisted on an article (mirrors the client
+ * `MeetupNeighborhood` type: { id, name, borough }).
+ */
+interface MeetupNeighborhood {
+  id: string;
+  name: string;
+  borough: string;
+}
+
+/**
+ * Validate + normalise a single neighborhood entry (P2-8).
+ *
+ * Returns a clean `{ id, name, borough }` object (trimmed, length-bounded) or
+ * `null` when the input is not a well-formed neighborhood. Callers reject the
+ * whole request on `null` rather than silently dropping the field. This guards
+ * against arbitrary/garbage meetup data; a full catalogue-ID allowlist is
+ * tracked separately (needs a server-side catalogue in functions/src).
+ */
+function sanitizeNeighborhood(raw: unknown): MeetupNeighborhood | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const n = raw as Record<string, unknown>;
+  const id = typeof n.id === 'string' ? n.id.trim() : '';
+  const name = typeof n.name === 'string' ? n.name.trim() : '';
+  const borough = typeof n.borough === 'string' ? n.borough.trim() : '';
+  if (!id || !name || !borough) return null;
+  return {
+    id: id.substring(0, 100),
+    name: name.substring(0, 100),
+    borough: borough.substring(0, 100),
+  };
+}
+
+/**
  * Increment article view count
  */
 export const incrementProductView = onCall(
