@@ -389,6 +389,11 @@ export async function sendPushNotification(
     const deepLink = buildDeepLink(notificationType, data);
     const channelId = getAndroidChannel(notificationType);
 
+    // Real APNs badge = unread notifications (incl. the one just created above)
+    // + unread chat messages. Computed after createInAppNotification so the
+    // freshly-created notification is reflected in the count.
+    const badge = await computeBadgeCount(userId);
+
     // Build FCM messages
     const messages = fcmTokens.map((token: string) => ({
       token,
@@ -406,7 +411,7 @@ export async function sendPushNotification(
         payload: {
           aps: {
             sound: 'default',
-            badge: 1,
+            badge,
           },
         },
       },
