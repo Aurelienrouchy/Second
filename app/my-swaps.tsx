@@ -387,8 +387,8 @@ function SwapCard({
       <View style={styles.swapFooter}>
         <Text variant="body" style={styles.itemPrices}>
           {isMultiArticle
-            ? `${myItems.length} article${myItems.length > 1 ? 's' : ''} · ${formatPrice(myTotal)} ↔ ${theirItems.length} article${theirItems.length > 1 ? 's' : ''} · ${formatPrice(theirTotal)}`
-            : `${formatPrice(myTotal)} ↔ ${formatPrice(theirTotal)}`}
+            ? `${myItems.length} article${myItems.length > 1 ? 's' : ''} · ${formatPriceWithCurrency(myTotal)} ↔ ${theirItems.length} article${theirItems.length > 1 ? 's' : ''} · ${formatPriceWithCurrency(theirTotal)}`
+            : `${formatPriceWithCurrency(myTotal)} ↔ ${formatPriceWithCurrency(theirTotal)}`}
         </Text>
         <Caption style={styles.swapDate}>{formatDate(swap.createdAt)}</Caption>
       </View>
