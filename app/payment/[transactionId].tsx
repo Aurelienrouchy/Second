@@ -341,7 +341,7 @@ export default function PaymentScreen() {
 
           <View style={styles.summaryRow}>
             <Text style={styles.totalLabel}>Total à payer</Text>
-            <Text style={styles.totalValue}>{formatPrice(totalAmount)}</Text>
+            <Text style={styles.totalValue}>{formatPriceWithCurrency(totalAmount)}</Text>
           </View>
         </View>
 
