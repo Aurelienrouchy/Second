@@ -78,6 +78,67 @@ export default function TabLayout() {
   const unreadMessageCount = useChatStore(
     selectUnreadChatCount(user?.id ?? null)
   );
+
+  // ── iOS draft resume ──
+  // On iOS the sell flow lives inside the immersive overlay, so the step-aware
+  // resume logic that Android gets for free via app/(tabs)/sell.tsx is wired
+  // here: detect an in-progress draft before opening the overlay and offer to
+  // resume at the saved step instead of restarting the camera.
+  const [resumeDraft, setResumeDraft] = useState<ArticleDraft | null>(null);
+
+  // Open the camera capture overlay (fresh capture, no draft progression).
+  const openCaptureOverlay = useCallback(() => {
+    immerse({
+      component: (
+        <SellOverlayCapture
+          onClose={() => dismiss()}
+          onContinue={(photos) => {
+            dismiss();
+            setTimeout(() => {
+              router.push({
+                pathname: '/sell/photos-review',
+                params: { photos: JSON.stringify(photos) },
+              });
+            }, OVERLAY_DISMISS_PUSH_DELAY);
+          }}
+        />
+      ),
+    });
+  }, [immerse, dismiss, router]);
+
+  // Resume an in-progress draft at its saved step (mirrors Android sell.tsx).
+  const handleResumeDraft = useCallback(() => {
+    const draft = resumeDraft;
+    setResumeDraft(null);
+    if (!draft) return;
+    const step = draft.currentStep;
+    if (__DEV__) console.log('[TabLayout] Resuming draft at step:', step);
+
+    if (step >= 4) {
+      router.push({ pathname: '/sell/preview', params: { resumeDraft: 'true' } });
+    } else if (step >= 3) {
+      router.push({ pathname: '/sell/pricing', params: { resumeDraft: 'true' } });
+    } else if (step >= 2) {
+      router.push({
+        pathname: '/sell/details',
+        params: {
+          resumeDraft: 'true',
+          photos: JSON.stringify(draft.photos),
+          ...(draft.aiResult ? { aiResult: JSON.stringify(draft.aiResult) } : {}),
+        },
+      });
+    } else {
+      // Step 1: only photos captured — re-open the capture overlay to continue.
+      openCaptureOverlay();
+    }
+  }, [resumeDraft, router, openCaptureOverlay]);
+
+  const handleDiscardDraft = useCallback(async () => {
+    setResumeDraft(null);
+    await draftService.deleteDraft();
+    openCaptureOverlay();
+  }, [openCaptureOverlay]);
+
   return (
     <ImmersiveOverlay>
     <Tabs
