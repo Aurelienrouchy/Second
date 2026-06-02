@@ -265,6 +265,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
       {/* Camera full-screen — feed visible edge to edge.
           Starts at opacity 0 over the DS backdrop, fades in on onCameraReady
           so the native black surface never animates in with the overlay. */}
