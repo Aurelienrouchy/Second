@@ -102,6 +102,29 @@ function isFcmRegistrationToken(token: string): boolean {
 
 // ─── Routing logic ─────────────────────────────────────────────────────────
 
+/**
+ * Convertit le `deepLink` produit par le backend
+ * (functions/src/utils/notifications.ts `buildDeepLink`, ex.
+ * `https://seconde.app/my-orders?transactionId=…`) en href interne consommable
+ * par Expo Router. Renvoie `null` si l'URL ne contient pas de path exploitable.
+ */
+function deepLinkToHref(deepLink: string | undefined): Href | null {
+  if (!deepLink) return null;
+  try {
+    const parsed = Linking.parse(deepLink);
+    if (!parsed.path) return null;
+    const query = parsed.queryParams
+      ? Object.entries(parsed.queryParams)
+          .filter(([, v]) => v != null)
+          .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+          .join('&')
+      : '';
+    return (`/${parsed.path}${query ? `?${query}` : ''}` as Href);
+  } catch {
+    return null;
+  }
+}
+
 async function routeFromNotificationData(
   data: PushNotificationData,
   userId: string | null
@@ -135,9 +158,31 @@ async function routeFromNotificationData(
     case 'offer':
     case 'chat':
     case 'message':
+    case 'new_message':
       if (data.chatId) {
         router.push(`/chat/${data.chatId}`);
       }
+      return;
+
+    case 'new_sale':
+    case 'order_shipped':
+    case 'order_delivered':
+    case 'order_cancelled':
+    case 'order_refunded':
+    case 'funds_released':
+      // Backend route les ventes/commandes vers /my-orders?transactionId=…
+      // (app/my-orders.tsx consomme `transactionId` via useLocalSearchParams).
+      router.push(
+        data.transactionId
+          ? { pathname: '/my-orders', params: { transactionId: data.transactionId } }
+          : '/my-orders'
+      );
+      return;
+
+    case 'review_received':
+    case 'privacy_incident':
+      // In-app only, route to notifications center (cf. buildDeepLink).
+      router.push('/notifications');
       return;
 
     case 'saved_search':
@@ -171,17 +216,35 @@ async function routeFromNotificationData(
       router.push('/notifications');
       return;
 
-    default:
-      // Fallback: try to route based on available data
-      if (data.chatId) {
-        router.push(`/chat/${data.chatId}`);
-      } else if (data.articleId) {
-        router.push(`/article/${data.articleId}`);
-      } else if (data.partyId) {
-        router.push(`/swap-party/${data.partyId}`);
-      } else if (data.swapId) {
-        router.push(`/swap/${data.swapId}`);
-      }
+    case undefined:
+      break;
+
+    default: {
+      // Type connu côté serveur mais non géré ici → erreur de compilation si la
+      // chaîne diverge du producteur. Le runtime retombe sur le deepLink/data.
+      const _exhaustive: never = type;
+      void _exhaustive;
+      break;
+    }
+  }
+
+  // Fallback : consomme le deepLink construit par le backend (source unique),
+  // puis les ids bruts si aucun deepLink exploitable n'est présent.
+  const href = deepLinkToHref(data.deepLink);
+  if (href) {
+    router.push(href);
+    return;
+  }
+  if (data.chatId) {
+    router.push(`/chat/${data.chatId}`);
+  } else if (data.articleId) {
+    router.push(`/article/${data.articleId}`);
+  } else if (data.transactionId) {
+    router.push({ pathname: '/my-orders', params: { transactionId: data.transactionId } });
+  } else if (data.partyId) {
+    router.push(`/swap-party/${data.partyId}`);
+  } else if (data.swapId) {
+    router.push(`/swap/${data.swapId}`);
   }
 }
 
