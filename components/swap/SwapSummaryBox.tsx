@@ -27,7 +27,7 @@ const SwapSummaryBox: React.FC<SwapSummaryBoxProps> = ({
   // If items are provided, build the display strings
   const receivedDisplay = receivedItems && receivedItems.length > 0
     ? receivedItems.map(item => item.title).join(', ') +
-      (cashSupplement ? ` + $${cashSupplement}` : '')
+      (cashSupplement ? ` + ${formatPrice(cashSupplement)}` : '')
     : youReceive;
 
   const givenDisplay = givenItems && givenItems.length > 0
