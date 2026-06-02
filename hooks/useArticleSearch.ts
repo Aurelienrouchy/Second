@@ -49,6 +49,11 @@ export function useArticleSearch({
 }: UseArticleSearchArgs = {}) {
   const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
   const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
+  // Explicit commit (OK / Enter) bypasses the 350ms debounce: the term is
+  // forced into the active query immediately instead of waiting on useDebounce.
+  const [forcedSearchQuery, setForcedSearchQuery] = useState<string | null>(null);
+  const activeSearchQuery =
+    forcedSearchQuery !== null ? forcedSearchQuery : debouncedSearchQuery;
 
   const [selectedCategoryPath, setSelectedCategoryPath] = useState<string[]>(
     initialCategoryPath || []
