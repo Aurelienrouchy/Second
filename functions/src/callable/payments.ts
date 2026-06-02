@@ -978,6 +978,7 @@ export const createStripeCheckout = onCall(
             existingPaymentIntentId: transaction.stripePaymentIntentId as string,
             sellerId: transaction.sellerId as string,
             walletDebited: false,
+            effectiveWalletAmount: 0,
           };
         }
 
