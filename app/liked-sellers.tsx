@@ -18,10 +18,11 @@ import {
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import Animated, {
+  Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { formatDisplayName } from '@/utils/formatName';
 import { httpsCallable } from 'firebase/functions';
