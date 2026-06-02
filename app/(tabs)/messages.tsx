@@ -47,6 +47,31 @@ export default function MessagesScreen() {
   const [activeTab, setActiveTab] = useState<ConversationType>('ventes');
   const hasSetInitialTab = useRef(false);
 
+  // Blocked users — same query key as the settings screen so the cache is
+  // shared. Used to flag (not hide) conversations with a blocked counterpart
+  // so the user can still see history and unblock; the send guard lives in the
+  // chat thread + server-side rules.
+  const { data: blockedUsers = [] } = useQuery({
+    queryKey: ['blockedUsers', user?.id],
+    queryFn: () => ModerationService.getBlockedUsers(user!.id),
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const blockedIds = useMemo(
+    () => new Set(blockedUsers.map((b) => b.blockedUserId)),
+    [blockedUsers],
+  );
+
+  const isChatBlocked = useCallback(
+    (chat: Chat): boolean => {
+      if (!user || blockedIds.size === 0) return false;
+      const other = chat.participantsInfo.find((p) => p.userId !== user.id);
+      return other ? blockedIds.has(other.userId) : false;
+    },
+    [user, blockedIds],
+  );
+
   // Pick the best default tab once chats are loaded: show "ventes" if the
   // user has at least one sale conversation, otherwise fall back to "achats".
   useEffect(() => {
