@@ -121,9 +121,27 @@ export default function HomeScreen() {
 
   const data = useMemo(() => SECTIONS.slice(), []);
 
+  // Clear the floating tab bar (iOS overlay) plus an editorial bottom margin.
+  const contentContainerStyle = useMemo(
+    () => ({ paddingBottom: tabBarHeight + spacing['2xl'] }),
+    [tabBarHeight]
+  );
+
   const closeVisualSearch = useCallback(() => setShowVisualSearch(false), [
     setShowVisualSearch,
   ]);
+
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        tintColor={colors.primary}
+        colors={[colors.primary]}
+      />
+    ),
+    [isRefreshing, handleRefresh]
+  );
 
   return (
     <View style={styles.container}>
