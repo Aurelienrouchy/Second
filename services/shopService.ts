@@ -449,18 +449,6 @@ export class ShopService {
   }
 
   /**
-   * Supprimer une boutique
-   */
-  static async deleteShop(id: string): Promise<void> {
-    try {
-      await deleteDoc(doc(firestore, this.COLLECTION, id));
-    } catch (error) {
-      console.error('Error deleting shop:', error);
-      throw new Error('Erreur lors de la suppression de la boutique');
-    }
-  }
-
-  /**
    * Calculer la distance entre deux points géographiques (formule de Haversine)
    * @returns Distance en kilomètres
    */
