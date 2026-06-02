@@ -288,6 +288,30 @@ export const createArticle = onCall(
     // their shipping articles can be purchased. The createTransaction
     // callable enforces this check at purchase time.
 
+    // ── 4b. Link to the seller's shop (P1-2) ──
+    // If this seller owns an approved shop, stamp its id on the article so it
+    // shows under the shop and feeds the shop's articlesCount trigger. Resolved
+    // server-side from the trusted uid (never from client input). Best-effort:
+    // a lookup failure must never block publishing — the field is simply omitted
+    // (no boutique linked === no shopId, never `undefined`).
+    let shopId: string | null = null;
+    try {
+      const shopSnap = await db
+        .collection('shops')
+        .where('ownerId', '==', uid)
+        .where('status', '==', 'approved')
+        .limit(1)
+        .get();
+      if (!shopSnap.empty) {
+        shopId = shopSnap.docs[0].id;
+      }
+    } catch (error) {
+      logger.warn('createArticle: shop lookup failed, publishing without shopId', {
+        sellerId: uid,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     // ── 5. Build sanitised images array ──
     const sanitizedImages: { url: string; blurhash?: string }[] =
       data.images.map(
