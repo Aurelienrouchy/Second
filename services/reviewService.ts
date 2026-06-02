@@ -38,6 +38,7 @@ export interface UserPublicProfile {
   profile: {
     id: string;
     displayName: string;
+    username: string | null;
     profileImage: string | null;
     bio: string | null;
     createdAt: string;
