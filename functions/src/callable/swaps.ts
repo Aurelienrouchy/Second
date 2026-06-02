@@ -402,15 +402,34 @@ export const proposeMultiSwap = onCall(
       // OWNERSHIP: the initiator may only engage articles they own; the items
       // requested from the receiver must actually belong to the receiver.
       const swapId = await db.runTransaction(async (tx) => {
-        await validateArticlesAvailable(tx, initiatorItems, 'Article proposé', initiatorId);
-        await validateArticlesAvailable(tx, receiverItems, 'Article demandé', receiverId);
+        // NOTE: run ALL transactional reads (validation + engagement lock) BEFORE
+        // any write — the Firestore transaction API forbids reads after a write.
+        const initiatorPrices = await validateArticlesAvailable(
+          tx, initiatorItems, 'Article proposé', initiatorId
+        );
+        const receiverPrices = await validateArticlesAvailable(
+          tx, receiverItems, 'Article demandé', receiverId
+        );
 
+        // P1-7: refuse to engage an article already live in another swap.
+        const titleById: Record<string, string | undefined> = {};
+        for (const it of [...initiatorItems, ...receiverItems]) {
+          if (it?.articleId) titleById[it.articleId] = it.title;
+        }
+        const allArticleIds = [
+          ...initiatorItems.map((i: any) => i.articleId),
+          ...receiverItems.map((i: any) => i.articleId),
+        ].filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+        await assertArticlesNotEngaged(tx, allArticleIds, titleById);
+
+        // P1-6: value the swap from authoritative server prices, never the
+        // client-supplied item.price (which is manipulable).
         const initiatorTotalValue = initiatorItems.reduce(
-          (sum: number, item: any) => sum + (item.price || 0),
+          (sum: number, item: any) => sum + (initiatorPrices[item.articleId] || 0),
           0
         );
         const receiverTotalValue = receiverItems.reduce(
-          (sum: number, item: any) => sum + (item.price || 0),
+          (sum: number, item: any) => sum + (receiverPrices[item.articleId] || 0),
           0
         );
 
@@ -425,6 +444,9 @@ export const proposeMultiSwap = onCall(
           receiverImage,
           receiverItems: receiverItems.map(stripUndefined),
           receiverTotalValue,
+          // Denormalized flat article-id list powering the engagement lock query
+          // (array-contains). Both sides combined.
+          articleIds: allArticleIds,
           status: 'proposed',
           message,
           cashTopUp: validatedTopUp,
