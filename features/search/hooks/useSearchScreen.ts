@@ -514,6 +514,7 @@ export function useSearchScreen() {
     setShowVisualSearch,
     selectedSort,
     availableSortItems,
+    isSortLocked,
 
     // search hook
     articles,
