@@ -206,6 +206,7 @@ export default function ArticleDetailScreen() {
         isOwnArticle={isOwnArticle}
         isSold={article.isSold}
         isSwapContext={isSwapContext}
+        shippingEnabled={SHIPPING_ENABLED}
         price={article.price}
         bottomInset={insets.bottom}
         onBuy={handleBuy}
