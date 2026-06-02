@@ -152,35 +152,6 @@ export const sendMessageNotification = onDocumentCreated(
         return;
       }
 
-      // Get receiver's FCM tokens
-      const receiverDoc = await db.collection('users').doc(receiverId).get();
-      if (!receiverDoc.exists) {
-        console.log(`Receiver user ${receiverId} not found`);
-        return;
-      }
-
-      const receiverData = receiverDoc.data()!;
-      const storedTokens: string[] = receiverData.fcmTokens || [];
-
-      if (storedTokens.length === 0) {
-        console.log(`No FCM tokens found for user ${receiverId}`);
-        return;
-      }
-
-      // Raw APNs tokens (iOS native tokens) are not sendable via FCM and must
-      // not be pruned on send failure — partition them out before sending.
-      const { fcmTokens, apnsTokens } = partitionTokens(storedTokens);
-      if (apnsTokens.length > 0) {
-        logger.warn('Skipping raw APNs tokens not sendable via FCM', {
-          receiverId,
-          skippedCount: apnsTokens.length,
-        });
-      }
-      if (fcmTokens.length === 0) {
-        console.log(`No FCM-routable tokens for user ${receiverId}`);
-        return;
-      }
-
       // Get sender info
       const senderDoc = await db.collection('users').doc(senderId).get();
       const senderName = senderDoc.exists
@@ -192,10 +163,14 @@ export const sendMessageNotification = onDocumentCreated(
       const chatData = chatDoc.exists ? chatDoc.data() : null;
       const articleTitle = chatData?.articleTitle;
 
-      // Build notification based on message type
+      // Build notification based on message type.
+      // `notificationType` uses the CLIENT NotificationType contract (see
+      // types/index.ts + app/notifications.tsx) so the in-app notification
+      // renders with the correct icon and the bell badge increments.
       let title = '';
       let body = '';
-      let notificationType: string = type;
+      let notificationType: string;
+      let amount = 0;
 
       switch (type) {
         case 'text':
@@ -203,7 +178,7 @@ export const sendMessageNotification = onDocumentCreated(
           body = articleTitle
             ? `À propos de "${articleTitle}"`
             : content.substring(0, 100);
-          notificationType = 'message';
+          notificationType = 'new_message';
           break;
 
         case 'image':
@@ -211,16 +186,16 @@ export const sendMessageNotification = onDocumentCreated(
           body = articleTitle
             ? `Photo - "${articleTitle}"`
             : 'Vous a envoyé une photo';
-          notificationType = 'message';
+          notificationType = 'new_message';
           break;
 
         case 'offer':
-          const amount = message.offer?.amount || 0;
+          amount = message.offer?.amount || 0;
           title = `Nouvelle offre de ${senderName}`;
           body = articleTitle
             ? `${amount} $ pour "${articleTitle}"`
             : `Offre de ${amount} $`;
-          notificationType = 'offer';
+          notificationType = 'offer_received';
           break;
 
         case 'system':
@@ -230,76 +205,35 @@ export const sendMessageNotification = onDocumentCreated(
         default:
           title = 'Nouveau message';
           body = senderName;
+          notificationType = 'new_message';
       }
 
-      // Send notification to all user's devices
-      const messages = fcmTokens.map((token: string) => ({
-        token,
-        notification: {
-          title,
-          body,
-        },
-        data: {
-          type: notificationType,
+      // Route through sendPushNotification so transactional message/offer
+      // notifications respect the user's notification preferences
+      // (preferences.notifications.push) AND create an in-app notification
+      // (required for the bell badge / unread count). It also handles raw
+      // APNs token skipping and invalid-token pruning internally.
+      const result = await sendPushNotification(
+        receiverId,
+        title,
+        body,
+        {
           chatId,
           senderId,
           senderName,
           articleTitle: articleTitle || '',
+          ...(type === 'offer' ? { amount: String(amount) } : {}),
         },
-        android: {
-          priority: 'high' as const,
-          notification: {
-            sound: 'default',
-            channelId: 'messages',
-            priority: 'high' as const,
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: 'default',
-              badge: 1,
-            },
-          },
-        },
-      }));
-
-      // Send all notifications
-      const results = await admin.messaging().sendEach(messages);
-
-      let successCount = 0;
-      let failureCount = 0;
-
-      results.responses.forEach((response, index) => {
-        if (response.success) {
-          successCount++;
-        } else {
-          failureCount++;
-          console.error(
-            `Failed to send to token ${fcmTokens[index]}:`,
-            response.error
-          );
-
-          // Remove invalid tokens
-          if (
-            response.error?.code === 'messaging/invalid-registration-token' ||
-            response.error?.code === 'messaging/registration-token-not-registered'
-          ) {
-            db.collection('users')
-              .doc(receiverId)
-              .update({
-                fcmTokens: admin.firestore.FieldValue.arrayRemove(
-                  fcmTokens[index]
-                ),
-              })
-              .catch((err) => console.error('Error removing invalid token:', err));
-          }
-        }
-      });
-
-      console.log(
-        `Notifications sent: ${successCount} successful, ${failureCount} failed`
+        notificationType
       );
+
+      logger.info('Message notification processed', {
+        messageId: event.params.messageId,
+        recipientId: receiverId,
+        notificationType,
+        success: result.success,
+        sentCount: result.sentCount,
+      });
     } catch (error) {
       console.error('Error sending message notification:', error);
     }
