@@ -31,7 +31,7 @@ function TermsContentComponent() {
       <Text variant="bodySmall" style={styles.paragraph}>
         Les présentes Conditions Générales d'Utilisation (CGU) définissent les modalités
         d'utilisation de l'application mobile Seconde (ci-après "l'Application"), éditée par
-        Seconde SAS (ci-après "l'Éditeur").
+        Seconde Inc. (ci-après "l'Éditeur").
       </Text>
       <Text variant="bodySmall" style={styles.paragraph}>
         L'Application est une plateforme de mise en relation entre particuliers permettant
