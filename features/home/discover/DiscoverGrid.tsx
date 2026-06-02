@@ -204,6 +204,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.muted,
   },
+  retryButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  retryText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.foreground,
+  },
 });
 
 export default DiscoverGrid;
