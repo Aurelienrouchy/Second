@@ -113,6 +113,9 @@ export default function PasswordSettingsScreen() {
                   placeholder="Votre mot de passe actuel"
                   placeholderTextColor={colors.muted}
                   secureTextEntry={!showCurrentPassword}
+                  autoCapitalize="none"
+                  textContentType="password"
+                  autoComplete="current-password"
                 />
                 <Pressable onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeButton}>
                   <Ionicons name={showCurrentPassword ? "eye-off-outline" : "eye-outline"} size={24} color={colors.muted} />
