@@ -210,22 +210,21 @@ export default function TabLayout() {
               Alert.alert('Vente non disponible', COPY_SELL_GATE);
             } else if (Platform.OS === 'ios') {
               e.preventDefault();
-              immerse({
-                component: (
-                  <SellOverlayCapture
-                    onClose={() => dismiss()}
-                    onContinue={(photos) => {
-                      dismiss();
-                      setTimeout(() => {
-                        router.push({
-                          pathname: '/sell/photos-review',
-                          params: { photos: JSON.stringify(photos) },
-                        });
-                      }, 550);
-                    }}
-                  />
-                ),
-              });
+              // Detect an in-progress draft first. If one exists, surface the
+              // resume modal (step-aware) instead of restarting the camera;
+              // otherwise open the capture overlay directly.
+              (async () => {
+                try {
+                  const existingDraft = await draftService.loadDraft();
+                  if (existingDraft && existingDraft.photos.length > 0) {
+                    setResumeDraft(existingDraft);
+                    return;
+                  }
+                } catch (err) {
+                  if (__DEV__) console.error('[TabLayout] Draft check failed:', err);
+                }
+                openCaptureOverlay();
+              })();
             }
             // Android: default tab navigation (sell.tsx → /sell/capture)
           },
