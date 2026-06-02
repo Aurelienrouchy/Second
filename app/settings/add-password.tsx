@@ -60,6 +60,9 @@ export default function AddPasswordScreen() {
     setIsSaving(true);
     try {
       await AuthService.linkPasswordCredential(email.trim(), password);
+      // Resynchroniser l'observable user (hasPassword/email mis à jour en Firestore)
+      // avant de revenir pour que l'écran précédent reflète l'état à jour.
+      await useAuthStore.getState().refreshUser();
 
       Alert.alert(
         'Mot de passe ajouté',
