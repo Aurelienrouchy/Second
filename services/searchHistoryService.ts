@@ -153,7 +153,6 @@ export class SearchHistoryService {
           query: data.query,
           filters: data.filters,
           timestamp: data.timestamp?.toDate() || new Date(),
-          resultCount: data.resultCount,
         });
       });
 
