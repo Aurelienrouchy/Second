@@ -402,8 +402,7 @@ export default function MyArticlesScreen() {
             data={filteredArticles}
             renderItem={renderArticleItem}
             keyExtractor={keyExtractor}
-            // @ts-expect-error estimatedItemSize valid at runtime
-            estimatedItemSize={100}
+            ListEmptyComponent={listEmptyComponent}
             refreshControl={
               <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
             }
