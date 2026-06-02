@@ -162,20 +162,30 @@ export default function OnboardingScreen() {
       if (user) {
         // Logged-in user: await persistence so prefs are not silently lost.
         // On failure, surface a retry (AsyncStorage already holds the prefs).
-        try {
-          await savePrefs(payload);
-        } catch (err) {
-          if (__DEV__) console.error('Error saving onboarding preferences to Firebase:', err);
-          setIsSaving(false);
-          Alert.alert(
-            'Échec de l’enregistrement',
-            'Tes préférences n’ont pas pu être enregistrées. Réessayer ?',
-            [
-              { text: 'Plus tard', style: 'cancel', onPress: () => router.replace('/(tabs)') },
-              { text: 'Réessayer', onPress: () => { void handleValidate(); } },
-            ]
-          );
-          return;
+        const persist = async (): Promise<boolean> => {
+          try {
+            await savePrefs(payload);
+            return true;
+          } catch (err) {
+            if (__DEV__) console.error('Error saving onboarding preferences to Firebase:', err);
+            return false;
+          }
+        };
+
+        let saved = await persist();
+        while (!saved) {
+          const retry = await new Promise<boolean>(resolve => {
+            Alert.alert(
+              'Échec de l’enregistrement',
+              'Tes préférences n’ont pas pu être enregistrées. Réessayer ?',
+              [
+                { text: 'Plus tard', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Réessayer', onPress: () => resolve(true) },
+              ]
+            );
+          });
+          if (!retry) break;
+          saved = await persist();
         }
       } else {
         // Guest: fire-and-forget, prefs live in AsyncStorage until sign-in.
