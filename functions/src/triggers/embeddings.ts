@@ -296,6 +296,15 @@ export const generateEmbeddingOnUpdate = onDocumentUpdated(
       return;
     }
 
+    // Mirror the search_index filter (P3-8): never (re)generate or refresh an
+    // embedding for an inactive or rejected article. The deactivation case above
+    // already flipped the flag; this guards remaining transitions (e.g. created
+    // inactive then edited, or moderation-rejected) so we don't index them.
+    if (!after.isActive || after.moderationStatus === 'rejected') {
+      logger.info('[embeddings] Inactive/rejected article on update, skipping', { articleId });
+      return;
+    }
+
     // Check if main image changed
     const beforeImage = before?.images?.[0]?.url;
     const afterImage = after.images?.[0]?.url;
