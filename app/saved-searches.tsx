@@ -80,9 +80,9 @@ function buildFilterTags(
     const min = filters.minPrice ?? 0;
     const max = filters.maxPrice;
     if (max !== undefined) {
-      tags.push(`${min}$ - ${max}$`);
+      tags.push(`${formatPrice(min)} - ${formatPrice(max)}`);
     } else {
-      tags.push(`${min}$+`);
+      tags.push(`${formatPrice(min)}+`);
     }
   }
 
