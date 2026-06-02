@@ -232,6 +232,25 @@ function EmptyState() {
 }
 
 // =============================================================================
+// ERROR STATE
+// =============================================================================
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Animated.View entering={FadeIn.duration(400)} style={styles.emptyState}>
+      <Ionicons name="cloud-offline-outline" size={48} color={colors.muted} />
+      <Text style={styles.emptyTitle}>Une erreur est survenue</Text>
+      <Text style={styles.emptySubtitle}>
+        Impossible de charger vos recherches sauvegardées. Vérifiez votre connexion.
+      </Text>
+      <Pressable style={styles.retryButton} onPress={onRetry}>
+        <Text style={styles.retryButtonText}>Réessayer</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// =============================================================================
 // MAIN SCREEN
 // =============================================================================
 
