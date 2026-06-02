@@ -179,7 +179,12 @@ export function useSearchScreen() {
     if (user && (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0)) {
       SearchHistoryService.addSearchToHistory(
         user.id, trimmedQuery, { ...filters, categoryIds: selectedCategoryPath }
-      ).catch(console.error);
+      )
+        // Reflect the just-saved search in the recent list immediately.
+        .then(() => loadRecentSearches())
+        .catch((error) => {
+          if (__DEV__) console.error('Error saving search to history:', error);
+        });
     }
     if (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0) {
       setIsSearching(true);
