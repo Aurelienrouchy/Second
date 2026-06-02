@@ -85,12 +85,9 @@ export const saveOnboardingPreferences = onCall(
 
         return { success: true, saved: 'user', userId: request.auth.uid };
       } else {
-        const docRef = await db.collection('guest_preferences').add({
-          ...cleanData,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-
-        return { success: true, saved: 'guest', guestPrefId: docRef.id };
+        // Guest: no server-side persistence. AsyncStorage holds the prefs and
+        // mergeGuestDataIntoUser replays them at sign-in — no orphan doc.
+        return { success: true, saved: 'guest' };
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
