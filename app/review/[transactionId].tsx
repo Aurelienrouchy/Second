@@ -235,8 +235,13 @@ export default function ReviewScreen() {
 
   const { transaction, article, targetUser } = data;
   const firstImage = article?.images?.[0];
+  // Mirrors the backend gate in `functions/src/callable/reviews.ts`
+  // (`terminalStatuses`): a shipping order stays reviewable after it flips from
+  // `delivered` to `completed` (J+7 dispute window), and a meetup order once
+  // `meetup_completed`.
   const isCompleted =
     transaction.status === 'delivered' ||
+    transaction.status === 'completed' ||
     transaction.status === 'meetup_completed';
 
   if (!isCompleted) {
