@@ -182,6 +182,12 @@ export default function ProfileDetailsScreen() {
             <Pressable onPress={pickImage} style={({ pressed }) => pressed && { opacity: 0.7 }}>
               <Text variant="body" style={styles.changePhotoText}>Changer la photo de profil</Text>
             </Pressable>
+            <View style={styles.visibilityRow}>
+              <Ionicons name="eye-outline" size={14} color={colors.muted} />
+              <Caption style={styles.visibilityText}>
+                Votre photo de profil est visible publiquement sur votre profil.
+              </Caption>
+            </View>
           </View>
 
           {/* Form */}
