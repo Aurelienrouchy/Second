@@ -148,6 +148,7 @@ export default function UserProfileScreen() {
       ? ({
           id: publicProfile.profile.id,
           displayName: publicProfile.profile.displayName,
+          username: publicProfile.profile.username ?? undefined,
           profileImage: publicProfile.profile.profileImage ?? undefined,
           bio: publicProfile.profile.bio ?? undefined,
           createdAt: publicProfile.profile.createdAt
