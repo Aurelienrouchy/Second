@@ -267,19 +267,27 @@ export const createArticle = onCall(
       : '';
 
     // ── 4. Fetch seller info from Auth / Firestore ──
+    // Always read the user doc once: we need it both for the displayName
+    // fallback AND for the `showProfilePhoto` privacy preference that gates the
+    // denormalized `sellerImage` (P2-4). The doc is the trusted source.
     let sellerName: string = data.sellerName || '';
     let sellerImage: string | null = data.sellerImage || null;
 
+    const userSnap = await db.collection('users').doc(uid).get();
+    const userData = userSnap.exists ? userSnap.data() : undefined;
+
     if (!sellerName) {
-      // Try to get displayName from Firestore user doc
-      const userSnap = await db.collection('users').doc(uid).get();
-      if (userSnap.exists) {
-        const userData = userSnap.data();
-        sellerName = userData?.displayName || 'Utilisateur';
-        sellerImage = sellerImage || userData?.profileImage || null;
-      } else {
-        sellerName = 'Utilisateur';
-      }
+      sellerName = userData?.displayName || 'Utilisateur';
+      sellerImage = sellerImage || userData?.profileImage || null;
+    }
+
+    // Privacy gate (P2-4): when the seller has explicitly turned off
+    // `showProfilePhoto`, never denormalize their photo onto the article — even
+    // if the client passed one (the client URL is untrusted for this purpose).
+    // `undefined`/`true` keep the existing behaviour (photo shown by default).
+    const showProfilePhoto = userData?.preferences?.privacy?.showProfilePhoto;
+    if (showProfilePhoto === false) {
+      sellerImage = null;
     }
 
     // NOTE: Stripe Custom account creation is no longer done silently at

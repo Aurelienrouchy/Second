@@ -823,6 +823,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                     existingPaymentIntentId: transaction.stripePaymentIntentId,
                     sellerId: transaction.sellerId,
                     walletDebited: false,
+                    effectiveWalletAmount: 0,
                 };
             }
             // Always recalculate fees server-side for correctness. Re-apply the
@@ -832,9 +833,31 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
             // unaffected (still 100% of amount).
             const calculatedFees = (0, fees_1.calculateFees)(transaction.amount, transaction.shippingCost || 0, transaction.buyerFeeReduction);
             // --- Wallet debit (if applicable) ---
+            // P2-10 (idempotence): the wallet debit lives INSIDE this runTransaction,
+            // but `stripePaymentIntentId` (the existing-checkout guard above) is only
+            // stamped AFTER this transaction commits, when the Stripe PI is created
+            // out-of-band. That leaves a window where a retry / double-tap re-enters
+            // here with no PaymentIntent yet recorded. Without a second guard the
+            // wallet would be debited TWICE. We therefore treat an already-recorded
+            // `walletAmountUsed` (set atomically alongside the first debit below) as
+            // proof the debit already happened: we skip a fresh debit and RE-USE the
+            // recorded amount so the downstream Stripe charge math stays consistent.
             let walletDebited = false;
             const totalChargeCents = Math.round(calculatedFees.buyerTotal * 100);
-            if (walletAmount > 0) {
+            const alreadyDebitedAmount = typeof transaction.walletAmountUsed === 'number' && transaction.walletAmountUsed > 0
+                ? transaction.walletAmountUsed
+                : 0;
+            if (alreadyDebitedAmount > 0) {
+                // A previous (committed) call already debited the wallet for this
+                // transaction. Do NOT debit again — re-use the recorded amount. The
+                // requested walletAmount must match the recorded one (a mismatched
+                // retry is a client bug, not a new authorization to debit more).
+                if (walletAmount > 0 && walletAmount !== alreadyDebitedAmount) {
+                    throw new https_1.HttpsError('failed-precondition', 'Un paiement partiel par porte-monnaie a déjà été enregistré pour cette transaction avec un montant différent.');
+                }
+                walletDebited = true;
+            }
+            else if (walletAmount > 0) {
                 if (walletAmount >= totalChargeCents) {
                     throw new https_1.HttpsError('invalid-argument', 'walletAmount must be less than totalCharge for mixed payment. Use payWithWallet for 100% wallet payments.');
                 }
@@ -869,6 +892,9 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                 });
                 walletDebited = true;
             }
+            // The authoritative wallet amount for the downstream Stripe charge: the
+            // freshly-debited amount, or the previously-recorded one on a retry.
+            const effectiveWalletAmount = alreadyDebitedAmount > 0 ? alreadyDebitedAmount : walletAmount;
             // Update fee fields atomically + wallet info
             const updateData = {
                 serviceFee: calculatedFees.serviceFee,
@@ -876,8 +902,11 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                 totalAmount: calculatedFees.buyerTotal,
                 sellerPayout: calculatedFees.sellerPayout,
             };
-            if (walletDebited) {
-                updateData.walletAmountUsed = walletAmount;
+            // Only (re)stamp the wallet fields on a FRESH debit. On a retry the
+            // fields are already persisted — re-writing them is harmless but
+            // unnecessary, and we never overwrite with a smaller/zero value.
+            if (walletDebited && alreadyDebitedAmount === 0) {
+                updateData.walletAmountUsed = effectiveWalletAmount;
                 updateData.paidVia = 'wallet_and_card';
             }
             tx.update(txRef, updateData);
@@ -887,6 +916,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                 existingPaymentIntentId: null,
                 sellerId: transaction.sellerId,
                 walletDebited,
+                effectiveWalletAmount,
             };
         });
         // Idempotent return: PaymentIntent already existed — retrieve clientSecret from Stripe
@@ -921,12 +951,18 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
         // Convert dollars to cents for Stripe (all Stripe amounts are in smallest currency unit)
         const totalChargeCents = Math.round(txResult.fees.buyerTotal * 100);
         const applicationFeeInCents = Math.round(txResult.fees.serviceFee * 100);
-        if (txResult.walletDebited && walletAmount > 0) {
+        // P2-10: use the AUTHORITATIVE wallet amount returned by the transaction
+        // (freshly-debited, or the previously-recorded amount on a retry) — never
+        // the raw request `walletAmount`. A retry that omits walletAmount would
+        // otherwise fall into the full card-charge branch while the wallet stays
+        // debited, double-charging the buyer.
+        const effectiveWalletAmount = txResult.effectiveWalletAmount;
+        if (txResult.walletDebited && effectiveWalletAmount > 0) {
             // --- MIXED WALLET + CARD PAYMENT ---
             // Platform receives the card portion (no destination charge).
             // The wallet portion was already debited. Seller will be credited
             // after delivery via explicit transfer.
-            const stripeChargeCents = totalChargeCents - walletAmount;
+            const stripeChargeCents = totalChargeCents - effectiveWalletAmount;
             // The application fee applies to the full purchase, but since the
             // wallet portion was already collected, the Stripe portion just needs
             // to cover the remaining charge. The platform fee is effectively
@@ -943,7 +979,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                         transactionId,
                         sellerId: txResult.sellerId,
                         buyerId: request.auth.uid,
-                        walletAmountUsed: String(walletAmount),
+                        walletAmountUsed: String(effectiveWalletAmount),
                         paymentType: 'wallet_and_card',
                     },
                 }, 
@@ -955,7 +991,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                 // F05: Stripe PI creation failed — revert the wallet debit
                 logger.error('Stripe PaymentIntent creation failed (mixed) — reverting wallet debit', {
                     transactionId,
-                    walletAmount,
+                    walletAmount: effectiveWalletAmount,
                     error: stripeError instanceof Error ? stripeError.message : stripeError,
                 });
                 const buyerWalletRef = firebase_1.db.collection('wallets').doc(request.auth.uid);
@@ -965,14 +1001,14 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                         return;
                     const walletData = walletSnap.data();
                     revertTx.update(buyerWalletRef, {
-                        balance: firebase_1.FieldValue.increment(walletAmount),
+                        balance: firebase_1.FieldValue.increment(effectiveWalletAmount),
                         updatedAt: firebase_1.FieldValue.serverTimestamp(),
                     });
                     const revertLedgerRef = buyerWalletRef.collection('ledger').doc();
                     revertTx.set(revertLedgerRef, {
                         type: 'refund_credit',
-                        amount: walletAmount,
-                        balanceAfter: (walletData.balance || 0) + walletAmount,
+                        amount: effectiveWalletAmount,
+                        balanceAfter: (walletData.balance || 0) + effectiveWalletAmount,
                         description: 'Remboursement — echec creation paiement',
                         transactionId,
                         createdAt: firebase_1.FieldValue.serverTimestamp(),
@@ -994,7 +1030,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                 transactionId,
                 paymentIntentId: paymentIntent.id,
                 totalCents: totalChargeCents,
-                walletCents: walletAmount,
+                walletCents: effectiveWalletAmount,
                 stripeCents: stripeChargeCents,
             });
             return {
@@ -1006,7 +1042,7 @@ exports.createStripeCheckout = (0, https_1.onCall)({ region: 'northamerica-north
                     serviceFee: txResult.fees.serviceFee,
                     serviceFeePercent: txResult.fees.serviceFeePercent,
                     buyerTotal: txResult.fees.buyerTotal,
-                    walletAmountUsed: walletAmount,
+                    walletAmountUsed: effectiveWalletAmount,
                     stripeAmount: stripeChargeCents,
                 },
             };
