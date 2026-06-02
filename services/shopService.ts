@@ -3,7 +3,6 @@ import { Article, Shop } from '@/types';
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   DocumentData,
   getDoc,
