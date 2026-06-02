@@ -14,6 +14,7 @@ import {
 import { mergeGuestDataIntoUser } from '@/services/authMergeService';
 import { UserService } from '@/services/userService';
 import { useChatStore } from '@/store/chatStore';
+import { useImmersiveOverlayStore } from '@/store/immersiveOverlayStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { User } from '@/types';
 
