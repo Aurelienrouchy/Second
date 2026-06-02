@@ -133,6 +133,9 @@ export default function PasswordSettingsScreen() {
                   placeholder="Nouveau mot de passe"
                   placeholderTextColor={colors.muted}
                   secureTextEntry={!showNewPassword}
+                  autoCapitalize="none"
+                  textContentType="newPassword"
+                  autoComplete="new-password"
                 />
                 <Pressable onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeButton}>
                   <Ionicons name={showNewPassword ? "eye-off-outline" : "eye-outline"} size={24} color={colors.muted} />
