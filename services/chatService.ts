@@ -84,6 +84,13 @@ function stripUndefined<T>(obj: T): T {
   return obj;
 }
 
+/**
+ * Maximum number of recent messages loaded per chat snapshot. Bounds the
+ * read so we never pull an entire conversation history at once. Incremental
+ * load-more (fetching older messages beyond this window) is not yet wired.
+ */
+const MESSAGES_WINDOW = 50;
+
 export class ChatService {
   /**
    * Build a deterministic chat ID from a sorted pair of user UIDs,
