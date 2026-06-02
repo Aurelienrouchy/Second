@@ -21,3 +21,14 @@ export function formatPrice(amount: number): string {
 export function formatPriceWithCurrency(amount: number): string {
   return `${amount.toFixed(2).replace('.', ',')} $ CA`;
 }
+
+/**
+ * Format a cents amount (integer minor units) for display.
+ * Canadian-French convention: space before the dollar sign, comma decimal.
+ * Always shows two decimals.
+ *
+ * Example: formatCents(4500) => "45,00 $"
+ */
+export function formatCents(cents: number): string {
+  return `${(cents / 100).toFixed(2).replace('.', ',')} $`;
+}
