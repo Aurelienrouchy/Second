@@ -456,3 +456,154 @@ export const triageReport = onCall(
     return { ok: true as const, reportId, status: outcome };
   },
 );
+
+// ============================================================
+// B7 — REPORT SUBMISSION (anti-spam, server-side dedup)
+// ============================================================
+
+/**
+ * submitReport — authenticated. Creates a moderation report for a target.
+ *
+ * ANTI-SPAM (Msg finding 39): the `reports` collection used to be created
+ * client-side via addDoc, so a single reporter could spam unlimited reports
+ * against the same target (a client-side hasUserReported() check is advisory
+ * and racy). This callable enforces "1 report per reporter/target/type" with a
+ * deterministic doc id (`${reporterId}_${targetType}_${targetId}`) checked
+ * inside runTransaction — same atomic-dedup pattern as createReview. A replay
+ * or repeated submission hits the existing doc and is rejected with
+ * 'already-exists', so the client can map it to a "déjà signalé" message.
+ *
+ * Fields mirror the shape moderationService.createReport wrote and that
+ * getPendingReports / the admin reports screen read (reporterId, reporterName,
+ * targetType, targetId, targetOwnerId?, reason, description?, status,
+ * createdAt). The moderation lifecycle (status/reviewedBy/reviewedAt/
+ * resolution) stays admin-owned: the report always starts 'pending'.
+ *
+ * Input:
+ *   targetType    ('user' | 'article' | 'message' | 'review', required)
+ *   targetId      (string, required)
+ *   reason        (string, required — ReportReason key, bound 1-100)
+ *   description   (string, optional — bound 1-2000; omitted when absent)
+ *   targetOwnerId (string, optional — omitted when absent)
+ */
+export const submitReport = onCall(
+  { region: REGION, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+    const reporterId = request.auth.uid;
+
+    const data = (request.data ?? {}) as {
+      targetType?: unknown;
+      targetId?: unknown;
+      reason?: unknown;
+      description?: unknown;
+      targetOwnerId?: unknown;
+    };
+
+    if (
+      typeof data.targetType !== 'string' ||
+      !REPORT_TARGET_TYPES.has(data.targetType as ReportTargetType)
+    ) {
+      throw new HttpsError(
+        'invalid-argument',
+        'targetType must be one of user | article | message | review',
+      );
+    }
+    if (typeof data.targetId !== 'string' || data.targetId.trim().length === 0) {
+      throw new HttpsError('invalid-argument', 'targetId is required');
+    }
+    if (
+      typeof data.reason !== 'string' ||
+      data.reason.trim().length === 0 ||
+      data.reason.trim().length > 100
+    ) {
+      throw new HttpsError('invalid-argument', 'reason is required (max 100)');
+    }
+
+    const targetType = data.targetType as ReportTargetType;
+    const targetId = data.targetId.trim();
+    const reason = data.reason.trim();
+
+    // Optional fields — never written as undefined to Firestore.
+    let description: string | null = null;
+    if (
+      data.description !== undefined &&
+      data.description !== null &&
+      data.description !== ''
+    ) {
+      if (typeof data.description !== 'string') {
+        throw new HttpsError('invalid-argument', 'description must be a string');
+      }
+      const trimmed = data.description.trim();
+      if (trimmed.length > 2000) {
+        throw new HttpsError('invalid-argument', 'description too long (max 2000)');
+      }
+      description = trimmed.length > 0 ? trimmed : null;
+    }
+
+    let targetOwnerId: string | null = null;
+    if (
+      data.targetOwnerId !== undefined &&
+      data.targetOwnerId !== null &&
+      data.targetOwnerId !== ''
+    ) {
+      if (typeof data.targetOwnerId !== 'string') {
+        throw new HttpsError('invalid-argument', 'targetOwnerId must be a string');
+      }
+      const trimmed = data.targetOwnerId.trim();
+      targetOwnerId = trimmed.length > 0 ? trimmed : null;
+    }
+
+    // Reporter display name (read-only, outside the transaction).
+    const reporterSnap = await db.collection('users').doc(reporterId).get();
+    const reporterName =
+      (reporterSnap.exists && typeof reporterSnap.data()?.displayName === 'string'
+        ? (reporterSnap.data()?.displayName as string)
+        : null) ?? 'Utilisateur';
+
+    // Deterministic id enforces "1 per reporter/target/type" atomically:
+    // concurrent or repeated submissions converge on the same doc and only the
+    // first wins (existence checked inside the transaction).
+    const reportId = `${reporterId}_${targetType}_${targetId}`;
+    const ref = db.collection('reports').doc(reportId);
+
+    await db.runTransaction(async (tx) => {
+      const existing = await tx.get(ref);
+      if (existing.exists) {
+        throw new HttpsError(
+          'already-exists',
+          'Vous avez déjà signalé cet élément.',
+        );
+      }
+
+      const report: Record<string, unknown> = {
+        id: reportId,
+        reporterId,
+        reporterName,
+        targetType,
+        targetId,
+        reason,
+        status: 'pending' as const,
+        createdAt: FieldValue.serverTimestamp(),
+      };
+      if (description !== null) {
+        report.description = description;
+      }
+      if (targetOwnerId !== null) {
+        report.targetOwnerId = targetOwnerId;
+      }
+
+      tx.set(ref, report);
+    });
+
+    logger.info('[submitReport] report created', {
+      reportId,
+      reporterId,
+      targetType,
+      targetId,
+    });
+    return { ok: true as const, reportId, status: 'pending' as const };
+  },
+);
