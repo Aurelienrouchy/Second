@@ -2,9 +2,16 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MeetupNeighborhood } from '@/types';
+import { getNeighborhoodById } from '@/data/neighborhoods';
 import { colors, fonts } from '@/constants/theme';
 
-const NEIGHBORHOOD_TAGS = ['Plateau', 'Mile End', 'Rosemont', 'Villeray'];
+// Quick-pick tags resolved from the canonical neighborhood catalogue so the
+// emitted objects carry the real id + borough (validated server-side, B4).
+const QUICK_TAG_IDS = ['plateau', 'mile-end', 'rosemont', 'villeray'] as const;
+const QUICK_TAGS: MeetupNeighborhood[] = QUICK_TAG_IDS
+  .map((id) => getNeighborhoodById(id))
+  .filter((n): n is MeetupNeighborhood => n != null);
+const QUICK_TAG_ID_SET = new Set(QUICK_TAGS.map((n) => n.id));
 
 interface HandDeliveryCardProps {
   isActive: boolean;
