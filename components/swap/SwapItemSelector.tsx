@@ -32,6 +32,7 @@ const SwapItemSelector: React.FC<SwapItemSelectorProps> = ({
   onSelectionChange,
   title = 'Sélectionner mes articles',
 }) => {
+  const insets = useSafeAreaInsets();
   const selectedIds = useMemo(() => {
     return selectedItems.map(item => item.articleId);
   }, [selectedItems]);
