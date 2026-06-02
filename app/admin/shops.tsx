@@ -133,11 +133,32 @@ export default function AdminShopsScreen() {
 
   const handleReject = (shop: Shop) => {
     setSelectedShop(shop);
+    setModalMode('reject');
     rejectionModalRef.current?.show();
   };
 
-  const handleConfirmReject = async (reason: string) => {
+  const handleSuspend = (shop: Shop) => {
+    setSelectedShop(shop);
+    setModalMode('suspend');
+    rejectionModalRef.current?.show();
+  };
+
+  const handleConfirmModal = async (reason: string) => {
     if (!user || !selectedShop) return;
+
+    if (modalMode === 'suspend') {
+      try {
+        await ShopService.suspendShop(selectedShop.id, reason);
+        await NotificationService.notifyShopSuspended(selectedShop.id, selectedShop.ownerId, reason);
+        Alert.alert('Succès', 'La boutique a été suspendue');
+        loadShops();
+      } catch (error) {
+        if (__DEV__) console.error('Error suspending shop:', error);
+        Alert.alert('Erreur', 'Impossible de suspendre la boutique');
+        throw error;
+      }
+      return;
+    }
 
     try {
       await ShopService.rejectShop(selectedShop.id, reason);
@@ -147,6 +168,7 @@ export default function AdminShopsScreen() {
     } catch (error) {
       if (__DEV__) console.error('Error rejecting shop:', error);
       Alert.alert('Erreur', 'Impossible de rejeter la boutique');
+      throw error;
     }
   };
 
