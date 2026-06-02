@@ -425,9 +425,9 @@ export const createArticle = onCall(
     if (typeof data.brand === 'string' && data.brand.trim()) {
       article.brand = await resolveBrand(data.brand);
     }
-    if (typeof data.pattern === 'string' && data.pattern.trim()) {
-      article.pattern = data.pattern.trim().substring(0, 100);
-    }
+    // `pattern`: legacy field, lecture seule, plus ecrit (P3-5). The pattern
+    // concept was removed (data/patterns.ts has no importers); existing docs
+    // keep the field for back-compat reads but new writes no longer set it.
 
     // Colors — multi-select + backward compat single value
     if (Array.isArray(data.colors) && data.colors.length > 0) {
