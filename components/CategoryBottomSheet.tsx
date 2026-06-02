@@ -15,6 +15,8 @@ interface CategoryBottomSheetProps {
   onSelect: (categoryIds: string[]) => void;
   selectedCategoryIds?: string[];
   suggestedCategoryId?: string;
+  /** Render the sheet on the dark Swap Zone palette. Defaults to the light DS. */
+  darkMode?: boolean;
 }
 
 export interface CategoryBottomSheetRef {
