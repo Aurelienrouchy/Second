@@ -188,7 +188,4 @@ const styles = StyleSheet.create({
   headerSafeArea: {
     backgroundColor: colors.cream,
   },
-  scrollContent: {
-    paddingBottom: spacing['4xl'] + spacing['3xl'],
-  },
 });
