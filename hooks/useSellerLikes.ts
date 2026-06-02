@@ -85,24 +85,50 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
       });
     },
     onMutate: async (sellerId: string): Promise<ToggleContext> => {
+      const listKey = currentUserId
+        ? queryKeys.sellers.liked(currentUserId)
+        : undefined;
+
       // Cancel in-flight fetches so they don't overwrite our optimistic update
       await queryClient.cancelQueries({ queryKey });
+      if (listKey) {
+        await queryClient.cancelQueries({ queryKey: listKey });
+      }
 
       const previous = queryClient.getQueryData<string[]>(queryKey);
+      const previousList = listKey
+        ? queryClient.getQueryData<LikedSellerItem[]>(listKey)
+        : undefined;
 
-      // Optimistic update
+      const willBeLiked = !(previous ?? []).includes(sellerId);
+
+      // Optimistic update of the id set (drives badges / heart state)
       queryClient.setQueryData<string[]>(queryKey, (old = []) =>
         old.includes(sellerId)
           ? old.filter((id) => id !== sellerId)
           : [...old, sellerId]
       );
 
-      return { previous };
+      // Keep the liked-sellers list in sync to avoid badge/list desync.
+      // On unlike we remove the row; re-liking is reconciled by onSettled refetch.
+      if (listKey && !willBeLiked) {
+        queryClient.setQueryData<LikedSellerItem[]>(listKey, (old = []) =>
+          old.filter((seller) => seller.id !== sellerId)
+        );
+      }
+
+      return { previous, previousList };
     },
     onError: (_err, _sellerId, context) => {
       // Rollback to previous state on error
       if (context?.previous !== undefined) {
         queryClient.setQueryData(queryKey, context.previous);
+      }
+      if (context?.previousList !== undefined && currentUserId) {
+        queryClient.setQueryData(
+          queryKeys.sellers.liked(currentUserId),
+          context.previousList
+        );
       }
       if (__DEV__) console.error('[useSellerLikes] Toggle failed:', _err);
     },
