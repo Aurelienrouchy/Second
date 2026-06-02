@@ -100,10 +100,11 @@ export default function MessagesScreen() {
           onPress={handleChatPress}
           isUnread={unread > 0}
           unreadCount={unread}
+          isBlocked={isChatBlocked(chat)}
         />
       );
     },
-    [handleChatPress, user]
+    [handleChatPress, user, isChatBlocked]
   );
 
   const getConversationType = useCallback(
