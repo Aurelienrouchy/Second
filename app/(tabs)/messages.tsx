@@ -242,7 +242,7 @@ export default function MessagesScreen() {
             <>
               <Text style={styles.emptyStateTitle}>Rien dans cet onglet</Text>
               <Text style={styles.emptyStateText}>
-                Aucune conversation dans « {TAB_LABELS[activeTab]} » pour le moment
+                Aucune conversation dans « {TAB_LABELS[activeTab].toLowerCase()} » pour le moment
               </Text>
             </>
           )}
