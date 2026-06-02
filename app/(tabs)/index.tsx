@@ -13,13 +13,16 @@
  */
 
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation } from 'expo-router';
-import React, { useCallback, useMemo, useRef } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Modal, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import VisualSearchCamera from '@/components/VisualSearchCamera';
+import { useBottomTabOverflow } from '@/components/ui/TabBarBackground';
 import { colors, spacing } from '@/constants/theme';
+import { homeKeys } from '@/features/home/query-keys';
 
 import {
   DiscoverGrid,
