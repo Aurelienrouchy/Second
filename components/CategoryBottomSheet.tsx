@@ -90,8 +90,14 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
         enablePanDownToClose
         onClose={() => setMounted(false)}
         topInset={insets.top}
-        handleIndicatorStyle={styles.handleIndicator}
-        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={[
+          styles.handleIndicator,
+          darkMode && { backgroundColor: colors.darkBorderStrong },
+        ]}
+        backgroundStyle={[
+          styles.sheetBackground,
+          darkMode && { backgroundColor: colors.deep },
+        ]}
         enableDynamicSizing={false}
       >
         <View style={styles.header}>
@@ -99,16 +105,19 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
             <Ionicons
               name={categoryNav.isAtRoot ? 'close' : 'chevron-back'}
               size={22}
-              color={colors.charcoal}
+              color={headerIconColor}
             />
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>
+            <Text style={[styles.title, darkMode && { color: colors.cream }]}>
               {categoryNav.isAtRoot ? 'Catégorie' : categoryNav.currentTitle}
             </Text>
             {breadcrumb && !categoryNav.isAtRoot && (
-              <Text style={styles.breadcrumb} numberOfLines={1}>
+              <Text
+                style={[styles.breadcrumb, darkMode && { color: mutedColor }]}
+                numberOfLines={1}
+              >
                 {breadcrumb}
               </Text>
             )}
