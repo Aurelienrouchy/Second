@@ -14,9 +14,10 @@ import {
   ViewStyle,
 } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { colors, radius, spacing, typography, animations, fonts } from '@/constants/theme';
