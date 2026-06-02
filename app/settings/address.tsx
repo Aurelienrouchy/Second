@@ -180,11 +180,15 @@ export default function AddressSettingsScreen() {
     <View style={styles.container}>
       <ScreenHeader title="Adresse" onBack={() => router.back()} />
 
-      <KeyboardAvoidingView   
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {user?.address && (user.address.street || user.address.city) ? (
             <View style={styles.currentAddressCard}>
               <Label style={styles.currentAddressLabel}>Adresse actuelle :</Label>
