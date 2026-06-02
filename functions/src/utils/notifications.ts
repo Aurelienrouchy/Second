@@ -154,6 +154,76 @@ export async function createInAppNotification(
   return docRef.id;
 }
 
+// ─── Notification preferences ─────────────────────────────────────────────────
+
+/**
+ * Map a server notification type to the matching key in
+ * `users/{uid}.preferences.notifications` (see UserPreferences in types/index.ts).
+ *
+ * Returns `null` for types that have NO dedicated per-type toggle — those are
+ * treated as ALWAYS-ON (default allow). This deliberately covers transactional
+ * / safety-critical notifications (review_received, privacy_incident, and any
+ * unmapped type): a missing toggle must never silently drop a notification the
+ * user can't re-enable.
+ */
+function getPreferenceKey(notificationType: string): string | null {
+  switch (notificationType) {
+    case 'chat':
+    case 'message':
+    case 'new_message':
+      return 'newMessages';
+
+    case 'offer':
+    case 'offer_received':
+      return 'offerReceived';
+
+    case 'offer_accepted':
+    case 'offer_rejected':
+    case 'offer_counter':
+      return 'offerResponse';
+
+    case 'new_sale':
+    case 'order_shipped':
+    case 'order_delivered':
+    case 'order_cancelled':
+    case 'order_refunded':
+    case 'funds_released':
+      return 'newOrders';
+
+    case 'article_favorited':
+      return 'articleFavorited';
+
+    case 'price_drop':
+      return 'priceDrops';
+
+    case 'swap_zone_reminder':
+      return 'swapZoneReminder';
+
+    default:
+      // review_received, privacy_incident, shop_*, swap_update, and any unknown
+      // type → no dedicated toggle → always delivered.
+      return null;
+  }
+}
+
+/**
+ * Whether the user opted OUT of a given notification type.
+ *
+ * A type is suppressed ONLY when it maps to a known preference key AND that key
+ * is explicitly `false`. Absent prefs, absent key, or unmapped types default to
+ * ALLOW (privacy-by-default opt-outs are encoded in the client defaults, not by
+ * silently swallowing notifications here).
+ */
+function isNotificationTypeDisabled(
+  prefs: Record<string, unknown> | undefined,
+  notificationType: string
+): boolean {
+  if (!prefs) return false;
+  const key = getPreferenceKey(notificationType);
+  if (!key) return false;
+  return prefs[key] === false;
+}
+
 // ─── FCM push notification ──────────────────────────────────────────────────
 
 /**
