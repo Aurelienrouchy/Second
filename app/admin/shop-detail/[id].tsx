@@ -329,12 +329,12 @@ export default function AdminShopDetailScreen() {
       {shop.status === 'pending' && (
         <View style={[styles.footer, { paddingBottom: Math.max(20, insets.bottom) }]}>
           <Pressable style={styles.rejectButton} onPress={handleReject}>
-            <Ionicons name="close-circle-outline" size={20} color="#FF3B30" />
+            <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
             <Text style={styles.rejectButtonText}>Rejeter</Text>
           </Pressable>
 
           <Pressable style={styles.approveButton} onPress={handleApprove}>
-            <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+            <Ionicons name="checkmark-circle-outline" size={20} color={colors.white} />
             <Text style={styles.approveButtonText}>Approuver</Text>
           </Pressable>
         </View>
