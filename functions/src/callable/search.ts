@@ -330,6 +330,11 @@ export const getSimilarProducts = onCall(
       const article = articlesMap.get(doc.id);
       if (!article) continue;
 
+      // The embeddings collection only tracks `isActive`, not `isSold`, so a
+      // sold (but still active) article would otherwise leak into results.
+      // Filter it out post-fetch using the freshly loaded article doc.
+      if (article.isSold === true || article.isActive === false) continue;
+
       const distance = doc.get('__distance__') || 0;
 
       // Skip results below similarity threshold
