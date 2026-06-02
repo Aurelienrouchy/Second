@@ -192,6 +192,20 @@ const SIZES = {
   kids: ['2 ans', '3 ans', '4 ans', '5 ans', '6 ans', '8 ans', '10 ans', '12 ans'],
 };
 
+// Firestore stores `articles.size` (and the derived `search_index.size`) as an
+// object `{ value, system }` — never a raw string. This mirrors the canonical
+// reference `sanitizeArticleSize` in functions/src/shared/article.ts (back-compat
+// string -> object, default system 'EU', value trimmed + capped at 50 chars).
+// This seed dataset is French/EU sizing across all pools (letters, EU shoe
+// numbers, ages), so we default to 'EU' exactly like sanitizeArticleSize.
+const MAX_SIZE_VALUE_LENGTH = 50;
+function toArticleSize(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  return { value: trimmed.substring(0, MAX_SIZE_VALUE_LENGTH), system: 'EU' };
+}
+
 const COLORS = ['Noir', 'Blanc', 'Bleu', 'Rouge', 'Vert', 'Beige', 'Gris', 'Rose', 'Marron', 'Bleu marine', 'Bordeaux', 'Camel', 'Kaki'];
 const MATERIALS = ['Coton', 'Polyester', 'Lin', 'Laine', 'Soie', 'Denim', 'Cuir', 'Synthétique', 'Viscose', 'Cachemire'];
 
