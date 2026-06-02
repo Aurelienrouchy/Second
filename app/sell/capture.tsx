@@ -181,7 +181,15 @@ export default function CaptureScreen() {
   }, []);
 
   const handleClose = () => {
-    if (photos.length > 0) {
+    const draft = draftRef.current;
+    // Preserve the draft if it holds work beyond the local photos:
+    // already-uploaded Storage images or an AI analysis result would be lost.
+    const hasUploadedWork =
+      photos.length > 0 ||
+      (draft?.storageUrls?.length ?? 0) > 0 ||
+      draft?.aiResult != null;
+
+    if (hasUploadedWork) {
       Alert.alert(
         'Quitter ?',
         'Votre brouillon sera sauvegardé. Vous pourrez le reprendre plus tard.',
