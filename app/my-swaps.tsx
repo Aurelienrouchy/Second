@@ -67,6 +67,7 @@ export default function MySwapsScreen() {
   const {
     data: swaps = [],
     isLoading,
+    isError,
     refetch,
     isRefetching,
   } = useQuery({
