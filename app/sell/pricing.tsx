@@ -134,7 +134,7 @@ export default function PricingScreen() {
   };
 
   const handlePriceChange = (value: string) => {
-    const cleaned = value.replace(/[^0-9.]/g, '');
+    const cleaned = value.replace(',', '.').replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
     if (parts.length > 2) return;
     if (parts[1] && parts[1].length > 2) return;
