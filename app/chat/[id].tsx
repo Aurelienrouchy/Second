@@ -432,7 +432,10 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        // Offset = safe-area top (consumed by SafeAreaView) + the header that
+        // sits above the KeyboardAvoidingView. Derived instead of hardcoded so
+        // it stays correct across notched / non-notched devices.
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + CHAT_HEADER_HEIGHT : 0}
       >
         {messages.length === 0 ? (
           <ChatEmptyState otherParticipantName={otherParticipant?.userName} />
