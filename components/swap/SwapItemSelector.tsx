@@ -199,6 +199,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['3xl'],
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  emptyText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
+    textAlign: 'center',
+  },
   itemCard: {
     flex: 1,
     borderRadius: 0,
