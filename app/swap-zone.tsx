@@ -191,6 +191,18 @@ export default function SwapZoneScreen() {
     [f.filteredItems, user?.id]
   );
 
+  // Effective multi-select count: only items STILL present in the proposable
+  // stock (otherItems) count. Deriving the bar's count from the raw
+  // selectedItemIds.size would stay inflated when a selected item leaves the
+  // filter, letting an empty proposal slip through (the proposal itself already
+  // intersects with otherItems in handleProposeMultipleSwaps). Mirror that
+  // intersection here so the displayed count and the propose-enabled state can
+  // never disagree with what would actually be sent.
+  const selectedCount = useMemo(
+    () => otherItems.reduce((acc, item) => (selectedItemIds.has(item.id) ? acc + 1 : acc), 0),
+    [otherItems, selectedItemIds]
+  );
+
   // ── Mutators ──
   const invalidatePartyData = useCallback(() => {
     // Returns the promise so callers can await the refetch (keeps the add
