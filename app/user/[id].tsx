@@ -282,6 +282,45 @@ export default function UserProfileScreen() {
     reportSheetRef.current?.open('user', id);
   }, [id, currentUser, showAuthSheet]);
 
+  const handleBlock = useCallback(() => {
+    if (!id || !profileUser) return;
+    if (!currentUser?.id) {
+      showAuthSheet('Connectez-vous pour bloquer cet utilisateur');
+      return;
+    }
+    const name = formatDisplayName(profileUser.displayName);
+    Alert.alert(
+      'Bloquer cet utilisateur',
+      `Voulez-vous bloquer ${name} ? Cette personne ne pourra plus vous contacter ni voir vos articles.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Bloquer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await ModerationService.blockUser(
+                currentUser.id,
+                id,
+                profileUser.displayName,
+              );
+              queryClient.invalidateQueries({
+                queryKey: ['blockedUsers', currentUser.id],
+              });
+              Alert.alert('Utilisateur bloqué', `${name} a été bloqué.`, [
+                { text: 'OK', onPress: () => router.back() },
+              ]);
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'Une erreur est survenue';
+              Alert.alert('Erreur', message);
+            }
+          },
+        },
+      ],
+    );
+  }, [id, profileUser, currentUser?.id, showAuthSheet, queryClient, router]);
+
   const handleMore = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert('', '', [
@@ -291,9 +330,14 @@ export default function UserProfileScreen() {
         onPress: handleReport,
         style: 'destructive',
       },
+      {
+        text: 'Bloquer',
+        onPress: handleBlock,
+        style: 'destructive',
+      },
       { text: 'Annuler', style: 'cancel' },
     ]);
-  }, [handleShare, handleReport]);
+  }, [handleShare, handleReport, handleBlock]);
 
   const handleEditProfile = useCallback(() => {
     router.push('/settings/profile-details');
