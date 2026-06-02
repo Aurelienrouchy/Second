@@ -162,8 +162,13 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
 
   const handleCounterPrice = async () => {
     const newAmount = parseFloat(counterPriceAmount);
-    if (isNaN(newAmount) || newAmount <= 0) {
+    if (isNaN(newAmount) || newAmount < MIN_OFFER_AMOUNT) {
       Alert.alert('Erreur', 'Veuillez entrer un montant valide');
+      return;
+    }
+
+    if (newAmount > MAX_OFFER_AMOUNT) {
+      Alert.alert('Montant trop élevé', `Maximum ${MAX_OFFER_AMOUNT} $ CA`);
       return;
     }
 
