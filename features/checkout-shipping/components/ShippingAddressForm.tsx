@@ -50,6 +50,7 @@ interface ShippingAddressFormProps {
 export const ShippingAddressForm = React.memo(function ShippingAddressForm({
   values,
   onChangeField,
+  postalCodeError = false,
 }: ShippingAddressFormProps) {
   return (
     <>
