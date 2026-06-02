@@ -66,12 +66,53 @@ const PLACES_STYLES = {
   },
 };
 
+interface AddressInput {
+  street: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  country: string;
+}
+
 export default function AddressSettingsScreen() {
   const router = useRouter();
   const user = useUser();
   const { refreshUser } = useAuthActions();
   const addressRef = useRef<GooglePlacesAutocompleteRef>(null);
-  
+
+  // Saisie manuelle (fallback si Google Places échoue ou est indisponible)
+  const [manualMode, setManualMode] = useState(false);
+  const [manualStreet, setManualStreet] = useState('');
+  const [manualCity, setManualCity] = useState('');
+  const [manualProvince, setManualProvince] = useState('QC');
+  const [manualPostalCode, setManualPostalCode] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const persistAddress = async (address: AddressInput) => {
+    if (!user) return;
+    try {
+      await UserService.updateUserProfile(user.id, {
+        address: {
+          street: address.street,
+          city: address.city,
+          province: address.province,
+          postalCode: address.postalCode,
+          country: address.country,
+        },
+      });
+
+      // Rafraîchir les données utilisateur depuis Firestore
+      await refreshUser();
+
+      Alert.alert('Succès', 'Votre adresse a été mise à jour', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      if (__DEV__) console.error('Error updating address:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour de l\'adresse');
+    }
+  };
+
   const handleUpdateAddress = async (details: PlaceDetails | null) => {
     if (!user || !details) return;
 
@@ -95,32 +136,44 @@ export default function AddressSettingsScreen() {
         },
         {
           text: 'Confirmer',
-          onPress: async () => {
-            try {
-              await UserService.updateUserProfile(user.id, {
-                address: {
-                  street: streetAddress,
-                  city,
-                  province,
-                  postalCode,
-                  country,
-                },
-              });
-
-              // Rafraîchir les données utilisateur depuis Firestore
-              await refreshUser();
-
-              Alert.alert('Succès', 'Votre adresse a été mise à jour', [
-                { text: 'OK', onPress: () => router.back() }
-              ]);
-            } catch (error) {
-              if (__DEV__) console.error('Error updating address:', error);
-              Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour de l\'adresse');
-            }
-          }
+          onPress: () =>
+            persistAddress({
+              street: streetAddress,
+              city,
+              province,
+              postalCode,
+              country,
+            }),
         }
       ]
     );
+  };
+
+  const handleManualSave = async () => {
+    if (!user || isSaving) return;
+
+    const street = manualStreet.trim();
+    const city = manualCity.trim();
+    const province = manualProvince.trim();
+    const postalCode = manualPostalCode.trim();
+
+    if (!street || !city || !province || !postalCode) {
+      Alert.alert('Champs manquants', 'Veuillez remplir l\'adresse, la ville, la province et le code postal.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await persistAddress({
+        street,
+        city,
+        province,
+        postalCode,
+        country: 'Canada',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
