@@ -8,6 +8,11 @@ import { getNextStep, MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 
+// Offer amount bounds — the upper bound mirrors the server-side ceiling
+// enforced in firestore.rules (offer.amount <= 50000). Kept in sync manually.
+const MIN_OFFER_AMOUNT = 1;
+const MAX_OFFER_AMOUNT = 50000;
+
 interface OfferStepProps {
   context: MakeOfferContext;
 }
