@@ -211,11 +211,14 @@ export default function PreviewScreen() {
       const articleId = await ArticlesService.createArticle(articleData);
       await draftService.deleteDraft(true);
 
+      // Bail out of state updates if the screen was torn down mid-publish.
+      if (!isMountedRef.current) return;
       setPublishedArticleId(articleId);
       setIsPublishing(false);
       setShowSuccessModal(true);
     } catch (error: unknown) {
       if (__DEV__) console.error('[Preview] Error publishing article:', error);
+      if (!isMountedRef.current) return;
       setIsPublishing(false);
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la publication';
       Alert.alert(
