@@ -55,11 +55,17 @@ export const Tag: React.FC<TagProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.95, animations.spring.snappy);
+    scale.value = withTiming(0.95, {
+      duration: animations.duration.fast,
+      easing: Easing.out(Easing.ease),
+    });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, {
+      duration: animations.duration.normal,
+      easing: Easing.out(Easing.ease),
+    });
   }, [scale]);
 
   const handlePress = useCallback(() => {
