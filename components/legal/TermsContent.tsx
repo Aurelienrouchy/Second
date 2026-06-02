@@ -171,9 +171,10 @@ function TermsContentComponent() {
 
       <Text variant="h3" style={styles.sectionTitle}>14. Droit applicable et litiges</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        Les présentes CGU sont soumises au droit français. En cas de litige, une solution
-        amiable sera recherchée avant toute action judiciaire. À défaut, les tribunaux
-        français seront seuls compétents.
+        Les présentes CGU sont régies par les lois en vigueur dans la province de Québec et
+        les lois fédérales du Canada qui y sont applicables. En cas de litige, une solution
+        amiable sera recherchée avant toute action judiciaire. À défaut, les tribunaux du
+        district de Montréal (Québec) seront seuls compétents.
       </Text>
 
       <Text variant="h3" style={styles.sectionTitle}>15. Contact</Text>
