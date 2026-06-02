@@ -67,6 +67,34 @@ export interface FeeBreakdown {
 // =============================================================================
 
 /**
+ * Normalise une réduction de frais boutique en fraction sûre dans [0, 1].
+ *
+ * Fail-safe : toute valeur non finie / hors borne est ramenée à 0 (plein
+ * tarif). Ne JAMAIS faire confiance au client : la valeur passée ici doit
+ * provenir d'une lecture serveur du tier boutique (createTransaction).
+ *
+ * @param feeReduction fraction de réduction (0 = plein tarif, 1 = gratuit)
+ */
+function normalizeFeeReduction(feeReduction?: number): number {
+  if (typeof feeReduction !== 'number' || !isFinite(feeReduction)) {
+    return 0;
+  }
+  if (feeReduction <= 0) return 0;
+  if (feeReduction >= 1) return 1;
+  return feeReduction;
+}
+
+/**
+ * Frais de protection au tarif plein (min appliqué), avant réduction boutique.
+ */
+function fullServiceFee(articlePrice: number): number {
+  const calculated = Math.round(
+    (articlePrice * (BUYER_FEE_PERCENT / 100) + BUYER_FEE_FIXED) * 100
+  ) / 100;
+  return Math.max(calculated, BUYER_FEE_MIN);
+}
+
+/**
  * Calcule les frais de protection et le total pour une transaction
  *
  * Formule : max(BUYER_FEE_MIN, articlePrice × BUYER_FEE_PERCENT/100 + BUYER_FEE_FIXED)
@@ -77,20 +105,29 @@ export interface FeeBreakdown {
  *  30$  → max(2,00$, 1,50$ + 1,50$) = 3,00$  → acheteur paie 33,00$ + livraison
  *  50$  → max(2,00$, 2,50$ + 1,50$) = 4,00$  → acheteur paie 54,00$ + livraison
  * 100$  → max(2,00$, 5,00$ + 1,50$) = 6,50$  → acheteur paie 106,50$ + livraison
+ *
+ * Boutiques (Paid shop model) : `feeReduction` est une fraction dans [0, 1]
+ * appliquée APRÈS le minimum, qui réduit UNIQUEMENT les frais acheteur — le
+ * vendeur reçoit toujours 100% du prix (0% commission vendeur). La réduction
+ * est dérivée serveur du tier boutique ; jamais fournie par le client.
+ *
+ * @param feeReduction fraction de réduction boutique (défaut 0 = plein tarif)
  */
 export function calculateFees(
   articlePrice: number,
-  shippingCost: number
+  shippingCost: number,
+  feeReduction?: number
 ): FeeBreakdown {
-  // Frais = % du prix article + partie fixe
-  const calculated = Math.round(
-    (articlePrice * (BUYER_FEE_PERCENT / 100) + BUYER_FEE_FIXED) * 100
+  // Frais au tarif plein (min déjà appliqué)
+  const serviceFeeBeforeReduction = fullServiceFee(articlePrice);
+
+  // Réduction boutique appliquée 100% serveur, clampée dans [0, 1]
+  const reduction = normalizeFeeReduction(feeReduction);
+  const serviceFee = Math.round(
+    serviceFeeBeforeReduction * (1 - reduction) * 100
   ) / 100;
 
-  // Appliquer le minimum
-  const serviceFee = Math.max(calculated, BUYER_FEE_MIN);
-
-  // Total acheteur = article + livraison + frais de protection
+  // Total acheteur = article + livraison + frais de protection (réduits)
   const buyerTotal = Math.round((articlePrice + shippingCost + serviceFee) * 100) / 100;
 
   // Vendeur reçoit 100% du prix article — 0% commission vendeur
@@ -100,6 +137,8 @@ export function calculateFees(
     articlePrice,
     shippingCost,
     serviceFee,
+    serviceFeeBeforeReduction,
+    feeReduction: reduction,
     serviceFeePercent: BUYER_FEE_PERCENT,
     serviceFeeFixed: BUYER_FEE_FIXED,
     buyerTotal,
@@ -108,13 +147,18 @@ export function calculateFees(
 }
 
 /**
- * Calcule uniquement les frais de protection (pour affichage côté client)
+ * Calcule uniquement les frais de protection (pour affichage côté client).
+ *
+ * @param feeReduction fraction de réduction boutique (défaut 0 = plein tarif)
  */
-export function calculateServiceFee(articlePrice: number): number {
-  const calculated = Math.round(
-    (articlePrice * (BUYER_FEE_PERCENT / 100) + BUYER_FEE_FIXED) * 100
+export function calculateServiceFee(
+  articlePrice: number,
+  feeReduction?: number
+): number {
+  const reduction = normalizeFeeReduction(feeReduction);
+  return Math.round(
+    fullServiceFee(articlePrice) * (1 - reduction) * 100
   ) / 100;
-  return Math.max(calculated, BUYER_FEE_MIN);
 }
 
 /**
