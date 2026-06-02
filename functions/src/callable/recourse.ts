@@ -425,11 +425,14 @@ export const requestReturn = onCall(
       throw new HttpsError('permission-denied', 'Only the buyer can request a return');
     }
 
-    // Idempotence: a return is already in progress / done — no-op.
+    // Idempotence: a return is already in progress / done — no-op. Also short-
+    // circuit if another concurrent call has already RESERVED the return
+    // (returnLabelPending) and is mid-purchase, so we never buy a 2nd label.
     if (
       preData.status === 'return_requested' ||
       preData.returnLabelId ||
-      preData.returnTrackingNumber
+      preData.returnTrackingNumber ||
+      preData.returnLabelPending === true
     ) {
       return {
         success: true,
