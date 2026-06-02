@@ -714,9 +714,8 @@ export const updateArticle = onCall(
     if ('brand' in updates && typeof updates.brand === 'string') {
       sanitized.brand = await resolveBrand(updates.brand);
     }
-    if ('pattern' in updates && typeof updates.pattern === 'string') {
-      sanitized.pattern = updates.pattern.trim().substring(0, 100);
-    }
+    // `pattern`: legacy field, lecture seule, plus ecrit (P3-5). Updates that
+    // carry a `pattern` key are intentionally ignored (the concept was removed).
 
     // Colors
     if ('colors' in updates && Array.isArray(updates.colors)) {
