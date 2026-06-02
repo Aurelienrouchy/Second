@@ -46,15 +46,28 @@ export default {
       [
         "expo-camera",
         {
-          "cameraPermission": "Seconde utilise l'appareil photo pour prendre des photos de vos articles à vendre."
+          "cameraPermission": "Seconde utilise l'appareil photo pour prendre des photos de vos articles à vendre.",
+          "recordAudioAndroid": false
         }
       ],
       [
         "@react-native-google-signin/google-signin"
       ],
-      // Helcim payment via WebView — no native plugin needed
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.seconde.app",
+          "enableGooglePay": true
+        }
+      ],
       "expo-image",
-      "expo-maps",
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAPS_API_KEY,
+          "iosGoogleMapsApiKey": process.env.EXPO_PUBLIC_IOS_GOOGLE_MAPS_API_KEY
+        }
+      ],
       "expo-sharing",
       [
         "expo-build-properties",
