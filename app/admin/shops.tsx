@@ -25,7 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius } from '@/constants/theme';
 
-type TabType = 'pending' | 'approved' | 'rejected' | 'all';
+type TabType = 'pending' | 'approved' | 'rejected' | 'suspended' | 'all';
 
 export default function AdminShopsScreen() {
   const router = useRouter();
