@@ -150,20 +150,20 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
             <TouchableOpacity
               style={[
                 styles.confirmButton,
-                localSelectedSizes.length === 0 && styles.confirmButtonDisabled,
+                totalSelectedCount === 0 && styles.confirmButtonDisabled,
               ]}
               onPress={handleConfirm}
             >
               <Text style={styles.confirmButtonText}>
-                {localSelectedSizes.length > 0
-                  ? `VALIDER (${localSelectedSizes.length})`
+                {totalSelectedCount > 0
+                  ? `VALIDER (${totalSelectedCount})`
                   : 'VALIDER'}
               </Text>
             </TouchableOpacity>
           </View>
         </BottomSheetFooter>
       ),
-      [insets.bottom, localSelectedSizes, handleConfirm]
+      [insets.bottom, totalSelectedCount, handleConfirm]
     );
 
     const renderSizeSection = useCallback((section: SizeSection) => {
