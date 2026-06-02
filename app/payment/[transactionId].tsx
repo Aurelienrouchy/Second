@@ -145,12 +145,19 @@ export default function PaymentScreen() {
 
       const createCheckout = httpsCallable(functions, 'createStripeCheckout');
       const result = await createCheckout(checkoutParams);
-      const data = result.data as { success: boolean; clientSecret: string };
+      const data = result.data as {
+        success: boolean;
+        clientSecret: string;
+        feeBreakdown?: { buyerTotal?: number };
+      };
 
       if (!data.success || !data.clientSecret) {
         throw new Error('Impossible de créer la session de paiement');
       }
 
+      setServerBuyerTotal(
+        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null,
+      );
       setClientSecret(data.clientSecret);
       setShowStripePayment(true);
     } catch (error: unknown) {
