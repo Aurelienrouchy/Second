@@ -492,15 +492,17 @@ export function useNotificationSetup(userId: string | null): void {
 
 // ─── Exported helpers ───────────────────────────────────────────────────────
 
-/** Clear all notifications and reset badge */
-export async function clearAllNotifications(userId: string): Promise<void> {
-  await NotificationService.markAllAsRead(userId);
-  useNotificationStore.getState().clearUnreadCount();
-  await Notifications.setBadgeCountAsync(0);
-}
-
-/** Refresh badge count from Firestore */
+/**
+ * Refresh the unread count from Firestore and align the OS badge on it.
+ * Used by the notifications screen after read/delete/mark-all so the in-app
+ * count AND the home-screen badge stay in sync with the server.
+ */
 export async function refreshNotificationBadge(userId: string): Promise<void> {
-  const count = await NotificationService.countUnreadNotifications(userId);
-  useNotificationStore.getState().setUnreadCount(count);
+  try {
+    const count = await NotificationService.countUnreadNotifications(userId);
+    useNotificationStore.getState().setUnreadCount(count);
+    await Notifications.setBadgeCountAsync(count);
+  } catch (error) {
+    if (__DEV__) console.error('Error refreshing notification badge:', error);
+  }
 }
