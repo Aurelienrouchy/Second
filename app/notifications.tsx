@@ -167,8 +167,21 @@ export default function NotificationsScreen() {
       refreshBadgeCount();
     }
 
-    // Navigate based on notification data
+    // Navigate using the server-built deepLink (buildDeepLink in
+    // functions/src/utils/notifications.ts stores a full universal URL on
+    // notification.data.deepLink). `deepLink` is not part of NotificationData
+    // yet, so read it via a narrow cast (no `any`).
     const data = notification.data;
+    const deepLink = (data as { deepLink?: string } | undefined)?.deepLink;
+    if (deepLink) {
+      const path = Linking.parse(deepLink).path;
+      if (path) {
+        router.push(`/${path}` as never);
+        return;
+      }
+    }
+
+    // Legacy fallback for notifications stored before deepLink was emitted.
     if (data?.chatId) {
       router.push(`/chat/${data.chatId}`);
     } else if (data?.articleId) {
