@@ -8,6 +8,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { Notification, NotificationType } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Linking from 'expo-linking';
 import { router, Stack } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
