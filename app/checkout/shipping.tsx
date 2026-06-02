@@ -52,7 +52,7 @@ const CA_POSTAL_RE = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
  * server-side (set by stripeWebhook). Any of these means it is safe to show
  * the confirmation screen.
  */
-const PAID_STATUSES = new Set<Article['isSold'] extends never ? never : string>([
+const PAID_STATUSES = new Set<string>([
   'paid', 'label_created', 'shipped', 'delivered', 'completed',
 ]);
 
