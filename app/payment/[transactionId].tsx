@@ -61,6 +61,7 @@ const PAYMENT_CONFIRM_POLL_MS = 1500;
 export default function PaymentScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const user = useUser();
 
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
