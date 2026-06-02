@@ -156,7 +156,13 @@ function buildSearchIndexData(
     brand: brands[0] || null,
     color: colors[0] || null,
     material: materials[0] || null,
-    size: articleData.size ?? null,
+    // Normalize legacy/hybrid sizes to the {value, system} contract before
+    // writing. sanitizeArticleSize preserves an existing object verbatim, maps a
+    // legacy bare string to its back-compat default (system: 'EU' — the same
+    // default used by the callable/trigger, never a hardcoded system at write),
+    // and yields undefined for empty/malformed input → store null (never
+    // undefined to Firestore).
+    size: sanitizeArticleSize(articleData.size) ?? null,
     condition: articleData.condition,
     price: articleData.price,
 
