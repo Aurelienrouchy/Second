@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.foregroundSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
