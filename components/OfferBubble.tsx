@@ -618,6 +618,18 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   );
 };
 
+// 28x28 avatar slot for received offers — matches the status icon size in
+// styles.ts (spacing.lg + spacing.xs = 28) to align with the header rhythm.
+const avatarStyles = StyleSheet.create({
+  otherAvatar: {
+    width: spacing.lg + spacing.xs,
+    height: spacing.lg + spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceWarm,
+    flexShrink: 0,
+  },
+});
+
 // Memoised: rendered inside the chat FlashList, where new messages cause
 // the parent to re-render frequently. Without memo, every existing offer
 // bubble repaints on each new chat message.
