@@ -23,6 +23,7 @@ import { EXITING_TIME } from '@/components/ui/ImmersiveOverlay/constants';
 import { SellOverlayCapture } from '@/features/sell';
 import DraftResumeModal from '@/components/DraftResumeModal';
 import draftService, { ArticleDraft } from '@/services/draftService';
+import { AuthService } from '@/services/authService';
 import { colors, fonts, radius } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
 import { useAuthStore } from '@/store/authStore';
