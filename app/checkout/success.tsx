@@ -141,7 +141,7 @@ export default function CheckoutSuccessScreen() {
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Total payé</Text>
                   <Text style={[styles.summaryValue, styles.summaryPrice]}>
-                    {formatPrice(parseFloat(totalAmount || '0'))}
+                    {formatPriceWithCurrency(parseFloat(totalAmount || '0'))}
                   </Text>
                 </View>
               )}
