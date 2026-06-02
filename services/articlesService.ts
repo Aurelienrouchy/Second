@@ -748,6 +748,7 @@ export class ArticlesService {
       snap.forEach((docSnap: QueryDocumentSnapshot) => {
         const data = docSnap.data();
         if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return;
+        if (!matchesShopAttributes(data)) return;
         if (!this.matchesClientSideFilters(data, filters)) return;
 
         matches.push({
