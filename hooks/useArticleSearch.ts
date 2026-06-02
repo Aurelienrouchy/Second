@@ -257,7 +257,8 @@ export function useArticleSearch({
   return {
     articles,
     filters,
-    searchQuery,
+    // The query actually driving results (debounced, or forced on commit).
+    searchQuery: activeSearchQuery,
     selectedCategoryPath,
     isLoading,
     isPaginating: isFetchingNextPage,
@@ -267,7 +268,8 @@ export function useArticleSearch({
     isError: !!queryError,
     refetch,
     setFilters: setFiltersSafe,
-    setSearchQuery,
+    setSearchQuery: updateSearchQuery,
+    commitSearchQuery,
     setSelectedCategoryPath,
     loadMore,
     clearAllFilters,
