@@ -138,7 +138,7 @@ export function useArticleSearch({
     staleTime: SEARCH_STALE_TIME,
     retry: 3,
     enabled: Boolean(
-      debouncedSearchQuery.trim() ||
+      activeSearchQuery.trim() ||
       selectedCategoryPath.length > 0 ||
       hasNonDefaultFilters ||
       sellerId
