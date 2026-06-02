@@ -158,6 +158,21 @@ export default function ShopDetailScreen() {
     );
   }
 
+  // Seules les boutiques approuvées sont visibles publiquement. Les boutiques en
+  // attente, rejetées ou suspendues affichent un écran « indisponible » (et donc
+  // aucune action de contact n'est exposée).
+  if (shop.status !== 'approved') {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Boutique" onBack={() => router.back()} />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.muted} />
+          <Text style={styles.errorText}>Boutique indisponible</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScreenHeader title={shop.name} onBack={() => router.back()} />
