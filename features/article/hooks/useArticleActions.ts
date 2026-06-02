@@ -55,13 +55,18 @@ export function useArticleActions({
   const handleToggleFavorite = useCallback(() => {
     if (!article) return;
     if (article.isSold) return;
-    Haptics.notificationAsync(
-      isFavorite(article.id)
-        ? Haptics.NotificationFeedbackType.Warning
-        : Haptics.NotificationFeedbackType.Success
-    );
     requireAuth(
-      () => toggleFavorite(article.id),
+      () => {
+        // Play the favorite haptic only once the user is authenticated, so a
+        // guest tapping the heart does not feel a "success" cue before the
+        // auth sheet appears.
+        Haptics.notificationAsync(
+          isFavorite(article.id)
+            ? Haptics.NotificationFeedbackType.Warning
+            : Haptics.NotificationFeedbackType.Success
+        );
+        toggleFavorite(article.id);
+      },
       AUTH_MESSAGES.like
     );
   }, [article, isFavorite, requireAuth, toggleFavorite]);
