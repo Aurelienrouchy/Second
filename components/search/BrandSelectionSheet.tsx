@@ -409,19 +409,30 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         : selectedBrands.includes(item.label);
       return (
         <TouchableOpacity
-          style={[styles.brandItem, isSelected && styles.brandItemSelected]}
+          style={[
+            styles.brandItem,
+            darkMode && { borderBottomColor: colors.darkBorder },
+            isSelected && (darkMode ? { backgroundColor: colors.darkSurface1 } : styles.brandItemSelected),
+          ]}
           onPress={() => toggleBrand(item.label)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.brandItemText, isSelected && styles.brandItemTextSelected]}>
+          <Text
+            style={[
+              styles.brandItemText,
+              darkMode && { color: colors.cream },
+              isSelected && styles.brandItemTextSelected,
+              isSelected && darkMode && { color: colors.cream },
+            ]}
+          >
             {item.label}
           </Text>
           {isSelected && (
-            <Ionicons name="checkmark" size={18} color={colors.charcoal} />
+            <Ionicons name="checkmark" size={18} color={darkMode ? colors.cream : colors.charcoal} />
           )}
         </TouchableOpacity>
       );
-    }, [selectedBrands, selectedBrand, singleSelect, toggleBrand]);
+    }, [selectedBrands, selectedBrand, singleSelect, toggleBrand, darkMode]);
 
     if (!mounted) return null;
 
