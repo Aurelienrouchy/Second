@@ -95,12 +95,18 @@ export const incrementProductView = onCall(
 });
 
 /**
- * Toggle article like/unlike
+ * Toggle article like/unlike.
  *
- * Updates atomically in a single transaction:
- * 1. articles/{productId} — likes counter + likedBy array + favoritesCount
- * 2. search_index/{productId} — likes for ranking
- * 3. favorites/{userId} — articleIds array (unified structure)
+ * Canonical write contract (P1-3 / P1-4): the `favorites/{userId}.articleIds`
+ * array is the single source of truth. The `onArticleFavorited` trigger reacts
+ * to changes on that array and is the ONLY writer of the article engagement
+ * counters (`favoritesCount` / `likes`) and the `search_index` likes, via
+ * `FieldValue.increment`. This callable therefore mutates ONLY the favorites
+ * doc — writing the counters here too would double-count against the trigger.
+ *
+ * The standard client path is `toggleFavorite` (which writes the same favorites
+ * doc directly). This callable is kept as a server-side equivalent and must
+ * stay aligned with that contract.
  */
 export const toggleProductLike = onCall({ region: 'northamerica-northeast1', memory: '512MiB' }, async (request) => {
   const { productId, isLiked } = request.data;
@@ -119,65 +125,20 @@ export const toggleProductLike = onCall({ region: 'northamerica-northeast1', mem
   const userId = request.auth.uid;
 
   try {
-    const articleRef = db.collection('articles').doc(productId);
-    const searchIndexRef = db.collection('search_index').doc(productId);
     const favoritesRef = db.collection('favorites').doc(userId);
 
-    await db.runTransaction(async (transaction) => {
-      const articleDoc = await transaction.get(articleRef);
-
-      if (!articleDoc.exists) {
-        throw new HttpsError('not-found', 'Article not found');
-      }
-
-      const articleData = articleDoc.data()!;
-      const currentLikes = articleData.likes || 0;
-      const likedBy: string[] = articleData.likedBy || [];
-
-      let newLikes = currentLikes;
-      let newLikedBy = [...likedBy];
-
-      if (isLiked && !likedBy.includes(userId)) {
-        newLikes = currentLikes + 1;
-        newLikedBy.push(userId);
-      } else if (!isLiked && likedBy.includes(userId)) {
-        newLikes = Math.max(0, currentLikes - 1);
-        newLikedBy = likedBy.filter((id: string) => id !== userId);
-      }
-
-      // 1. Update article likes + likedBy + favoritesCount
-      transaction.update(articleRef, {
-        likes: newLikes,
-        likedBy: newLikedBy,
-        favoritesCount: newLikes,
-      });
-
-      // 2. Update search index for ranking (set+merge in case doc doesn't exist yet)
-      transaction.set(searchIndexRef, { likes: newLikes }, { merge: true });
-
-      // 3. Unified favorites — articleIds array only
-      if (isLiked) {
-        transaction.set(
-          favoritesRef,
-          {
-            userId,
-            articleIds: FieldValue.arrayUnion(productId),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-      } else {
-        transaction.set(
-          favoritesRef,
-          {
-            userId,
-            articleIds: FieldValue.arrayRemove(productId),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-    });
+    // Favorites doc only — arrayUnion/arrayRemove are idempotent, so no read is
+    // needed. The onArticleFavorited trigger owns counter propagation.
+    await favoritesRef.set(
+      {
+        userId,
+        articleIds: isLiked
+          ? FieldValue.arrayUnion(productId)
+          : FieldValue.arrayRemove(productId),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
 
     return { success: true, message: 'Like status updated' };
   } catch (error) {
