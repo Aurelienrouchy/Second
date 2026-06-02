@@ -23,8 +23,15 @@ export interface UseSellerLikesReturn {
   error: Error | null;
 }
 
+// Minimal shape needed to keep the liked-sellers list in sync. The full list
+// items carry more fields, but we only need the id to filter on unlike.
+interface LikedSellerItem {
+  id: string;
+}
+
 interface ToggleContext {
   previous: string[] | undefined;
+  previousList: LikedSellerItem[] | undefined;
 }
 
 // =============================================================================
