@@ -131,10 +131,16 @@ const SwapItemSelector: React.FC<SwapItemSelectorProps> = ({
             // @ts-expect-error estimatedItemSize valid at runtime
             estimatedItemSize={180}
             contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="cube-outline" size={48} color={colors.muted} />
+                <Text style={styles.emptyText}>Aucun article disponible</Text>
+              </View>
+            }
           />
 
           {/* Bottom sticky bar */}
-          <View style={styles.bottomBar}>
+          <View style={[styles.bottomBar, { paddingBottom: spacing.lg + insets.bottom }]}>
             <View style={styles.bottomBarInfo}>
               <Text style={styles.bottomBarLabel}>
                 {selectedItems.length} article{selectedItems.length !== 1 ? 's' : ''} sélectionnés
