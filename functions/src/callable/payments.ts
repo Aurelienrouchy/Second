@@ -1814,6 +1814,16 @@ export const getStripeAccountStatus = onCall(
 // =============================================================================
 
 export const findPickupPoints = onCall({ region: 'northamerica-northeast1', memory: '512MiB', secrets: ['SHIPENGINE_API_KEY'] }, async (request) => {
+  // Rate limit: PUDO search hits the paid ShipEngine API on every call.
+  // Unauthenticated cap stays at 0; authenticated callers get a browsing rate.
+  const { callerKey, isAuthenticated } = resolveCallerKey(request);
+  await checkRateLimit(callerKey, isAuthenticated, {
+    functionName: 'findPickupPoints',
+    maxCallsAuthenticated: 30,
+    maxCallsUnauthenticated: 0,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  });
+
   const { postalCode } = request.data;
 
   if (!postalCode) {
