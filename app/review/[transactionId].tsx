@@ -28,13 +28,55 @@ import {
 import { ScreenHeader } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
 import { createReview } from '@/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
 import { UserService } from '@/services/userService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import type { Article, Transaction, User } from '@/types';
+
+// =============================================================================
+// ERROR MAPPING
+// =============================================================================
+
+/**
+ * Resolve a Firebase callable error into a stable code suffix.
+ * httpsCallable wraps the server HttpsError into a FirebaseError with
+ * code = "functions/<code>" (e.g. "functions/already-exists").
+ */
+function getCallableErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+  }
+  return null;
+}
+
+/**
+ * Map a failed `createReview` call to user-facing copy.
+ * Codes mirror `functions/src/callable/reviews.ts`.
+ */
+function getReviewErrorMessage(error: unknown): string {
+  const code = getCallableErrorCode(error);
+  switch (code) {
+    case 'functions/already-exists':
+      return 'Vous avez deja laisse un avis pour cette transaction.';
+    case 'functions/failed-precondition':
+      // Either the transaction is not yet terminal or the 60-day window expired;
+      // the server message disambiguates, but the action is the same.
+      return "La periode pour laisser un avis est expiree ou la transaction n'est pas encore terminee.";
+    case 'functions/permission-denied':
+      return "Vous n'etes pas autorise a evaluer cette transaction.";
+    case 'functions/invalid-argument':
+      return 'Votre avis contient des informations invalides. Veuillez le reformuler.';
+    case 'functions/not-found':
+      return 'Transaction introuvable.';
+    default:
+      return 'Une erreur est survenue. Veuillez reessayer.';
+  }
+}
 
 // =============================================================================
 // STAR RATING COMPONENT
