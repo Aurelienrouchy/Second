@@ -452,7 +452,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
         <View style={styles.headerContainer}>
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>Marques</Text>
+              <Text style={[styles.title, darkMode && { color: colors.cream }]}>Marques</Text>
               {selectedBrands.length > 0 && (
                 <View style={styles.countBadge}>
                   <Text style={styles.countBadgeText}>{selectedBrands.length}</Text>
@@ -464,20 +464,25 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={styles.closeButton}
             >
-              <Ionicons name="close" size={22} color={colors.charcoal} />
+              <Ionicons name="close" size={22} color={textColor} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, darkMode && { backgroundColor: colors.darkBorder }]} />
 
           {/* ── Search bar ── */}
-          <View style={styles.searchContainer}>
-            <Ionicons name="search-outline" size={18} color={colors.muted} style={styles.searchIcon} />
+          <View
+            style={[
+              styles.searchContainer,
+              darkMode && { borderColor: colors.darkBorderStrong },
+            ]}
+          >
+            <Ionicons name="search-outline" size={18} color={mutedColor} style={styles.searchIcon} />
             <BottomSheetTextInput
               ref={inputRef}
-              style={styles.searchInput}
+              style={[styles.searchInput, darkMode && { color: colors.cream }]}
               placeholder="Rechercher une marque..."
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={mutedColor}
               value={searchQuery}
               onChangeText={handleSearch}
               autoCapitalize="words"
@@ -485,7 +490,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => { setSearchQuery(''); setFilteredBrands(brands); }}>
-                <Ionicons name="close" size={18} color={colors.muted} />
+                <Ionicons name="close" size={18} color={mutedColor} />
               </TouchableOpacity>
             )}
           </View>
