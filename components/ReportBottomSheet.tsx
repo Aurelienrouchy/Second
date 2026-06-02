@@ -166,7 +166,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
       >
         <BottomSheetScrollView contentContainerStyle={styles.content}>
             <View style={styles.header}>
-              <Ionicons name="flag" size={24} color="#ff4757" />
+              <Ionicons name="flag" size={24} color={colors.danger} />
               <Text style={styles.title}>{getTitle()}</Text>
             </View>
 
