@@ -195,6 +195,20 @@ export const checkSavedSearchNotifications = onSchedule(
           });
         }
 
+        // Filter by brand (structured `filters.brands`). Articles store a single
+        // `brand` string; mirror the client filter (articlesService
+        // matchesClientSideFilters) which compares with brandK() exact-match
+        // (lowercase + trim) so `Gap` never matches `Gap Kids`. Articles without
+        // a brand are excluded.
+        if (filters.brands && filters.brands.length > 0) {
+          const wantedBrandKeys = filters.brands.map((b) => brandKey(b));
+          matchingArticles = matchingArticles.filter((article: any) => {
+            if (!article.brand) return false;
+            const docKey = brandKey(article.brand as string);
+            return wantedBrandKeys.some((k) => k === docKey);
+          });
+        }
+
         // Filter by materials
         if (filters.materials && filters.materials.length > 0) {
           matchingArticles = matchingArticles.filter((article: any) => {
