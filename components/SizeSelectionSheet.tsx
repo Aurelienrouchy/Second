@@ -60,10 +60,10 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
-    // Internal selection is value-only and always scoped to the active system —
-    // the sheet wraps each value into { value, system } at confirm time.
-    const [localSelectedSizes, setLocalSelectedSizes] = React.useState<string[]>(
-      selectedSizes.map((s) => s.value)
+    // Selections are tracked per system so switching US/EU never wipes the
+    // other system — each value is wrapped into { value, system } at confirm.
+    const [selectionsBySystem, setSelectionsBySystem] = React.useState<Record<SizeSystem, string[]>>(
+      () => groupBySystem(selectedSizes)
     );
     const [sizeSystem, setSizeSystem] = React.useState<SizeSystem>(
       selectedSizes[0]?.system ?? 'EU'
@@ -73,14 +73,17 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
     // never leak a residual veil when closed (gorhom #701 on New Architecture).
     const [mounted, setMounted] = React.useState(false);
 
+    // Selection scoped to the active system, used for rendering the grid.
+    const localSelectedSizes = selectionsBySystem[sizeSystem];
+    // Total across both systems — drives the confirm/header counters.
+    const totalSelectedCount = selectionsBySystem.US.length + selectionsBySystem.EU.length;
+
     useImperativeHandle(ref, () => ({
       show: () => {
-        // Align the active system to the existing selection so values aren't lost.
-        const system = selectedSizes[0]?.system ?? sizeSystem;
-        setSizeSystem(system);
-        setLocalSelectedSizes(
-          selectedSizes.filter((s) => s.system === system).map((s) => s.value)
-        );
+        // Restore every system's selection so switching tabs keeps both sets.
+        setSelectionsBySystem(groupBySystem(selectedSizes));
+        // Focus the system carrying existing selections, falling back to current.
+        setSizeSystem(selectedSizes[0]?.system ?? sizeSystem);
         setMounted(true);
       },
       hide: () => bottomSheetRef.current?.close(),
@@ -88,18 +91,19 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
 
     const handleSizeToggle = useCallback((size: string) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setLocalSelectedSizes(prev => {
-        if (prev.includes(size)) {
-          return prev.filter(s => s !== size);
-        }
-        return [...prev, size];
+      setSelectionsBySystem(prev => {
+        const current = prev[sizeSystem];
+        const next = current.includes(size)
+          ? current.filter(s => s !== size)
+          : [...current, size];
+        return { ...prev, [sizeSystem]: next };
       });
-    }, []);
+    }, [sizeSystem]);
 
     const handleSystemChange = useCallback((newSystem: SizeSystem) => {
       if (newSystem !== sizeSystem) {
+        // Only switch the active system — the other system's selection is kept.
         setSizeSystem(newSystem);
-        setLocalSelectedSizes([]);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }, [sizeSystem]);
@@ -107,18 +111,22 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
     const handleDemographicChange = useCallback((newDemographic: SizeDemographic) => {
       if (newDemographic !== demographic) {
         setDemographic(newDemographic);
-        setLocalSelectedSizes([]);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }, [demographic]);
 
     const handleConfirm = useCallback(() => {
-      onConfirm(localSelectedSizes.map((value) => ({ value, system: sizeSystem })));
+      // Merge both systems into a single ArticleSize[] carrying each system.
+      const merged: ArticleSize[] = [
+        ...selectionsBySystem.US.map((value) => ({ value, system: 'US' as const })),
+        ...selectionsBySystem.EU.map((value) => ({ value, system: 'EU' as const })),
+      ];
+      onConfirm(merged);
       bottomSheetRef.current?.close();
-    }, [onConfirm, localSelectedSizes, sizeSystem]);
+    }, [onConfirm, selectionsBySystem]);
 
     const handleClear = useCallback(() => {
-      setLocalSelectedSizes([]);
+      setSelectionsBySystem({ US: [], EU: [] });
     }, []);
 
     const renderBackdrop = useCallback(
