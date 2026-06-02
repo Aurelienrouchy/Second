@@ -73,7 +73,9 @@ export const onUserProfileUpdated = onDocumentUpdated(
       if (batchCount > 0) await batch.commit();
     }
 
-    // 2. Update participantsInfo[uid] in all chats where user participates
+    // 2. Update participantsInfo[uid] in all chats where user participates.
+    //    participantsInfo is always an array of { userId, userName, userImage }
+    //    (chatService writes only this shape; the client reads it with .find).
     const chatsSnap = await db
       .collection('chats')
       .where('participants', 'array-contains', uid)
@@ -101,17 +103,6 @@ export const onUserProfileUpdated = onDocumentUpdated(
             batchCount++;
             chatsUpdated++;
           }
-        } else if (info && typeof info === 'object' && info[uid]) {
-          const updatedInfo = { ...info };
-          if (nameChanged) updatedInfo[uid] = { ...updatedInfo[uid], userName: newName };
-          if (imageChanged) updatedInfo[uid] = { ...updatedInfo[uid], profileImage: newImage };
-
-          batch.update(doc.ref, {
-            participantsInfo: updatedInfo,
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-          batchCount++;
-          chatsUpdated++;
         }
 
         if (batchCount >= 499) {
