@@ -353,6 +353,8 @@ export default function PhotosReviewScreen() {
   // No auto-redirect — user reviews photos and clicks "Continuer" manually
 
   const handleManualEntry = () => {
+    // Abandon any running analysis when the user opts for manual entry.
+    abortControllerRef.current?.abort();
     const mockResult = createMockAIResult();
     router.push({
       pathname: '/sell/details',
