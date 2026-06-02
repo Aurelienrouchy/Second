@@ -592,12 +592,21 @@ export const createTransaction = onCall(
     // invariant; this only blocks fabricated low amounts).
     //
     // Reads are OUTSIDE runTransaction (no I/O inside a Firestore transaction).
+    //
+    // Buyer-fee reduction (Paid shop model, P1-1): resolved here, server-side,
+    // from the SELLER's approved shop tier (never the client). The reduction
+    // lowers ONLY the buyer protection fee — the seller still receives 100% of
+    // the article price. It is deterministic once resolved, so it is applied
+    // inside runTransaction below without any further I/O. Defaults to 0 (full
+    // fee) when the seller has no approved shop / on any lookup failure.
+    let buyerFeeReduction = 0;
     {
       const articlePriceSnap = await articleRef.get();
       if (!articlePriceSnap.exists) {
         throw new HttpsError('not-found', 'Cet article n\'existe plus');
       }
-      const listedPrice = articlePriceSnap.data()!.price;
+      const articlePriceData = articlePriceSnap.data()!;
+      const listedPrice = articlePriceData.price;
       if (typeof listedPrice === 'number' && amount !== listedPrice) {
         const matchedOfferId = await verifyAcceptedOfferForNegotiatedAmount({
           articleId,
@@ -609,6 +618,11 @@ export const createTransaction = onCall(
           articleId, buyerId, amount, listedPrice, matchedOfferId,
         });
       }
+
+      buyerFeeReduction = await resolveBuyerFeeReduction({
+        shopId: articlePriceData.shopId,
+        sellerId: articlePriceData.sellerId,
+      });
     }
 
     // --- Server-side shipping re-pricing (never trust client shippingCost) ----
