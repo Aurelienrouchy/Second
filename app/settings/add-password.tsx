@@ -133,6 +133,8 @@ export default function AddPasswordScreen() {
                   placeholderTextColor={colors.muted}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  textContentType="newPassword"
+                  autoComplete="new-password"
                 />
                 <Pressable
                   onPress={() => setShowPassword(!showPassword)}
