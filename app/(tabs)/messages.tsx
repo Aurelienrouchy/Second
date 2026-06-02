@@ -97,19 +97,17 @@ export default function MessagesScreen() {
     [user],
   );
 
-  // Pick the best default tab once chats are loaded: land on the first
-  // non-empty tab in display order (ventes → achats → autres).
-  useEffect(() => {
-    if (!hasSetInitialTab.current && chats.length > 0 && user) {
-      const firstNonEmpty = CONVERSATION_TABS.find((tab) =>
-        chats.some((c) => getConversationType(c) === tab),
-      );
-      if (firstNonEmpty) {
-        setActiveTab(firstNonEmpty);
-      }
-      hasSetInitialTab.current = true;
-    }
-  }, [chats, user, getConversationType]);
+  // Default tab, derived synchronously at render (no effect, no flash): the
+  // first non-empty tab in display order (ventes → achats → autres). The
+  // user's explicit pick always wins once set.
+  const defaultTab = useMemo<ConversationType>(() => {
+    const firstNonEmpty = CONVERSATION_TABS.find((tab) =>
+      chats.some((c) => getConversationType(c) === tab),
+    );
+    return firstNonEmpty ?? 'ventes';
+  }, [chats, getConversationType]);
+
+  const activeTab = pickedTab ?? defaultTab;
 
   const handleChatPress = useCallback(
     (chatId: string) => {
