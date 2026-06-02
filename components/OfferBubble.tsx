@@ -230,9 +230,11 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
 
     if (!onCounterTime) return;
 
-    // Try to parse user input — accept common Canadian-FR formats
-    const parsed = new Date(raw);
-    if (isNaN(parsed.getTime())) {
+    // Parse the documented `AAAA-MM-JJ HH:MM` format explicitly. `new Date(string)`
+    // is implementation-defined for non-ISO inputs (engine-dependent, can silently
+    // misparse), so we validate the shape and build the Date from numeric parts.
+    const parsed = parseMeetupDateTime(raw);
+    if (!parsed) {
       Alert.alert(
         'Format invalide',
         'Veuillez entrer une date au format "AAAA-MM-JJ HH:MM" (ex: 2026-06-01 14:30).',
