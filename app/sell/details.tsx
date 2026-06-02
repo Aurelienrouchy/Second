@@ -46,6 +46,7 @@ interface EditedFields {
 
 export default function DetailsScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
