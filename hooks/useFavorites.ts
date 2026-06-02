@@ -145,12 +145,20 @@ async function toggleFavoriteMutation({
   articleId,
   isCurrentlyFav,
   userId,
+  articleMeta,
 }: {
   articleId: string;
   isCurrentlyFav: boolean;
   userId: string | null;
+  // Enriched meta (brand/size/price/category) when the liked article is in
+  // cache — lets the guest tracker feed on-device recommendations. Undefined
+  // for unlikes (only the id is needed) or when the article isn't cached.
+  articleMeta: Article | undefined;
 }): Promise<void> {
   if (userId) {
+    // Writes ONLY the favorites doc. `articles.favoritesCount`, `articles.likes`
+    // and `search_index.likes` are maintained by the onArticleFavorited trigger
+    // (canonical writer) — writing them here too would double-count.
     const ref = doc(firestore, 'favorites', userId);
     if (isCurrentlyFav) {
       await updateDoc(ref, {
@@ -175,6 +183,13 @@ async function toggleFavoriteMutation({
       ? current.filter((id) => id !== articleId)
       : [...current, articleId];
     await saveLocal(next);
+
+    // Feed the on-device guest preference tracker so recommendations improve.
+    if (isCurrentlyFav) {
+      await guestPreferencesService.removeLike(articleId);
+    } else if (articleMeta) {
+      await guestPreferencesService.trackLike(toArticleMeta(articleMeta));
+    }
   }
 }
 
