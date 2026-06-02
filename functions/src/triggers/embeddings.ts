@@ -256,6 +256,13 @@ export const generateEmbeddingOnCreate = onDocumentCreated(
 
     if (!article) return;
 
+    // Mirror the search_index filter (P3-8): never embed inactive or rejected
+    // articles. (`moderationStatus` absent === legacy approved.)
+    if (!article.isActive || article.moderationStatus === 'rejected') {
+      logger.info('[embeddings] Inactive/rejected new article, skipping', { articleId });
+      return;
+    }
+
     // Only process active articles with images
     if (!article.images?.[0]?.url) {
       logger.info('[embeddings] No image for new article, skipping', { articleId });
