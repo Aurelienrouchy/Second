@@ -212,7 +212,7 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
                 <TextInput
                   style={styles.descriptionInput}
                   placeholder="Décrivez le problème en détail..."
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.muted}
                   multiline
                   numberOfLines={4}
                   value={description}
