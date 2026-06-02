@@ -42,6 +42,11 @@ import type { Article } from '@/types';
 
 const STORAGE_KEY = 'user_favorites';
 
+// Mirror of the Firestore rule cap (firestore.rules: favorites/{userId} →
+// articleIds.size() <= 500). Guarding client-side avoids a silent write
+// rejection + optimistic rollback with no user feedback once the cap is hit.
+const FAVORITES_CAP = 500;
+
 export const favoritesKeys = {
   all: ['favorites'] as const,
   ids: (userId: string | null) => [...favoritesKeys.all, 'ids', userId] as const,
