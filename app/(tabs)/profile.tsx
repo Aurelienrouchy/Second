@@ -154,6 +154,14 @@ export default function ProfileScreen() {
         action: () => router.push('/(tabs)/favorites'),
       },
       {
+        id: 'liked-sellers',
+        title: 'Vendeurs aimés',
+        icon: 'people-outline',
+        iconColor: colors.sage,
+        iconBg: colors.sageLight,
+        action: () => router.push('/liked-sellers'),
+      },
+      {
         id: 'saved-searches',
         title: 'Recherches sauvegardées',
         icon: 'bookmark-outline',
