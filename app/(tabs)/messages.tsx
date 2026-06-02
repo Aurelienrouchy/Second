@@ -53,6 +53,8 @@ export default function MessagesScreen() {
   const { chats, isLoading, error } = useChats(user?.id || null);
   const [activeTab, setActiveTab] = useState<ConversationType>('ventes');
   const hasSetInitialTab = useRef(false);
+  // Tab bar is absolute on iOS — pad the list so the last row clears it.
+  const tabBarHeight = useBottomTabOverflow();
 
   // Blocked users — same query key as the settings screen so the cache is
   // shared. Used to flag (not hide) conversations with a blocked counterpart
