@@ -20,8 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Pressable,
   RefreshControl,
