@@ -437,7 +437,7 @@ export function useNotificationSetup(userId: string | null): void {
       responseSub.remove();
       tokenSub.remove();
     };
-  }, [userId, refreshBadgeCount, registerPushToken, setSetupComplete, setPushToken]);
+  }, [userId, refreshBadgeCount, registerPushToken, setSetupComplete, setPushToken, incrementUnreadCount]);
 
   // ── Expose unregister for logout (via store or callback) ──
   // The AuthContext can call useNotificationStore.getState().reset()
