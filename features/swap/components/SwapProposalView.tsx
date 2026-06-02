@@ -116,7 +116,7 @@ export const SwapProposalView = React.memo(function SwapProposalView({
           youGive={myItems.map((item) => item.title).join(', ')}
           receivedItems={senderItems}
           givenItems={myItems}
-          cashSupplement={cashTopUp?.amount}
+          cashSupplement={cashTopUpDollars}
         />
       </View>
     </>
