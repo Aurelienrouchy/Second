@@ -161,7 +161,7 @@ export {
 // ============================================================
 
 // Product Triggers
-export { updateSearchIndex, updateUserStats } from './triggers/products';
+export { updateSearchIndex, updateUserStats, updateShopArticlesCount } from './triggers/products';
 
 // Embedding Triggers
 export { generateEmbeddingOnCreate, generateEmbeddingOnUpdate } from './triggers/embeddings';
