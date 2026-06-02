@@ -28,6 +28,12 @@ import {
 } from 'firebase/firestore';
 import { firestore } from '@/config/firebaseConfig';
 import { useAuth } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
+import {
+  guestPreferencesService,
+  toArticleMeta,
+} from '@/services/guestPreferencesService';
+import type { Article } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Constants
