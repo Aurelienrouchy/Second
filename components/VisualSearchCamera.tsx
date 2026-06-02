@@ -198,6 +198,7 @@ function VisualSearchCameraComponent({
   // ─── Camera View ────────────────────────────────────────────
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
       <CameraView ref={cameraRef} style={styles.camera} facing={facing}>
         <View style={styles.overlay}>
           {/* Top controls */}
