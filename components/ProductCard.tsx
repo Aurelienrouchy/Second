@@ -533,6 +533,7 @@ export default memo(ProductCard, (prevProps, nextProps) => {
     prevProps.product.images?.[0]?.url === nextProps.product.images?.[0]?.url &&
     prevProps.product.size === nextProps.product.size &&
     prevProps.product.condition === nextProps.product.condition &&
+    prevProps.product.likes === nextProps.product.likes &&
     prevProps.product.isSold === nextProps.product.isSold &&
     prevProps.isLoading === nextProps.isLoading &&
     prevProps.compact === nextProps.compact &&
