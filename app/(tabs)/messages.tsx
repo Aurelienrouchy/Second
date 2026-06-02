@@ -231,17 +231,31 @@ export default function MessagesScreen() {
             size={64}
             color={colors.muted}
           />
-          <Text style={styles.emptyStateTitle}>Aucune conversation</Text>
-          <Text style={styles.emptyStateText}>
-            Vos conversations avec les acheteurs et vendeurs apparaîtront ici
-          </Text>
+          {chats.length === 0 ? (
+            <>
+              <Text style={styles.emptyStateTitle}>Aucune conversation</Text>
+              <Text style={styles.emptyStateText}>
+                Vos conversations avec les acheteurs et vendeurs apparaîtront ici
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.emptyStateTitle}>Rien dans cet onglet</Text>
+              <Text style={styles.emptyStateText}>
+                Aucune conversation dans « {TAB_LABELS[activeTab]} » pour le moment
+              </Text>
+            </>
+          )}
         </View>
       ) : (
         <FlashList
           data={filteredChats}
           renderItem={renderConversation}
           keyExtractor={chatKeyExtractor}
-          contentContainerStyle={styles.conversationsList}
+          contentContainerStyle={[
+            styles.conversationsList,
+            { paddingBottom: tabBarHeight + spacing.sm },
+          ]}
           showsVerticalScrollIndicator={false}
         />
       )}
