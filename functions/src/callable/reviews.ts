@@ -118,8 +118,11 @@ export const createReview = onCall(
       }
       const txData = txDoc.data()!;
 
-      // Only real terminal statuses — 'completed' does not exist in TransactionStatus
-      const terminalStatuses = new Set(['delivered', 'meetup_completed']);
+      // Terminal/completed statuses eligible for reviews:
+      // - 'delivered': shipping order delivered (funds held during dispute window)
+      // - 'completed': shipping order finalized after the dispute window
+      // - 'meetup_completed': both parties confirmed an in-person exchange
+      const terminalStatuses = new Set(['delivered', 'completed', 'meetup_completed']);
       if (!terminalStatuses.has(txData.status)) {
         throw new HttpsError(
           'failed-precondition',
