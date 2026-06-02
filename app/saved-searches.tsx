@@ -30,6 +30,7 @@ import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { SavedSearchService } from '@/services/savedSearchService';
 import type { SavedSearch } from '@/services/savedSearchService';
 import type { SearchFilters } from '@/types';
+import { formatPrice } from '@/utils/formatPrice';
 
 // =============================================================================
 // FILTER SUMMARY HELPERS
