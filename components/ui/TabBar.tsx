@@ -86,11 +86,17 @@ const TabItemComponent: React.FC<TabItemProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.9, animations.spring.snappy);
+    scale.value = withTiming(0.9, {
+      duration: animations.duration.fast,
+      easing: Easing.out(Easing.ease),
+    });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, animations.spring.bouncy);
+    scale.value = withTiming(1, {
+      duration: animations.duration.normal,
+      easing: Easing.out(Easing.ease),
+    });
   }, [scale]);
 
   const handlePress = useCallback(() => {
