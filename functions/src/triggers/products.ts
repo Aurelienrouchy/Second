@@ -48,6 +48,13 @@ export const updateSearchIndex = onDocumentWritten(
         return;
       }
 
+      // Sold articles must leave the search index (P3-14): drop them server-side
+      // instead of relying on 100% client-side masking of `isSold` results.
+      if (articleData.isSold === true) {
+        await db.collection('search_index').doc(articleId).delete();
+        return;
+      }
+
       // Generate geohash for location
       let geohash = '';
       if (articleData.location?.coordinates) {
