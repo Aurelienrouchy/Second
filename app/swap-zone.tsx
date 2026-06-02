@@ -642,6 +642,7 @@ export default function SwapZoneScreen() {
       {openSheet?.name === 'category' && (
         <CategoryBottomSheet
           ref={categorySheetRef}
+          darkMode
           onSelect={(ids) => {
             f.handleCategorySelect(ids);
             closeFilterSheet();
