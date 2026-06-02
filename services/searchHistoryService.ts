@@ -46,8 +46,7 @@ export class SearchHistoryService {
   static async addSearchToHistory(
     userId: string,
     searchQuery: string,
-    filters: Partial<SearchFilters>,
-    resultCount?: number
+    filters: Partial<SearchFilters>
   ): Promise<string> {
     try {
       // Don't save empty searches
