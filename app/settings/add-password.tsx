@@ -114,6 +114,8 @@ export default function AddPasswordScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                textContentType="emailAddress"
+                autoComplete="email"
               />
               <Caption style={styles.helperText}>
                 Cette adresse sera utilisée pour la connexion par mot de passe.
