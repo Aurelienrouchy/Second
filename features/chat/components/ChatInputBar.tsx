@@ -64,11 +64,15 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         onPress={onSend}
         disabled={!canSend}
       >
-        <Ionicons
-          name="arrow-forward"
-          size={18}
-          color={canSend ? colors.cream : colors.muted}
-        />
+        {isSending ? (
+          <ActivityIndicator size="small" color={colors.cream} />
+        ) : (
+          <Ionicons
+            name="arrow-forward"
+            size={18}
+            color={canSend ? colors.cream : colors.muted}
+          />
+        )}
       </Pressable>
     </View>
   );
