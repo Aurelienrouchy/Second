@@ -211,14 +211,16 @@ export function useSearchScreen() {
       item.filters?.maxPrice !== undefined ? String(item.filters.maxPrice) : ''
     );
     setIsSearching(true);
-    setActiveSearchQuery(item.query || '');
-  }, [setActiveSearchQuery, setFilters, setSelectedCategoryPath]);
+    // Tapping a saved search is an explicit commit — bypass the debounce.
+    commitSearchQuery(item.query || '');
+  }, [commitSearchQuery, setFilters, setSelectedCategoryPath]);
 
   const handleTrendingTap = useCallback((query: string) => {
     setSearchQueryLocal(query);
     setIsSearching(true);
-    setActiveSearchQuery(query);
-  }, [setActiveSearchQuery]);
+    // Tapping a trending term is an explicit commit — bypass the debounce.
+    commitSearchQuery(query);
+  }, [commitSearchQuery]);
 
   const handleRecentSearchDelete = useCallback(
     async (item: SearchHistoryItem) => {
