@@ -200,7 +200,8 @@ export const deleteUserAccount = onCall(
     const notifsSnap = await db.collection('notifications').where('userId', '==', uid).get();
     for (const d of notifsSnap.docs) bulkWriter.delete(d.ref);
 
-    // 7. Anonymise chats
+    // 7. Anonymise chats. participantsInfo is always an array of
+    //    { userId, userName, userImage } (chatService writes only this shape).
     const chatsSnap = await db.collection('chats').where('participants', 'array-contains', uid).get();
     for (const d of chatsSnap.docs) {
       const info = d.data().participantsInfo;
@@ -209,11 +210,6 @@ export const deleteUserAccount = onCall(
           p.userId === uid ? { ...p, userName: DELETED_NAME, userImage: null } : p
         );
         bulkWriter.update(d.ref, { participantsInfo: updated, updatedAt: FieldValue.serverTimestamp() });
-      } else if (info && typeof info === 'object') {
-        if (info[uid]) {
-          info[uid] = { ...info[uid], userName: DELETED_NAME, profileImage: null };
-        }
-        bulkWriter.update(d.ref, { participantsInfo: info, updatedAt: FieldValue.serverTimestamp() });
       }
     }
 
