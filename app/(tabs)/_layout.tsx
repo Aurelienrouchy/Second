@@ -249,6 +249,14 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    {Platform.OS === 'ios' && (
+      <DraftResumeModal
+        visible={resumeDraft !== null}
+        draft={resumeDraft}
+        onResume={handleResumeDraft}
+        onDiscard={handleDiscardDraft}
+      />
+    )}
     </ImmersiveOverlay>
   );
 }
