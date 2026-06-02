@@ -353,11 +353,11 @@ export default function AdminShopDetailScreen() {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'approved':
-      return '#34C759';
+      return colors.success;
     case 'rejected':
-      return '#FF3B30';
+      return colors.danger;
     case 'pending':
-      return '#FF9500';
+      return colors.warning;
     case 'suspended':
       return colors.muted;
     default:
