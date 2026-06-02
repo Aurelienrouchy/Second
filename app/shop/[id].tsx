@@ -167,7 +167,7 @@ export default function ShopDetailScreen() {
         <ScreenHeader title="Boutique" onBack={() => router.back()} />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={colors.muted} />
-          <Text style={styles.errorText}>Boutique indisponible</Text>
+          <Text style={styles.unavailableText}>Boutique indisponible</Text>
         </View>
       </View>
     );
