@@ -454,8 +454,10 @@ export class UserService {
       for (const chatDoc of chatsSnapshot.docs) {
         const chatData = chatDoc.data();
         const messagesQuery = query(
-          collection(firestore, 'chats', chatDoc.id, 'messages'),
-          where('senderId', '==', userId)
+          collection(firestore, 'messages'),
+          where('chatId', '==', chatDoc.id),
+          where('senderId', '==', userId),
+          where('participants', 'array-contains', userId)
         );
         const messagesSnapshot = await getDocs(messagesQuery);
         const messages: Record<string, unknown>[] = [];
