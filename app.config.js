@@ -48,6 +48,7 @@ export default {
         "expo-camera",
         {
           "cameraPermission": "Seconde utilise l'appareil photo pour prendre des photos de vos articles à vendre.",
+          "microphonePermission": "Seconde utilise le microphone pour enregistrer le son de vos vidéos d'articles.",
           "recordAudioAndroid": false
         }
       ],
