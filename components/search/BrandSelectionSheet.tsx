@@ -749,6 +749,18 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: 'center',
   },
+  refineContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  refineText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    letterSpacing: 0.2,
+    color: colors.muted,
+    textAlign: 'center',
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
