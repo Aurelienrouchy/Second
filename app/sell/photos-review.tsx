@@ -34,7 +34,7 @@ import {
 } from '@/features/sell';
 import { analyzeProductImage, createMockAIResult } from '@/services/aiService';
 import { AIAnalysisResult, AnalysisPhase, CONDITION_DISPLAY } from '@/types/ai';
-import draftService from '@/services/draftService';
+import draftService, { createEmptyDraft } from '@/services/draftService';
 
 // =============================================================================
 // CONSTANTS & TYPES
