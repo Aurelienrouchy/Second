@@ -513,29 +513,6 @@ export async function getActiveSwaps(userId: string): Promise<Swap[]> {
 }
 
 /**
- * Get user's available items in a party (not swapped and not pending)
- */
-export async function getUserAvailablePartyItems(partyId: string, userId: string): Promise<SwapPartyItem[]> {
-  const itemsRef = collection(firestore, 'swapPartyItems');
-  const q = query(
-    itemsRef,
-    where('partyId', '==', partyId),
-    where('sellerId', '==', userId),
-    where('isSwapped', '==', false)
-  );
-  const snapshot = await getDocs(q);
-
-  const items = snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-    addedAt: d.data().addedAt?.toDate(),
-  })) as SwapPartyItem[];
-
-  // Filter out pending items (those in an active pending swap)
-  return items.filter((item) => !(item as SwapPartyItem & { isPending?: boolean }).isPending);
-}
-
-/**
  * Subscribe to swap updates
  */
 export function subscribeToSwap(
