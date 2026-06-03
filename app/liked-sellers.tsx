@@ -96,6 +96,7 @@ const SellerCard: React.FC<SellerCardProps> = ({
 
   return (
     <AnimatedPressable
+      testID="seller-card"
       entering={FadeInDown.duration(300).delay(index * 60)}
       style={[styles.sellerCard, animatedStyle]}
       onPressIn={handlePressIn}
