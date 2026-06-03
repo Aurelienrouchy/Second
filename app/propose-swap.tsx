@@ -276,7 +276,7 @@ export default function ProposeSwapScreen() {
   const bothSidesSelected = initiatorItems.length > 0 && receiverItems.length > 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <KeyboardAvoidingView style={styles.flex} behavior="height">
