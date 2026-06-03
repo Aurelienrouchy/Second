@@ -131,7 +131,7 @@ function getCriteriaKeyLabel(key: string): string {
  * Renders a single criteria value into a FR-readable string. Booleans become
  * Oui/Non, ISO dates become a localised date, everything else is stringified.
  */
-export function formatCriteriaValue(value: unknown, locale: string): string {
+function formatCriteriaValue(value: unknown, locale: string): string {
   if (typeof value === 'boolean') {
     return value ? 'Oui' : 'Non';
   }
