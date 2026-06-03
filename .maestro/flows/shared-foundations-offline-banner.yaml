@@ -1,0 +1,46 @@
+# shared-foundations — Offline banner (résilience réseau)
+#
+# Couvre la fondation transverse useNetworkStatus → OfflineBanner :
+# quand la connectivité tombe, une bannière "Vous êtes hors connexion" doit
+# s'afficher en haut de l'app ; quand elle revient, la bannière disparaît.
+#
+# C'est le parcours utilisateur clé de ce domaine : aucune autre feature ne le
+# teste, et c'est le seul retour visuel global de l'état réseau. On pilote la
+# connectivité via le mode avion du simulateur/émulateur.
+#
+# testID ajouté à OfflineBanner : `offline-banner` (cf. liste 'deferred' du
+# rapport — was absent avant ce flow). Le texte FR sert d'assertion de secours.
+appId: com.seconde.app
+---
+# Démarrage à froid, en ligne. On ne clear PAS l'état pour éviter de retomber
+# sur l'onboarding ; on veut juste une surface peinte avec le réseau actif.
+- launchApp
+
+# En ligne au boot : la bannière hors-ligne ne doit pas être visible.
+- assertNotVisible:
+    id: "offline-banner"
+
+# Coupe le réseau (mode avion).
+- setAirplaneMode:
+    enabled: true
+
+# La bannière glisse depuis le haut ; on attend (animation withTiming ~250ms +
+# propagation expo-network) avant d'asserter.
+- extendedWaitUntil:
+    visible:
+      id: "offline-banner"
+    timeout: 10000
+
+# Vérifie aussi la copie FR exacte (contrat UX du domaine).
+- assertVisible:
+    text: "Vous êtes hors connexion"
+
+# Rétablit la connectivité.
+- setAirplaneMode:
+    enabled: false
+
+# La bannière doit se rétracter une fois le réseau revenu.
+- extendedWaitUntil:
+    notVisible:
+      id: "offline-banner"
+    timeout: 10000

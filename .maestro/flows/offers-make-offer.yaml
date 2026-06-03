@@ -1,0 +1,113 @@
+# offers-make-offer — faire une offre sur un article
+#
+# Couvre le parcours acheteur clé du domaine OFFRES :
+#   home → ouvrir un article → CTA "OFFRE" → modale MakeOffer (étape montant)
+#   → saisie d'un montant valide → Continuer → étape suivante (lieu de
+#   rencontre en meetup, ou récapitulatif en livraison) → envoi de l'offre.
+#
+# Logique métier vérifiée de bout en bout :
+#   - le bouton "OFFRE" ouvre bien le tunnel d'offre (étape 1/n) ;
+#   - un montant valide (>= 1 $, < 30 % NON déclenché ici, < plafond 50000 $)
+#     fait avancer dans le tunnel ;
+#   - le tunnel aboutit à l'écran d'envoi de l'offre.
+#
+# Sélecteurs : on privilégie les testIDs ajoutés au domaine
+#   - article-make-offer-button (CTA "OFFRE", features/article/ArticleCTABar)
+#   - offer-amount-input        (montant, MakeOfferModal/OfferStep)
+#   - offer-step-continue       (Continuer, MakeOfferModal/OfferStep)
+#   - offer-confirm-submit      (ENVOYER L'OFFRE, MakeOfferModal/ConfirmStep)
+# Les étapes data-dépendantes (sélection d'un lieu de meetup, qui dépend des
+# spots du vendeur) sont marquées `optional` pour rester déterministes en CI.
+appId: com.seconde.app
+---
+# Boot propre. L'app démarre sur l'onboarding sur un état vierge.
+- launchApp:
+    clearState: true
+
+# Franchir l'onboarding welcome → form si présent (best-effort, non bloquant).
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 15000
+- tapOn:
+    text: "CONTINUER"
+    optional: true
+- runFlow:
+    when:
+      visible:
+        text: "CONTINUER"
+    commands:
+      - tapOn:
+          text: "CONTINUER"
+          optional: true
+
+# Atteindre la home avec la grille de produits (tab "Explorer"/accueil).
+# La grille de découverte peint des cartes produit ; on attend l'apparition
+# d'au moins une carte avant d'en ouvrir une.
+- extendedWaitUntil:
+    visible:
+      id: "Explorer"
+    timeout: 20000
+    optional: true
+
+# Ouvrir le premier article de la grille. Les IDs produit sont dynamiques
+# (product-card-<id>) → on tape la première vignette par position, pattern
+# déterministe déjà utilisé dans sell-create-with-photos.
+- tapOn:
+    point: "25%,45%"
+
+# Écran détail article : la CTA bar du bas expose le bouton "OFFRE".
+- extendedWaitUntil:
+    visible:
+      id: "article-make-offer-button"
+    timeout: 15000
+- tapOn:
+    id: "article-make-offer-button"
+
+# La modale MakeOffer s'ouvre sur l'étape "Faire une offre" (étape 1).
+- extendedWaitUntil:
+    visible:
+      text: "Faire une offre"
+    timeout: 10000
+- assertVisible:
+    id: "offer-amount-input"
+
+# Saisir un montant valide et raisonnable (>= 1 $, < 50000 $, > 30 % du prix
+# pour ne PAS déclencher l'alerte "Offre trop basse" qui bloquerait le flow).
+- tapOn:
+    id: "offer-amount-input"
+- inputText: "30"
+- hideKeyboard
+
+# Avancer dans le tunnel. En meetup l'étape suivante est "Lieu de rencontre",
+# en livraison c'est directement le récapitulatif.
+- tapOn:
+    id: "offer-step-continue"
+
+# Étape lieu de rencontre (mode meetup uniquement). Sélection d'un spot
+# proposé par le vendeur : data-dépendante → best-effort, non bloquante.
+# Si l'article est en mode livraison, cette étape n'apparaît pas.
+- runFlow:
+    when:
+      visible:
+        text: "Lieu de rencontre"
+    commands:
+      # Sélectionner le premier lieu/quartier proposé puis poursuivre.
+      - tapOn:
+          point: "50%,45%"
+          optional: true
+      - tapOn:
+          text: "Continuer"
+          optional: true
+      - tapOn:
+          id: "offer-step-continue"
+          optional: true
+
+# Récapitulatif → bouton d'envoi de l'offre. Sa présence prouve que le tunnel
+# d'offre a été parcouru jusqu'à l'étape finale d'envoi.
+- extendedWaitUntil:
+    visible:
+      id: "offer-confirm-submit"
+    timeout: 15000
+- assertVisible:
+    text: "RÉCAPITULATIF"

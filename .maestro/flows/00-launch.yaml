@@ -1,0 +1,42 @@
+# 00 — Launch smoke test
+#
+# Cold-starts the app from a clean state and asserts the first user-facing
+# surface renders. On a fresh install (cleared state) the router sends the
+# user to the onboarding *welcome* screen (app/onboarding.tsx → showWelcome),
+# which shows the "Seconde" brand title and a "CONTINUER" CTA before the
+# size-collection form.
+#
+# This is the canonical "the app boots and paints something interactive"
+# check. Assertions use visible copy because the onboarding welcome root and
+# its CTA do not yet carry stable testIDs (tracked in README "Missing testIDs").
+appId: com.seconde.app
+---
+# Fresh boot: clearState wipes AsyncStorage so ONBOARDING_COMPLETED_KEY is
+# unset and the app deterministically lands on onboarding, regardless of any
+# prior run on the device/simulator.
+- launchApp:
+    clearState: true
+
+# Reanimated FadeInDown/FadeIn intros stagger up to ~400ms; wait (up to 15s)
+# for the brand title before asserting so the test is not animation-flaky.
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 15000
+
+# The welcome CTA — Button renders its text as the accessibility label, so it
+# is matchable by visible copy.
+- assertVisible:
+    text: "CONTINUER"
+
+# Confirm the cold-start path is interactive: advancing past the welcome screen
+# reveals the onboarding size-collection form (proves navigation works, not
+# just a static first paint).
+- tapOn:
+    text: "CONTINUER"
+
+# The form screen header — proves the welcome → form transition landed.
+- extendedWaitUntil:
+    visible:
+      text: "Parle-nous de toi"
+    timeout: 10000

@@ -1,0 +1,107 @@
+# buy-checkout-meetup — parcours d'achat en remise en main propre
+#
+# Domaine achat-paiement. Couvre le parcours clé acheteur SANS paiement carte :
+#   page article → CTA Acheter → écran "Commander" (choix du mode de livraison)
+#   → mode "Remise en main propre" → écran "Lieu de rencontre" → option
+#   "À convenir par messagerie" → confirmation du meetup → écran de succès.
+#
+# Pourquoi le meetup (et non le paiement carte) :
+#   - Déterministe en CI : aucune feuille Stripe native ni vraie carte requise.
+#   - Le meetup crée bien une transaction (createMeetupTransaction → callable
+#     createTransaction) + un chat + une offre meetup, puis route vers /success.
+#   - C'est le seul mode toujours disponible (SHIPPING_ENABLED peut être off ;
+#     dans ce cas le CTA article devient "PROPOSER UN ACHAT" mais aboutit au
+#     même écran "Commander" → meetup).
+#
+# Pré-requis device/simulateur :
+#   - Un utilisateur connecté (sinon le CTA Acheter ouvre la feuille d'auth).
+#     Les seeds CI doivent fournir une session valide après l'onboarding.
+#   - Au moins un article d'un AUTRE vendeur visible dans la grille d'accueil
+#     (on ne peut pas acheter son propre article — l'écran le bloque).
+#
+# Sélecteurs : testIDs stables là où ils existent (CTA article, bouton payer) ;
+# sinon copy FR visible. testIDs manquants listés en 'deferred' du rapport.
+appId: com.seconde.app
+---
+# Boot propre. L'achat exige une session : on suppose un compte seedé connecté.
+- launchApp:
+    clearState: false
+
+# Atteindre l'accueil avec la marque visible (sortie d'onboarding/splash).
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 20000
+
+# Franchir un éventuel CTA d'onboarding résiduel sans casser si déjà sur la home.
+- runFlow:
+    when:
+      visible:
+        text: "CONTINUER"
+    commands:
+      - tapOn:
+          text: "CONTINUER"
+          optional: true
+
+# Ouvrir une fiche article depuis la grille d'accueil.
+# (Les cartes article n'ont pas encore de testID stable — cf. 'deferred'.)
+# On tape la première vignette produit de la grille.
+- tapOn:
+    point: "25%,45%"
+
+# Page article : la barre d'action collante expose le CTA d'achat.
+# testID stable ajouté à ArticleCTABar dans le cadre de ce domaine.
+- extendedWaitUntil:
+    visible:
+      id: "article-buy-button"
+    timeout: 15000
+- tapOn:
+    id: "article-buy-button"
+
+# Écran "Commander" : choix du mode de livraison.
+- extendedWaitUntil:
+    visible:
+      text: "MODE DE LIVRAISON"
+    timeout: 15000
+
+# Sélectionner explicitement la remise en main propre (peut être auto-sélectionnée
+# si c'est le seul mode ; le tap reste sans effet de bord dans ce cas).
+- tapOn:
+    text: "Remise en main propre"
+    optional: true
+
+# La bannière "Paiement en main propre" confirme que le mode meetup est actif.
+- assertVisible:
+    text: "Paiement en main propre"
+
+# Continuer vers l'écran de sélection du lieu.
+- tapOn:
+    text: "CONTINUER"
+
+# Écran "Lieu de rencontre".
+- extendedWaitUntil:
+    visible:
+      text: "Lieu de rencontre"
+    timeout: 15000
+
+# Choisir l'option toujours disponible : convenir du lieu par messagerie.
+# (Indépendant des lieux préférés du vendeur, donc déterministe.)
+- tapOn:
+    text: "À convenir par messagerie"
+
+# Confirmer le meetup : crée la transaction + le chat + l'offre meetup.
+- tapOn:
+    text: "CONFIRMER LE MEETUP"
+
+# Écran de succès : "Meetup confirmé" prouve que la transaction meetup a bien
+# été créée (createMeetupTransaction → /checkout/success?deliveryType=meetup).
+- extendedWaitUntil:
+    visible:
+      text: "Meetup confirmé"
+    timeout: 20000
+# Le récap affiche le badge MEETUP : confirme le bon mode de livraison.
+- assertVisible:
+    text: "MEETUP"
+# CTA de sortie disponible (vers la messagerie pour convenir du lieu).
+- assertVisible:
+    text: "CONTACTER LE VENDEUR"

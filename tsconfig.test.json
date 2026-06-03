@@ -1,0 +1,44 @@
+{
+  // Typecheck DÉDIÉ aux fichiers de test Jest (composant / écran / hook RN +
+  // dossier tests/jest/). Scope les globals Jest (describe/it/expect/jest) ICI
+  // seulement — le tsconfig principal (app) reste pur et n'expose pas ces
+  // globals au code de production.
+  //
+  // Lancé via `npm run typecheck:tests`. Le tsconfig principal EXCLUT ces
+  // mêmes fichiers (cf. tsconfig.json) pour éviter le double-check et la
+  // pollution du scope app.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // @types/jest fournit les globals ; @types/node pour Buffer/process dans
+    // les setups. On restreint volontairement `types` pour matérialiser que
+    // c'est le scope de test (et non de l'app) qui voit Jest.
+    "types": ["jest", "node"]
+  },
+  // Couvre TOUS les fichiers de test (Jest + Vitest), que le tsconfig principal
+  // exclut désormais (pour garder le scope app pur, sans globals Jest) :
+  //   - `*.test.tsx` + `tests/jest/**` : Jest (globals via @types/jest) ;
+  //   - `*.test.ts` Vitest (utils/lib/store/hooks/services/features) :
+  //     s'auto-typent via `import { describe, it, expect } from 'vitest'`,
+  //     le global `jest` ajouté ici leur est inoffensif.
+  // Ainsi on ne perd AUCUNE vérification de type des tests.
+  "include": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "tests/jest/**/*.ts",
+    "tests/jest/**/*.tsx",
+    "test-setup.ts",
+    "jest.setup.js",
+    "jest.config.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "android",
+    "ios",
+    "functions",
+    "tests/security",
+    ".claude",
+    ".agents",
+    ".expo"
+  ]
+}

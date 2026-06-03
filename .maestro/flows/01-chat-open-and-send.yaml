@@ -1,0 +1,72 @@
+# 01 — Chat : ouvrir une conversation et envoyer un message
+#
+# Parcours utilisateur clé de la messagerie :
+#   onglet Messages → ouverture de la 1re conversation → saisie d'un message
+#   → envoi via le bouton dédié → preuve que la conversation est restée active
+#   (le champ de saisie s'est vidé, on est toujours dans le thread).
+#
+# Pré-requis device/simulateur :
+#   - Une SESSION AUTHENTIFIÉE avec AU MOINS UNE conversation existante.
+#     L'onglet Messages affiche sinon "Connexion requise" (non connecté) ou
+#     "Aucune conversation" (connecté sans thread) — ce flow suppose un compte
+#     de test seedé (cf. scripts/seed) avec une conversation.
+#   - Ce flow NE part PAS de clearState (contrairement à 00-launch) pour
+#     préserver la session ; il rejoint l'app sur sa dernière surface puis
+#     navigue vers Messages.
+#
+# Sélecteurs :
+#   - Tab "Messages" : tabBarAccessibilityLabel "Messages" (cf. README).
+#   - Conversation : testID dynamique `conversation-item-<chatId>` → matché par
+#     regex sur le préfixe (1re conversation de la liste).
+#   - Saisie / envoi : testIDs stables `chat-input` / `chat-send-button`
+#     (ajoutés à ChatInputBar).
+appId: com.seconde.app
+---
+# Rejoindre l'app en conservant la session (pas de clearState).
+- launchApp
+
+# Aller sur l'onglet Messages via son label d'accessibilité (stable, non FR-copy).
+- extendedWaitUntil:
+    visible:
+      id: "Messages"
+    timeout: 20000
+- tapOn:
+    id: "Messages"
+
+# L'écran Messages est affiché (titre de header).
+- extendedWaitUntil:
+    visible:
+      text: "Messages"
+    timeout: 15000
+
+# Ouvrir la première conversation de la liste (testID préfixé par l'id du chat).
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-.*"
+    timeout: 15000
+- tapOn:
+    id: "conversation-item-.*"
+    index: 0
+
+# Thread ouvert : la barre de saisie est montée (testID stable).
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 15000
+
+# Saisir un message puis envoyer.
+- tapOn:
+    id: "chat-input"
+- inputText: "Bonjour, est-ce toujours disponible ?"
+- hideKeyboard
+- tapOn:
+    id: "chat-send-button"
+
+# Preuve d'envoi : le champ de saisie est revenu à vide (le parent réinitialise
+# messageText après un envoi réussi) tout en restant dans le thread.
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 10000
+- assertVisible:
+    id: "chat-send-button"

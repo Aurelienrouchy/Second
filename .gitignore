@@ -47,3 +47,4 @@ firestore-debug.log
 
 # Claude Code temporary git worktrees (never commit — full repo duplicates)
 .claude/worktrees/
+coverage/

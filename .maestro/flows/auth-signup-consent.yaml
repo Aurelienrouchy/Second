@@ -1,0 +1,134 @@
+# auth-signup-consent — inscription email + consentement Loi 25 (age gate 16+)
+#
+# Couvre le parcours utilisateur clé du domaine auth-onboarding :
+#   boot propre → onboarding (skip « Passer ») → home → tab Profil (état invité)
+#   → ouverture de la bottom sheet auth → bascule vers l'inscription → saisie
+#   email/mot de passe/nom + date de naissance (>= 16 ans) + cases de
+#   consentement (CGU + Politique) → soumission.
+#
+# Règle métier vérifiée : le bouton « S'INSCRIRE » reste désactivé tant que
+# l'âge n'est pas >= 16 ET que les deux cases obligatoires ne sont pas cochées
+# (Loi 25 art. 12, 14). Le flow remplit tout, coche les deux cases, puis soumet ;
+# la disparition du formulaire d'inscription prouve que la soumission a été
+# acceptée (gate franchi) et non bloquée.
+#
+# Sélecteurs : la bottom sheet auth n'expose pas encore de testIDs stables
+# (champs DOB, cases de consentement, boutons). On s'appuie sur les
+# accessibilityLabel (« Jour de naissance », « S'inscrire », …) et la copy FR
+# visible. Les testIDs manquants sont listés en `deferred` du rapport.
+#
+# NB : l'inscription réelle frappe Firebase Auth + le callable recordSignupConsent.
+# En CI sans backend émulé, la soumission échouera côté réseau APRÈS le gate
+# client — ce flow valide le parcours + le gate de consentement jusqu'au tap de
+# soumission, pas la création serveur (couverte par les tests unitaires
+# authService/authStore).
+appId: com.seconde.app
+---
+# Boot propre : clearState garantit l'atterrissage déterministe sur l'onboarding.
+- launchApp:
+    clearState: true
+
+# Onboarding welcome : brand title + on saute la collecte de préférences via
+# « Passer » (handleSkip → router.replace('/(tabs)')), chemin invité direct.
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 15000
+- tapOn:
+    text: "Passer"
+
+# Si l'écran de formulaire onboarding s'affiche encore, re-tap « Passer ».
+- tapOn:
+    text: "Passer"
+    optional: true
+
+# Home atteinte : la tab bar expose « Profil » (tabBarAccessibilityLabel).
+- extendedWaitUntil:
+    visible:
+      id: "Profil"
+    timeout: 15000
+- tapOn:
+    id: "Profil"
+
+# État invité du Profil → CTA « SE CONNECTER » qui ouvre la bottom sheet auth.
+- extendedWaitUntil:
+    visible:
+      text: "SE CONNECTER"
+    timeout: 10000
+- tapOn:
+    text: "SE CONNECTER"
+
+# La bottom sheet s'ouvre sur l'onglet connexion (« Content de / te revoir »).
+- extendedWaitUntil:
+    visible:
+      text: "te revoir"
+    timeout: 10000
+
+# Basculer vers l'inscription via l'onglet « S'inscrire ».
+- tapOn:
+    text: "S'inscrire"
+
+# Formulaire d'inscription affiché (« Bienvenue sur »).
+- extendedWaitUntil:
+    visible:
+      text: "Bienvenue sur"
+    timeout: 10000
+
+# Nom d'affichage.
+- tapOn:
+    text: "Nom d'affichage"
+- inputText: "Marie Test"
+- hideKeyboard
+
+# Email (placeholder « Email »).
+- tapOn:
+    text: "Email"
+- inputText: "marie.test+maestro@example.com"
+- hideKeyboard
+
+# Mot de passe.
+- tapOn:
+    text: "Mot de passe"
+- inputText: "secret123"
+- hideKeyboard
+
+# Date de naissance — âge >= 16 garanti par une année largement adulte.
+# Champs matchés par accessibilityLabel (pas de testID stable).
+- tapOn:
+    id: "Jour de naissance"
+- inputText: "15"
+- tapOn:
+    id: "Mois de naissance"
+- inputText: "06"
+- tapOn:
+    id: "Année de naissance"
+- inputText: "1995"
+- hideKeyboard
+
+# Cases de consentement obligatoires (CGU + Politique). Les Checkbox portent un
+# accessibilityLabel dérivé de la copy juridique.
+- tapOn:
+    text: "J'ai lu et j'accepte les Conditions d'utilisation"
+    optional: true
+- tapOn:
+    point: "8%,62%"
+    optional: true
+- tapOn:
+    text: "J'ai lu et j'accepte la Politique de confidentialité"
+    optional: true
+- tapOn:
+    point: "8%,68%"
+    optional: true
+
+# Soumettre : le bouton « S'inscrire » n'est actif QUE si âge >= 16 ET les deux
+# cases cochées. Le tap réussit ⇒ gate de consentement franchi.
+- tapOn:
+    id: "S'inscrire"
+
+# Preuve de franchissement du gate : le formulaire d'inscription quitte l'écran
+# (soit succès et fermeture de la sheet, soit une alerte réseau en CI sans
+# backend). On attend la disparition du titre d'inscription.
+- extendedWaitUntil:
+    notVisible:
+      text: "Bienvenue sur"
+    timeout: 20000

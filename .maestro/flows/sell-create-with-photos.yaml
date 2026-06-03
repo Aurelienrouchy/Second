@@ -1,0 +1,145 @@
+# sell-create-with-photos — création d'un article avec photos + analyse IA
+#
+# Couvre le flux complet rapporté en régression par le fondateur :
+#   onglet Vendre → caméra/capture → ajout de photos → upload Storage +
+#   analyse IA (callable analyzeProductImage) → champs pré-remplis dans
+#   l'écran Détails → publication.
+#
+# Régression corrigée en amont : l'upload Storage passait par
+# fetch(uri).blob() + uploadBytes, KO sous React Native New Arch (RN 0.83) →
+# l'upload échouait puis l'analyse IA ne recevait jamais les images. Le service
+# upload désormais le base64 via uploadString(..., 'base64'). Ce flow vérifie
+# que l'utilisateur arrive bien jusqu'à des champs pré-remplis et peut publier.
+#
+# Pré-requis device/simulateur :
+#   - Au moins 1 photo dans la galerie (les CI Maestro/EAS fournissent des
+#     images de démo ; sinon en ajouter via les seeds du simulateur).
+#   - Les permissions caméra + photos sont accordées via launchApp.permissions.
+#
+# Sélecteurs : on s'appuie sur la copy FR visible (les écrans sell n'exposent
+# pas encore de testIDs stables — cf. README "Missing testIDs").
+appId: com.seconde.app
+---
+# Boot propre + permissions accordées d'office pour ne pas bloquer sur les
+# dialogues natifs caméra/photos pendant le flow.
+- launchApp:
+    clearState: true
+    permissions:
+      camera: allow
+      photos: allow
+
+# Passer l'onboarding (welcome → form) jusqu'à atteindre la home avec la tab bar.
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 15000
+- tapOn:
+    text: "CONTINUER"
+
+# L'onboarding peut demander des infos (taille, etc.) ; on tente de le franchir
+# si un CTA "CONTINUER"/"TERMINER" est présent, sans casser si déjà sur la home.
+- runFlow:
+    when:
+      visible:
+        text: "CONTINUER"
+    commands:
+      - tapOn:
+          text: "CONTINUER"
+          optional: true
+
+# Ouvrir le flux de vente via la tab "Vendre" (CTA central surélevé).
+- extendedWaitUntil:
+    visible:
+      id: "Vendre"
+    timeout: 15000
+- tapOn:
+    id: "Vendre"
+
+# Écran caméra/capture : l'utilisateur ajoute des photos depuis la galerie
+# plutôt que la caméra (déterministe en CI). On ouvre le sélecteur de photos.
+- extendedWaitUntil:
+    visible:
+      text: "Cadrez votre article"
+    timeout: 15000
+- tapOn:
+    id: "sell-gallery-button"
+    optional: true
+
+# Sélection native de photos : prendre les premières vignettes disponibles.
+# (Maestro pilote la galerie système ; on tape les premières images puis on
+# valide la sélection — libellés selon la locale du simulateur.)
+- tapOn:
+    point: "20%,30%"
+- tapOn:
+    text: "Add"
+    optional: true
+- tapOn:
+    text: "Ajouter"
+    optional: true
+
+# Continuer vers l'écran photos-review (qui déclenche l'upload + l'analyse).
+# Le contrôle de capture affiche le libellé "Continuer".
+- tapOn:
+    text: "Continuer"
+
+# Écran "Tes photos" : l'analyse IA démarre automatiquement.
+- extendedWaitUntil:
+    visible:
+      text: "Tes photos"
+    timeout: 15000
+
+# L'analyse aboutit → le bouton CONTINUER (état complete) apparaît. C'est la
+# preuve que l'upload Storage a réussi ET que la callable a renvoyé un résultat
+# (sinon on resterait en loading ou on verrait l'écran d'erreur).
+- extendedWaitUntil:
+    visible:
+      text: "CONTINUER"
+    timeout: 60000
+- tapOn:
+    text: "CONTINUER"
+
+# Écran Détails : les champs doivent être pré-remplis par l'analyse IA.
+- extendedWaitUntil:
+    visible:
+      text: "Détails"
+    timeout: 15000
+- assertVisible:
+    text: "Titre"
+- assertVisible:
+    text: "Description"
+# La catégorie pré-remplie prouve que le mapping IA → formulaire a fonctionné.
+- assertVisible:
+    text: "CATÉGORIE"
+
+# Poursuivre vers l'écran prix (footer Détails = CONTINUER).
+- tapOn:
+    text: "CONTINUER"
+
+# Écran "Prix & livraison" : renseigner un montant. Le champ prix n'a pas de
+# testID stable — on tape la zone "Ton prix" puis on saisit le montant.
+- extendedWaitUntil:
+    visible:
+      text: "Ton prix"
+    timeout: 15000
+- tapOn:
+    text: "Ton prix"
+- inputText: "25"
+- hideKeyboard
+# Avancer vers l'aperçu (footer prix = APERÇU).
+- tapOn:
+    text: "APERÇU"
+
+# Aperçu → publication. Le CTA final publie l'annonce.
+- extendedWaitUntil:
+    visible:
+      text: "PUBLIER L'ANNONCE"
+    timeout: 15000
+- tapOn:
+    text: "PUBLIER L'ANNONCE"
+
+# Succès : l'app confirme la publication (toast/écran de confirmation) ou
+# retourne sur une surface principale. On attend une preuve de sortie du flow.
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 20000

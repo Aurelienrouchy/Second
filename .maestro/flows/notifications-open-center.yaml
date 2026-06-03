@@ -1,0 +1,59 @@
+# notifications — Ouvrir le centre de notifications
+#
+# Parcours clé du domaine notifications : depuis l'accueil, l'utilisateur tape la
+# cloche (HomeHeader) et atterrit sur le centre de notifications (app/notifications.tsx).
+# Le centre affiche soit la liste, soit l'état vide ("Aucune notification") — les
+# deux sont des résultats VALIDES (un nouvel utilisateur n'a pas de notifs). Le flow
+# valide que la navigation cloche → centre fonctionne et que l'écran peint.
+#
+# Sélecteurs : testID stables ajoutés au domaine
+#   - home-notifications-bell  (features/home/header/HomeHeader.tsx)
+#   - notifications-screen     (app/notifications.tsx, container racine)
+#   - notifications-empty      (app/notifications.tsx, état vide)
+# Le titre "Notifications" (ScreenHeader) sert d'assertion de copy de secours.
+#
+# Pré-requis : un utilisateur déjà onboardé/connecté qui atterrit sur l'onglet
+# Accueil (la cloche n'existe que dans le HomeHeader). On NE clear PAS l'état pour
+# ne pas retomber sur l'onboarding (cf. 00-launch.yaml).
+appId: com.seconde.app
+---
+- launchApp
+
+# On part de l'onglet Accueil. tabBarAccessibilityLabel "Accueil" est exposé par
+# (tabs)/_layout.tsx — sélecteur stable pour revenir sur le Home si besoin.
+- runFlow:
+    when:
+      visible:
+        text: "Accueil"
+    commands:
+      - tapOn:
+          text: "Accueil"
+
+# La cloche du HomeHeader (jusqu'à 15s : les intros Home utilisent FadeIn*).
+- extendedWaitUntil:
+    visible:
+      id: "home-notifications-bell"
+    timeout: 15000
+
+- tapOn:
+    id: "home-notifications-bell"
+
+# Le centre de notifications a peint (container racine).
+- extendedWaitUntil:
+    visible:
+      id: "notifications-screen"
+    timeout: 10000
+
+# Le header du centre confirme la bonne destination (copy de secours).
+- assertVisible:
+    text: "Notifications"
+
+# Le centre est interactif : il montre soit l'état vide, soit au moins un item.
+# Les deux sont des issues valides → on accepte l'un OU l'autre sans échouer.
+- runFlow:
+    when:
+      visible:
+        id: "notifications-empty"
+    commands:
+      - assertVisible:
+          text: "Aucune notification"

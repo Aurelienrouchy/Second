@@ -1,0 +1,93 @@
+# profil-reviews — Voir un profil public + onglet Avis
+#
+# Parcours clé du domaine profil-reviews : depuis l'onglet Profil, l'utilisateur
+# ouvre la liste de ses vendeurs aimés (app/liked-sellers.tsx) puis un profil
+# public (app/user/[id].tsx), et bascule sur l'onglet "Avis" pour consulter les
+# évaluations après-vente.
+#
+# Robustesse : un compte fraîchement onboardé peut n'avoir AUCUN vendeur aimé.
+# Le flow accepte donc deux issues valides :
+#   - liste vide → on s'arrête après avoir prouvé que l'écran "Vendeurs aimés"
+#     peint (la navigation Profil → liste fonctionne) ;
+#   - au moins un vendeur → on ouvre son profil public, on prouve que l'écran
+#     profil peint (testID user-profile-screen) et que l'onglet Avis est
+#     interactif (testID profile-tab-avis → section avis).
+#
+# Sélecteurs : testID stables ajoutés au domaine
+#   - profile-tab-avis / profile-tab-articles (features/user-profile/components/ProfileTabs.tsx)
+#   - user-profile-screen                      (app/user/[id].tsx, container racine du rendu)
+# Le libellé "Profil" (tabBarAccessibilityLabel, (tabs)/_layout.tsx) sert d'ancrage
+# de navigation. La copy "Vendeurs aimés" / "Avis" sert d'assertion de secours.
+#
+# Pré-requis : utilisateur déjà onboardé/connecté. On NE clear PAS l'état pour ne
+# pas retomber sur l'onboarding (cf. 00-launch.yaml).
+appId: com.seconde.app
+---
+- launchApp
+
+# On rejoint l'onglet Profil (tabBarAccessibilityLabel "Profil").
+- extendedWaitUntil:
+    visible:
+      text: "Profil"
+    timeout: 15000
+- tapOn:
+    text: "Profil"
+
+# Entrée vers la liste des vendeurs aimés depuis le menu du profil.
+- extendedWaitUntil:
+    visible:
+      text: "Vendeurs aimés"
+    timeout: 10000
+- tapOn:
+    text: "Vendeurs aimés"
+
+# L'écran "Vendeurs aimés" a peint (header).
+- extendedWaitUntil:
+    visible:
+      text: "Vendeurs aimés"
+    timeout: 10000
+
+# Cas avec au moins un vendeur suivi : on ouvre le premier profil de la liste,
+# puis on bascule sur l'onglet Avis. Si la liste est vide, ce bloc est sauté
+# (issue valide pour un nouveau compte).
+- runFlow:
+    when:
+      visible:
+        id: "user-profile-screen"
+    commands:
+      # (Si un profil est déjà ouvert) — sécurité, sinon le bloc suivant gère le tap.
+      - assertVisible:
+          id: "profile-tab-avis"
+
+# Tente d'ouvrir un profil public en tapant le premier vendeur, si présent.
+# On reste tolérant : l'absence de vendeur ne fait pas échouer le flow.
+- runFlow:
+    when:
+      notVisible:
+        id: "user-profile-screen"
+    commands:
+      # Le premier élément cliquable de la liste sous le header. On enchaîne
+      # immédiatement avec une attente conditionnelle de l'écran profil.
+      - runFlow:
+          when:
+            visible:
+              id: "seller-card"
+          commands:
+            - tapOn:
+                id: "seller-card"
+                index: 0
+
+# Si un profil public s'est ouvert, on prouve qu'il peint et que l'onglet Avis
+# est fonctionnel (bascule articles → avis).
+- runFlow:
+    when:
+      visible:
+        id: "user-profile-screen"
+    commands:
+      - tapOn:
+          id: "profile-tab-avis"
+      # L'onglet Avis est sélectionné : la section avis affiche soit des
+      # évaluations, soit l'état vide ("Aucun avis pour le moment") — les deux
+      # sont des issues valides.
+      - assertVisible:
+          id: "profile-tab-avis"

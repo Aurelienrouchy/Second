@@ -1,0 +1,104 @@
+# search-text-and-filter — recherche texte + application d'un filtre
+#
+# Domaine : recherche-decouverte. Couvre le parcours utilisateur clé :
+#   home → ouvrir l'écran de recherche → saisir un terme → valider (OK / commit
+#   immédiat qui bypasse le debounce) → voir la grille de résultats → ouvrir un
+#   filtre (État) via son chip → sélectionner une valeur → la grille se met à
+#   jour (les filtres restent appliqués au terme).
+#
+# Sélecteurs : on privilégie les testID stables ajoutés au domaine search :
+#   - home-search-bar          (HomeHeader → ouvre /search)
+#   - search-input             (SearchHeader TextInput)
+#   - search-submit-button     (bouton OK, commit immédiat)
+#   - filter-chip-condition    (chip "État" de FilterChipsRow)
+#   - filter-chip-remove-condition (X de retrait du chip État)
+#   - search-results-grid      (ProductGrid des résultats)
+# Le contenu du bottom sheet "État" n'a pas encore de testID stable : on tape
+# sur la copy FR "Bon état" (label issu de data/conditions). Voir 'deferred'
+# pour les testID restants à ajouter (sheet items + entrée recherche en l'absence
+# de la home).
+appId: com.seconde.app
+---
+# Boot propre. Permissions accordées d'office (la recherche visuelle peut
+# demander la caméra, mais ce flow reste sur la recherche texte).
+- launchApp:
+    clearState: true
+    permissions:
+      camera: allow
+      photos: allow
+
+# Franchir l'onboarding jusqu'à la home (tab bar visible).
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 15000
+- tapOn:
+    text: "CONTINUER"
+    optional: true
+- runFlow:
+    when:
+      visible:
+        text: "CONTINUER"
+    commands:
+      - tapOn:
+          text: "CONTINUER"
+          optional: true
+
+# ── Ouvrir l'écran de recherche depuis la barre de la home ──
+- extendedWaitUntil:
+    visible:
+      id: "home-search-bar"
+    timeout: 15000
+- tapOn:
+    id: "home-search-bar"
+
+# ── Saisir un terme et le valider (commit immédiat via OK) ──
+- extendedWaitUntil:
+    visible:
+      id: "search-input"
+    timeout: 10000
+- tapOn:
+    id: "search-input"
+- inputText: "robe"
+# Le bouton OK n'apparaît qu'avec du texte saisi → commit immédiat (bypass du
+# debounce de 350 ms côté useArticleSearch).
+- tapOn:
+    id: "search-submit-button"
+- hideKeyboard
+
+# ── La grille de résultats doit apparaître (succès de la recherche texte) ──
+- extendedWaitUntil:
+    visible:
+      id: "search-results-grid"
+    timeout: 20000
+
+# ── Appliquer un filtre État via son chip ──
+- tapOn:
+    id: "filter-chip-condition"
+# Le bottom sheet "État" liste les conditions (copy FR de data/conditions).
+- extendedWaitUntil:
+    visible:
+      text: "Bon état"
+    timeout: 10000
+- tapOn:
+    text: "Bon état"
+
+# ── Le chip État devient actif (un X de retrait apparaît) et la grille reste
+#    affichée : le filtre est appliqué au terme sans casser les résultats. ──
+- extendedWaitUntil:
+    visible:
+      id: "filter-chip-remove-condition"
+    timeout: 10000
+- assertVisible:
+    id: "search-results-grid"
+
+# ── Retirer le filtre via le X du chip ne doit PAS rouvrir le sheet ──
+- tapOn:
+    id: "filter-chip-remove-condition"
+# Le chip n'est plus actif : son X disparaît, la grille reste là.
+- extendedWaitUntil:
+    notVisible:
+      id: "filter-chip-remove-condition"
+    timeout: 10000
+- assertVisible:
+    id: "search-results-grid"

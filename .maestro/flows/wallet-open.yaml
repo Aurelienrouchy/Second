@@ -1,0 +1,75 @@
+# wallet — Ouvrir le porte-monnaie depuis le profil
+#
+# Parcours clé du domaine wallet : depuis l'onglet Profil, l'utilisateur tape la
+# ligne "Porte-monnaie" (ProfileMenu) et atterrit sur l'écran porte-monnaie
+# (app/wallet.tsx). L'écran a deux états VALIDES — porte-monnaie non activé (CTA
+# d'activation) OU porte-monnaie actif (carte de solde "Solde disponible") — le
+# flow accepte l'un OU l'autre, car un compte neuf n'a pas de porte-monnaie
+# activé alors qu'un compte existant en a un. Le flow valide la navigation
+# profil → porte-monnaie et que l'écran peint.
+#
+# Sélecteurs : testID stables ajoutés au domaine wallet
+#   - menu-item-wallet     (features/profile/components/ProfileMenu.tsx — déjà présent)
+#   - wallet-screen        (app/wallet.tsx — container racine des 3 états)
+#   - wallet-activation    (app/wallet.tsx — état non activé)
+#   - wallet-activate-cta  (app/wallet.tsx — bouton d'activation)
+#   - wallet-balance-card  (app/wallet.tsx — état actif, carte de solde)
+# Le titre "Porte-monnaie" (ScreenHeader) sert d'assertion de copy de secours.
+#
+# Pré-requis : un utilisateur déjà onboardé/connecté qui atterrit sur les onglets
+# (l'onglet Profil expose la ligne porte-monnaie). On NE clear PAS l'état pour ne
+# pas retomber sur l'onboarding (cf. 00-launch.yaml).
+appId: com.seconde.app
+---
+- launchApp
+
+# Aller sur l'onglet Profil. tabBarAccessibilityLabel "Profil" est exposé par
+# (tabs)/_layout.tsx — sélecteur stable de l'onglet.
+- extendedWaitUntil:
+    visible:
+      text: "Profil"
+    timeout: 15000
+
+- tapOn:
+    text: "Profil"
+
+# La ligne porte-monnaie du ProfileMenu (FadeInDown staggered → jusqu'à 15s).
+- extendedWaitUntil:
+    visible:
+      id: "menu-item-wallet"
+    timeout: 15000
+
+- tapOn:
+    id: "menu-item-wallet"
+
+# L'écran porte-monnaie a peint (container racine commun aux 3 états).
+- extendedWaitUntil:
+    visible:
+      id: "wallet-screen"
+    timeout: 10000
+
+# Le header confirme la bonne destination (copy de secours).
+- assertVisible:
+    text: "Porte-monnaie"
+
+# Deux issues valides selon l'état du compte :
+#  A) porte-monnaie NON activé → CTA d'activation visible ;
+#  B) porte-monnaie ACTIF → carte "Solde disponible" visible.
+# On accepte l'un OU l'autre sans échouer.
+- runFlow:
+    when:
+      visible:
+        id: "wallet-activation"
+    commands:
+      - assertVisible:
+          id: "wallet-activate-cta"
+      - assertVisible:
+          text: "Activez votre porte-monnaie"
+
+- runFlow:
+    when:
+      visible:
+        id: "wallet-balance-card"
+    commands:
+      - assertVisible:
+          text: "Solde disponible"

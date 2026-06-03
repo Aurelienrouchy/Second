@@ -1,0 +1,16 @@
+# Maestro workspace configuration — Second (E2E)
+#
+# Workspace-level knobs applied across the flows in this directory.
+# NOTE: appId is declared per-flow (in each flow's YAML header), not here —
+# the workspace config only controls flow discovery / ordering / tags.
+# The native identifier for this app is `com.seconde.app`
+# (android.package / ios.bundleIdentifier in app.config.js).
+#
+# Flow discovery: only files under flows/ are treated as runnable flows.
+flows:
+  - flows/*.yaml
+
+# Run flows deterministically by their numeric filename prefix (00, 01, ...)
+# so the launch smoke test always runs first. Stop the suite on first failure.
+executionOrder:
+  continueOnFailure: false

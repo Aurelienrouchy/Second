@@ -1,0 +1,157 @@
+# sell-edit-draft — reprise et édition d'un brouillon d'article (tunnel Vendre)
+#
+# Complète sell-create-with-photos.yaml (création). Ici on couvre le parcours
+# ÉDITION/REPRISE rapporté en bug par le fondateur :
+#   1. l'utilisateur démarre une annonce (capture + analyse IA) puis quitte le
+#      tunnel sans publier -> un brouillon est persisté localement ;
+#   2. en revenant sur l'onglet Vendre, la modale "Brouillon trouvé" propose de
+#      Reprendre -> on reprend à l'étape sauvegardée (currentStep) ;
+#   3. on ÉDITE un champ (prix), on poursuit jusqu'à l'aperçu et on publie.
+#
+# Règle métier vérifiée de bout en bout : un brouillon avec de la progression
+# (photos / storageUrls / aiResult) DOIT être proposé à la reprise, et l'édition
+# repart bien des valeurs sauvegardées (pas d'un tunnel vierge).
+#
+# Sélecteurs : copy FR visible + testIDs stables quand ils existent. Les écrans
+# sell exposent peu de testIDs : les testID manquants utiles sont listés en
+# 'deferred' dans le rapport de l'agent (à ajouter aux composants concernés).
+appId: com.seconde.app
+---
+# Boot propre, permissions caméra/photos accordées pour ne pas bloquer sur les
+# dialogues natifs pendant la capture.
+- launchApp:
+    clearState: true
+    permissions:
+      camera: allow
+      photos: allow
+
+# Franchir l'onboarding jusqu'à la home (tab bar visible).
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 15000
+- tapOn:
+    text: "CONTINUER"
+    optional: true
+- runFlow:
+    when:
+      visible:
+        text: "CONTINUER"
+    commands:
+      - tapOn:
+          text: "CONTINUER"
+          optional: true
+
+# ── 1. Créer une amorce de brouillon : ouvrir le tunnel Vendre + capturer ──
+- extendedWaitUntil:
+    visible:
+      id: "Vendre"
+    timeout: 15000
+- tapOn:
+    id: "Vendre"
+
+# Écran capture : ajouter des photos depuis la galerie (déterministe en CI).
+- extendedWaitUntil:
+    visible:
+      text: "Cadrez votre article"
+    timeout: 15000
+- tapOn:
+    id: "sell-gallery-button"
+    optional: true
+- tapOn:
+    point: "20%,30%"
+- tapOn:
+    text: "Add"
+    optional: true
+- tapOn:
+    text: "Ajouter"
+    optional: true
+- tapOn:
+    text: "Continuer"
+
+# L'analyse IA tourne puis CONTINUER (état complete) apparaît : à ce stade un
+# brouillon avec storageUrls + aiResult est persisté (progression suffisante
+# pour être proposé à la reprise).
+- extendedWaitUntil:
+    visible:
+      text: "Tes photos"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "CONTINUER"
+    timeout: 60000
+
+# ── 2. Quitter le tunnel sans publier (le brouillon reste persisté) ──
+- tapOn:
+    id: "sell-close-button"
+    optional: true
+# Le bouton de fermeture peut déclencher une confirmation "Sauvegarder le
+# brouillon" : on confirme la sauvegarde puis on revient sur la home.
+- tapOn:
+    text: "Sauvegarder"
+    optional: true
+- tapOn:
+    text: "Quitter"
+    optional: true
+- back
+
+# ── 3. Revenir sur l'onglet Vendre -> la modale de reprise doit apparaître ──
+- extendedWaitUntil:
+    visible:
+      id: "Vendre"
+    timeout: 15000
+- tapOn:
+    id: "Vendre"
+
+# Modale "Brouillon trouvé" : preuve que la reprise est proposée pour un
+# brouillon avec progression. On reprend l'édition.
+- extendedWaitUntil:
+    visible:
+      text: "Brouillon trouvé"
+    timeout: 15000
+- assertVisible:
+    text: "Vous avez un article en cours de création"
+- tapOn:
+    text: "Reprendre"
+
+# ── 4. Éditer le brouillon repris jusqu'à l'écran Prix ──
+# Selon l'étape sauvegardée, on peut arriver sur Détails ou directement sur Prix.
+# On avance jusqu'à "Prix & livraison" en suivant le CTA de progression.
+- runFlow:
+    when:
+      visible:
+        text: "Détails"
+    commands:
+      - tapOn:
+          text: "CONTINUER"
+          optional: true
+
+# Écran Prix & livraison : éditer le montant (cœur de l'édition).
+- extendedWaitUntil:
+    visible:
+      text: "Ton prix"
+    timeout: 15000
+- tapOn:
+    text: "Ton prix"
+- inputText: "30"
+- hideKeyboard
+
+# Le footer APERÇU n'est actif que si le formulaire est valide (prix + livraison) :
+# y accéder prouve que l'édition a produit un état valide.
+- tapOn:
+    text: "APERÇU"
+
+# ── 5. Publier l'annonce éditée ──
+- extendedWaitUntil:
+    visible:
+      text: "PUBLIER L'ANNONCE"
+    timeout: 15000
+- tapOn:
+    text: "PUBLIER L'ANNONCE"
+
+# Sortie du tunnel = preuve de publication (modale de succès -> surface
+# principale). On attend un retour sur une surface connue.
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 20000

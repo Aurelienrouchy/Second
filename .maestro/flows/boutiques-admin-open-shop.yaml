@@ -1,0 +1,101 @@
+# boutiques-admin-open-shop — parcours admin : ouvrir une boutique
+#
+# Domaine boutiques-admin. Couvre le parcours clé de modération côté admin :
+#   Réglages → entrée "Administration" → Panel Admin (gestion des boutiques)
+#   → onglet "En attente" → ouvrir une boutique listée (carte de validation)
+#   → arriver sur le détail de la boutique.
+#
+# Pourquoi ce parcours :
+#   - C'est le point d'entrée unique de la modération (settings → /admin/shops),
+#     gardé par AdminLayout (custom claim admin) + checkAdminAccess. Le flow
+#     prouve que la garde laisse passer un admin et que la liste s'affiche.
+#   - "Ouvrir une boutique" depuis la liste route vers /admin/shop-detail/[id]
+#     (handleViewDetails) : le parcours métier de revue d'une demande.
+#
+# Pré-requis device/simulateur :
+#   - Un compte ADMIN connecté (custom claim `admin` ou users/{uid}.isAdmin).
+#     Sans ce rôle, l'entrée "Administration" des réglages est masquée et
+#     AdminLayout redirige vers /(tabs) — le flow échouerait volontairement.
+#   - Au moins une boutique "en attente" seedée (sinon l'onglet est vide ;
+#     le flow bascule alors sur "Toutes" pour trouver une carte à ouvrir).
+#
+# Sélecteurs : testIDs stables ajoutés dans ce domaine (admin-shops-screen,
+# shop-validation-card-<id>) ; copy FR visible ailleurs. testIDs encore
+# manquants listés en 'deferred' du rapport.
+appId: com.seconde.app
+---
+# Session admin supposée connectée : on ne wipe pas l'état.
+- launchApp:
+    clearState: false
+
+# Sortie d'onboarding/splash : la marque visible = on est dans l'app.
+- extendedWaitUntil:
+    visible:
+      text: "Seconde"
+    timeout: 20000
+
+# Franchir un CTA d'onboarding résiduel sans casser si déjà sur la home.
+- runFlow:
+    when:
+      visible:
+        text: "CONTINUER"
+    commands:
+      - tapOn:
+          text: "CONTINUER"
+          optional: true
+
+# Aller dans l'onglet Profil/Réglages.
+# (L'icône d'onglet Profil n'a pas encore de testID — cf. 'deferred'.)
+- tapOn:
+    text: "Profil"
+    optional: true
+
+# Ouvrir l'écran Réglages depuis le profil.
+- tapOn:
+    text: "Réglages"
+    optional: true
+
+# Section Administration (visible uniquement pour un admin) → ouvrir le panel.
+- extendedWaitUntil:
+    visible:
+      text: "Administration"
+    timeout: 15000
+- tapOn:
+    text: "Administration"
+
+# Panel Admin — gestion des boutiques. testID stable ajouté à l'écran.
+- extendedWaitUntil:
+    visible:
+      id: "admin-shops-screen"
+    timeout: 15000
+- assertVisible:
+    text: "Gestion des boutiques"
+
+# Onglet "En attente" : le bucket de modération par défaut.
+- tapOn:
+    text: "En attente"
+    optional: true
+
+# S'il n'y a aucune boutique en attente, basculer sur "Toutes" pour garantir
+# qu'au moins une carte est ouvrable (parcours déterministe quel que soit le seed).
+- runFlow:
+    when:
+      visible:
+        text: "Aucune boutique"
+    commands:
+      - tapOn:
+          text: "Toutes"
+
+# Ouvrir la première boutique listée.
+# (La carte porte un testID paramétré par id — non matchable statiquement ;
+#  on tape la première vignette de la liste. testID statique listé en 'deferred'.)
+- tapOn:
+    point: "50%,45%"
+
+# Détail de la boutique : l'écran admin de revue affiche les sections de la
+# demande (Contact, Adresse, Informations système). On asserte "Contact",
+# toujours présent, pour prouver la navigation liste → détail.
+- extendedWaitUntil:
+    visible:
+      text: "Contact"
+    timeout: 15000
