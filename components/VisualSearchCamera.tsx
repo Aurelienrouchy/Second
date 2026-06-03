@@ -48,6 +48,7 @@ function VisualSearchCameraComponent({
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const hasConfirmed = useRef(false);
