@@ -171,27 +171,44 @@ async function processImage(uri: string): Promise<ProcessedImage> {
 
 // fixStorageUrl moved to @/utils/fixStorageUrl.
 
+// Map a MIME type to a file extension for the Storage object name.
+const MIME_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
 /**
- * Upload a single image to Firebase Storage
- * Returns the download URL (properly URL-encoded)
+ * Upload a single processed image to Firebase Storage.
+ *
+ * We upload the base64 payload that `processImage` already produced via
+ * `uploadString(..., 'base64')` rather than `fetch(uri).then(r => r.blob())`.
+ * On React Native (New Architecture, RN 0.83) a Blob obtained from `fetch()`
+ * of a local `file://`/`content://` URI is backed by a native blob-id with no
+ * bytes the Firebase JS SDK can read, so `uploadBytes` throws
+ * "Network request failed" (or uploads a 0-byte object). `uploadString` with a
+ * base64 string is the RN-safe path and avoids re-reading the file.
+ *
+ * Returns the download URL (properly URL-encoded).
  */
 async function uploadImageToStorage(
-  uri: string,
+  image: ProcessedImage,
   draftId: string,
   index: number
 ): Promise<string> {
-  const extension = uri.split('.').pop()?.split('?')[0] || 'jpg';
-  const filename = `${draftId}_${index}_${Date.now()}.${extension}`;
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('User not authenticated');
+
+  const extension = MIME_EXTENSIONS[image.mimeType] || 'jpg';
+  const filename = `${draftId}_${index}_${Date.now()}.${extension}`;
   const storagePath = `${DRAFTS_STORAGE_PATH}/${uid}/${draftId}/${filename}`;
 
   const storageRef = ref(storage, storagePath);
 
-  // Read file as blob and upload using web SDK
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  await uploadBytes(storageRef, blob);
+  // Upload the already-computed base64 payload (RN-safe — no fetch/blob bridge).
+  await uploadString(storageRef, image.base64, 'base64', {
+    contentType: image.mimeType,
+  });
 
   // Get the download URL
   const downloadUrl = await getDownloadURL(storageRef);
@@ -203,20 +220,20 @@ async function uploadImageToStorage(
 }
 
 /**
- * Upload multiple images to Firebase Storage
+ * Upload multiple processed images to Firebase Storage
  * Returns array of download URLs
  */
 async function uploadImagesToStorage(
-  uris: string[],
+  images: ProcessedImage[],
   draftId: string,
   onProgress?: (uploaded: number, total: number) => void
 ): Promise<string[]> {
   const urls: string[] = [];
 
-  for (let i = 0; i < uris.length; i++) {
-    const url = await uploadImageToStorage(uris[i], draftId, i);
+  for (let i = 0; i < images.length; i++) {
+    const url = await uploadImageToStorage(images[i], draftId, i);
     urls.push(url);
-    onProgress?.(i + 1, uris.length);
+    onProgress?.(i + 1, images.length);
   }
 
   return urls;
