@@ -148,7 +148,7 @@ export async function removeItemFromParty(
 /**
  * Get all available (not swapped) items in a party.
  */
-export async function getPartyItems(partyId: string): Promise<SwapPartyItem[]> {
+async function getPartyItems(partyId: string): Promise<SwapPartyItem[]> {
   const itemsRef = collection(firestore, 'swapPartyItems');
   const q = query(
     itemsRef,
