@@ -1,5 +1,21 @@
+/**
+ * Genre choisi à l'onboarding (rayon de prédilection).
+ * Écrit dans la map `preferences` par la callable d'onboarding.
+ */
+export type Sex = 'femme' | 'homme' | 'les-deux' | 'enfant';
+
 export interface UserPreferences {
   sizes: string[];
+  /**
+   * Pointures (tailles de chaussures), écrites dans la map `preferences`
+   * par la callable d'onboarding, séparément de `sizes` (tailles vêtements).
+   */
+  shoesSizes?: string[];
+  /**
+   * Genre choisi à l'onboarding, écrit dans la map `preferences`
+   * par la callable d'onboarding.
+   */
+  sex?: Sex;
   favoriteBrands: string[];
   location?: {
     latitude: number;
