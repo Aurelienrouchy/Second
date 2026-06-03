@@ -291,6 +291,7 @@ export default function DetailsScreen() {
         <FormSectionTitle title="Essentiel" />
 
         <TextareaField
+          testID="sell-title-input"
           label="Titre"
           value={fields.title}
           onChangeText={(text) => updateField('title', text)}
