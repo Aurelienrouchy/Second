@@ -175,10 +175,3 @@ export function getServiceFeeConfig(): {
     min: BUYER_FEE_MIN,
   };
 }
-
-/**
- * @deprecated — Use getServiceFeeConfig().percent instead
- */
-export function getServiceFeePercent(): number {
-  return BUYER_FEE_PERCENT;
-}
