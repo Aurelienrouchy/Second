@@ -71,23 +71,39 @@ useful for discovering element selectors and authoring new flows.
 
 ## Missing testIDs (deferred — add to components)
 
-The launch flow currently matches on visible FR copy because the cold-start
-surfaces lack stable test handles. To harden E2E (and decouple from copy),
-add these `testID`s:
+Stable `testID`s are now posted across the surfaces the flows touch
+(onboarding, home header, tab bar, sell tunnel, checkout, search, wallet,
+notifications, profile/reviews, admin shops, offers, swap CTAs). The flows
+select via `id:` everywhere a handle exists. The selectors still matched on
+visible FR copy or coordinates (because no usable handle exists yet) are:
 
-- **Onboarding welcome root** (`app/onboarding.tsx`, `showWelcome` branch
-  `SafeAreaView`): `testID="onboarding-welcome"`.
-- **Onboarding welcome CTA** (`CONTINUER` `Button`): `testID="onboarding-continue"`
-  (the `Button` component already accepts a `testID` prop).
-- **Onboarding form root** (`app/onboarding.tsx`, form `SafeAreaView`):
-  `testID="onboarding-form"`.
-- **Home screen root** (`app/(tabs)/index.tsx`, outer `SafeAreaView`):
-  `testID="home-screen"` — needed for flows that target returning users who
-  skip onboarding and land directly on the Accueil tab.
+- **Auth bottom sheet titles** (`SignInForm` / `SignUpForm`): the welcome
+  headers ("…te revoir", "Bienvenue sur …") have no root `testID` — matched by
+  copy. Add `testID="auth-signin-root"` / `auth-signup-root`.
+- **Sell success modal** (`components/sell/SuccessModal.tsx`): matched on
+  "Annonce publiée". Add `testID="sell-success-modal"`.
+- **Native pickers / RN Alerts**: the system photo gallery ("Add" / "Ajouter")
+  and the capture exit `Alert.alert` ("Quitter") are OS-level surfaces — not
+  testable by `testID`; copy match is the only option.
+- **Admin filter chips** (`app/admin/shops.tsx`): the "En attente" / "Toutes"
+  segmented tabs and the "Administration" `SettingItem`
+  (`app/settings/index.tsx`) have no `testID` — matched by copy.
+- **Swap Zone grid + selector**: `PartyItemCard`
+  (`features/swap-party/components/PartyItemCard.tsx`), the `MultiSelectBar`
+  "Proposer" button, and the `SwapItemSelector` items + "Confirmer" button
+  (`components/swap/SwapItemSelector.tsx`) lack `testID`s — tapped by
+  coordinates. Add `swap-zone-item-<id>`, `swap-multiselect-propose`,
+  `swap-item-selector-item-<id>`, `swap-item-selector-confirm`. Also the
+  `propose-swap` screen root + its "Leur article" / "Mon article proposé"
+  section labels and the "Proposition envoyée !" Alert (RN Alert).
+- **Various ScreenHeader titles** ("Porte-monnaie", "Mes échanges") and empty
+  states ("Aucune notification", "Aucun avis pour le moment") are matched by
+  copy as secondary assertions — the screen *root* `testID` is the primary
+  selector in each flow, so these copy checks only lock the UX contract.
 
-The bottom tab bar already exposes `tabBarAccessibilityLabel` values
-(`Accueil`, `Messages`, `Vendre`, `Favoris`, `Profil`), which are usable
-selectors for tab navigation flows today.
+The bottom tab bar exposes `tabBarAccessibilityLabel` values (`Accueil`,
+`Messages`, `Vendre`, `Favoris`, `Profil`), matched via `id:` for tab
+navigation.
 
 ## CI / device note
 
