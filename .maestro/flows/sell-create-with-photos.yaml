@@ -26,24 +26,12 @@ appId: com.seconde.app
 # ne pas bloquer sur les dialogues natifs pendant le flow.
 - runFlow: ../subflows/open-app-fresh.yaml
 
-# Passer l'onboarding (welcome → form) jusqu'à atteindre la home avec la tab bar.
+# Passer l'onboarding (welcome/form) via « Passer » jusqu'à la home (tab bar).
 - extendedWaitUntil:
     visible:
       id: "onboarding-welcome"
     timeout: 15000
-- tapOn:
-    id: "onboarding-continue"
-
-# L'onboarding peut demander des infos (taille, etc.) ; on tente de le franchir
-# si un CTA "CONTINUER" est présent, sans casser si déjà sur la home.
-- runFlow:
-    when:
-      visible:
-        id: "onboarding-continue"
-    commands:
-      - tapOn:
-          id: "onboarding-continue"
-          optional: true
+- runFlow: ../subflows/pass-onboarding.yaml
 
 # Ouvrir le flux de vente via la tab "Vendre" (CTA central surélevé).
 - extendedWaitUntil:
