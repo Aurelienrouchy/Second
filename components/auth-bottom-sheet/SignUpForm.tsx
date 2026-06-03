@@ -211,6 +211,7 @@ function SignUpFormComponent({
       ) : null}
 
       <TextInput
+        testID="signup-email-input"
         style={styles.input}
         placeholder="Email"
         placeholderTextColor={colors.muted}
