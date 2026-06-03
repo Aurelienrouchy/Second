@@ -38,9 +38,12 @@ appId: com.seconde.app
     id: "Profil"
 
 # Entrée vers la liste des vendeurs aimés depuis le menu du profil (testID stable).
-- extendedWaitUntil:
-    visible:
+# Le menu du profil défile : "Vendeurs aimés" est sous la ligne de flottaison →
+# on fait défiler vers le bas jusqu'à le révéler avant de taper.
+- scrollUntilVisible:
+    element:
       id: "menu-item-liked-sellers"
+    direction: DOWN
     timeout: 10000
 - tapOn:
     id: "menu-item-liked-sellers"
