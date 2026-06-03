@@ -43,7 +43,17 @@ import { Article, ArticleWithLocation } from '@/types';
 // EMPTY STATE COMPONENT
 // =============================================================================
 
-const EmptyState: React.FC<{ onBrowse: () => void }> = ({ onBrowse }) => (
+const EmptyState: React.FC<{
+  onBrowse: () => void;
+  title?: string;
+  subtitle?: string;
+  actionLabel?: string;
+}> = ({
+  onBrowse,
+  title = 'Aucun favori',
+  subtitle = 'Les articles que vous aimez apparaîtront ici',
+  actionLabel = 'Parcourir les articles',
+}) => (
   <Animated.View
     entering={FadeInDown.duration(400).delay(100)}
     style={styles.emptyState}
@@ -51,16 +61,16 @@ const EmptyState: React.FC<{ onBrowse: () => void }> = ({ onBrowse }) => (
     <View style={styles.emptyIconContainer}>
       <Ionicons name="heart-outline" size={64} color={colors.primary} />
     </View>
-    <H2 style={styles.emptyTitle}>Aucun favori</H2>
+    <H2 style={styles.emptyTitle}>{title}</H2>
     <Body color="muted" center style={styles.emptyText}>
-      Les articles que vous aimez apparaîtront ici
+      {subtitle}
     </Body>
     <Button
       variant="primary"
       onPress={onBrowse}
       style={styles.browseButton}
     >
-      Parcourir les articles
+      {actionLabel}
     </Button>
   </Animated.View>
 );
