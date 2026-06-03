@@ -44,7 +44,7 @@ const TRENDING_SEARCHES = [
 const toTestKey = (label: string): string =>
   label
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
