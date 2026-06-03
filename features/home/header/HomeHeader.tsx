@@ -52,6 +52,7 @@ const HomeHeaderComponent: React.FC<HomeHeaderProps> = ({
         </Pressable>
 
         <Pressable
+          testID="home-notifications-bell"
           style={styles.headerButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
