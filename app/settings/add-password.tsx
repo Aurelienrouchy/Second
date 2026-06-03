@@ -36,6 +36,50 @@ export default function AddPasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Réexécute la liaison du mot de passe après une ré-authentification réussie.
+  const performLink = async () => {
+    await AuthService.linkPasswordCredential(email.trim(), password);
+    // Resynchroniser l'observable user (hasPassword/email mis à jour en Firestore)
+    // avant de revenir pour que l'écran précédent reflète l'état à jour.
+    await useAuthStore.getState().refreshUser();
+
+    Alert.alert(
+      'Mot de passe ajouté',
+      'Votre mot de passe a été associé avec succès. Vous pouvez désormais vous connecter avec votre email et mot de passe.',
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
+  };
+
+  // Déclenche la ré-authentification par provider puis relance la liaison.
+  // Débloque l'ajout de mot de passe sur les vieilles sessions (notamment Apple
+  // sur Android où reauthenticateWithApple lèvera proprement).
+  const handleReauthAndRetry = async () => {
+    setIsSaving(true);
+    try {
+      const provider = AuthService.getAuthProvider();
+      if (provider === 'google.com') {
+        await AuthService.reauthenticateWithGoogle();
+      } else if (provider === 'apple.com') {
+        await AuthService.reauthenticateWithApple();
+      } else {
+        await AuthService.reauthenticate(password);
+      }
+      await performLink();
+    } catch (error: unknown) {
+      const code = (error as { code?: string }).code;
+      if (code === 'ERR_REQUEST_CANCELED' || code === 'SIGN_IN_CANCELLED') {
+        return;
+      }
+      if (__DEV__) console.error('Error re-authenticating before link:', error);
+      const message = error instanceof Error
+        ? error.message
+        : 'La reconnexion a échoué. Veuillez réessayer.';
+      Alert.alert('Erreur', message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleLink = async () => {
     if (!email.trim()) {
       Alert.alert('Erreur', 'Veuillez saisir une adresse email.');
@@ -59,21 +103,28 @@ export default function AddPasswordScreen() {
 
     setIsSaving(true);
     try {
-      await AuthService.linkPasswordCredential(email.trim(), password);
-      // Resynchroniser l'observable user (hasPassword/email mis à jour en Firestore)
-      // avant de revenir pour que l'écran précédent reflète l'état à jour.
-      await useAuthStore.getState().refreshUser();
-
-      Alert.alert(
-        'Mot de passe ajouté',
-        'Votre mot de passe a été associé avec succès. Vous pouvez désormais vous connecter avec votre email et mot de passe.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      await performLink();
     } catch (error: unknown) {
       if (__DEV__) console.error('Error linking password credential:', error);
       const message = error instanceof Error
         ? error.message
         : 'Une erreur est survenue lors de l\'ajout du mot de passe.';
+
+      // Cas spécifique « connexion récente requise » : AuthService.linkPasswordCredential
+      // remappe auth/requires-recent-login via getAuthErrorMessage (le code brut est
+      // perdu), on détecte donc le message remappé pour proposer une reconnexion.
+      if (message.includes('connexion récente')) {
+        Alert.alert(
+          'Reconnexion récente requise',
+          'Reconnexion récente requise pour lier un mot de passe.',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Se reconnecter', onPress: handleReauthAndRetry },
+          ]
+        );
+        return;
+      }
+
       Alert.alert('Erreur', message);
     } finally {
       setIsSaving(false);
