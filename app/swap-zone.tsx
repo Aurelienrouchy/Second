@@ -587,7 +587,12 @@ export default function SwapZoneScreen() {
           renderItem={renderItem}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={listEmpty}
-          contentContainerStyle={styles.gridContainer}
+          // Extra bottom clearance only while the MultiSelectBar overlays the
+          // list, so its absolute bar never covers the last grid row (and no
+          // dead space is reserved when the bar is absent).
+          contentContainerStyle={
+            isMultiSelectMode ? styles.gridContainerMultiSelect : styles.gridContainer
+          }
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
