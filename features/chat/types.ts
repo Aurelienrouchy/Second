@@ -44,4 +44,6 @@ export interface ChatEmptyStateProps {
 
 export interface ChatErrorStateProps {
   errorMessage: string;
+  /** Re-subscribe to the chat listener. When provided, a "Réessayer" action is shown. */
+  onRetry?: () => void;
 }
