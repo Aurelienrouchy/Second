@@ -157,17 +157,24 @@ export default function FavoritesScreen() {
     }
   }, [totalOrphaned, user?.id, queryClient]);
 
-  // Use actual loaded article count when data is available, fall back to IDs count while loading
-  const displayCount = data ? favoriteArticles.length : articleIds.length;
+  // Header count reflects the full favorites set (all cached IDs), not just the
+  // currently loaded pages, so it stays coherent with paginated loading.
+  const displayCount = articleIds.length;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleRemoveFavorite = useCallback(
-    (articleId: string) => {
+    (article: Article | ArticleWithLocation) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      toggleFavorite(articleId);
+      toggleFavorite(article.id);
     },
     [toggleFavorite]
   );
+
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: favoritesKeys.list(user?.id ?? 'guest'),
+    });
+  }, [queryClient, user?.id]);
 
   const handleArticlePress = useCallback(
     (article: Article | ArticleWithLocation) => {
