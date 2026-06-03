@@ -102,12 +102,14 @@ function VisualSearchCameraComponent({
 
   // Retake photo
   const handleRetake = () => {
+    hasConfirmed.current = false;
     setCapturedUri(null);
   };
 
-  // Confirm and search
+  // Confirm and search — guard against double-tap firing the Cloud Function twice
   const handleConfirm = () => {
-    if (capturedUri) {
+    if (capturedUri && !hasConfirmed.current) {
+      hasConfirmed.current = true;
       onPhotoCapture(capturedUri);
     }
   };
