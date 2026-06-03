@@ -361,6 +361,7 @@ export default function PreviewScreen() {
       {/* Sticky footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
+          testID="sell-publish-button"
           style={({ pressed }) => [styles.publishButton, isPublishing && styles.publishButtonDisabled, pressed && { opacity: 0.7 }]}
           onPress={handlePublish}
           disabled={isPublishing}
