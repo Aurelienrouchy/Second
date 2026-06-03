@@ -101,9 +101,51 @@ visible FR copy or coordinates (because no usable handle exists yet) are:
   copy as secondary assertions — the screen *root* `testID` is the primary
   selector in each flow, so these copy checks only lock the UX contract.
 
-The bottom tab bar exposes `tabBarAccessibilityLabel` values (`Accueil`,
-`Messages`, `Vendre`, `Favoris`, `Profil`), matched via `id:` for tab
-navigation.
+The bottom tab bar exposes both `tabBarAccessibilityLabel` AND
+`tabBarButtonTestID` (`Accueil`, `Messages`, `Vendre`, `Favoris`, `Profil`),
+matched via `id:` for tab navigation. The `tabBarButtonTestID` props were added
+so the `id:` selectors resolve on iOS (where Maestro maps `id:` to
+`accessibilityIdentifier`, not the accessibility label).
+
+## Running against the iOS dev-client (important)
+
+These flows are wired to run against a **dev-client** build connected to Metro
+(`http://192.168.2.78:8081` in dev). They do NOT `launchApp` directly — they go
+through one of three shared subflows under `subflows/` (excluded from flow
+discovery; `config.yaml` only globs `flows/*.yaml`):
+
+- `open-app-fresh.yaml` — `launchApp clearState: true`, then taps the Metro
+  server card on the dev-client launcher (`Seconde, http://…:8081`) to load the
+  JS bundle, then dismisses the RN developer-menu intro (`Close`) that pops on
+  first connect. Used by every flow that needs a deterministic onboarding entry.
+- `open-app.yaml` — plain `launchApp` (session preserved), with the same
+  launcher/dev-menu guards as defensive no-ops. Used by session-preserving flows.
+- `pass-onboarding.yaml` — taps `onboarding-skip` / `onboarding-skip-form`
+  (« Passer ») to route straight to the guest home.
+
+### Known Maestro + iOS limitations encountered
+
+- **gorhom bottom-sheet content is invisible to Maestro on iOS.** The
+  `@gorhom/bottom-sheet` content (auth sheet `AuthBottomSheet`, `MakeOfferModal`,
+  `SelectionBottomSheet`, `SwapItemSelector`) renders in a portal subtree that
+  XCUITest's accessibility snapshot does not traverse — neither the `testID`s
+  nor the visible FR text are queryable, even though everything renders on
+  screen. The `search` flow works around the État sheet by tapping the item by
+  coordinates; auth/offer/swap-selector sheets cannot be driven by `id:`.
+- **`setAirplaneMode` does not parse in Maestro 2.6.0** (only
+  `toggleAirplaneMode`), and toggling airplane mode on the **iOS simulator**
+  does not propagate the connectivity loss to `expo-network`, so the offline
+  banner never appears. The `offline-banner` testID/selector is correct; this
+  flow is reliable on an Android emulator or a physical iOS device only.
+- **Full-bleed Pressables that extend past the fold** (home Swap Zone entry)
+  don't fire `onPress` for Maestro's synthetic center-tap until the element is
+  scrolled fully on-screen (`scrollUntilVisible … centerElement: true`).
+- **Auth-dependent flows.** The app under test is in a **guest** state, and most
+  deep flows route through `requireAuth` (every profile-menu item, the Vendre
+  tab, Acheter/OFFRE/propose-swap CTAs, Messages). These flows reach their last
+  pre-auth surface then open the (invisible) auth sheet — they require a seeded
+  authenticated session (and `boutiques-admin` an admin custom claim) to go
+  further.
 
 ## CI / device note
 
