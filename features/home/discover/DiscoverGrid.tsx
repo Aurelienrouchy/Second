@@ -203,7 +203,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontFamily: fonts.sans,
-    fontSize: 14,
+    // Aligned to the body scale (14) — was a magic 14.
+    fontSize: typography.body.fontSize,
     color: colors.muted,
   },
   retryButton: {
