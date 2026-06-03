@@ -4,7 +4,7 @@
  * Each card manages its own favorite state via useFavorites() at card level.
  */
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
