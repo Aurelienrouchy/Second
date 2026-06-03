@@ -163,41 +163,8 @@ export const SIZE_REFERENCE: SizeReference[] = [
 ];
 
 // ============================================
-// CONDITIONS - Standard values
-// ============================================
-
-export const CONDITION_REFERENCE = [
-  { id: 'neuf', name: 'Neuf avec étiquette', description: 'Article jamais porté, étiquette encore attachée' },
-  { id: 'tres-bon-etat', name: 'Très bon état', description: 'Article peu porté, aucun défaut visible' },
-  { id: 'bon-etat', name: 'Bon état', description: 'Article porté avec de légères traces d\'usure' },
-  { id: 'satisfaisant', name: 'Satisfaisant', description: 'Article avec défauts visibles (taches, accrocs...)' },
-];
-
-// ============================================
-// HELPER: Generate prompt sections for Gemini
-// ============================================
-
-// generateCategoryPromptSection is imported from shared/categories
-
-export function generateColorPromptSection(): string {
-  return COLOR_REFERENCE.map(c => `"${c.id}" (${c.name})`).join(', ');
-}
-
-export function generateMaterialPromptSection(): string {
-  return MATERIAL_REFERENCE.map(m => `"${m.id}" (${m.name})`).join(', ');
-}
-
-export function generateSizePromptSection(): string {
-  return SIZE_REFERENCE.map(s =>
-    `  - ${s.categoryType}: ${s.sizes.slice(0, 8).join(', ')}...`
-  ).join('\n');
-}
-
-// ============================================
 // HELPER: Find color by ID or alias
 // ============================================
-
-// findCategoryById is imported as findFlatCategoryById from shared/categories
 
 export function findColorByNameOrAlias(name: string): ColorReference | undefined {
   const normalized = name.toLowerCase().trim();
