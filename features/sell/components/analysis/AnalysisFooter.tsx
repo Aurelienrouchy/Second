@@ -60,6 +60,7 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
             <Text style={styles.primaryButtonText}>RÉESSAYER</Text>
           </Pressable>
           <Pressable
+            testID="sell-analysis-manual"
             style={({ pressed }) => [
               styles.manualLink,
               pressed && { opacity: 0.7 },
