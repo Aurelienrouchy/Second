@@ -43,27 +43,17 @@ const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB max for Vertex AI
 const TARGET_IMAGE_SIZE = 1 * 1024 * 1024; // 1MB target
 
 /**
- * Detect MIME type from URI extension
+ * Process image for visual search: compress and convert to base64.
+ * Always encodes as JPEG — the picker (Compatible mode) already transcodes
+ * HEIC/HEIF on iOS, so the backend only ever needs to handle JPEG.
  */
-function detectMimeType(uri: string): string {
-  const extension = uri.split('.').pop()?.toLowerCase()?.split('?')[0] || '';
-  if (extension === 'png') return 'image/png';
-  return 'image/jpeg';
-}
-
-/**
- * Process image for visual search: compress and convert to base64
- */
-async function processImageForSearch(uri: string): Promise<{ base64: string; mimeType: string }> {
+async function processImageForSearch(uri: string): Promise<{ base64: string }> {
   let processedUri = uri;
-  const mimeType = detectMimeType(uri);
 
-  // Convert HEIC/HEIF and compress
-  const needsConversion = mimeType === 'image/heic' || mimeType === 'image/heif';
   const fileInfo = await FileSystem.getInfoAsync(uri);
   const fileSize = (fileInfo as any).size || 0;
 
-  if (needsConversion || fileSize > TARGET_IMAGE_SIZE) {
+  if (fileSize > TARGET_IMAGE_SIZE) {
     const result = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: 1024 } }], // Resize to reasonable dimension
