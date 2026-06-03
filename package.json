@@ -75,7 +75,6 @@
     "expo-symbols": "~56.0.5",
     "expo-system-ui": "~56.0.5",
     "geofire-common": "^6.0.0",
-    "jest-expo": "~56.0.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
