@@ -472,6 +472,7 @@ export default function PhotosReviewScreen() {
                     onPress={() => handleRemovePhoto(index + 1)}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     disabled={isAnalyzing}
+                    testID={`sell-thumbnail-remove-${index + 1}`}
                   >
                     <Ionicons name="close" size={12} color={colors.white} />
                   </Pressable>
