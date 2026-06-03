@@ -23,9 +23,8 @@
 # copy FR de secours (deferred). L'étape lieu (data-dépendante) reste `optional`.
 appId: com.seconde.app
 ---
-# Boot propre. L'app démarre sur l'onboarding sur un état vierge.
-- launchApp:
-    clearState: true
+# Boot propre via le sous-flow partagé (clearState + gestion launcher/dev-menu).
+- runFlow: ../subflows/open-app-fresh.yaml
 
 # Franchir l'onboarding welcome → form si présent (best-effort, non bloquant).
 - extendedWaitUntil:
