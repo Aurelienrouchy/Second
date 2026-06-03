@@ -803,7 +803,7 @@ export class ChatService {
           await updateDoc(messageRef, {
             'offer.status': 'expired',
           });
-          throw new Error('Cette offre a expire');
+          throw new Error('Cette offre a expiré');
         }
       }
 
@@ -907,7 +907,7 @@ export class ChatService {
           await updateDoc(messageRef, {
             'offer.status': 'expired',
           });
-          throw new Error('Cette offre a expire');
+          throw new Error('Cette offre a expiré');
         }
       }
 
