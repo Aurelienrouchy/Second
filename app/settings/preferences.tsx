@@ -46,10 +46,16 @@ export default function PreferencesScreen() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Sync fetched preferences into local form state
+  // Sync fetched preferences into local form state. Clothing sizes live in
+  // preferences.sizes; shoe sizes are persisted separately in
+  // preferences.shoesSizes (written by the onboarding callable) and were
+  // previously never read back here.
   useEffect(() => {
     if (preferences && !isFormInitialized) {
       setSelectedSizes(preferences.sizes || []);
+      setSelectedShoeSizes(
+        (preferences as { shoesSizes?: string[] }).shoesSizes || []
+      );
       setSelectedBrands(preferences.favoriteBrands || []);
       setIsFormInitialized(true);
     }
