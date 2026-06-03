@@ -154,7 +154,7 @@ export default function OnboardingScreen() {
       };
 
       // Save to AsyncStorage for immediate use
-      await AsyncStorage.setItem('@onboarding_preferences', JSON.stringify(preferences));
+      await AsyncStorage.setItem(ONBOARDING_PREFERENCES_KEY, JSON.stringify(preferences));
       await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
 
       // Save to Firebase
