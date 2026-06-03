@@ -311,6 +311,7 @@ export default function CheckoutScreen() {
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Button
+          testID="checkout-continue"
           variant="primary"
           fullWidth
           disabled={!effectiveDelivery}
