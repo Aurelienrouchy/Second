@@ -29,22 +29,12 @@ appId: com.seconde.app
 # Boot propre via le sous-flow partagé (clearState + gestion launcher/dev-menu).
 - runFlow: ../subflows/open-app-fresh.yaml
 
-# Franchir l'onboarding welcome → form jusqu'à la home.
+# Franchir l'onboarding (welcome/form) via « Passer » jusqu'à la home.
 - extendedWaitUntil:
     visible:
       id: "onboarding-welcome"
     timeout: 15000
-- tapOn:
-    id: "onboarding-continue"
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: "onboarding-continue"
-    commands:
-      - tapOn:
-          id: "onboarding-continue"
-          optional: true
+- runFlow: ../subflows/pass-onboarding.yaml
 
 # Accès à la Swap Zone depuis la home via la carte d'entrée dédiée (testID stable).
 - extendedWaitUntil:
