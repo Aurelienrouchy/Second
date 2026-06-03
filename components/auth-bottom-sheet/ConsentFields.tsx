@@ -12,7 +12,7 @@
  */
 
 import { Link } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { Checkbox } from '@/components/ui';
