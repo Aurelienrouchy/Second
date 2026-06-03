@@ -490,6 +490,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     backgroundColor: colors.primary,
   },
+  searchButtonDisabled: {
+    opacity: 0.6,
+  },
   searchButtonText: {
     fontFamily: typography.button.fontFamily,
     fontSize: 16,
