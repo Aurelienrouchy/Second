@@ -47,6 +47,7 @@ export default function ExportDataScreen() {
     if (!user) return;
 
     setLoading(true);
+    let filePath: string | null = null;
     try {
       // Récupérer toutes les données de l'utilisateur
       const data = await UserService.exportUserData(user.id);
@@ -56,7 +57,7 @@ export default function ExportDataScreen() {
       if (!baseDir) {
         throw new Error('Impossible d\'accéder au stockage local');
       }
-      const filePath = `${baseDir}${fileName}`;
+      filePath = `${baseDir}${fileName}`;
 
       await FileSystem.writeAsStringAsync(
         filePath,
@@ -73,19 +74,25 @@ export default function ExportDataScreen() {
           dialogTitle: 'Exporter mes données Seconde',
           UTI: 'public.json',
         });
+        setExported(true);
       } else {
+        // Sans module de partage, le fichier reste dans le bac à sable de
+        // l'app et n'est pas accessible à l'utilisateur : ne pas afficher de
+        // chemin inutilisable.
         Alert.alert(
-          'Export réussi',
-          `Vos données ont été exportées dans : ${filePath}`
+          'Partage indisponible',
+          'Le partage de fichiers n\'est pas disponible sur cet appareil. Réessayez depuis un appareil prenant en charge le partage.'
         );
       }
-
-      setExported(true);
     } catch (error: unknown) {
       if (__DEV__) console.error('Error exporting data:', error);
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'export';
       Alert.alert('Erreur', message);
     } finally {
+      // Supprimer le fichier temporaire (le partage en a déjà fait une copie).
+      if (filePath) {
+        FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
+      }
       setLoading(false);
     }
   };
