@@ -209,7 +209,7 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Profile Header Zone */}
-        <View style={styles.profileHeaderZone}>
+        <View style={[styles.profileHeaderZone, !user && styles.profileHeaderZoneGuest]}>
           {user ? (
             <ProfileHeader
               profileImage={user.profileImage}
