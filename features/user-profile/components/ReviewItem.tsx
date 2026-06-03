@@ -8,6 +8,7 @@ import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing } from '@/constants/theme';
 import type { ProfileReview } from '../types';
 
