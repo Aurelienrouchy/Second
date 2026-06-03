@@ -10,6 +10,7 @@ interface FieldRowProps {
   placeholder?: string;
   hasAiConfidence?: boolean;
   onPress: () => void;
+  testID?: string;
 }
 
 export const FieldRow = React.memo(function FieldRow({
@@ -18,9 +19,11 @@ export const FieldRow = React.memo(function FieldRow({
   placeholder = 'Sélectionner',
   hasAiConfidence,
   onPress,
+  testID,
 }: FieldRowProps) {
   return (
     <Pressable
+      testID={testID}
       style={({ pressed }) => [styles.fieldRow, pressed && { opacity: 0.7 }]}
       onPress={onPress}
     >
