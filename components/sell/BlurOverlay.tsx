@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 
 interface BlurOverlayProps {
   position: 'top' | 'bottom';
@@ -8,9 +8,11 @@ interface BlurOverlayProps {
 }
 
 /**
- * Overlay for camera edges.
- * iOS: semi-transparent dark overlay (BlurView has perf issues in camera context)
- * Android: same semi-transparent fallback
+ * Voile sombre semi-transparent pour les bords caméra, identique iOS et Android.
+ *
+ * Décision design assumée : on n'utilise pas BlurView ici (coût GPU notable
+ * au-dessus du flux caméra). Un simple voile RGBA semi-transparent sur les deux
+ * plateformes est suffisant et plus performant ; `intensity` pilote l'opacité.
  */
 export default function BlurOverlay({
   position,
