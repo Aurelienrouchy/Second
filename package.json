@@ -18,8 +18,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:unit": "jest",
+    "test:unit:watch": "jest --watch",
+    "test:unit:coverage": "jest --coverage",
     "test:functions": "cd functions && npx vitest run",
-    "test:all": "npm run test && npm run test:functions && npm run test:security",
+    "test:all": "npm run test && npm run test:unit && npm run test:functions && npm run test:security",
     "test:security:run": "vitest run --config tests/security/vitest.config.ts",
     "test:security": "firebase emulators:exec --only firestore,storage,auth 'npm run test:security:run'"
   },
