@@ -230,6 +230,7 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     sendOffer,
     acceptOffer,
     rejectOffer,
+    retry,
   };
 };
 
