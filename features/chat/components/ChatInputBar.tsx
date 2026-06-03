@@ -44,6 +44,7 @@ export const ChatInputBar = React.memo(function ChatInputBar({
       </Pressable>
 
       <TextInput
+        testID="chat-input"
         style={styles.messageInput}
         placeholder="Message..."
         value={messageText}
@@ -54,12 +55,13 @@ export const ChatInputBar = React.memo(function ChatInputBar({
       />
 
       {hasArticle && (
-        <Pressable style={styles.offerButton} onPress={onMakeOffer}>
+        <Pressable testID="chat-offer-button" style={styles.offerButton} onPress={onMakeOffer}>
           <Text style={styles.offerIcon}>$</Text>
         </Pressable>
       )}
 
       <Pressable
+        testID="chat-send-button"
         style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
         onPress={onSend}
         disabled={!canSend}
