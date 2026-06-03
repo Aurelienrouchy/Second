@@ -24,6 +24,7 @@ export const PriceCard = React.memo(function PriceCard({
         <Text style={styles.priceCurrency}>$</Text>
         <TextInput
           ref={inputRef}
+          testID="sell-price-input"
           style={styles.priceInput}
           value={price}
           onChangeText={onPriceChange}
