@@ -81,5 +81,8 @@
         ]
       }
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "argent"
+  ]
 }
