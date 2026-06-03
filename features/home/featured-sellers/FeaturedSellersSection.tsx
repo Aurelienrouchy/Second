@@ -73,7 +73,7 @@ interface SellerCardProps {
 }
 
 const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
-  const { isLiked, toggleLike, isLoggedIn } = useSellerLike(seller.id);
+  const { isLiked, toggleLike } = useSellerLike(seller.id);
   const scale = useSharedValue(1);
   const heartScale = useSharedValue(1);
 
