@@ -4,13 +4,16 @@
  * The old AuthRequiredContext held an imperative ref to <AuthBottomSheet>.
  * That pattern violated the CLAUDE.md "shared modal" rule (one render +
  * store-driven). The bottom sheet is now rendered once in the root
- * layout and driven by `authSheetStore`. This file is kept only so
- * existing imports keep compiling.
+ * layout and driven by `authSheetStore`.
+ *
+ * `useAuthRequired` is now a re-export of the canonical hook
+ * (`@/hooks/useAuthRequired`) so the two never diverge — there is a single
+ * source of truth. This file is kept only so existing imports keep compiling;
+ * prefer importing from `@/hooks/useAuthRequired` directly in new code.
  */
 import React, { ReactNode } from 'react';
 
-import { useAuthStore } from '@/store/authStore';
-import { useAuthSheetStore } from '@/store/authSheetStore';
+export { useAuthRequired } from '@/hooks/useAuthRequired';
 
 export interface AuthRequiredContextType {
   showAuthSheet: (message?: string, onSuccess?: () => void) => void;
@@ -21,15 +24,3 @@ export interface AuthRequiredContextType {
 export const AuthRequiredProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
-
-export function useAuthRequired() {
-  return {
-    requireAuth: (action: () => void, message?: string) => {
-      if (useAuthStore.getState().user) {
-        action();
-      } else {
-        useAuthSheetStore.getState().show(message, action);
-      }
-    },
-  };
-}
