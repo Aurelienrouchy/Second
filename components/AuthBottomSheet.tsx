@@ -470,7 +470,7 @@ const AuthBottomSheet: React.FC = () => {
       topInset={insets.top}
       handleIndicatorStyle={styles.handle}
       backgroundStyle={styles.sheetBackground}
-      keyboardBehavior="interactive"
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
