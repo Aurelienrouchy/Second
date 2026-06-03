@@ -25,6 +25,7 @@ export const TopControls = React.memo(function TopControls({
   return (
     <View style={[styles.topControls, { paddingTop: topInset + 8 }]}>
       <Pressable
+        testID="sell-close-button"
         style={styles.circleButton}
         onPress={onClose}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
