@@ -23,6 +23,7 @@ export const ProfileTabs = React.memo(function ProfileTabs({
   return (
     <View style={styles.tabsContainer}>
       <Pressable
+        testID="profile-tab-articles"
         style={[styles.tab, activeTab === 'articles' && styles.tabActive]}
         onPress={() => onTabChange('articles')}
       >
