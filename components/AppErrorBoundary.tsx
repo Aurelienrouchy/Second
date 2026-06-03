@@ -63,7 +63,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="app-error-boundary-fallback">
         <Text style={styles.title}>Une erreur est survenue</Text>
         <Text style={styles.message}>
           L'application a rencontré un problème inattendu. Vous pouvez réessayer.
@@ -71,7 +71,11 @@ export class AppErrorBoundary extends React.Component<Props, State> {
         {__DEV__ && this.state.errorMessage && (
           <Text style={styles.errorDetail}>{this.state.errorMessage}</Text>
         )}
-        <Pressable style={styles.button} onPress={this.handleRetry}>
+        <Pressable
+          style={styles.button}
+          onPress={this.handleRetry}
+          testID="app-error-boundary-retry"
+        >
           <Text style={styles.buttonText}>Réessayer</Text>
         </Pressable>
       </View>
