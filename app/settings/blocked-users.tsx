@@ -20,8 +20,52 @@ import { FlashList } from '@shopify/flash-list';
 import { formatDisplayName } from '@/utils/formatName';
 import { Skeleton, SkeletonAvatar } from '@/components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 const keyExtractor = (item: BlockedUser) => item.blockedUserId;
+
+/**
+ * Resolve the blocked user's display name LIVE from the immutable
+ * `blockedUserId`, instead of the `blockedUserName` snapshot frozen at block
+ * time. Falls back to the snapshot while the live profile loads.
+ */
+interface BlockedUserRowProps {
+  item: BlockedUser;
+  unblocking: string | null;
+  onUnblock: (blockedUser: BlockedUser) => void;
+}
+
+const BlockedUserRow = React.memo(function BlockedUserRow({
+  item,
+  unblocking,
+  onUnblock,
+}: BlockedUserRowProps) {
+  const { data: profile } = useUserProfile(item.blockedUserId);
+  const displayName = profile?.displayName || item.blockedUserName;
+
+  return (
+    <View style={styles.userItem}>
+      <View style={styles.userInfo}>
+        <View style={styles.avatar}>
+          <Ionicons name="person" size={24} color={colors.muted} />
+        </View>
+        <View style={styles.userText}>
+          <Text variant="body" style={styles.userName}>{formatDisplayName(displayName)}</Text>
+          <Caption>Bloqué le {formatDate(item.blockedAt)}</Caption>
+        </View>
+      </View>
+      <Button
+        variant="secondary"
+        size="small"
+        loading={unblocking === item.blockedUserId}
+        onPress={() => onUnblock(item)}
+        style={styles.unblockButton}
+      >
+        Débloquer
+      </Button>
+    </View>
+  );
+});
 
 const formatDate = (date: Date) => {
   return date.toLocaleDateString(APP_LOCALE, {
