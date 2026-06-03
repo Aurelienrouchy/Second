@@ -50,7 +50,7 @@ function StripePaymentComponent({
   clientSecret,
   visible,
   onResult,
-  onClose,
+  onClose: _onClose,
   totalAmount: _totalAmount,
 }: StripePaymentProps) {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
