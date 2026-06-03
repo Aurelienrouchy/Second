@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { colors, fonts, spacing, typography } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
 
 // =============================================================================
