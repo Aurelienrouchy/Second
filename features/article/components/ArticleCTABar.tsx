@@ -72,10 +72,14 @@ function ArticleCTABarComponent({
         </Pressable>
       ) : (
         <View style={styles.ctaRow}>
-          <Pressable style={styles.offerOutlineButton} onPress={onMakeOffer}>
+          <Pressable
+            testID="article-make-offer-button"
+            style={styles.offerOutlineButton}
+            onPress={onMakeOffer}
+          >
             <Text style={styles.offerOutlineText}>OFFRE</Text>
           </Pressable>
-          <Pressable style={styles.buyButton} onPress={onBuy}>
+          <Pressable testID="article-buy-button" style={styles.buyButton} onPress={onBuy}>
             <Ionicons name="bag-handle-outline" size={16} color={colors.cream} />
             <Text style={styles.buyButtonText}>
               {shippingEnabled
