@@ -110,7 +110,10 @@ export class UserService {
   ): Promise<void> {
     try {
       // Use dot notation so partial updates merge into the existing
-      // preferences map instead of overwriting unrelated sub-fields.
+      // preferences map instead of overwriting unrelated sub-fields. Any
+      // preference sub-field is supported generically (sizes, shoesSizes,
+      // favoriteBrands, …) so it stays aligned with the onboarding callable,
+      // which writes both preferences.sizes and preferences.shoesSizes.
       const dottedPreferences: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(preferences)) {
         dottedPreferences[`preferences.${key}`] = value;
