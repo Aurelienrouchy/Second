@@ -100,12 +100,28 @@ const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/user/${seller.id}`);
   };
+  const animateHeart = () => {
+    heartScale.value = withTiming(
+      1.3,
+      { duration: animations.duration.normal, easing: Easing.out(Easing.ease) },
+      () => {
+        heartScale.value = withTiming(1, {
+          duration: animations.duration.fast,
+          easing: Easing.out(Easing.ease),
+        });
+      }
+    );
+  };
   const handleLikePress = () => {
-    heartScale.value = withTiming(1.3, {
-      duration: animations.duration.normal,
-      easing: Easing.out(Easing.ease),
-    });
-    toggleLike();
+    // Only bounce the heart when the like will actually register. When the
+    // user is signed out, defer the animation to the auth-success path so the
+    // heart never animates ahead of an unconfirmed action (scale stays at 1).
+    if (isLoggedIn) {
+      animateHeart();
+      toggleLike();
+    } else {
+      toggleLike();
+    }
   };
 
   const avatarGradient = getGradientForSeller(seller.id);
