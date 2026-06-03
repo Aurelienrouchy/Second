@@ -35,6 +35,7 @@ function PriceRangeInputsComponent({
         <View style={styles.priceInputWrapper}>
           <Text style={styles.priceInputLabel}>Min</Text>
           <TextInput
+            testID="price-min-input"
             style={styles.priceInput}
             placeholder="0"
             placeholderTextColor={colors.muted}
