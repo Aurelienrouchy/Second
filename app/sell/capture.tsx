@@ -51,6 +51,7 @@ export default function CaptureScreen() {
   const [photos, setPhotos] = useState<string[]>(isResuming ? resumedPhotos : []);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
+  const [torchActive, setTorchActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const draftRef = useRef<ArticleDraft | null>(null);
 
