@@ -66,7 +66,11 @@ export default function UserProfileScreen() {
   const [isContactLoading, setIsContactLoading] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
 
-  // Follow hook
+  // Follow hook.
+  // `isFollowing` is derived client-side from useSellerLikes (the optimistic
+  // source of truth that stays in sync with toggleLike). The `isFollowing`
+  // field also returned by getUserPublicProfile is intentionally ignored here
+  // to avoid a stale value diverging from the optimistic toggle state.
   const { likedSellerIds, toggleLike } = useSellerLikes();
   const isFollowing = id ? likedSellerIds.includes(id) : false;
 
