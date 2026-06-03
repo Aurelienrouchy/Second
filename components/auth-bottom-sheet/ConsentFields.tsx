@@ -83,6 +83,7 @@ function ConsentFieldsComponent({
           keyboardType="number-pad"
           maxLength={2}
           accessibilityLabel="Mois de naissance"
+          testID="signup-dob-month"
         />
         <Text style={styles.dobSeparator}>/</Text>
         <TextInput
