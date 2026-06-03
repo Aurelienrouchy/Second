@@ -58,6 +58,7 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
             style={styles.thumbRemove}
             onPress={() => onRemovePhoto(index)}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            testID={`sell-thumbnail-remove-${index}`}
           >
             <Ionicons name="close" size={10} color={colors.white} />
           </Pressable>

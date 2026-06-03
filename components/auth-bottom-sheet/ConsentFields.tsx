@@ -139,6 +139,7 @@ function ConsentFieldsComponent({
           checked={marketingOptIn}
           onToggle={onToggleMarketing}
           accessibilityLabel={COPY_CONSENT.marketing}
+          testID="signup-consent-marketing"
         >
           <Text style={styles.consentText}>{COPY_CONSENT.marketing}</Text>
         </Checkbox>
