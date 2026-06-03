@@ -2,8 +2,11 @@
  * Onboarding callable functions
  * Firebase Functions v7 - using onCall
  *
- * Saves user onboarding preferences (sex, sizes, shoe sizes)
- * collected at first app launch, before or after account creation.
+ * Persists user onboarding preferences (sex, sizes, shoe sizes) collected at
+ * first app launch into the canonical flat `preferences` map on the user doc
+ * (preferences.sizes / preferences.shoesSizes / preferences.sex). The legacy
+ * nested `onboardingPreferences` snapshot is no longer written — it was never
+ * read by the app and went stale on every settings edit.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db, FieldValue } from '../config/firebase';
