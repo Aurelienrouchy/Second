@@ -22,7 +22,7 @@ import {
 
 import { SectionHeader } from '@/components/home/SectionHeader';
 import ProductCard from '@/components/ProductCard';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { useDiscoverArticles } from './useDiscoverArticles';
 
 // =============================================================================
