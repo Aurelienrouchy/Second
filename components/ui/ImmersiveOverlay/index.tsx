@@ -86,7 +86,8 @@ export function useImmersiveOverlay() {
 
 const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
   function ImmersiveOverlay({ children }) {
-    const { activate, deactivate } = useImmersiveOverlayStore.getState();
+    const { activate, deactivate, setCallbacks, clearCallbacks } =
+      useImmersiveOverlayStore.getState();
 
     // ── SharedValues ──
     /** Overlay visibility: 0 = hidden, 1 = fully shown */
