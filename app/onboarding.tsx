@@ -261,10 +261,11 @@ export default function OnboardingScreen() {
             <Button
               fullWidth
               onPress={() => setShowWelcome(false)}
+              testID="onboarding-continue"
             >
               CONTINUER
             </Button>
-            <Pressable onPress={handleSkip} style={styles.skipButton}>
+            <Pressable onPress={handleSkip} style={styles.skipButton} testID="onboarding-skip">
               <Text style={styles.skipText}>Passer</Text>
             </Pressable>
           </Animated.View>
