@@ -184,6 +184,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
 
       <View style={styles.footer}>
         <Pressable
+          testID="offer-confirm-submit"
           style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={isSubmitting}
