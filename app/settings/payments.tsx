@@ -31,12 +31,10 @@ export default function PaymentsSettingsScreen() {
         <View style={styles.emptyState}>
           <Ionicons name="card-outline" size={48} color={colors.muted} />
           <Caption style={styles.emptyText}>Aucune carte enregistrée</Caption>
+          <Caption style={styles.emptyHint}>
+            L'enregistrement de cartes bancaires sera disponible prochainement.
+          </Caption>
         </View>
-
-        <Pressable style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.7 }]} onPress={handleAddCard}>
-          <Ionicons name="add" size={24} color={colors.primary} />
-          <Text variant="body" style={styles.addButtonText}>Ajouter une carte</Text>
-        </Pressable>
       </ScrollView>
     </View>
   );
