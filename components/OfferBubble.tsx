@@ -329,8 +329,8 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
     if (!onReportNoShow) return;
 
     Alert.alert(
-      'Signaler un no-show',
-      "L'autre personne ne s'est pas présentée au meetup ?",
+      'Signaler une absence',
+      "L'autre personne ne s'est pas présentée à la rencontre ? Vous pouvez la signaler.",
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -344,7 +344,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               await onReportNoShow(
                 message.id,
                 'other_party_no_show',
-                "L'autre personne ne s'est pas présentée au meetup.",
+                "L'autre personne ne s'est pas présentée à la rencontre.",
               );
             } catch (error) {
               if (__DEV__) console.error('Error reporting no-show:', error);
