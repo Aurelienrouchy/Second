@@ -48,11 +48,14 @@ appId: com.seconde.app
 - tapOn:
     id: "Profil"
 
-# Ouvrir l'écran Paramètres depuis le menu du profil (testID stable).
-- extendedWaitUntil:
-    visible:
+# Ouvrir l'écran Paramètres depuis le menu du profil (testID stable). Le menu du
+# profil défile : "Paramètres" est sous la ligne de flottaison → on défile pour
+# le révéler avant de taper.
+- scrollUntilVisible:
+    element:
       id: "menu-item-settings"
-    timeout: 15000
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "menu-item-settings"
 
