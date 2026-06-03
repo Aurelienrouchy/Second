@@ -184,12 +184,3 @@ export async function matchBrand(
     suggestions,
   };
 }
-
-/**
- * Clear brands cache
- */
-export function clearBrandsCache(): void {
-  brandsCache = null;
-  brandsCacheTimestamp = 0;
-  brandsFuse = null;
-}
