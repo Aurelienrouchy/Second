@@ -829,8 +829,8 @@ export class ChatService {
 
       const meetupDetails = originalOffer.meetup;
       const dateTimeInfo = meetupDetails.dateTime
-        ? `le ${new Date(meetupDetails.dateTime).toLocaleDateString('fr-CA')} a ${new Date(meetupDetails.dateTime).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`
-        : 'a une date a convenir';
+        ? `le ${new Date(meetupDetails.dateTime).toLocaleDateString(APP_LOCALE)} à ${new Date(meetupDetails.dateTime).toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })}`
+        : 'à une date à convenir';
 
       let content = `Contre-offre: ${newAmount} $\n`;
       content += `${meetupDetails.location.name}\n`;
