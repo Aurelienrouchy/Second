@@ -633,6 +633,7 @@ export default function PhotosReviewScreen() {
           <Pressable
             style={styles.continueButton}
             onPress={handleContinue}
+            testID="sell-photos-review-continue"
           >
             <Ionicons name="checkmark-circle-outline" size={18} color={colors.cream} />
             <Text style={styles.continueButtonText}>CONTINUER</Text>
