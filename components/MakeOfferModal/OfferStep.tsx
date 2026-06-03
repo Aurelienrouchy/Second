@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   discountWarning: {
-    color: '#FF9500',
+    color: colors.warning,
   },
   messageInput: {
     backgroundColor: colors.white,
