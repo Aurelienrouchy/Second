@@ -23,8 +23,9 @@
 #     (ajoutés à ChatInputBar).
 appId: com.seconde.app
 ---
-# Rejoindre l'app en conservant la session (pas de clearState).
-- launchApp
+# Rejoindre l'app en conservant la session (pas de clearState) via le sous-flow
+# partagé (gère un éventuel launcher/dev-menu résiduel du dev-client).
+- runFlow: ../subflows/open-app.yaml
 
 # Aller sur l'onglet Messages via son label d'accessibilité (stable, non FR-copy).
 - extendedWaitUntil:
