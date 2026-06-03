@@ -242,6 +242,7 @@ export default function TabLayout() {
         options={{
           title: 'Favoris',
           tabBarAccessibilityLabel: 'Favoris',
+          tabBarButtonTestID: 'Favoris',
           tabBarIcon: ({ color }) => <HeartIcon color={color} />,
         }}
       />
