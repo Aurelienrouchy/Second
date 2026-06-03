@@ -276,7 +276,7 @@ export default function OnboardingScreen() {
 
   // ─── Form screen ───
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} testID="onboarding-form">
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
