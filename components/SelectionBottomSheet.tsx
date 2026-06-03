@@ -106,6 +106,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
           <BottomSheetFooter {...props}>
             <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
               <TouchableOpacity
+                testID="selection-confirm-button"
                 style={[
                   styles.confirmButton,
                   localSelectedValues.length === 0 && styles.confirmButtonDisabled,
