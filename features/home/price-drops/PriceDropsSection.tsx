@@ -246,10 +246,11 @@ const styles = StyleSheet.create({
   container: {},
   scrollContent: {
     // Home gutter on the left only; last card bleeds to the edge.
+    // No paddingBottom: the next section's SectionHeader (paddingTop 28) owns
+    // the inter-section vertical space; a rail paddingBottom would double it.
     paddingLeft: spacing.lg,
     paddingRight: 0,
     gap: CARD_GAP,
-    paddingBottom: spacing.sm,
   },
   cardWrapper: {
     width: CARD_WIDTH,
