@@ -47,6 +47,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   const [photos, setPhotos] = useState<string[]>([]);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
+  const [torchActive, setTorchActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const draftRef = useRef<ArticleDraft | null>(null);
 
