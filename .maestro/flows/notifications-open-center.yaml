@@ -19,7 +19,8 @@
 # ne pas retomber sur l'onboarding (cf. 00-launch.yaml).
 appId: com.seconde.app
 ---
-- launchApp
+# Conserve la session (sous-flow partagé, gère launcher/dev-menu résiduel).
+- runFlow: ../subflows/open-app.yaml
 
 # On part de l'onglet Accueil. tabBarAccessibilityLabel "Accueil" est exposé par
 # (tabs)/_layout.tsx — sélecteur stable (id) pour revenir sur le Home si besoin.
