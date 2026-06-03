@@ -108,7 +108,7 @@ export const useChat = (chatId: string | null, userId: string | null) => {
       unsubMessages?.();
       unsubChat?.();
     };
-  }, [chatId, userId]);
+  }, [chatId, userId, reloadKey]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!chatId || !userId || !chat) return;
