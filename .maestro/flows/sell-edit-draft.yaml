@@ -23,22 +23,12 @@ appId: com.seconde.app
 # ne pas bloquer sur les dialogues natifs pendant la capture.
 - runFlow: ../subflows/open-app-fresh.yaml
 
-# Franchir l'onboarding jusqu'à la home (tab bar visible).
+# Franchir l'onboarding (welcome/form) via « Passer » jusqu'à la home (tab bar).
 - extendedWaitUntil:
     visible:
       id: "onboarding-welcome"
     timeout: 15000
-- tapOn:
-    id: "onboarding-continue"
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: "onboarding-continue"
-    commands:
-      - tapOn:
-          id: "onboarding-continue"
-          optional: true
+- runFlow: ../subflows/pass-onboarding.yaml
 
 # ── 1. Créer une amorce de brouillon : ouvrir le tunnel Vendre + capturer ──
 - extendedWaitUntil:
