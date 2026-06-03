@@ -42,6 +42,7 @@ export const ArticleSelectionSection = React.memo(function ArticleSelectionSecti
       ))}
 
       <Pressable
+        testID={variant === 'mine' ? 'propose-swap-add-mine' : 'propose-swap-add-their'}
         style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
         onPress={onAdd}
       >
