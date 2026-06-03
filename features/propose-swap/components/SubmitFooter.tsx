@@ -21,8 +21,10 @@ export const SubmitFooter = React.memo(function SubmitFooter({
   isDisabled,
   onSubmit,
 }: SubmitFooterProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.footer}>
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
       <Pressable
         style={({ pressed }) => [
           styles.submitButton,
