@@ -6,7 +6,7 @@ import { GuestSession } from './guestPreferencesService';
 /**
  * Default profile when generation fails or insufficient data
  */
-export const DEFAULT_STYLE_PROFILE: StyleProfile = {
+const DEFAULT_STYLE_PROFILE: StyleProfile = {
   styleTags: [],
   styleDescription: '',
   recommendedBrands: [],
