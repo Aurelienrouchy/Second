@@ -38,12 +38,12 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
         {/* Price summary row */}
         <View style={styles.priceSummaryRow}>
           <View style={styles.priceSummaryItem}>
-            <Text style={styles.priceSummaryLabel}>Vos articles</Text>
+            <Text style={styles.priceSummaryLabel}>Tes articles</Text>
             <Text style={styles.priceSummaryValue}>{formatPrice(initiatorTotal)}</Text>
           </View>
           <View style={styles.priceSummaryDivider} />
           <View style={styles.priceSummaryItem}>
-            <Text style={styles.priceSummaryLabel}>Leurs articles</Text>
+            <Text style={styles.priceSummaryLabel}>Ses articles</Text>
             <Text style={styles.priceSummaryValue}>{formatPrice(receiverTotal)}</Text>
           </View>
         </View>
