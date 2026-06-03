@@ -408,7 +408,7 @@ export default function PhotosReviewScreen() {
   // =============================================================================
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="sell-photos-review-screen">
       <ScreenHeader
         title="Tes photos"
         onBack={handleBack}
