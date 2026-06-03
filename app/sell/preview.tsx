@@ -238,7 +238,7 @@ export default function PreviewScreen() {
 
   // Build tags array
   const tags: string[] = [];
-  if (fields.condition) tags.push(conditionLabels[fields.condition] || fields.condition);
+  if (fields.condition) tags.push(getConditionLabel(fields.condition));
   if (fields.size) tags.push(fields.size);
   if (fields.colors?.length > 0) {
     fields.colors.forEach((c) => tags.push(c));
