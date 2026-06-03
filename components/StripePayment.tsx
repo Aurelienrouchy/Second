@@ -107,7 +107,7 @@ function StripePaymentComponent({
     } finally {
       isPresentingRef.current = false;
     }
-  }, [clientSecret, initPaymentSheet, presentPaymentSheet, onResult, onClose]);
+  }, [clientSecret, initPaymentSheet, presentPaymentSheet, onResult]);
 
   useEffect(() => {
     if (visible && clientSecret) {
