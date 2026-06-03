@@ -215,7 +215,7 @@ export default function ReviewScreen() {
         transactionId: transaction.id,
         transactionType,
         note: rating,
-        text: comment.trim() || 'Bonne transaction.',
+        text: comment.trim(),
         articleId: transaction.articleId,
       });
 
