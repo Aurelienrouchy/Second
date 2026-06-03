@@ -234,8 +234,7 @@ service cloud.firestore {
       //
       // - isAdmin/role/customClaims : privilege escalation (see isAdmin()).
       // - username                  : server-assigned, persistent, IMMUTABLE handle.
-      // - onboardingCompleted/onboardingPreferences/createdAt/id : server-managed
-      //   lifecycle/identity fields.
+      // - onboardingCompleted/createdAt/id : server-managed lifecycle/identity fields.
       // - stripe*                   : the ONLY financial gates read by walletWithdraw /
       //   createTransaction / swaps. Written EXCLUSIVELY by the Stripe webhook +
       //   onboarding callables (Admin SDK, which bypasses these rules). Leaving them
