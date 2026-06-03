@@ -177,10 +177,17 @@ function SignUpFormComponent({
 
       {/* Toggle tabs */}
       <View style={styles.authToggle}>
-        <Pressable style={styles.toggleTab} onPress={onSwitchToSignIn}>
+        <Pressable
+          testID="auth-tab-signin"
+          style={styles.toggleTab}
+          onPress={onSwitchToSignIn}
+        >
           <Text style={styles.toggleTabText}>Se connecter</Text>
         </Pressable>
-        <Pressable style={[styles.toggleTab, styles.toggleTabActive]}>
+        <Pressable
+          testID="auth-tab-signup"
+          style={[styles.toggleTab, styles.toggleTabActive]}
+        >
           <Text style={[styles.toggleTabText, styles.toggleTabTextActive]}>
             S'inscrire
           </Text>
