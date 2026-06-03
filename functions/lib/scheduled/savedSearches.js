@@ -46,6 +46,50 @@ const notifications_1 = require("../utils/notifications");
 const normalizeBrand_1 = require("../utils/normalizeBrand");
 const article_1 = require("../shared/article");
 /**
+ * Compute the user's REAL unread badge count for the APNs payload:
+ * unread in-app notifications + unread chat messages.
+ *
+ * Mirrors utils/notifications.computeBadgeCount (kept local because this
+ * scheduled job builds FCM messages inline rather than going through
+ * sendPushNotification). The previous implementation hardcoded the badge to
+ * the per-search new-items count, which clobbered the device badge with a
+ * value unrelated to the user's true unread total. Best-effort: on any read
+ * error we fall back to 1 so the push still surfaces a badge.
+ */
+async function computeBadgeCount(userId) {
+    try {
+        const [notifSnap, chatsSnap] = await Promise.all([
+            firebase_1.db
+                .collection('notifications')
+                .where('userId', '==', userId)
+                .where('isRead', '==', false)
+                .count()
+                .get(),
+            firebase_1.db
+                .collection('chats')
+                .where('participants', 'array-contains', userId)
+                .get(),
+        ]);
+        const unreadNotifications = notifSnap.data().count;
+        let unreadMessages = 0;
+        chatsSnap.forEach((doc) => {
+            var _a, _b;
+            const raw = (_b = (_a = doc.data()) === null || _a === void 0 ? void 0 : _a.unreadCount) === null || _b === void 0 ? void 0 : _b[userId];
+            if (typeof raw === 'number' && raw > 0) {
+                unreadMessages += raw;
+            }
+        });
+        return unreadNotifications + unreadMessages;
+    }
+    catch (error) {
+        logger.warn('Failed to compute badge count, falling back to 1', {
+            userId,
+            error: error instanceof Error ? error.message : error,
+        });
+        return 1;
+    }
+}
+/**
  * Check saved searches and notify users of new matching articles
  * Runs every 15 minutes
  *
@@ -214,6 +258,10 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
                     : searchQuery
                         ? `Résultats pour "${searchQuery}"`
                         : 'De nouveaux articles correspondent à votre recherche';
+                // Real APNs badge = unread notifications + unread chat messages
+                // (NOT the per-search new-items count, which would clobber the badge
+                // with an unrelated value).
+                const badge = await computeBadgeCount(userId);
                 // Send notification to all user's devices
                 const messages = fcmTokens.map((token) => ({
                     token,
@@ -243,7 +291,7 @@ exports.checkSavedSearchNotifications = (0, scheduler_1.onSchedule)({ schedule: 
                         payload: {
                             aps: {
                                 sound: 'default',
-                                badge: matchingArticles.length,
+                                badge,
                             },
                         },
                     },
