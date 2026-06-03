@@ -85,13 +85,17 @@ export default function TabLayout() {
         <SellOverlayCapture
           onClose={() => dismiss()}
           onContinue={(photos) => {
-            dismiss();
-            setTimeout(() => {
-              router.push({
-                pathname: '/sell/photos-review',
-                params: { photos: JSON.stringify(photos) },
-              });
-            }, OVERLAY_DISMISS_PUSH_DELAY);
+            // Couple navigation to the real end of the dismiss animation
+            // (onDismissed) instead of a magic timer — the push fires exactly
+            // when the overlay has fully collapsed, never racing it.
+            dismiss({
+              onDismissed: () => {
+                router.push({
+                  pathname: '/sell/photos-review',
+                  params: { photos: JSON.stringify(photos) },
+                });
+              },
+            });
           }}
         />
       ),
