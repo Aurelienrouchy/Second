@@ -127,7 +127,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
         </Text>
       </View>
 
-      <Pressable style={styles.submitButton} onPress={handleNext}>
+      <Pressable testID="offer-step-continue" style={styles.submitButton} onPress={handleNext}>
         <Text style={styles.submitButtonText}>Continuer</Text>
       </Pressable>
     </>
