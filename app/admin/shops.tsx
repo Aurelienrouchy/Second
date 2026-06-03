@@ -241,7 +241,7 @@ export default function AdminShopsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} testID="admin-shops-screen">
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
