@@ -94,7 +94,10 @@ const AuthBottomSheet: React.FC = () => {
 
   useEffect(() => {
     if (isVisible) {
-      bottomSheetRef.current?.expand();
+      // Open at the base snap (index 0 = 82%). The taller second snap (98%) is
+      // reserved for the keyboard-open state so the focused input can scroll
+      // above the keyboard; opening with expand() would rest at 98% instead.
+      bottomSheetRef.current?.snapToIndex(0);
     } else {
       bottomSheetRef.current?.close();
     }
