@@ -68,7 +68,7 @@ function PriceRangeInputsComponent({
             <Text style={styles.priceClearText}>Effacer</Text>
           </Pressable>
         )}
-        <Pressable onPress={onApply} style={styles.priceApplyButton}>
+        <Pressable testID="price-apply-button" onPress={onApply} style={styles.priceApplyButton}>
           <Text style={styles.priceApplyText}>Appliquer</Text>
         </Pressable>
       </View>
