@@ -301,6 +301,7 @@ export default function DetailsScreen() {
         />
 
         <TextareaField
+          testID="sell-description-input"
           label="Description"
           value={fields.description}
           onChangeText={(text) => updateField('description', text)}
