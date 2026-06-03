@@ -527,6 +527,7 @@ export default function PhotosReviewScreen() {
             style={[styles.addButton, { opacity: photoActionsOpacity }]}
             onPress={handleAddPhotos}
             disabled={isAnalyzing}
+            testID="sell-add-photos-button"
           >
             <View style={styles.addButtonIconCircle}>
               <Ionicons name="add" size={20} color={colors.muted} />
