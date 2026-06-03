@@ -326,6 +326,67 @@ const AuthBottomSheet: React.FC = () => {
     setResetEmailSent(false);
   }, []);
 
+  // Per-mode title (signIn vs signUp). Rendered in AuthBottomSheet above the
+  // shared chrome and animated on its own keyed region (FadeIn, ease-out).
+  const renderTitle = () => {
+    if (authType === 'signUp') {
+      return (
+        <>
+          <Text style={styles.title}>Bienvenue sur</Text>
+          <Text style={styles.subtitle}>Seconde</Text>
+        </>
+      );
+    }
+    return (
+      <>
+        <Text style={styles.title}>Content de</Text>
+        <Text style={styles.subtitle}>te revoir</Text>
+      </>
+    );
+  };
+
+  // Per-mode fields (signIn vs signUp). The shared chrome (social buttons,
+  // divider, toggle) stays mounted; only this region swaps on a mode change.
+  const renderFields = () => {
+    if (authType === 'signUp') {
+      return (
+        <SignUpForm
+          email={email}
+          password={password}
+          username={username}
+          dobDay={dobDay}
+          dobMonth={dobMonth}
+          dobYear={dobYear}
+          acceptedTerms={acceptedTerms}
+          acceptedPrivacy={acceptedPrivacy}
+          marketingOptIn={marketingOptIn}
+          isLoading={isLoading}
+          onChangeEmail={setEmail}
+          onChangePassword={setPassword}
+          onChangeUsername={setUsername}
+          onChangeDobDay={setDobDay}
+          onChangeDobMonth={setDobMonth}
+          onChangeDobYear={setDobYear}
+          onToggleTerms={handleToggleTerms}
+          onTogglePrivacy={handleTogglePrivacy}
+          onToggleMarketing={handleToggleMarketing}
+          onSubmit={handleEmailAuth}
+        />
+      );
+    }
+    return (
+      <SignInForm
+        email={email}
+        password={password}
+        isLoading={isLoading}
+        onChangeEmail={setEmail}
+        onChangePassword={setPassword}
+        onSubmit={handleEmailAuth}
+        onForgotPassword={() => setAuthType('forgotPassword')}
+      />
+    );
+  };
+
   const renderBody = () => {
     if (authType === 'socialConsent') {
       // Age + consent validation for the social step (server revalidates).
