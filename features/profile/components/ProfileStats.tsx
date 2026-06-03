@@ -7,7 +7,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, spacing, typography } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
