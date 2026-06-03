@@ -264,22 +264,6 @@ export async function deleteDraftImagesFromStorage(draftId: string): Promise<voi
 }
 
 /**
- * Move draft images to articles folder (for publishing)
- * Returns new URLs in the articles folder
- */
-export async function moveDraftImagesToArticles(
-  storageUrls: string[],
-  draftId: string,
-  articleId: string
-): Promise<string[]> {
-  // For now, we'll keep images in draft folder and just reference them
-  // A more complete solution would copy to articles folder and delete from drafts
-  // But this adds complexity - for MVP, we just use the existing URLs
-  if (__DEV__) console.log(`[aiService] Using draft images for article ${articleId}`);
-  return storageUrls;
-}
-
-/**
  * Get icon for category based on categoryId
  */
 function getCategoryIcon(categoryId: string): string {
