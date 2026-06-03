@@ -13,7 +13,6 @@ import { FlashList } from '@shopify/flash-list';
 import {
   getPopularSpotsForNeighborhood,
   MONTREAL_NEIGHBORHOODS,
-  NEIGHBORHOODS_BY_BOROUGH,
   searchNeighborhoods,
 } from '@/data/neighborhoods';
 import { MeetupNeighborhood, MeetupSpot, MeetupSpotCategory, MeetupSpotCategoryLabels } from '@/types';
