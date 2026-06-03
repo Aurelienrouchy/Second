@@ -157,6 +157,7 @@ function SignUpFormComponent({
       ) : null}
 
       <Pressable
+        testID="social-google"
         style={styles.socialButton}
         onPress={() => onSocialAuth('Google')}
         disabled={isLoading}
