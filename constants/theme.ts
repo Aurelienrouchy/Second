@@ -74,6 +74,8 @@ export const colors = {
   whiteTranslucent: 'rgba(255, 255, 255, 0.5)',  // White at 50% opacity (timestamps on dark bg)
   black: '#000000',
   cream: '#F5F0E8',            // Alias for surfaceWarm
+  creamTranslucent40: 'rgba(245, 240, 232, 0.4)', // Cream at 40% — muted labels on charcoal
+  creamTranslucent60: 'rgba(245, 240, 232, 0.6)', // Cream at 60% — secondary text on charcoal
   charcoal: '#1A1814',         // Alias for dark
   surfaceSubtle: 'rgba(26, 24, 20, 0.04)',  // Near-transparent surface (system messages)
   transparent: 'transparent',
