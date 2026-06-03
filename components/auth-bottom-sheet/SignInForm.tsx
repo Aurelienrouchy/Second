@@ -167,6 +167,7 @@ function SignInFormComponent({
       ) : null}
 
       <Pressable
+        testID="signin-submit"
         style={[styles.primaryButton, submitDisabled && styles.disabledButton]}
         onPress={onSubmit}
         disabled={submitDisabled}
