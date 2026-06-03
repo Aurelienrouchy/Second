@@ -459,7 +459,7 @@ const AuthBottomSheet: React.FC = () => {
       handleIndicatorStyle={styles.handle}
       backgroundStyle={styles.sheetBackground}
       keyboardBehavior="interactive"
-      keyboardBlurBehavior="none"
+      keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
       <BottomSheetScrollView
