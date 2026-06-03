@@ -1269,7 +1269,7 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `Transaction completee avec succes! Merci d'utiliser Second.`
+        `Transaction complétée avec succès! Merci d'utiliser Second.`
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
