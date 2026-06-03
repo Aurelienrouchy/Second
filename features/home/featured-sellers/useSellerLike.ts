@@ -29,5 +29,5 @@ export function useSellerLike(sellerId: string) {
     [requireAuth, globalToggle, sellerId]
   );
 
-  return { isLiked, toggleLike, isLoggedIn };
+  return { isLiked, toggleLike };
 }
