@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
-import { colors, spacing, typography, fonts } from '@/constants/theme';
+import { colors, spacing, fonts } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
