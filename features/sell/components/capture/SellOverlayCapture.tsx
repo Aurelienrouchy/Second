@@ -223,6 +223,10 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
   }, [cameraOpacity]);
 
+  const toggleTorch = useCallback(() => {
+    setTorchActive((current) => !current);
+  }, []);
+
   // ── Overlay heights ──
 
   const topOverlayHeight = insets.top + 56;
