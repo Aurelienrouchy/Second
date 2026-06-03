@@ -186,6 +186,10 @@ export class AuthService {
         userData.profileImage = firebaseUser.photoURL;
       }
 
+      // NOTE: dateOfBirth is server-only by design (Loi 25 consent-gate +
+      // age-gate). It is written EXCLUSIVELY by the recordSignupConsent callable
+      // (Admin SDK) called just below, which re-validates the age. The firestore
+      // rule forbids it at create, so it must NOT be in this client setDoc.
       const firestoreData: Record<string, unknown> = {
         id: userData.id,
         email: userData.email,
@@ -193,7 +197,6 @@ export class AuthService {
         createdAt: serverTimestamp(),
         isActive: true,
         authProvider: 'email',
-        dateOfBirth: consent.dateOfBirth,
       };
 
       if (userData.profileImage) {
