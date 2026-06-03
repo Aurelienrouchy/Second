@@ -11,8 +11,9 @@
  * calendar date corresponding to age >= 16 AND both required boxes are checked.
  */
 
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
 import { computeAgeFromIso, MIN_AGE_REGISTER, toIsoDate } from '@/utils/age';
