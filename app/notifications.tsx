@@ -90,9 +90,10 @@ interface NotificationItemProps {
   notification: Notification;
   onPress: (notification: Notification) => void;
   onDelete: (notificationId: string) => void;
+  testID?: string;
 }
 
-function NotificationItem({ notification, onPress, onDelete }: NotificationItemProps) {
+function NotificationItem({ notification, onPress, onDelete, testID }: NotificationItemProps) {
   const iconConfig = notificationIcons[notification.type] || { name: 'notifications', color: colors.primary };
 
   const renderRightActions = () => (
