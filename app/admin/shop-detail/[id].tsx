@@ -34,6 +34,7 @@ export default function AdminShopDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [shop, setShop] = useState<Shop | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const rejectionModalRef = useRef<RejectionModalRef>(null);
 
@@ -41,11 +42,26 @@ export default function AdminShopDetailScreen() {
     if (id) {
       loadShopDetails();
     }
-  }, [id]);
+  }, [id, user]);
 
   const loadShopDetails = async () => {
     try {
       setIsLoading(true);
+
+      // Défense en profondeur : on vérifie le statut admin avant d'exposer les
+      // détails de modération (la vraie barrière reste les rules + callables).
+      if (!user) {
+        router.replace('/(tabs)');
+        return;
+      }
+      const adminStatus = await UserService.isUserAdmin(user.id);
+      if (!adminStatus) {
+        Alert.alert('Accès refusé', 'Vous n\'avez pas les droits d\'administrateur', [
+          { text: 'OK', onPress: () => router.replace('/(tabs)') },
+        ]);
+        return;
+      }
+
       const shopData = await ShopService.getShopById(id!);
       setShop(shopData);
     } catch (error) {
