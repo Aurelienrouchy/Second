@@ -143,7 +143,7 @@ function SignUpFormComponent({
         <Text style={styles.fieldError}>Adresse email invalide</Text>
       ) : null}
 
-      <TextInput
+      <BottomSheetTextInput
         testID="signup-password-input"
         style={styles.input}
         placeholder="Mot de passe"
