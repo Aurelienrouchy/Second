@@ -412,6 +412,7 @@ export default function OnboardingScreen() {
             onPress={handleValidate}
             disabled={!hasAnything}
             loading={isSaving}
+            testID="onboarding-submit"
           >
             VALIDER
           </Button>
