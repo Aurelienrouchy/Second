@@ -74,6 +74,7 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
 
       {screenState === 'loading' && (
         <Pressable
+          testID="sell-analysis-manual"
           style={({ pressed }) => [
             styles.manualLink,
             pressed && { opacity: 0.7 },
