@@ -227,6 +227,7 @@ function SignUpFormComponent({
       ) : null}
 
       <TextInput
+        testID="signup-password-input"
         style={styles.input}
         placeholder="Mot de passe"
         placeholderTextColor={colors.muted}
