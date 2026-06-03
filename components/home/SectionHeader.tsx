@@ -80,7 +80,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg, // 24px — matches maquette
-    paddingTop: 28,
+    paddingTop: spacing.lg + spacing.xs, // 28px — matches maquette
     paddingBottom: spacing.md,
   },
   headerContent: {
