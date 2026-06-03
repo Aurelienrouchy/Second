@@ -19,7 +19,6 @@ import { db, FieldValue } from '../config/firebase';
  */
 export const POLICY_VERSION = '2026-05-31';
 export const MIN_AGE_REGISTER = 16; // s'inscrire / acheter
-export const MIN_AGE_SELL = 18; // vendre (onboarding Stripe Connect)
 
 type ConsentType = 'terms' | 'privacy_policy' | 'marketing';
 
