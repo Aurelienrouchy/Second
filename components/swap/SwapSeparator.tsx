@@ -5,7 +5,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, spacing } from '@/constants/theme';
+import { colors } from '@/constants/theme';
 
 const SwapSeparator: React.FC = () => {
   return (
