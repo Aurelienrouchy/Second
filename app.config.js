@@ -8,11 +8,6 @@ export default {
     "icon": "./assets/images/icon.png",
     "scheme": "seconde",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F5F0E8"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
