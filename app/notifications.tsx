@@ -310,6 +310,7 @@ export default function NotificationsScreen() {
                 notification={item}
                 onPress={handleNotificationPress}
                 onDelete={handleDeleteNotification}
+                testID={`notification-item-${item.id}`}
               />
             )}
             contentContainerStyle={styles.listContent}
