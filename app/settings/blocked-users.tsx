@@ -125,26 +125,7 @@ export default function BlockedUsersScreen() {
   }, [user, performUnblock]);
 
   const renderItem = useCallback(({ item }: { item: BlockedUser }) => (
-    <View style={styles.userItem}>
-      <View style={styles.userInfo}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={24} color={colors.muted} />
-        </View>
-        <View style={styles.userText}>
-          <Text variant="body" style={styles.userName}>{formatDisplayName(item.blockedUserName)}</Text>
-          <Caption>Bloqué le {formatDate(item.blockedAt)}</Caption>
-        </View>
-      </View>
-      <Button
-        variant="secondary"
-        size="small"
-        loading={unblocking === item.blockedUserId}
-        onPress={() => handleUnblock(item)}
-        style={styles.unblockButton}
-      >
-        Débloquer
-      </Button>
-    </View>
+    <BlockedUserRow item={item} unblocking={unblocking} onUnblock={handleUnblock} />
   ), [unblocking, handleUnblock]);
 
   const renderEmpty = () => (
