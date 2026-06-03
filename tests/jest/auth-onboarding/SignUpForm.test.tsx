@@ -72,8 +72,6 @@ function baseProps(overrides: Partial<SignUpFormProps> = {}): SignUpFormProps {
     onTogglePrivacy: jest.fn(),
     onToggleMarketing: jest.fn(),
     onSubmit: jest.fn(),
-    onSwitchToSignIn: jest.fn(),
-    onSocialAuth: jest.fn(),
     ...overrides,
   };
 }
