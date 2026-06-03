@@ -74,14 +74,14 @@ const styles = StyleSheet.create({
   // component (no card, no inner padding here). No horizontal margin / no
   // radius — full-bleed is the sanctioned exception.
   //
-  // Vertical rhythm: the band owns ONLY the space ABOVE it (the warm feed /
-  // header sits directly on top with no padding of its own). Below the band we
-  // add NO marginBottom — the NEXT section's SectionHeader (paddingTop 28) is
-  // the sole owner of that gap. A marginBottom here would stack onto it
-  // (32 + 28 = 60) and over-space "Découvrez". marginTop uses lg, not xl, so
-  // the band reads anchored to the feed rather than floating in a wide gap.
+  // Vertical rhythm: the band is flush — NO margin top or bottom. It butts
+  // directly against whatever sits above (header/chips when the upper feed is
+  // empty, the pour-toi rail when populated) for a bold, immersive dark break.
+  // Below the band we also add NO marginBottom — the NEXT section's
+  // SectionHeader (paddingTop 28) is the sole owner of that gap. A marginBottom
+  // here would stack onto it (32 + 28 = 60) and over-space "Découvrez".
   section: {
-    marginTop: spacing.lg,
+    marginTop: 0,
     marginBottom: 0,
     // Lifted white-alpha hairlines top + bottom are the only band chrome; the
     // dark-band-vs-warm-white-feed luminance jump provides the boundary.
