@@ -599,7 +599,7 @@ export class ChatService {
       const messageDoc = await getDoc(messageRef);
 
       if (!messageDoc.exists()) {
-        throw new Error('Message non trouve');
+        throw new Error('Message non trouvé');
       }
 
       const offerData = messageDoc.data();
