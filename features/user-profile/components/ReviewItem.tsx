@@ -64,7 +64,7 @@ export const ReviewItem = React.memo(function ReviewItem({
           <View style={styles.reviewStarsRow}>{renderStars(review.note)}</View>
         </View>
         <Text style={styles.reviewDate}>
-          {new Date(review.date).toLocaleDateString('fr-CA', {
+          {new Date(review.date).toLocaleDateString(APP_LOCALE, {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
