@@ -3,7 +3,8 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
