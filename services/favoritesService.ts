@@ -23,8 +23,6 @@ import {
   setDoc,
   updateDoc,
   where,
-  limit as firestoreLimit,
-  orderBy,
 } from 'firebase/firestore';
 import { firestore } from '../config/firebaseConfig';
 import { Article } from '../types';
