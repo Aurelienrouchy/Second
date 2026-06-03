@@ -18,10 +18,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList, FlashListProps } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
