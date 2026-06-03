@@ -112,7 +112,7 @@ function SignUpFormComponent({
 
   return (
     <View>
-      <TextInput
+      <BottomSheetTextInput
         testID="signup-username-input"
         style={styles.input}
         placeholder="Nom d'affichage"
