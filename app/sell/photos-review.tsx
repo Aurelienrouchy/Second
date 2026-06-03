@@ -591,6 +591,7 @@ export default function PhotosReviewScreen() {
             ]}
             onPress={handleRetry}
             disabled={photos.length === 0}
+            testID="sell-analyze-button"
           >
             <Ionicons
               name="sparkles-outline"
