@@ -214,7 +214,11 @@ export default function FavoritesScreen() {
     return (
       <View style={styles.container}>
         <ScreenHeader title="Mes favoris" showBack={false} />
-        <EmptyState onBrowse={handleAuthCheck} />
+        <EmptyState
+          onBrowse={handleAuthCheck}
+          subtitle="Connectez-vous pour retrouver vos articles favoris"
+          actionLabel="Se connecter"
+        />
       </View>
     );
   }
