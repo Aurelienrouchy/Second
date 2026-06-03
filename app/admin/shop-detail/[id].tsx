@@ -624,5 +624,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
   },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
 });
 
