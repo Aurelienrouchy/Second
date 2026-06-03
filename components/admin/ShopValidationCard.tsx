@@ -1,7 +1,8 @@
 import { Shop, ShopTypeLabels } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors } from '@/constants/theme';
 
@@ -10,6 +11,7 @@ interface ShopValidationCardProps {
   onApprove: () => void;
   onReject: () => void;
   onViewDetails: () => void;
+  disabled?: boolean;
 }
 
 export default function ShopValidationCard({
@@ -17,6 +19,7 @@ export default function ShopValidationCard({
   onApprove,
   onReject,
   onViewDetails,
+  disabled = false,
 }: ShopValidationCardProps) {
   const getStatusColor = () => {
     switch (shop.status) {
