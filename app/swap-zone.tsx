@@ -824,4 +824,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['4xl'] + spacing['2xl'],
     backgroundColor: colors.deep,
   },
+  // Multi-select adds the bar's footprint (≈ spacing['3xl']) on top of the base
+  // padding so the last grid row clears the absolute MultiSelectBar overlay.
+  gridContainerMultiSelect: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: spacing['4xl'] + spacing['2xl'] + spacing['3xl'],
+    backgroundColor: colors.deep,
+  },
 });
