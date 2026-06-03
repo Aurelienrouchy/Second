@@ -38,6 +38,7 @@ export const TextareaField = React.memo(function TextareaField({
         </View>
       </View>
       <TextInput
+        testID={testID}
         style={[
           styles.textareaContent,
           multiline && styles.textareaMultiline,
