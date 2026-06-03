@@ -21,13 +21,14 @@ type SettingItemProps = {
   subtitle?: string;
   onPress: () => void;
   variant?: 'default' | 'danger';
+  testID?: string;
 };
 
-const SettingItem = ({ icon, title, subtitle, onPress, variant = 'default' }: SettingItemProps) => {
+const SettingItem = ({ icon, title, subtitle, onPress, variant = 'default', testID }: SettingItemProps) => {
   const isDanger = variant === 'danger';
 
   return (
-    <Pressable style={({ pressed }) => [styles.settingItem, pressed && { opacity: 0.7 }]} onPress={onPress}>
+    <Pressable testID={testID} style={({ pressed }) => [styles.settingItem, pressed && { opacity: 0.7 }]} onPress={onPress}>
       <View style={styles.settingLeft}>
         <View style={[
           styles.iconContainer,
