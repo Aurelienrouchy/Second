@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "app/**/*.{ts,tsx}",
+    "app.config.js",
+    "metro.config.js",
+    "babel.config.js",
+    "expo-env.d.ts"
+  ],
+  "project": ["**/*.{ts,tsx}"],
+  "ignore": [
+    "node_modules/**",
+    "functions/**",
+    ".expo/**",
+    "android/**",
+    "ios/**",
+    "_audit-reports/**",
+    "_bmad-output/**",
+    "_bmad/**",
+    ".claude/**",
+    ".agents/**",
+    "coverage/**",
+    "scripts/**",
+    "tests/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ],
+  "ignoreBinaries": ["expo", "eas", "maestro", "firebase"],
+  "ignoreDependencies": []
+}
