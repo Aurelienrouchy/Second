@@ -208,10 +208,12 @@ const styles = StyleSheet.create({
   container: {},
   scrollContent: {
     // Home gutter on the left only; last brand circle bleeds to the edge.
+    // No paddingBottom: the SectionHeader of the NEXT section owns the entire
+    // inter-section vertical space (paddingTop 28). A rail paddingBottom here
+    // would stack on top of it and double the gap.
     paddingLeft: spacing.lg,
     paddingRight: 0,
     gap: CIRCLE_MARGIN,
-    paddingBottom: spacing.sm,
   },
   brandWrapper: {
     width: CIRCLE_SIZE + CIRCLE_MARGIN,
