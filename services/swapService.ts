@@ -497,30 +497,6 @@ export async function getUserSwaps(userId: string): Promise<Swap[]> {
   return swaps;
 }
 
-/**
- * Get pending swaps (proposals) for a user
- */
-export async function getPendingSwaps(userId: string): Promise<Swap[]> {
-  const swapsRef = collection(firestore, 'swaps');
-  const q = query(
-    swapsRef,
-    where('receiverId', '==', userId),
-    where('status', '==', 'proposed'),
-    orderBy('createdAt', 'desc')
-  );
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      ...data,
-      createdAt: data?.createdAt?.toDate(),
-      updatedAt: data?.updatedAt?.toDate(),
-    } as Swap;
-  });
-}
-
 const ACTIVE_SWAP_STATUSES: SwapStatus[] = [
   'payment_pending',
   'accepted',
