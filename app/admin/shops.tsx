@@ -459,6 +459,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.warning,
   },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
   skeletonContainer: {
     flex: 1,
     padding: 16,
