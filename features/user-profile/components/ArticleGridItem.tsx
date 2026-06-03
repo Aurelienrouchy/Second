@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 
-import { colors, fonts, radius, spacing, animations } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { Article } from '@/types';
 import { formatPrice } from '@/utils/formatPrice';
 
