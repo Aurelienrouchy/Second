@@ -64,7 +64,11 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isAddingBrand, setIsAddingBrand] = useState(false);
     const [hasMoreBrands, setHasMoreBrands] = useState(true);
+    // True when a search hit the Firestore limit(50) ceiling — more matches may
+    // exist but aren't loaded, so we prompt the user to refine their query.
+    const [searchResultsCapped, setSearchResultsCapped] = useState(false);
     const lastDocRef = useRef<QueryDocumentSnapshot | null>(null);
+    const SEARCH_LIMIT = 50;
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const hasInitializedSearch = useRef(false);
     const PAGE_SIZE = 50;
