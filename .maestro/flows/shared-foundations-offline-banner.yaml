@@ -14,9 +14,10 @@
 # de secours qui verrouille aussi le contrat UX du domaine.
 appId: com.seconde.app
 ---
-# Démarrage à froid, en ligne. On ne clear PAS l'état pour éviter de retomber
-# sur l'onboarding ; on veut juste une surface peinte avec le réseau actif.
-- launchApp
+# Démarrage en ligne. On ne clear PAS l'état pour éviter de retomber sur
+# l'onboarding ; on veut juste une surface peinte avec le réseau actif
+# (sous-flow partagé, gère un launcher/dev-menu résiduel du dev-client).
+- runFlow: ../subflows/open-app.yaml
 
 # En ligne au boot : la bannière hors-ligne ne doit pas être visible.
 - assertNotVisible:
