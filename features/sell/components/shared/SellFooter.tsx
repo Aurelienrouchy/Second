@@ -21,6 +21,7 @@ export const SellFooter = React.memo(function SellFooter({
   return (
     <View style={[styles.footer, { paddingBottom: bottomInset + 16 }]}>
       <Pressable
+        testID={testID ?? 'sell-footer-cta'}
         style={({ pressed }) => [
           styles.continueButton,
           !isValid && styles.continueButtonDisabled,
