@@ -285,7 +285,7 @@ export default function AdminShopDetailScreen() {
             <Text style={styles.addressText}>
               {shop.address.street}{'\n'}
               {shop.address.postalCode} {shop.address.city}{'\n'}
-              {shop.address.country}
+              {getCountryLabel(shop.address.country)}
             </Text>
           </View>
 
