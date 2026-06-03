@@ -188,13 +188,13 @@ function SignUpFormComponent({
       {/* Form fields */}
       <TextInput
         style={styles.input}
-        placeholder="Nom d'utilisateur"
+        placeholder="Nom d'affichage"
         placeholderTextColor={colors.muted}
         value={username}
         onChangeText={onChangeUsername}
         onBlur={() => handleBlur('username')}
-        autoCapitalize="none"
-        accessibilityLabel="Nom d'utilisateur"
+        autoCapitalize="words"
+        accessibilityLabel="Nom d'affichage"
       />
       {usernameInvalid ? (
         <Text style={styles.fieldError}>3 caractères minimum</Text>
