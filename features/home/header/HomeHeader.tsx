@@ -42,7 +42,7 @@ const HomeHeaderComponent: React.FC<HomeHeaderProps> = ({
     <View style={styles.darkHeader}>
       {/* Search bar row */}
       <View style={styles.searchRow}>
-        <Pressable style={styles.searchInput} onPress={onSearchPress}>
+        <Pressable testID="home-search-bar" style={styles.searchInput} onPress={onSearchPress}>
           <Ionicons name="search-outline" size={16} color={colors.muted} />
           <Text style={styles.searchPlaceholder}>Rechercher...</Text>
         </Pressable>
