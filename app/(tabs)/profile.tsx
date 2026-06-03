@@ -191,7 +191,7 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="profile-screen">
       <ScreenHeader
         title="Mon profil"
         showBack={false}
