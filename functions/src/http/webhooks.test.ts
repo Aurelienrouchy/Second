@@ -448,19 +448,46 @@ describe('Stripe webhook — swap top-up (single fund movement)', () => {
     expect(fs.sumIncrements('wallets/userB', 'pendingBalance')).toBe(1000);
   });
 
-  it('rejects (throws -> 500) on swap top-up amount mismatch, no credit', async () => {
+  it('dead-letters (ACK 200, no credit) on a swap top-up UNDERPAYMENT', async () => {
     seedSwap();
     const event = swapTopUpEvent('evt_swap_bad');
-    // Tamper amount: charged 999 but expected 1200 (1000 + 200 fee).
+    // Tamper amount: charged 999 but expected 1200 (1000 + 200 fee) => UNDERPAID.
     (((event.data as Record<string, unknown>).object as Record<string, unknown>).amount as number) = 999;
     (((event.data as Record<string, unknown>).object as Record<string, unknown>).amount_received as number) = 999;
 
     const res = await deliverEvent(event);
-    // The swap top-up handler THROWS on mismatch -> outer catch -> 500.
-    expect(res.statusCode).toBe(500);
-    // No credit applied.
+    // A swap top-up amount mismatch is a DETERMINISTIC error (the captured charge
+    // and the stored base+fee never change on a Stripe retry). The handler MUST
+    // NOT 500 — it dead-letters and ACKs 200 so Stripe stops re-delivering for ~3
+    // days, mirroring the purchase amount_mismatch path.
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonBody).toEqual({ received: true });
+
+    // No credit applied — the handler returns BEFORE the pendingBalance increment.
     expect(fs.getDoc('wallets/userB')!.pendingBalance).toBe(0);
+    // Swap left in payment_pending (the mismatch branch never advances status).
     expect(fs.getDoc('swaps/swap1')!.status).toBe('payment_pending');
+    // topUpRefundReconciledAt pre-set so a later charge.refunded short-circuits
+    // (no wallet debit — we never credited it).
+    expect(fs.getDoc('swaps/swap1')!.topUpRefundReconciledAt).toBeDefined();
+
+    // UNDERPAYMENT is a business decision (refund vs chase the balance), so NO
+    // auto-refund: a manual-reconciliation dead-letter is written instead.
+    const deadLetters = fs.writeOps.filter(
+      (op: WriteOp) =>
+        op.path.startsWith('failed_operations/') &&
+        op.method === 'set' &&
+        op.data.type === 'amount_mismatch'
+    );
+    expect(deadLetters.length).toBe(1);
+    expect(deadLetters[0].data.refId).toBe('swap1');
+    const payload = deadLetters[0].data.payload as Record<string, unknown>;
+    expect(payload.autoRefund).toBe(false);
+    expect(payload.isMixedCharge).toBe(true);
+    expect(payload.kind).toBe('swap_topup_amount_mismatch');
+
+    // No Stripe refund issued for an underpayment.
+    expect(stripeMock.calls.refundsCreate.length).toBe(0);
   });
 });
 
