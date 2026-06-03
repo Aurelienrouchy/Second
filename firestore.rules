@@ -213,9 +213,24 @@ service cloud.firestore {
       // EXCLUSIVELY server-side by the assignUsername callable (Admin SDK) right
       // after the doc is created. The client creates the users doc WITHOUT a
       // username, so it must be absent at create time.
+      //
+      // `id` and `createdAt` are the ONLY two fields the client legitimately seeds
+      // at create time (the 3 signup setDoc paths write them), so they are removed
+      // from the forbidden-at-create set — but kept anti-forge:
+      //   - if `id` is present it MUST equal userId (== request.auth.uid via
+      //     isOwner), so a client can't seed a foreign id; and
+      //   - if `createdAt` is present it MUST equal request.time, which is exactly
+      //     what a client serverTimestamp() resolves to at create, blocking any
+      //     backdating/forging of the creation timestamp.
+      // After creation both are immutable: the update rule still uses the full
+      // protectedUserFields() set (which includes id + createdAt).
       allow create: if isOwner(userId) &&
                        isValidUserData(request.resource.data) &&
-                       !request.resource.data.keys().hasAny(protectedUserFields());
+                       !request.resource.data.keys().hasAny(createForbiddenUserFields()) &&
+                       (!('id' in request.resource.data) ||
+                          request.resource.data.id == userId) &&
+                       (!('createdAt' in request.resource.data) ||
+                          request.resource.data.createdAt == request.time);
 
       // Allow update by owner — but never to fields that grant privileges.
       // SECURITY: previously a user could write { isAdmin: true } to their
