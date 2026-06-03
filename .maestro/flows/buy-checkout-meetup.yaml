@@ -19,38 +19,39 @@
 #   - Au moins un article d'un AUTRE vendeur visible dans la grille d'accueil
 #     (on ne peut pas acheter son propre article — l'écran le bloque).
 #
-# Sélecteurs : testIDs stables là où ils existent (CTA article, bouton payer) ;
-# sinon copy FR visible. testIDs manquants listés en 'deferred' du rapport.
+# Sélecteurs : testIDs stables — product-card-<id> (grille, regex),
+#   article-buy-button, checkout-screen, checkout-delivery-meetup,
+#   checkout-continue, checkout-meetup-screen, checkout-meetup-messaging-option,
+#   checkout-meetup-confirm, checkout-success-screen,
+#   checkout-success-contact-seller. Le badge "MEETUP" du récap n'a pas de
+#   testID → copy FR de secours (deferred).
 appId: com.seconde.app
 ---
 # Boot propre. L'achat exige une session : on suppose un compte seedé connecté.
 - launchApp:
     clearState: false
 
-# Atteindre l'accueil avec la marque visible (sortie d'onboarding/splash).
-- extendedWaitUntil:
-    visible:
-      text: "Seconde"
-    timeout: 20000
-
 # Franchir un éventuel CTA d'onboarding résiduel sans casser si déjà sur la home.
 - runFlow:
     when:
       visible:
-        text: "CONTINUER"
+        id: "onboarding-continue"
     commands:
       - tapOn:
-          text: "CONTINUER"
+          id: "onboarding-continue"
           optional: true
 
-# Ouvrir une fiche article depuis la grille d'accueil.
-# (Les cartes article n'ont pas encore de testID stable — cf. 'deferred'.)
-# On tape la première vignette produit de la grille.
+# Atteindre la home : la grille d'accueil peint des cartes produit (testID
+# paramétré par id). On attend la 1re carte puis on l'ouvre (regex sur préfixe).
+- extendedWaitUntil:
+    visible:
+      id: "product-card-.*"
+    timeout: 20000
 - tapOn:
-    point: "25%,45%"
+    id: "product-card-.*"
+    index: 0
 
-# Page article : la barre d'action collante expose le CTA d'achat.
-# testID stable ajouté à ArticleCTABar dans le cadre de ce domaine.
+# Page article : la barre d'action collante expose le CTA d'achat (testID stable).
 - extendedWaitUntil:
     visible:
       id: "article-buy-button"
@@ -58,50 +59,52 @@ appId: com.seconde.app
 - tapOn:
     id: "article-buy-button"
 
-# Écran "Commander" : choix du mode de livraison.
+# Écran "Commander" : choix du mode de livraison (container racine).
 - extendedWaitUntil:
     visible:
-      text: "MODE DE LIVRAISON"
+      id: "checkout-screen"
     timeout: 15000
 
 # Sélectionner explicitement la remise en main propre (peut être auto-sélectionnée
 # si c'est le seul mode ; le tap reste sans effet de bord dans ce cas).
 - tapOn:
-    text: "Remise en main propre"
+    id: "checkout-delivery-meetup"
     optional: true
 
-# La bannière "Paiement en main propre" confirme que le mode meetup est actif.
+# La bannière "Paiement en main propre" confirme que le mode meetup est actif
+# (pas de testID → copy FR de secours, deferred).
 - assertVisible:
     text: "Paiement en main propre"
 
 # Continuer vers l'écran de sélection du lieu.
 - tapOn:
-    text: "CONTINUER"
+    id: "checkout-continue"
 
-# Écran "Lieu de rencontre".
+# Écran "Lieu de rencontre" (container meetup, testID racine stable).
 - extendedWaitUntil:
     visible:
-      text: "Lieu de rencontre"
+      id: "checkout-meetup-screen"
     timeout: 15000
 
 # Choisir l'option toujours disponible : convenir du lieu par messagerie.
 # (Indépendant des lieux préférés du vendeur, donc déterministe.)
 - tapOn:
-    text: "À convenir par messagerie"
+    id: "checkout-meetup-messaging-option"
 
 # Confirmer le meetup : crée la transaction + le chat + l'offre meetup.
 - tapOn:
-    text: "CONFIRMER LE MEETUP"
+    id: "checkout-meetup-confirm"
 
-# Écran de succès : "Meetup confirmé" prouve que la transaction meetup a bien
-# été créée (createMeetupTransaction → /checkout/success?deliveryType=meetup).
+# Écran de succès : container racine stable prouve que la transaction meetup a
+# bien été créée (createMeetupTransaction → /checkout/success).
 - extendedWaitUntil:
     visible:
-      text: "Meetup confirmé"
+      id: "checkout-success-screen"
     timeout: 20000
-# Le récap affiche le badge MEETUP : confirme le bon mode de livraison.
+# Le récap affiche le badge MEETUP : confirme le bon mode de livraison
+# (pas de testID → copy FR de secours, deferred).
 - assertVisible:
-    text: "MEETUP"
+    text: "Meetup confirmé"
 # CTA de sortie disponible (vers la messagerie pour convenir du lieu).
 - assertVisible:
-    text: "CONTACTER LE VENDEUR"
+    id: "checkout-success-contact-seller"
