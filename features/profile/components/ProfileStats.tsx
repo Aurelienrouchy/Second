@@ -93,17 +93,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontFamily: fonts.displaySemiBold,
-    fontSize: 22,
-    lineHeight: 28,
+    ...typography.h2,
+    fontFamily: typography.priceLarge.fontFamily,
     color: colors.charcoal,
   },
   statLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    lineHeight: 15,
+    ...typography.caption,
     color: colors.muted,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   statDivider: {
     width: 1,
