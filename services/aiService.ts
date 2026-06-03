@@ -383,7 +383,6 @@ export async function analyzeProductImage(
 
     // Process all images (convert, compress, validate)
     const processedImages: ProcessedImage[] = [];
-    const processedUris: string[] = [];
 
     for (const uri of imageUris) {
       if (signal?.aborted) throw new Error('Cancelled');
@@ -391,7 +390,6 @@ export async function analyzeProductImage(
       try {
         const processed = await processImage(uri);
         processedImages.push(processed);
-        processedUris.push(processed.processedUri);
       } catch (error: any) {
         const errorCode = error.message as AIErrorCode;
         if (['IMAGE_TOO_LARGE', 'UNSUPPORTED_FORMAT', 'INVALID_IMAGE'].includes(errorCode)) {
