@@ -7,8 +7,9 @@
 # size-collection form.
 #
 # This is the canonical "the app boots and paints something interactive"
-# check. Assertions use visible copy because the onboarding welcome root and
-# its CTA do not yet carry stable testIDs (tracked in README "Missing testIDs").
+# check. Selectors use the stable testIDs now posted on the onboarding
+# surfaces: `onboarding-welcome` (welcome root), `onboarding-continue` (CTA),
+# `onboarding-form` (size-collection form root) — see app/onboarding.tsx.
 appId: com.seconde.app
 ---
 # Fresh boot: clearState wipes AsyncStorage so ONBOARDING_COMPLETED_KEY is
@@ -18,25 +19,24 @@ appId: com.seconde.app
     clearState: true
 
 # Reanimated FadeInDown/FadeIn intros stagger up to ~400ms; wait (up to 15s)
-# for the brand title before asserting so the test is not animation-flaky.
+# for the welcome root before asserting so the test is not animation-flaky.
 - extendedWaitUntil:
     visible:
-      text: "Seconde"
+      id: "onboarding-welcome"
     timeout: 15000
 
-# The welcome CTA — Button renders its text as the accessibility label, so it
-# is matchable by visible copy.
+# The welcome CTA — stable testID on the CONTINUER Button.
 - assertVisible:
-    text: "CONTINUER"
+    id: "onboarding-continue"
 
 # Confirm the cold-start path is interactive: advancing past the welcome screen
 # reveals the onboarding size-collection form (proves navigation works, not
 # just a static first paint).
 - tapOn:
-    text: "CONTINUER"
+    id: "onboarding-continue"
 
-# The form screen header — proves the welcome → form transition landed.
+# The form screen root — proves the welcome → form transition landed.
 - extendedWaitUntil:
     visible:
-      text: "Parle-nous de toi"
+      id: "onboarding-form"
     timeout: 10000
