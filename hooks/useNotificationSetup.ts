@@ -373,18 +373,6 @@ export function useNotificationSetup(userId: string | null): void {
     }
   }, [setPushToken]);
 
-  // ── Unregister FCM token (cleanup) ──
-  const unregisterPushToken = useCallback(async () => {
-    if (!userIdRef.current || !fcmTokenRef.current) return;
-    try {
-      await UserService.removeFcmToken(userIdRef.current, fcmTokenRef.current);
-      fcmTokenRef.current = null;
-      setPushToken(null);
-    } catch (error) {
-      console.error('Error unregistering push token:', error);
-    }
-  }, [setPushToken]);
-
   // ── Main setup effect ──
   useEffect(() => {
     if (!userId) {
