@@ -70,6 +70,7 @@ function ConsentFieldsComponent({
           keyboardType="number-pad"
           maxLength={2}
           accessibilityLabel="Jour de naissance"
+          testID="signup-dob-day"
         />
         <Text style={styles.dobSeparator}>/</Text>
         <TextInput
