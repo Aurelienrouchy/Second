@@ -12,9 +12,10 @@
 # (photos / storageUrls / aiResult) DOIT être proposé à la reprise, et l'édition
 # repart bien des valeurs sauvegardées (pas d'un tunnel vierge).
 #
-# Sélecteurs : copy FR visible + testIDs stables quand ils existent. Les écrans
-# sell exposent peu de testIDs : les testID manquants utiles sont listés en
-# 'deferred' dans le rapport de l'agent (à ajouter aux composants concernés).
+# Sélecteurs : testID stables posés au tunnel sell + à la DraftResumeModal
+#   (draft-resume-button). Restent en copy FR : la sélection native de la galerie
+#   (Add / Ajouter), l'Alert natif de fermeture ("Quitter" — RN Alert, non
+#   testable par testID) et la modale de succès ("Annonce publiée") — cf. deferred.
 appId: com.seconde.app
 ---
 # Boot propre, permissions caméra/photos accordées pour ne pas bloquer sur les
@@ -28,18 +29,18 @@ appId: com.seconde.app
 # Franchir l'onboarding jusqu'à la home (tab bar visible).
 - extendedWaitUntil:
     visible:
-      text: "Seconde"
+      id: "onboarding-welcome"
     timeout: 15000
 - tapOn:
-    text: "CONTINUER"
+    id: "onboarding-continue"
     optional: true
 - runFlow:
     when:
       visible:
-        text: "CONTINUER"
+        id: "onboarding-continue"
     commands:
       - tapOn:
-          text: "CONTINUER"
+          id: "onboarding-continue"
           optional: true
 
 # ── 1. Créer une amorce de brouillon : ouvrir le tunnel Vendre + capturer ──
@@ -53,7 +54,7 @@ appId: com.seconde.app
 # Écran capture : ajouter des photos depuis la galerie (déterministe en CI).
 - extendedWaitUntil:
     visible:
-      text: "Cadrez votre article"
+      id: "sell-capture-screen"
     timeout: 15000
 - tapOn:
     id: "sell-gallery-button"
@@ -67,29 +68,26 @@ appId: com.seconde.app
     text: "Ajouter"
     optional: true
 - tapOn:
-    text: "Continuer"
+    id: "sell-capture-continue"
 
 # L'analyse IA tourne puis CONTINUER (état complete) apparaît : à ce stade un
 # brouillon avec storageUrls + aiResult est persisté (progression suffisante
 # pour être proposé à la reprise).
 - extendedWaitUntil:
     visible:
-      text: "Tes photos"
+      id: "sell-photos-review-screen"
     timeout: 15000
 - extendedWaitUntil:
     visible:
-      text: "CONTINUER"
+      id: "sell-photos-review-continue"
     timeout: 60000
 
 # ── 2. Quitter le tunnel sans publier (le brouillon reste persisté) ──
 - tapOn:
     id: "sell-close-button"
     optional: true
-# Le bouton de fermeture peut déclencher une confirmation "Sauvegarder le
-# brouillon" : on confirme la sauvegarde puis on revient sur la home.
-- tapOn:
-    text: "Sauvegarder"
-    optional: true
+# Le bouton de fermeture déclenche un Alert natif "Quitter ?" : on confirme la
+# sortie (bouton natif, non testable par testID → copy FR, deferred).
 - tapOn:
     text: "Quitter"
     optional: true
@@ -104,15 +102,13 @@ appId: com.seconde.app
     id: "Vendre"
 
 # Modale "Brouillon trouvé" : preuve que la reprise est proposée pour un
-# brouillon avec progression. On reprend l'édition.
+# brouillon avec progression. Le bouton Reprendre porte un testID stable.
 - extendedWaitUntil:
     visible:
-      text: "Brouillon trouvé"
+      id: "draft-resume-button"
     timeout: 15000
-- assertVisible:
-    text: "Vous avez un article en cours de création"
 - tapOn:
-    text: "Reprendre"
+    id: "draft-resume-button"
 
 # ── 4. Éditer le brouillon repris jusqu'à l'écran Prix ──
 # Selon l'étape sauvegardée, on peut arriver sur Détails ou directement sur Prix.
@@ -120,38 +116,38 @@ appId: com.seconde.app
 - runFlow:
     when:
       visible:
-        text: "Détails"
+        id: "sell-details-screen"
     commands:
       - tapOn:
-          text: "CONTINUER"
+          id: "sell-details-footer-cta"
           optional: true
 
 # Écran Prix & livraison : éditer le montant (cœur de l'édition).
 - extendedWaitUntil:
     visible:
-      text: "Ton prix"
+      id: "sell-pricing-screen"
     timeout: 15000
 - tapOn:
-    text: "Ton prix"
+    id: "sell-price-input"
 - inputText: "30"
 - hideKeyboard
 
 # Le footer APERÇU n'est actif que si le formulaire est valide (prix + livraison) :
 # y accéder prouve que l'édition a produit un état valide.
 - tapOn:
-    text: "APERÇU"
+    id: "sell-pricing-footer-cta"
 
 # ── 5. Publier l'annonce éditée ──
 - extendedWaitUntil:
     visible:
-      text: "PUBLIER L'ANNONCE"
+      id: "sell-preview-screen"
     timeout: 15000
 - tapOn:
-    text: "PUBLIER L'ANNONCE"
+    id: "sell-publish-button"
 
-# Sortie du tunnel = preuve de publication (modale de succès -> surface
-# principale). On attend un retour sur une surface connue.
+# Sortie du tunnel = preuve de publication (modale de succès). La modale n'a pas
+# encore de testID → copy FR de secours (deferred).
 - extendedWaitUntil:
     visible:
-      text: "Seconde"
+      text: "Annonce publiée"
     timeout: 20000
