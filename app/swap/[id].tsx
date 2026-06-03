@@ -403,10 +403,7 @@ export default function SwapDetailScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + spacing.xl + spacing.lg },
-        ]}
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl + spacing.lg }}
       >
         {/* Proposed status: detailed offer layout (receiver perspective) */}
         {swap.status === 'proposed' && !participant.isInitiator && (
