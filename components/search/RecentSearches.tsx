@@ -147,6 +147,7 @@ export default function RecentSearches({
         {searches.map((item) => (
           <Pressable
             key={item.id}
+            testID={`recent-search-item-${item.id}`}
             style={styles.searchItem}
             onPress={() => onSearchTap(item)}
           >
