@@ -6,16 +6,19 @@
 #   comparaison de valeur (+ complément optionnel) → envoi de la proposition →
 #   confirmation + atterrissage sur "Mes échanges".
 #
-# Stratégie de sélecteurs : la Swap Zone et le détail d'échange n'exposent pas
-# encore de testIDs stables (univers SOMBRE, copy dynamique party.name) — on
-# s'appuie donc sur la copy FR visible, comme les flows existants
-# (00-launch, sell-create-with-photos). Les rares interactions ambiguës du
-# détail "Proposer" portent désormais des testIDs (propose-swap-*).
+# Sélecteurs : testID stables là où ils existent
+#   - onboarding-continue   (sortie d'onboarding)
+#   - home-swap-zone-entry  (carte d'accès Swap Zone, HomeHeader/SwapZoneSection)
+#   - swap-zone-screen      (app/swap-zone.tsx, container racine de la zone)
+#   - propose-swap-add-mine (CTA "ajouter mon article", ArticleSelectionSection)
+#   - propose-swap-submit   (envoi de la proposition, SubmitFooter)
 #
-# testIDs MANQUANTS (à ajouter aux composants — listés en deferred du rapport) :
-#   - entrée Swap Zone depuis la home (carte/CTA d'accès à la zone)
-#   - carte article de la grille Swap Zone (PartyItemCard) → propose au tap
+# testID MANQUANTS (copy FR / coordonnées en attendant — listés en deferred) :
+#   - PartyItemCard (carte article de la grille Swap Zone) → tap par coordonnées
 #   - bouton "Proposer" de la MultiSelectBar (sélection multiple)
+#   - SwapItemSelector : items + bouton "Confirmer" → tap par coordonnées
+#   - propose-swap screen root + labels "Leur article" / "Mon article proposé"
+#   - Alert FR "Proposition envoyée !" + écran "Mes échanges" (RN Alert / titre)
 #
 # Pré-requis : un utilisateur authentifié (la proposition d'échange exige
 # l'auth — requireAuth) et au moins un article actif dans son inventaire +
@@ -29,40 +32,36 @@ appId: com.seconde.app
 # Franchir l'onboarding welcome → form jusqu'à la home.
 - extendedWaitUntil:
     visible:
-      text: "Seconde"
+      id: "onboarding-welcome"
     timeout: 15000
 - tapOn:
-    text: "CONTINUER"
+    id: "onboarding-continue"
     optional: true
 - runFlow:
     when:
       visible:
-        text: "CONTINUER"
+        id: "onboarding-continue"
     commands:
       - tapOn:
-          text: "CONTINUER"
+          id: "onboarding-continue"
           optional: true
 
-# Accès à la Swap Zone depuis la home. Le libellé d'accès peut varier selon la
-# section éditoriale ; on tente plusieurs intitulés connus de la zone d'échange.
-- tapOn:
-    text: "Swap Zone"
-    optional: true
-- tapOn:
-    text: "Zone d'échange"
-    optional: true
-- tapOn:
-    text: "Échanger"
-    optional: true
-
-# Stock de la zone : on ouvre un article de la grille. Un simple tap sur une
-# carte article lance la proposition d'échange (handleProposeSwap → requireAuth).
-# Faute de testID sur la grille, on tape la première vignette par coordonnées.
+# Accès à la Swap Zone depuis la home via la carte d'entrée dédiée (testID stable).
 - extendedWaitUntil:
     visible:
-      text: "Articles disponibles"
+      id: "home-swap-zone-entry"
     timeout: 15000
-    optional: true
+- tapOn:
+    id: "home-swap-zone-entry"
+
+# Stock de la zone : container racine peint (testID stable). On ouvre ensuite un
+# article de la grille. Un simple tap sur une carte article lance la proposition
+# (handleProposeSwap → requireAuth). Faute de testID sur PartyItemCard, on tape
+# la première vignette par coordonnées (deferred).
+- extendedWaitUntil:
+    visible:
+      id: "swap-zone-screen"
+    timeout: 15000
 - tapOn:
     point: "25%,45%"
 
@@ -74,6 +73,7 @@ appId: com.seconde.app
     optional: true
 
 # Écran "Proposer un échange" : l'article ciblé pré-remplit "Leur article".
+# (Pas de testID racine ni de label → copy FR de secours, deferred.)
 - extendedWaitUntil:
     visible:
       text: "Mon article proposé"
@@ -81,35 +81,27 @@ appId: com.seconde.app
 - assertVisible:
     text: "Leur article"
 
-# Ajouter un de mes articles via le sélecteur (testID stable ajouté au CTA).
+# Ajouter un de mes articles via le sélecteur (testID stable sur le CTA).
 - tapOn:
     id: "propose-swap-add-mine"
+# Sélecteur "Sélectionner mes articles" (pas de testID sur les items ni sur
+# "Confirmer" → coordonnées + copy FR, deferred).
 - extendedWaitUntil:
     visible:
       text: "Sélectionner mes articles"
     timeout: 10000
-# Choisir la première pièce proposée puis valider la sélection.
 - tapOn:
     point: "50%,40%"
 - tapOn:
     text: "Confirmer"
-    optional: true
-- tapOn:
-    text: "OK"
-    optional: true
-
-# Dès que les deux côtés portent un article, la comparaison de valeur apparaît.
-- extendedWaitUntil:
-    visible:
-      text: "Tes articles"
-    timeout: 10000
     optional: true
 
 # Envoyer la proposition (testID stable sur le footer).
 - tapOn:
     id: "propose-swap-submit"
 
-# Confirmation FR de l'envoi (Alert "Proposition envoyée !").
+# Confirmation FR de l'envoi (Alert "Proposition envoyée !" — RN Alert, pas de
+# testID, deferred).
 - extendedWaitUntil:
     visible:
       text: "Proposition envoyée !"
@@ -117,7 +109,8 @@ appId: com.seconde.app
 - tapOn:
     text: "OK"
 
-# Atterrissage sur "Mes échanges" (router.push('/my-swaps')).
+# Atterrissage sur "Mes échanges" (router.push('/my-swaps')) — pas de testID
+# sur le titre, copy de secours (deferred).
 - extendedWaitUntil:
     visible:
       text: "Mes échanges"
