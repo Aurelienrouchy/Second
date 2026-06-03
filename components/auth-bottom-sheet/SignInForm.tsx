@@ -136,6 +136,7 @@ function SignInFormComponent({
 
       {/* Form fields */}
       <TextInput
+        testID="signin-email-input"
         style={styles.input}
         placeholder="Email"
         placeholderTextColor={colors.muted}
