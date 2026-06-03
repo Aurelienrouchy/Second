@@ -629,6 +629,7 @@ export default function SwapZoneScreen() {
           articles={myArticles}
           userItems={userItems}
           loading={isLoadingMyArticles}
+          adding={isAddingItem}
           onAddItems={handleAddItems}
           onClose={handleDepositClose}
         />
