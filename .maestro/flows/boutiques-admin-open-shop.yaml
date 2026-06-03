@@ -26,9 +26,9 @@
 #   (listés en 'deferred' du rapport).
 appId: com.seconde.app
 ---
-# Session admin supposée connectée : on ne wipe pas l'état.
-- launchApp:
-    clearState: false
+# Session admin supposée connectée : on ne wipe pas l'état (sous-flow partagé,
+# gère un éventuel launcher/dev-menu résiduel du dev-client).
+- runFlow: ../subflows/open-app.yaml
 
 # Franchir un CTA d'onboarding résiduel sans casser si déjà sur la home.
 - runFlow:
