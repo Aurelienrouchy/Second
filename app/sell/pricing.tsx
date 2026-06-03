@@ -205,6 +205,7 @@ export default function PricingScreen() {
 
   return (
     <KeyboardAvoidingView
+      testID="sell-pricing-screen"
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
