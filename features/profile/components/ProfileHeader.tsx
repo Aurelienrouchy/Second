@@ -10,7 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Avatar, Text } from '@/components/ui';
 import { APP_LOCALE } from '@/constants/locale';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { colors, radius, spacing, typography } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
 
 import { ProfileStats } from './ProfileStats';
