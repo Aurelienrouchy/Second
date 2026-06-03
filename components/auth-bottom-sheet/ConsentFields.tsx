@@ -96,6 +96,7 @@ function ConsentFieldsComponent({
           keyboardType="number-pad"
           maxLength={4}
           accessibilityLabel="Année de naissance"
+          testID="signup-dob-year"
         />
       </View>
       {showAgeError ? (
