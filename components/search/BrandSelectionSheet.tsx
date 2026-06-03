@@ -412,7 +412,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
     const renderBrandItem = useCallback(({ item }: { item: Brand }) => {
       const isSelected = singleSelect
-        ? selectedBrand === item.label
+        ? selectedBrands.includes(item.label) || selectedBrand === item.label
         : selectedBrands.includes(item.label);
       return (
         <TouchableOpacity
