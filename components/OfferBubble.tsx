@@ -348,7 +348,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               );
             } catch (error) {
               if (__DEV__) console.error('Error reporting no-show:', error);
-              Alert.alert('Erreur', 'Impossible de signaler le no-show');
+              Alert.alert('Erreur', "Impossible de signaler l'absence");
             }
           },
         },
