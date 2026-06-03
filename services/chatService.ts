@@ -963,7 +963,7 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `Nouveau lieu propose: ${newLocation.name}`
+        `Nouveau lieu proposé: ${newLocation.name}`
       );
 
       return await this.sendMessageWithType(
