@@ -160,6 +160,7 @@ export default function RecentSearches({
             </View>
 
             <Pressable
+              testID={`recent-search-delete-${item.id}`}
               onPress={() => onSearchDelete(item)}
               style={styles.deleteButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
