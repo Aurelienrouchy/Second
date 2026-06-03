@@ -1041,20 +1041,20 @@ export class ChatService {
         proposedBy: userId === originalData.senderId ? 'buyer' : 'seller',
       };
 
-      const formattedDate = newDateTime.toLocaleDateString('fr-CA', {
+      const formattedDate = newDateTime.toLocaleDateString(APP_LOCALE, {
         weekday: 'long',
         day: 'numeric',
         month: 'long',
       });
-      const formattedTime = newDateTime.toLocaleTimeString('fr-CA', {
+      const formattedTime = newDateTime.toLocaleTimeString(APP_LOCALE, {
         hour: '2-digit',
         minute: '2-digit',
       });
 
-      let content = `Nouvel horaire propose\n`;
+      let content = `Nouvel horaire proposé\n`;
       content += `${originalOffer.amount} $\n`;
       content += `${originalOffer.meetup.location.name}\n`;
-      content += `${formattedDate} a ${formattedTime}`;
+      content += `${formattedDate} à ${formattedTime}`;
       if (message) {
         content += `\n${message}`;
       }
