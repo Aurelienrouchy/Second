@@ -28,6 +28,7 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
       {screenState === 'complete' && (
         <>
           <Pressable
+            testID="sell-analysis-continue"
             style={({ pressed }) => [
               styles.primaryButton,
               pressed && { opacity: 0.7 },
