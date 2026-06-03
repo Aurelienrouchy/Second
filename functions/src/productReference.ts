@@ -47,59 +47,6 @@ export {
 };
 
 // ============================================
-// CATEGORY HELPERS FOR AI
-// ============================================
-
-// Legacy type alias for backward compatibility
-export type CategoryReference = FlatCategory;
-export const CATEGORY_REFERENCE = FLAT_CATEGORIES;
-
-// Alias for backward compatibility
-export const findCategoryById = findFlatCategoryById;
-
-// Cached leaf category IDs for fast lookup
-let leafCategoryIds: Set<string> | null = null;
-
-/**
- * Check if a category ID is a leaf category (has no children)
- */
-export function isLeafCategory(categoryId: string): boolean {
-  if (!leafCategoryIds) {
-    leafCategoryIds = new Set(getLeafCategories().map(c => c.id));
-  }
-  return leafCategoryIds.has(categoryId);
-}
-
-/**
- * Find a leaf category by ID. Returns undefined if not a leaf.
- */
-export function findLeafCategoryById(categoryId: string): FlatCategory | undefined {
-  const category = findFlatCategoryById(categoryId);
-  if (category && isLeafCategory(categoryId)) {
-    return category;
-  }
-  return undefined;
-}
-
-/**
- * Find the closest leaf category for a given parent category.
- * Returns the first child leaf if the category is a parent.
- */
-export function findClosestLeafCategory(categoryId: string): FlatCategory | undefined {
-  // If it's already a leaf, return it
-  const category = findFlatCategoryById(categoryId);
-  if (!category) return undefined;
-
-  if (isLeafCategory(categoryId)) {
-    return category;
-  }
-
-  // Find the first leaf that has this category in its path
-  const leaves = getLeafCategories();
-  return leaves.find(leaf => leaf.path.includes(categoryId));
-}
-
-// ============================================
 // COLORS - With IDs for filtering
 // ============================================
 
