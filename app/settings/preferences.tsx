@@ -53,9 +53,7 @@ export default function PreferencesScreen() {
   useEffect(() => {
     if (preferences && !isFormInitialized) {
       setSelectedSizes(preferences.sizes || []);
-      setSelectedShoeSizes(
-        (preferences as { shoesSizes?: string[] }).shoesSizes || []
-      );
+      setSelectedShoeSizes(preferences.shoesSizes || []);
       setSelectedBrands(preferences.favoriteBrands || []);
       setIsFormInitialized(true);
     }
