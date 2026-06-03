@@ -1,6 +1,27 @@
 import React from 'react';
 import { create } from 'zustand';
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+/** Options accepted by the imperative `immerse()` trigger. */
+export interface ImmerseOptions {
+  /** Optional content to render inside the overlay (above the gradient). */
+  component?: React.ReactNode;
+}
+
+/** Options accepted by the imperative `dismiss()` trigger. */
+export interface DismissOptions {
+  /**
+   * Called on the JS thread once the exit animation has *fully* finished.
+   * Lets callers couple navigation to the real end of the collapse animation
+   * instead of guessing with a magic `setTimeout` delay.
+   */
+  onDismissed?: () => void;
+}
+
+type ImmerseFn = (opts?: ImmerseOptions) => void;
+type DismissFn = (opts?: DismissOptions) => void;
+
 // ─── State ──────────────────────────────────────────────────────────────────
 
 interface ImmersiveOverlayState {
@@ -18,17 +39,32 @@ interface ImmersiveOverlayState {
    * full-screen container for this component (e.g. the sell flow).
    */
   contentComponent: React.ReactNode | null;
+
+  /**
+   * Imperative triggers wired by the mounted `ImmersiveOverlay` component.
+   * Transient — never serialized. Stored here (instead of module-level
+   * mutable globals) so the hook can read a single source of truth without
+   * an optional-chaining race against unmount.
+   */
+  immerse: ImmerseFn | null;
+  dismiss: DismissFn | null;
 }
 
 interface ImmersiveOverlayActions {
   activate: (component?: React.ReactNode) => void;
   deactivate: () => void;
+  /** Register the animation triggers exposed by the mounted overlay. */
+  setCallbacks: (callbacks: { immerse: ImmerseFn; dismiss: DismissFn }) => void;
+  /** Clear the triggers (overlay unmounted). */
+  clearCallbacks: () => void;
   reset: () => void;
 }
 
 const initialState: ImmersiveOverlayState = {
   isActive: false,
   contentComponent: null,
+  immerse: null,
+  dismiss: null,
 };
 
 // ─── Store ──────────────────────────────────────────────────────────────────
