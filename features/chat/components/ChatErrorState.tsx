@@ -8,6 +8,7 @@ import type { ChatErrorStateProps } from '../types';
 
 export const ChatErrorState = React.memo(function ChatErrorState({
   errorMessage,
+  onRetry,
 }: ChatErrorStateProps) {
   const router = useRouter();
 
@@ -16,9 +17,16 @@ export const ChatErrorState = React.memo(function ChatErrorState({
       <Ionicons name="alert-circle-outline" size={64} color={colors.danger} />
       <Text style={styles.title}>Erreur</Text>
       <Text style={styles.text}>{errorMessage}</Text>
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Retour</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        {onRetry && (
+          <Pressable style={styles.retryButton} onPress={onRetry}>
+            <Text style={styles.retryButtonText}>Réessayer</Text>
+          </Pressable>
+        )}
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Retour</Text>
+        </Pressable>
+      </View>
     </View>
   );
 });
