@@ -138,6 +138,7 @@ const SellerCard: React.FC<SellerCardProps> = ({
 
       {/* Like button */}
       <Pressable
+        testID="seller-card-like"
         style={styles.likeButton}
         onPress={(e) => {
           e.stopPropagation?.();
