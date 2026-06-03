@@ -395,10 +395,11 @@ export default function ReviewScreen() {
         <Pressable
           style={[
             styles.submitButton,
-            (rating === 0 || isSubmitting) && styles.submitButtonDisabled,
+            (rating === 0 || comment.trim().length < 5 || isSubmitting) &&
+              styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={rating === 0 || isSubmitting}
+          disabled={rating === 0 || comment.trim().length < 5 || isSubmitting}
         >
           <Text style={styles.submitButtonText}>
             {isSubmitting ? 'Envoi en cours...' : 'ENVOYER MON AVIS'}
