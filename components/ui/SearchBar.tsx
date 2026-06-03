@@ -26,7 +26,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, typography, fonts, shadows } from '@/constants/theme';
+import { colors, radius, spacing, fonts } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
