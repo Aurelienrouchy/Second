@@ -19,7 +19,6 @@ import {
   UserIcon,
 } from '@/components/ui/TabBarIcons';
 import { ImmersiveOverlay, useImmersiveOverlay } from '@/components/ui/ImmersiveOverlay';
-import { EXITING_TIME } from '@/components/ui/ImmersiveOverlay/constants';
 import { SellOverlayCapture } from '@/features/sell';
 import DraftResumeModal from '@/components/DraftResumeModal';
 import draftService, { ArticleDraft } from '@/services/draftService';
