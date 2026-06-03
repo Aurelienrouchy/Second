@@ -22,6 +22,7 @@
 
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { firestore } from '@/config/firebaseConfig';
+import { APP_LOCALE } from '@/constants/locale';
 import { useUser } from '@/contexts/AuthContext';
 import { UserService } from '@/services/userService';
 import { Ionicons } from '@expo/vector-icons';
