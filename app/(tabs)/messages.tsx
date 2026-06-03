@@ -335,7 +335,11 @@ const ConversationItem = React.memo(function ConversationItem({
   const handlePress = useCallback(() => onPress(chat.id), [onPress, chat.id]);
 
   return (
-    <Pressable style={styles.conversationItem} onPress={handlePress}>
+    <Pressable
+      testID={`conversation-item-${chat.id}`}
+      style={styles.conversationItem}
+      onPress={handlePress}
+    >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
         {avatarUri ? (
