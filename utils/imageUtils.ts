@@ -55,20 +55,6 @@ async function generateBlurhash(uri: string): Promise<string | undefined> {
 }
 
 /**
- * Traite un lot d'images : compression + génération de blurhash.
- */
-export async function processImages(
-  imageUris: string[],
-  compressionOptions?: { maxWidth?: number; maxHeight?: number; quality?: number }
-): Promise<string[]> {
-  return Promise.all(
-    imageUris.map((uri) =>
-      compressImage(uri, compressionOptions)
-    )
-  );
-}
-
-/**
  * Traite une image complète : compression + blurhash.
  */
 export async function processImageWithBlurhash(
