@@ -127,6 +127,7 @@ function ProductGridComponent({
   onRefresh,
   onLoadMore,
   onProductPress,
+  onProductLongPress,
   ListHeaderComponent,
   extraData,
   emptyMessage = 'Aucun article trouvé',
