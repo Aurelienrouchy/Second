@@ -17,7 +17,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Linking,
-  Platform,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
