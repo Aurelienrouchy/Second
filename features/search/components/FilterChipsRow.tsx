@@ -51,6 +51,7 @@ function FilterChipsRowComponent({ chips, tone = 'light' }: FilterChipsRowProps)
         return (
           <Pressable
             key={key}
+            testID={`filter-chip-${key}`}
             style={[
               styles.filterChip,
               active && styles.filterChipActive,
