@@ -671,7 +671,7 @@ export class AuthService {
       }
 
       return await this.getUserData(firebaseUser.uid);
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -700,7 +700,7 @@ export class AuthService {
         id: userDoc.id,
         createdAt: data.createdAt?.toDate?.() || new Date(),
       } as User;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
