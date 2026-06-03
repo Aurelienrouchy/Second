@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ConfidenceLevel } from '@/types/ai';
-import { colors, fonts, radius } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
 import { CONDITIONS } from '@/data/conditions';
 
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
