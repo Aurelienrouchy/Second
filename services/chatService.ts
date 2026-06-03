@@ -19,6 +19,7 @@ import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, firestore, functions, storage } from '../config/firebaseConfig';
+import { APP_LOCALE } from '../constants/locale';
 import {
   Chat,
   ChatParticipant,
