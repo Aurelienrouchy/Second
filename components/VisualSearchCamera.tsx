@@ -104,6 +104,7 @@ function VisualSearchCameraComponent({
   // Retake photo
   const handleRetake = () => {
     hasConfirmed.current = false;
+    setIsConfirming(false);
     setCapturedUri(null);
   };
 
@@ -111,6 +112,7 @@ function VisualSearchCameraComponent({
   const handleConfirm = () => {
     if (capturedUri && !hasConfirmed.current) {
       hasConfirmed.current = true;
+      setIsConfirming(true);
       onPhotoCapture(capturedUri);
     }
   };
