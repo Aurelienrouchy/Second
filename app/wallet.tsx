@@ -420,7 +420,7 @@ export default function WalletScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="wallet-screen">
         <ScreenHeader title="Porte-monnaie" onBack={() => router.back()} />
         <View style={styles.content}>
           <Skeleton
