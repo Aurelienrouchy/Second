@@ -251,7 +251,7 @@ export default function PreviewScreen() {
   const colorsDisplay = fields.colors?.length > 0 ? fields.colors.join(', ') : null;
   const materialsDisplay = fields.materials?.length > 0 ? fields.materials.join(', ') : null;
   const specs = [
-    { label: 'Condition', value: conditionLabels[fields.condition] || fields.condition },
+    { label: 'Condition', value: getConditionLabel(fields.condition) },
     { label: 'Taille', value: fields.size },
     { label: 'Couleur', value: colorsDisplay },
     { label: 'Matière', value: materialsDisplay },
