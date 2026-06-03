@@ -228,6 +228,7 @@ export default function CheckoutScreen() {
 
         {hasMeetup && (
           <Pressable
+            testID="checkout-delivery-meetup"
             style={[
               styles.deliveryOption,
               effectiveDelivery === 'meetup' && styles.deliveryOptionSelected,
