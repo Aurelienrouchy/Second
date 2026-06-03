@@ -85,5 +85,7 @@ export const useImmersiveOverlayStore = create<
   activate: (component?: React.ReactNode) =>
     set({ isActive: true, contentComponent: component ?? null }),
   deactivate: () => set({ isActive: false, contentComponent: null }),
+  setCallbacks: ({ immerse, dismiss }) => set({ immerse, dismiss }),
+  clearCallbacks: () => set({ immerse: null, dismiss: null }),
   reset: () => set(initialState),
 }));
