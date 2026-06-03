@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: 'rgba(245, 240, 232, 0.4)',
+    color: colors.creamTranslucent40,
     marginBottom: spacing.md,
   },
   row: {
