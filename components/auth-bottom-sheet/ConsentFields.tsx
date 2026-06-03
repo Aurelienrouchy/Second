@@ -124,6 +124,7 @@ function ConsentFieldsComponent({
           checked={acceptedPrivacy}
           onToggle={onTogglePrivacy}
           accessibilityLabel={`${COPY_CONSENT.privacyPrefix}${COPY_CONSENT.privacyLink}`}
+          testID="signup-consent-privacy"
         >
           <Text style={styles.consentText}>
             {COPY_CONSENT.privacyPrefix}
