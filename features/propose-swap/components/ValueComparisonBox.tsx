@@ -111,7 +111,6 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
 
           {/* Amount input */}
           <View style={styles.cashAmountRow}>
-            <Text style={styles.cashAmountDollar}>$</Text>
             <TextInput
               style={styles.cashAmountInput}
               placeholder="0"
@@ -119,8 +118,9 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
               value={complementAmount}
               onChangeText={(text) => onComplementAmountChange(text.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
-              maxLength={6}
+              maxLength={4}
             />
+            <Text style={styles.cashAmountDollar}>$</Text>
             {valueDifference > 0 && (
               <Pressable
                 style={({ pressed }) => [styles.suggestAmountButton, pressed && styles.pressed]}
