@@ -57,7 +57,7 @@ function ForgotPasswordFormComponent({
           <Text style={styles.message}>
             Entrez votre adresse email et nous vous enverrons un lien pour créer un nouveau mot de passe.
           </Text>
-          <TextInput
+          <BottomSheetTextInput
             style={styles.input}
             placeholder="Email"
             placeholderTextColor={colors.muted}
