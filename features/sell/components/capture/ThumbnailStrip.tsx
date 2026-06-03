@@ -30,7 +30,7 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
     >
       {canAddMore && (
         <View style={styles.thumbWrapper}>
-          <Pressable style={styles.addButton} onPress={onGalleryPress}>
+          <Pressable style={styles.addButton} onPress={onGalleryPress} testID="sell-gallery-button">
             <Ionicons name="add" size={28} color={colors.cream} />
           </Pressable>
         </View>
