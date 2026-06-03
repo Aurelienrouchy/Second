@@ -313,8 +313,10 @@ export default function CaptureScreen() {
         topInset={insets.top}
         photoCount={photos.length}
         maxPhotos={MAX_PHOTOS}
+        torchActive={torchActive}
         onClose={handleClose}
         onFlipCamera={toggleCameraFacing}
+        onToggleTorch={toggleTorch}
       />
 
       {!canTakeMore && (
