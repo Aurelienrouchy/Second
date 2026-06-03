@@ -201,7 +201,7 @@ export default function AdminShopDetailScreen() {
 
   if (!shop) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView testID="admin-shop-detail-screen" style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={colors.danger} />
           <Text style={styles.errorText}>Boutique introuvable</Text>
