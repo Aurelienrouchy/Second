@@ -439,27 +439,6 @@ export async function openSwapDispute(swapId: string, reason: string): Promise<v
 }
 
 /**
- * Get a swap by ID
- */
-export async function getSwap(swapId: string): Promise<Swap | null> {
-  const docRef = doc(firestore, 'swaps', swapId);
-  const docSnap = await getDoc(docRef);
-
-  if (!docSnap.exists()) return null;
-
-  const data = docSnap.data();
-  return {
-    id: docSnap.id,
-    ...data,
-    createdAt: data?.createdAt?.toDate(),
-    updatedAt: data?.updatedAt?.toDate(),
-    acceptedAt: data?.acceptedAt?.toDate(),
-    completedAt: data?.completedAt?.toDate(),
-    paidAt: data?.paidAt?.toDate(),
-  } as Swap;
-}
-
-/**
  * Get swaps for a user (as initiator or receiver)
  */
 export async function getUserSwaps(userId: string): Promise<Swap[]> {
