@@ -369,6 +369,7 @@ export default function DetailsScreen() {
       </ScrollView>
 
       <SellFooter
+        testID="sell-details-footer-cta"
         label="CONTINUER"
         onPress={handleContinue}
         isValid={isFormValid}
