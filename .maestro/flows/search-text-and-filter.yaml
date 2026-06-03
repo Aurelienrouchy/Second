@@ -6,17 +6,16 @@
 #   filtre (État) via son chip → sélectionner une valeur → la grille se met à
 #   jour (les filtres restent appliqués au terme).
 #
-# Sélecteurs : on privilégie les testID stables ajoutés au domaine search :
-#   - home-search-bar          (HomeHeader → ouvre /search)
-#   - search-input             (SearchHeader TextInput)
-#   - search-submit-button     (bouton OK, commit immédiat)
-#   - filter-chip-condition    (chip "État" de FilterChipsRow)
-#   - filter-chip-remove-condition (X de retrait du chip État)
-#   - search-results-grid      (ProductGrid des résultats)
-# Le contenu du bottom sheet "État" n'a pas encore de testID stable : on tape
-# sur la copy FR "Bon état" (label issu de data/conditions). Voir 'deferred'
-# pour les testID restants à ajouter (sheet items + entrée recherche en l'absence
-# de la home).
+# Sélecteurs : testID stables posés au domaine search
+#   - home-search-bar               (HomeHeader → ouvre /search)
+#   - search-input                  (SearchHeader TextInput)
+#   - search-submit-button          (bouton OK, commit immédiat)
+#   - search-results-grid           (ProductGrid des résultats)
+#   - filter-chip-condition         (chip "État" de FilterChipsRow)
+#   - selection-item-bon état       (item "Bon état" du bottom sheet État ;
+#                                     value = 'bon état' issue de data/conditions)
+#   - filter-chip-remove-condition  (X de retrait du chip État)
+# Tous les sélecteurs de ce flow sont désormais des testID stables.
 appId: com.seconde.app
 ---
 # Boot propre. Permissions accordées d'office (la recherche visuelle peut
@@ -27,21 +26,21 @@ appId: com.seconde.app
       camera: allow
       photos: allow
 
-# Franchir l'onboarding jusqu'à la home (tab bar visible).
+# Franchir l'onboarding jusqu'à la home (barre de recherche visible).
 - extendedWaitUntil:
     visible:
-      text: "Seconde"
+      id: "onboarding-welcome"
     timeout: 15000
 - tapOn:
-    text: "CONTINUER"
+    id: "onboarding-continue"
     optional: true
 - runFlow:
     when:
       visible:
-        text: "CONTINUER"
+        id: "onboarding-continue"
     commands:
       - tapOn:
-          text: "CONTINUER"
+          id: "onboarding-continue"
           optional: true
 
 # ── Ouvrir l'écran de recherche depuis la barre de la home ──
@@ -75,13 +74,14 @@ appId: com.seconde.app
 # ── Appliquer un filtre État via son chip ──
 - tapOn:
     id: "filter-chip-condition"
-# Le bottom sheet "État" liste les conditions (copy FR de data/conditions).
+# Le bottom sheet "État" liste les conditions ; chaque item porte un testID
+# `selection-item-<value>` (value 'bon état' issue de data/conditions).
 - extendedWaitUntil:
     visible:
-      text: "Bon état"
+      id: "selection-item-bon état"
     timeout: 10000
 - tapOn:
-    text: "Bon état"
+    id: "selection-item-bon état"
 
 # ── Le chip État devient actif (un X de retrait apparaît) et la grille reste
 #    affichée : le filtre est appliqué au terme sans casser les résultats. ──
