@@ -45,6 +45,7 @@ export const UserActions = React.memo(function UserActions({
         )}
       </Pressable>
       <Pressable
+        testID="profile-follow-button"
         style={[
           styles.followButton,
           isFollowing && styles.followButtonActive,
