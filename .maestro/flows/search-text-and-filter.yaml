@@ -63,12 +63,19 @@ appId: com.seconde.app
 
 # ── Appliquer un filtre État via son chip ──
 # La rangée de chips défile horizontalement ; "État" (key `condition`) est le 7e
-# chip, hors écran à droite au départ → on fait défiler jusqu'à le révéler.
-- scrollUntilVisible:
-    element:
+# chip, hors écran à droite au départ. scrollUntilVisible cible le scroll
+# vertical de la grille → on fait défiler la RANGÉE elle-même par des swipes
+# horizontaux ancrés sur sa bande verticale (les chips sont à y≈153 px).
+- swipe:
+    start: "85%,18%"
+    end: "10%,18%"
+- swipe:
+    start: "85%,18%"
+    end: "10%,18%"
+- extendedWaitUntil:
+    visible:
       id: "filter-chip-condition"
-    direction: RIGHT
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: "filter-chip-condition"
 # Le bottom sheet "État" liste les conditions ; chaque item porte un testID
