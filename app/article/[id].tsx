@@ -166,7 +166,7 @@ export default function ArticleDetailScreen() {
   const shippingCost = undefined; // TODO: compute from ShipEngine or article.packageSize
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="article-screen">
       <AnimatedScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
