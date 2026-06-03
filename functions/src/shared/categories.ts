@@ -2022,31 +2022,6 @@ export function getCategoryPath(id: string, nodes: CategoryNode[] = CATEGORIES, 
 }
 
 /**
- * Get labels from an array of category IDs
- */
-export function getCategoryLabelFromIds(ids: string[], separator = ' > '): string {
-  if (!ids || ids.length === 0) return '';
-  const labels: string[] = [];
-  for (const id of ids) {
-    const category = findCategoryById(id);
-    if (category) {
-      labels.push(category.label);
-    }
-  }
-  return labels.join(separator);
-}
-
-/**
- * Get the leaf (most specific) category label
- */
-export function getLeafCategoryLabel(ids: string[]): string {
-  if (!ids || ids.length === 0) return '';
-  const lastId = ids[ids.length - 1];
-  const category = findCategoryById(lastId);
-  return category ? category.label : '';
-}
-
-/**
  * Flatten all categories into a list with full paths (for AI/search)
  */
 export interface FlatCategory {
