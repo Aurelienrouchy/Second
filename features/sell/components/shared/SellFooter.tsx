@@ -8,6 +8,7 @@ interface SellFooterProps {
   onPress: () => void;
   isValid: boolean;
   bottomInset: number;
+  testID?: string;
 }
 
 export const SellFooter = React.memo(function SellFooter({
@@ -15,6 +16,7 @@ export const SellFooter = React.memo(function SellFooter({
   onPress,
   isValid,
   bottomInset,
+  testID,
 }: SellFooterProps) {
   return (
     <View style={[styles.footer, { paddingBottom: bottomInset + 16 }]}>
