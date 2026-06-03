@@ -30,6 +30,7 @@ export const UserActions = React.memo(function UserActions({
       style={styles.actionsRow}
     >
       <Pressable
+        testID="profile-contact-button"
         style={styles.contactButton}
         onPress={onContact}
         disabled={isContactLoading}
