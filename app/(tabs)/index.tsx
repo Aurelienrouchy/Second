@@ -144,7 +144,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="home-screen">
       <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
         <HomeHeader
           onSearchPress={handleSearchBarPress}
