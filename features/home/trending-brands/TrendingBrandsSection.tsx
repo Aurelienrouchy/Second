@@ -235,7 +235,9 @@ const styles = StyleSheet.create({
   },
   brandInitial: {
     fontFamily: typography.h3.fontFamily,
-    fontSize: 28,
+    // Decorative glyph filling the gradient circle — aligned to the h1 display
+    // scale (28) rather than a magic number.
+    fontSize: typography.h1.fontSize,
     fontWeight: '600',
     color: colors.white,
   },
