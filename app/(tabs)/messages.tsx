@@ -151,7 +151,7 @@ export default function MessagesScreen() {
 
   if (!user) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="messages-guest">
         <ScreenHeader title="Messages" showBack={false} />
         <View style={styles.emptyState}>
           <Ionicons
