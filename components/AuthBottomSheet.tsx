@@ -262,7 +262,7 @@ const AuthBottomSheet: React.FC = () => {
       return;
     }
     if (authType === 'signUp' && !username.trim()) {
-      Alert.alert('Erreur', "Veuillez saisir un nom d'utilisateur");
+      Alert.alert('Erreur', "Veuillez saisir un nom d'affichage");
       return;
     }
     setIsLoading(true);
