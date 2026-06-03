@@ -27,9 +27,9 @@
 #   testID → copy FR de secours (deferred).
 appId: com.seconde.app
 ---
-# Boot propre. L'achat exige une session : on suppose un compte seedé connecté.
-- launchApp:
-    clearState: false
+# L'achat exige une session : on suppose un compte seedé connecté, on ne wipe pas
+# l'état (sous-flow partagé, gère un éventuel launcher/dev-menu résiduel).
+- runFlow: ../subflows/open-app.yaml
 
 # Franchir un éventuel CTA d'onboarding résiduel sans casser si déjà sur la home.
 - runFlow:
