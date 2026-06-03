@@ -7,16 +7,20 @@ interface TopControlsProps {
   topInset: number;
   photoCount: number;
   maxPhotos: number;
+  torchActive: boolean;
   onClose: () => void;
   onFlipCamera: () => void;
+  onToggleTorch: () => void;
 }
 
 export const TopControls = React.memo(function TopControls({
   topInset,
   photoCount,
   maxPhotos,
+  torchActive,
   onClose,
   onFlipCamera,
+  onToggleTorch,
 }: TopControlsProps) {
   return (
     <View style={[styles.topControls, { paddingTop: topInset + 8 }]}>
@@ -34,17 +38,31 @@ export const TopControls = React.memo(function TopControls({
         </Text>
       </View>
 
-      <Pressable
-        style={styles.circleButton}
-        onPress={onFlipCamera}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Ionicons
-          name="camera-reverse-outline"
-          size={20}
-          color={colors.cream}
-        />
-      </Pressable>
+      <View style={styles.rightControls}>
+        <Pressable
+          style={[styles.circleButton, torchActive && styles.circleButtonActive]}
+          onPress={onToggleTorch}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name={torchActive ? 'flash' : 'flash-off'}
+            size={20}
+            color={torchActive ? colors.charcoal : colors.cream}
+          />
+        </Pressable>
+
+        <Pressable
+          style={styles.circleButton}
+          onPress={onFlipCamera}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name="camera-reverse-outline"
+            size={20}
+            color={colors.cream}
+          />
+        </Pressable>
+      </View>
     </View>
   );
 });
