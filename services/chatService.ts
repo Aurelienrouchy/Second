@@ -628,7 +628,7 @@ export class ChatService {
             : new Date(offerData.offer.expiresAt);
           if (expiresAt < new Date()) {
             await updateDoc(messageRef, { 'offer.status': 'expired' });
-            throw new Error('Cette offre a expire');
+            throw new Error('Cette offre a expiré');
           }
         }
         await updateDoc(messageRef, { 'offer.status': 'accepted' });
