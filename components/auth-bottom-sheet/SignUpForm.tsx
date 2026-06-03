@@ -1,16 +1,18 @@
 /**
- * SignUpForm — username/email/password sign-up with age gate (16+) and the
+ * SignUpForm — username/email/password fields with the age gate (16+) and the
  * mandatory consent checkboxes (Terms + Privacy) plus an optional marketing
- * opt-in. Also exposes social auth + tab toggle.
+ * opt-in, ending with the create-account CTA.
+ *
+ * Fields only: the title, social buttons, divider and the signIn/signUp toggle
+ * are rendered ONCE by AuthBottomSheet (shared chrome), so switching modes only
+ * re-animates these fields — never the chrome.
  *
  * The create-account button stays disabled until the date of birth is a real
  * calendar date corresponding to age >= 16 AND both required boxes are checked.
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import * as AppleAuthentication from 'expo-apple-authentication';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
 import { computeAgeFromIso, MIN_AGE_REGISTER, toIsoDate } from '@/utils/age';
@@ -29,7 +31,6 @@ export interface SignUpFormProps {
   acceptedPrivacy: boolean;
   marketingOptIn: boolean;
   isLoading: boolean;
-  message?: string;
   onChangeEmail: (value: string) => void;
   onChangePassword: (value: string) => void;
   onChangeUsername: (value: string) => void;
@@ -40,8 +41,6 @@ export interface SignUpFormProps {
   onTogglePrivacy: () => void;
   onToggleMarketing: () => void;
   onSubmit: () => void;
-  onSwitchToSignIn: () => void;
-  onSocialAuth: (provider: 'Google' | 'Apple') => void;
 }
 
 function SignUpFormComponent({
@@ -55,7 +54,6 @@ function SignUpFormComponent({
   acceptedPrivacy,
   marketingOptIn,
   isLoading,
-  message,
   onChangeEmail,
   onChangePassword,
   onChangeUsername,
@@ -66,8 +64,6 @@ function SignUpFormComponent({
   onTogglePrivacy,
   onToggleMarketing,
   onSubmit,
-  onSwitchToSignIn,
-  onSocialAuth,
 }: SignUpFormProps) {
   const [touched, setTouched] = useState({
     username: false,
@@ -75,23 +71,6 @@ function SignUpFormComponent({
     password: false,
     dob: false,
   });
-
-  // Disponibilité Apple Sign-In au montage du formulaire (cf. SignInForm).
-  const [appleAvailable, setAppleAvailable] = useState(false);
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    let mounted = true;
-    AppleAuthentication.isAvailableAsync()
-      .then((available) => {
-        if (mounted) setAppleAvailable(available);
-      })
-      .catch(() => {
-        if (mounted) setAppleAvailable(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const handleBlur = useCallback(
     (field: 'username' | 'email' | 'password' | 'dob') => {
@@ -131,70 +110,7 @@ function SignUpFormComponent({
     isLoading;
 
   return (
-    <>
-      <Text style={styles.title}>Bienvenue sur</Text>
-      <Text style={styles.subtitle}>Seconde</Text>
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-
-      {/* Social auth */}
-      {appleAvailable ? (
-        <Pressable
-          testID="social-apple"
-          style={styles.appleButton}
-          onPress={() => onSocialAuth('Apple')}
-          disabled={isLoading}
-          accessibilityLabel="S'inscrire avec Apple"
-          accessibilityRole="button"
-        >
-          <Ionicons name="logo-apple" size={20} color={colors.white} />
-          <Text style={styles.appleButtonText}>Continuer avec Apple</Text>
-        </Pressable>
-      ) : Platform.OS !== 'ios' ? (
-        <Text style={styles.message}>
-          Compte créé avec Apple ? Connectez-vous depuis un iPhone, ou ajoutez
-          un mot de passe depuis iOS pour vous connecter ici.
-        </Text>
-      ) : null}
-
-      <Pressable
-        testID="social-google"
-        style={styles.socialButton}
-        onPress={() => onSocialAuth('Google')}
-        disabled={isLoading}
-        accessibilityLabel="S'inscrire avec Google"
-        accessibilityRole="button"
-      >
-        <Ionicons name="logo-google" size={18} color={colors.foreground} />
-        <Text style={styles.socialButtonText}>Continuer avec Google</Text>
-      </Pressable>
-
-      {/* Divider */}
-      <View style={styles.divider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>ou</Text>
-        <View style={styles.dividerLine} />
-      </View>
-
-      {/* Toggle tabs */}
-      <View style={styles.authToggle}>
-        <Pressable
-          testID="auth-tab-signin"
-          style={styles.toggleTab}
-          onPress={onSwitchToSignIn}
-        >
-          <Text style={styles.toggleTabText}>Se connecter</Text>
-        </Pressable>
-        <Pressable
-          testID="auth-tab-signup"
-          style={[styles.toggleTab, styles.toggleTabActive]}
-        >
-          <Text style={[styles.toggleTabText, styles.toggleTabTextActive]}>
-            S'inscrire
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Form fields */}
+    <View>
       <TextInput
         testID="signup-username-input"
         style={styles.input}
@@ -273,7 +189,7 @@ function SignUpFormComponent({
           <Text style={styles.primaryButtonText}>S'INSCRIRE</Text>
         )}
       </Pressable>
-    </>
+    </View>
   );
 }
 
