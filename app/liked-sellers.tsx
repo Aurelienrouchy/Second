@@ -212,7 +212,7 @@ export default function LikedSellersScreen() {
   }, [isLoading]);
 
   return (
-    <View style={styles.container}>
+    <View testID="liked-sellers-screen" style={styles.container}>
       <ScreenHeader
         title="Vendeurs suivis"
         onBack={() => router.back()}
