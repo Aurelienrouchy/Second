@@ -296,6 +296,7 @@ export default function AdminShopsScreen() {
         </Pressable>
 
         <Pressable
+          testID="admin-shops-tab-suspended"
           style={[styles.tab, selectedTab === 'suspended' && styles.tabActive]}
           onPress={() => setSelectedTab('suspended')}
         >
