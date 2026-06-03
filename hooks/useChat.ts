@@ -22,6 +22,14 @@ export const useChat = (chatId: string | null, userId: string | null) => {
   const [chat, setChat] = useState<Chat | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by retry() to force the listener-setup effect to re-run (tears down
+  // the previous subscription and re-registers a fresh one).
+  const [reloadKey, setReloadKey] = useState(0);
+
+  /** Re-subscribe to the chat after an error (re-runs the listener effect). */
+  const retry = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     if (!chatId || !userId) {
