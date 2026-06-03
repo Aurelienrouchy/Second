@@ -23,9 +23,10 @@ appId: com.seconde.app
 - assertNotVisible:
     id: "offline-banner"
 
-# Coupe le réseau (mode avion).
-- setAirplaneMode:
-    enabled: true
+# Coupe le réseau (mode avion). NB : Maestro 2.6.0 n'expose que la bascule
+# `toggleAirplaneMode` (pas `setAirplaneMode`), et son effet réel sur la
+# connectivité du SIMULATEUR iOS n'est pas garanti (voir note de fin de flow).
+- toggleAirplaneMode
 
 # La bannière glisse depuis le haut ; on attend (animation withTiming ~250ms +
 # propagation expo-network) avant d'asserter.
@@ -38,12 +39,17 @@ appId: com.seconde.app
 - assertVisible:
     text: "Vous êtes hors connexion"
 
-# Rétablit la connectivité.
-- setAirplaneMode:
-    enabled: false
+# Rétablit la connectivité (re-bascule du mode avion).
+- toggleAirplaneMode
 
 # La bannière doit se rétracter une fois le réseau revenu.
 - extendedWaitUntil:
     notVisible:
       id: "offline-banner"
     timeout: 10000
+
+# NOTE EXÉCUTION : sur SIMULATEUR iOS, `toggleAirplaneMode` ne propage pas
+# toujours la perte de réseau à expo-network/useNetworkStatus — la bannière peut
+# ne jamais apparaître. Ce flow est fiable sur ÉMULATEUR Android et sur DEVICE
+# iOS physique. Sur simulateur iOS, le couper via une condition réseau hardware
+# (Network Link Conditioner) hors Maestro est requis pour un vert déterministe.
