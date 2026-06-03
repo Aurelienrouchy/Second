@@ -261,6 +261,7 @@ export default function AdminShopsScreen() {
       {/* Tabs */}
       <View style={styles.tabs}>
         <Pressable
+          testID="admin-shops-tab-pending"
           style={[styles.tab, selectedTab === 'pending' && styles.tabActive]}
           onPress={() => setSelectedTab('pending')}
         >
