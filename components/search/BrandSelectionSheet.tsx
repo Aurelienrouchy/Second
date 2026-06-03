@@ -239,6 +239,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
       }
 
       if (!text.trim()) {
+        setSearchResultsCapped(false);
         setFilteredBrands(brands);
         return;
       }
@@ -250,7 +251,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             collection(firestore, 'brands'),
             where('searchKey', '>=', normalizedQuery),
             where('searchKey', '<=', normalizedQuery + '\uf8ff'),
-            limit(50)
+            limit(SEARCH_LIMIT)
           );
 
           const querySnapshot = await getDocs(q);
@@ -267,6 +268,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
           });
 
           searchResults.sort((a, b) => a.label.localeCompare(b.label));
+          setSearchResultsCapped(querySnapshot.docs.length >= SEARCH_LIMIT);
           setFilteredBrands(searchResults);
         } catch (error) {
           console.error('Error searching brands:', error);
