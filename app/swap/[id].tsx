@@ -401,7 +401,13 @@ export default function SwapDetailScreen() {
 
       <SwapTopBar showNewBadge={showNewBadge} />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + spacing.xl + spacing.lg },
+        ]}
+      >
         {/* Proposed status: detailed offer layout (receiver perspective) */}
         {swap.status === 'proposed' && !participant.isInitiator && (
           <SwapProposalView
