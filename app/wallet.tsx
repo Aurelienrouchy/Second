@@ -494,7 +494,7 @@ export default function WalletScreen() {
   // ── State B: Wallet active ─────────────────────────────────────────────────
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="wallet-screen">
       <ScreenHeader title="Porte-monnaie" onBack={() => router.back()} />
 
       <ScrollView
