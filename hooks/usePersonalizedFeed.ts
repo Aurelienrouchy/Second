@@ -68,8 +68,8 @@ function getPersonalizationData(user: User | null): PersonalizationData | null {
     const { favoriteBrands, sizes } = user.preferences;
     // Shoe sizes are persisted separately (preferences.shoesSizes) by the
     // onboarding callable; fold them into the size filters so footwear is
-    // personalized too. Not yet in the UserPreferences type — read safely.
-    const shoesSizes = (user.preferences as { shoesSizes?: string[] }).shoesSizes ?? [];
+    // personalized too.
+    const shoesSizes = user.preferences.shoesSizes ?? [];
     const allSizes = [...(sizes ?? []), ...shoesSizes];
     if ((favoriteBrands && favoriteBrands.length > 0) || allSizes.length > 0) {
       return {
