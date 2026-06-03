@@ -61,6 +61,7 @@ export const PayButton = React.memo(function PayButton({
   return (
     <View style={[styles.footer, { paddingBottom: bottomInset + 16 }]}>
       <Pressable
+        testID="checkout-pay-button"
         style={[
           styles.ctaButton,
           isDisabled && styles.ctaButtonDisabled,
