@@ -30,7 +30,11 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 
-import { useImmersiveOverlayStore } from '@/store/immersiveOverlayStore';
+import {
+  useImmersiveOverlayStore,
+  type ImmerseOptions,
+  type DismissOptions,
+} from '@/store/immersiveOverlayStore';
 
 import { Overlay } from './Overlay';
 import {
@@ -46,11 +50,6 @@ interface ImmersiveOverlayProps {
   children: React.ReactNode;
 }
 
-interface ImmerseOptions {
-  /** Optional content to render inside the overlay (above the gradient). */
-  component?: React.ReactNode;
-}
-
 // ─── Custom easing curves ───────────────────────────────────────────────────
 
 const EASE_IN_OUT = Easing.bezier(0.65, 0, 0.35, 1);
@@ -64,18 +63,21 @@ const EASE_OUT_EXPO = Easing.bezier(0.22, 1, 0.36, 1);
  * `immerse(opts?)` triggers the entrance animation. Pass
  * `{ component: <MyContent /> }` to render content inside the overlay.
  *
- * `dismiss()` reverses the animation and clears the content.
+ * `dismiss(opts?)` reverses the animation and clears the content. Pass
+ * `{ onDismissed }` to run code once the collapse animation has fully
+ * finished (e.g. trigger navigation precisely at the end of the exit).
+ *
+ * The triggers live in `immersiveOverlayStore` (registered by the mounted
+ * overlay) — reading them via `getState()` keeps a single source of truth
+ * and avoids the optional-chaining race of module-level globals.
  */
-let _immerse: ((opts?: ImmerseOptions) => void) | null = null;
-let _dismiss: (() => void) | null = null;
-
 export function useImmersiveOverlay() {
   return {
     immerse: useCallback((opts?: ImmerseOptions) => {
-      _immerse?.(opts);
+      useImmersiveOverlayStore.getState().immerse?.(opts);
     }, []),
-    dismiss: useCallback(() => {
-      _dismiss?.();
+    dismiss: useCallback((opts?: DismissOptions) => {
+      useImmersiveOverlayStore.getState().dismiss?.(opts);
     }, []),
   };
 }
