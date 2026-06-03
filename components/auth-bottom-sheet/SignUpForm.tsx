@@ -260,6 +260,7 @@ function SignUpFormComponent({
       />
 
       <Pressable
+        testID="signup-submit"
         style={[styles.primaryButton, submitDisabled && styles.disabledButton]}
         onPress={onSubmit}
         disabled={submitDisabled}
