@@ -205,13 +205,221 @@ describe('users rules', () => {
     );
   });
 
-  // P3 (server-only): dateOfBirth is the Loi 25 consent-gate + age-gate, set
-  // ONLY in the server-side signup setDoc. A client must never self-set it.
+  // P3 (server-only): dateOfBirth is the Loi 25 consent-gate + age-gate, written
+  // EXCLUSIVELY server-side by the recordSignupConsent callable (Admin SDK). A
+  // client must never self-set it — neither at create nor at update.
   it('denies user from self-setting dateOfBirth (update)', async () => {
     const env = await getTestEnv();
     const db = env.authenticatedContext(ALICE).firestore();
     await assertFails(
       updateDoc(doc(db, 'users', ALICE), { dateOfBirth: '2000-01-01' }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // CREATE coverage — this is the regression that broke prod signup (Google /
+  // Apple / email): the create rule was widened to forbid `id` + `createdAt`
+  // (which every legitimate signup setDoc seeds), so all account creation got
+  // permission-denied. These tests lock the create contract: the 3 client signup
+  // paths must succeed, every privilege/financial/trust field stays forbidden at
+  // create, and `id`/`createdAt` are anti-forged (id == uid, createdAt ==
+  // request.time).
+  // ---------------------------------------------------------------------------
+  it('allows owner to create their doc with id == uid + createdAt serverTimestamp (Google/Apple signup shape)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        isActive: true,
+        authProvider: 'google',
+      }),
+    );
+  });
+
+  it('allows the same create shape with a profileImage', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        isActive: true,
+        authProvider: 'apple',
+        profileImage: 'https://example.com/a.jpg',
+      }),
+    );
+  });
+
+  it('denies create with isAdmin: true (privilege field)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        isActive: true,
+        isAdmin: true,
+      }),
+    );
+  });
+
+  it('denies create with role: "admin" (privilege field)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        role: 'admin',
+      }),
+    );
+  });
+
+  it('denies create with a client-supplied username (server-assigned)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        username: 'x',
+      }),
+    );
+  });
+
+  it('denies create with self-attributed stripeAccountId (payout redirect)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        stripeAccountId: 'acct_x',
+      }),
+    );
+  });
+
+  it('denies create with stripeChargesEnabled: true (KYC skip)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        stripeChargesEnabled: true,
+      }),
+    );
+  });
+
+  it('denies create with forged trust signal isVerified: true', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        isVerified: true,
+      }),
+    );
+  });
+
+  it('denies create with forged trust signal rating: 5', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        rating: 5,
+      }),
+    );
+  });
+
+  it('denies create with self-supplied dateOfBirth (server-only consent field)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+        dateOfBirth: '2000-01-01',
+      }),
+    );
+  });
+
+  it('denies create with id != uid (anti-forge: foreign id in path)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: 'bob',
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('denies a non-owner from creating someone else\'s doc', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    // Bob (authenticated as 'bob') tries to create users/alice.
+    const db = env.authenticatedContext('bob').firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('denies create with a backdated createdAt (anti-forge: createdAt != request.time)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    // A fixed past Timestamp can never equal request.time at create.
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        id: ALICE,
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        createdAt: Timestamp.fromDate(new Date('2000-01-01T00:00:00Z')),
+      }),
     );
   });
 
