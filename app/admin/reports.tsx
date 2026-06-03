@@ -102,7 +102,7 @@ function formatDate(iso: string | null): string {
   if (!iso) return '';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('fr-CA', {
+  return date.toLocaleDateString(APP_LOCALE, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
