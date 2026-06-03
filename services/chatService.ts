@@ -1074,7 +1074,7 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `Nouvel horaire propose: ${formattedDate} a ${formattedTime}`
+        `Nouvel horaire proposé: ${formattedDate} à ${formattedTime}`
       );
 
       return await this.sendMessageWithType(
