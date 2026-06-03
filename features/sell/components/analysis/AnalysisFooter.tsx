@@ -49,6 +49,7 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
       {screenState === 'error' && (
         <>
           <Pressable
+            testID="sell-analysis-retry"
             style={({ pressed }) => [
               styles.primaryButton,
               pressed && { opacity: 0.7 },
