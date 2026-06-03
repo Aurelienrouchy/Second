@@ -409,13 +409,25 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
     }, [searchQuery, hasMoreBrands, isLoadingMore]);
 
     const renderListFooter = useCallback(() => {
-      if (!isLoadingMore) return null;
-      return (
-        <View style={styles.loadMoreContainer}>
-          <ActivityIndicator size="small" color={colors.rust} />
-        </View>
-      );
-    }, [isLoadingMore]);
+      if (isLoadingMore) {
+        return (
+          <View style={styles.loadMoreContainer}>
+            <ActivityIndicator size="small" color={colors.rust} />
+          </View>
+        );
+      }
+      // Search-only ceiling reached: prompt the user to narrow their query.
+      if (searchResultsCapped && searchQuery.trim()) {
+        return (
+          <View style={styles.refineContainer}>
+            <Text style={[styles.refineText, darkMode && { color: mutedColor }]}>
+              Affinez votre recherche pour voir plus de marques
+            </Text>
+          </View>
+        );
+      }
+      return null;
+    }, [isLoadingMore, searchResultsCapped, searchQuery, darkMode, mutedColor]);
 
     const renderBrandItem = useCallback(({ item }: { item: Brand }) => {
       const isSelected = singleSelect
