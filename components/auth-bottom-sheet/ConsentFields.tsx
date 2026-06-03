@@ -61,7 +61,7 @@ function ConsentFieldsComponent({
       {/* Date of birth (age gate) */}
       <Text style={styles.dobLabel}>{COPY_CONSENT.dobLabel}</Text>
       <View style={styles.dobRow}>
-        <TextInput
+        <BottomSheetTextInput
           style={[styles.input, styles.dobField]}
           placeholder="JJ"
           placeholderTextColor={colors.muted}
@@ -74,7 +74,7 @@ function ConsentFieldsComponent({
           testID="signup-dob-day"
         />
         <Text style={styles.dobSeparator}>/</Text>
-        <TextInput
+        <BottomSheetTextInput
           style={[styles.input, styles.dobField]}
           placeholder="MM"
           placeholderTextColor={colors.muted}
@@ -87,7 +87,7 @@ function ConsentFieldsComponent({
           testID="signup-dob-month"
         />
         <Text style={styles.dobSeparator}>/</Text>
-        <TextInput
+        <BottomSheetTextInput
           style={[styles.input, styles.dobFieldYear]}
           placeholder="AAAA"
           placeholderTextColor={colors.muted}
