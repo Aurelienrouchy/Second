@@ -252,11 +252,7 @@ service cloud.firestore {
       function protectedUserFields() {
         return [
           'isAdmin', 'role', 'customClaims', 'username',
-          // onboardingPreferences: LEGACY — no longer written by saveOnboardingPreferences
-          // (onboarding answers now live in the flat `preferences` map). Kept in the
-          // protected list as a defensive guard so a client can never write/forge this
-          // stale field. onboardingCompleted is still written server-side, also protected.
-          'onboardingCompleted', 'onboardingPreferences', 'createdAt', 'id',
+          'onboardingCompleted', 'createdAt', 'id',
           'stripeAccountId', 'stripeChargesEnabled', 'stripePayoutsEnabled',
           'stripeAccountStatus', 'stripeDetailsSubmitted', 'stripeBankAccountAdded',
           'stripeBankAccountLast4',
