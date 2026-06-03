@@ -275,6 +275,25 @@ service cloud.firestore {
         ];
       }
 
+      // Fields the CLIENT may never set AT CREATE. Identical to
+      // protectedUserFields() MINUS 'id' and 'createdAt', which are the only two
+      // privileged-by-default fields a legitimate signup setDoc seeds. They are
+      // not free-form at create: the create rule additionally enforces
+      // id == userId and createdAt == request.time (see above). Every other
+      // privilege/financial/trust field stays forbidden at create, exactly as in
+      // protectedUserFields().
+      function createForbiddenUserFields() {
+        return [
+          'isAdmin', 'role', 'customClaims', 'username',
+          'onboardingCompleted',
+          'stripeAccountId', 'stripeChargesEnabled', 'stripePayoutsEnabled',
+          'stripeAccountStatus', 'stripeDetailsSubmitted', 'stripeBankAccountAdded',
+          'stripeBankAccountLast4',
+          'dateOfBirth',
+          'isVerified', 'rating', 'reviewCount', 'sellerLikesCount'
+        ];
+      }
+
       // No delete allowed (soft delete by setting isActive = false)
       allow delete: if false;
 
