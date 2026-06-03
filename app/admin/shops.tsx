@@ -117,7 +117,9 @@ export default function AdminShopsScreen() {
           text: 'Approuver',
           style: 'default',
           onPress: async () => {
+            if (isSubmitting) return;
             try {
+              setIsSubmitting(true);
               await ShopService.approveShop(shop.id);
               await NotificationService.notifyShopApproved(shop.id, shop.ownerId);
               Alert.alert('Succès', 'La boutique a été approuvée');
@@ -125,6 +127,8 @@ export default function AdminShopsScreen() {
             } catch (error) {
               if (__DEV__) console.error('Error approving shop:', error);
               Alert.alert('Erreur', 'Impossible d\'approuver la boutique');
+            } finally {
+              setIsSubmitting(false);
             }
           },
         },
