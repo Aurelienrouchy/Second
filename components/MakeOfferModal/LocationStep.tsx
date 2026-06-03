@@ -291,6 +291,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
         </View>
 
         <Pressable
+          testID="offer-location-continue"
           style={[
             styles.submitButton,
             !state.customSpotName.trim() && styles.submitButtonDisabled,
