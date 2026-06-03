@@ -35,7 +35,17 @@ export default function SellTabScreen() {
         try {
           const existingDraft = await draftService.loadDraft();
 
-          if (existingDraft && existingDraft.photos.length > 0) {
+          // Resume a draft as soon as it carries meaningful progress, not only
+          // when a local photo cache survives. Drafts that already uploaded to
+          // Storage or ran the AI analysis must be offered for resume even after
+          // the local photo cache has been purged.
+          const hasProgress =
+            !!existingDraft &&
+            (existingDraft.photos.length > 0 ||
+              existingDraft.storageUrls.length > 0 ||
+              !!existingDraft.aiResult);
+
+          if (existingDraft && hasProgress) {
             setDraft(existingDraft);
             showModalRef.current = true;
             setShowModal(true);
