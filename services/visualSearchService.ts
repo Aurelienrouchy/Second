@@ -79,7 +79,7 @@ async function processImageForSearch(uri: string): Promise<{ base64: string }> {
     encoding: FileSystem.EncodingType.Base64,
   });
 
-  return { base64, mimeType: 'image/jpeg' };
+  return { base64 };
 }
 
 // ============================================================
