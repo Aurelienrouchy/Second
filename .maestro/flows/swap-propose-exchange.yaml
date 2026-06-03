@@ -26,8 +26,8 @@
 # parcours de façon défensive (taps optional) pour rester non-flaky.
 appId: com.seconde.app
 ---
-- launchApp:
-    clearState: true
+# Boot propre via le sous-flow partagé (clearState + gestion launcher/dev-menu).
+- runFlow: ../subflows/open-app-fresh.yaml
 
 # Franchir l'onboarding welcome → form jusqu'à la home.
 - extendedWaitUntil:
