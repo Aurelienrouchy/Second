@@ -170,41 +170,64 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
       [overlayProgress, warpProgress, contentReveal, activate, startBreathing]
     );
 
+    // ── Run a caller-supplied onDismissed on the JS thread ──
+    const runOnDismissed = useCallback((onDismissed?: () => void) => {
+      if (isMounted.current) {
+        onDismissed?.();
+      }
+    }, []);
+
     // ── Dismiss (exit) ──
-    const dismiss = useCallback(() => {
-      overlayProgress.value = withTiming(
-        0,
-        { duration: EXITING_TIME, easing: EASE_OUT_EXPO },
-        (finished) => {
-          if (finished) {
-            runOnJS(deactivateOnJS)();
-            runOnJS(stopBreathing)();
+    const dismiss = useCallback(
+      (opts?: DismissOptions) => {
+        const onDismissed = opts?.onDismissed;
+
+        overlayProgress.value = withTiming(
+          0,
+          { duration: EXITING_TIME, easing: EASE_OUT_EXPO },
+          (finished) => {
+            if (finished) {
+              runOnJS(deactivateOnJS)();
+              runOnJS(stopBreathing)();
+              // Fire the caller's callback at the *real* end of the collapse
+              // animation — lets navigation couple to the animation instead
+              // of a magic setTimeout that races the closing overlay.
+              if (onDismissed) {
+                runOnJS(runOnDismissed)(onDismissed);
+              }
+            }
           }
-        }
-      );
+        );
 
-      warpProgress.value = withTiming(0, {
-        duration: EXITING_TIME,
-        easing: EASE_OUT_EXPO,
-      });
+        warpProgress.value = withTiming(0, {
+          duration: EXITING_TIME,
+          easing: EASE_OUT_EXPO,
+        });
 
-      // Fade the content out with the exit so it never lingers behind the
-      // collapsing overlay (and is reset to 0 for the next immerse).
-      contentReveal.value = withTiming(0, {
-        duration: EXITING_TIME,
-        easing: EASE_OUT_EXPO,
-      });
-    }, [overlayProgress, warpProgress, contentReveal, deactivateOnJS, stopBreathing]);
+        // Fade the content out with the exit so it never lingers behind the
+        // collapsing overlay (and is reset to 0 for the next immerse).
+        contentReveal.value = withTiming(0, {
+          duration: EXITING_TIME,
+          easing: EASE_OUT_EXPO,
+        });
+      },
+      [
+        overlayProgress,
+        warpProgress,
+        contentReveal,
+        deactivateOnJS,
+        stopBreathing,
+        runOnDismissed,
+      ]
+    );
 
-    // ── Register immerse/dismiss for the hook ──
+    // ── Register immerse/dismiss in the store for the hook ──
     useEffect(() => {
-      _immerse = immerse;
-      _dismiss = dismiss;
+      setCallbacks({ immerse, dismiss });
       return () => {
-        _immerse = null;
-        _dismiss = null;
+        clearCallbacks();
       };
-    }, [immerse, dismiss]);
+    }, [immerse, dismiss, setCallbacks, clearCallbacks]);
 
     // ── Warp animated style on children ──
     const warpStyle = useAnimatedStyle(() => {
