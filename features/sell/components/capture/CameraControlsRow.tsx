@@ -76,6 +76,7 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
         </Pressable>
 
         <AnimatedPressable
+          testID="sell-capture-continue"
           style={[styles.continueButton, continueContainerStyle]}
           onPress={onContinue}
           disabled={!hasPhotos}
