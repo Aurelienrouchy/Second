@@ -278,6 +278,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         ref={cameraRef}
         style={[StyleSheet.absoluteFill, cameraStyle]}
         facing={facing}
+        enableTorch={torchActive}
         onCameraReady={handleCameraReady}
       />
 
