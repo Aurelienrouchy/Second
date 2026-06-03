@@ -137,7 +137,7 @@ function SignUpFormComponent({
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
       {/* Social auth */}
-      {Platform.OS === 'ios' ? (
+      {appleAvailable ? (
         <Pressable
           style={styles.appleButton}
           onPress={() => onSocialAuth('Apple')}
@@ -148,12 +148,12 @@ function SignUpFormComponent({
           <Ionicons name="logo-apple" size={20} color={colors.white} />
           <Text style={styles.appleButtonText}>Continuer avec Apple</Text>
         </Pressable>
-      ) : (
+      ) : Platform.OS !== 'ios' ? (
         <Text style={styles.message}>
           Compte créé avec Apple ? Connectez-vous depuis un iPhone, ou ajoutez
           un mot de passe depuis iOS pour vous connecter ici.
         </Text>
-      )}
+      ) : null}
 
       <Pressable
         style={styles.socialButton}
