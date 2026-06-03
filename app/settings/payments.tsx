@@ -80,20 +80,10 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: spacing.md,
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    gap: spacing.sm,
-  },
-  addButtonText: {
-    color: colors.primary,
-    fontFamily: fonts.sansMedium,
+  emptyHint: {
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    color: colors.muted,
   },
 });
 
