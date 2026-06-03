@@ -483,6 +483,7 @@ export default function WalletScreen() {
             disabled={isActivating}
             onPress={handleActivate}
             style={styles.activateButton}
+            testID="wallet-activate-cta"
           >
             Activer mon porte-monnaie
           </Button>
