@@ -97,7 +97,9 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.lg,
     paddingRight: 0,
     gap: spacing.sm,
-    paddingBottom: spacing.md,
+    // Aligned to the other rails (NewArrivals / PriceDrops / TrendingBrands /
+    // FeaturedSellers) for consistent inter-section spacing.
+    paddingBottom: spacing.sm,
   },
   horizontalCardWrapper: {
     width: 160,
