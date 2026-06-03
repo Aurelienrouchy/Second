@@ -83,6 +83,7 @@ export default function ChatScreen() {
     sendImage,
     acceptOffer,
     rejectOffer,
+    retry,
   } = useChat(chatId || null, user?.id ?? null);
 
   // ─── Article linked to this chat ───
