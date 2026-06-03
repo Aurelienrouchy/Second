@@ -246,9 +246,9 @@ const styles = StyleSheet.create({
   // from the stats + CTA action block (the deliberate compositional pause).
   shell: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-    gap: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.lg,
   },
   shellPressed: {
     opacity: 0.9,
