@@ -123,7 +123,7 @@ const CRITERIA_KEY_LABELS: Record<string, string> = {
  * label (never the raw technical key) so an unmapped backend key can't leak
  * into the Loi 25 contestation UI.
  */
-export function getCriteriaKeyLabel(key: string): string {
+function getCriteriaKeyLabel(key: string): string {
   return CRITERIA_KEY_LABELS[key] ?? 'Critère';
 }
 
