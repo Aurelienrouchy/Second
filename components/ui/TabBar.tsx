@@ -176,7 +176,6 @@ export const TabBar: React.FC<TabBarProps> = ({
           const tab = tabs.find((t) => t.name === route.name);
           if (!tab) return null;
 
-          const { options } = descriptors[route.key];
           const isActive = state.index === index;
           const isSellButton = tab.name === 'sell';
 
