@@ -307,7 +307,7 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
           <Text variant="body" style={styles.modeButtonTitle}>
             En main propre
           </Text>
-          <Caption>Retrouvez-vous pour échanger</Caption>
+          <Caption>Retrouve-toi avec l'autre pour échanger</Caption>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>
