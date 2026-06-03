@@ -277,7 +277,7 @@ export default function NotificationsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.container}>
+      <View style={styles.container} testID="notifications-screen">
         <ScreenHeader
           title="Notifications"
           onBack={() => router.back()}
