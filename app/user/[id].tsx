@@ -378,7 +378,7 @@ export default function UserProfileScreen() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="user-profile-screen">
       <ScreenHeader
         title=""
         onBack={handleBack}
