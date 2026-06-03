@@ -23,7 +23,6 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { UserPreferences } from '@/types';
 
 // Tailles vêtements (lettres)
 const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
