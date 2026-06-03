@@ -87,7 +87,10 @@ export default function OnboardingScreen() {
     ? (isEU ? SIZES_KIDS_SHOES_EU : SIZES_KIDS_SHOES_US)
     : (isEU ? SIZES_ADULT_SHOES_EU : SIZES_ADULT_SHOES_US);
 
-  const hasAnything = sex || sizesTop.length > 0 || sizesBottom.length > 0 || sizesShoes.length > 0;
+  // VALIDER requires a sex selection (backend contract requires a valid sex)
+  // plus at least one size selected.
+  const hasAnything =
+    !!sex && (sizesTop.length > 0 || sizesBottom.length > 0 || sizesShoes.length > 0);
 
   const toggleSize = useCallback((
     setter: React.Dispatch<React.SetStateAction<string[]>>,
