@@ -262,22 +262,20 @@ interface UserDocument {
       showProfilePhoto?: boolean;  // When false, getUserPublicProfile returns null profileImage
       showLastSeen?: boolean;
     };
-    sizes?: string[];
-    shoesSizes?: string[];
-    sex?: string;
+    sizes?: string[];                                    // Onboarding-derived clothing sizes (top + bottom merged)
+    shoesSizes?: string[];                               // Onboarding-derived shoe sizes
+    sex?: 'femme' | 'homme' | 'les-deux' | 'enfant';     // Onboarding-derived audience
     // AI profiling opt-in (RGPD). ABSENT or false => profilage IA DÉSACTIVÉ.
     // This is an opt-in flag: default = false.
     aiProfilingConsent?: boolean;
   };
 
   // Onboarding
-  onboardingPreferences?: {
-    sex: 'femme' | 'homme' | 'les-deux' | 'enfant';
-    sizesTop: string[];
-    sizesBottom: string[];
-    sizesShoes: string[];
-    updatedAt: Timestamp;
-  };
+  // NOTE: the legacy nested `onboardingPreferences` snapshot is no longer written
+  // by saveOnboardingPreferences. Onboarding answers now live exclusively in the
+  // canonical flat `preferences` map above (sizes / shoesSizes / sex). Some pre-
+  // existing user docs may still carry an inert `onboardingPreferences` field that
+  // is never read.
   onboardingCompleted?: boolean;
 
   // Style profile (AI-generated)
