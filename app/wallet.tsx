@@ -506,7 +506,7 @@ export default function WalletScreen() {
         }
       >
         {/* Available balance card */}
-        <View style={styles.balanceCard}>
+        <View style={styles.balanceCard} testID="wallet-balance-card">
           <Text style={styles.balanceLabel}>{WALLET_COPY.availableLabel}</Text>
           <Text style={styles.balanceAmount}>
             {formatCents(wallet.balance)}
