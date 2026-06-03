@@ -57,7 +57,12 @@ export default function ShopValidationCard({
       <View style={styles.header}>
         <View style={styles.imageContainer}>
           {shop.images && shop.images.length > 0 ? (
-            <Image source={{ uri: shop.images[0] }} style={styles.image} />
+            <Image
+              source={{ uri: shop.images[0] }}
+              style={styles.image}
+              recyclingKey={shop.id}
+              cachePolicy="memory-disk"
+            />
           ) : (
             <View style={styles.imagePlaceholder}>
               <Ionicons name="storefront-outline" size={32} color={colors.muted} />
