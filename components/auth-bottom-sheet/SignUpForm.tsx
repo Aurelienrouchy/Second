@@ -139,6 +139,7 @@ function SignUpFormComponent({
       {/* Social auth */}
       {appleAvailable ? (
         <Pressable
+          testID="social-apple"
           style={styles.appleButton}
           onPress={() => onSocialAuth('Apple')}
           disabled={isLoading}

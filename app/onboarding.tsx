@@ -228,7 +228,7 @@ export default function OnboardingScreen() {
   // ─── Welcome screen ───
   if (showWelcome) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} testID="onboarding-welcome">
         <View style={styles.welcomeContainer}>
           <View style={styles.welcomeContent}>
             <Animated.Text
