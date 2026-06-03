@@ -76,6 +76,23 @@ function SignUpFormComponent({
     dob: false,
   });
 
+  // Disponibilité Apple Sign-In au montage du formulaire (cf. SignInForm).
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    let mounted = true;
+    AppleAuthentication.isAvailableAsync()
+      .then((available) => {
+        if (mounted) setAppleAvailable(available);
+      })
+      .catch(() => {
+        if (mounted) setAppleAvailable(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleBlur = useCallback(
     (field: 'username' | 'email' | 'password' | 'dob') => {
       setTouched((prev) => ({ ...prev, [field]: true }));
