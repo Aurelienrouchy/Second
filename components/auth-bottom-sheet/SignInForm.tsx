@@ -152,6 +152,7 @@ function SignInFormComponent({
       ) : null}
 
       <TextInput
+        testID="signin-password-input"
         style={styles.input}
         placeholder="Mot de passe"
         placeholderTextColor={colors.muted}
