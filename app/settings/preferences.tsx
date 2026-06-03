@@ -65,6 +65,9 @@ export default function PreferencesScreen() {
     mutationFn: () =>
       UserService.updateUserPreferences(user!.id, {
         sizes: selectedSizes,
+        // shoesSizes is persisted alongside sizes (same shape as the onboarding
+        // callable). Not yet declared on UserPreferences, hence the cast.
+        shoesSizes: selectedShoeSizes,
         favoriteBrands: selectedBrands,
       } as Partial<UserPreferences>),
     onSuccess: () => {
