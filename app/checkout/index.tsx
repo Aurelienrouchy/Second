@@ -193,7 +193,7 @@ export default function CheckoutScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="checkout-screen">
       <ScreenHeader title="Commander" onBack={handleBack} />
 
       <ScrollView
