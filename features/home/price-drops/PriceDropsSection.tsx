@@ -317,8 +317,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: typography.body.fontFamily,
-    fontSize: 12,
-    lineHeight: 16,
+    // Aligned to the caption scale (12px) — was a magic 12/16 pair.
+    fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
     color: colors.foreground,
     marginBottom: spacing.xs,
     fontWeight: '500',
