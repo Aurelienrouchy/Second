@@ -113,15 +113,10 @@ const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
     );
   };
   const handleLikePress = () => {
-    // Only bounce the heart when the like will actually register. When the
-    // user is signed out, defer the animation to the auth-success path so the
-    // heart never animates ahead of an unconfirmed action (scale stays at 1).
-    if (isLoggedIn) {
-      animateHeart();
-      toggleLike();
-    } else {
-      toggleLike();
-    }
+    // Bounce the heart only when the like actually registers. When signed out
+    // the animation is deferred to the auth-success path, so the heart never
+    // animates ahead of an unconfirmed action (scale stays at 1 on cancel).
+    toggleLike(animateHeart);
   };
 
   const avatarGradient = getGradientForSeller(seller.id);
