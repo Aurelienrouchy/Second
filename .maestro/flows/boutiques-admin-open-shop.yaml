@@ -1,9 +1,9 @@
 # boutiques-admin-open-shop — parcours admin : ouvrir une boutique
 #
 # Domaine boutiques-admin. Couvre le parcours clé de modération côté admin :
-#   Réglages → entrée "Administration" → Panel Admin (gestion des boutiques)
-#   → onglet "En attente" → ouvrir une boutique listée (carte de validation)
-#   → arriver sur le détail de la boutique.
+#   Profil → Paramètres → entrée "Administration" → Panel Admin (gestion des
+#   boutiques) → onglet "En attente" → ouvrir une boutique listée (carte de
+#   validation) → arriver sur le détail de la boutique.
 #
 # Pourquoi ce parcours :
 #   - C'est le point d'entrée unique de la modération (settings → /admin/shops),
@@ -19,43 +19,45 @@
 #   - Au moins une boutique "en attente" seedée (sinon l'onglet est vide ;
 #     le flow bascule alors sur "Toutes" pour trouver une carte à ouvrir).
 #
-# Sélecteurs : testIDs stables ajoutés dans ce domaine (admin-shops-screen,
-# shop-validation-card-<id>) ; copy FR visible ailleurs. testIDs encore
-# manquants listés en 'deferred' du rapport.
+# Sélecteurs : testIDs stables — menu-item-settings (ProfileMenu),
+#   admin-shops-screen, shop-validation-card-<id> (matché par regex),
+#   admin-shop-detail-screen. L'entrée "Administration" (SettingItem) et les
+#   onglets de filtre (En attente / Toutes) n'ont pas encore de testID → copy FR
+#   (listés en 'deferred' du rapport).
 appId: com.seconde.app
 ---
 # Session admin supposée connectée : on ne wipe pas l'état.
 - launchApp:
     clearState: false
 
-# Sortie d'onboarding/splash : la marque visible = on est dans l'app.
-- extendedWaitUntil:
-    visible:
-      text: "Seconde"
-    timeout: 20000
-
 # Franchir un CTA d'onboarding résiduel sans casser si déjà sur la home.
 - runFlow:
     when:
       visible:
-        text: "CONTINUER"
+        id: "onboarding-continue"
     commands:
       - tapOn:
-          text: "CONTINUER"
+          id: "onboarding-continue"
           optional: true
 
-# Aller dans l'onglet Profil/Réglages.
-# (L'icône d'onglet Profil n'a pas encore de testID — cf. 'deferred'.)
+# Aller dans l'onglet Profil (tabBarAccessibilityLabel → id).
+- extendedWaitUntil:
+    visible:
+      id: "Profil"
+    timeout: 20000
 - tapOn:
-    text: "Profil"
-    optional: true
+    id: "Profil"
 
-# Ouvrir l'écran Réglages depuis le profil.
+# Ouvrir l'écran Paramètres depuis le menu du profil (testID stable).
+- extendedWaitUntil:
+    visible:
+      id: "menu-item-settings"
+    timeout: 15000
 - tapOn:
-    text: "Réglages"
-    optional: true
+    id: "menu-item-settings"
 
 # Section Administration (visible uniquement pour un admin) → ouvrir le panel.
+# (Le SettingItem "Administration" n'a pas de testID → copy FR, cf. deferred.)
 - extendedWaitUntil:
     visible:
       text: "Administration"
@@ -63,7 +65,7 @@ appId: com.seconde.app
 - tapOn:
     text: "Administration"
 
-# Panel Admin — gestion des boutiques. testID stable ajouté à l'écran.
+# Panel Admin — gestion des boutiques. testID stable sur l'écran racine.
 - extendedWaitUntil:
     visible:
       id: "admin-shops-screen"
@@ -72,6 +74,7 @@ appId: com.seconde.app
     text: "Gestion des boutiques"
 
 # Onglet "En attente" : le bucket de modération par défaut.
+# (Les onglets de filtre n'ont pas de testID → copy FR, cf. deferred.)
 - tapOn:
     text: "En attente"
     optional: true
@@ -86,16 +89,19 @@ appId: com.seconde.app
       - tapOn:
           text: "Toutes"
 
-# Ouvrir la première boutique listée.
-# (La carte porte un testID paramétré par id — non matchable statiquement ;
-#  on tape la première vignette de la liste. testID statique listé en 'deferred'.)
-- tapOn:
-    point: "50%,45%"
-
-# Détail de la boutique : l'écran admin de revue affiche les sections de la
-# demande (Contact, Adresse, Informations système). On asserte "Contact",
-# toujours présent, pour prouver la navigation liste → détail.
+# Ouvrir la première boutique listée. La carte porte un testID paramétré par id
+# (shop-validation-card-<id>) → matché par regex sur le préfixe (1re carte).
 - extendedWaitUntil:
     visible:
-      text: "Contact"
+      id: "shop-validation-card-.*"
+    timeout: 15000
+- tapOn:
+    id: "shop-validation-card-.*"
+    index: 0
+
+# Détail de la boutique : l'écran admin de revue (testID racine stable) prouve
+# la navigation liste → détail.
+- extendedWaitUntil:
+    visible:
+      id: "admin-shop-detail-screen"
     timeout: 15000
