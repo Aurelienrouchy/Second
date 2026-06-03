@@ -178,6 +178,7 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
               {items.map((item) => (
                 <TouchableOpacity
                   key={item.value}
+                  testID={`selection-item-${item.value}`}
                   style={[
                     styles.sizeItem,
                     isSelected(item.value) && styles.sizeItemSelected
