@@ -50,6 +50,7 @@ function VisualSearchCameraComponent({
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  const hasConfirmed = useRef(false);
   const insets = useSafeAreaInsets();
 
   // Request permission on mount
