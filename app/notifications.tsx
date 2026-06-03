@@ -108,6 +108,7 @@ function NotificationItem({ notification, onPress, onDelete, testID }: Notificat
   return (
     <Swipeable renderRightActions={renderRightActions}>
       <Pressable
+        testID={testID}
         style={[
           styles.notificationItem,
           !notification.isRead && styles.notificationItemUnread,
