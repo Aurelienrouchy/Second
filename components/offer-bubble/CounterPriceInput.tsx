@@ -34,7 +34,7 @@ function CounterPriceInputComponent({
       <TextInput
         style={styles.counterAmountInput}
         placeholder="Montant en $"
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
         value={amount}
         onChangeText={onChangeAmount}
         placeholderTextColor={colors.muted}
