@@ -50,6 +50,8 @@ export interface ProductGridProps {
   onLoadMore?: () => void;
   /** Product tap handler */
   onProductPress: (article: Article | ArticleWithLocation) => void;
+  /** Long-press handler (e.g. remove from favorites). Optional. */
+  onProductLongPress?: (article: Article | ArticleWithLocation) => void;
   /** Custom list header */
   ListHeaderComponent?: React.ReactElement | (() => React.ReactElement);
   /** Extra data to trigger re-render */
