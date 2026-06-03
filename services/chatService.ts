@@ -937,10 +937,10 @@ export class ChatService {
       };
 
       const dateTimeInfo = originalOffer.meetup.dateTime
-        ? `le ${new Date(originalOffer.meetup.dateTime).toLocaleDateString('fr-CA')} a ${new Date(originalOffer.meetup.dateTime).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`
-        : 'a une date a convenir';
+        ? `le ${new Date(originalOffer.meetup.dateTime).toLocaleDateString(APP_LOCALE)} à ${new Date(originalOffer.meetup.dateTime).toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })}`
+        : 'à une date à convenir';
 
-      let content = `Nouveau lieu propose\n`;
+      let content = `Nouveau lieu proposé\n`;
       content += `${originalOffer.amount} $\n`;
       content += `${newLocation.name}\n`;
       content += dateTimeInfo;
