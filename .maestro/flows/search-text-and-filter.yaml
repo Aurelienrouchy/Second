@@ -26,22 +26,12 @@ appId: com.seconde.app
 # texte) — le sous-flow garde un launchApp générique.
 - runFlow: ../subflows/open-app-fresh.yaml
 
-# Franchir l'onboarding jusqu'à la home (barre de recherche visible).
+# Franchir l'onboarding (welcome/form) via « Passer » jusqu'à la home.
 - extendedWaitUntil:
     visible:
       id: "onboarding-welcome"
     timeout: 15000
-- tapOn:
-    id: "onboarding-continue"
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: "onboarding-continue"
-    commands:
-      - tapOn:
-          id: "onboarding-continue"
-          optional: true
+- runFlow: ../subflows/pass-onboarding.yaml
 
 # ── Ouvrir l'écran de recherche depuis la barre de la home ──
 - extendedWaitUntil:
