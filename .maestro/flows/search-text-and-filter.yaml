@@ -20,13 +20,11 @@
 # Tous les sélecteurs de ce flow sont désormais des testID stables.
 appId: com.seconde.app
 ---
-# Boot propre. Permissions accordées d'office (la recherche visuelle peut
-# demander la caméra, mais ce flow reste sur la recherche texte).
-- launchApp:
-    clearState: true
-    permissions:
-      camera: allow
-      photos: allow
+# Boot propre via le sous-flow partagé (clearState + gestion launcher/dev-menu).
+# Les permissions caméra/photos sont accordées au simulateur avant le run
+# (la recherche visuelle peut les demander, mais ce flow reste sur la recherche
+# texte) — le sous-flow garde un launchApp générique.
+- runFlow: ../subflows/open-app-fresh.yaml
 
 # Franchir l'onboarding jusqu'à la home (barre de recherche visible).
 - extendedWaitUntil:
