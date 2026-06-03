@@ -169,6 +169,7 @@ export default function TabLayout() {
         options={{
           title: 'Accueil',
           tabBarAccessibilityLabel: 'Accueil',
+          tabBarButtonTestID: 'Accueil',
           tabBarIcon: ({ color }) => <HomeIcon color={color} />,
         }}
       />
