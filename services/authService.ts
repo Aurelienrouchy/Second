@@ -412,7 +412,17 @@ export class AuthService {
    * Connexion avec Apple (expo-apple-authentication)
    */
   static async signInWithApple(): Promise<SocialAuthResult> {
+    if (Platform.OS !== 'ios') {
+      throw new Error('Apple Sign-In disponible uniquement sur iOS.');
+    }
     try {
+      // Garde-fou de disponibilité runtime (Apple peut être indisponible même
+      // sur iOS : simulateur sans compte, version < iOS 13, etc.).
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Apple Sign-In n\'est pas disponible sur cet appareil.');
+      }
+
       const nonceBytes = await Crypto.getRandomBytesAsync(32);
       const nonce = Array.from(new Uint8Array(nonceBytes))
         .map(b => b.toString(16).padStart(2, '0'))
