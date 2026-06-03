@@ -50,7 +50,7 @@ function SignInFormComponent({
 
   return (
     <View>
-      <TextInput
+      <BottomSheetTextInput
         testID="signin-email-input"
         style={styles.input}
         placeholder="Email"
