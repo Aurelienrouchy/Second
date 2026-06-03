@@ -164,6 +164,7 @@ export default function MessagesScreen() {
             Connectez-vous pour accéder à vos messages
           </Text>
           <Pressable
+            testID="messages-guest-connect"
             style={styles.loginButton}
             onPress={() => showAuthSheet(AUTH_MESSAGES.message)}
           >
