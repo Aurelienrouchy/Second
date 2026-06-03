@@ -202,6 +202,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
           <View style={styles.sellerZoneSection}>
             <Text style={styles.sectionTitle}>ZONE DU VENDEUR</Text>
             <Pressable
+              testID={`offer-location-item-${sellerNeighborhood.id}`}
               style={[styles.listItem, styles.sellerRecommended]}
               onPress={() => handleNeighborhoodSelect(sellerNeighborhood)}
             >
