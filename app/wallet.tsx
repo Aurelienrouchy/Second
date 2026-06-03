@@ -588,6 +588,7 @@ export default function WalletScreen() {
           <Pressable
             style={[styles.actionButton, hasDebt && styles.actionButtonDisabled]}
             onPress={handleWithdrawPress}
+            testID="wallet-withdraw-button"
           >
             <View style={styles.actionIconCircle}>
               <Ionicons
