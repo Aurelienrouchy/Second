@@ -30,9 +30,9 @@
 # authService/authStore).
 appId: com.seconde.app
 ---
-# Boot propre : clearState garantit l'atterrissage déterministe sur l'onboarding.
-- launchApp:
-    clearState: true
+# Boot propre : le sous-flow partagé clearState garantit l'atterrissage
+# déterministe sur l'onboarding et gère le launcher / dev-menu du dev-client.
+- runFlow: ../subflows/open-app-fresh.yaml
 
 # Onboarding welcome : on saute la collecte de préférences via « Passer »
 # (handleSkip → router.replace('/(tabs)')), chemin invité direct.
