@@ -31,7 +31,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { useUser } from '@/contexts/AuthContext';
-import { ONBOARDING_COMPLETED_KEY } from '@/constants/storageKeys';
+import { ONBOARDING_COMPLETED_KEY, ONBOARDING_PREFERENCES_KEY } from '@/constants/storageKeys';
 
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
