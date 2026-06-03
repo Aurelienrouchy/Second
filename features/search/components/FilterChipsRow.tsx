@@ -76,6 +76,7 @@ function FilterChipsRowComponent({ chips, tone = 'light' }: FilterChipsRowProps)
             </Text>
             {showRemove ? (
               <Pressable
+                testID={`filter-chip-remove-${key}`}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onRemove?.();
