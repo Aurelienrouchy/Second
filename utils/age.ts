@@ -12,9 +12,6 @@ export const MIN_AGE_REGISTER = 16;
 /** Minimum age to sell (Stripe Connect payout account requirement). */
 export const MIN_AGE_SELL = 18;
 
-/** Version of the Terms + Privacy Policy accepted at signup. */
-export const POLICY_VERSION = '2026-05-31';
-
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
