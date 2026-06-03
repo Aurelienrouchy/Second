@@ -140,12 +140,14 @@ export default function OnboardingScreen() {
   }, []);
 
   const handleValidate = useCallback(async () => {
-    if (!hasAnything || isSaving) return;
+    // hasAnything guarantees a sex selection; the early return keeps the
+    // backend contract (sex is a required, validated field) honoured.
+    if (!hasAnything || !sex || isSaving) return;
 
     setIsSaving(true);
     try {
       const preferences: OnboardingPreferences = {
-        sex: sex || 'femme',
+        sex,
         sizesTop,
         sizesBottom,
         sizesShoes,
