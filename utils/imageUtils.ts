@@ -29,19 +29,9 @@ export async function prepareImageForUpload(
 }
 
 /**
- * Prépare un lot d'images pour l'upload.
- */
-export async function prepareImagesForUpload(
-  uris: string[],
-  options?: { maxDimension?: number; quality?: number }
-): Promise<string[]> {
-  return Promise.all(uris.map((uri) => prepareImageForUpload(uri, options)));
-}
-
-/**
  * @deprecated Utiliser `prepareImageForUpload` à la place.
  */
-export async function compressImage(
+async function compressImage(
   uri: string,
   options?: { maxWidth?: number; maxHeight?: number; quality?: number }
 ): Promise<string> {
