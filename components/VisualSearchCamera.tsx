@@ -75,7 +75,7 @@ function VisualSearchCameraComponent({
         setCapturedUri(photo.uri);
       }
     } catch (error) {
-      console.error('[VisualSearchCamera] Error taking photo:', error);
+      if (__DEV__) console.error('[VisualSearchCamera] Error taking photo:', error);
     } finally {
       setIsCapturing(false);
     }
