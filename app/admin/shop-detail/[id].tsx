@@ -109,9 +109,10 @@ export default function AdminShopDetailScreen() {
   };
 
   const handleConfirmReject = async (reason: string) => {
-    if (!user || !shop) return;
+    if (!user || !shop || isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
       await ShopService.rejectShop(shop.id, reason);
       await NotificationService.notifyShopRejected(shop.id, shop.ownerId, reason);
       Alert.alert('Succès', 'La boutique a été rejetée', [
@@ -120,6 +121,8 @@ export default function AdminShopDetailScreen() {
     } catch (error) {
       if (__DEV__) console.error('Error rejecting shop:', error);
       Alert.alert('Erreur', 'Impossible de rejeter la boutique');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
