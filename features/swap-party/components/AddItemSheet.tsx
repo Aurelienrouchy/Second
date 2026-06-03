@@ -112,23 +112,28 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
       (props: any) => {
         if (!hasList) return null;
         const count = selected.size;
+        const isDisabled = adding || count === 0;
         return (
           <BottomSheetFooter {...props}>
             <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
               <TouchableOpacity
-                style={[styles.addButton, count === 0 && styles.addButtonDisabled]}
+                style={[styles.addButton, isDisabled && styles.addButtonDisabled]}
                 onPress={handleConfirm}
-                disabled={count === 0}
+                disabled={isDisabled}
               >
-                <Text style={styles.addButtonText}>
-                  {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
-                </Text>
+                {adding ? (
+                  <ActivityIndicator color={colors.cream} />
+                ) : (
+                  <Text style={styles.addButtonText}>
+                    {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </BottomSheetFooter>
         );
       },
-      [hasList, selected.size, insets.bottom, handleConfirm],
+      [hasList, selected.size, adding, insets.bottom, handleConfirm],
     );
 
     const hasInventory = articles.length > 0;
