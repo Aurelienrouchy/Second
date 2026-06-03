@@ -136,14 +136,29 @@ function ProductGridComponent({
   testID,
 }: ProductGridProps) {
   const renderItem = useCallback(
-    ({ item }: { item: Article | ArticleWithLocation }) => (
-      <ProductCard
-        product={toProductCardProduct(item)}
-        onPress={() => onProductPress(item)}
-        testID={`product-card-${item.id}`}
-      />
-    ),
-    [onProductPress],
+    ({ item }: { item: Article | ArticleWithLocation }) => {
+      const card = (
+        <ProductCard
+          product={toProductCardProduct(item)}
+          onPress={() => onProductPress(item)}
+          testID={`product-card-${item.id}`}
+        />
+      );
+      // When a long-press handler is provided (e.g. remove from favorites),
+      // wrap the card so the gesture is discoverable without altering the card.
+      if (!onProductLongPress) return card;
+      return (
+        <Pressable
+          onPress={() => onProductPress(item)}
+          onLongPress={() => onProductLongPress(item)}
+          delayLongPress={400}
+          testID={`product-card-pressable-${item.id}`}
+        >
+          {card}
+        </Pressable>
+      );
+    },
+    [onProductPress, onProductLongPress],
   );
 
   const keyExtractor = useCallback(
