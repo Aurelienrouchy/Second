@@ -82,10 +82,12 @@ const styles = StyleSheet.create({
   horizontalScrollContent: {
     // Home gutter on the left only; the last card bleeds to the screen edge
     // (the canonical HomeHeader.categoriesContent rail convention).
+    // No paddingBottom: the next section's SectionHeader (paddingTop 28) is the
+    // sole owner of the inter-section vertical space; a rail paddingBottom would
+    // double it.
     paddingLeft: spacing.lg,
     paddingRight: 0,
     gap: spacing.sm,
-    paddingBottom: spacing.sm,
   },
   horizontalCardWrapper: {
     width: COMPACT_CARD_WIDTH,
