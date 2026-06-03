@@ -133,6 +133,7 @@ export default function DraftResumeModal({
           {/* Actions */}
           <View style={styles.actions}>
             <Pressable
+              testID="draft-resume-button"
               style={({ pressed }) => [styles.resumeButton, pressed && { opacity: 0.8 }]}
               onPress={onResume}
             >
