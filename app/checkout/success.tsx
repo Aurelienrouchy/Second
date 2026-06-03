@@ -73,7 +73,7 @@ export default function CheckoutSuccessScreen() {
   // =============================================================================
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="checkout-success-screen">
       <View style={[styles.statusBarSpacer, { height: insets.top }]} />
 
       {/* Center content */}
