@@ -123,6 +123,9 @@ export default {
     },
     "android": {
       "googleServicesFile": "./google-services.json",
+      // Locks android:windowSoftInputMode="adjustResize" through `expo prebuild`.
+      // The chat KeyboardAvoidingView uses offset 0 on Android and depends on it.
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#F5F0E8"
