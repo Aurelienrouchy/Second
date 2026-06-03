@@ -258,6 +258,7 @@ export default function CheckoutScreen() {
 
         {SHIPPING_ENABLED && hasShipping && (
           <Pressable
+            testID="checkout-delivery-shipping"
             style={[
               styles.deliveryOption,
               effectiveDelivery === 'shipping' && styles.deliveryOptionSelected,
