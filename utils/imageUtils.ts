@@ -44,7 +44,7 @@ async function compressImage(
 /**
  * Génère un blurhash pour une image.
  */
-export async function generateBlurhash(uri: string): Promise<string | undefined> {
+async function generateBlurhash(uri: string): Promise<string | undefined> {
   try {
     const blurhash = await Image.generateBlurhashAsync(uri, { width: 4, height: 3 });
     return blurhash ?? undefined;
