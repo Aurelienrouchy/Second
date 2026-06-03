@@ -314,6 +314,7 @@ export default function DetailsScreen() {
 
         <FormFieldGroup>
           <FieldRow
+            testID="sell-category-selector"
             label="CATÉGORIE"
             value={fields.categoryDisplay.name || null}
             hasAiConfidence={!!aiResult?.category?.confidence?.level}
