@@ -17,6 +17,7 @@ export interface CheckboxProps {
   children: React.ReactNode;
   disabled?: boolean;
   accessibilityLabel?: string;
+  testID?: string;
 }
 
 function CheckboxComponent({
@@ -25,6 +26,7 @@ function CheckboxComponent({
   children,
   disabled = false,
   accessibilityLabel,
+  testID,
 }: CheckboxProps) {
   return (
     <Pressable
@@ -35,6 +37,7 @@ function CheckboxComponent({
       accessibilityState={{ checked, disabled }}
       accessibilityLabel={accessibilityLabel}
       hitSlop={spacing.sm}
+      testID={testID}
     >
       <View style={[styles.box, checked && styles.boxChecked]}>
         {checked ? (
