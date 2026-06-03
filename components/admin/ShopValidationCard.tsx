@@ -52,7 +52,12 @@ export default function ShopValidationCard({
   };
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onViewDetails} activeOpacity={0.7}>
+    <TouchableOpacity
+      testID={`shop-validation-card-${shop.id}`}
+      style={styles.card}
+      onPress={onViewDetails}
+      activeOpacity={0.7}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.imageContainer}>
