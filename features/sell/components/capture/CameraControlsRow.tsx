@@ -52,6 +52,7 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
     <View style={styles.controlsRow}>
       <View style={styles.buttonGroup}>
         <Pressable
+          testID="sell-capture-button"
           style={styles.captureButton}
           onPress={onCapture}
           disabled={!canTakeMore || isCapturing}
