@@ -181,7 +181,7 @@ function SignInFormComponent({
         )}
       </Pressable>
 
-      <Pressable style={styles.linkButton} onPress={onForgotPassword} accessibilityLabel="Mot de passe oublié" accessibilityRole="link">
+      <Pressable testID="signin-forgot-password" style={styles.linkButton} onPress={onForgotPassword} accessibilityLabel="Mot de passe oublié" accessibilityRole="link">
         <Text style={styles.linkButtonText}>Mot de passe oublié ?</Text>
       </Pressable>
     </>
