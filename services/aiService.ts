@@ -415,7 +415,7 @@ export async function analyzeProductImage(
     if (__DEV__) console.log(`[aiService] Uploading ${imageUris.length} image(s) to Storage... (user: ${auth.currentUser.uid})`);
     try {
       uploadedStorageUrls = await uploadImagesToStorage(
-        processedUris,
+        processedImages,
         effectiveDraftId,
         (uploaded, total) => {
           // Update progress during upload phase (0-30%)
