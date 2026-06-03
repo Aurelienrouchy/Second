@@ -109,6 +109,7 @@ function ConsentFieldsComponent({
           checked={acceptedTerms}
           onToggle={onToggleTerms}
           accessibilityLabel={`${COPY_CONSENT.termsPrefix}${COPY_CONSENT.termsLink}`}
+          testID="signup-consent-terms"
         >
           <Text style={styles.consentText}>
             {COPY_CONSENT.termsPrefix}
