@@ -110,17 +110,16 @@ export async function searchByImage(
   }
 
   // Process image to base64
-  const { base64, mimeType } = await processImageForSearch(imageUri);
+  const { base64 } = await processImageForSearch(imageUri);
 
-  // Call Cloud Function
+  // Call Cloud Function — backend reads { imageBase64, filters, limit } only.
   const visualSearchFn = httpsCallable<
-    { imageBase64: string; mimeType: string; filters?: VisualSearchFilters; limit: number },
+    { imageBase64: string; filters?: VisualSearchFilters; limit: number },
     VisualSearchResponse
   >(functions, 'visualSearch');
 
   const response = await visualSearchFn({
     imageBase64: base64,
-    mimeType,
     filters,
     limit,
   });
