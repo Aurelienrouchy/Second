@@ -9,7 +9,9 @@ import { colors, fonts, spacing, typography } from '@/constants/theme';
 export const onboardingStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    // Warm cream so the safe-area insets match welcomeContainer (coherent
+    // warm welcome experience), avoiding a background/cream seam at the edges.
+    backgroundColor: colors.cream,
   },
 
   // ─── Welcome ───
