@@ -15,8 +15,8 @@ import BottomSheet, {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { Alert, BackHandler, Text, View } from 'react-native';
+import Animated, { Easing, FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthActions } from '@/contexts/AuthContext';
@@ -25,11 +25,19 @@ import { useAuthSheetStore } from '@/store/authSheetStore';
 import { User } from '@/types';
 import { computeAgeFromIso, MIN_AGE_REGISTER, toIsoDate } from '@/utils/age';
 
+import { AuthToggle } from './auth-bottom-sheet/AuthToggle';
 import { ForgotPasswordForm } from './auth-bottom-sheet/ForgotPasswordForm';
 import { SignInForm } from './auth-bottom-sheet/SignInForm';
 import { SignUpForm } from './auth-bottom-sheet/SignUpForm';
+import { SocialAuthButtons } from './auth-bottom-sheet/SocialAuthButtons';
 import { SocialConsentForm } from './auth-bottom-sheet/SocialConsentForm';
 import { styles } from './auth-bottom-sheet/styles';
+
+// Fields entrance: slide up from slightly below + fade in (withTiming + ease-out
+// only — no spring). FadeInDown starts the element below its final spot and
+// glides it UP into place while fading, which reads as « les champs remontent ».
+const FIELDS_DURATION = 240;
+const TITLE_DURATION = 200;
 
 type AuthMode = 'signIn' | 'signUp' | 'forgotPassword' | 'socialConsent';
 
