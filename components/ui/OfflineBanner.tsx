@@ -46,6 +46,7 @@ function OfflineBannerInner() {
 
   return (
     <Animated.View
+      testID="offline-banner"
       onLayout={onLayout}
       style={[
         styles.container,
