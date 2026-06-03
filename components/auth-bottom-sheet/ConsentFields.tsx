@@ -149,14 +149,3 @@ function ConsentFieldsComponent({
 }
 
 export const ConsentFields = React.memo(ConsentFieldsComponent);
-
-/**
- * Local DOB blur-tracking helper so both SignUpForm and SocialConsentForm
- * share the same "only show the age error after the user has filled the
- * three fields" behaviour without duplicating state plumbing.
- */
-export function useDobTouched() {
-  const [dobTouched, setDobTouched] = useState(false);
-  const markDobTouched = useCallback(() => setDobTouched(true), []);
-  return { dobTouched, markDobTouched };
-}
