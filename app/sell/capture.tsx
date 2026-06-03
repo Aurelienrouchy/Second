@@ -280,6 +280,7 @@ export default function CaptureScreen() {
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing={facing}
+          enableTorch={torchActive}
           onCameraReady={handleCameraReady}
         />
       </Animated.View>
