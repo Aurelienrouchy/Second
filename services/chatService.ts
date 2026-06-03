@@ -639,7 +639,7 @@ export class ChatService {
       if (offerData?.offer) {
         await this.sendSystemMessage(
           chatId,
-          `Offre de ${offerData.offer.amount} $ acceptee`
+          `Offre de ${offerData.offer.amount} $ acceptée`
         );
       }
     } catch (error) {
