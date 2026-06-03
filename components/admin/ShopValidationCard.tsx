@@ -113,11 +113,12 @@ export default function ShopValidationCard({
       {shop.status === 'pending' && (
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
+            style={[styles.actionButton, styles.rejectButton, disabled && styles.buttonDisabled]}
             onPress={(e) => {
               e.stopPropagation();
               onReject();
             }}
+            disabled={disabled}
             activeOpacity={0.7}
           >
             <Ionicons name="close-circle-outline" size={20} color="#FF3B30" />
@@ -125,11 +126,12 @@ export default function ShopValidationCard({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.approveButton]}
+            style={[styles.actionButton, styles.approveButton, disabled && styles.buttonDisabled]}
             onPress={(e) => {
               e.stopPropagation();
               onApprove();
             }}
+            disabled={disabled}
             activeOpacity={0.7}
           >
             <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
