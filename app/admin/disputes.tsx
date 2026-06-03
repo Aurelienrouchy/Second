@@ -111,7 +111,7 @@ function formatStatus(status: DisputeStatus): string {
 
 function formatDate(date: Date | null): string {
   if (!date || Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('fr-CA', {
+  return date.toLocaleDateString(APP_LOCALE, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
