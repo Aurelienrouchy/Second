@@ -158,7 +158,11 @@ export default function CheckoutSuccessScreen() {
 
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable style={styles.ctaButton} onPress={isMeetup ? handleContactSeller : handleViewOrder}>
+        <Pressable
+          testID="checkout-success-contact-seller"
+          style={styles.ctaButton}
+          onPress={isMeetup ? handleContactSeller : handleViewOrder}
+        >
           {isMeetup ? (
             <>
               <Ionicons name="chatbubble-outline" size={16} color={colors.cream} />
