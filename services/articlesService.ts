@@ -36,7 +36,7 @@ import { processImageWithBlurhash } from '../utils/imageUtils';
  * Steps: NFD decompose -> strip diacritics -> lowercase -> strip punctuation
  * -> collapse whitespace -> trim.
  */
-export function normalizeSearchText(input: string): string {
+function normalizeSearchText(input: string): string {
   return (input ?? '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '') // strip diacritiques
