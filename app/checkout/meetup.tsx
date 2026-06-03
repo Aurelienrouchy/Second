@@ -311,7 +311,7 @@ export default function MeetupCheckoutScreen() {
   const spots = article.preferredMeetupSpots || [];
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="checkout-meetup-screen">
       <ScreenHeader title="Lieu de rencontre" onBack={handleBack} />
 
       <ScrollView
