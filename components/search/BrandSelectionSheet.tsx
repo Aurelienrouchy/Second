@@ -124,7 +124,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
               collection(firestore, 'brands'),
               where('searchKey', '>=', normalizedQuery),
               where('searchKey', '<=', normalizedQuery + '\uf8ff'),
-              limit(50)
+              limit(SEARCH_LIMIT)
             );
 
             const querySnapshot = await getDocs(q);
@@ -141,6 +141,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             });
 
             searchResults.sort((a, b) => a.label.localeCompare(b.label));
+            setSearchResultsCapped(querySnapshot.docs.length >= SEARCH_LIMIT);
             setFilteredBrands(searchResults.length > 0 ? searchResults : brands.filter(b =>
               b.label.toLowerCase().includes(pendingSearchQuery.toLowerCase())
             ));
