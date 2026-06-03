@@ -99,6 +99,7 @@
     "@firebase/rules-unit-testing": "^5.0.0",
     "@google/generative-ai": "^0.24.1",
     "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.2.15",
     "@vitest/coverage-v8": "^4.1.7",
     "eslint": "^9.25.0",
