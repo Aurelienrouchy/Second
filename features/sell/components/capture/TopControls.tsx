@@ -79,6 +79,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  rightControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   circleButton: {
     width: 36,
     height: 36,
@@ -88,6 +93,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  circleButtonActive: {
+    backgroundColor: colors.cream,
+    borderColor: colors.cream,
   },
   counterPill: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
