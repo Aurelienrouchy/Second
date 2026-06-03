@@ -8,6 +8,7 @@ import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { useUser } from '@/contexts/AuthContext';
 import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
+import { UserService } from '@/services/userService';
 import { Shop, ShopTypeLabels } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
