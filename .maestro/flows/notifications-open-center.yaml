@@ -24,13 +24,12 @@ appId: com.seconde.app
 
 # Isolation : une session conservée peut reprendre sur un écran de pile (ex.
 # /search laissé par un run précédent) où la tab bar est masquée. Si l'onglet
-# Accueil n'est pas visible, on revient en arrière jusqu'aux tabs.
+# Accueil n'est pas visible, on revient en arrière pour retrouver les tabs.
 - runFlow:
     when:
       notVisible:
         id: "Accueil"
     commands:
-      - back
       - back
 
 # On part de l'onglet Accueil. tabBarButtonTestID "Accueil" est exposé par
