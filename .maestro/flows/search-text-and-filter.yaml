@@ -75,13 +75,14 @@ appId: com.seconde.app
 - tapOn:
     id: "filter-chip-condition"
 # Le bottom sheet "État" liste les conditions ; chaque item porte un testID
-# `selection-item-<value>` (value 'bon état' issue de data/conditions).
+# `selection-item-<value>` (value 'bon état' issue de data/conditions). L'id est
+# ancré (^...$) pour ne PAS matcher aussi `selection-item-très bon état`.
 - extendedWaitUntil:
     visible:
-      id: "selection-item-bon état"
+      id: "^selection-item-bon état$"
     timeout: 10000
 - tapOn:
-    id: "selection-item-bon état"
+    id: "^selection-item-bon état$"
 
 # ── Le chip État devient actif (un X de retrait apparaît) et la grille reste
 #    affichée : le filtre est appliqué au terme sans casser les résultats. ──
