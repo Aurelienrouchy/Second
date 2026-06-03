@@ -191,8 +191,8 @@ export default function ReviewScreen() {
       return;
     }
 
-    if (comment.trim().length > 0 && comment.trim().length < 5) {
-      Alert.alert('Commentaire trop court', 'Le commentaire doit contenir au moins 5 caracteres.');
+    if (comment.trim().length < 5) {
+      Alert.alert('Commentaire requis', 'Le commentaire doit contenir au moins 5 caracteres.');
       return;
     }
 
