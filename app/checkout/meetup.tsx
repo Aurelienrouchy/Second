@@ -422,6 +422,7 @@ export default function MeetupCheckoutScreen() {
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
+          testID="checkout-meetup-confirm"
           style={[
             styles.ctaButton,
             submitting && styles.ctaButtonDisabled,
