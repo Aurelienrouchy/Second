@@ -6,6 +6,11 @@
 
 import { Dimensions } from 'react-native';
 
+// NOTE: screenWidth is read once at module load, so CARD_WIDTH is frozen.
+// The app is portrait-only, but this value will NOT track runtime width
+// changes (Android split-screen, iPad multitasking, foldables). For
+// width-reactive sizing use useWindowDimensions() inside ProductCard.tsx;
+// this constant remains the static fallback for the standard grid.
 const { width: screenWidth } = Dimensions.get('window');
 const CONTAINER_PADDING = 0;
 const GRID_GAP = 1;
