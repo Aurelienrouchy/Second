@@ -12,6 +12,7 @@ interface TextareaFieldProps {
   hasAiConfidence?: boolean;
   multiline?: boolean;
   numberOfLines?: number;
+  testID?: string;
 }
 
 export const TextareaField = React.memo(function TextareaField({
@@ -23,6 +24,7 @@ export const TextareaField = React.memo(function TextareaField({
   hasAiConfidence,
   multiline,
   numberOfLines,
+  testID,
 }: TextareaFieldProps) {
   return (
     <View style={styles.textareaField}>
