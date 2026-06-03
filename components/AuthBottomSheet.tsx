@@ -467,9 +467,51 @@ const AuthBottomSheet: React.FC = () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View key={authType} entering={FadeIn.duration(200)}>
-          {renderBody()}
-        </Animated.View>
+        {isAuthPath ? (
+          // Chrome stays mounted across signIn↔signUp. Only the title text and
+          // the fields swap (each on its own keyed entering region).
+          <View>
+            <Animated.View
+              key={`title-${authType}`}
+              entering={FadeIn.duration(TITLE_DURATION).easing(
+                Easing.out(Easing.cubic),
+              )}
+            >
+              {renderTitle()}
+            </Animated.View>
+            {displayMessage ? (
+              <Text style={styles.message}>{displayMessage}</Text>
+            ) : null}
+
+            <SocialAuthButtons
+              isLoading={isLoading}
+              onSocialAuth={handleSocialAuth}
+            />
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>ou</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <AuthToggle active={authType} onSelect={setAuthType} />
+
+            <Animated.View
+              key={`fields-${authType}`}
+              entering={FadeInDown.duration(FIELDS_DURATION).easing(
+                Easing.out(Easing.cubic),
+              )}
+            >
+              {renderFields()}
+            </Animated.View>
+          </View>
+        ) : (
+          // Full-swap modes (forgotPassword / socialConsent): keep the keyed
+          // FadeIn wrapper — a complete sub-tree swap is intended here.
+          <Animated.View key={authType} entering={FadeIn.duration(200)}>
+            {renderBody()}
+          </Animated.View>
+        )}
       </BottomSheetScrollView>
     </BottomSheet>
   );
