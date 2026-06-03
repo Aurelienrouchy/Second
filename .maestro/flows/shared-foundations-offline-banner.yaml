@@ -8,8 +8,10 @@
 # teste, et c'est le seul retour visuel global de l'état réseau. On pilote la
 # connectivité via le mode avion du simulateur/émulateur.
 #
-# testID ajouté à OfflineBanner : `offline-banner` (cf. liste 'deferred' du
-# rapport — was absent avant ce flow). Le texte FR sert d'assertion de secours.
+# Sélecteur stable : testID `offline-banner` posé sur OfflineBanner
+# (components/ui/OfflineBanner.tsx). Le texte FR "Vous êtes hors connexion" est
+# rendu à l'intérieur de la bannière (pas de testID propre) → assertion de copy
+# de secours qui verrouille aussi le contrat UX du domaine.
 appId: com.seconde.app
 ---
 # Démarrage à froid, en ligne. On ne clear PAS l'état pour éviter de retomber
