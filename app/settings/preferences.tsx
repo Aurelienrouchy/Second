@@ -35,6 +35,7 @@ export default function PreferencesScreen() {
   const user = useUser();
   const brandSelectionRef = useRef<BrandSelectionSheetRef>(null);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [selectedShoeSizes, setSelectedShoeSizes] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [isFormInitialized, setIsFormInitialized] = useState(false);
 
