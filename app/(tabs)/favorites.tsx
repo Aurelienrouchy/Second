@@ -236,12 +236,14 @@ export default function FavoritesScreen() {
           articles={favoriteArticles}
           isLoading={false}
           onProductPress={handleArticlePress}
+          onProductLongPress={handleRemoveFavorite}
+          onRefresh={handleRefresh}
+          extraData={articleIds}
           emptyMessage="Aucun favori trouvé"
           emptyIcon="heart-outline"
           testID="favorites-grid"
           onLoadMore={handleLoadMore}
-          isPaginating={isFetchingNextPage
-          }
+          isPaginating={isFetchingNextPage}
         />
       )}
     </View>
