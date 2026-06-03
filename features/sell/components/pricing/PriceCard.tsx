@@ -17,6 +17,7 @@ export const PriceCard = React.memo(function PriceCard({
     <Pressable
       style={styles.priceCard}
       onPress={() => inputRef.current?.focus()}
+      testID="sell-price-card"
     >
       <Text style={styles.priceLabel}>Prix de vente</Text>
       <View style={styles.priceRow}>
