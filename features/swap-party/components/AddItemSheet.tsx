@@ -93,12 +93,13 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
     }, []);
 
     const handleConfirm = useCallback(() => {
+      if (adding) return;
       const picked = availableArticles.filter((a) => selected.has(a.id));
       if (picked.length === 0) return;
       onAddItems(picked);
       setSelected(new Set());
       bottomSheetRef.current?.dismiss();
-    }, [availableArticles, selected, onAddItems]);
+    }, [adding, availableArticles, selected, onAddItems]);
 
     const renderBackdrop = useCallback(
       (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
