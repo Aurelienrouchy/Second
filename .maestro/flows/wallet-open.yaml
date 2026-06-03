@@ -24,14 +24,14 @@ appId: com.seconde.app
 - launchApp
 
 # Aller sur l'onglet Profil. tabBarAccessibilityLabel "Profil" est exposé par
-# (tabs)/_layout.tsx — sélecteur stable de l'onglet.
+# (tabs)/_layout.tsx — sélecteur stable de l'onglet (id).
 - extendedWaitUntil:
     visible:
-      text: "Profil"
+      id: "Profil"
     timeout: 15000
 
 - tapOn:
-    text: "Profil"
+    id: "Profil"
 
 # La ligne porte-monnaie du ProfileMenu (FadeInDown staggered → jusqu'à 15s).
 - extendedWaitUntil:
