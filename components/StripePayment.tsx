@@ -88,9 +88,10 @@ function StripePaymentComponent({
       const { error: presentError } = await presentPaymentSheet();
 
       if (presentError) {
-        // User cancelled
+        // User cancelled — surface a stable 'cancelled' code so the
+        // consumer can distinguish a dismissal from a real failure.
         if (presentError.code === 'Canceled') {
-          onClose();
+          onResult({ success: false, error: 'cancelled' });
           return;
         }
         onResult({ success: false, error: presentError.message });
