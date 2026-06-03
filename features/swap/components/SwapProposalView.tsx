@@ -66,9 +66,9 @@ export const SwapProposalView = React.memo(function SwapProposalView({
         </View>
       )}
 
-      {/* "Elle propose" Section */}
+      {/* Sender proposal section */}
       <View style={styles.proposalSection}>
-        <Text style={styles.sectionLabel}>Elle propose</Text>
+        <Text style={styles.sectionLabel}>{`${senderName} propose`}</Text>
         <View style={styles.itemsStack}>
           {senderItems.map((item, index) => (
             <SwapItemCard
