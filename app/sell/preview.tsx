@@ -23,16 +23,10 @@ import { auth } from '@/config/firebaseConfig';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
+import { getConditionLabel } from '@/data/conditions';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const HERO_HEIGHT = 340;
-
-const conditionLabels: Record<string, string> = {
-  neuf: 'Neuf',
-  'très bon état': 'Très bon état',
-  'bon état': 'Bon état',
-  satisfaisant: 'Satisfaisant',
-};
 
 const packageSizeLabels: Record<string, string> = {
   small: 'Petit colis',
