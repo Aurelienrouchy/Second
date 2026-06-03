@@ -324,6 +324,8 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
     const toggleBrand = useCallback((brandLabel: string) => {
       if (singleSelect) {
+        // Highlight the tapped brand briefly before the sheet closes.
+        setSelectedBrands([brandLabel]);
         if (onSelectSingle) {
           onSelectSingle(brandLabel);
         }
