@@ -22,7 +22,18 @@ appId: com.seconde.app
 # Conserve la session (sous-flow partagé, gère launcher/dev-menu résiduel).
 - runFlow: ../subflows/open-app.yaml
 
-# On part de l'onglet Accueil. tabBarAccessibilityLabel "Accueil" est exposé par
+# Isolation : une session conservée peut reprendre sur un écran de pile (ex.
+# /search laissé par un run précédent) où la tab bar est masquée. Si l'onglet
+# Accueil n'est pas visible, on revient en arrière jusqu'aux tabs.
+- runFlow:
+    when:
+      notVisible:
+        id: "Accueil"
+    commands:
+      - back
+      - back
+
+# On part de l'onglet Accueil. tabBarButtonTestID "Accueil" est exposé par
 # (tabs)/_layout.tsx — sélecteur stable (id) pour revenir sur le Home si besoin.
 - runFlow:
     when:
