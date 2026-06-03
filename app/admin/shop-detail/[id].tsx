@@ -382,6 +382,11 @@ export default function AdminShopDetailScreen() {
   );
 }
 
+// Le pays est stocké sous forme de code ISO ('CA') à la création de la boutique.
+// On l'affiche normalisé ; fallback sur la valeur brute pour les données historiques.
+const COUNTRY_LABELS: Record<string, string> = { CA: 'Canada' };
+const getCountryLabel = (country: string) => COUNTRY_LABELS[country] ?? country;
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'approved':
