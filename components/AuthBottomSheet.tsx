@@ -428,62 +428,23 @@ const AuthBottomSheet: React.FC = () => {
         />
       );
     }
-    if (authType === 'forgotPassword') {
-      return (
-        <ForgotPasswordForm
-          email={email}
-          isLoading={isLoading}
-          resetEmailSent={resetEmailSent}
-          onChangeEmail={setEmail}
-          onSubmit={handleForgotPassword}
-          onBackToSignIn={handleBackToSignIn}
-        />
-      );
-    }
-    if (authType === 'signUp') {
-      return (
-        <SignUpForm
-          email={email}
-          password={password}
-          username={username}
-          dobDay={dobDay}
-          dobMonth={dobMonth}
-          dobYear={dobYear}
-          acceptedTerms={acceptedTerms}
-          acceptedPrivacy={acceptedPrivacy}
-          marketingOptIn={marketingOptIn}
-          isLoading={isLoading}
-          message={displayMessage}
-          onChangeEmail={setEmail}
-          onChangePassword={setPassword}
-          onChangeUsername={setUsername}
-          onChangeDobDay={setDobDay}
-          onChangeDobMonth={setDobMonth}
-          onChangeDobYear={setDobYear}
-          onToggleTerms={handleToggleTerms}
-          onTogglePrivacy={handleTogglePrivacy}
-          onToggleMarketing={handleToggleMarketing}
-          onSubmit={handleEmailAuth}
-          onSwitchToSignIn={() => setAuthType('signIn')}
-          onSocialAuth={handleSocialAuth}
-        />
-      );
-    }
+    // forgotPassword is the only remaining full-swap mode handled here; the
+    // signIn/signUp path is rendered with shared chrome (see the return below).
     return (
-      <SignInForm
+      <ForgotPasswordForm
         email={email}
-        password={password}
         isLoading={isLoading}
-        message={displayMessage}
+        resetEmailSent={resetEmailSent}
         onChangeEmail={setEmail}
-        onChangePassword={setPassword}
-        onSubmit={handleEmailAuth}
-        onSwitchToSignUp={() => setAuthType('signUp')}
-        onForgotPassword={() => setAuthType('forgotPassword')}
-        onSocialAuth={handleSocialAuth}
+        onSubmit={handleForgotPassword}
+        onBackToSignIn={handleBackToSignIn}
       />
     );
   };
+
+  // The signIn/signUp path keeps its chrome (title region, social buttons,
+  // divider, toggle, message) mounted; only the title text and the fields swap.
+  const isAuthPath = authType === 'signIn' || authType === 'signUp';
 
   return (
     <BottomSheet
