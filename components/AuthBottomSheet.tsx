@@ -15,7 +15,7 @@ import BottomSheet, {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, Platform, Text, View } from 'react-native';
+import { Alert, BackHandler, Text, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
