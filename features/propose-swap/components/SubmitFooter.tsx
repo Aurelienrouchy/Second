@@ -26,6 +26,7 @@ export const SubmitFooter = React.memo(function SubmitFooter({
   return (
     <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
       <Pressable
+        testID="propose-swap-submit"
         style={({ pressed }) => [
           styles.submitButton,
           (isDisabled || isSubmitting) && styles.submitButtonDisabled,
