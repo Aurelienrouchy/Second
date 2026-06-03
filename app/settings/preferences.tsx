@@ -86,6 +86,12 @@ export default function PreferencesScreen() {
     );
   }, []);
 
+  const toggleShoeSize = useCallback((size: string) => {
+    setSelectedShoeSizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+    );
+  }, []);
+
   const handleBrandConfirm = useCallback((brands: string[]) => {
     setSelectedBrands(brands);
   }, []);
