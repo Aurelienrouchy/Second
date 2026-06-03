@@ -60,12 +60,12 @@ export const saveOnboardingPreferences = onCall(
     const sanitize = (arr: string[]): string[] =>
       arr.filter(s => typeof s === 'string' && s.trim().length > 0).slice(0, 20);
 
-    const cleanData = {
+    // cleanData only feeds derivation of the flat `preferences.*` fields below.
+    const cleanData: OnboardingData = {
       sex,
       sizesTop: sanitize(sizesTop),
       sizesBottom: sanitize(sizesBottom),
       sizesShoes: sanitize(sizesShoes),
-      updatedAt: FieldValue.serverTimestamp(),
     };
 
     try {
@@ -74,7 +74,6 @@ export const saveOnboardingPreferences = onCall(
 
         await db.collection('users').doc(request.auth.uid).set(
           {
-            onboardingPreferences: cleanData,
             preferences: {
               sizes: allSizes,
               shoesSizes: cleanData.sizesShoes,
