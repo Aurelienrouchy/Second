@@ -50,6 +50,7 @@ function PriceRangeInputsComponent({
         <View style={styles.priceInputWrapper}>
           <Text style={styles.priceInputLabel}>Max</Text>
           <TextInput
+            testID="price-max-input"
             style={styles.priceInput}
             placeholder="1000"
             placeholderTextColor={colors.muted}
