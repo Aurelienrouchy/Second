@@ -179,7 +179,8 @@ const styles = StyleSheet.create({
   },
   loadMoreText: {
     fontFamily: fonts.sans,
-    fontSize: 13,
+    // Aligned to the button scale (13) — was a magic 13.
+    fontSize: typography.button.fontSize,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.foreground,
