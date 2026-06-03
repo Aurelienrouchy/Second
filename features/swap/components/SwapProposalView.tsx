@@ -85,7 +85,7 @@ export const SwapProposalView = React.memo(function SwapProposalView({
         <View style={styles.supplementBadge}>
           <Ionicons name="information-circle" size={18} color={colors.rust} />
           <Text style={styles.supplementText}>
-            Elle ajoute un complément de{' '}
+            {`${senderName} ajoute un complément de `}
             <Text style={styles.supplementAmount}>{formatPrice(cashTopUpDollars!)}</Text> en argent
           </Text>
         </View>
