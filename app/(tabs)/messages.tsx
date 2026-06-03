@@ -176,7 +176,7 @@ export default function MessagesScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="messages-screen">
       <ScreenHeader title="Messages" showBack={false} />
 
       {/* Tabs */}
