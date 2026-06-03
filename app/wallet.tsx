@@ -457,9 +457,10 @@ export default function WalletScreen() {
 
   if (!wallet || !wallet.hasWallet) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="wallet-screen">
         <ScreenHeader title="Porte-monnaie" onBack={() => router.back()} />
-        <View style={styles.activationContainer}>
+        <View style={styles.activationContainer} testID="wallet-activation">
+
           <View style={styles.activationIconCircle}>
             <Ionicons
               name="wallet-outline"
