@@ -172,12 +172,12 @@ export default function PreferencesScreen() {
             </Caption>
             <View style={styles.chipsContainer}>
               {SHOE_SIZES.map((size) => {
-                const isSelected = selectedSizes.includes(`shoe_${size}`);
+                const isSelected = selectedShoeSizes.includes(size);
                 return (
                   <Pressable
                     key={`shoe_${size}`}
                     style={[styles.chip, isSelected && styles.chipSelected]}
-                    onPress={() => toggleSize(`shoe_${size}`)}
+                    onPress={() => toggleShoeSize(size)}
                   >
                     <Text variant="body" style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                       {size}
