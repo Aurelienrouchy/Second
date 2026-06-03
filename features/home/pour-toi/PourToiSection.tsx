@@ -97,9 +97,10 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.lg,
     paddingRight: 0,
     gap: spacing.sm,
-    // Aligned to the other rails (NewArrivals / PriceDrops / TrendingBrands /
-    // FeaturedSellers) for consistent inter-section spacing.
-    paddingBottom: spacing.sm,
+    // No paddingBottom: pour-toi sits directly above the SwapZone dark band,
+    // whose marginTop xl (32) is the sole, intentional editorial pause. A rail
+    // paddingBottom here would stack onto it (8 + 32 = 40) and create the
+    // parasitic gap above the SwapZone card. The band owns that space.
   },
   horizontalCardWrapper: {
     width: 160,
