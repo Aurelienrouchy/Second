@@ -322,7 +322,7 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
           <Text variant="body" style={styles.modeButtonTitle}>
             Envoi postal
           </Text>
-          <Caption>Envoyez-vous les articles par la poste</Caption>
+          <Caption>Envoie ton article par la poste</Caption>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>
