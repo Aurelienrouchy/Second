@@ -27,9 +27,12 @@ interface StripePaymentProps {
   clientSecret: string;
   /** When true, initialise and present the Payment Sheet */
   visible: boolean;
-  /** Called when payment succeeds or fails */
+  /**
+   * Called when payment succeeds, fails or is cancelled. A user-initiated
+   * cancellation is surfaced as { success: false, error: 'cancelled' }.
+   */
   onResult: (result: StripePaymentResult) => void;
-  /** Called when user dismisses/cancels the sheet */
+  /** Called when the parent should tear down the sheet (state reset). */
   onClose: () => void;
   /** Total amount — used for display in the sheet */
   totalAmount: number;
