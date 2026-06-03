@@ -276,6 +276,7 @@ export default function AdminShopsScreen() {
         </Pressable>
 
         <Pressable
+          testID="admin-shops-tab-approved"
           style={[styles.tab, selectedTab === 'approved' && styles.tabActive]}
           onPress={() => setSelectedTab('approved')}
         >
