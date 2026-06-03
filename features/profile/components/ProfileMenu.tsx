@@ -143,10 +143,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   sectionTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    lineHeight: 12,
-    letterSpacing: 1.8,
+    ...typography.labelUppercase,
     color: colors.muted,
     textTransform: 'uppercase',
   },
@@ -154,7 +151,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.white,
     borderTopWidth: 1,
@@ -163,7 +160,7 @@ const styles = StyleSheet.create({
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: spacing.md,
   },
   menuIconContainer: {
     width: 36,
@@ -173,20 +170,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuTitle: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
+    ...typography.body,
     color: colors.charcoal,
   },
   menuItemRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   menuSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    lineHeight: 16,
+    ...typography.caption,
     color: colors.muted,
   },
 });
