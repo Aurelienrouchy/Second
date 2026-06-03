@@ -149,10 +149,11 @@ export default function AdminShopsScreen() {
   };
 
   const handleConfirmModal = async (reason: string) => {
-    if (!user || !selectedShop) return;
+    if (!user || !selectedShop || isSubmitting) return;
 
     if (modalMode === 'suspend') {
       try {
+        setIsSubmitting(true);
         // La callable `suspendShop` notifie le propriétaire côté serveur
         // (notifyShopOwner — Admin SDK), pas de notification client ici.
         await ShopService.suspendShop(selectedShop.id, reason);
@@ -162,11 +163,14 @@ export default function AdminShopsScreen() {
         if (__DEV__) console.error('Error suspending shop:', error);
         Alert.alert('Erreur', 'Impossible de suspendre la boutique');
         throw error;
+      } finally {
+        setIsSubmitting(false);
       }
       return;
     }
 
     try {
+      setIsSubmitting(true);
       await ShopService.rejectShop(selectedShop.id, reason);
       await NotificationService.notifyShopRejected(selectedShop.id, selectedShop.ownerId, reason);
       Alert.alert('Succès', 'La boutique a été rejetée');
@@ -175,6 +179,8 @@ export default function AdminShopsScreen() {
       if (__DEV__) console.error('Error rejecting shop:', error);
       Alert.alert('Erreur', 'Impossible de rejeter la boutique');
       throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
