@@ -47,6 +47,7 @@ import type { SwapActionHandlers, SwapParticipantContext } from '@/features/swap
 export default function SwapDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const user = useUser();
+  const insets = useSafeAreaInsets();
 
   const [swap, setSwap] = useState<Swap | null>(null);
   const [isLoading, setIsLoading] = useState(true);
