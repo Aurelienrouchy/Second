@@ -15,7 +15,8 @@
 #     navigue vers Messages.
 #
 # Sélecteurs :
-#   - Tab "Messages" : tabBarAccessibilityLabel "Messages" (cf. README).
+#   - Tab "Messages" : tabBarAccessibilityLabel "Messages" → id (cf. README).
+#   - Écran Messages : testID `messages-screen` (app/(tabs)/messages.tsx).
 #   - Conversation : testID dynamique `conversation-item-<chatId>` → matché par
 #     regex sur le préfixe (1re conversation de la liste).
 #   - Saisie / envoi : testIDs stables `chat-input` / `chat-send-button`
@@ -33,10 +34,10 @@ appId: com.seconde.app
 - tapOn:
     id: "Messages"
 
-# L'écran Messages est affiché (titre de header).
+# L'écran Messages est affiché (container racine, testID stable).
 - extendedWaitUntil:
     visible:
-      text: "Messages"
+      id: "messages-screen"
     timeout: 15000
 
 # Ouvrir la première conversation de la liste (testID préfixé par l'id du chat).
