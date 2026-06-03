@@ -36,6 +36,7 @@ export default function AdminShopsScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [modalMode, setModalMode] = useState<'reject' | 'suspend'>('reject');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const rejectionModalRef = useRef<RejectionModalRef>(null);
 
   useEffect(() => {
