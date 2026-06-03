@@ -4,10 +4,11 @@
 
 import React from 'react';
 import { View, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 
 type SubmitFooterProps = {
   isSubmitting: boolean;
