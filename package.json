@@ -24,7 +24,8 @@
     "test:functions": "cd functions && npx vitest run",
     "test:all": "npm run test && npm run test:unit && npm run test:functions && npm run test:security",
     "test:security:run": "vitest run --config tests/security/vitest.config.ts",
-    "test:security": "firebase emulators:exec --only firestore,storage,auth 'npm run test:security:run'"
+    "test:security": "firebase emulators:exec --only firestore,storage,auth 'npm run test:security:run'",
+    "test:e2e": "maestro test .maestro/flows"
   },
   "expo": {
     "install": {
