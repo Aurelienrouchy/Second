@@ -215,6 +215,7 @@ export default function SettingsScreen() {
         {isAdmin && (
           <SettingSection title="Administration">
             <SettingItem
+              testID="settings-item-admin"
               icon="shield-checkmark-outline"
               title="Administration"
               subtitle="Gestion des boutiques et utilisateurs"
