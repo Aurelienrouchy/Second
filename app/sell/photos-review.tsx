@@ -608,7 +608,11 @@ export default function PhotosReviewScreen() {
             </Text>
           </Pressable>
 
-          <Pressable style={styles.manualLink} onPress={handleManualEntry}>
+          <Pressable
+            style={styles.manualLink}
+            onPress={handleManualEntry}
+            testID="sell-manual-entry-button"
+          >
             <Text style={styles.manualLinkText}>ou remplir manuellement</Text>
           </Pressable>
         </View>
