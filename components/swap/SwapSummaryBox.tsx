@@ -1,10 +1,7 @@
 import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/ui';
 import { SwapItemInfo } from '@/types';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
