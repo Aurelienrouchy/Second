@@ -36,7 +36,9 @@ export default function DraftResumeModal({
 
   const daysLeft = getDaysUntilExpiration(draft);
   const hasPhotos = draft.photos.length > 0;
-  const previewPhoto = hasPhotos ? draft.photos[0] : null;
+  // Prefer the uploaded Storage URL: it survives local cache purges, whereas
+  // draft.photos points at on-device files that may have been cleaned up.
+  const previewPhoto = draft.storageUrls?.[0] ?? draft.photos?.[0] ?? null;
 
   // Format date
   const formatDate = (dateString: string) => {
