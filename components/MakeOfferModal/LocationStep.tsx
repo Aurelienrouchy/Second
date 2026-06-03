@@ -103,6 +103,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
 
   const renderNeighborhoodItem = ({ item }: { item: MeetupNeighborhood }) => (
     <Pressable
+      testID={`offer-location-item-${item.id}`}
       style={[
         styles.listItem,
         sellerNeighborhood?.id === item.id && styles.sellerRecommended,
