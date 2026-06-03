@@ -272,7 +272,7 @@ export default function CaptureScreen() {
           : undefined;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="sell-capture-screen">
       <StatusBar style="light" />
 
       <Animated.View style={[StyleSheet.absoluteFill, cameraFadeStyle]}>
