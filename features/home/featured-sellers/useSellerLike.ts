@@ -12,7 +12,7 @@ import { AUTH_MESSAGES } from '@/constants/authMessages';
 
 export function useSellerLike(sellerId: string) {
   const { likedSellerIds, toggleLike: globalToggle } = useSellerLikes();
-  const { requireAuth, isLoggedIn } = useAuthRequired();
+  const { requireAuth } = useAuthRequired();
 
   const isLiked = likedSellerIds.includes(sellerId);
 
