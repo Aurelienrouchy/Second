@@ -37,7 +37,11 @@ const GuestState = React.memo(function GuestState({
       <Text style={styles.guestSubtitle}>
         Connectez-vous pour accéder à toutes les fonctionnalités
       </Text>
-      <Pressable style={styles.connectButton} onPress={onConnect}>
+      <Pressable
+        testID="profile-guest-connect"
+        style={styles.connectButton}
+        onPress={onConnect}
+      >
         <Text style={styles.connectButtonText}>SE CONNECTER</Text>
       </Pressable>
     </Animated.View>
