@@ -127,7 +127,7 @@ function SignUpFormComponent({
         <Text style={styles.fieldError}>3 caractères minimum</Text>
       ) : null}
 
-      <TextInput
+      <BottomSheetTextInput
         testID="signup-email-input"
         style={styles.input}
         placeholder="Email"
