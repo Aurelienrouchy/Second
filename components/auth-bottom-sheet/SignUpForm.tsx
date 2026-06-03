@@ -196,6 +196,7 @@ function SignUpFormComponent({
 
       {/* Form fields */}
       <TextInput
+        testID="signup-username-input"
         style={styles.input}
         placeholder="Nom d'affichage"
         placeholderTextColor={colors.muted}
