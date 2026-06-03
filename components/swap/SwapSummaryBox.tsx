@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 12,
     lineHeight: 16,
-    color: 'rgba(245, 240, 232, 0.6)',
+    color: colors.creamTranslucent60,
   },
   valueText: {
     fontFamily: fonts.display,
