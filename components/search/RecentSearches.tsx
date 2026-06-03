@@ -39,6 +39,16 @@ const TRENDING_SEARCHES = [
   'Manteau laine',
 ];
 
+// Normalise un libellé de tendance (copy FR) en clé testID stable kebab-case.
+// Déterministe et dérivé de la donnée — aucune valeur magique.
+const toTestKey = (label: string): string =>
+  label
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 // =============================================================================
 // TYPES
 // =============================================================================
