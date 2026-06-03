@@ -258,7 +258,7 @@ export default function PreviewScreen() {
   ].filter((s) => s.value);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="sell-preview-screen">
       <View style={{ paddingTop: insets.top }} />
       <ScrollView
         style={styles.scrollView}
