@@ -70,7 +70,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
   onBlur,
   ...textInputProps
 }, ref) => {
-  const [isFocused, setIsFocused] = useState(false);
+  const [, setIsFocused] = useState(false);
   const focusAnim = useSharedValue(0);
 
   // Handle focus
