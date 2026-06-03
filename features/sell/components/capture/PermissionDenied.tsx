@@ -31,7 +31,11 @@ export const PermissionDenied = React.memo(function PermissionDenied({
 
       <Text style={styles.orText}>ou</Text>
 
-      <Pressable style={styles.galleryFallbackButton} onPress={onGalleryPress}>
+      <Pressable
+        testID="sell-gallery-button"
+        style={styles.galleryFallbackButton}
+        onPress={onGalleryPress}
+      >
         <Ionicons name="images-outline" size={20} color={colors.rust} />
         <Text style={styles.galleryFallbackText}>
           Sélectionner depuis la galerie
