@@ -18,13 +18,10 @@
 #   testable par testID) et la modale de succès ("Annonce publiée") — cf. deferred.
 appId: com.seconde.app
 ---
-# Boot propre, permissions caméra/photos accordées pour ne pas bloquer sur les
-# dialogues natifs pendant la capture.
-- launchApp:
-    clearState: true
-    permissions:
-      camera: allow
-      photos: allow
+# Boot propre via le sous-flow partagé (clearState + gestion launcher/dev-menu).
+# Les permissions caméra/photos sont accordées au simulateur avant le run pour
+# ne pas bloquer sur les dialogues natifs pendant la capture.
+- runFlow: ../subflows/open-app-fresh.yaml
 
 # Franchir l'onboarding jusqu'à la home (tab bar visible).
 - extendedWaitUntil:
