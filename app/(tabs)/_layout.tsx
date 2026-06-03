@@ -251,6 +251,7 @@ export default function TabLayout() {
         options={{
           title: 'Profil',
           tabBarAccessibilityLabel: 'Profil',
+          tabBarButtonTestID: 'Profil',
           // Notifications badge is shown on the bell icon in the header,
           // not on the profile tab (avoids confusion with profile-specific alerts).
           tabBarIcon: ({ color }) => <UserIcon color={color} />,
