@@ -29,6 +29,11 @@ import { colors } from '@/constants/theme';
 // dédiée ; sans clé la carte est cassée — d'où le provider par défaut partout.
 const mapProvider = PROVIDER_DEFAULT;
 
+// Le pays est stocké sous forme de code ISO ('CA') à la création de la boutique.
+// On l'affiche normalisé ; fallback sur la valeur brute pour les données historiques.
+const COUNTRY_LABELS: Record<string, string> = { CA: 'Canada' };
+const getCountryLabel = (country: string) => COUNTRY_LABELS[country] ?? country;
+
 export default function ShopDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
