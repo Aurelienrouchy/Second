@@ -292,6 +292,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     marginBottom: spacing.md,
   },
+  // Guest view: GuestState already has its own paddingVertical (lg), so the
+  // cream zone's bottom padding + margin double the gap before the menu block.
+  // Collapse them so the "se connecter" block sits flush against MON COMPTE.
+  profileHeaderZoneGuest: {
+    paddingBottom: 0,
+    marginBottom: 0,
+  },
   signOutSection: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
