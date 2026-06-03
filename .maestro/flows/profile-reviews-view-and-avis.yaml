@@ -13,11 +13,14 @@
 #     profil peint (testID user-profile-screen) et que l'onglet Avis est
 #     interactif (testID profile-tab-avis → section avis).
 #
-# Sélecteurs : testID stables ajoutés au domaine
-#   - profile-tab-avis / profile-tab-articles (features/user-profile/components/ProfileTabs.tsx)
-#   - user-profile-screen                      (app/user/[id].tsx, container racine du rendu)
-# Le libellé "Profil" (tabBarAccessibilityLabel, (tabs)/_layout.tsx) sert d'ancrage
-# de navigation. La copy "Vendeurs aimés" / "Avis" sert d'assertion de secours.
+# Sélecteurs : testID stables posés au domaine
+#   - Profil                    (tabBarAccessibilityLabel → id)
+#   - menu-item-liked-sellers   (entrée "Vendeurs aimés" du ProfileMenu)
+#   - liked-sellers-screen      (app/liked-sellers.tsx, container racine)
+#   - seller-card               (carte vendeur de la liste)
+#   - user-profile-screen       (app/user/[id].tsx, container racine du rendu)
+#   - profile-tab-avis / profile-tab-articles (ProfileTabs.tsx)
+# L'état vide de l'onglet Avis ("Aucun avis pour le moment") n'a pas de testID.
 #
 # Pré-requis : utilisateur déjà onboardé/connecté. On NE clear PAS l'état pour ne
 # pas retomber sur l'onboarding (cf. 00-launch.yaml).
@@ -25,26 +28,26 @@ appId: com.seconde.app
 ---
 - launchApp
 
-# On rejoint l'onglet Profil (tabBarAccessibilityLabel "Profil").
+# On rejoint l'onglet Profil (tabBarAccessibilityLabel → id).
 - extendedWaitUntil:
     visible:
-      text: "Profil"
+      id: "Profil"
     timeout: 15000
 - tapOn:
-    text: "Profil"
+    id: "Profil"
 
-# Entrée vers la liste des vendeurs aimés depuis le menu du profil.
+# Entrée vers la liste des vendeurs aimés depuis le menu du profil (testID stable).
 - extendedWaitUntil:
     visible:
-      text: "Vendeurs aimés"
+      id: "menu-item-liked-sellers"
     timeout: 10000
 - tapOn:
-    text: "Vendeurs aimés"
+    id: "menu-item-liked-sellers"
 
-# L'écran "Vendeurs aimés" a peint (header).
+# L'écran "Vendeurs aimés" a peint (container racine).
 - extendedWaitUntil:
     visible:
-      text: "Vendeurs aimés"
+      id: "liked-sellers-screen"
     timeout: 10000
 
 # Cas avec au moins un vendeur suivi : on ouvre le premier profil de la liste,
@@ -66,8 +69,6 @@ appId: com.seconde.app
       notVisible:
         id: "user-profile-screen"
     commands:
-      # Le premier élément cliquable de la liste sous le header. On enchaîne
-      # immédiatement avec une attente conditionnelle de l'écran profil.
       - runFlow:
           when:
             visible:
