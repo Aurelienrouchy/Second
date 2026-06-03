@@ -292,7 +292,7 @@ export default function NotificationsScreen() {
 
         <View style={{ flex: 1, paddingBottom: insets.bottom }}>
         {notifications.length === 0 ? (
-          <View style={styles.emptyState}>
+          <View style={styles.emptyState} testID="notifications-empty">
             <Ionicons name="notifications-off-outline" size={64} color={colors.muted} />
             <Text style={styles.emptyTitle}>Aucune notification</Text>
             <Text style={styles.emptySubtitle}>
