@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
