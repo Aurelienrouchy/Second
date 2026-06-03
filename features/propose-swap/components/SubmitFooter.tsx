@@ -56,7 +56,6 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 32,
     backgroundColor: colors.cream,
     borderTopWidth: 1,
     borderTopColor: colors.border,
