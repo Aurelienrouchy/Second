@@ -10,17 +10,6 @@ export interface CategoryNode {
   children?: CategoryNode[];
 }
 
-// Helper to generate ID from path (exported for potential use in scripts)
-export function generateIdFromPath(parts: string[]): string {
-  return parts
-    .map(p => p.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_|_$/g, '')
-    )
-    .join('_');
-}
-
 // ============================================
 // MAIN CATEGORY TREE
 // ============================================
