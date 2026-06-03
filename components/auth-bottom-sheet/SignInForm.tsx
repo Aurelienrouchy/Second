@@ -41,6 +41,25 @@ function SignInFormComponent({
     password: false,
   });
 
+  // Disponibilité Apple Sign-In au montage du formulaire (le sheet est monté à
+  // l'ouverture). Même sur iOS, Apple peut être indisponible (simulateur sans
+  // compte, version < iOS 13) : on ne rend le bouton que si c'est confirmé.
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    let mounted = true;
+    AppleAuthentication.isAvailableAsync()
+      .then((available) => {
+        if (mounted) setAppleAvailable(available);
+      })
+      .catch(() => {
+        if (mounted) setAppleAvailable(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleBlur = useCallback((field: 'email' | 'password') => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   }, []);
