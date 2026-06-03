@@ -446,9 +446,12 @@ export async function analyzeProductImage(
     // Phase 2: Category detection
     updatePhase('category');
 
-    // Create timeout promise
+    // Create timeout promise. We keep the timer id around so it can be cleared
+    // once the race settles — otherwise the timer survives a successful call and
+    // fires (harmlessly) ~90s later, leaking a pending timer until then.
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      const timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(() => {
         reject(new Error('TIMEOUT'));
       }, AI_CONFIG.timeouts.client);
 
@@ -467,7 +470,13 @@ export async function analyzeProductImage(
     const callPromise = analyzeFunction({ images });
 
     // Race between call and timeout
-    const response = (await Promise.race([callPromise, timeoutPromise])) as any;
+    let response: any;
+    try {
+      response = await Promise.race([callPromise, timeoutPromise]);
+    } finally {
+      // Always clear the timer once the race settles (success, timeout or error).
+      clearTimeout(timeoutId);
+    }
 
     // Check for cancellation after API call
     if (signal?.aborted) throw new Error('Cancelled');
