@@ -48,7 +48,8 @@ appId: com.seconde.app
       id: "wallet-screen"
     timeout: 10000
 
-# Le header confirme la bonne destination (copy de secours).
+# Le header confirme la bonne destination (ScreenHeader sans testID → copy de
+# secours, deferred).
 - assertVisible:
     text: "Porte-monnaie"
 
