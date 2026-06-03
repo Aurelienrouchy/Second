@@ -71,13 +71,18 @@ export const SwapZoneWrapper = React.memo(SwapZoneWrapperComponent);
 
 const styles = StyleSheet.create({
   // Full-bleed dark section band. Inner padding is owned by the content
-  // component (no card, no inner padding here). Symmetric xl margins above
-  // AND below let the dark universe read as an intentional editorial pause in
-  // the warm feed, not a jammed banner. No horizontal margin / no radius —
-  // full-bleed is the sanctioned exception.
+  // component (no card, no inner padding here). No horizontal margin / no
+  // radius — full-bleed is the sanctioned exception.
+  //
+  // Vertical rhythm: the band owns ONLY the space ABOVE it (the warm feed /
+  // header sits directly on top with no padding of its own). Below the band we
+  // add NO marginBottom — the NEXT section's SectionHeader (paddingTop 28) is
+  // the sole owner of that gap. A marginBottom here would stack onto it
+  // (32 + 28 = 60) and over-space "Découvrez". marginTop uses lg, not xl, so
+  // the band reads anchored to the feed rather than floating in a wide gap.
   section: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
+    marginTop: spacing.lg,
+    marginBottom: 0,
     // Lifted white-alpha hairlines top + bottom are the only band chrome; the
     // dark-band-vs-warm-white-feed luminance jump provides the boundary.
     borderTopWidth: 1,
