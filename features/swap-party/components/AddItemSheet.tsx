@@ -64,7 +64,7 @@ export interface AddItemSheetRef {
 }
 
 const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
-  ({ articles, userItems, loading = false, onAddItems, onClose }, ref) => {
+  ({ articles, userItems, loading = false, adding = false, onAddItems, onClose }, ref) => {
     const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['75%'], []);
     const bottomSheetRef = React.useRef<BottomSheetModal>(null);
