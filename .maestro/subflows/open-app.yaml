@@ -1,0 +1,33 @@
+# open-app — shared subflow: boot the app WITHOUT clearing state.
+#
+# Used by flows that must preserve the current session/onboarding so they do not
+# bounce back to the onboarding intro (chat, notifications, wallet, profile,
+# buy-checkout, admin, offline-banner). The dev-client keeps its Metro server
+# selection across plain launches, so `launchApp` normally lands straight on the
+# RN bundle.
+#
+# Guards (defensive, usually no-ops here):
+#   - if the dev-client launcher is showing (server selection was lost), tap the
+#     Metro server card to reconnect;
+#   - if the RN developer menu happens to be open, dismiss it via "Close".
+#
+# NOTE: lives under subflows/ (NOT flows/) so config.yaml's `flows/*.yaml`
+# discovery glob does not treat it as a runnable flow.
+appId: com.seconde.app
+---
+- launchApp
+
+# Defensive: reconnect to Metro if the dev-client launcher is showing.
+- tapOn:
+    text: "Seconde, http://192.168.2.78:8081"
+    optional: true
+
+# Defensive: dismiss the RN developer menu if it is up.
+- runFlow:
+    when:
+      visible:
+        text: "Close"
+    commands:
+      - tapOn:
+          text: "Close"
+          optional: true

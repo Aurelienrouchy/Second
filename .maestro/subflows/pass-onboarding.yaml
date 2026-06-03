@@ -1,0 +1,33 @@
+# pass-onboarding — shared subflow: skip the onboarding intro to reach home.
+#
+# Used by fresh-state flows (search, offers, sell-*, swap) that only need to
+# land on the home tabs after a clearState boot. The onboarding has two screens:
+#   - welcome  → "Passer" (onboarding-skip)       → router.replace('/(tabs)')
+#   - form     → "Passer" (onboarding-skip-form)  → router.replace('/(tabs)')
+# Tapping "Passer" on whichever screen is showing routes straight to the guest
+# home. Both taps are guarded so the subflow tolerates already being past
+# onboarding (a non-cleared session that never shows the intro).
+#
+# NOTE: lives under subflows/ (NOT flows/) so config.yaml's `flows/*.yaml`
+# discovery glob does not treat it as a runnable flow.
+appId: com.seconde.app
+---
+# Welcome screen: "Passer" routes directly to the tabs (guest home).
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-skip"
+    commands:
+      - tapOn:
+          id: "onboarding-skip"
+          optional: true
+
+# Size-collection form: its own "Passer" also routes to the tabs.
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-skip-form"
+    commands:
+      - tapOn:
+          id: "onboarding-skip-form"
+          optional: true

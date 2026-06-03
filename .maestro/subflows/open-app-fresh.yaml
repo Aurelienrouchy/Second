@@ -1,0 +1,38 @@
+# open-app-fresh — shared subflow: boot the app from a CLEAN state.
+#
+# Used by flows that need a deterministic onboarding entry point (00-launch,
+# auth-signup, offers, search, sell-*, swap). It wipes AsyncStorage via
+# clearState so ONBOARDING_COMPLETED_KEY is unset.
+#
+# Dev-client caveat (why this subflow exists): under a dev-client build,
+# `launchApp clearState: true` resets the cached Metro server selection, so the
+# build lands on the Expo dev-client *launcher* ("DEVELOPMENT SERVERS") instead
+# of the RN bundle. We tap the Metro server card to load the JS bundle, then
+# dismiss the RN developer-menu intro that pops on first connect. Both taps are
+# guarded so the subflow also tolerates the case where the bundle is already
+# connected (no launcher, no dev menu).
+#
+# NOTE: this file lives under subflows/ (NOT flows/) so config.yaml's
+# `flows/*.yaml` discovery glob does not treat it as a runnable flow.
+appId: com.seconde.app
+---
+- launchApp:
+    clearState: true
+
+# Dev-client launcher: tap the Metro server card to load the JS bundle.
+# Optional — absent once the bundle is already connected.
+- tapOn:
+    text: "Seconde, http://192.168.2.78:8081"
+    optional: true
+
+# First connect after a clearState reset pops the RN developer-menu intro
+# (a modal with a "Close" X control) over the freshly-loaded app. Wait for it
+# and dismiss it; the whole block is skipped when no dev menu appears.
+- runFlow:
+    when:
+      visible:
+        text: "Close"
+    commands:
+      - tapOn:
+          text: "Close"
+          optional: true
