@@ -282,10 +282,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   editButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    lineHeight: 12,
-    letterSpacing: 1.8,
+    ...typography.labelUppercase,
     color: colors.charcoal,
     textTransform: 'uppercase',
   },
@@ -300,7 +297,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   signOutButton: {
-    paddingVertical: 14,
+    paddingVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.danger,
     borderRadius: radius.sm,
@@ -308,10 +305,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   signOutText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 1.2,
+    ...typography.labelUppercase,
     color: colors.danger,
     textTransform: 'uppercase',
   },
@@ -320,13 +314,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   versionText: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
+    ...typography.caption,
     color: colors.muted,
-    letterSpacing: 0.5,
   },
   bottomPadding: {
-    height: 100,
+    height: spacing['3xl'],
   },
 });
