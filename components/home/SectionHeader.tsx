@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   actionButton: {
     paddingVertical: 0,
     paddingLeft: spacing.sm,
-    marginBottom: 2, // baseline alignment tweak
+    marginBottom: spacing.xs / 2, // 2px — baseline alignment tweak
   },
   actionButtonPressed: {
     opacity: 0.6,
