@@ -192,9 +192,19 @@ function VisualSearchCameraComponent({
             <Text style={styles.retakeButtonText}>Reprendre</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.searchButton} onPress={handleConfirm}>
-            <Ionicons name="search" size={20} color={colors.white} />
-            <Text style={styles.searchButtonText}>Rechercher</Text>
+          <TouchableOpacity
+            style={[styles.searchButton, isConfirming && styles.searchButtonDisabled]}
+            onPress={handleConfirm}
+            disabled={isConfirming || isCapturing}
+          >
+            {isConfirming ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <>
+                <Ionicons name="search" size={20} color={colors.white} />
+                <Text style={styles.searchButtonText}>Rechercher</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
