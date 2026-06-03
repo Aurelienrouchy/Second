@@ -253,6 +253,7 @@ export default function PricingScreen() {
       </ScrollView>
 
       <SellFooter
+        testID="sell-pricing-footer-cta"
         label="APERÇU"
         onPress={handleContinue}
         isValid={isFormValid}
