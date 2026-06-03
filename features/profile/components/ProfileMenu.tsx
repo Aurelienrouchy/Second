@@ -139,8 +139,7 @@ const styles = StyleSheet.create({
   },
   sectionTitleContainer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   sectionTitle: {
     ...typography.labelUppercase,
