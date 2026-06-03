@@ -85,6 +85,7 @@ function SocialConsentFormComponent({
       />
 
       <Pressable
+        testID="social-consent-submit"
         style={[styles.primaryButton, submitDisabled && styles.disabledButton]}
         onPress={onSubmit}
         disabled={submitDisabled}
