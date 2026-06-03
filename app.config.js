@@ -202,6 +202,11 @@ export default {
             },
             {
               "scheme": "https",
+              "host": "seconde.app",
+              "pathPrefix": "/my-orders"
+            },
+            {
+              "scheme": "https",
               "host": "www.seconde.app",
               "pathPrefix": "/article"
             },
