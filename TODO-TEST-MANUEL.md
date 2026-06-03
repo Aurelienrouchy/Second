@@ -152,12 +152,12 @@ _Routes : `app/onboarding.tsx`, `components/auth-bottom-sheet/{SignInForm,SignUp
 
 **Résultat attendu :** Écran centré, animations FadeInDown ; « CONTINUER » → step 2 ; « Passer » → enregistre `ONBOARDING_COMPLETED_KEY` + navigue `/(tabs)`.
 
-- [ ] Écran vide / pas de crash au lancement
-- [ ] Animations fluides iOS + Android (FadeIn, FadeInDown, FadeInUp)
-- [ ] Texte FR correct, polices Cormorant Garamond + Satoshi
-- [ ] Boutons cliquables, hitSlop correct
-- [ ] Navigation vers form screen OK
-- [ ] Navigation vers home OK (guest ou user)
+- [v] Écran vide / pas de crash au lancement
+- [v] Animations fluides iOS + Android (FadeIn, FadeInDown, FadeInUp)
+- [v] Texte FR correct, polices Cormorant Garamond + Satoshi
+- [v] Boutons cliquables, hitSlop correct
+- [v] Navigation vers form screen OK
+- [v] Navigation vers home OK (guest ou user)
 
 #### Onboarding Form — Sélection sexe & tailles — Step 2
 **À quoi ça sert :** Collecter sexe (homme/femme/enfant), système de taille (EU/US), tailles haut/bas/chaussures pour personnaliser le feed.
@@ -166,30 +166,30 @@ _Routes : `app/onboarding.tsx`, `components/auth-bottom-sheet/{SignInForm,SignUp
 
 **Résultat attendu :** Sexe radio mono-sélection ; système de taille toggle EU/US (grilles SIZES_KIDS/SIZES_ADULT) ; tailles multi-select ; changement EU/US avec sélections → alerte réinitialisation ; « VALIDER » désactivé sans sexe OU sans taille ; sauvegarde AsyncStorage + Firebase ; redirection `/(tabs)` + `ONBOARDING_COMPLETED_KEY='true'`.
 
-- [ ] Écran chargé sans crash
-- [ ] Radio sexe (3 options distinctes)
-- [ ] Grilles de tailles adaptées adult/kids
-- [ ] Multi-select tailles (tap = toggle, résumé mis à jour)
-- [ ] Système de taille bascule + alerte OK
-- [ ] « VALIDER » désactivé en état initial
-- [ ] « VALIDER » s'active après sexe + ≥1 taille
-- [ ] Loading state : spinner visible, bouton désactivé
-- [ ] Sauvegarde AsyncStorage + Firebase sans erreur perceptible
-- [ ] Redirection home après succès
-- [ ] « Passer » → même redirection, pas de sauvegarde
-- [ ] Back chevron → retour welcome, sélections conservées
+- [v] Écran chargé sans crash
+- [v] Radio sexe (3 options distinctes)
+- [v] Grilles de tailles adaptées adult/kids
+- [v] Multi-select tailles (tap = toggle, résumé mis à jour)
+- [v] Système de taille bascule + alerte OK
+- [v] « VALIDER » désactivé en état initial
+- [v] « VALIDER » s'active après sexe + ≥1 taille
+- [v] Loading state : spinner visible, bouton désactivé
+- [v] Sauvegarde AsyncStorage + Firebase sans erreur perceptible
+- [v] Redirection home après succès
+- [v] « Passer » → même redirection, pas de sauvegarde
+- [v] Back chevron → retour welcome, sélections conservées
 
 **Points chauds :**
-- [ ] Sauvegarde Firebase fire-and-forget invité : prefs non perdue en cas de coupure réseau
-- [ ] AsyncStorage vs Firestore : après login, prefs guest fusionnent avec prefs user
+- [x] Sauvegarde Firebase fire-and-forget invité : prefs non perdue en cas de coupure réseau
+- [v] AsyncStorage vs Firestore : après login, prefs guest fusionnent avec prefs user
 
 **iOS vs Android :** Hardware back Android doit retourner à welcome, pas quitter l'onboarding.
 
 #### Back Navigation & Skip Actions
-- [ ] Chevron back existe (iOS style) + cliquable
-- [ ] « Passer » fonctionne aux deux étapes
-- [ ] Sélections tailles conservées après back depuis form
-- [ ] Hardware back Android différencié (welcome = quitter, form = retour welcome)
+- [v] Chevron back existe (iOS style) + cliquable
+- [v] « Passer » fonctionne aux deux étapes
+- [v] Sélections tailles conservées après back depuis form
+- [v] Hardware back Android différencié (welcome = quitter, form = retour welcome)
 
 ### 1.2 Sign In par Email/Password (`SignInForm.tsx`)
 **Préconditions :** Invité, compte existant Firebase Auth, AuthBottomSheet ouvert.
