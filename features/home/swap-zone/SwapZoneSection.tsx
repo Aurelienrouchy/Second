@@ -52,6 +52,7 @@ const SwapZoneWrapperComponent: React.FC = () => {
       style={styles.section}
     >
       <SwapZoneSectionUI
+        testID="home-swap-zone-entry"
         zone={zone ?? undefined}
         itemsCount={zone?.itemsCount ?? 0}
         newThisWeek={newThisWeek}
