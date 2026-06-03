@@ -142,6 +142,7 @@ export default function DraftResumeModal({
             </Pressable>
 
             <Pressable
+              testID="draft-discard-button"
               style={({ pressed }) => [styles.discardButton, pressed && { opacity: 0.7 }]}
               onPress={onDiscard}
             >

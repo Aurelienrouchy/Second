@@ -115,7 +115,7 @@ export default function SellTabScreen() {
   }, [router]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="sell-tab-screen">
       {isChecking && !showModal && (
         <Skeleton width={48} height={48} borderRadius={radius.md} />
       )}
