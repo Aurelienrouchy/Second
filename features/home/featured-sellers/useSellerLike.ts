@@ -16,11 +16,18 @@ export function useSellerLike(sellerId: string) {
 
   const isLiked = likedSellerIds.includes(sellerId);
 
-  const toggleLike = useCallback(() => {
-    requireAuth(() => {
-      globalToggle(sellerId);
-    }, AUTH_MESSAGES.follow);
-  }, [requireAuth, globalToggle, sellerId]);
+  // `onConfirmed` runs only when the like actually registers: immediately when
+  // signed in, or after a successful auth when signed out. Lets the caller gate
+  // side effects (e.g. the heart bounce) on a confirmed action.
+  const toggleLike = useCallback(
+    (onConfirmed?: () => void) => {
+      requireAuth(() => {
+        globalToggle(sellerId);
+        onConfirmed?.();
+      }, AUTH_MESSAGES.follow);
+    },
+    [requireAuth, globalToggle, sellerId]
+  );
 
   return { isLiked, toggleLike, isLoggedIn };
 }
