@@ -66,7 +66,7 @@ function SignInFormComponent({
         <Text style={styles.fieldError}>Adresse email invalide</Text>
       ) : null}
 
-      <TextInput
+      <BottomSheetTextInput
         testID="signin-password-input"
         style={styles.input}
         placeholder="Mot de passe"
