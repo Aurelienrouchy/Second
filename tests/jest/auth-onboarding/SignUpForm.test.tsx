@@ -144,7 +144,9 @@ describe('SignUpForm — erreur d\'âge', () => {
   });
 });
 
-describe('SignUpForm — toggles & navigation', () => {
+describe('SignUpForm — consentements', () => {
+  // Le toggle signIn/signUp et les boutons sociaux sont désormais hissés dans
+  // AuthBottomSheet (chrome partagé) ; SignUpForm ne rend plus que ses champs.
   it('cocher les consentements notifie le parent', () => {
     const onToggleTerms = jest.fn();
     const onTogglePrivacy = jest.fn();
@@ -158,19 +160,5 @@ describe('SignUpForm — toggles & navigation', () => {
     fireEvent.press(screen.getByLabelText(/J'ai lu et j'accepte la Politique/));
     expect(onToggleTerms).toHaveBeenCalledTimes(1);
     expect(onTogglePrivacy).toHaveBeenCalledTimes(1);
-  });
-
-  it('bascule vers la connexion', () => {
-    const onSwitchToSignIn = jest.fn();
-    render(<SignUpForm {...baseProps({ onSwitchToSignIn })} />);
-    fireEvent.press(screen.getByText('Se connecter'));
-    expect(onSwitchToSignIn).toHaveBeenCalledTimes(1);
-  });
-
-  it('lance l\'inscription Google', () => {
-    const onSocialAuth = jest.fn();
-    render(<SignUpForm {...baseProps({ onSocialAuth })} />);
-    fireEvent.press(screen.getByLabelText("S'inscrire avec Google"));
-    expect(onSocialAuth).toHaveBeenCalledWith('Google');
   });
 });
