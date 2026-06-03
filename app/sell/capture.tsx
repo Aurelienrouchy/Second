@@ -220,6 +220,10 @@ export default function CaptureScreen() {
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
   };
 
+  const toggleTorch = () => {
+    setTorchActive((current) => !current);
+  };
+
   // Overlay heights
   const topOverlayHeight = insets.top + 56;
   const bottomOverlayHeight = 140 + insets.bottom;
