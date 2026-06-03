@@ -287,7 +287,7 @@ export default function OnboardingScreen() {
           >
             <Ionicons name="chevron-back" size={22} color={colors.charcoal} />
           </Pressable>
-          <Pressable onPress={handleSkip} style={styles.skipButton} hitSlop={12}>
+          <Pressable onPress={handleSkip} style={styles.skipButton} hitSlop={12} testID="onboarding-skip-form">
             <Text style={styles.skipText}>Passer</Text>
           </Pressable>
         </View>
