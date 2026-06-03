@@ -12,11 +12,11 @@
 # `onboarding-form` (size-collection form root) — see app/onboarding.tsx.
 appId: com.seconde.app
 ---
-# Fresh boot: clearState wipes AsyncStorage so ONBOARDING_COMPLETED_KEY is
-# unset and the app deterministically lands on onboarding, regardless of any
-# prior run on the device/simulator.
-- launchApp:
-    clearState: true
+# Fresh boot: the shared subflow wipes AsyncStorage (clearState) so
+# ONBOARDING_COMPLETED_KEY is unset and the app deterministically lands on
+# onboarding. It also handles the dev-client launcher + developer-menu intro
+# that a clearState reset surfaces under a dev-client build.
+- runFlow: ../subflows/open-app-fresh.yaml
 
 # Reanimated FadeInDown/FadeIn intros stagger up to ~400ms; wait (up to 15s)
 # for the welcome root before asserting so the test is not animation-flaky.
