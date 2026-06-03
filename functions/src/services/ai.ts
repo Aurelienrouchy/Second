@@ -381,15 +381,6 @@ export async function validateAndNormalizeResponse(
   };
 }
 
-// Helper to get price range category
-export function getPriceRange(price: number): string {
-  if (price < 10) return 'under_10';
-  if (price < 25) return '10_25';
-  if (price < 50) return '25_50';
-  if (price < 100) return '50_100';
-  return 'over_100';
-}
-
 /**
  * Compute cosine similarity between two vectors
  * Returns a value between -1 and 1 (1 = identical)
