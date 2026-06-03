@@ -191,6 +191,7 @@ export default function TabLayout() {
         options={{
           title: 'Vendre',
           tabBarAccessibilityLabel: 'Vendre',
+          tabBarButtonTestID: 'Vendre',
           tabBarIcon: () => <SellTabIcon />,
         }}
         listeners={({ navigation }) => ({
