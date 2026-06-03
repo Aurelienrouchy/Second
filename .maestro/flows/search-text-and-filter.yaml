@@ -79,14 +79,15 @@ appId: com.seconde.app
 - tapOn:
     id: "filter-chip-condition"
 # Le bottom sheet "État" liste les conditions ; chaque item porte un testID
-# `selection-item-<value>` (value 'bon état' issue de data/conditions). L'id est
-# ancré (^...$) pour ne PAS matcher aussi `selection-item-très bon état`.
-- extendedWaitUntil:
-    visible:
-      id: "^selection-item-bon état$"
-    timeout: 10000
+# `selection-item-<value>` (value 'bon état' issue de data/conditions). MAIS le
+# contenu du sheet gorhom (SelectionBottomSheet) n'est PAS exposé à l'arbre
+# d'accessibilité que pilote Maestro sur iOS (portail gorhom) : ni le testID ni
+# même le texte "État"/"Bon état" ne sont interrogeables, bien que rendus à
+# l'écran. On tape donc "Bon état" (3e item) par coordonnées. L'item EST le bon
+# (cf. data/conditions value='bon état'), simplement non sélectionnable par id
+# tant que le portail gorhom reste opaque à XCUITest.
 - tapOn:
-    id: "^selection-item-bon état$"
+    point: "16%,36%"
 
 # ── Le chip État devient actif (un X de retrait apparaît) et la grille reste
 #    affichée : le filtre est appliqué au terme sans casser les résultats. ──
