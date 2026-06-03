@@ -567,7 +567,7 @@ export default function SwapZoneScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} testID="swap-zone-screen">
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="light" />
 
