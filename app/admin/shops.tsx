@@ -200,11 +200,13 @@ export default function AdminShopsScreen() {
         onApprove={() => handleApprove(item)}
         onReject={() => handleReject(item)}
         onViewDetails={() => handleViewDetails(item)}
+        disabled={isSubmitting}
       />
       {item.status === 'approved' && (
         <Pressable
-          style={styles.suspendButton}
+          style={[styles.suspendButton, isSubmitting && styles.buttonDisabled]}
           onPress={() => handleSuspend(item)}
+          disabled={isSubmitting}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
           <Ionicons name="pause-circle-outline" size={18} color={colors.warning} />
