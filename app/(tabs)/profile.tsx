@@ -27,7 +27,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { ScreenHeader, Text } from '@/components/ui';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { colors, radius, spacing, typography } from '@/constants/theme';
 import { useAuthActions } from '@/contexts/AuthContext';
 import {
   GuestState,
