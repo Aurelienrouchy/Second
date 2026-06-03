@@ -92,6 +92,7 @@ export default function RecentSearches({
             {TRENDING_SEARCHES.map((item) => (
               <Pressable
                 key={item}
+                testID={`trending-search-${toTestKey(item)}`}
                 style={styles.trendingTag}
                 onPress={() => handleTrendingPress(item)}
               >
