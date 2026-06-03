@@ -1230,7 +1230,7 @@ export class ChatService {
 
       await this.sendSystemMessage(
         chatId,
-        `No-show signale. Notre equipe va examiner la situation.`
+        `Absence signalée. Notre équipe va examiner la situation.`
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
