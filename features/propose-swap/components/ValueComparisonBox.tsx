@@ -54,8 +54,8 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
             <Ionicons name="information-circle-outline" size={14} color={colors.rust} />
             <Text style={styles.diffIndicatorText}>
               {receiverHasMore
-                ? `Différence de ${formatPrice(valueDifference)} en leur faveur`
-                : `Différence de ${formatPrice(valueDifference)} en votre faveur`}
+                ? `Différence de ${formatPrice(valueDifference)} en sa faveur`
+                : `Différence de ${formatPrice(valueDifference)} en ta faveur`}
             </Text>
           </View>
         ) : (
