@@ -526,7 +526,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => { setSearchQuery(''); setFilteredBrands(brands); }}>
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResultsCapped(false); setFilteredBrands(brands); }}>
                 <Ionicons name="close" size={18} color={mutedColor} />
               </TouchableOpacity>
             )}
