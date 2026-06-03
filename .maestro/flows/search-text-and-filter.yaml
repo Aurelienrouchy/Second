@@ -13,7 +13,9 @@
 #   - search-results-grid           (ProductGrid des résultats)
 #   - filter-chip-condition         (chip "État" de FilterChipsRow)
 #   - selection-item-bon état       (item "Bon état" du bottom sheet État ;
-#                                     value = 'bon état' issue de data/conditions)
+#                                     value = 'bon état' issue de data/conditions ;
+#                                     id ancré ^...$ pour ne pas matcher
+#                                     'très bon état')
 #   - filter-chip-remove-condition  (X de retrait du chip État)
 # Tous les sélecteurs de ce flow sont désormais des testID stables.
 appId: com.seconde.app
