@@ -11,9 +11,10 @@
  * submit-disabled computation. This component just renders inputs + links.
  */
 
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Link } from 'expo-router';
 import React from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Checkbox } from '@/components/ui';
 import { COPY_CONSENT } from '@/constants/authMessages';
