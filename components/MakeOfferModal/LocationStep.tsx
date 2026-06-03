@@ -129,6 +129,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
 
     return (
       <Pressable
+        testID={`offer-location-item-${item.id ?? item.name}`}
         style={[styles.listItem, isSellerSpot && styles.sellerRecommended]}
         onPress={() => handleSpotSelect(item)}
       >
