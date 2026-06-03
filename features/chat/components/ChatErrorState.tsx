@@ -50,16 +50,31 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
   },
-  backButton: {
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  retryButton: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radius.md,
-    marginTop: spacing.md,
+  },
+  retryButtonText: {
+    fontFamily: fonts.sansMedium,
+    color: colors.white,
+    fontSize: 16,
+  },
+  backButton: {
+    backgroundColor: colors.surfaceWarm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
   },
   backButtonText: {
     fontFamily: fonts.sansMedium,
-    color: colors.white,
+    color: colors.foreground,
     fontSize: 16,
   },
 });
