@@ -64,10 +64,10 @@ export default function PreferencesScreen() {
       UserService.updateUserPreferences(user!.id, {
         sizes: selectedSizes,
         // shoesSizes is persisted alongside sizes (same shape as the onboarding
-        // callable). Not yet declared on UserPreferences, hence the cast.
+        // callable), now typed on UserPreferences.
         shoesSizes: selectedShoeSizes,
         favoriteBrands: selectedBrands,
-      } as Partial<UserPreferences>),
+      }),
     onSuccess: () => {
       Alert.alert('Succès', 'Vos préférences ont été enregistrées', [
         { text: 'OK', onPress: () => router.back() },
