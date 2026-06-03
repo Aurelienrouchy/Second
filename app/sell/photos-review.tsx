@@ -218,12 +218,14 @@ export default function PhotosReviewScreen() {
     setProgressSteps(INITIAL_PROGRESS_STEPS.map((s) => ({ ...s })));
 
     try {
-      const draft = await draftService.loadDraft();
+      // The draft can be missing if AsyncStorage was purged or the parse failed.
+      // Rather than blocking the analysis, recover by recreating an empty draft
+      // seeded with the photos we already hold in screen state.
+      let draft = await draftService.loadDraft();
       if (!draft) {
         if (!isMountedRef.current || controller.signal.aborted) return;
-        setErrorMessage('Brouillon introuvable');
-        setAnalysisState('error');
-        return;
+        if (__DEV__) console.log('[PhotosReview] No draft found, recreating from current photos');
+        draft = await draftService.updateDraftPhotos(createEmptyDraft(), photos);
       }
 
       const response = await analyzeProductImage(photos, {
