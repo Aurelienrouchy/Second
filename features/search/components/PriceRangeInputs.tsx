@@ -64,7 +64,7 @@ function PriceRangeInputsComponent({
       </View>
       <View style={styles.priceActions}>
         {isPriceActive && (
-          <Pressable onPress={onClear} style={styles.priceClearButton}>
+          <Pressable testID="price-clear-button" onPress={onClear} style={styles.priceClearButton}>
             <Text style={styles.priceClearText}>Effacer</Text>
           </Pressable>
         )}
