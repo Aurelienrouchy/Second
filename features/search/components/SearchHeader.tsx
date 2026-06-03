@@ -42,6 +42,7 @@ function SearchHeaderComponent({
         <Ionicons name="search" size={16} color={colors.muted} style={styles.searchIcon} />
         <TextInput
           ref={inputRef}
+          testID="search-input"
           style={styles.searchInput}
           placeholder="Rechercher..."
           placeholderTextColor={colors.muted}
@@ -53,18 +54,28 @@ function SearchHeaderComponent({
           autoCorrect={false}
         />
         {searchQuery.length > 0 && (
-          <Pressable onPress={onClear} style={styles.clearButton} hitSlop={8}>
+          <Pressable
+            onPress={onClear}
+            testID="search-clear-button"
+            style={styles.clearButton}
+            hitSlop={8}
+          >
             <Ionicons name="close" size={16} color={colors.muted} />
           </Pressable>
         )}
       </View>
 
-      <Pressable onPress={onOpenVisualSearch} style={styles.cameraButton} hitSlop={4}>
+      <Pressable
+        onPress={onOpenVisualSearch}
+        testID="search-visual-button"
+        style={styles.cameraButton}
+        hitSlop={4}
+      >
         <Ionicons name="camera-outline" size={20} color={colors.rust} />
       </Pressable>
 
       {showOk && (
-        <Pressable onPress={onSubmit} style={styles.okButton}>
+        <Pressable onPress={onSubmit} testID="search-submit-button" style={styles.okButton}>
           <Text style={styles.okButtonText}>OK</Text>
         </Pressable>
       )}
