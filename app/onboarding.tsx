@@ -212,6 +212,19 @@ export default function OnboardingScreen() {
     }
   }, [hasAnything, isSaving, sex, sizesTop, sizesBottom, sizesShoes, user]);
 
+  // Android hardware back on the form screen returns to the welcome step
+  // (instead of leaving onboarding) and preserves the current selections.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || showWelcome) return;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        setShowWelcome(true);
+        return true;
+      });
+      return () => subscription.remove();
+    }, [showWelcome])
+  );
+
   // ─── Welcome screen ───
   if (showWelcome) {
     return (
