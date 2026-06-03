@@ -16,7 +16,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { colors, fonts, radius, spacing, animations } from '@/constants/theme';
+import { colors, radius, spacing, typography, animations } from '@/constants/theme';
 import type { MenuItem } from '../types';
 
 // =============================================================================
