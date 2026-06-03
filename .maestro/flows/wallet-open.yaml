@@ -21,7 +21,8 @@
 # pas retomber sur l'onboarding (cf. 00-launch.yaml).
 appId: com.seconde.app
 ---
-- launchApp
+# Conserve la session (sous-flow partagé, gère launcher/dev-menu résiduel).
+- runFlow: ../subflows/open-app.yaml
 
 # Aller sur l'onglet Profil. tabBarAccessibilityLabel "Profil" est exposé par
 # (tabs)/_layout.tsx — sélecteur stable de l'onglet (id).
