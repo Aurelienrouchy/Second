@@ -269,6 +269,11 @@ export default {
               "scheme": "https",
               "host": "www.seconde.app",
               "pathPrefix": "/settings"
+            },
+            {
+              "scheme": "https",
+              "host": "www.seconde.app",
+              "pathPrefix": "/my-orders"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
