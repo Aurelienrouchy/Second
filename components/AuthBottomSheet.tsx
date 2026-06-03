@@ -69,12 +69,15 @@ const AuthBottomSheet: React.FC = () => {
   } = useAuthActions();
   const insets = useSafeAreaInsets();
 
-  // When the keyboard opens, raise the top snap point to nearly full height so
-  // the BottomSheetScrollView has room to scroll the focused input above the
-  // keyboard. The base snap stays at 82%; the second (98%) is the keyboard-open
-  // target that "interactive" pans toward. Single snap point left the sheet with
-  // no room to scroll on Android (adjustResize) so the focused field stayed
-  // covered — see verification notes.
+  // Two snap points so the keyboard-open state has somewhere taller to go. The
+  // base snap is 82%; the second (98%) is the keyboard-open target. With
+  // keyboardBehavior="extend" the sheet animates to the HIGHEST snap point when
+  // the keyboard appears, and the BottomSheetScrollView gets the keyboard height
+  // appended as bottom inset so the focused field scrolls clear of the keyboard
+  // — even the last input of the (tall) sign-up form. keyboardBlurBehavior=
+  // "restore" returns the sheet to the snap it was at (index 0) on blur. A
+  // single snap point left the sheet with no room to scroll on Android
+  // (adjustResize), so the focused field stayed covered.
   const snapPoints = useMemo(() => ['82%', '98%'], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
   // Tracks whether the social consent step is pending an explicit resolution
