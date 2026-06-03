@@ -178,6 +178,7 @@ export default function TabLayout() {
         options={{
           title: 'Messages',
           tabBarAccessibilityLabel: 'Messages',
+          tabBarButtonTestID: 'Messages',
           tabBarIcon: ({ color }) => (
             <IconWithBadge count={unreadMessageCount}>
               <MessageIcon color={color} />
