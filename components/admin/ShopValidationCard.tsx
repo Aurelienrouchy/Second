@@ -268,6 +268,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
   rejectionReason: {
     flexDirection: 'row',
     alignItems: 'flex-start',
