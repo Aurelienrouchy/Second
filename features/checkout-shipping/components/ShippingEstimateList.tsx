@@ -90,11 +90,11 @@ export const ShippingEstimateList = React.memo(function ShippingEstimateList({
       )}
 
       {!loading &&
-        estimates.map((est, index) => (
+        estimates.map((est) => (
           <EstimateCard
-            key={`est-${index}`}
+            key={est.rateId}
             estimate={est}
-            isSelected={selectedEstimate?.serviceName === est.serviceName}
+            isSelected={selectedEstimate?.rateId === est.rateId}
             onPress={() => handlePress(est)}
           />
         ))}
