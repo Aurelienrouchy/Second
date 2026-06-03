@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
 
 interface FormSectionTitleProps {
   title: string;
