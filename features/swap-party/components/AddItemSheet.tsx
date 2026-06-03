@@ -45,6 +45,9 @@ export interface AddItemSheetProps {
   userItems: SwapPartyItemExtended[];
   /** True while the user's articles are being fetched. */
   loading?: boolean;
+  /** True while a deposit is in flight — disables the footer button and shows a
+   *  spinner so the user can't double-tap (the parent guards the data path too). */
+  adding?: boolean;
   /** Deposit the selected articles in one batch. */
   onAddItems: (articles: Article[]) => void;
   /**
