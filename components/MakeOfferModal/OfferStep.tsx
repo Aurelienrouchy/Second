@@ -81,6 +81,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
         <Text style={styles.label}>VOTRE OFFRE</Text>
         <View style={styles.amountInputContainer}>
           <BottomSheetTextInput
+            testID="offer-amount-input"
             style={styles.amountInput}
             placeholder="0"
             keyboardType="decimal-pad"
