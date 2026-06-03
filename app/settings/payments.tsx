@@ -5,21 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { colors, spacing, radius } from '@/constants/theme';
 
 export default function PaymentsSettingsScreen() {
   const router = useRouter();
-
-  const handleAddCard = () => {
-    Alert.alert('Bientôt disponible', 'L\'ajout de carte bancaire sera bientôt disponible.');
-  };
 
   return (
     <View style={styles.container}>
