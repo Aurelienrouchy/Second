@@ -255,6 +255,10 @@ export const useAuthStore = create<AuthStore>()(
                   createdAt: parsed.createdAt ? new Date(parsed.createdAt) : new Date(),
                 },
                 isLoading: false,
+                // Le cache n'est écrit que pour un compte consenté (cache porte
+                // dateOfBirth) → jamais pendingConsent ici.
+                pendingConsent: false,
+                pendingConsentUser: null,
               });
               return;
             }
