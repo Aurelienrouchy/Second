@@ -2,19 +2,19 @@
  * ConsentFields — shared age gate (date of birth) + mandatory consent
  * checkboxes (Terms + Privacy) plus an optional marketing opt-in.
  *
- * Factored out of SignUpForm so the SAME block (and the same legal copy from
- * COPY_CONSENT) is reused by:
- *  - email sign-up (SignUpForm)
- *  - the post-social-sign-in consent step (SocialConsentForm)
+ * Used by the mandatory post-signup consent route (app/complete-profile.tsx) —
+ * a plain full-screen route (NOT a bottom sheet) — so the DOB inputs are plain
+ * React Native `TextInput`s (BottomSheetTextInput would throw outside a
+ * <BottomSheet>; the route owns its own keyboard-aware ScrollView).
  *
  * Presentational only: the parent owns the DOB/checkbox state and the
- * submit-disabled computation. This component just renders inputs + links.
+ * submit-disabled computation. This component just renders inputs + links, with
+ * the legal copy from COPY_CONSENT.
  */
 
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Link } from 'expo-router';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import { Checkbox } from '@/components/ui';
 import { COPY_CONSENT } from '@/constants/authMessages';
