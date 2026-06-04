@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    height: 28,
+    height: spacing.lg + spacing.xs,
     backgroundColor: colors.border,
   },
 });
