@@ -354,11 +354,50 @@ export const useAuthStore = create<AuthStore>()(
     return userData;
   },
 
-  signUpWithEmail: async (email, password, username, consent) => {
-    const userData = await AuthService.signUpWithEmail(email, password, username, consent);
-    await get().signIn(userData);
-    await get().mergeGuestToUser(userData.id);
+  signUpWithEmail: async (email, password, displayName) => {
+    // Crée le compte NU. NE PAS signIn ni merge ici : la route de consentement
+    // obligatoire (app/complete-profile.tsx) collecte DOB + consents + @pseudo
+    // puis appelle completeConsent qui orchestre l'entrée dans l'app. Le caller
+    // (auth sheet) appelle beginPendingConsent + navigue vers la route.
+    const userData = await AuthService.signUpWithEmail(email, password, displayName);
     return userData;
+  },
+
+  beginPendingConsent: (user, onSuccess) => {
+    // Marque le compte fraîchement créé/authentifié comme en attente de
+    // consentement → le guard de démarrage route vers app/complete-profile.tsx.
+    // `user` reste null (pas pleinement connecté) tant que completeConsent n'a
+    // pas écrit dateOfBirth. onSuccess sera rejoué à la complétion.
+    set({
+      pendingConsent: true,
+      pendingConsentUser: user,
+      pendingConsentOnSuccess: onSuccess,
+    });
+  },
+
+  completeConsent: async (consent) => {
+    // ── Ordre strict (audit A6) ──
+    // 1) recordSignupConsent : réserve @pseudo + écrit DOB atomiquement. Si le
+    //    pseudo est pris (already-exists) ou le format/âge KO, l'erreur remonte
+    //    telle quelle (FirebaseError) ; on NE fait PAS entrer l'user dans l'app
+    //    et on NE touche PAS pendingConsent (il re-soumet avec un autre pseudo).
+    const fresh = await AuthService.recordConsentForCurrentUser(consent);
+    // 2) signIn : flip authentifié (efface pendingConsent + persiste le cache).
+    await get().signIn(fresh);
+    // 3) mergeGuestToUser : rattache la session invité au compte.
+    await get().mergeGuestToUser(fresh.id);
+
+    // Rejoue le callback de reprise (action protégée) puis le nettoie.
+    const onSuccess = get().pendingConsentOnSuccess;
+    set({ pendingConsentOnSuccess: null });
+    if (onSuccess) {
+      try {
+        onSuccess();
+      } catch (error) {
+        if (__DEV__) console.log('[authStore] pendingConsentOnSuccess error:', error);
+      }
+    }
+    return fresh;
   },
 
   signInWithGoogle: async () => {
