@@ -147,6 +147,15 @@ export const typography = {
     letterSpacing: -0.2,
   },
 
+  // Screen/section header title — sits between h3 (18) and h2 (22).
+  // Cormorant Garamond Medium, charcoal. Used by ScreenHeader and screen titles.
+  titleHeader: {
+    fontFamily: fonts.displayMedium,
+    fontSize: 20,
+    lineHeight: 26,
+    letterSpacing: -0.3,
+  },
+
   // Body (DM Sans — refined readability)
   body: {
     fontFamily: fonts.sans,
