@@ -326,6 +326,9 @@ export const sizing = {
   iconMD: 24,
   iconLG: 32,
 
+  // Control circles — standard circular controls (back buttons, icon chips, menu icons)
+  controlCircle: 36,
+
   // Touch targets
   minTouchTarget: 44,
 } as const;
