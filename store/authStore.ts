@@ -28,6 +28,29 @@ interface AuthState {
   isLoading: boolean;
   isFirstLaunch: boolean;
   guestSession: GuestSession | null;
+  /**
+   * True when a Firebase Auth account EXISTS but has not completed the mandatory
+   * consent step (no `dateOfBirth` written by recordSignupConsent). Such a user
+   * is NOT fully connected (`user` stays null — the rest of the app treats them
+   * as not-authenticated) but is NOT a plain guest either: the startup guard
+   * (useConsentGuard) MUST route them to app/complete-profile.tsx and block the
+   * rest of the app until consent is recorded. Covers both flows (email signup
+   * that creates a bare account, and social sign-in needing consent) AND the
+   * cold-start case where a user killed the app on the consent route.
+   */
+  pendingConsent: boolean;
+  /**
+   * Partial identity of the pendingConsent user (id + displayName), kept so the
+   * consent route can show context. NOT the full User (no DOB/consent/username)
+   * — never persisted to USER_DATA_KEY.
+   */
+  pendingConsentUser: User | null;
+  /**
+   * Success callback to fire AFTER the consent route completes — threaded from
+   * the auth sheet (e.g. resume a protected action). Fired once on completion,
+   * then cleared. Null when no protected action was pending.
+   */
+  pendingConsentOnSuccess: (() => void) | null;
 }
 
 interface AuthActions {
