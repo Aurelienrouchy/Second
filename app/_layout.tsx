@@ -221,8 +221,9 @@ function AppContent({ fontsReady }: { fontsReady: boolean }) {
             />
             {/* Mandatory post-signup consent step (DOB + consents + @pseudo).
                 gestureEnabled:false blocks the iOS back-swipe; a BackHandler in
-                the screen consumes the Android back. Same lock the auth sheet
-                had in socialConsent. */}
+                the screen consumes the Android back. Reached by both flows
+                (email signup + social) and enforced by the startup consent
+                guard for a pendingConsent account. */}
             <Stack.Screen
               name="complete-profile"
               options={{ animation: 'fade', gestureEnabled: false }}
