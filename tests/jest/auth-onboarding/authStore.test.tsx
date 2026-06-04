@@ -109,22 +109,24 @@ beforeEach(async () => {
 });
 
 describe('authStore.hydrateFromFirebase — consent gate Loi 25', () => {
-  it('compte SANS dateOfBirth → reste non-authentifié (user null) malgré un token Firebase', async () => {
-    mockGetCurrentUser.mockResolvedValue({
-      ...CONSENTED_USER,
-      dateOfBirth: undefined,
-    });
+  it('compte SANS dateOfBirth → user null MAIS pendingConsent + pendingConsentUser (pas persisté)', async () => {
+    const bare = { ...CONSENTED_USER, dateOfBirth: undefined };
+    mockGetCurrentUser.mockResolvedValue(bare);
 
     await useAuthStore.getState().hydrateFromFirebase(fbUser);
 
     const state = useAuthStore.getState();
+    // Pas pleinement connecté, mais pas simple invité : pendingConsent route le
+    // user vers app/complete-profile.tsx via le guard de démarrage.
     expect(state.user).toBeNull();
     expect(state.isLoading).toBe(false);
-    // Pas de persistance d'un user non-consenti.
+    expect(state.pendingConsent).toBe(true);
+    expect(state.pendingConsentUser?.id).toBe('uid-1');
+    // Jamais de persistance d'un user non-consenti.
     expect(await AsyncStorage.getItem('user_data')).toBeNull();
   });
 
-  it('compte AVEC dateOfBirth → authentifié, isLoading false, persisté', async () => {
+  it('compte AVEC dateOfBirth → authentifié, pendingConsent effacé, persisté', async () => {
     mockGetCurrentUser.mockResolvedValue(CONSENTED_USER);
 
     await useAuthStore.getState().hydrateFromFirebase(fbUser);
@@ -132,17 +134,131 @@ describe('authStore.hydrateFromFirebase — consent gate Loi 25', () => {
     const state = useAuthStore.getState();
     expect(state.user?.id).toBe('uid-1');
     expect(state.isLoading).toBe(false);
+    expect(state.pendingConsent).toBe(false);
+    expect(state.pendingConsentUser).toBeNull();
     const persisted = await AsyncStorage.getItem('user_data');
     expect(persisted).not.toBeNull();
     expect(JSON.parse(persisted as string).id).toBe('uid-1');
   });
 
-  it('aucun firebaseUser → user null + session invité initialisée', async () => {
+  it('aucun firebaseUser → user null, pas de pendingConsent, session invité initialisée', async () => {
     await useAuthStore.getState().hydrateFromFirebase(null);
     const state = useAuthStore.getState();
     expect(state.user).toBeNull();
     expect(state.isLoading).toBe(false);
+    expect(state.pendingConsent).toBe(false);
     expect(state.guestSession).not.toBeNull();
+  });
+});
+
+describe('authStore.signUpWithEmail — compte NU (pas d\'entrée dans l\'app)', () => {
+  it('crée le compte via AuthService MAIS ne signIn ni ne merge (route consentement à suivre)', async () => {
+    const bare = { ...CONSENTED_USER, dateOfBirth: undefined };
+    mockSignUpWithEmail.mockResolvedValue(bare);
+
+    const created = await useAuthStore.getState().signUpWithEmail('m@x.com', 'pw', 'Marie');
+
+    expect(mockSignUpWithEmail).toHaveBeenCalledWith('m@x.com', 'pw', 'Marie');
+    expect(created.id).toBe('uid-1');
+    // Pas authentifié : le user n'entre pas dans l'app tant que le consentement
+    // n'est pas enregistré sur la route plein écran.
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(mockMerge).not.toHaveBeenCalled();
+  });
+});
+
+describe('authStore.beginPendingConsent', () => {
+  it('marque pendingConsent + pendingConsentUser + onSuccess sans authentifier', () => {
+    const bare = { ...CONSENTED_USER, dateOfBirth: undefined };
+    const onSuccess = jest.fn();
+
+    useAuthStore.getState().beginPendingConsent(bare, onSuccess);
+
+    const state = useAuthStore.getState();
+    expect(state.pendingConsent).toBe(true);
+    expect(state.pendingConsentUser?.id).toBe('uid-1');
+    expect(state.pendingConsentOnSuccess).toBe(onSuccess);
+    expect(state.user).toBeNull();
+  });
+});
+
+describe('authStore.completeConsent — ordre strict réserve → signIn → merge', () => {
+  it('orchestre recordSignupConsent puis signIn puis merge, dans CET ordre', async () => {
+    const order: string[] = [];
+    mockRecordConsent.mockImplementation(() => {
+      order.push('record');
+      return Promise.resolve(CONSENTED_USER);
+    });
+    mockMerge.mockImplementation(() => {
+      order.push('merge');
+      return Promise.resolve();
+    });
+
+    const fresh = await useAuthStore.getState().completeConsent({
+      dateOfBirth: '1995-01-01',
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+      marketingOptIn: false,
+      desiredUsername: 'anna',
+    });
+
+    expect(order).toEqual(['record', 'merge']);
+    expect(mockRecordConsent).toHaveBeenCalled();
+    expect(mockMerge).toHaveBeenCalledWith('uid-1');
+    expect(fresh.id).toBe('uid-1');
+    // signIn (entre record et merge) a flippé authentifié + effacé pendingConsent.
+    const state = useAuthStore.getState();
+    expect(state.user?.id).toBe('uid-1');
+    expect(state.pendingConsent).toBe(false);
+    expect(state.pendingConsentUser).toBeNull();
+  });
+
+  it('rejoue puis nettoie pendingConsentOnSuccess à la complétion', async () => {
+    mockRecordConsent.mockResolvedValue(CONSENTED_USER);
+    const onSuccess = jest.fn();
+    useAuthStore.getState().beginPendingConsent(
+      { ...CONSENTED_USER, dateOfBirth: undefined },
+      onSuccess,
+    );
+
+    await useAuthStore.getState().completeConsent({
+      dateOfBirth: '1995-01-01',
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+      marketingOptIn: false,
+    });
+
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    // Nettoyé : pas de rejouage au prochain completeConsent.
+    expect(useAuthStore.getState().pendingConsentOnSuccess).toBeNull();
+  });
+
+  it('erreur du callable (pseudo pris) → N\'authentifie PAS, ne merge PAS, propage l\'erreur', async () => {
+    const takenError = Object.assign(new Error('taken'), {
+      code: 'already-exists',
+      details: { field: 'username' },
+    });
+    mockRecordConsent.mockRejectedValue(takenError);
+    useAuthStore.getState().beginPendingConsent(
+      { ...CONSENTED_USER, dateOfBirth: undefined },
+      null,
+    );
+
+    await expect(
+      useAuthStore.getState().completeConsent({
+        dateOfBirth: '1995-01-01',
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+        marketingOptIn: false,
+        desiredUsername: 'prise',
+      }),
+    ).rejects.toMatchObject({ code: 'already-exists' });
+
+    const state = useAuthStore.getState();
+    expect(state.user).toBeNull();
+    expect(mockMerge).not.toHaveBeenCalled();
+    // pendingConsent intact : l'user re-soumet avec un autre pseudo.
+    expect(state.pendingConsent).toBe(true);
   });
 });
 
