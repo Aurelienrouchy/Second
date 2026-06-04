@@ -183,7 +183,7 @@ export default function ProfileScreen() {
         title: 'Aide',
         icon: 'help-circle-outline',
         iconColor: colors.charcoal,
-        iconBg: 'rgba(26, 24, 20, 0.04)',
+        iconBg: colors.surfaceSubtle,
         action: () => router.push('/settings/help'),
       },
     ],
