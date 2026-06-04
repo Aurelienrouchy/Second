@@ -45,6 +45,14 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
   disabled?: boolean;
+  /**
+   * When false, the border stays neutral gray on focus instead of animating to
+   * the rust accent. Use for fields whose validity is already conveyed by an
+   * explicit signal (e.g. an async-check icon), where a colored focus border
+   * reads as an error. The border still turns danger-red when `error` is set.
+   * Default: true (unchanged behavior for every other input).
+   */
+  focusAccent?: boolean;
 }
 
 // =============================================================================
