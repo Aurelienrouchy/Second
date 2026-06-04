@@ -289,7 +289,14 @@ export const useAuthStore = create<AuthStore>()(
     try {
       await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
       await AsyncStorage.setItem(HAS_LAUNCHED_KEY, 'true');
-      set({ user: userData, isFirstLaunch: false });
+      // Flip authenticated + clear any pendingConsent residue (the consent
+      // completion path calls signIn once dateOfBirth is written).
+      set({
+        user: userData,
+        isFirstLaunch: false,
+        pendingConsent: false,
+        pendingConsentUser: null,
+      });
     } catch (error) {
       if (__DEV__) console.log('[authStore] signIn error:', error);
     }
