@@ -1,11 +1,19 @@
 /**
  * AuthService — comportement MÉTIER de l'inscription / connexion / consentement.
  *
- * Couvre les règles non-négociables du domaine auth-onboarding :
- *  - Age gate 16+ AVANT toute création de compte (jamais d'orphelin)
- *  - Consentement obligatoire (CGU + Politique) requis à l'inscription
- *  - Rollback Loi 25 : un compte social sans consentement est supprimé s'il est
- *    BRAND-NEW, mais seulement déconnecté s'il EXISTE déjà (préserve solde/commandes)
+ * Couvre les règles non-négociables du domaine auth-onboarding APRÈS le refacto
+ * route plein écran (app/complete-profile.tsx) + split inscription :
+ *  - signUpWithEmail(email, password, displayName) crée un compte « NU » : pas
+ *    d'age gate à la création, pas de recordSignupConsent, pas d'auto-assign
+ *    username. Email de vérification envoyé (best-effort). Doc users authProvider
+ *    'email', SANS dateOfBirth.
+ *  - recordConsentForCurrentUser(consent) : age gate client + consentements, puis
+ *    appelle recordSignupConsent (avec desiredUsername si fourni) et PROPAGE
+ *    l'erreur brute du callable (already-exists / invalid-argument /
+ *    failed-precondition) — pas de rollback destructif ici.
+ *  - checkUsernameAvailability(username) : passe-plat vers le callable.
+ *  - Rollback Loi 25 (social uniquement) : un compte sans consentement est
+ *    supprimé s'il est BRAND-NEW, mais seulement déconnecté s'il EXISTE déjà.
  *  - computeConsentState : nouveau compte OU compte sans dateOfBirth → needsConsent
  *  - Messages d'erreur Firebase traduits en FR
  *  - Apple Sign-In refusé hors iOS
