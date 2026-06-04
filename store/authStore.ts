@@ -123,6 +123,9 @@ const initialState: AuthState = {
   isLoading: true,
   isFirstLaunch: true,
   guestSession: null,
+  pendingConsent: false,
+  pendingConsentUser: null,
+  pendingConsentOnSuccess: null,
 };
 
 // ─── Store ──────────────────────────────────────────────────────────────────
