@@ -78,7 +78,7 @@ const ProfileHeader = React.memo(function ProfileHeader({
         <Avatar
           source={profileImage}
           name={displayName || 'U'}
-          size="xxl"
+          size="xl"
         />
         <View style={styles.nameSection}>
           <Text style={styles.userName}>
