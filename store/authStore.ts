@@ -267,7 +267,13 @@ export const useAuthStore = create<AuthStore>()(
           if (__DEV__) console.log('[authStore] offline cache hydrate skipped:', cacheError);
         }
       }
-      set({ user: null, isLoading: false });
+      // Aucun compte Firebase → ni connecté ni pendingConsent (vrai invité).
+      set({
+        user: null,
+        isLoading: false,
+        pendingConsent: false,
+        pendingConsentUser: null,
+      });
       await AsyncStorage.removeItem(USER_DATA_KEY);
       // No user yet → make sure a guest session exists for tracking.
       if (!get().guestSession) {
