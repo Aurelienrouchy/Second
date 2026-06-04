@@ -106,7 +106,7 @@ export default function ProfileScreen() {
         title: 'Mes commandes',
         icon: 'cube-outline',
         iconColor: colors.rust,
-        iconBg: 'rgba(196, 96, 58, 0.08)',
+        iconBg: colors.primaryLight,
         action: () => router.push('/my-orders'),
       },
       {
