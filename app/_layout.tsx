@@ -13,6 +13,7 @@ import AuthBottomSheet from '@/components/AuthBottomSheet';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { useAuthListener } from '@/hooks/useAuthListener';
 import { useChatListener } from '@/hooks/useChatListener';
+import { useConsentGuard } from '@/hooks/useConsentGuard';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { useSplashScreen } from '@/hooks/useSplashScreen';
