@@ -193,6 +193,7 @@ Zustand 5 + `subscribeWithSelector`. Tous ont `reset()` appelé dans `store/rese
 | Hook | Fichier | Domaine |
 |------|---------|---------|
 | `useAuthListener` | `useAuthListener.ts` | Auth — Firebase onAuthStateChanged → authStore |
+| `useConsentGuard` | `useConsentGuard.ts` | Auth — guard pendingConsent → /complete-profile (Loi 25) |
 | `useAuthRequired` | `useAuthRequired.ts` | Auth — gate (→ authSheetStore.show) |
 | `useUserProfile` | `useUserProfile.ts` | User — profil Firestore |
 | `useChat` | `useChat.ts` | Chat — envoi messages |
