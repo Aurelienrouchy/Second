@@ -96,15 +96,33 @@ function computeAge(dob: { year: number; month: number; day: number }): number {
 /**
  * recordSignupConsent
  *
- * input  = { dateOfBirth: "YYYY-MM-DD", acceptedTerms, acceptedPrivacy, marketingOptIn }
- * output = { ok: true, age: number }
+ * input  = { dateOfBirth: "YYYY-MM-DD", acceptedTerms, acceptedPrivacy,
+ *            marketingOptIn, desiredUsername? }
+ * output = { ok: true, age: number, username?: string }
  *
- * - Auth requise.
- * - Âge >= MIN_AGE_REGISTER (16) sinon invalid-argument.
- * - acceptedTerms et acceptedPrivacy doivent être true (consentement obligatoire).
- * - Écrit users/{uid}.dateOfBirth (string ISO).
- * - Crée les docs consents : terms + privacy_policy toujours ; marketing
- *   seulement si marketingOptIn === true. version = POLICY_VERSION.
+ * SINGLE submit entry point for the signup route. In ONE runTransaction
+ * (all-or-nothing), it:
+ *   - Auth requise.
+ *   - Âge >= MIN_AGE_REGISTER (16) sinon invalid-argument.
+ *   - acceptedTerms et acceptedPrivacy doivent être true (consentement obligatoire).
+ *   - Réserve atomiquement le pseudo CHOISI s'il est fourni (voir ci-dessous),
+ *     écrit users/{uid}.dateOfBirth (string ISO) + username, et crée les docs
+ *     consents : terms + privacy_policy toujours ; marketing seulement si
+ *     marketingOptIn === true. version = POLICY_VERSION.
+ *
+ * USERNAME contract (desiredUsername):
+ *   - Format re-validated SERVER-SIDE (3–20, charset, no leading/trailing/
+ *     doubled separators) — invalid → HttpsError('invalid-argument', ...) with
+ *     `details: { field: 'username', reason }`.
+ *   - If usernames/{desiredUsername} already belongs to ANOTHER uid →
+ *     HttpsError('already-exists', ...) with `details: { field: 'username' }`.
+ *     NO auto suffix: a taken chosen handle is rejected so the user picks again.
+ *     This MUST be an inline field error client-side — the account is NOT rolled
+ *     back.
+ *   - Idempotence (double submit): if users/{uid}.username already exists, it is
+ *     returned unchanged. If desiredUsername equals the existing handle that is
+ *     also fine (no-op reservation). If they differ, the existing handle wins
+ *     (immutable) and is returned — the new value is ignored.
  */
 export const recordSignupConsent = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
@@ -115,7 +133,7 @@ export const recordSignupConsent = onCall(
     const uid = request.auth.uid;
 
     const data = (request.data ?? {}) as Partial<RecordSignupConsentInput>;
-    const { dateOfBirth, acceptedTerms, acceptedPrivacy, marketingOptIn } = data;
+    const { dateOfBirth, acceptedTerms, acceptedPrivacy, marketingOptIn, desiredUsername } = data;
 
     // ── Validation ──
     if (typeof dateOfBirth !== 'string') {
@@ -144,46 +162,115 @@ export const recordSignupConsent = onCall(
       );
     }
 
-    try {
-      const batch = db.batch();
-      const userRef = db.collection('users').doc(uid);
-      const consentsRef = userRef.collection('consents');
+    // ── Chosen-username format validation (server-authoritative). ──
+    // desiredUsername is optional for backward compat; when present it must be
+    // well-formed. We never trust the client's debounced availability check.
+    const hasDesiredUsername =
+      typeof desiredUsername === 'string' && desiredUsername.trim().length > 0;
+    let normalizedUsername: string | null = null;
+    if (hasDesiredUsername) {
+      const validation = validateChosenUsername(desiredUsername);
+      if (!validation.valid) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Pseudo invalide',
+          { field: 'username', reason: validation.reason }
+        );
+      }
+      normalizedUsername = validation.username;
+    }
 
-      // Persist the date of birth (ISO string — never undefined).
-      batch.set(
-        userRef,
-        {
+    const consentTypes: ConsentType[] = ['terms', 'privacy_policy'];
+    if (wantsMarketing) {
+      consentTypes.push('marketing');
+    }
+
+    try {
+      // ATOMIC: consent write + username reservation in a single transaction.
+      // All reads (user doc + username registry) precede all writes, as the
+      // Firestore transaction API requires.
+      const resolvedUsername = await db.runTransaction(async (tx) => {
+        const userRef = db.collection('users').doc(uid);
+        const userSnap = await tx.get(userRef);
+        const existingUsername = userSnap.exists
+          ? (userSnap.data()?.username as string | undefined)
+          : undefined;
+
+        // ── Resolve the username to persist (with idempotence). ──
+        let usernameToWrite: string | null = null;
+        if (typeof existingUsername === 'string' && existingUsername.length > 0) {
+          // IMMUTABLE: an assigned handle is never overwritten. Return it as-is,
+          // even if desiredUsername differs (the new value is ignored).
+          usernameToWrite = null; // nothing to write on the username front
+        } else if (normalizedUsername) {
+          // No existing handle: attempt to reserve the chosen one.
+          const regRef = db.collection('usernames').doc(normalizedUsername);
+          const regSnap = await tx.get(regRef);
+          if (regSnap.exists) {
+            const ownerUid = regSnap.data()?.uid;
+            if (ownerUid === uid) {
+              // Registry already points to us (partial prior submit). No-op
+              // reservation; we still (re)write users.username below for repair.
+              usernameToWrite = normalizedUsername;
+            } else {
+              // Taken by someone else → reject, NO auto suffix.
+              throw new HttpsError(
+                'already-exists',
+                'Ce pseudo est déjà pris',
+                { field: 'username' }
+              );
+            }
+          } else {
+            // Free → reserve it.
+            tx.set(regRef, { uid, createdAt: FieldValue.serverTimestamp() });
+            usernameToWrite = normalizedUsername;
+          }
+        }
+
+        // ── Write the user doc (DOB + optional username). Never undefined. ──
+        const userPayload: Record<string, unknown> = {
           dateOfBirth,
           updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+        };
+        if (usernameToWrite) {
+          userPayload.username = usernameToWrite;
+        }
+        tx.set(userRef, userPayload, { merge: true });
 
-      const consentTypes: ConsentType[] = ['terms', 'privacy_policy'];
-      if (wantsMarketing) {
-        consentTypes.push('marketing');
-      }
+        // ── Append the consent proof docs (auto-id). ──
+        const consentsRef = userRef.collection('consents');
+        for (const type of consentTypes) {
+          tx.set(consentsRef.doc(), {
+            type,
+            version: POLICY_VERSION,
+            acceptedAt: FieldValue.serverTimestamp(),
+            channel: 'app',
+          });
+        }
 
-      for (const type of consentTypes) {
-        batch.set(consentsRef.doc(), {
-          type,
-          version: POLICY_VERSION,
-          acceptedAt: FieldValue.serverTimestamp(),
-          channel: 'app',
-        });
-      }
-
-      await batch.commit();
+        // Return the effective handle for the response (existing wins).
+        return (typeof existingUsername === 'string' && existingUsername.length > 0)
+          ? existingUsername
+          : usernameToWrite;
+      });
 
       logger.info('recordSignupConsent: consents recorded', {
         uid,
         age,
         policyVersion: POLICY_VERSION,
         marketing: wantsMarketing,
+        usernameReserved: resolvedUsername != null,
       });
 
-      return { ok: true as const, age };
+      return resolvedUsername
+        ? { ok: true as const, age, username: resolvedUsername }
+        : { ok: true as const, age };
     } catch (error: unknown) {
+      if (error instanceof HttpsError) {
+        // Preserve precise codes (already-exists / invalid-argument) for the
+        // client's inline field error.
+        throw error;
+      }
       const message = error instanceof Error ? error.message : 'Unknown error';
       logger.error('recordSignupConsent failed', { uid, error: message });
       throw new HttpsError('internal', 'Failed to record consent: ' + message);
