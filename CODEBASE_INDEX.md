@@ -376,6 +376,9 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `style.ts` | Profil style |
 | `swaps.ts` | Échanges |
 | `users.ts` | Suppression compte (GDPR Art. 17 / Loi 25) |
+| `username.ts` | `assignUsername` (auto-dérivation legacy/rescue) + helpers partagés `validateChosenUsername` / `USERNAME_MIN_LEN` (3) / `CHOSEN_USERNAME_MAX_LEN` (20). Réserve `usernames/{handle}` atomiquement, immuable |
+| `checkUsernameAvailability.ts` | `checkUsernameAvailability` — probe lecture seule de la route signup (pseudo CHOISI). Input `{username}` → `{ok,available,reason?}` (`too_short`/`too_long`/`invalid_chars`/`taken`). Ne réserve rien, anti-énumération (jamais le uid) |
+| `consent.ts` | `recordSignupConsent` — UNIQUE point d'entrée submit signup : age-gate (≥16) + consentements + RÉSERVATION ATOMIQUE du pseudo choisi (`desiredUsername`) en un `runTransaction`. Pseudo pris par un autre uid → `already-exists` (PAS de suffixe auto, erreur inline, pas de rollback compte). Idempotent. + `setMarketingConsent` (retrait Loi 25 art. 14) |
 | `wallet.ts` | Porte-monnaie virtuel (activateWallet, getWalletInfo, walletWithdraw, payWithWallet, refundWalletPayment, getOrCreateSellerWallet helper) |
 
 ### Triggers — `functions/src/triggers/`
