@@ -132,7 +132,7 @@ function SignUpFormComponent({
         {isLoading ? (
           <ActivityIndicator color={colors.white} />
         ) : (
-          <Text style={styles.primaryButtonText}>S'INSCRIRE</Text>
+          <Text style={styles.primaryButtonText}>{"S'INSCRIRE"}</Text>
         )}
       </Pressable>
     </View>
