@@ -476,3 +476,5 @@ export const selectUser = (s: AuthStore) => s.user;
 export const selectIsAuthenticated = (s: AuthStore) => s.user !== null;
 export const selectIsGuest = (s: AuthStore) => s.user === null;
 export const selectIsLoading = (s: AuthStore) => s.isLoading;
+export const selectPendingConsent = (s: AuthStore) => s.pendingConsent;
+export const selectPendingConsentUser = (s: AuthStore) => s.pendingConsentUser;
