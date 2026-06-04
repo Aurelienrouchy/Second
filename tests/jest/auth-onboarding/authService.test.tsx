@@ -348,8 +348,85 @@ describe('AuthService.recordConsentForCurrentUser', () => {
     );
 
     const fresh = await AuthService.recordConsentForCurrentUser(VALID_CONSENT);
-    expect(mockCallable).toHaveBeenCalled();
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'recordSignupConsent');
+    expect(mockCallable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dateOfBirth: VALID_CONSENT.dateOfBirth,
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+        marketingOptIn: false,
+      }),
+    );
     expect(fresh.dateOfBirth).toBe(VALID_CONSENT.dateOfBirth);
+  });
+
+  it('transmet desiredUsername au callable quand il est fourni', async () => {
+    (auth as { currentUser: unknown }).currentUser = { uid: 'u' };
+    (getDoc as jest.Mock).mockResolvedValue(
+      makeUserDoc({ id: 'u', email: 'u@x.com', dateOfBirth: VALID_CONSENT.dateOfBirth, username: 'marie' }),
+    );
+
+    await AuthService.recordConsentForCurrentUser({ ...VALID_CONSENT, desiredUsername: 'marie' });
+    expect(mockCallable).toHaveBeenCalledWith(
+      expect.objectContaining({ desiredUsername: 'marie' }),
+    );
+  });
+
+  it("n'inclut JAMAIS desiredUsername:undefined dans le payload (pas de undefined Firestore)", async () => {
+    (auth as { currentUser: unknown }).currentUser = { uid: 'u' };
+    (getDoc as jest.Mock).mockResolvedValue(
+      makeUserDoc({ id: 'u', email: 'u@x.com', dateOfBirth: VALID_CONSENT.dateOfBirth }),
+    );
+
+    await AuthService.recordConsentForCurrentUser(VALID_CONSENT);
+    const payload = mockCallable.mock.calls[0][0] as Record<string, unknown>;
+    expect('desiredUsername' in payload).toBe(false);
+  });
+
+  it("propage l'erreur BRUTE du callable (already-exists pseudo pris) SANS rollback", async () => {
+    (auth as { currentUser: unknown }).currentUser = { uid: 'u' };
+    const takenError = Object.assign(new Error('username taken'), {
+      code: 'already-exists',
+      details: { field: 'username' },
+    });
+    mockCallable.mockRejectedValueOnce(takenError);
+
+    // L'erreur remonte telle quelle (code/details préservés) → la route peut
+    // afficher « pseudo pris » inline et laisser l'user re-soumettre. Aucun
+    // getDoc de rafraîchissement, aucune suppression de compte.
+    await expect(
+      AuthService.recordConsentForCurrentUser({ ...VALID_CONSENT, desiredUsername: 'marie' }),
+    ).rejects.toMatchObject({ code: 'already-exists', details: { field: 'username' } });
+    expect(deleteDoc).not.toHaveBeenCalled();
+    expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it('lève si le user Firestore est introuvable après un consentement réussi', async () => {
+    (auth as { currentUser: unknown }).currentUser = { uid: 'u' };
+    (getDoc as jest.Mock).mockResolvedValue({ exists: () => false, data: () => null });
+
+    await expect(AuthService.recordConsentForCurrentUser(VALID_CONSENT)).rejects.toThrow(
+      /introuvables/,
+    );
+  });
+});
+
+describe('AuthService.checkUsernameAvailability', () => {
+  it('relaie le résultat du callable checkUsernameAvailability', async () => {
+    mockCallable.mockResolvedValueOnce({ data: { ok: true, available: true } });
+
+    const result = await AuthService.checkUsernameAvailability('marie');
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'checkUsernameAvailability');
+    expect(mockCallable).toHaveBeenCalledWith({ username: 'marie' });
+    expect(result).toEqual({ ok: true, available: true });
+  });
+
+  it('relaie un pseudo indisponible (taken)', async () => {
+    mockCallable.mockResolvedValueOnce({ data: { ok: true, available: false, reason: 'taken' } });
+
+    const result = await AuthService.checkUsernameAvailability('prise');
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe('taken');
   });
 });
 
