@@ -219,6 +219,14 @@ function AppContent({ fontsReady }: { fontsReady: boolean }) {
               name="onboarding"
               options={{ animation: 'fade', gestureEnabled: false }}
             />
+            {/* Mandatory post-signup consent step (DOB + consents + @pseudo).
+                gestureEnabled:false blocks the iOS back-swipe; a BackHandler in
+                the screen consumes the Android back. Same lock the auth sheet
+                had in socialConsent. */}
+            <Stack.Screen
+              name="complete-profile"
+              options={{ animation: 'fade', gestureEnabled: false }}
+            />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="article/[id]" />
             <Stack.Screen name="chat/[id]" />
