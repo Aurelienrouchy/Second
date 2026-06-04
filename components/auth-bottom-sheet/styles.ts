@@ -239,6 +239,16 @@ export const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
 
+  // ── Field hint (neutral micro-helper under a field, e.g. display name) ──
+  fieldHint: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+
   // ── Success state ──
   successBox: {
     alignItems: 'center',
