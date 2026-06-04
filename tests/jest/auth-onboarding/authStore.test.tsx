@@ -292,7 +292,9 @@ describe('authStore.signInWithGoogle — gate de consentement', () => {
   });
 });
 
-describe('authStore.recordSocialConsent', () => {
+// @deprecated — remplacé par completeConsent (route plein écran). Conservé tant
+// que le shim AuthContext l'expose : on vérifie qu'il reste fonctionnel.
+describe('authStore.recordSocialConsent (shim déprécié)', () => {
   it('persiste le consentement via AuthService puis authentifie + merge', async () => {
     mockRecordConsent.mockResolvedValue(CONSENTED_USER);
 
