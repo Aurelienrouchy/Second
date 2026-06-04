@@ -64,12 +64,33 @@ interface AuthActions {
   skipAuth: () => Promise<void>;
   refreshUser: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
+  /**
+   * Creates a BARE Firebase account (no DOB/consent/username). Does NOT sign the
+   * user into the app: the mandatory consent route (app/complete-profile.tsx)
+   * runs next and calls `completeConsent`. After creation the Firebase listener
+   * will hydrate the user as `pendingConsent` (no dateOfBirth yet).
+   */
   signUpWithEmail: (
     email: string,
     password: string,
-    username: string,
-    consent: SignupConsent,
+    displayName: string,
   ) => Promise<User>;
+  /**
+   * Marks a freshly authenticated (email or social) account as `pendingConsent`
+   * so the startup guard routes to app/complete-profile.tsx. Called by the auth
+   * sheet right after a bare email signup OR a social sign-in that `needsConsent`.
+   * `onSuccess` is threaded from the sheet and fired once consent completes.
+   */
+  beginPendingConsent: (user: User, onSuccess: (() => void) | null) => void;
+  /**
+   * Completes the mandatory consent step for the current pendingConsent user
+   * (email AND social). STRICT ORDER (audit A6): recordSignupConsent (reserves
+   * @pseudo + writes DOB atomically) → signIn (flip authenticated) →
+   * mergeGuestToUser. Then clears pendingConsent and fires pendingConsentOnSuccess.
+   * Throws the raw callable error (FirebaseError) so the route can map error.code
+   * / error.details to inline messages; on failure the user does NOT enter the app.
+   */
+  completeConsent: (consent: SignupConsent) => Promise<User>;
   /**
    * Social sign-in. Returns `needsConsent: true` for a brand-new or
    * not-yet-consented account — in that case the user is NOT signed into
