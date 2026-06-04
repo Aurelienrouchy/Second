@@ -174,13 +174,22 @@ export const useAuthStore = create<AuthStore>()(
           // JAMAIS débloquer les capacités tant que le consentement n'est pas
           // enregistré. `dateOfBirth` n'est écrit QUE par le callable serveur
           // recordSignupConsent : son absence prouve le « pas encore consenti ».
-          // → on traite ce cas comme non-onboardé : pas d'authentification,
-          // session invité conservée, USER_DATA_KEY non persisté. Le flux
-          // post-consentement (recordSocialConsent → signIn) ré-authentifie
-          // une fois dateOfBirth écrit. Les inscriptions email écrivent
-          // dateOfBirth dès le setDoc, donc elles ne sont pas affectées.
+          // → on traite ce cas comme `pendingConsent` : NI pleinement connecté
+          // (user reste null, capacités bloquées), NI simple invité. Le guard de
+          // démarrage (useConsentGuard) route vers app/complete-profile.tsx tant
+          // que le consentement n'est pas enregistré. USER_DATA_KEY non persisté
+          // (offline cache réservé aux comptes consentés). Le flux post-route
+          // (completeConsent → recordSignupConsent → signIn) ré-authentifie une
+          // fois dateOfBirth écrit. Email ET social passent désormais ici (le
+          // compte email est créé NU, sans dateOfBirth, depuis Sprint route).
           if (!fresh.dateOfBirth) {
-            set({ user: null, isLoading: false });
+            set({
+              user: null,
+              isLoading: false,
+              pendingConsent: true,
+              // Identité partielle pour le contexte de la route (pas la full User).
+              pendingConsentUser: fresh,
+            });
             await AsyncStorage.removeItem(USER_DATA_KEY);
             if (!get().guestSession) {
               await get().initGuestSession();
