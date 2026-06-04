@@ -14,6 +14,15 @@
  * displayName et la notification onChangeDisplayName.
  */
 
+// BottomSheetTextInput exige le contexte BottomSheet (useBottomSheetInternal) —
+// hors périmètre d'un test unitaire du formulaire. On le réduit au TextInput RN
+// natif (mêmes props value/onChangeText/onBlur/accessibilityLabel), ce qui
+// préserve le comportement testé sans monter un BottomSheet réel.
+jest.mock('@gorhom/bottom-sheet', () => {
+  const { TextInput } = require('react-native');
+  return { BottomSheetTextInput: TextInput };
+});
+
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
