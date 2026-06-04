@@ -420,20 +420,20 @@ export const useAuthStore = create<AuthStore>()(
     return result;
   },
 
+  // @deprecated Remplacé par `completeConsent` (route plein écran). Conservé
+  // pour le shim AuthContext + les tests historiques. N'orchestre PAS le pseudo
+  // ni le pendingConsentOnSuccess — ne pas utiliser en code neuf.
   recordSocialConsent: async (user, consent) => {
-    // Persiste dateOfBirth + consents côté serveur (recordSignupConsent),
-    // puis fait entrer l'utilisateur dans l'app et merge la session invité.
     const fresh = await AuthService.recordConsentForCurrentUser(consent);
     await get().signIn(fresh);
     await get().mergeGuestToUser(user.id);
     return fresh;
   },
 
+  // @deprecated Le nouveau flux ne rollback plus à la fermeture : un compte
+  // non-consenti reste `pendingConsent` et le guard de démarrage le ramène à la
+  // route. Conservé pour le shim + tests (filet de sécurité signOut/suppression).
   rollbackSocialSignIn: async (isNewUser) => {
-    // Compte BRAND-NEW : supprime le compte Auth + doc user (best-effort).
-    // Compte EXISTANT (isNewUser=false) : simple signOut, jamais de
-    // suppression destructive (préserve solde/commandes). Dans les deux cas
-    // on nettoie l'état local → non-authentifié.
     await AuthService.rollbackUnconsentedAccount(isNewUser);
     set({ ...initialState, isLoading: false });
   },
