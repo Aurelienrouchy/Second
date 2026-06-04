@@ -81,7 +81,12 @@ jest.mock('firebase/firestore', () => ({
   arrayUnion: jest.fn((...args: unknown[]) => args),
 }));
 
-const mockCallable = jest.fn(() => Promise.resolve({ data: { ok: true } }));
+// Callable générique : accepte n'importe quel payload et résout vers une forme
+// `{ data: ... }` ouverte (recordSignupConsent, checkUsernameAvailability, …).
+const mockCallable = jest.fn(
+  (..._args: unknown[]): Promise<{ data: Record<string, unknown> }> =>
+    Promise.resolve({ data: { ok: true } }),
+);
 jest.mock('firebase/functions', () => ({
   httpsCallable: jest.fn(() => mockCallable),
 }));
