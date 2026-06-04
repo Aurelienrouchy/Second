@@ -313,7 +313,9 @@ describe('authStore.recordSocialConsent (shim déprécié)', () => {
   });
 });
 
-describe('authStore.rollbackSocialSignIn', () => {
+// @deprecated — le nouveau flux ne rollback plus à la fermeture (pendingConsent
+// + guard ramène à la route). Conservé pour le shim : on vérifie le filet.
+describe('authStore.rollbackSocialSignIn (shim déprécié)', () => {
   it('délègue à AuthService avec isNewUser=true et remet l\'état à zéro', async () => {
     // Simule un état déjà partiellement peuplé.
     await useAuthStore.getState().signIn(CONSENTED_USER);
