@@ -1,14 +1,22 @@
 /**
  * authStore — orchestration MÉTIER de la session (Zustand 5).
  *
- * Couvre les comportements observables du store, pas son câblage interne :
+ * Couvre les comportements observables du store APRÈS le refacto route plein
+ * écran (pendingConsent + completeConsent), pas son câblage interne :
  *  - Consent gate (Loi 25) dans hydrateFromFirebase : un user Firestore SANS
- *    dateOfBirth ne doit JAMAIS être authentifié (user reste null, session invité).
- *  - hydrateFromFirebase avec dateOfBirth → user authentifié + persisté.
+ *    dateOfBirth n'est JAMAIS authentifié (user reste null) mais devient
+ *    `pendingConsent` (avec pendingConsentUser) → le guard de démarrage route
+ *    vers app/complete-profile.tsx. Pas de persistance USER_DATA_KEY.
+ *  - hydrateFromFirebase avec dateOfBirth → user authentifié, pendingConsent
+ *    effacé, persisté.
+ *  - signUpWithEmail : crée un compte NU, NE signIn PAS, NE merge PAS (le flux
+ *    passe par la route + completeConsent).
+ *  - beginPendingConsent : pose pendingConsent + pendingConsentUser + onSuccess.
+ *  - completeConsent : ORDRE STRICT recordSignupConsent → signIn → merge, puis
+ *    efface pendingConsent et rejoue pendingConsentOnSuccess. Sur erreur du
+ *    callable, n'authentifie PAS et ne touche pas pendingConsent.
  *  - Social sign-in : needsConsent=true ⇒ l'utilisateur N'ENTRE PAS dans l'app
  *    (pas de signIn) ; needsConsent=false ⇒ signIn + merge invité.
- *  - rollbackSocialSignIn délègue à AuthService avec le bon isNewUser et remet
- *    l'état à zéro (user null).
  *  - reset() restaure l'état initial.
  *
  * On mocke AuthService + les services/stores satellites pour isoler la logique
