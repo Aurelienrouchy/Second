@@ -396,33 +396,63 @@ managed via the preferences flow — NOT written by `recordSignupConsent`.
 
 ### `usernames/{username}`
 
-Uniqueness registry for the persistent, immutable `@handle`. The document ID **is**
+Uniqueness registry for the unique, immutable `@handle`. The document ID **is**
 the username (e.g. `usernames/marie.dupont`). Acts as a lock: reserving the doc in
 a transaction guarantees a username is owned by exactly one user.
 
-**WRITTEN SERVER-SIDE ONLY** by the `assignUsername` callable (Admin SDK, inside a
-`runTransaction`). Firestore rules: `read, write: if false` — fully server-only
-(no client read either: this prevents username enumeration and the mapping leaks
-nothing useful client-side).
+**WRITTEN SERVER-SIDE ONLY** (Admin SDK, inside a `runTransaction`) by:
+`recordSignupConsent` (chosen-username reservation at signup, primary path),
+`assignUsername` (auto-derived legacy/rescue path), and the `backfillUsernames`
+script. Firestore rules: `read, write: if false` — fully server-only (no client
+read either: this prevents username enumeration and the mapping leaks nothing
+useful client-side).
 
 ```typescript
 interface UsernameDocument {
   uid: string;          // The user that owns this username
-  createdAt: Timestamp; // serverTimestamp()
+  createdAt: Timestamp; // serverTimestamp() (or the user's createdAt for backfilled entries)
+  backfilled?: boolean; // present only on entries created by backfillUsernames
 }
 ```
 
-**`assignUsername()`** (callable, region `northamerica-northeast1`, 512MiB): derives
-a slug from `displayName` (transliterate accents → lowercase → spaces to `.` → strip
-chars outside `[a-z0-9._-]` → collapse repeated separators → trim borders, bounded
-3–30 chars, deterministic `user.<uid6>` fallback for degenerate names). If the slug
-is taken, appends a numeric suffix (`.2`, `.3`, …). Within a single transaction it
-reserves `usernames/{final}` and writes `users/{uid}.username = final`.
-**Idempotent / immutable**: if `users/{uid}.username` already exists it is returned
-unchanged (no-op) — the function can never rename an assigned handle. Auth required;
-operates on the caller's own uid. Returns `{ ok: true, username, alreadyAssigned }`.
-Must be called right after the `users/{uid}` doc is created, for ALL providers
-(email + Google + Apple).
+**PIVOT (2026-06): user-chosen handle.** The handle is now CHOSEN by the user on
+the signup route (not auto-derived). The format rules for a chosen handle live in
+`functions/src/callable/username.ts` as `validateChosenUsername()`:
+- length **3–20** (`USERNAME_MIN_LEN = 3`, `CHOSEN_USERNAME_MAX_LEN = 20`),
+- charset `[a-z0-9._-]`,
+- no leading/trailing separator, no doubled separators.
+Input is trimmed + lowercased, otherwise accepted/rejected as typed (no
+transliteration). This validator is shared by both the availability probe and the
+submit, so they can never drift.
+
+**`checkUsernameAvailability()`** (callable, `northamerica-northeast1`, 512MiB,
+auth required): read-only probe (client debounces ~350ms). Input `{ username }`.
+Output `{ ok: true, available: boolean, reason?: 'too_short' | 'too_long' |
+'invalid_chars' | 'taken' }`. Reserves NOTHING; a direct `usernames/{username}`
+doc lookup (no query). Anti-enumeration: never reveals the owning uid.
+
+**`recordSignupConsent()`** (callable, single submit entry point): reserves the
+chosen handle ATOMICALLY with the consent write in one `runTransaction`. Input
+adds `desiredUsername?`. Re-validates format server-side; if taken by ANOTHER uid
+→ `HttpsError('already-exists', …, { field: 'username' })` (NO auto suffix —
+inline field error client-side, account NOT rolled back). Idempotent: an existing
+`users/{uid}.username` is immutable and returned unchanged. Output
+`{ ok: true, age, username? }`.
+
+**`assignUsername()`** (callable, `northamerica-northeast1`, 512MiB): LEGACY /
+RESCUE auto-derivation. Derives a slug from `displayName` (transliterate accents →
+lowercase → spaces to `.` → strip chars outside `[a-z0-9._-]` → collapse repeated
+separators → trim borders, bounded 3–30 chars, deterministic `user.<uid6>`
+fallback). If the slug is taken, appends a numeric suffix (`.2`, `.3`, …). Reserves
+`usernames/{final}` + writes `users/{uid}.username = final` in a transaction.
+**Idempotent / immutable**. Still wired as the `authStore` rescue net for legacy
+accounts that signed up before the chosen-username route existed.
+
+**`backfillUsernames` script** (`functions/scripts/backfillUsernames.ts`, run by
+the founder locally, NOT deployed): one-shot idempotent backfill that guarantees
+every `users/*` with a `username` has a matching `usernames/{username}` entry.
+Conflicts (registry entry owned by a different uid) are logged and LEFT UNTOUCHED.
+Run order prerequisite — see deploy order below.
 
 ### `privacy_incidents/{incidentId}`
 
