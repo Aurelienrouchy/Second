@@ -143,7 +143,7 @@ export default function ProfileScreen() {
         title: 'Mes articles',
         icon: 'shirt-outline',
         iconColor: colors.charcoal,
-        iconBg: 'rgba(26, 24, 20, 0.04)',
+        iconBg: colors.surfaceSubtle,
         action: () => router.push('/my-articles'),
       },
       {
