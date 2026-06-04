@@ -41,12 +41,18 @@ import { computeAgeFromIso, MIN_AGE_REGISTER } from '@/utils/age';
  * Consent payload collected at signup. `dateOfBirth` is an ISO "YYYY-MM-DD"
  * calendar string (no Date/timezone) shared with the backend callable
  * `recordSignupConsent`.
+ *
+ * `desiredUsername` is the user-chosen @handle picked on the mandatory
+ * post-signup route (app/complete-profile.tsx). It is RESERVED + persisted
+ * atomically by recordSignupConsent. Optional: legacy/auto-assign fallback when
+ * absent.
  */
 export interface SignupConsent {
   dateOfBirth: string;
   acceptedTerms: boolean;
   acceptedPrivacy: boolean;
   marketingOptIn: boolean;
+  desiredUsername?: string;
 }
 
 /**
