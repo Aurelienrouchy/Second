@@ -350,8 +350,10 @@ export class AuthService {
 
         await setDoc(doc(firestore, 'users', firebaseUser.uid), firestoreData);
 
-        // Username persistant/immuable pour le nouveau compte (non-bloquant).
-        await this.ensureUsernameAssigned();
+        // Le username n'est PLUS auto-assigné à la création : il est choisi par
+        // l'utilisateur sur la route de consentement obligatoire et réservé par
+        // recordSignupConsent (desiredUsername). Le filet de rattrapage legacy
+        // dans authStore couvre les comptes pré-existants sans username.
       } else if (isGenericDisplayName(userData.displayName)) {
         await updateDoc(doc(firestore, 'users', firebaseUser.uid), { displayName: googleName });
         userData.displayName = googleName;
