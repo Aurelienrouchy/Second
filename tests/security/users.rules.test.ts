@@ -120,6 +120,44 @@ describe('users rules', () => {
     );
   });
 
+  // CHOSEN-USERNAME PIVOT: the user now picks a handle on the signup route, but
+  // reservation is still 100% server-side (recordSignupConsent runTransaction).
+  // A client must NOT be able to pre-squat a registry entry to reserve a handle
+  // out-of-band, even pointing it at their own uid.
+  it('denies a client from pre-reserving a chosen handle in the registry (self uid)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'usernames', 'cooluser'), { uid: ALICE }),
+    );
+  });
+
+  // ANTI-ENUMERATION: even when a registry entry exists (server-created), a
+  // client cannot read it to map handle -> uid. The availability probe goes
+  // through the checkUsernameAvailability callable (Admin SDK), which returns
+  // only a boolean.
+  it('denies a client read of an existing registry entry (no handle->uid enumeration)', async () => {
+    const env = await getTestEnv();
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'usernames', 'cooluser'), {
+        uid: 'someone-else',
+      });
+    });
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(getDoc(doc(db, 'usernames', 'cooluser')));
+  });
+
+  // The chosen handle still lands on users/{uid}.username, written ONLY by the
+  // server (recordSignupConsent). A client cannot self-write it at update time
+  // even after the pivot (immutability + server-authoritative reservation).
+  it('denies a client from writing their chosen username onto their user doc (update)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'users', ALICE), { username: 'cooluser' }),
+    );
+  });
+
   // ---------------------------------------------------------------------------
   // P0: Stripe financial gates must be locked against client writes (update).
   // These fields are the ONLY gates read by walletWithdraw / createTransaction /
