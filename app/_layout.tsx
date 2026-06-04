@@ -131,6 +131,10 @@ const GlobalListeners = React.memo(function GlobalListeners() {
   // ── Auth : Firebase listener + AsyncStorage bootstrap (single source) ──
   useAuthListener();
 
+  // ── Consent guard : route a pendingConsent account to /complete-profile ──
+  // (mandatory Loi 25 step). Lives here so its re-renders never hit the Stack.
+  useConsentGuard();
+
   // ── Chat list : single global listener (replaces ChatContext + useChats) ──
   useChatListener();
 
