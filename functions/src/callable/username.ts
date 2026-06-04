@@ -24,11 +24,72 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 
-const USERNAME_MIN_LEN = 3;
-const USERNAME_MAX_LEN = 30;
+export const USERNAME_MIN_LEN = 3;
+export const USERNAME_MAX_LEN = 30;
+
+// Upper bound for a USER-CHOSEN handle (signup route + availability check). The
+// auto-derived slug path (assignUsername) keeps the wider USERNAME_MAX_LEN for
+// legacy/fallback derivations; a human picking a handle is held to the tighter
+// 20-char cap. min is shared (USERNAME_MIN_LEN = 3).
+export const CHOSEN_USERNAME_MAX_LEN = 20;
+
+// Allowed character class for any handle: lowercase letters, digits and the
+// three separators. Shared between the auto-slug path and the chosen-username
+// validator so both stay aligned.
+const USERNAME_CHARSET = /^[a-z0-9._-]+$/;
+// Separators that may not lead, trail, or be doubled in a chosen username.
+const USERNAME_SEPARATOR = /[._-]/;
+
 // Max numeric suffixes to try before giving up (collision is astronomically
 // unlikely; this just bounds the transaction work).
 const MAX_SUFFIX_ATTEMPTS = 50;
+
+/**
+ * Reasons a chosen username can be rejected. Mirrored to the client contract
+ * (checkUsernameAvailability + recordSignupConsent error payloads).
+ */
+export type UsernameRejectionReason = 'too_short' | 'too_long' | 'invalid_chars';
+
+/**
+ * Server-authoritative format validation for a USER-CHOSEN username (signup
+ * route + availability check). Never trust the client; both the availability
+ * lookup and the reservation submit run this.
+ *
+ * Rules (in priority order so the returned reason is deterministic):
+ *   - too_short    : length < CHOSEN_USERNAME_MIN_LEN (3)
+ *   - too_long     : length > CHOSEN_USERNAME_MAX_LEN (20)
+ *   - invalid_chars: any char outside [a-z0-9._-], OR a separator (. _ -) that
+ *                    leads, trails, or is doubled.
+ *
+ * Returns { valid: true, username } with the (already-lowercased) handle when
+ * the input is well-formed, or { valid: false, reason } otherwise. Does NOT
+ * mutate/transliterate beyond a trim + lowercase: a chosen handle is accepted
+ * or rejected as-is so the user sees exactly what they typed.
+ */
+export function validateChosenUsername(
+  input: unknown
+): { valid: true; username: string } | { valid: false; reason: UsernameRejectionReason } {
+  const raw = typeof input === 'string' ? input.trim().toLowerCase() : '';
+
+  if (raw.length < USERNAME_MIN_LEN) {
+    return { valid: false, reason: 'too_short' };
+  }
+  if (raw.length > CHOSEN_USERNAME_MAX_LEN) {
+    return { valid: false, reason: 'too_long' };
+  }
+  if (!USERNAME_CHARSET.test(raw)) {
+    return { valid: false, reason: 'invalid_chars' };
+  }
+  // No leading/trailing separator.
+  if (USERNAME_SEPARATOR.test(raw[0]) || USERNAME_SEPARATOR.test(raw[raw.length - 1])) {
+    return { valid: false, reason: 'invalid_chars' };
+  }
+  // No doubled separators (e.g. "a..b", "a__b", "a.-b").
+  if (/[._-]{2,}/.test(raw)) {
+    return { valid: false, reason: 'invalid_chars' };
+  }
+  return { valid: true, username: raw };
+}
 
 /**
  * Transliterate common accented Latin characters to their ASCII equivalent.
