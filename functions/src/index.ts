@@ -125,7 +125,14 @@ export { recordSignupConsent, setMarketingConsent } from './callable/consent';
 // Username assignment — génère + réserve + persiste le @handle unique, immuable,
 // dérivé du displayName, atomiquement (runTransaction). Idempotent: appelable
 // après la création du doc users pour les 3 providers (email/Google/Apple).
+// Filet de rattrapage legacy (auto-dérivation) — le pseudo CHOISI passe par
+// checkUsernameAvailability (probe) + recordSignupConsent (réservation au submit).
 export { assignUsername } from './callable/username';
+
+// Username availability — probe lecture seule (debounce client ~350ms) pour la
+// route "choisis ton @pseudo". Ne réserve RIEN ; la réservation atomique a lieu
+// au submit dans recordSignupConsent. Anti-énumération: ne révèle jamais le uid.
+export { checkUsernameAvailability } from './callable/checkUsernameAvailability';
 
 // Privacy Incident Register Functions (admin-only; Loi 25 / RGPD breach log)
 export {
