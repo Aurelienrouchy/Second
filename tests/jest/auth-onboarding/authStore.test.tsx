@@ -22,6 +22,7 @@ const mockRollback = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockAuthSignOut = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockEnsureUsername = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockRecordConsent = jest.fn();
+const mockSignUpWithEmail = jest.fn();
 const mockSignInWithEmail = jest.fn();
 const mockSignInWithGoogle = jest.fn();
 const mockSignInWithApple = jest.fn();
@@ -33,6 +34,7 @@ jest.mock('@/services/authService', () => ({
     signOut: (...a: unknown[]) => mockAuthSignOut(...a),
     ensureUsernameAssigned: (...a: unknown[]) => mockEnsureUsername(...a),
     recordConsentForCurrentUser: (...a: unknown[]) => mockRecordConsent(...a),
+    signUpWithEmail: (...a: unknown[]) => mockSignUpWithEmail(...a),
     signInWithEmail: (...a: unknown[]) => mockSignInWithEmail(...a),
     signInWithGoogle: (...a: unknown[]) => mockSignInWithGoogle(...a),
     signInWithApple: (...a: unknown[]) => mockSignInWithApple(...a),
