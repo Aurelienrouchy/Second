@@ -204,7 +204,13 @@ export const useAuthStore = create<AuthStore>()(
             });
             fresh.email = fbUser.email;
           }
-          set({ user: fresh, isLoading: false });
+          // Consenti : flux normal. On efface tout résidu pendingConsent.
+          set({
+            user: fresh,
+            isLoading: false,
+            pendingConsent: false,
+            pendingConsentUser: null,
+          });
           await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
 
           // ── Filet de sécurité username ──
