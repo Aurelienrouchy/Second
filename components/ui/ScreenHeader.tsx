@@ -20,7 +20,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts } from '@/constants/theme';
+import { colors, sizing, spacing, typography } from '@/constants/theme';
 
 export interface ScreenHeaderProps {
   /** Page title displayed in the header */
