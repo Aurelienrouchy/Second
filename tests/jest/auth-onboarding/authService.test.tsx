@@ -101,6 +101,7 @@ import {
   signInWithCredential,
   getAdditionalUserInfo,
   sendEmailVerification,
+  updateProfile,
 } from 'firebase/auth';
 import { getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
