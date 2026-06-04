@@ -162,8 +162,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   menuIconContainer: {
-    width: 36,
-    height: 36,
+    width: sizing.controlCircle,
+    height: sizing.controlCircle,
     borderRadius: radius.md,
     justifyContent: 'center',
     alignItems: 'center',
