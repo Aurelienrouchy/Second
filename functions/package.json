@@ -10,7 +10,9 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "backfill:usernames": "tsc -p scripts/tsconfig.json && node lib-scripts/backfillUsernames.js",
+    "backfill:usernames:dry": "tsc -p scripts/tsconfig.json && node lib-scripts/backfillUsernames.js --dry-run"
   },
   "engines": {
     "node": "20"
