@@ -50,6 +50,8 @@ export const useAuthActions = () =>
       signUpWithEmail: s.signUpWithEmail,
       signInWithGoogle: s.signInWithGoogle,
       signInWithApple: s.signInWithApple,
+      beginPendingConsent: s.beginPendingConsent,
+      completeConsent: s.completeConsent,
       recordSocialConsent: s.recordSocialConsent,
       rollbackSocialSignIn: s.rollbackSocialSignIn,
       initGuestSession: s.initGuestSession,
