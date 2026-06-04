@@ -497,16 +497,26 @@ export class AuthService {
 
   /**
    * Enregistre le consentement (date de naissance + CGU + politique + opt-in
-   * marketing) pour l'utilisateur DÉJÀ authentifié — utilisé par l'écran de
-   * consentement obligatoire qui suit une première connexion sociale.
+   * marketing + @pseudo choisi) pour l'utilisateur DÉJÀ authentifié — utilisé
+   * par la route de consentement OBLIGATOIRE (app/complete-profile.tsx), pour
+   * les DEUX flows (inscription email ET connexion sociale Google/Apple).
    *
    * Réutilise le callable serveur `recordSignupConsent` (région
    * northamerica-northeast1), source de vérité : il revalide l'âge (>= 16,
-   * America/Toronto), écrit users/{uid}.dateOfBirth et la sous-collection
-   * consents. L'âge est aussi pré-validé côté client (UX) avant l'appel.
+   * America/Toronto), RÉSERVE atomiquement le @pseudo (usernames registry),
+   * écrit users/{uid}.dateOfBirth + username et la sous-collection consents.
+   * L'âge est aussi pré-validé côté client (UX) avant l'appel.
    *
-   * Retourne le User rafraîchi (avec dateOfBirth). Lève en cas d'âge < 16,
-   * de cases manquantes ou d'échec serveur — le caller doit alors rollback.
+   * Propagation des erreurs : on NE wrappe PAS l'erreur du callable — on la
+   * laisse remonter telle quelle (FirebaseError avec `.code` / `.details`) pour
+   * que la route puisse distinguer :
+   *  - already-exists + details.field==='username' → pseudo pris (inline, pas
+   *    de rollback compte : l'user re-soumet avec un autre pseudo) ;
+   *  - invalid-argument + details.field==='username' → format @pseudo KO ;
+   *  - invalid-argument sans field → DOB invalide / âge < 16 ;
+   *  - failed-precondition → consentements manquants.
+   *
+   * Retourne le User rafraîchi (avec dateOfBirth + username).
    */
   static async recordConsentForCurrentUser(consent: SignupConsent): Promise<User> {
     const firebaseUser = auth.currentUser;
@@ -536,22 +546,53 @@ export class AuthService {
         acceptedTerms: boolean;
         acceptedPrivacy: boolean;
         marketingOptIn: boolean;
+        desiredUsername?: string;
       },
-      { ok: true; age: number }
+      { ok: true; age: number; username?: string }
     >(functions, 'recordSignupConsent');
 
-    await recordConsentFn({
+    const payload: {
+      dateOfBirth: string;
+      acceptedTerms: boolean;
+      acceptedPrivacy: boolean;
+      marketingOptIn: boolean;
+      desiredUsername?: string;
+    } = {
       dateOfBirth: consent.dateOfBirth,
       acceptedTerms: consent.acceptedTerms,
       acceptedPrivacy: consent.acceptedPrivacy,
       marketingOptIn: consent.marketingOptIn,
-    });
+    };
+    // N'inclure desiredUsername que s'il est fourni (jamais undefined explicite).
+    if (consent.desiredUsername) {
+      payload.desiredUsername = consent.desiredUsername;
+    }
+
+    // L'erreur du callable remonte telle quelle (cf. doc ci-dessus).
+    await recordConsentFn(payload);
 
     const fresh = await this.getUserData(firebaseUser.uid);
     if (!fresh) {
       throw new Error('Données utilisateur introuvables');
     }
     return fresh;
+  }
+
+  /**
+   * Vérifie en direct la disponibilité d'un @pseudo choisi (callable
+   * `checkUsernameAvailability`, debounce côté UI). N'appeler QUE si le format
+   * local est déjà valide (3-20, charset) — sinon l'erreur format s'affiche sans
+   * appel réseau. Indicatif seulement : le submit (recordSignupConsent) tranche.
+   */
+  static async checkUsernameAvailability(
+    username: string,
+  ): Promise<{ ok: true; available: boolean; reason?: 'too_short' | 'too_long' | 'invalid_chars' | 'taken' }> {
+    const checkFn = httpsCallable<
+      { username: string },
+      { ok: true; available: boolean; reason?: 'too_short' | 'too_long' | 'invalid_chars' | 'taken' }
+    >(functions, 'checkUsernameAvailability');
+    const result = await checkFn({ username });
+    return result.data;
   }
 
   /**
