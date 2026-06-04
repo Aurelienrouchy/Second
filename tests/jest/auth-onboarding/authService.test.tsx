@@ -138,91 +138,68 @@ beforeEach(() => {
   (auth as { currentUser: unknown }).currentUser = null;
 });
 
-describe('AuthService.signUpWithEmail — age gate (avant toute création)', () => {
-  it("refuse un mineur (<16) SANS jamais appeler createUserWithEmailAndPassword", async () => {
-    await expect(
-      AuthService.signUpWithEmail('teen@x.com', 'password', 'Teen', {
-        ...VALID_CONSENT,
-        dateOfBirth: isoForAge(15),
-      }),
-    ).rejects.toThrow(/au moins 16 ans/);
-
-    expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
-  });
-
-  it('refuse une date de naissance invalide sans créer de compte', async () => {
-    await expect(
-      AuthService.signUpWithEmail('x@x.com', 'password', 'X', {
-        ...VALID_CONSENT,
-        dateOfBirth: '2020-13-40',
-      }),
-    ).rejects.toThrow(/date de naissance est invalide/);
-
-    expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
-  });
-
-  it("refuse si les CGU/Politique ne sont pas acceptées", async () => {
-    await expect(
-      AuthService.signUpWithEmail('x@x.com', 'password', 'X', {
-        ...VALID_CONSENT,
-        acceptedTerms: false,
-      }),
-    ).rejects.toThrow(/Conditions d'utilisation/);
-
-    expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
-  });
-});
-
-describe('AuthService.signUpWithEmail — chemin nominal', () => {
+describe('AuthService.signUpWithEmail — compte NU (split, sans age gate)', () => {
   beforeEach(() => {
     (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
       user: { uid: 'uid-1', email: 'ok@x.com', photoURL: null, delete: jest.fn() },
     });
   });
 
-  it('crée le compte, persiste dateOfBirth et enregistre le consentement serveur', async () => {
-    const user = await AuthService.signUpWithEmail('ok@x.com', 'password', 'Marie', VALID_CONSENT);
+  it('crée le compte Firebase + le doc users NU (authProvider email, SANS dateOfBirth, SANS consentement)', async () => {
+    const user = await AuthService.signUpWithEmail('ok@x.com', 'password', 'Marie');
 
+    expect(createUserWithEmailAndPassword).toHaveBeenCalled();
     expect(user.id).toBe('uid-1');
-    expect(user.dateOfBirth).toBe(VALID_CONSENT.dateOfBirth);
-    // Le doc users écrit dateOfBirth + authProvider email dès le setDoc.
+    expect(user.displayName).toBe('Marie');
+    // Le doc est NU : pas de dateOfBirth, authProvider 'email'.
     const written = (setDoc as jest.Mock).mock.calls[0][1];
-    expect(written.dateOfBirth).toBe(VALID_CONSENT.dateOfBirth);
     expect(written.authProvider).toBe('email');
-    // recordSignupConsent appelé avec le payload de consentement.
-    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'recordSignupConsent');
-    expect(mockCallable).toHaveBeenCalledWith(
-      expect.objectContaining({ dateOfBirth: VALID_CONSENT.dateOfBirth, acceptedTerms: true }),
-    );
-    // Email de vérification envoyé (gate serveur createArticle).
+    expect(written.dateOfBirth).toBeUndefined();
+    expect(user.dateOfBirth).toBeUndefined();
+    // Le displayName Firebase est posé.
+    expect(updateProfile).toHaveBeenCalledWith(expect.anything(), { displayName: 'Marie' });
+    // PLUS de consentement ni d'assignation pseudo à la création : aucun callable.
+    expect(httpsCallable).not.toHaveBeenCalledWith(expect.anything(), 'recordSignupConsent');
+    expect(httpsCallable).not.toHaveBeenCalledWith(expect.anything(), 'assignUsername');
+    expect(mockCallable).not.toHaveBeenCalled();
+  });
+
+  it('envoie l\'email de vérification (gate serveur createArticle)', async () => {
+    await AuthService.signUpWithEmail('ok@x.com', 'password', 'Marie');
     expect(sendEmailVerification).toHaveBeenCalled();
   });
 
   it("n'échoue PAS l'inscription si l'email de vérification échoue (best-effort)", async () => {
     (sendEmailVerification as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
     await expect(
-      AuthService.signUpWithEmail('ok@x.com', 'password', 'Marie', VALID_CONSENT),
+      AuthService.signUpWithEmail('ok@x.com', 'password', 'Marie'),
     ).resolves.toBeDefined();
+  });
+
+  it('traduit une erreur Firebase de création (email déjà utilisé) en message FR', async () => {
+    (createUserWithEmailAndPassword as jest.Mock).mockRejectedValueOnce({
+      code: 'auth/email-already-in-use',
+    });
+    await expect(
+      AuthService.signUpWithEmail('dup@x.com', 'password', 'Dup'),
+    ).rejects.toThrow(/déjà utilisée/);
   });
 });
 
-describe('AuthService.signUpWithEmail — rollback Loi 25', () => {
-  it('supprime le compte Auth si recordSignupConsent échoue après création', async () => {
+describe('AuthService.signUpWithEmail — rollback si le setDoc échoue', () => {
+  it('supprime doc + compte Auth si le setDoc Firestore échoue APRÈS la création Auth', async () => {
     const deleteUser = jest.fn(() => Promise.resolve());
     (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
       user: { uid: 'uid-rollback', email: 'r@x.com', photoURL: null, delete: deleteUser },
     });
-    // Le setDoc passe, mais le callable serveur rejette (recordSignupConsent).
-    // On rejette toutes les callables : ensureUsernameAssigned (best-effort,
-    // avalé) tourne AVANT recordSignupConsent, donc un .once() ne viserait pas
-    // la bonne. recordSignupConsent qui rejette déclenche le rollback.
-    mockCallable.mockRejectedValue(new Error('consent server down'));
+    // L'écriture du doc users échoue : on ne doit pas laisser un compte Auth
+    // orphelin sans doc Firestore → cleanup destructif (doc + Auth).
+    (setDoc as jest.Mock).mockRejectedValueOnce(new Error('firestore down'));
 
     await expect(
-      AuthService.signUpWithEmail('r@x.com', 'password', 'R', VALID_CONSENT),
+      AuthService.signUpWithEmail('r@x.com', 'password', 'R'),
     ).rejects.toThrow(/création du compte a échoué/);
 
-    // Aucun compte ne doit subsister sans preuve de consentement.
     expect(deleteDoc).toHaveBeenCalled();
     expect(deleteUser).toHaveBeenCalled();
   });
