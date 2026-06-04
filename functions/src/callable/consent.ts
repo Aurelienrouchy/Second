@@ -13,6 +13,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { validateChosenUsername } from './username';
 
 /**
  * Shared naming contract (backend <-> app). Do not drift without updating both.
@@ -27,6 +28,15 @@ interface RecordSignupConsentInput {
   acceptedTerms: boolean;
   acceptedPrivacy: boolean;
   marketingOptIn: boolean;
+  /**
+   * USER-CHOSEN @handle picked on the signup route. Optional for backward
+   * compatibility, but the new signup flow ALWAYS sends it. Reserved
+   * atomically alongside the consent write (all-or-nothing). A chosen handle
+   * that is already taken is REJECTED ('already-exists') — there is no auto
+   * suffix (unlike the legacy auto-derived assignUsername path), so the user
+   * picks another. Idempotent: a double-submit returns the existing username.
+   */
+  desiredUsername?: string;
 }
 
 /**
