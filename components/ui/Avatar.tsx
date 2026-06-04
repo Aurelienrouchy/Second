@@ -55,7 +55,7 @@ const sizeConfig: Record<AvatarSize, {
 };
 
 // Warm sand → taupe gradient for editorial placeholder
-const GRADIENT_COLORS = ['#D4C4A0', '#A09070'] as const;
+const GRADIENT_COLORS = [colors.sand, colors.sandDeep] as const;
 
 // =============================================================================
 // COMPONENT
