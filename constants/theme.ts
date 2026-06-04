@@ -66,6 +66,7 @@ export const colors = {
   sageLight: 'rgba(122, 140, 110, 0.12)',
   sand: '#D4C4A0',             // Warm sand
   sandLight: 'rgba(212, 196, 160, 0.12)',  // Sand at 12% opacity
+  sandDeep: '#A09070',         // Deeper sand/taupe — avatar placeholder gradient end
   clay: '#B8847C',             // Muted clay
   rust: '#C4603A',             // Alias for primary
 
