@@ -137,35 +137,28 @@ export class AuthService {
   }
 
   /**
-   * Inscription avec email et mot de passe + consentement (Loi 25 / age gate).
+   * Inscription email — crée le compte Firebase Auth + le doc users/{uid} NU
+   * (sans dateOfBirth, sans consentement, sans username).
    *
-   * L'âge (>= 16) est validé AVANT createUserWithEmailAndPassword pour ne jamais
-   * créer de compte orphelin. Après création du compte + user doc, le callable
-   * serveur `recordSignupConsent` persiste dateOfBirth + les docs consents
-   * (terms, privacy_policy, marketing) avec la version de politique courante.
+   * SPLIT (audit) : la collecte DOB + consentements + @pseudo a été déplacée
+   * vers la route plein écran OBLIGATOIRE (app/complete-profile.tsx), qui appelle
+   * recordSignupConsent APRÈS la création. Cette méthode ne fait donc QUE créer
+   * le compte « nu » ; l'utilisateur ressort authentifié côté Firebase mais
+   * `pendingConsent` côté app (gate authStore : pas de dateOfBirth ⇒ pas
+   * pleinement connecté). Le username n'est PLUS auto-assigné ici : il est choisi
+   * sur la route et réservé par recordSignupConsent.
+   *
+   * Pas de rollback destructif ici : un compte sans dateOfBirth est un état
+   * intermédiaire LÉGITIME et attendu (la route force le consentement avant tout
+   * accès, et le guard de démarrage y ramène un user qui aurait kill l'app). Si
+   * le setDoc échoue après la création Auth, on supprime tout de même le compte
+   * fraîchement créé pour ne pas laisser un compte Auth sans doc Firestore.
    */
   static async signUpWithEmail(
     email: string,
     password: string,
     displayName: string,
-    consent: SignupConsent,
   ): Promise<User> {
-    // ── Age gate AVANT toute création de compte (pas d'orphelin) ──
-    const age = computeAgeFromIso(consent.dateOfBirth);
-    if (age === null) {
-      throw new Error('La date de naissance est invalide');
-    }
-    if (age < MIN_AGE_REGISTER) {
-      throw new Error(
-        `Vous devez avoir au moins ${MIN_AGE_REGISTER} ans pour utiliser Second.`,
-      );
-    }
-    if (!consent.acceptedTerms || !consent.acceptedPrivacy) {
-      throw new Error(
-        "Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité.",
-      );
-    }
-
     let firebaseUser: import('firebase/auth').User;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -178,24 +171,21 @@ export class AuthService {
     }
 
     try {
-      // Créer l'utilisateur dans Firestore
+      // Créer l'utilisateur NU dans Firestore (pas de dateOfBirth : la route de
+      // consentement l'écrira via recordSignupConsent — la rule l'interdit au
+      // create de toute façon).
       const userData: User = {
         id: firebaseUser.uid,
         email: firebaseUser.email || '',
         displayName,
         createdAt: new Date(),
         isActive: true,
-        dateOfBirth: consent.dateOfBirth,
       };
 
       if (firebaseUser.photoURL) {
         userData.profileImage = firebaseUser.photoURL;
       }
 
-      // NOTE: dateOfBirth is server-only by design (Loi 25 consent-gate +
-      // age-gate). It is written EXCLUSIVELY by the recordSignupConsent callable
-      // (Admin SDK) called just below, which re-validates the age. The firestore
-      // rule forbids it at create, so it must NOT be in this client setDoc.
       const firestoreData: Record<string, unknown> = {
         id: userData.id,
         email: userData.email,
@@ -210,29 +200,6 @@ export class AuthService {
       }
 
       await setDoc(doc(firestore, 'users', firebaseUser.uid), firestoreData);
-
-      // Assigne le username persistant/immuable (dérivé serveur du displayName).
-      // Non-bloquant : un échec ne fait pas échouer l'inscription.
-      await this.ensureUsernameAssigned();
-
-      // Persister dateOfBirth + consents côté serveur (source de vérité).
-      // recordSignupConsent revalide l'âge et écrit la sous-collection consents.
-      const recordConsentFn = httpsCallable<
-        {
-          dateOfBirth: string;
-          acceptedTerms: boolean;
-          acceptedPrivacy: boolean;
-          marketingOptIn: boolean;
-        },
-        { ok: true; age: number }
-      >(functions, 'recordSignupConsent');
-
-      await recordConsentFn({
-        dateOfBirth: consent.dateOfBirth,
-        acceptedTerms: consent.acceptedTerms,
-        acceptedPrivacy: consent.acceptedPrivacy,
-        marketingOptIn: consent.marketingOptIn,
-      });
 
       // Envoie l'email de vérification (le gate serveur createArticle exige
       // email_verified). Non-bloquant : un échec d'envoi ne doit pas faire
@@ -252,15 +219,12 @@ export class AuthService {
         console.error('[AuthService] signUpWithEmail post-create error:', error);
       }
 
-      // ── ROLLBACK : aucun compte ne doit subsister sans preuve de consentement
-      // (état illégal Loi 25). Le setDoc ou recordSignupConsent a échoué après
-      // la création du compte Auth → on supprime le doc user (best-effort) puis
-      // le compte Auth (la session vient d'être créée, donc récente). ──
+      // Le setDoc a échoué après la création du compte Auth → on supprime le
+      // doc user (best-effort) puis le compte Auth (session récente) pour ne pas
+      // laisser un compte Auth orphelin sans doc Firestore.
       try {
         await deleteDoc(doc(firestore, 'users', firebaseUser.uid));
       } catch (cleanupError) {
-        // Les rules peuvent refuser la suppression directe : ne pas bloquer le
-        // rollback du compte Auth pour autant.
         if (__DEV__) {
           console.error('[AuthService] signUpWithEmail user doc cleanup failed:', cleanupError);
         }
