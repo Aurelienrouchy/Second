@@ -181,42 +181,49 @@ const MIME_EXTENSIONS: Record<string, string> = {
 /**
  * Upload a single processed image to Firebase Storage.
  *
- * We upload the base64 payload that `processImage` already produced via
- * `uploadString(..., 'base64')` rather than `fetch(uri).then(r => r.blob())`.
- * On React Native (New Architecture, RN 0.83) a Blob obtained from `fetch()`
- * of a local `file://`/`content://` URI is backed by a native blob-id with no
- * bytes the Firebase JS SDK can read, so `uploadBytes` throws
- * "Network request failed" (or uploads a 0-byte object). `uploadString` with a
- * base64 string is the RN-safe path and avoids re-reading the file.
- *
- * Returns the download URL (properly URL-encoded).
+ * The Web SDK upload path is unusable in RN 0.83 New Arch: it builds a Blob
+ * from a Uint8Array for the XHR body, which the native BlobManager rejects
+ * ("Creating blobs from ArrayBuffer ... not supported"). We bypass the SDK and
+ * stream the local file straight to the Storage REST media endpoint via
+ * expo-file-system, then build the download URL from the JSON response.
  */
 async function uploadImageToStorage(
   image: ProcessedImage,
   draftId: string,
   index: number
 ): Promise<string> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error('User not authenticated');
+  const user = auth.currentUser;
+  if (!user) throw new Error('User not authenticated');
+
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) throw new Error('Storage bucket not configured');
 
   const extension = MIME_EXTENSIONS[image.mimeType] || 'jpg';
   const filename = `${draftId}_${index}_${Date.now()}.${extension}`;
-  const storagePath = `${DRAFTS_STORAGE_PATH}/${uid}/${draftId}/${filename}`;
+  const storagePath = `${DRAFTS_STORAGE_PATH}/${user.uid}/${draftId}/${filename}`;
+  const encodedPath = encodeURIComponent(storagePath);
 
-  const storageRef = ref(storage, storagePath);
+  const token = await user.getIdToken();
+  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
 
-  // Upload the already-computed base64 payload (RN-safe — no fetch/blob bridge).
-  await uploadString(storageRef, image.base64, 'base64', {
-    contentType: image.mimeType,
+  const res = await FileSystem.uploadAsync(uploadUrl, image.processedUri, {
+    httpMethod: 'POST',
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    headers: {
+      Authorization: `Firebase ${token}`,
+      'Content-Type': image.mimeType,
+    },
   });
 
-  // Get the download URL
-  const downloadUrl = await getDownloadURL(storageRef);
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`Storage upload failed: ${res.status} ${res.body}`);
+  }
 
-  // Fix URL encoding if needed
-  const fixedUrl = fixStorageUrl(downloadUrl);
+  const metadata = JSON.parse(res.body) as { downloadTokens?: string };
+  const downloadToken = metadata.downloadTokens?.split(',')[0];
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
-  return fixedUrl;
+  return fixStorageUrl(downloadUrl);
 }
 
 /**
