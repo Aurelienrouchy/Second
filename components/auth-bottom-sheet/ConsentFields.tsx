@@ -79,58 +79,73 @@ function ConsentFieldsComponent({
       {/* Date of birth (age gate) */}
       <Text style={styles.dobLabel}>{COPY_CONSENT.dobLabel}</Text>
       <View style={styles.dobRow}>
-        <TextInput
-          style={[styles.input, styles.dobField, focusedField === 'day' && styles.dobFieldFocused]}
-          placeholder="JJ"
-          placeholderTextColor={colors.muted}
-          value={dobDay}
-          onChangeText={handleChangeDay}
-          onFocus={() => setFocusedField('day')}
-          onBlur={() => {
-            setFocusedField(null);
-            onBlurDob();
-          }}
-          keyboardType="number-pad"
-          maxLength={2}
-          accessibilityLabel="Jour de naissance"
-          testID="signup-dob-day"
-        />
+        <View style={styles.dobSlot}>
+          {dobDay ? null : (
+            <Text style={styles.dobPlaceholder} pointerEvents="none">
+              JJ
+            </Text>
+          )}
+          <TextInput
+            style={[styles.input, styles.dobInput, focusedField === 'day' && styles.dobFieldFocused]}
+            value={dobDay}
+            onChangeText={handleChangeDay}
+            onFocus={() => setFocusedField('day')}
+            onBlur={() => {
+              setFocusedField(null);
+              onBlurDob();
+            }}
+            keyboardType="number-pad"
+            maxLength={2}
+            accessibilityLabel="Jour de naissance"
+            testID="signup-dob-day"
+          />
+        </View>
         <Text style={styles.dobSeparator}>/</Text>
-        <TextInput
-          ref={monthRef}
-          style={[styles.input, styles.dobField, focusedField === 'month' && styles.dobFieldFocused]}
-          placeholder="MM"
-          placeholderTextColor={colors.muted}
-          value={dobMonth}
-          onChangeText={handleChangeMonth}
-          onFocus={() => setFocusedField('month')}
-          onBlur={() => {
-            setFocusedField(null);
-            onBlurDob();
-          }}
-          keyboardType="number-pad"
-          maxLength={2}
-          accessibilityLabel="Mois de naissance"
-          testID="signup-dob-month"
-        />
+        <View style={styles.dobSlot}>
+          {dobMonth ? null : (
+            <Text style={styles.dobPlaceholder} pointerEvents="none">
+              MM
+            </Text>
+          )}
+          <TextInput
+            ref={monthRef}
+            style={[styles.input, styles.dobInput, focusedField === 'month' && styles.dobFieldFocused]}
+            value={dobMonth}
+            onChangeText={handleChangeMonth}
+            onFocus={() => setFocusedField('month')}
+            onBlur={() => {
+              setFocusedField(null);
+              onBlurDob();
+            }}
+            keyboardType="number-pad"
+            maxLength={2}
+            accessibilityLabel="Mois de naissance"
+            testID="signup-dob-month"
+          />
+        </View>
         <Text style={styles.dobSeparator}>/</Text>
-        <TextInput
-          ref={yearRef}
-          style={[styles.input, styles.dobFieldYear, focusedField === 'year' && styles.dobFieldFocused]}
-          placeholder="AAAA"
-          placeholderTextColor={colors.muted}
-          value={dobYear}
-          onChangeText={(t) => onChangeDobYear(t.replace(/\D/g, '').slice(0, 4))}
-          onFocus={() => setFocusedField('year')}
-          onBlur={() => {
-            setFocusedField(null);
-            onBlurDob();
-          }}
-          keyboardType="number-pad"
-          maxLength={4}
-          accessibilityLabel="Année de naissance"
-          testID="signup-dob-year"
-        />
+        <View style={[styles.dobSlot, styles.dobSlotYear]}>
+          {dobYear ? null : (
+            <Text style={styles.dobPlaceholder} pointerEvents="none">
+              AAAA
+            </Text>
+          )}
+          <TextInput
+            ref={yearRef}
+            style={[styles.input, styles.dobInput, focusedField === 'year' && styles.dobFieldFocused]}
+            value={dobYear}
+            onChangeText={(t) => onChangeDobYear(t.replace(/\D/g, '').slice(0, 4))}
+            onFocus={() => setFocusedField('year')}
+            onBlur={() => {
+              setFocusedField(null);
+              onBlurDob();
+            }}
+            keyboardType="number-pad"
+            maxLength={4}
+            accessibilityLabel="Année de naissance"
+            testID="signup-dob-year"
+          />
+        </View>
       </View>
       {showAgeError ? (
         <Text style={styles.fieldError}>{COPY_CONSENT.ageError}</Text>
