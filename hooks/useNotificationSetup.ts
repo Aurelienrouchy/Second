@@ -468,7 +468,10 @@ export function useNotificationSetup(userId: string | null): void {
       tokenSub.remove();
       appStateSub.remove();
     };
-  }, [userId, refreshBadgeCount, registerPushToken, setSetupComplete, setPushToken, incrementUnreadCount]);
+    // `refreshBadgeCount` / `registerPushToken` are stable (deps `[]`, actions
+    // read via getState()), so this effect now only re-runs when `userId`
+    // changes — the 4 OS listeners are no longer recreated on every push.
+  }, [userId, refreshBadgeCount, registerPushToken]);
 
   // ── Expose unregister for logout (via store or callback) ──
   // The AuthContext can call useNotificationStore.getState().reset()
