@@ -7,7 +7,7 @@
 
 import { useCallback } from 'react';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 
 export function useSellerLike(sellerId: string) {
