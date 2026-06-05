@@ -116,12 +116,15 @@ export default function MessagesScreen() {
     [router]
   );
 
+  const currentUserId = user?.id ?? null;
+
   const renderConversation = useCallback(
     ({ item: chat }: ListRenderItemInfo<Chat>) => {
-      const unread = user ? chat.unreadCount?.[user.id] || 0 : 0;
+      const unread = currentUserId ? chat.unreadCount?.[currentUserId] || 0 : 0;
       return (
         <ConversationItem
           chat={chat}
+          currentUserId={currentUserId}
           onPress={handleChatPress}
           isUnread={unread > 0}
           unreadCount={unread}
@@ -129,7 +132,7 @@ export default function MessagesScreen() {
         />
       );
     },
-    [handleChatPress, user, isChatBlocked]
+    [handleChatPress, currentUserId, isChatBlocked]
   );
 
   const filteredChats = useMemo(
