@@ -447,7 +447,7 @@ export function useNotificationSetup(userId: string | null): void {
       // Save new token
       await UserService.saveFcmToken(currentUserId, newToken);
       fcmTokenRef.current = newToken;
-      setPushToken(newToken);
+      useNotificationStore.getState().setPushToken(newToken);
       if (__DEV__) console.log('FCM token refreshed');
     });
 
