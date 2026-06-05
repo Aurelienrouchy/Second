@@ -356,7 +356,7 @@ export const getSimilarProducts = onCall(
       // Filter it out post-fetch using the freshly loaded article doc.
       if (article.isSold === true || article.isActive === false) continue;
 
-      const distance = doc.get('__distance__') || 0;
+      const distance = doc.get('vector_distance') || 0;
 
       // Skip results below similarity threshold
       if (distance > SIMILAR_PRODUCTS_MAX_DISTANCE) break; // results are ordered, so no need to continue
