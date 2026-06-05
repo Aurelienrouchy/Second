@@ -160,13 +160,16 @@ export default function DetailsScreen() {
   };
 
   const handleCategorySelect = useCallback((categoryIds: string[]) => {
+    // Resolve the French labels from the category tree (same shape as the AI
+    // path) — never derive the name from the raw id suffix (e.g. "solid").
+    const info = getCategoryInfoFromIds(categoryIds);
     setFields((prev) => ({
       ...prev,
       categoryIds,
       categoryDisplay: {
-        icon: '',
-        name: categoryIds[categoryIds.length - 1]?.split('_').pop() || 'Article',
-        context: categoryIds.slice(0, -1).join(' · '),
+        icon: info?.icon || '',
+        name: info?.displayName || 'Article',
+        context: info?.fullLabel?.split(' > ').slice(0, -1).join(' · ') || '',
       },
       // The size grid depends on the category (getSizesForCategory). A size
       // detected for the previous category is no longer guaranteed valid.
