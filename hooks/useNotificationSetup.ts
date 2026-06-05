@@ -291,13 +291,13 @@ async function handleInitialNotification(userId: string | null): Promise<void> {
  * Doit être appelé UNE SEULE FOIS dans le root layout.
  */
 export function useNotificationSetup(userId: string | null): void {
-  const {
-    setUnreadCount,
-    incrementUnreadCount,
-    setSetupComplete,
-    setPushToken,
-  } = useNotificationStore();
-
+  // This hook is mounted at the root of the nav tree (RootLayoutNav). Reading
+  // the whole store via `useNotificationStore()` would subscribe the root to
+  // every snapshot change — each `incrementUnreadCount()` on an incoming push
+  // (flat `set({...})`) re-renders the whole tree. Actions are stable refs in
+  // Zustand 5, so we call them through `getState()` instead of subscribing.
+  // This also keeps them out of the setup effect deps below, so the 4 OS
+  // listeners are no longer torn down + recreated on every notification.
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
 
