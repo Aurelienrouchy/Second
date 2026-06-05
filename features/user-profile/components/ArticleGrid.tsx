@@ -40,7 +40,6 @@ export const ArticleGrid = React.memo(function ArticleGrid({
   articles,
   onArticlePress,
   ListHeaderComponent,
-  stickyHeaderIndices,
   bottomInset = 0,
 }: ArticleGridProps) {
   const renderItem = useCallback(
