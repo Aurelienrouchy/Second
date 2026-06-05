@@ -4,7 +4,7 @@ import { initializeAuth, getAuth } from 'firebase/auth';
 import { getReactNativePersistence } from '@firebase/auth';
 import {
   initializeFirestore,
-  persistentLocalCache,
+  memoryLocalCache,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
