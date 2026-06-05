@@ -311,7 +311,7 @@ export function useFavorites() {
  * article's favorite status flips — not when other favorites change.
  */
 export function useIsFavorite(articleId: string): boolean {
-  const { user } = useAuth();
+  const user = useUser();
   const userId = user?.id ?? null;
 
   const { data: isLiked = false } = useQuery({
