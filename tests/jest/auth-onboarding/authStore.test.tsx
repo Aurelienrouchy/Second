@@ -367,6 +367,20 @@ describe('authStore.signOut — teardown complet et robuste', () => {
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().isLoading).toBe(false);
   });
+
+  it('skipRemoteFcmCleanup saute le retrait FCM distant mais finit le teardown', async () => {
+    notificationPushToken.value = 'push-token-1';
+    await useAuthStore.getState().signIn(CONSENTED_USER);
+
+    await useAuthStore.getState().signOut({ skipRemoteFcmCleanup: true });
+
+    expect(mockRemoveFcmToken).not.toHaveBeenCalled();
+    expect(mockAuthSignOut).toHaveBeenCalled();
+    expect(mockQueryClientClear).toHaveBeenCalled();
+    expect(await AsyncStorage.getItem('user_data')).toBeNull();
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().isLoading).toBe(false);
+  });
 });
 
 describe('authStore.reset', () => {
