@@ -15,7 +15,7 @@ import type { MakeOfferModalRef } from '@/components/MakeOfferModal';
 import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
 import { queryKeys } from '@/lib/queryKeys';
 
