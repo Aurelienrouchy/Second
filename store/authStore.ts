@@ -303,11 +303,12 @@ export const useAuthStore = create<AuthStore>()(
     }
   },
 
-  signOut: async () => {
+  signOut: async (opts) => {
     const { user } = get();
     try {
       const pushToken = useNotificationStore.getState().pushToken;
-      if (user?.id && pushToken) {
+      // Skip the remote FCM write when the token is already revoked (delete/disable) — it can only permission-deny.
+      if (!opts?.skipRemoteFcmCleanup && user?.id && pushToken) {
         try {
           await UserService.removeFcmToken(user.id, pushToken);
         } catch (fcmError) {
