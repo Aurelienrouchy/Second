@@ -314,6 +314,33 @@ describe('deleteDraft — règle de publication (keepStorageImages)', () => {
   });
 });
 
+describe('flag de publication — wasPublished / markPublished', () => {
+  it('est false par défaut (aucune publication)', () => {
+    // saveDraft remet le flag à false : on part d'un état propre.
+    expect(draftService.wasPublished).toBe(false);
+  });
+
+  it('markPublished arme le flag', () => {
+    draftService.markPublished();
+    expect(draftService.wasPublished).toBe(true);
+    // Nettoyage pour les tests suivants (le singleton est partagé).
+    await draftService.saveDraft(createEmptyDraft());
+  });
+
+  it('saveDraft ré-arme le guard (flag remis à false)', async () => {
+    draftService.markPublished();
+    await draftService.saveDraft(createEmptyDraft());
+    expect(draftService.wasPublished).toBe(false);
+  });
+
+  it('loadDraft ré-arme le guard (flag remis à false)', async () => {
+    await draftService.saveDraft(createEmptyDraft());
+    draftService.markPublished();
+    await draftService.loadDraft();
+    expect(draftService.wasPublished).toBe(false);
+  });
+});
+
 describe('cleanupExpiredDrafts — purge des images orphelines', () => {
   it('supprime toutes les images locales quand aucun brouillon n’existe', async () => {
     mockReadDirectoryAsync.mockResolvedValue(['a.jpg', 'b.jpg']);
