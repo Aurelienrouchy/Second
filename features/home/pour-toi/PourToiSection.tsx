@@ -114,6 +114,6 @@ const styles = StyleSheet.create({
     // parasitic gap above the SwapZone card. The band owns that space.
   },
   horizontalCardWrapper: {
-    width: 160,
+    width: COMPACT_CARD_WIDTH,
   },
 });
