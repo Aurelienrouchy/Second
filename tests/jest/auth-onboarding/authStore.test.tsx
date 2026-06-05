@@ -340,6 +340,35 @@ describe('authStore.rollbackSocialSignIn (shim déprécié)', () => {
   });
 });
 
+describe('authStore.signOut — teardown complet et robuste', () => {
+  it('efface user, USER_DATA_KEY, Firebase et query cache', async () => {
+    await useAuthStore.getState().signIn(CONSENTED_USER);
+    expect(await AsyncStorage.getItem('user_data')).not.toBeNull();
+
+    await useAuthStore.getState().signOut();
+
+    expect(mockAuthSignOut).toHaveBeenCalled();
+    expect(mockQueryClientClear).toHaveBeenCalled();
+    expect(await AsyncStorage.getItem('user_data')).toBeNull();
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().isLoading).toBe(false);
+  });
+
+  it('un échec de removeFcmToken NE bloque PAS la suite du teardown', async () => {
+    notificationPushToken.value = 'push-token-1';
+    mockRemoveFcmToken.mockRejectedValueOnce(new Error('permission-denied'));
+    await useAuthStore.getState().signIn(CONSENTED_USER);
+
+    await useAuthStore.getState().signOut();
+
+    expect(mockRemoveFcmToken).toHaveBeenCalledWith('uid-1', 'push-token-1');
+    expect(mockAuthSignOut).toHaveBeenCalled();
+    expect(await AsyncStorage.getItem('user_data')).toBeNull();
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().isLoading).toBe(false);
+  });
+});
+
 describe('authStore.reset', () => {
   it('restaure l\'état initial (user null, isLoading true)', async () => {
     await useAuthStore.getState().signIn(CONSENTED_USER);
