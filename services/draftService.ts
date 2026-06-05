@@ -215,6 +215,8 @@ class DraftService {
    * Load draft from AsyncStorage
    */
   async loadDraft(): Promise<ArticleDraft | null> {
+    // Entrée de flux : ré-arme le guard (ceinture+bretelles avec saveDraft).
+    this.published = false;
     if (__DEV__) console.log('[DraftService] loadDraft() START');
     try {
       if (__DEV__) console.log('[DraftService] Getting item from AsyncStorage...');
