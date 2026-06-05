@@ -98,10 +98,11 @@ export const Input = forwardRef<TextInput, InputProps>(({
   const animatedContainerStyle = useAnimatedStyle(() => {
     const borderColor = error
       ? colors.danger
-      : interpolateColor(focusAnim.value, [0, 1], [
-          colors.border,
-          focusAccent ? colors.primary : colors.borderStrong,
-        ]);
+      : interpolateColor(
+          focusAnim.value,
+          [0, 1],
+          [colors.border, colors.primary]
+        );
 
     return {
       borderColor,
