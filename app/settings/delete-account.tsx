@@ -96,9 +96,12 @@ export default function DeleteAccountScreen() {
       const deleteUserAccountFn = httpsCallable(functions, 'deleteUserAccount');
       await deleteUserAccountFn();
 
-      // Reset stores and navigate immediately — onAuthStateChanged(null) would
-      // redirect via layout anyway; doing it proactively avoids race conditions.
-      resetAllStores();
+      // Full teardown: Firebase signOut clears the ghost auth.currentUser and
+      // removes USER_DATA_KEY so the offline-cache branch cannot resurrect the
+      // deleted user at cold start. With the Web SDK onAuthStateChanged does NOT
+      // re-fire on a server-side deletion, so an in-memory reset alone leaves a
+      // ghost session behind.
+      await useAuthStore.getState().signOut();
       router.replace('/');
     } catch (error: unknown) {
       if (__DEV__) console.error('Error deleting account:', error);
