@@ -207,7 +207,7 @@ export const visualSearch = onCall(
       if (article.isSold === true || article.isActive === false) continue;
 
       // Cosine distance to similarity percentage (1 - distance) * 100
-      const distance = doc.get('__distance__') || 0;
+      const distance = doc.get('vector_distance') || 0;
 
       // Skip results below similarity threshold
       if (distance > VISUAL_SEARCH_MAX_DISTANCE) {
