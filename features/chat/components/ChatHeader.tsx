@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
