@@ -62,10 +62,15 @@ export function useSearchScreen() {
     return Object.keys(rest).length > 0 ? rest : undefined;
   }, [params.brands, parsedFilters]);
 
+  // "Parcourir tout" (Voir tout home) : tout le catalogue trié récent, sans
+  // terme ni filtre. Déclenche la requête (sortBy 'recent' ne compte pas comme
+  // filtre actif) et compte comme contexte initial (donc pas d'auto-focus).
+  const isBrowseAll = params.browse === '1';
+
   // Did we arrive with initial params that should show results immediately?
   const hasInitialContext = !!(
     params.query || params.category || params.categoryPath ||
-    params.brands || params.shopId || params.filters
+    params.brands || params.shopId || params.filters || isBrowseAll
   );
 
   // ─── State ───────────────────────────────────────────────────────
