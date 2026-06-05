@@ -38,7 +38,7 @@ function SaveSearchButtonComponent({
   style,
 }: SaveSearchButtonProps) {
   const user = useUser();
-  const { requireAuth } = useAuthRequired();
+  const { requireAuth } = useRequireAuth();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchName, setSearchName] = useState('');
   const [notifyNewItems, setNotifyNewItems] = useState(false);
