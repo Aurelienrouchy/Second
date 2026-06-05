@@ -5,7 +5,7 @@
  */
 
 import { functions, storage, auth } from '@/config/firebaseConfig';
-import { ref, uploadString, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
+import { ref, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
