@@ -289,6 +289,8 @@ const styles = StyleSheet.create({
   profileHeaderZone: {
     backgroundColor: colors.cream,
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
   },
   // Guest view: GuestState already has its own paddingVertical (lg), so the
   // cream zone's bottom padding + margin double the gap before the menu block.
