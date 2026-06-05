@@ -49,7 +49,12 @@ const NewArrivalsSectionComponent: React.FC = () => {
       <SectionHeader
         title="Nouveautés"
         action="Voir tout"
-        onActionPress={() => router.push('/search')}
+        onActionPress={() =>
+          router.push({
+            pathname: '/search',
+            params: { browse: '1', filters: JSON.stringify({ sortBy: 'recent' }) },
+          })
+        }
       />
       <ScrollView
         horizontal
