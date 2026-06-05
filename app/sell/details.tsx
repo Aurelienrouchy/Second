@@ -380,7 +380,7 @@ export default function DetailsScreen() {
         />
       </ScrollView>
 
-      <Animated.View style={footerAnimatedStyle}>
+      <Animated.View style={[styles.footerWrapper, footerAnimatedStyle]}>
         <SellFooter
           testID="sell-details-footer-cta"
           label="CONTINUER"
