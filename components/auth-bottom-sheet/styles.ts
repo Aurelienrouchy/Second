@@ -197,16 +197,30 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  dobField: {
+  dobSlot: {
     flex: 1,
-    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
-  dobFieldYear: {
+  dobSlotYear: {
     flex: 1.5,
+  },
+  dobInput: {
     textAlign: 'center',
+    marginBottom: 0,
   },
   dobFieldFocused: {
     borderColor: colors.primary,
+  },
+  dobPlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 13,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
   },
   dobSeparator: {
     fontFamily: fonts.sans,
