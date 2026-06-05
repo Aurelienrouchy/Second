@@ -119,10 +119,15 @@ function computeAge(dob: { year: number; month: number; day: number }): number {
  *     NO auto suffix: a taken chosen handle is rejected so the user picks again.
  *     This MUST be an inline field error client-side — the account is NOT rolled
  *     back.
- *   - Idempotence (double submit): if users/{uid}.username already exists, it is
- *     returned unchanged. If desiredUsername equals the existing handle that is
- *     also fine (no-op reservation). If they differ, the existing handle wins
- *     (immutable) and is returned — the new value is ignored.
+ *   - The chosen handle WINS over any PRE-CONSENT auto-derived placeholder
+ *     (legacy at-creation slug, login safety-net). Because this call writes
+ *     dateOfBirth, the account is pre-consent here: an existing username is just
+ *     a placeholder. If it differs from the chosen one, the chosen one is
+ *     reserved and the stale registry entry (if owned by this uid) is released —
+ *     all atomically. Immutability ONLY protects a handle chosen post-consent,
+ *     i.e. an account that ALREADY has dateOfBirth from a prior submit; there
+ *     the existing handle wins and the new value is ignored.
+ *   - Idempotence (double submit of the SAME handle): no-op, returned unchanged.
  */
 export const recordSignupConsent = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
