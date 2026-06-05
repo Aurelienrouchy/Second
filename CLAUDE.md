@@ -30,7 +30,7 @@ features/                   # Sous-features (kebab-case) — PAS de "Screen" ici
 hooks/ store/ services/     # Core importable partout
 lib/ utils/ config/         # Singletons, helpers, theme, i18n config
 constants/ types/           # Tokens DS, types partagés
-contexts/                   # SHIMS legacy (3 fichiers) → migrer vers hooks Zustand ciblés
+contexts/                   # SHIM legacy (1 fichier : AuthContext, façade hooks Zustand)
 functions/                  # Cloud Functions : callable / triggers / scheduled / http
 firestore.rules · storage.rules · firestore.indexes.json
 firestore-schema.md · firestore-indexes.md
