@@ -32,7 +32,7 @@ import Animated, {
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
 import { formatPrice } from '@/utils/formatPrice';
