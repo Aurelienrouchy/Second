@@ -50,7 +50,6 @@ async function setupAndroidChannels(): Promise<void> {
       name: 'Messages',
       description: 'Notifications de nouveaux messages',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
       vibrationPattern: [0, 250, 250, 250],
       enableLights: true,
       enableVibrate: true,
@@ -59,7 +58,6 @@ async function setupAndroidChannels(): Promise<void> {
       name: 'Offres',
       description: 'Notifications d\'offres et propositions',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
       enableVibrate: true,
     }),
     Notifications.setNotificationChannelAsync('notifications', {
@@ -89,7 +87,6 @@ async function setupAndroidChannels(): Promise<void> {
       name: 'Commandes',
       description: 'Ventes, expéditions, livraisons et remboursements',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
       enableVibrate: true,
     }),
   ]);
