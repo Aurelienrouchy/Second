@@ -27,7 +27,7 @@ import {
 
 import { ScreenHeader } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';

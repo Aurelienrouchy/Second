@@ -2,7 +2,7 @@
  * Delete Account Settings
  */
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { AuthService } from '@/services/authService';
 import { functions } from '@/config/firebaseConfig';
 import { useAuthStore } from '@/store/authStore';

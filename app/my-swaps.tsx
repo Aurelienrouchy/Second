@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { getUserSwaps, getSwapItems } from '@/services/swapService';
 import { queryKeys } from '@/lib/queryKeys';
 import { Swap, SwapStatus, SwapItemInfo } from '@/types';

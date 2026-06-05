@@ -34,7 +34,7 @@ import {
 } from '@/features/chat';
 
 // Import hooks and contexts
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
 import { useUserProfile } from '@/hooks/useUserProfile';
 

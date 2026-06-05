@@ -33,7 +33,7 @@ import { getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { queryKeys } from '@/lib/queryKeys';
 import {

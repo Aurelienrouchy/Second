@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { ArticlesService } from '@/services/articlesService';
 import { proposeSwap, getPartyItemsExtended, GENERALIST_ZONE_ID } from '@/services/swapService';
 import { ModerationService } from '@/services/moderationService';

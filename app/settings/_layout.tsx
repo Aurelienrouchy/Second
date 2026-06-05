@@ -5,7 +5,7 @@
 
 import { Redirect, Stack } from 'expo-router';
 import React from 'react';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 
 export default function SettingsLayout() {
   const user = useUser();

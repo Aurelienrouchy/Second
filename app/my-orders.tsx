@@ -3,7 +3,7 @@
  * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
  */
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { ArticlesService } from '@/services/articlesService';
 import { hasUserReviewedTransaction } from '@/services/reviewService';

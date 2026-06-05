@@ -2,7 +2,7 @@
  * Blocked Users Settings
  */
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { BlockedUser, ModerationService } from '@/services/moderationService';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';

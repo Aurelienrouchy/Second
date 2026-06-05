@@ -1,4 +1,4 @@
-import { useUser, useIsLoading } from '@/contexts/AuthContext';
+import { useUser, useIsLoading } from '@/hooks/useAuth';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 
 /**

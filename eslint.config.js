@@ -45,8 +45,8 @@ module.exports = defineConfig([
         // shared: importable partout
         { type: 'shared', pattern: ['lib/**', 'utils/**', 'constants/**', 'types/**', 'config/**', 'data/**'], mode: 'full' },
 
-        // core: services, stores, hooks, contexts, components
-        { type: 'core', pattern: ['services/**', 'store/**', 'hooks/**', 'contexts/**', 'components/**'], mode: 'full' },
+        // core: services, stores, hooks, components
+        { type: 'core', pattern: ['services/**', 'store/**', 'hooks/**', 'components/**'], mode: 'full' },
       ],
     },
     rules: {

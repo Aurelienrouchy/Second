@@ -2,7 +2,7 @@
  * Notifications Settings
  */
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, ScreenHeader } from '@/components/ui';

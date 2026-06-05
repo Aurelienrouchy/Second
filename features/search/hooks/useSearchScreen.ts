@@ -12,7 +12,7 @@ import { CATEGORIES, getCategoryLabelFromIds } from '@/data/categories-v2';
 import { colors as colorData } from '@/data/colors';
 import { getMaterialName } from '@/data/materials';
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useArticleSearch } from '@/hooks/useArticleSearch';
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';

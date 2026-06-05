@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';

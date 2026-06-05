@@ -34,7 +34,7 @@ import ProductGrid from '@/components/ProductGrid';
 
 // Hooks & Services
 import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { FavoritesService } from '@/services/favoritesService';
 import { Article, ArticleWithLocation } from '@/types';

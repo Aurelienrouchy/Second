@@ -15,7 +15,7 @@
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { functions } from '@/config/firebaseConfig';
 import { APP_LOCALE } from '@/constants/locale';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { ReportReasonLabels, type ReportReason, type ReportType } from '@/services/moderationService';
 import { UserService } from '@/services/userService';
 import { Ionicons } from '@expo/vector-icons';

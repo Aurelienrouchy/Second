@@ -27,7 +27,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { firestore } from '@/config/firebaseConfig';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { queryKeys } from '@/lib/queryKeys';
 import {
   guestPreferencesService,

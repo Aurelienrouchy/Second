@@ -5,7 +5,7 @@
 
 import RejectionModal, { RejectionModalRef } from '@/components/admin/RejectionModal';
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
 import { UserService } from '@/services/userService';

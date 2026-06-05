@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { ChatService } from '@/services/chatService';
 

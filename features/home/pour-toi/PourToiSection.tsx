@@ -11,7 +11,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { SectionHeader } from '@/components/home/SectionHeader';
 import ProductCard, { SkeletonCard, type ProductCardProduct } from '@/components/ProductCard';
 import { spacing } from '@/constants/theme';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
 import type { Article } from '@/types';
 

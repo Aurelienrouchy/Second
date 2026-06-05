@@ -24,7 +24,7 @@ import DraftResumeModal from '@/components/DraftResumeModal';
 import draftService, { ArticleDraft } from '@/services/draftService';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, radius } from '@/constants/theme';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { AUTH_MESSAGES, COPY_SELL_GATE } from '@/constants/authMessages';

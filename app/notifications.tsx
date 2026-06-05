@@ -1,4 +1,4 @@
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';

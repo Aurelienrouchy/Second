@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useChats } from '@/hooks/useChat';
 import { useUserProfile } from '@/hooks/useUserProfile';

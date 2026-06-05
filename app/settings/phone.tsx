@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { useUser, useAuthActions } from '@/contexts/AuthContext';
+import { useUser, useAuthActions } from '@/hooks/useAuth';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 

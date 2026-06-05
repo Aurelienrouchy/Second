@@ -32,7 +32,7 @@ import { useQuery } from '@tanstack/react-query';
 import { colors, fonts, spacing, radius, animations, typography } from '@/constants/theme';
 
 // Hooks & Services
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
 import { queryKeys } from '@/lib/queryKeys';
 import { functions } from '@/config/firebaseConfig';

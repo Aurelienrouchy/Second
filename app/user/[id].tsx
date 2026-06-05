@@ -28,7 +28,7 @@ import ReportBottomSheet, {
 } from '@/components/ReportBottomSheet';
 import { ScreenHeader } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import {
   ArticleGrid,
   ProfileHeader,

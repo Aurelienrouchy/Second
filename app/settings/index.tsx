@@ -5,7 +5,7 @@
 import Constants from 'expo-constants';
 import { AuthService } from '@/services/authService';
 import { UserService } from '@/services/userService';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';

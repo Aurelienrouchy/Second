@@ -29,7 +29,7 @@ import { render, screen, waitFor } from '@testing-library/react-native';
 // useUser / useIsLoading sont des hooks Zustand ciblés (shim AuthContext).
 const mockUseUser = jest.fn();
 const mockUseIsLoading = jest.fn();
-jest.mock('@/contexts/AuthContext', () => ({
+jest.mock('@/hooks/useAuth', () => ({
   useUser: () => mockUseUser(),
   useIsLoading: () => mockUseIsLoading(),
 }));

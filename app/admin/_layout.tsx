@@ -6,7 +6,7 @@
  * depth). Firestore rules also independently enforce the admin custom
  * claim (request.auth.token.admin) for sensitive collections.
  */
-import { useUser, useIsLoading } from '@/contexts/AuthContext';
+import { useUser, useIsLoading } from '@/hooks/useAuth';
 import { colors } from '@/constants/theme';
 import { UserService } from '@/services/userService';
 import { Redirect, Slot } from 'expo-router';

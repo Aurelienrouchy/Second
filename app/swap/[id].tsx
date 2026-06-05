@@ -14,7 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import { prepareImageForUpload } from '@/utils/imageUtils';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser } from '@/hooks/useAuth';
 import { storage } from '@/config/firebaseConfig';
 import {
   acceptSwap,
