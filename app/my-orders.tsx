@@ -120,7 +120,7 @@ function OrderCard({
 
 export default function MyOrdersScreen() {
   const user = useUser();
-  const { showAuthSheet } = useAuthRequired();
+  const { showAuthSheet } = useRequireAuth();
   const router = useRouter();
   // Deep-link target from order_* / funds_released push notifications
   // (functions/src/utils/notifications.ts builds `/my-orders?transactionId=…`).
