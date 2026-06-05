@@ -17,9 +17,12 @@ export const ChatHeader = React.memo(function ChatHeader({
   onMoreOptions,
 }: ChatHeaderProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.header}>
+    // Own the top safe-area so the status-bar zone matches the header colour
+    // (the chat SafeAreaView no longer consumes the top edge).
+    <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
       <Pressable onPress={() => router.back()} style={styles.headerButton}>
         <Ionicons name="arrow-back" size={20} color={colors.charcoal} />
       </Pressable>
