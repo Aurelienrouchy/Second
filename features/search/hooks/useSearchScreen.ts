@@ -122,6 +122,7 @@ export function useSearchScreen() {
     initialQuery: params.query,
     initialCategoryPath,
     sellerId: params.shopId,
+    browseAll: isBrowseAll,
   });
 
   // ─── Category navigation (used by CategoryBottomSheet) ──────────
