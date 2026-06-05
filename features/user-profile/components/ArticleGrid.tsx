@@ -23,13 +23,13 @@ interface ArticleGridProps {
    * Header rendered above the grid (profile header + actions + tabs). When
    * provided, the FlashList is the screen's single scroll container, so
    * virtualization stays alive even for sellers with 50-200 articles.
+   *
+   * Note: FlashList's `stickyHeaderIndices` targets data-row indices, not the
+   * children of `ListHeaderComponent`, so pinning the tabs row from here is not
+   * possible with a single-element header. Sticky tabs are handled on the
+   * reviews tab (plain ScrollView) instead.
    */
   ListHeaderComponent?: ReactElement;
-  /**
-   * Indices of the header children to pin while scrolling (e.g. the tabs row).
-   * Forwarded to FlashList's `stickyHeaderIndices`.
-   */
-  stickyHeaderIndices?: number[];
   /** Padding applied at the very bottom of the scrollable grid. */
   bottomInset?: number;
 }
