@@ -206,7 +206,7 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dobFieldFocused: {
-    borderColor: colors.borderStrong,
+    borderColor: colors.primary,
   },
   dobSeparator: {
     fontFamily: fonts.sans,
