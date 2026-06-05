@@ -57,6 +57,11 @@ export default function DetailsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
+  const keyboard = useAnimatedKeyboard();
+  const footerAnimatedStyle = useAnimatedStyle(() => ({
+    paddingBottom: Math.max(keyboard.height.value, insets.bottom),
+  }));
+
   // Parse params
   const isResuming = params.resumeDraft === 'true';
   const photosFromParams: string[] = params.photos ? JSON.parse(params.photos as string) : [];
