@@ -133,7 +133,7 @@ async function processImage(uri: string): Promise<ProcessedImage> {
     mimeType: finalMimeType,
     originalFormat: originalMimeType,
     wasConverted,
-    wasCompressed,
+    wasCompressed: true,
     originalSize: fileInfo.size,
     finalSize: finalInfo.size,
     processedUri,
