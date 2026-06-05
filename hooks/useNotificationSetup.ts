@@ -308,14 +308,14 @@ export function useNotificationSetup(userId: string | null): void {
     if (!userIdRef.current) return;
     try {
       const count = await NotificationService.countUnreadNotifications(userIdRef.current);
-      setUnreadCount(count);
+      useNotificationStore.getState().setUnreadCount(count);
       // Aligne le badge OS sur le compteur serveur (source de vérité) plutôt
       // que sur l'incrément optimiste fait à l'arrivée de la notif.
       await Notifications.setBadgeCountAsync(count);
     } catch (error) {
       if (__DEV__) console.error('Error refreshing badge count:', error);
     }
-  }, [setUnreadCount]);
+  }, []);
 
   // ── Register FCM token ──
   const registerPushToken = useCallback(async () => {
