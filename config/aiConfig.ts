@@ -15,6 +15,7 @@ export const AI_CONFIG = {
     maxImages: 5,
     maxSizeBytes: 5 * 1024 * 1024, // 5MB
     targetSizeBytes: 2 * 1024 * 1024, // 2MB - compress if larger
+    maxDimension: 1600, // Borne dimensionnelle avant upload/analyse (fidélité IA > affichage)
     supportedFormats: ['jpeg', 'jpg', 'png', 'webp', 'heic', 'heif'] as const,
     compressionQuality: 0.8,
   },
