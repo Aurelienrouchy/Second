@@ -410,7 +410,7 @@ export function useNotificationSetup(userId: string | null): void {
     const receivedSub = Notifications.addNotificationReceivedListener(() => {
       // Feedback immédiat : incrémente le compteur in-app, puis réconcilie avec
       // le compteur serveur (qui réaligne aussi le badge OS).
-      incrementUnreadCount();
+      useNotificationStore.getState().incrementUnreadCount();
       refreshBadgeCount();
     });
 
