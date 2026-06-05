@@ -2,10 +2,12 @@
  * aiService — upload + analyse IA (flux création produit)
  *
  * Régression couverte (P1/P2/P3 → sell flow) :
- *  1. L'upload Storage doit passer par `uploadString(ref, base64, 'base64')`
- *     et NON `fetch(uri).blob()` + `uploadBytes` — ce dernier renvoie un Blob
- *     sans octets lisibles sous React Native New Arch (RN 0.83), ce qui faisait
- *     échouer l'upload ("Network request failed") puis bloquait l'analyse IA.
+ *  1. L'upload Storage doit passer par le endpoint REST Firebase Storage via
+ *     `expo-file-system` `uploadAsync` (BINARY_CONTENT), et NON par le Web SDK
+ *     (`uploadString`/`uploadBytes`) : sous React Native New Arch (RN 0.83) le SDK
+ *     construit un Blob depuis un Uint8Array que le BlobManager natif refuse
+ *     ("Creating blobs from ArrayBuffer ... not supported"), ce qui faisait
+ *     échouer l'upload puis bloquait l'analyse IA.
  *  2. Le contrat `confidence` est un NOMBRE côté serveur, recomposé en objet
  *     { value, level } côté client via createConfidenceScore — un champ analysé
  *     correctement doit produire un ConfidenceScore exploitable par l'écran
@@ -17,12 +19,18 @@
 
 // --- Mocks de modules natifs spécifiques à ce test ---------------------------
 
-// expo-file-system/legacy : on simule une image lisible (existe + taille + base64).
+// expo-file-system/legacy : image lisible (existe + taille + base64) + upload REST
+// observable. uploadAsync renvoie un downloadToken comme l'endpoint Storage media.
 const FAKE_BASE64 = 'ZmFrZS1pbWFnZS1ieXRlcw=='; // "fake-image-bytes"
+const mockUploadAsync = jest.fn((..._args: unknown[]) =>
+  Promise.resolve({ status: 200, body: JSON.stringify({ downloadTokens: 'tok123' }) }),
+);
 jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn((..._args: unknown[]) => Promise.resolve({ exists: true, size: 1024 })),
   readAsStringAsync: jest.fn((..._args: unknown[]) => Promise.resolve('ZmFrZS1pbWFnZS1ieXRlcw==')),
+  uploadAsync: (...args: unknown[]) => mockUploadAsync(...args),
   EncodingType: { Base64: 'base64', UTF8: 'utf8' },
+  FileSystemUploadType: { BINARY_CONTENT: 'binary', MULTIPART: 'multipart' },
 }));
 
 // expo-image-manipulator : renvoie un URI traité distinct (no-op de transform).
@@ -33,19 +41,12 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
 }));
 
-// Firebase Storage : on observe uploadString / uploadBytes finement.
-const mockUploadString = jest.fn((..._args: unknown[]) => Promise.resolve({ ref: {} }));
-const mockUploadBytes = jest.fn((..._args: unknown[]) => Promise.resolve({ ref: {} }));
-const mockGetDownloadURL = jest.fn((..._args: unknown[]) =>
-  Promise.resolve('https://storage/o/drafts%2Fuid%2Fdraft%2Ffile.jpg?alt=media'),
-);
-const mockListAll = jest.fn((..._args: unknown[]) => Promise.resolve({ items: [] }));
+// Firebase Storage : seul deleteDraftImagesFromStorage utilise encore le SDK
+// (ref/listAll/deleteObject). L'upload ne passe plus par le SDK.
 jest.mock('firebase/storage', () => ({
   ref: jest.fn((_storage: unknown, path: string) => ({ path })),
-  uploadString: (...args: unknown[]) => mockUploadString(...args),
-  uploadBytes: (...args: unknown[]) => mockUploadBytes(...args),
-  getDownloadURL: (...args: unknown[]) => mockGetDownloadURL(...args),
-  listAll: (...args: unknown[]) => mockListAll(...args),
+  getDownloadURL: jest.fn((..._args: unknown[]) => Promise.resolve('https://storage/x')),
+  listAll: jest.fn((..._args: unknown[]) => Promise.resolve({ items: [] })),
   deleteObject: jest.fn((..._args: unknown[]) => Promise.resolve()),
 }));
 
@@ -55,13 +56,16 @@ jest.mock('firebase/functions', () => ({
   httpsCallable: jest.fn((..._args: unknown[]) => mockCallable),
 }));
 
-// firebaseConfig est mocké globalement dans jest.setup.js (auth.currentUser = null).
-// On pilote auth.currentUser à l'exécution via la référence importée plutôt que
-// de re-déclarer un jest.mock local (ce qui casse la résolution sous clearMocks).
-import { auth } from '@/config/firebaseConfig';
+// firebaseConfig est mocké globalement dans jest.setup.js (auth.currentUser = null,
+// storage = {}). On pilote auth.currentUser + le bucket Storage à l'exécution via
+// les références importées plutôt que de re-déclarer un jest.mock local.
+import { auth, storage } from '@/config/firebaseConfig';
 import { analyzeProductImage } from '@/services/aiService';
 
-const mockAuth = auth as unknown as { currentUser: { uid: string } | null };
+const mockAuth = auth as unknown as {
+  currentUser: { uid: string; getIdToken: () => Promise<string> } | null;
+};
+const mockStorage = storage as unknown as { app: { options: { storageBucket: string } } };
 
 // Réponse serveur "réaliste" : confidence émise en NOMBRE (contrat Option A).
 function serverResponse() {
@@ -91,36 +95,41 @@ function serverResponse() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockAuth.currentUser = { uid: 'uid' };
+  mockAuth.currentUser = { uid: 'uid', getIdToken: jest.fn().mockResolvedValue('test-token') };
+  mockStorage.app = { options: { storageBucket: 'test-bucket.firebasestorage.app' } };
   mockCallable.mockResolvedValue({ data: serverResponse() });
 });
 
-describe('analyzeProductImage — upload RN-safe (régression fetch/blob)', () => {
-  it('upload via uploadString(base64) et JAMAIS via uploadBytes', async () => {
+describe('analyzeProductImage — upload RN-safe (REST, pas le Web SDK)', () => {
+  it('upload via expo-file-system uploadAsync (BINARY_CONTENT + auth Firebase)', async () => {
     const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
 
     expect(res.success).toBe(true);
-    // Le cœur de la régression : on n'utilise plus le pont fetch()->blob->uploadBytes.
-    expect(mockUploadBytes).not.toHaveBeenCalled();
-    expect(mockUploadString).toHaveBeenCalledTimes(1);
+    expect(mockUploadAsync).toHaveBeenCalledTimes(1);
 
-    // Signature : (ref, base64, 'base64', { contentType })
-    const [, payload, format, metadata] = mockUploadString.mock.calls[0] as [
-      unknown,
+    const [url, fileUri, opts] = mockUploadAsync.mock.calls[0] as [
       string,
       string,
-      { contentType: string },
+      { httpMethod: string; uploadType: string; headers: Record<string, string> },
     ];
-    expect(payload).toBe(FAKE_BASE64);
-    expect(format).toBe('base64');
-    expect(metadata.contentType).toBe('image/jpeg');
+    // Endpoint REST media + bucket configuré + chemin drafts/<uid>/ encodé (%2F).
+    expect(url).toContain(
+      'https://firebasestorage.googleapis.com/v0/b/test-bucket.firebasestorage.app/o?uploadType=media&name=',
+    );
+    expect(url).toContain('drafts%2Fuid%2F');
+    // Le fichier local est streamé (pas de base64/blob côté JS).
+    expect(fileUri).toBe('file:///tmp/photo.jpg');
+    expect(opts.uploadType).toBe('binary');
+    expect(opts.headers.Authorization).toBe('Firebase test-token');
+    expect(opts.headers['Content-Type']).toBe('image/jpeg');
   });
 
-  it('renvoie les storageUrls de l’upload', async () => {
+  it('renvoie une storageUrl construite depuis le downloadToken de la réponse', async () => {
     const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
-    expect(res.storageUrls).toEqual([
-      'https://storage/o/drafts%2Fuid%2Fdraft%2Ffile.jpg?alt=media',
-    ]);
+    expect(res.storageUrls).toHaveLength(1);
+    expect(res.storageUrls![0]).toContain('test-bucket.firebasestorage.app');
+    expect(res.storageUrls![0]).toContain('alt=media');
+    expect(res.storageUrls![0]).toContain('token=tok123');
   });
 
   it('upload chaque image (multi-photos)', async () => {
@@ -129,7 +138,7 @@ describe('analyzeProductImage — upload RN-safe (régression fetch/blob)', () =
       'file:///tmp/b.jpg',
       'file:///tmp/c.jpg',
     ]);
-    expect(mockUploadString).toHaveBeenCalledTimes(3);
+    expect(mockUploadAsync).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -139,7 +148,7 @@ describe('analyzeProductImage — gating & erreurs', () => {
     const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
     expect(res.success).toBe(false);
     expect(res.error?.code).toBe('UNAUTHENTICATED');
-    expect(mockUploadString).not.toHaveBeenCalled();
+    expect(mockUploadAsync).not.toHaveBeenCalled();
     expect(mockCallable).not.toHaveBeenCalled();
   });
 
