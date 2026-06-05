@@ -62,22 +62,27 @@ jest.mock('@/services/guestPreferencesService', () => ({
   },
 }));
 
+const mockRemoveFcmToken = jest.fn((..._args: unknown[]) => Promise.resolve());
 jest.mock('@/services/userService', () => ({
   UserService: {
     getUserById: jest.fn((..._args: unknown[]) => Promise.resolve(null)),
-    removeFcmToken: jest.fn((..._args: unknown[]) => Promise.resolve()),
+    removeFcmToken: (...a: unknown[]) => mockRemoveFcmToken(...a),
   },
 }));
 
+const mockQueryClientClear = jest.fn();
 jest.mock('@/lib/queryClient', () => ({
-  queryClient: { clear: jest.fn() },
+  queryClient: { clear: (...a: unknown[]) => mockQueryClientClear(...a) },
 }));
 
 jest.mock('@/store/chatStore', () => ({
   useChatStore: { getState: () => ({ reset: jest.fn() }) },
 }));
+const notificationPushToken = { value: null as string | null };
 jest.mock('@/store/notificationStore', () => ({
-  useNotificationStore: { getState: () => ({ reset: jest.fn(), pushToken: null }) },
+  useNotificationStore: {
+    getState: () => ({ reset: jest.fn(), pushToken: notificationPushToken.value }),
+  },
 }));
 jest.mock('@/store/immersiveOverlayStore', () => ({
   useImmersiveOverlayStore: { getState: () => ({ reset: jest.fn() }) },
