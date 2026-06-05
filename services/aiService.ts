@@ -87,12 +87,14 @@ async function getFileInfo(uri: string): Promise<{ size: number; exists: boolean
 }
 
 /**
- * Compress image if needed
+ * Normalize image: resize to a bounded dimension + re-encode as JPEG.
+ * Always applied so the bytes uploaded (REST) and sent to analysis (base64)
+ * stay bounded even for high-res camera photos.
  */
-async function compressImage(uri: string): Promise<string> {
+async function normalizeImage(uri: string): Promise<string> {
   const result = await ImageManipulator.manipulateAsync(
     uri,
-    [], // No transforms
+    [{ resize: { width: AI_CONFIG.image.maxDimension } }],
     {
       compress: AI_CONFIG.image.compressionQuality,
       format: ImageManipulator.SaveFormat.JPEG,
@@ -102,49 +104,18 @@ async function compressImage(uri: string): Promise<string> {
 }
 
 /**
- * Convert HEIC/HEIF to JPEG
- */
-async function convertToJpeg(uri: string): Promise<string> {
-  const result = await ImageManipulator.manipulateAsync(
-    uri,
-    [], // No transforms
-    {
-      compress: AI_CONFIG.image.compressionQuality,
-      format: ImageManipulator.SaveFormat.JPEG,
-    }
-  );
-  return result.uri;
-}
-
-/**
- * Process image: detect format, convert if needed, compress if large
+ * Process image: detect format, normalize (resize + JPEG), validate size.
  * Returns processed image data with metadata
  */
 async function processImage(uri: string): Promise<ProcessedImage> {
   const originalMimeType = detectMimeType(uri);
   const fileInfo = await getFileInfo(uri);
 
-  let processedUri = uri;
-  let wasConverted = false;
-  let wasCompressed = false;
-  let finalMimeType = originalMimeType;
+  const wasConverted = needsConversion(originalMimeType);
 
-  // Convert HEIC/HEIF to JPEG
-  if (needsConversion(originalMimeType)) {
-    if (__DEV__) console.log(`Converting ${originalMimeType} to JPEG...`);
-    processedUri = await convertToJpeg(processedUri);
-    wasConverted = true;
-    finalMimeType = 'image/jpeg';
-  }
-
-  // Check size and compress if needed
-  const currentInfo = await getFileInfo(processedUri);
-  if (currentInfo.size > AI_CONFIG.image.targetSizeBytes) {
-    if (__DEV__) console.log(`Compressing image from ${Math.round(currentInfo.size / 1024)}KB...`);
-    processedUri = await compressImage(processedUri);
-    wasCompressed = true;
-    finalMimeType = 'image/jpeg';
-  }
+  // Always resize + re-encode to JPEG: bounds dimension regardless of source size.
+  const processedUri = await normalizeImage(uri);
+  const finalMimeType = 'image/jpeg';
 
   // Validate final size
   const finalInfo = await getFileInfo(processedUri);
