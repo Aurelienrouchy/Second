@@ -133,12 +133,22 @@ export const visualSearch = onCall(
       queryVector: FieldValue.vector(queryEmbedding),
       limit: Math.min(limit + 1, 50), // +1 to filter out self if needed
       distanceMeasure: 'COSINE',
-      // Materialize the computed distance so doc.get('__distance__') is real.
+      // Materialize the computed distance so doc.get('vector_distance') is real.
       // Without this the field is never written and similarity is always 100%.
-      distanceResultField: '__distance__',
+      // Names wrapped in double underscores (e.g. __distance__) are reserved by
+      // Firestore and rejected with INVALID_ARGUMENT.
+      distanceResultField: 'vector_distance',
     });
 
-    const snapshot = await vectorQuery.get();
+    let snapshot: FirebaseFirestore.QuerySnapshot;
+    try {
+      snapshot = await vectorQuery.get();
+    } catch (error) {
+      logger.error('[visualSearch] Vector query failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new HttpsError('internal', 'Vector similarity search failed');
+    }
 
     const queryTime = Date.now() - startTime - embeddingTime;
     logger.info('[visualSearch] Vector query returned results', { resultCount: snapshot.docs.length, queryTime });
