@@ -292,7 +292,7 @@ export const getSimilarProducts = onCall(
         distanceResultField: 'vector_distance',
       });
 
-    let snapshot: FirebaseFirestore.QuerySnapshot;
+    let snapshot: Awaited<ReturnType<typeof vectorQuery.get>>;
     try {
       snapshot = await vectorQuery.get();
     } catch (error) {
