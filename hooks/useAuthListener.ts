@@ -60,7 +60,8 @@ export function useAuthListener(): void {
               code === 'auth/user-disabled' ||
               code === 'auth/user-not-found'
             ) {
-              await useAuthStore.getState().signOut();
+              // Token is revoked/disabled/not-found here, so skip the remote FCM write (it would permission-deny).
+              await useAuthStore.getState().signOut({ skipRemoteFcmCleanup: true });
             }
           }
         }
