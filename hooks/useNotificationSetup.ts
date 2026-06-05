@@ -363,12 +363,12 @@ export function useNotificationSetup(userId: string | null): void {
 
       await UserService.saveFcmToken(userIdRef.current, deviceToken);
       fcmTokenRef.current = deviceToken;
-      setPushToken(deviceToken);
+      useNotificationStore.getState().setPushToken(deviceToken);
       if (__DEV__) console.log('FCM token registered');
     } catch (error) {
       if (__DEV__) console.log('Error registering push token:', error);
     }
-  }, [setPushToken]);
+  }, []);
 
   // ── Main setup effect ──
   useEffect(() => {
