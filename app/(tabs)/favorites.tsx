@@ -126,7 +126,7 @@ const PAGE_SIZE = 20;
 export default function FavoritesScreen() {
   const router = useRouter();
   const user = useUser();
-  const { requireAuth } = useAuthRequired();
+  const { requireAuth } = useRequireAuth();
   const { toggleFavorite, favoriteIds: articleIds } = useFavorites();
   const queryClient = useQueryClient();
 
