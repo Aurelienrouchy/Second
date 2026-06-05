@@ -296,6 +296,7 @@ const styles = StyleSheet.create({
   // cream zone's bottom padding + margin double the gap before the menu block.
   // Collapse them so the "se connecter" block sits flush against MON COMPTE.
   profileHeaderZoneGuest: {
+    paddingTop: 0,
     paddingBottom: 0,
     marginBottom: 0,
   },
