@@ -70,7 +70,6 @@ export const ArticleGrid = React.memo(function ArticleGrid({
         numColumns={NUM_COLUMNS}
         ItemSeparatorComponent={GridSeparator}
         ListHeaderComponent={ListHeaderComponent}
-        stickyHeaderIndices={stickyHeaderIndices}
         ListEmptyComponent={ListEmptyComponent}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomInset }}
