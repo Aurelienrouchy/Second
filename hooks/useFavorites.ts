@@ -207,7 +207,7 @@ async function toggleFavoriteMutation({
  * For card-level usage prefer `useIsFavorite(articleId)` to avoid re-renders.
  */
 export function useFavorites() {
-  const { user } = useAuth();
+  const user = useUser();
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
 
