@@ -32,9 +32,10 @@ interface RecordSignupConsentInput {
    * USER-CHOSEN @handle picked on the signup route. Optional for backward
    * compatibility, but the new signup flow ALWAYS sends it. Reserved
    * atomically alongside the consent write (all-or-nothing). A chosen handle
-   * that is already taken is REJECTED ('already-exists') — there is no auto
-   * suffix (unlike the legacy auto-derived assignUsername path), so the user
-   * picks another. Idempotent: a double-submit returns the existing username.
+   * that is already taken (by another uid) is REJECTED ('already-exists') —
+   * there is no auto suffix (unlike the legacy auto-derived assignUsername
+   * path), so the user picks another. The chosen handle WINS over any
+   * pre-consent auto-derived placeholder (see contract below).
    */
   desiredUsername?: string;
 }
