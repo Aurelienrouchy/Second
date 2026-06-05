@@ -65,7 +65,6 @@ export const Input = forwardRef<TextInput, InputProps>(({
   containerStyle,
   inputStyle,
   disabled = false,
-  focusAccent = true,
   value,
   onFocus,
   onBlur,
