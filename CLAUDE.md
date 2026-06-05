@@ -49,7 +49,7 @@ Les règles détaillées (archi, conventions, patterns, interdictions) vivent **
 
 | Agent | Périmètre |
 |-------|-----------|
-| `rn-expo-dev` | `app/`, `components/`, `features/`, `hooks/`, `store/`, `services/` (sauf data Firebase), `utils/`, `lib/`, `contexts/`, `types/`, `constants/`, `config/`. Zustand 5, RQ 5, Expo Router, FlashList, expo-image, EAS. |
+| `rn-expo-dev` | `app/`, `components/`, `features/`, `hooks/`, `store/`, `services/` (sauf data Firebase), `utils/`, `lib/`, `types/`, `constants/`, `config/`. Zustand 5, RQ 5, Expo Router, FlashList, expo-image, EAS. |
 | `product-designer` | DS Editorial Luxe, copy FR, BMAD, mockups, `components/ui/`, `components/atoms/`, `constants/theme`, `assets/`. |
 | `firebase-backend` | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, `functions/**`, schemas, paiement Stripe Connect (webhook, PaymentIntent, seller_balances, withdrawals), shipping ShipEngine, `runTransaction`, tests sécurité. |
 | `ux-logic-auditor` | Audit d'incohérences **logiques et UX** : flows utilisateur cross-plateforme, états impossibles, données orphelines, propagation de données, re-auth par provider, cohérence locale (Canada). Ne code pas — produit un rapport. |
