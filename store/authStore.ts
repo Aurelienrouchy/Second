@@ -307,7 +307,11 @@ export const useAuthStore = create<AuthStore>()(
     try {
       const pushToken = useNotificationStore.getState().pushToken;
       if (user?.id && pushToken) {
-        await UserService.removeFcmToken(user.id, pushToken);
+        try {
+          await UserService.removeFcmToken(user.id, pushToken);
+        } catch (fcmError) {
+          if (__DEV__) console.log('[authStore] removeFcmToken non-critical error:', fcmError);
+        }
       }
       // Reset siblings inline — calling store/resetAllStores would
       // create a circular module graph (authStore → resetAllStores →
