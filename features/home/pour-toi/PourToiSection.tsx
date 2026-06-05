@@ -10,6 +10,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { SectionHeader } from '@/components/home/SectionHeader';
 import ProductCard, { SkeletonCard, type ProductCardProduct } from '@/components/ProductCard';
+import { COMPACT_CARD_WIDTH } from '@/components/ProductCard.constants';
 import { spacing } from '@/constants/theme';
 import { useUser } from '@/hooks/useAuth';
 import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
