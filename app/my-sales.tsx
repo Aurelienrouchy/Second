@@ -4,7 +4,7 @@
  */
 
 import { useUser } from '@/hooks/useAuth';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { ArticlesService } from '@/services/articlesService';
 import { hasUserReviewedTransaction } from '@/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
