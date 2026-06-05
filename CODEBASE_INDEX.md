@@ -433,7 +433,7 @@ debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, search.ts (`no
 
 ```
 shared  : lib/**, utils/**, constants/**, types/**, config/**
-core    : services/**, store/**, hooks/**, contexts/**, components/**
+core    : services/**, store/**, hooks/**, components/**
 features: features/*/** (barrel index.ts obligatoire)
 app     : app/**
 ```
