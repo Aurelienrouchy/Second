@@ -380,13 +380,15 @@ export default function DetailsScreen() {
         />
       </ScrollView>
 
-      <SellFooter
-        testID="sell-details-footer-cta"
-        label="CONTINUER"
-        onPress={handleContinue}
-        isValid={isFormValid}
-        bottomInset={insets.bottom}
-      />
+      <Animated.View style={footerAnimatedStyle}>
+        <SellFooter
+          testID="sell-details-footer-cta"
+          label="CONTINUER"
+          onPress={handleContinue}
+          isValid={isFormValid}
+          bottomInset={0}
+        />
+      </Animated.View>
 
       {/* Bottom Sheets */}
       <CategoryBottomSheet
