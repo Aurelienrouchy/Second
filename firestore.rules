@@ -395,9 +395,11 @@ service cloud.firestore {
                        (isValidMessageCreate(request.resource.data) ||
                         isValidSystemMessage(request.resource.data));
 
-      // Allow update for marking as read or updating offer status ONLY.
-      // SECURITY: restrict to isRead and offer fields. When offer is
-      // modified, the offer.amount must stay the same (prevent amount tampering).
+      // Allow update for marking as read (isRead + status read receipt) or
+      // updating offer status ONLY.
+      // SECURITY: restrict to isRead, status and offer fields. When status is
+      // modified, it must be a valid MessageStatus. When offer is modified, the
+      // offer.amount must stay the same (prevent amount tampering).
       allow update: if isAuthenticated() &&
                        (
                          ('participants' in resource.data &&
@@ -408,7 +410,10 @@ service cloud.firestore {
                             get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants)
                        ) &&
                        request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['isRead', 'offer']) &&
+                         .hasOnly(['isRead', 'offer', 'status']) &&
+                       // If status is being modified: must be a valid MessageStatus.
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) ||
+                        request.resource.data.status in ['sending', 'sent', 'delivered', 'read']) &&
                        // If offer is being modified: amount must stay the same.
                        // SECURITY: only the receiver of the offer message can
                        // accept or reject it. The sender may still transition
