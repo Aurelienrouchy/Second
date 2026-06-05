@@ -67,7 +67,6 @@ Avant d'agir, regarde si la tâche matche un domaine ci-dessous et **délègue v
 - Patterns Zustand 5 (stores, sélecteurs, `useShallow`) ou React Query
 - Routes Expo Router, listes (FlashList), images (expo-image)
 - Scaffold d'une feature, écran, store, hook
-- Migration des shims `contexts/` vers hooks Zustand
 - Toute question Expo SDK / EAS Build / `expo install` / `expo prebuild`
 
 ### Délègue à `product-designer` quand
