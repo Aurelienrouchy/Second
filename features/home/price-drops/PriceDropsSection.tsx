@@ -61,7 +61,7 @@ interface PriceDropCardProps {
 const PriceDropCard = React.memo<PriceDropCardProps>(({ article, index }) => {
   const isFav = useIsFavorite(article.id);
   const toggleFavorite = useToggleFavorite();
-  const { requireAuth } = useAuthRequired();
+  const { requireAuth } = useRequireAuth();
 
   const scale = useSharedValue(1);
   const heartScale = useSharedValue(1);
