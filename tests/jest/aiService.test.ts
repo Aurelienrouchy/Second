@@ -117,8 +117,8 @@ describe('analyzeProductImage — upload RN-safe (REST, pas le Web SDK)', () => 
       'https://firebasestorage.googleapis.com/v0/b/test-bucket.firebasestorage.app/o?uploadType=media&name=',
     );
     expect(url).toContain('drafts%2Fuid%2F');
-    // Le fichier local est streamé (pas de base64/blob côté JS).
-    expect(fileUri).toBe('file:///tmp/photo.jpg');
+    // Le fichier local NORMALISÉ (resize + JPEG) est streamé (pas de base64/blob côté JS).
+    expect(fileUri).toBe('processed-file:///tmp/photo.jpg');
     expect(opts.uploadType).toBe('binary');
     expect(opts.headers.Authorization).toBe('Firebase test-token');
     expect(opts.headers['Content-Type']).toBe('image/jpeg');
