@@ -313,20 +313,23 @@ export const createArticle = onCall(
       ? stripHtml(String(data.description)).substring(0, 5000)
       : '';
 
-    // ── 4. Fetch seller info from Auth / Firestore ──
-    // Always read the user doc once: we need it both for the displayName
-    // fallback AND for the `showProfilePhoto` privacy preference that gates the
-    // denormalized `sellerImage` (P2-4). The doc is the trusted source.
-    let sellerName: string = data.sellerName || '';
-    let sellerImage: string | null = data.sellerImage || null;
-
+    // ── 4. Fetch seller info from Firestore ──
+    // The user doc is the trusted source: `sellerName`/`sellerImage` are ALWAYS
+    // derived from it, never from client input (client `auth.currentUser` can
+    // have a null displayName and would send the literal 'Utilisateur'; it is
+    // also untrusted for anti-spoofing). The doc also carries the
+    // `showProfilePhoto` privacy preference that gates the denormalized image.
     const userSnap = await db.collection('users').doc(uid).get();
     const userData = userSnap.exists ? userSnap.data() : undefined;
 
-    if (!sellerName) {
-      sellerName = userData?.displayName || 'Utilisateur';
-      sellerImage = sellerImage || userData?.profileImage || null;
+    let sellerName: string;
+    if (typeof userData?.displayName === 'string' && userData.displayName.trim().length > 0) {
+      sellerName = userData.displayName;
+    } else {
+      sellerName = 'Utilisateur';
+      logger.warn('createArticle: user displayName empty', { uid });
     }
+    let sellerImage: string | null = userData?.profileImage || null;
 
     // Privacy gate (P2-4): when the seller has explicitly turned off
     // `showProfilePhoto`, never denormalize their photo onto the article — even
