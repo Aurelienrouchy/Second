@@ -446,4 +446,9 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 100,
   },
+  // Carries the footer's cream through the safe-area gap so the animated
+  // paddingBottom region matches the footer rather than the screen background.
+  footerWrapper: {
+    backgroundColor: colors.cream,
+  },
 });
