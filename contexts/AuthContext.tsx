@@ -1,28 +1,20 @@
 /**
- * Backwards-compatibility shim for the legacy `useAuth()` API.
+ * Focused auth hooks backed by `store/authStore.ts` (Zustand).
  *
- * The auth state lives in `store/authStore.ts` (Zustand). This module
- * exposes:
- *  - Focused hooks (preferred): `useUser`, `useIsLoading`, `useIsGuest`,
- *    `useGuestSession`, `useIsFirstLaunch`, `useAuthActions`.
- *  - The legacy `useAuth()` aggregating everything — kept for the ~14
- *    existing consumers but DO NOT use in new code.
- *
- * Why focused hooks: the previous `useAuth()` ran 10 separate selectors
- * and rebuilt a fresh object on every render. Every consumer re-rendered
- * on any auth state change even if they only read `user`. Focused hooks
- * scope the subscription to exactly what each component reads.
+ * Exposes scoped hooks — `useUser`, `useIsLoading`, `useIsFirstLaunch`,
+ * `useIsGuest`, `useGuestSession`, `useAuthActions` — each subscribing to
+ * exactly what the consumer reads. This avoids the old `useAuth()`
+ * aggregator that rebuilt a fresh object on every render and forced every
+ * consumer to re-render on any auth state change.
  *
  * Multi-field reads use `useShallow` so the returned object identity is
  * stable when the underlying values are the same — required by the
  * project's golden rule (2+ fields from the same store ⇒ useShallow).
  */
-import React, { ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useAuthStore } from '@/store/authStore';
 import { GuestSession } from '@/services/guestPreferencesService';
-import { SignupConsent, SocialAuthResult } from '@/services/authService';
 import { User } from '@/types';
 
 // ─── Focused hooks ──────────────────────────────────────────────────────────
@@ -58,77 +50,3 @@ export const useAuthActions = () =>
       mergeGuestToUser: s.mergeGuestToUser,
     }))
   );
-
-// ─── Legacy aggregating hook ────────────────────────────────────────────────
-
-export interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  isFirstLaunch: boolean;
-  isGuest: boolean;
-  guestSession: GuestSession | null;
-  signIn: (user: User) => Promise<void>;
-  signOut: () => Promise<void>;
-  skipAuth: () => Promise<void>;
-  checkAuthRequired: () => boolean;
-  refreshUser: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<User>;
-  signUpWithEmail: (
-    email: string,
-    password: string,
-    displayName: string,
-  ) => Promise<User>;
-  signInWithGoogle: () => Promise<SocialAuthResult>;
-  signInWithApple: () => Promise<SocialAuthResult>;
-  beginPendingConsent: (user: User, onSuccess: (() => void) | null) => void;
-  completeConsent: (consent: SignupConsent) => Promise<User>;
-  recordSocialConsent: (user: User, consent: SignupConsent) => Promise<User>;
-  rollbackSocialSignIn: (isNewUser: boolean) => Promise<void>;
-  initGuestSession: () => Promise<void>;
-  mergeGuestToUser: (userId: string) => Promise<void>;
-}
-
-/**
- * Module-level singleton for `checkAuthRequired` so the function
- * reference is stable across renders. The closure reads from the store
- * via `getState()` — no subscription, no re-render trigger.
- */
-const checkAuthRequired = (): boolean =>
-  useAuthStore.getState().user === null;
-
-/**
- * @deprecated Prefer `useUser()`, `useIsLoading()`, `useAuthActions()`.
- * Kept for the ~14 existing consumer files; reads only the state with
- * `useShallow` so the returned object reference is stable when nothing
- * relevant changes.
- */
-export function useAuth(): AuthContextType {
-  const state = useAuthStore(
-    useShallow((s) => ({
-      user: s.user,
-      isLoading: s.isLoading,
-      isFirstLaunch: s.isFirstLaunch,
-      guestSession: s.guestSession,
-    }))
-  );
-  const actions = useAuthActions();
-
-  return {
-    user: state.user,
-    isLoading: state.isLoading,
-    isFirstLaunch: state.isFirstLaunch,
-    isGuest: state.user === null,
-    guestSession: state.guestSession,
-    checkAuthRequired,
-    ...actions,
-  };
-}
-
-/**
- * No-op for backwards compatibility. The auth listener is mounted via
- * `useAuthListener()` in the root layout; the previous Provider's only
- * job was that listener.
- */
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  return <>{children}</>;
-};
