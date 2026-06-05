@@ -27,6 +27,7 @@ import { AIAnalysisResult, CONDITION_DISPLAY, ConditionId } from '@/types/ai';
 import { colors as dataColors, getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';
 import { getSizesForCategory } from '@/data/sizes';
+import { getCategoryInfoFromIds } from '@/data/categories-v2';
 import draftService, { ArticleDraft, DraftFields } from '@/services/draftService';
 import { colors, spacing } from '@/constants/theme';
 
