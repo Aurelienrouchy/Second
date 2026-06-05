@@ -14,7 +14,7 @@ import {
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useUser } from '@/hooks/useAuth';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { getLeafCategoryLabel } from '@/data/categories-v2';
 import { SavedSearchService } from '@/services/savedSearchService';
 import { SearchFilters } from '@/types';
