@@ -18,6 +18,7 @@ import { Text, TextInput, View } from 'react-native';
 
 import { Checkbox } from '@/components/ui';
 import { COPY_CONSENT } from '@/constants/authMessages';
+import { colors } from '@/constants/theme';
 
 import { styles } from './styles';
 
