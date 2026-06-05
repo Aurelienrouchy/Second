@@ -52,6 +52,7 @@ export function useArticleSearch({
   initialCategoryPath,
   excludeUserId,
   sellerId,
+  browseAll = false,
 }: UseArticleSearchArgs = {}) {
   const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
   const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
