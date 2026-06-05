@@ -63,7 +63,7 @@ Les règles détaillées (archi, conventions, patterns, interdictions) vivent **
 Avant d'agir, regarde si la tâche matche un domaine ci-dessous et **délègue via l'outil Agent** (`subagent_type: "<nom>"`). Sinon, traite directement.
 
 ### Délègue à `rn-expo-dev` quand
-- Édition/création dans `app/`, `components/`, `features/`, `hooks/`, `store/`, `utils/`, `lib/`, `contexts/`, `types/`, `constants/`, `config/` (hors firebaseConfig)
+- Édition/création dans `app/`, `components/`, `features/`, `hooks/`, `store/`, `utils/`, `lib/`, `types/`, `constants/`, `config/` (hors firebaseConfig)
 - Patterns Zustand 5 (stores, sélecteurs, `useShallow`) ou React Query
 - Routes Expo Router, listes (FlashList), images (expo-image)
 - Scaffold d'une feature, écran, store, hook
