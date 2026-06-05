@@ -31,6 +31,7 @@ export function useSearchScreen() {
     shopId?: string;
     query?: string;
     filters?: string;
+    browse?: string;
   }>();
 
   const user = useUser();
