@@ -95,7 +95,7 @@ const GridSeparator = React.memo(function GridSeparator() {
 
 const styles = StyleSheet.create({
   gridWrapper: {
-    minHeight: 300,
+    flex: 1,
     width: SCREEN_WIDTH,
   },
   separator: {
