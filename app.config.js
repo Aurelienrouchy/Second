@@ -296,7 +296,12 @@ export default {
       }
     },
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      // React Compiler activé via babel-preset-expo (SDK 56). Le preset applique
+      // automatiquement babel-plugin-react-compiler — pas d'édition manuelle de
+      // babel.config.js, donc react-native-worklets/plugin reste intact.
+      // Auto-mémoïse les composants (lot de cartes de liste, rails home, etc.).
+      "reactCompiler": true
     }
   }
 };
