@@ -192,27 +192,52 @@ export const recordSignupConsent = onCall(
       const resolvedUsername = await db.runTransaction(async (tx) => {
         const userRef = db.collection('users').doc(uid);
         const userSnap = await tx.get(userRef);
-        const existingUsername = userSnap.exists
-          ? (userSnap.data()?.username as string | undefined)
-          : undefined;
+        const userData = userSnap.exists ? (userSnap.data() ?? {}) : {};
+        const existingUsername =
+          typeof userData.username === 'string' && userData.username.length > 0
+            ? (userData.username as string)
+            : undefined;
+        // dateOfBirth is written ONLY by this callable. Its presence means the
+        // account already consented on a PRIOR submit → the handle is now an
+        // established, immutable choice (not a pre-consent placeholder).
+        const alreadyConsented =
+          typeof userData.dateOfBirth === 'string' && userData.dateOfBirth.length > 0;
 
-        // ── Resolve the username to persist (with idempotence). ──
+        // ── Resolve the username to persist. ──
+        // Principle: a username auto-derived BEFORE the user made a deliberate
+        // choice (legacy at-creation slug, or the login safety-net) is a
+        // PLACEHOLDER, not an immutable handle. Immutability only protects a
+        // handle chosen post-consent. Since this call writes dateOfBirth, the
+        // account is pre-consent here UNLESS a prior submit already consented it
+        // (alreadyConsented) — only then does the existing handle win.
         let usernameToWrite: string | null = null;
-        if (typeof existingUsername === 'string' && existingUsername.length > 0) {
-          // IMMUTABLE: an assigned handle is never overwritten. Return it as-is,
-          // even if desiredUsername differs (the new value is ignored).
-          usernameToWrite = null; // nothing to write on the username front
+        let registryToRelease: string | null = null;
+
+        if (alreadyConsented) {
+          // IMMUTABLE: established handle wins, desiredUsername ignored. No-op.
+          usernameToWrite = null;
         } else if (normalizedUsername) {
-          // No existing handle: attempt to reserve the chosen one.
-          const regRef = db.collection('usernames').doc(normalizedUsername);
-          const regSnap = await tx.get(regRef);
-          if (regSnap.exists) {
-            const ownerUid = regSnap.data()?.uid;
-            if (ownerUid === uid) {
-              // Registry already points to us (partial prior submit). No-op
-              // reservation; we still (re)write users.username below for repair.
-              usernameToWrite = normalizedUsername;
-            } else {
+          if (existingUsername === normalizedUsername) {
+            // Same handle re-submitted (idempotent). Nothing to change; the
+            // registry already points to us from the prior reservation.
+            usernameToWrite = null;
+          } else {
+            // The chosen handle differs from (or there is no) existing handle.
+            // It WINS. Reserve usernames/{chosen}; reject only if owned by
+            // ANOTHER uid (no auto suffix). All reads precede all writes.
+            const regRef = db.collection('usernames').doc(normalizedUsername);
+            const regSnap = await tx.get(regRef);
+
+            // Pre-read the old registry entry too (before any write) so we can
+            // safely release it within the all-reads-first contract.
+            let existingOwnedByUs = false;
+            if (existingUsername) {
+              const oldRegRef = db.collection('usernames').doc(existingUsername);
+              const oldRegSnap = await tx.get(oldRegRef);
+              existingOwnedByUs = oldRegSnap.exists && oldRegSnap.data()?.uid === uid;
+            }
+
+            if (regSnap.exists && regSnap.data()?.uid !== uid) {
               // Taken by someone else → reject, NO auto suffix.
               throw new HttpsError(
                 'already-exists',
@@ -220,14 +245,25 @@ export const recordSignupConsent = onCall(
                 { field: 'username' }
               );
             }
-          } else {
-            // Free → reserve it.
-            tx.set(regRef, { uid, createdAt: FieldValue.serverTimestamp() });
+
             usernameToWrite = normalizedUsername;
+            // Free the stale auto-derived placeholder ONLY if it points to us.
+            if (existingUsername && existingOwnedByUs) {
+              registryToRelease = existingUsername;
+            }
           }
         }
+        // No desiredUsername provided → keep whatever exists (backward compat).
 
-        // ── Write the user doc (DOB + optional username). Never undefined. ──
+        // ── Writes (all after the reads above). Never undefined. ──
+        if (usernameToWrite) {
+          const regRef = db.collection('usernames').doc(usernameToWrite);
+          tx.set(regRef, { uid, createdAt: FieldValue.serverTimestamp() });
+        }
+        if (registryToRelease) {
+          tx.delete(db.collection('usernames').doc(registryToRelease));
+        }
+
         const userPayload: Record<string, unknown> = {
           dateOfBirth,
           updatedAt: FieldValue.serverTimestamp(),
@@ -248,10 +284,9 @@ export const recordSignupConsent = onCall(
           });
         }
 
-        // Return the effective handle for the response (existing wins).
-        return (typeof existingUsername === 'string' && existingUsername.length > 0)
-          ? existingUsername
-          : usernameToWrite;
+        // Effective handle for the response: the newly written one, else the
+        // (kept) existing one.
+        return usernameToWrite ?? existingUsername ?? null;
       });
 
       logger.info('recordSignupConsent: consents recorded', {
