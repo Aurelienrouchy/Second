@@ -27,7 +27,7 @@ import Animated, {
 import { colors, spacing, typography, radius, animations, sizing } from '@/constants/theme';
 import { SectionHeader } from '@/components/home/SectionHeader';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { formatPrice } from '@/utils/formatPrice';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { usePriceDrops, PriceDropArticle } from './usePriceDrops';
