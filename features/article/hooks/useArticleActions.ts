@@ -49,7 +49,7 @@ export function useArticleActions({
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { toggleFavorite, isFavorite } = useFavorites();
-  const { requireAuth } = useAuthRequired();
+  const { requireAuth } = useRequireAuth();
   const queryClient = useQueryClient();
 
   // Navigation guard against double-taps on Buy / Offer / Swap: a synchronous
