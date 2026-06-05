@@ -63,16 +63,7 @@ const PourToiSectionComponent: React.FC = () => {
 
   return (
     <View>
-      <SectionHeader
-        title="Pour toi"
-        action="Voir tout"
-        onActionPress={() =>
-          router.push({
-            pathname: '/search',
-            params: { browse: '1', filters: JSON.stringify({ sortBy: 'recent' }) },
-          })
-        }
-      />
+      <SectionHeader title="Pour toi" />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
