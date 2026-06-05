@@ -189,7 +189,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const isLiked = useIsFavorite(product?.id ?? '');
   const toggleFavorite = useToggleFavorite();
-  const { requireAuth } = useAuthRequired();
+  const { requireAuth } = useRequireAuth();
 
   const animatedCardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
