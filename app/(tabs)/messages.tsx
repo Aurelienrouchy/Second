@@ -305,6 +305,13 @@ const MessagesLoadingSkeleton: React.FC = () => (
 // Extracted sub-component with React.memo
 interface ConversationItemProps {
   chat: Chat;
+  /**
+   * Current user id, passed from the parent instead of each row calling
+   * `useUser()` — otherwise every visible row re-subscribes to the auth store
+   * and re-renders together whenever the `user` object's identity changes
+   * (AUTH-RR-03 / FX-05).
+   */
+  currentUserId: string | null;
   onPress: (chatId: string) => void;
   isUnread: boolean;
   unreadCount: number;
@@ -313,14 +320,14 @@ interface ConversationItemProps {
 
 const ConversationItem = React.memo(function ConversationItem({
   chat,
+  currentUserId,
   onPress,
   isUnread,
   unreadCount,
   isBlocked,
 }: ConversationItemProps) {
-  const user = useUser();
-  const otherParticipant = user
-    ? chat.participantsInfo.find((p) => p.userId !== user.id)
+  const otherParticipant = currentUserId
+    ? chat.participantsInfo.find((p) => p.userId !== currentUserId)
     : null;
 
   // Live profile read — falls back to the snapshot in participantsInfo
