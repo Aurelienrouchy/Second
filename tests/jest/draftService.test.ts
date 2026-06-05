@@ -320,7 +320,7 @@ describe('flag de publication — wasPublished / markPublished', () => {
     expect(draftService.wasPublished).toBe(false);
   });
 
-  it('markPublished arme le flag', () => {
+  it('markPublished arme le flag', async () => {
     draftService.markPublished();
     expect(draftService.wasPublished).toBe(true);
     // Nettoyage pour les tests suivants (le singleton est partagé).
