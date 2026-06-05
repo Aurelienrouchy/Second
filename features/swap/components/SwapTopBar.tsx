@@ -19,8 +19,11 @@ interface SwapTopBarProps {
 export const SwapTopBar = React.memo(function SwapTopBar({
   showNewBadge,
 }: SwapTopBarProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.topBar}>
+    // Own the top safe-area: the screen's SafeAreaView uses edges={['bottom']},
+    // so without this the bar would sit under the status bar.
+    <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
       <Pressable
         onPress={() => router.back()}
         hitSlop={8}
