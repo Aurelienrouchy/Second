@@ -416,7 +416,9 @@ export default function ChatScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    // Top edge owned by ChatHeader (surfaceWarm) so the status-bar zone matches
+    // the header colour instead of showing the body background.
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ChatHeader
         otherParticipant={otherParticipant}
         otherAvatar={otherAvatar}
