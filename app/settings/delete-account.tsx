@@ -97,7 +97,8 @@ export default function DeleteAccountScreen() {
       await deleteUserAccountFn();
 
       // signOut (not resetAllStores): full logout required, else the ghost session resurrects the user at cold start.
-      await useAuthStore.getState().signOut();
+      // skipRemoteFcmCleanup: the user doc + Auth account are already deleted server-side, any FCM write would permission-deny.
+      await useAuthStore.getState().signOut({ skipRemoteFcmCleanup: true });
       router.replace('/');
     } catch (error: unknown) {
       if (__DEV__) console.error('Error deleting account:', error);
