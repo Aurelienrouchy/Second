@@ -185,7 +185,8 @@ export default function DetailsScreen() {
   // to the header back button, so leaving never silently bypasses the draft alert.
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (allowLeaveRef.current) return;
+      // Publication réussie : le brouillon est déjà supprimé, pas d'alerte parasite.
+      if (allowLeaveRef.current || draftService.wasPublished) return;
       e.preventDefault();
       Alert.alert(
         'Quitter ?',
