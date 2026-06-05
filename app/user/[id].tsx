@@ -347,6 +347,32 @@ export default function UserProfileScreen() {
     router.push('/settings/profile-details');
   }, [router]);
 
+  // ─── Shared header (profile + actions + tabs) ────────────────────────────────
+  // Rendered as the FlashList ListHeaderComponent on the articles tab and at
+  // the top of the ScrollView on the reviews tab. React Compiler memoizes this
+  // JSX; child components are already React.memo'd so the tree stays cheap.
+  const profileHeaderElement = profileUser ? (
+    <View>
+      <View>
+        <ProfileHeader user={profileUser} stats={stats} />
+        {!isOwnProfile && (
+          <UserActions
+            isFollowing={isFollowing}
+            isContactLoading={isContactLoading}
+            isFollowLoading={isFollowLoading}
+            onContact={handleContact}
+            onFollow={handleFollow}
+          />
+        )}
+      </View>
+      <ProfileTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        reviewCount={stats?.nombreAvis ?? 0}
+      />
+    </View>
+  ) : undefined;
+
   // ─── Loading State ─────────────────────────────────────────────────────────
 
   if (isLoading) {
