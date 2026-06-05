@@ -54,6 +54,7 @@ const PourToiItem = React.memo<{ article: Article }>(({ article }) => {
 // =============================================================================
 
 const PourToiSectionComponent: React.FC = () => {
+  const router = useRouter();
   const user = useUser();
   const { articles, isLoading, hasProfile } = usePersonalizedFeed({ user });
 
@@ -63,7 +64,16 @@ const PourToiSectionComponent: React.FC = () => {
 
   return (
     <View>
-      <SectionHeader title="Pour toi" />
+      <SectionHeader
+        title="Pour toi"
+        action="Voir tout"
+        onActionPress={() =>
+          router.push({
+            pathname: '/search',
+            params: { browse: '1', filters: JSON.stringify({ sortBy: 'recent' }) },
+          })
+        }
+      />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
