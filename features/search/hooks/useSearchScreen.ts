@@ -146,16 +146,19 @@ export function useSearchScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-hide results when everything is cleared
+  // Auto-hide results when everything is cleared. En mode "parcourir tout"
+  // (Voir tout home), aucun terme/catégorie/filtre n'est requis : on garde la
+  // grille visible (tout le catalogue trié récent).
   useEffect(() => {
     if (
+      !isBrowseAll &&
       !searchQuery.trim() &&
       selectedCategoryPath.length === 0 &&
       !hasActiveFilters
     ) {
       setIsSearching(false);
     }
-  }, [searchQuery, selectedCategoryPath, hasActiveFilters]);
+  }, [isBrowseAll, searchQuery, selectedCategoryPath, hasActiveFilters]);
 
   // ─── Recent searches ────────────────────────────────────────────
   const loadRecentSearches = async () => {
