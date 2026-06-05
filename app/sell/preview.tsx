@@ -204,6 +204,9 @@ export default function PreviewScreen() {
 
       const articleId = await ArticlesService.createArticle(articleData);
       await draftService.deleteDraft(true);
+      // Signale au guard beforeRemove (details) que le tear-down du stack vente
+      // qui suit est dû à une publication, pas à un back-out à confirmer.
+      draftService.markPublished();
 
       // Bail out of state updates if the screen was torn down mid-publish.
       if (!isMountedRef.current) return;
