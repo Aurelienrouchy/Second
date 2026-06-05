@@ -33,6 +33,10 @@ import { getCategoryInfoFromIds } from '@/data/categories-v2';
 import draftService, { ArticleDraft, DraftFields } from '@/services/draftService';
 import { colors, spacing } from '@/constants/theme';
 
+// Lift the sticky footer to sit spacing.md (16) above the keyboard when open;
+// keyboard.height is bottom-anchored, so blending against the safe-area inset
+// gives the closed-state inset and the open-state float without a jump.
+
 type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
 interface EditedFields {
