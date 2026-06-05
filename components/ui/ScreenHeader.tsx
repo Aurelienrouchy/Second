@@ -71,8 +71,8 @@ function ScreenHeaderComponent({
       {topContent && <View style={styles.topContentWrapper}>{topContent}</View>}
 
       <View style={styles.row}>
-        {/* Left: Back button or spacer */}
-        {shouldShowBack ? (
+        {/* Left: Back button (no spacer when absent — title starts at the back button position) */}
+        {shouldShowBack && (
           <Pressable
             onPress={onBack}
             style={[
@@ -85,8 +85,6 @@ function ScreenHeaderComponent({
           >
             <Ionicons name="chevron-back" size={20} color={backButtonColor ?? colors.charcoal} />
           </Pressable>
-        ) : (
-          <View style={styles.backSpacer} />
         )}
 
         {/* Center: Title */}
