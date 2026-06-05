@@ -287,11 +287,7 @@ export default function DetailsScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      testID="sell-details-screen"
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View testID="sell-details-screen" style={styles.container}>
       <ScreenHeader
         title="Détails"
         onBack={handleBack}
