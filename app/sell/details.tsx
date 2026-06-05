@@ -430,7 +430,7 @@ export default function DetailsScreen() {
         initialSearchQuery={aiResult?.brand?.detected || ''}
         singleSelect
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
