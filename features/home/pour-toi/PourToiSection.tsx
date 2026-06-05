@@ -54,7 +54,6 @@ const PourToiItem = React.memo<{ article: Article }>(({ article }) => {
 // =============================================================================
 
 const PourToiSectionComponent: React.FC = () => {
-  const router = useRouter();
   const user = useUser();
   const { articles, isLoading, hasProfile } = usePersonalizedFeed({ user });
 
