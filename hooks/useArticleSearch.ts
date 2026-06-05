@@ -148,7 +148,8 @@ export function useArticleSearch({
       activeSearchQuery.trim() ||
       selectedCategoryPath.length > 0 ||
       hasNonDefaultFilters ||
-      sellerId
+      sellerId ||
+      browseAll
     ),
   });
 
