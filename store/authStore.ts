@@ -60,7 +60,8 @@ interface AuthActions {
   bootstrap: () => Promise<void>;
 
   signIn: (user: User) => Promise<void>;
-  signOut: () => Promise<void>;
+  /** `skipRemoteFcmCleanup` skips the Firestore FCM write when the auth token is already invalid (account deleted / revoked). */
+  signOut: (opts?: { skipRemoteFcmCleanup?: boolean }) => Promise<void>;
   skipAuth: () => Promise<void>;
   refreshUser: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
