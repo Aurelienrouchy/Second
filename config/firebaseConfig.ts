@@ -53,11 +53,12 @@ const auth = getApps().length <= 1
     })
   : getAuth(app);
 
-// Persistent local cache so authenticated Firestore data (incl. the user
-// doc) is available at cold start while offline — otherwise the user can
-// appear as a guest until the network round-trip resolves.
+// Memory cache: the Web SDK's persistentLocalCache needs IndexedDB, which
+// React Native lacks — it always fell back to memory anyway (with a noisy
+// warning). Offline cold-start of the user doc is handled separately via the
+// AsyncStorage snapshot in authStore.hydrateFromFirebase.
 const firestore = initializeFirestore(app, {
-  localCache: persistentLocalCache({ cacheSizeBytes: 40 * 1024 * 1024 }),
+  localCache: memoryLocalCache(),
 });
 const storage = getStorage(app);
 const functions = getFunctions(app, 'northamerica-northeast1');
