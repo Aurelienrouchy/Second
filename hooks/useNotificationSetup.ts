@@ -401,7 +401,7 @@ export function useNotificationSetup(userId: string | null): void {
 
       if (!isActive) return;
 
-      setSetupComplete(true);
+      useNotificationStore.getState().setSetupComplete(true);
     };
 
     setup();
