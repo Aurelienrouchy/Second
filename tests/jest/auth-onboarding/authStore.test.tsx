@@ -109,6 +109,7 @@ const fbUser = { uid: 'uid-1', email: 'a@b.com' };
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  notificationPushToken.value = null;
   await AsyncStorage.clear();
   useAuthStore.getState().reset();
 });
