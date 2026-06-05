@@ -5,7 +5,7 @@
 import { useUser } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/authService';
 import { functions } from '@/config/firebaseConfig';
-import { resetAllStores } from '@/store/resetAllStores';
+import { useAuthStore } from '@/store/authStore';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
