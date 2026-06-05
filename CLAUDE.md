@@ -144,7 +144,7 @@ Avant d'agir, regarde si la tâche matche un domaine ci-dessous et **délègue v
 - **100% Stripe Connect Custom** (migration depuis Helcim terminée Sprint 6). **Choix assumé white-label** : expérience 100 % in-app, le vendeur ne voit jamais le dashboard Stripe ; la plateforme porte KYC/conformité/litiges. Destination charges avec `application_fee_amount`. Clés dans Firebase Secret Manager (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Webhook URL : `https://northamerica-northeast1-seconde-b47a6.cloudfunctions.net/stripeWebhook`.
 - **Pas de Helcim** (remplacé par Stripe, Sprint 6) · **Pas de Lingui** (mono-FR, Sprint 2.1) · **Pas de Redux / moment / @react-native-firebase / fast-image**. Liste complète dans `rn-expo-dev`.
 - **Barrels `features/`** : chaque feature expose un barrel `index.ts` (named re-exports, pas `export *`). Les imports vers `features/X` passent **toujours** par `@/features/X` (le barrel), jamais en deep import (`@/features/X/components/Foo`).
-- **ESLint boundaries** (`eslint.config.js`) : 4 layers — `shared` (lib, utils, constants, types, config) → `core` (services, store, hooks, contexts, **components**) → `features` → `app`. Cross-import entre features interdit. Vérifier avec `npm run lint:boundaries`.
+- **ESLint boundaries** (`eslint.config.js`) : 4 layers — `shared` (lib, utils, constants, types, config) → `core` (services, store, hooks, **components**) → `features` → `app`. Cross-import entre features interdit. Vérifier avec `npm run lint:boundaries`.
 
 ---
 
