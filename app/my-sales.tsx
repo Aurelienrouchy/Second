@@ -120,7 +120,7 @@ function SaleCard({
 
 export default function MySalesScreen() {
   const user = useUser();
-  const { showAuthSheet } = useAuthRequired();
+  const { showAuthSheet } = useRequireAuth();
   const router = useRouter();
 
   const {
