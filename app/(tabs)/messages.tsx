@@ -48,7 +48,7 @@ function formatBadgeCount(count: number, max = 99): string {
 
 export default function MessagesScreen() {
   const user = useUser();
-  const { showAuthSheet } = useAuthRequired();
+  const { showAuthSheet } = useRequireAuth();
   const router = useRouter();
   const { chats, isLoading, error } = useChats(user?.id || null);
   // `null` = no explicit choice yet → fall back to the derived default below.
