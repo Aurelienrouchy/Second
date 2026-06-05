@@ -284,6 +284,8 @@ export class UserService {
    * Supprimer un token FCM (déconnexion ou token invalide)
    */
   static async removeFcmToken(userId: string, token: string): Promise<void> {
+    // No-op silently if auth doesn't match the target doc (signed out / token revoked) — avoids a guaranteed permission-denied.
+    if (auth.currentUser?.uid !== userId) return;
     try {
       await updateDoc(doc(firestore, this.COLLECTION, userId), {
         fcmTokens: arrayRemove(token),
