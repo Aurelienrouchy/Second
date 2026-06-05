@@ -34,7 +34,7 @@ import { getMaterialItems } from '@/data/materials';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useUser } from '@/hooks/useAuth';
-import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { queryKeys } from '@/lib/queryKeys';
 import {
   getSwapParty,
