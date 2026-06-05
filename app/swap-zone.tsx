@@ -106,7 +106,7 @@ function toSwapItemInfo(item: SwapPartyItemExtended): SwapItemInfo {
 export default function SwapZoneScreen() {
   const partyId = GENERALIST_ZONE_ID;
   const user = useUser();
-  const { requireAuth } = useAuthRequired();
+  const { requireAuth } = useRequireAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
