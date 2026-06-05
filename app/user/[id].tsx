@@ -413,7 +413,6 @@ export default function UserProfileScreen() {
           articles={articles}
           onArticlePress={handleArticlePress}
           ListHeaderComponent={profileHeaderElement}
-          stickyHeaderIndices={[1]}
           bottomInset={100}
         />
       ) : (
