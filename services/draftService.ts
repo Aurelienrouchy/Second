@@ -168,11 +168,25 @@ export function getDaysUntilExpiration(draft: ArticleDraft): number {
 class DraftService {
   private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly DEBOUNCE_MS = 500;
+  // True le temps d'un flux après publication réussie : le guard beforeRemove de
+  // l'écran details s'en sert pour ne pas afficher l'alerte "Quitter ?" alors que
+  // le brouillon a déjà été supprimé. Ré-armé (false) à chaque édition / entrée de flux.
+  private published = false;
+
+  markPublished(): void {
+    this.published = true;
+  }
+
+  get wasPublished(): boolean {
+    return this.published;
+  }
 
   /**
    * Save draft to AsyncStorage
    */
   async saveDraft(draft: ArticleDraft): Promise<void> {
+    // Toute activité d'édition ré-arme le guard pour le prochain flux.
+    this.published = false;
     try {
       const draftToSave = {
         ...draft,
