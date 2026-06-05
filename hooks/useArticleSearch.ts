@@ -17,6 +17,12 @@ interface UseArticleSearchArgs {
   initialCategoryPath?: string[];
   excludeUserId?: string;
   sellerId?: string;
+  /**
+   * "Parcourir tout" : exécute la requête même sans terme/catégorie/filtre actif
+   * (sortBy 'recent' ne compte pas comme filtre). Utilisé par le "Voir tout" de
+   * la home pour afficher tout le catalogue trié par date.
+   */
+  browseAll?: boolean;
 }
 
 interface SearchPage {
