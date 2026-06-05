@@ -403,39 +403,28 @@ export default function UserProfileScreen() {
         }
       />
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[1]}
-      >
-        {/* Profile Header + Actions (single child for correct sticky index) */}
-        <View>
-          <ProfileHeader user={profileUser} stats={stats} />
-          {!isOwnProfile && (
-            <UserActions
-              isFollowing={isFollowing}
-              isContactLoading={isContactLoading}
-              isFollowLoading={isFollowLoading}
-              onContact={handleContact}
-              onFollow={handleFollow}
-            />
-          )}
-        </View>
-
-        {/* Sticky Tabs (index 1) */}
-        <ProfileTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          reviewCount={stats?.nombreAvis ?? 0}
+      {/* Header shared by both tabs: profile + actions, then the sticky tabs.
+          Children 0 = header/actions, 1 = tabs row (sticky index). */}
+      {activeTab === 'articles' ? (
+        // Articles tab: the FlashList grid is the single scroll container, so
+        // virtualization survives even on sellers with 50-200 articles
+        // (the old ScrollView wrapper neutralized it entirely — LIST-01).
+        <ArticleGrid
+          articles={articles}
+          onArticlePress={handleArticlePress}
+          ListHeaderComponent={profileHeaderElement}
+          stickyHeaderIndices={[1]}
+          bottomInset={100}
         />
-
-        {/* Tab Content */}
-        {activeTab === 'articles' ? (
-          <ArticleGrid
-            articles={articles}
-            onArticlePress={handleArticlePress}
-          />
-        ) : (
+      ) : (
+        // Reviews tab: bounded content (max ~20 reviews, .map-based), so a
+        // plain ScrollView with sticky tabs stays appropriate here.
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={[1]}
+        >
+          {profileHeaderElement}
           <ReviewList
             stats={stats}
             reviews={reviews}
@@ -443,10 +432,9 @@ export default function UserProfileScreen() {
             isOwnProfile={isOwnProfile}
             onReviewerPress={handleReviewerPress}
           />
-        )}
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      )}
 
       <ReportBottomSheet ref={reportSheetRef} />
     </View>
