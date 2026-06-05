@@ -349,14 +349,12 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `ai.ts` | Types IA (AIAnalysis, etc.) |
 | `search.ts` | Types recherche (SearchFilters, etc.) |
 
-## Contexts — `contexts/` (shims legacy)
+## Auth hooks — `hooks/useAuth.ts`
 
-| Fichier | Délègue à |
-|---------|-----------|
-| `AuthContext.tsx` | `authStore` — utiliser `useUser()`, `useAuthActions()` |
-| `ChatContext.tsx` | `chatStore` — utiliser sélecteurs directs |
-| `AuthRequiredContext.tsx` | `authSheetStore` — utiliser `.getState().show()` |
-| `NotificationContext.tsx` | `notificationStore` |
+Le dossier `contexts/` a été **entièrement supprimé** (shims legacy éliminés). Désormais :
+- Hooks d'auth ciblés → `@/hooks/useAuth` (`useUser`, `useAuthActions`, `useIsLoading`, `useIsFirstLaunch`, `useIsGuest`, `useGuestSession`)
+- `useAuthRequired` → `@/hooks/useAuthRequired`
+- Chat → sélecteurs `chatStore` directs · Auth sheet → `authSheetStore`
 
 ---
 
