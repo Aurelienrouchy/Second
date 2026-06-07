@@ -493,7 +493,7 @@ export default function ChatScreen() {
             hasArticle={!!chat?.articleId && article !== null}
           />
         )}
-      </KeyboardAvoidingView>
+      </Animated.View>
 
       {(article?.price ?? chat?.articlePrice) && (
         <MakeOfferModal
