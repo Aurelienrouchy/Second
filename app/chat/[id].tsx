@@ -425,8 +425,10 @@ export default function ChatScreen() {
 
   return (
     // Top edge owned by ChatHeader (surfaceWarm) so the status-bar zone matches
-    // the header colour instead of showing the body background.
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    // the header colour instead of showing the body background. Bottom edge is
+    // dropped here — the animated paddingBottom on styles.content owns it so the
+    // input tracks the keyboard without a double safe-area inset.
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ChatHeader
         otherParticipant={otherParticipant}
         otherAvatar={otherAvatar}
