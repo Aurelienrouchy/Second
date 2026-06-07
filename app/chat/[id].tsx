@@ -69,6 +69,16 @@ export default function ChatScreen() {
   const user = useUser();
   const insets = useSafeAreaInsets();
 
+  // Keyboard open → lift the list + input zone to sit spacing.sm (8) above the
+  // keyboard; closed → fall back to the bottom safe-area inset. keyboard.height
+  // is bottom-anchored and follows the native curve, so the input tracks the
+  // keyboard without a jump. The SafeAreaView drops its 'bottom' edge below so
+  // this padding owns the bottom spacing (no double inset).
+  const keyboard = useAnimatedKeyboard();
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboard.height.value > 0 ? keyboard.height.value + spacing.sm : insets.bottom,
+  }));
+
   // ─── ALL hooks MUST be called before any conditional return ───
 
   const {
