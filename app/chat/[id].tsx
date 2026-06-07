@@ -446,14 +446,7 @@ export default function ChatScreen() {
         />
       )}
 
-      <KeyboardAvoidingView
-        style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        // Offset = safe-area top (consumed by SafeAreaView) + the header that
-        // sits above the KeyboardAvoidingView. Derived instead of hardcoded so
-        // it stays correct across notched / non-notched devices.
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + CHAT_HEADER_HEIGHT : 0}
-      >
+      <Animated.View style={[styles.content, contentAnimatedStyle]}>
         {/* Shipping → full tracker. Meetup → ShipmentTracking self-limits to
             the Loi 25 automated-decision transparency + contestation block
             (e.g. annulation automatique du meetup), or renders nothing.
