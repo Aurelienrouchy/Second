@@ -7,12 +7,14 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
     Alert,
-    KeyboardAvoidingView,
-    Platform,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
+import Animated, {
+    useAnimatedKeyboard,
+    useAnimatedStyle,
+} from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import components
