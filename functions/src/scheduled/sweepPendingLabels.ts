@@ -20,7 +20,7 @@
  *      seller (pendingBalance), reconcile the real label cost, persist label
  *      fields, clear the flag and mark `shipped`.
  *   3. Increment `labelAttempts`. After N = MAX_ATTEMPTS failures: REFUND the
- *      buyer (idempotent reverse_transfer for card charges; wallet re-credit for
+ *      buyer (idempotent plain platform-charge refund + wallet re-credit for
  *      wallet portions), debit the seller pendingBalance IF they were credited
  *      (they normally weren't — deferred), release the article (isSold = false),
  *      cancel the transaction and notify the buyer. A definitive failure writes
