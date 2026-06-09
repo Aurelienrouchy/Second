@@ -650,8 +650,8 @@ async function refundPaidNotShipped(
 
     // -----------------------------------------------------------------------
     // PHASE 2 — CORE: shared idempotent Stripe refund + atomic reconciliation.
-    // The core decides reverse_transfer (destination vs mixed direct charge)
-    // from paidVia, re-credits the buyer wallet portion, debits the seller
+    // The core issues a plain platform-charge refund (single-rail model),
+    // re-credits the buyer wallet portion, debits the seller
     // exactly sellerCreditedCents, re-lists the article, sets status='refunded'.
     // On Stripe failure it dead-letters (stripe_refund_failed, key rf_${txId})
     // and throws — we leave the tx in refund_in_progress for the next run.
