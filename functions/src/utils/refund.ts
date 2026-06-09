@@ -9,9 +9,12 @@
  * Two stages, in this order (Stripe MUST run outside the Firestore tx):
  *   1. Stripe refund of the card portion OUTSIDE the runTransaction, with a
  *      deterministic idempotency key so re-invocations never double-refund.
- *      For destination charges we pass reverse_transfer + refund_application_fee
- *      to claw the money back from the connected account; for direct platform
- *      (mixed wallet+card) charges those are omitted.
+ *      Under the single-rail model EVERY charge is a platform charge (no
+ *      transfer_data at capture), so the refund is a plain refunds.create on the
+ *      platform PaymentIntent — there is NO transfer to reverse and NO
+ *      application fee to claw back. The seller is debited in stage 2 via the
+ *      wallet cascade (the seller was only ever credited in the wallet ledger,
+ *      not on a connected account).
  *   2. Atomic Firestore reconciliation: re-credit any wallet portion to the
  *      buyer, debit the seller EXACTLY what was credited
  *      (pendingBalance -> heldBalance -> balance, shortfall -> sellerDebt),
