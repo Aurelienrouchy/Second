@@ -2618,9 +2618,9 @@ export const reportMeetupNoShow = onCall(
  * Flow:
  *   1. Stripe refund OUTSIDE the runTransaction, with a deterministic
  *      idempotency key (`rf_admin_<txId>`) so re-invocations never double-refund.
- *      For destination charges we pass reverse_transfer + refund_application_fee
- *      to claw the money back from the connected account; for direct platform
- *      (mixed wallet+card) charges those are omitted.
+ *      Single-rail model: every charge is a platform charge, so this is a plain
+ *      refunds.create — no transfer to reverse, no application fee to claw back.
+ *      The seller is debited via the wallet cascade in stage 2.
  *   2. Atomic Firestore reconciliation: re-credit any wallet portion to the
  *      buyer, debit the seller EXACTLY what was credited
  *      (pendingBalance -> heldBalance -> balance, shortfall -> sellerDebt),
