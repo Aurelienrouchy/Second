@@ -134,14 +134,11 @@ async function replayOp(
             : op.type === 'label_refund_failed'
               ? `rf_label_${op.refId}`
               : `rf_${op.refId}`;
-      const isMixedCharge = op.payload.isMixedCharge === true;
       try {
         await stripe.refunds.create(
           {
             payment_intent: paymentIntentId,
-            ...(isMixedCharge
-              ? {}
-              : { reverse_transfer: true, refund_application_fee: true }),
+            // Single-rail model: platform charge, so no transfer to reverse.
           },
           { idempotencyKey }
         );
