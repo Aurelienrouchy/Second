@@ -1673,8 +1673,8 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     // The buyer's wallet portion is a purely INTERNAL movement: it was debited
     // from the buyer at checkout, so on refund it must be re-credited to the
     // buyer's wallet. The card portion is returned to the card by the Stripe
-    // refund itself (created upstream with reverse_transfer when the original
-    // charge was a destination charge). This handler only reconciles the ledger.
+    // refund itself (a plain refund on the platform charge — single-rail model,
+    // no transfer to reverse). This handler only reconciles the ledger.
     if (paidVia === 'wallet' || paidVia === 'wallet_and_card') {
       const buyerId = txData.buyerId;
       const buyerWalletRef = db.collection('wallets').doc(buyerId);
