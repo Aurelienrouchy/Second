@@ -243,9 +243,7 @@ async function replayOp(
             await stripe.refunds.create(
               {
                 payment_intent: paymentIntentId,
-                ...(op.payload.isMixedCharge === true
-                  ? {}
-                  : { reverse_transfer: true, refund_application_fee: true }),
+                // Single-rail model: platform charge, so no transfer to reverse.
               },
               { idempotencyKey: `rf_mismatch_${op.refId}` }
             );
