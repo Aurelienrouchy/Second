@@ -1156,7 +1156,6 @@ export const createStripeCheckout = onCall(
 
       // Convert dollars to cents for Stripe (all Stripe amounts are in smallest currency unit)
       const totalChargeCents = Math.round(txResult.fees.buyerTotal * 100);
-      const applicationFeeInCents = Math.round(txResult.fees.serviceFee * 100);
 
       // P2-10: use the AUTHORITATIVE wallet amount returned by the transaction
       // (freshly-debited, or the previously-recorded amount on a retry) — never
