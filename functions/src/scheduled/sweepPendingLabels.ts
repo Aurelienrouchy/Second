@@ -159,7 +159,7 @@ async function refreshRateForTransaction(
  * the buyer.
  *
  * REUSES the shared issueTransactionRefund core (single source of truth for the
- * reverse_transfer / sellerDebt reconciliation + dead-lettering on Stripe
+ * Stripe refund + sellerDebt reconciliation + dead-lettering on Stripe
  * failure with the deterministic key). The article IS re-listed (the parcel was
  * never shipped, the item still exists). After the core succeeds we additionally
  * clear the label-pending bookkeeping (cancelReason / labelCreationPending) that
