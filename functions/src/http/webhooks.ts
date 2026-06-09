@@ -486,8 +486,8 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
           // wallet (re-credit buyer wallet portion, debit seller exactly what was
           // credited — 0 here since the tx was never marked paid). The tx never
           // persisted stripePaymentIntentId (never reached 'paid'), so we inject
-          // the live id from the event. isMixedMismatch is derived inside the core
-          // from paidVia, so the reverse_transfer decision stays consistent.
+          // the live id from the event. The refund is a plain platform-charge
+          // refund (single-rail model, no transfer to reverse).
           const mismatchTxData = 'txData' in result ? result.txData : {};
           try {
             await issueTransactionRefund(
