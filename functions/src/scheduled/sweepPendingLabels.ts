@@ -184,8 +184,8 @@ async function refundPendingLabelTransaction(
   }
 
   try {
-    // Shared core: idempotent Stripe refund (reverse_transfer for destination
-    // charges) keyed rf_label_${txId}, then atomic wallet reconciliation
+    // Shared core: idempotent plain Stripe refund (platform charge, single-rail)
+    // keyed rf_label_${txId}, then atomic wallet reconciliation
     // (re-credit buyer wallet portion, debit seller exactly sellerCreditedCents
     // — normally 0 for a never-credited pending-label tx — shortfall -> debt),
     // re-list the article, set status -> 'refunded'. On Stripe failure the core
