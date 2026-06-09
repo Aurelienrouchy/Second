@@ -4,7 +4,7 @@
  * Single source of truth for the money-movement of a refund, extracted from
  * the original inline logic of `adminRefundTransaction` so that BOTH the
  * admin refund and the buyer-facing auto-refunds (requestRefund, return-leg
- * refund) reuse the EXACT same reverse_transfer / sellerDebt reconciliation.
+ * refund) reuse the EXACT same Stripe refund + sellerDebt reconciliation.
  *
  * Two stages, in this order (Stripe MUST run outside the Firestore tx):
  *   1. Stripe refund of the card portion OUTSIDE the runTransaction, with a
