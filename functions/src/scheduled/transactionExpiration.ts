@@ -573,7 +573,7 @@ async function expirePendingPayment(
  * Refund + expire a single 'paid' transaction the seller never shipped (>7d).
  *
  * REUSES the shared issueTransactionRefund core (single source of truth for the
- * reverse_transfer / sellerDebt reconciliation + dead-lettering on Stripe
+ * Stripe refund + sellerDebt reconciliation + dead-lettering on Stripe
  * failure with the deterministic key rf_${txId}). The previous bespoke 3-phase
  * implementation is replaced by:
  *
