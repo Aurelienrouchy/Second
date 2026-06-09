@@ -2686,7 +2686,7 @@ export const adminRefundTransaction = onCall(
       );
     }
 
-    // Shared refund core (Stripe reverse_transfer + atomic wallet/seller-debt
+    // Shared refund core (plain Stripe refund + atomic wallet/seller-debt
     // reconciliation). Admin disputes re-list the article by default.
     try {
       const result = await issueTransactionRefund(transactionId, preData, {
