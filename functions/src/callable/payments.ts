@@ -908,18 +908,24 @@ export const createTransaction = onCall(
 );
 
 // =============================================================================
-// CREATE STRIPE CHECKOUT — Initialize Stripe PaymentIntent (destination charge)
+// CREATE STRIPE CHECKOUT — Initialize Stripe PaymentIntent (platform charge)
 // =============================================================================
 
 /**
  * Creates a Stripe PaymentIntent for the transaction.
  *
- * Two modes:
- * 1. **No wallet** (walletAmount === 0 or absent): Standard destination charge
- *    to seller's Connect account with application_fee_amount.
- * 2. **Mixed wallet+card** (0 < walletAmount < totalCharge): Platform receives
- *    the card portion (no transfer_data). Wallet portion is debited from buyer's
- *    wallet atomically. Seller is credited after delivery.
+ * Single-rail model (separate charges & transfers): the buyer's card always
+ * lands on the PLATFORM account (no transfer_data / no application_fee_amount).
+ * The platform keeps the funds — which include the shippingCost (used to pay the
+ * ShipEngine label) and the serviceFee. The seller is credited only through the
+ * wallet ledger (pendingBalance -> heldBalance -> balance) and paid out by the
+ * single platform->connected transfer in walletWithdraw.
+ *
+ * Two modes (both are platform charges):
+ * 1. **No wallet** (walletAmount === 0 or absent): the full buyerTotal is charged
+ *    to the card.
+ * 2. **Mixed wallet+card** (0 < walletAmount < totalCharge): the wallet portion is
+ *    debited from the buyer atomically; the card covers the remaining charge.
  *
  * Returns the PaymentIntent clientSecret for the client to confirm payment.
  *
