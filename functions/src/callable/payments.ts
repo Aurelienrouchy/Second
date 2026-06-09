@@ -1264,18 +1264,23 @@ export const createStripeCheckout = onCall(
           },
         };
       } else {
-        // --- STANDARD DESTINATION CHARGE (no wallet) ---
+        // --- PLATFORM CHARGE (card only, no wallet) ---
+        // Separate charges & transfers: the FULL buyerTotal is charged to the
+        // platform account (NO transfer_data.destination, NO application_fee_amount).
+        // The platform keeps the funds — which include the shippingCost used to pay
+        // the ShipEngine label and the serviceFee. The seller is credited ONLY via
+        // the wallet (pendingBalance -> heldBalance -> balance) and paid out by the
+        // single platform->connected transfer in walletWithdraw. This is the same
+        // single-rail model as the mixed wallet+card branch above and the swap
+        // top-up. Using transfer_data here would double-finance every sale (the
+        // funds would sit stranded on the connected account AND walletWithdraw
+        // would transfer again).
         const amountInCents = totalChargeCents;
 
-        // Create Stripe PaymentIntent with destination charge
         const paymentIntent = await stripe.paymentIntents.create(
           {
             amount: amountInCents,
             currency: 'cad',
-            application_fee_amount: applicationFeeInCents,
-            transfer_data: {
-              destination: sellerStripeAccountId,
-            },
             metadata: {
               transactionId,
               sellerId: txResult.sellerId,
@@ -1293,11 +1298,10 @@ export const createStripeCheckout = onCall(
           stripeCheckoutCreatedAt: FieldValue.serverTimestamp(),
         });
 
-        logger.info('Stripe PaymentIntent created (destination charge)', {
+        logger.info('Stripe PaymentIntent created (platform charge, card only)', {
           transactionId,
           paymentIntentId: paymentIntent.id,
           amountCents: amountInCents,
-          feeCents: applicationFeeInCents,
         });
 
         return {
