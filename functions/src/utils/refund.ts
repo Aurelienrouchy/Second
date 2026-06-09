@@ -141,10 +141,9 @@ export async function issueTransactionRefund(
           // Partial card refund (return-leg) sets an explicit amount; otherwise
           // Stripe refunds the full remaining charge.
           ...(cardRefundCents !== null ? { amount: cardRefundCents } : {}),
-          // Direct platform (mixed) charges have no transfer to reverse.
-          ...(isMixedCharge
-            ? {}
-            : { reverse_transfer: true, refund_application_fee: true }),
+          // Single-rail model: every charge is a platform charge, so there is
+          // never a transfer to reverse nor an application fee to claw back.
+          // The seller is debited via the wallet cascade in stage 2.
         },
         { idempotencyKey: opts.idempotencyKey }
       );
@@ -152,7 +151,6 @@ export async function issueTransactionRefund(
         transactionId,
         source,
         paymentIntentId: preData.stripePaymentIntentId,
-        reverseTransfer: !isMixedCharge,
         amountCents: cardRefundCents,
       });
     } catch (refundErr) {
