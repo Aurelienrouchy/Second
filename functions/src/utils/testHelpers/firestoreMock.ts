@@ -492,8 +492,10 @@ export interface StripeMock {
     transfersCreateReversal: unknown[][];
     payoutsCreate: unknown[][];
     payoutsRetrieve: unknown[][];
+    paymentIntentsCreate: unknown[][];
     paymentIntentsRetrieve: unknown[][];
     paymentIntentsCancel: unknown[][];
+    chargesRetrieve: unknown[][];
     accountsRetrieve: unknown[][];
     accountsUpdate: unknown[][];
     accountsCreateExternalAccount: unknown[][];
