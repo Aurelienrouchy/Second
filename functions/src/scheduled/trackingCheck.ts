@@ -34,8 +34,20 @@ import { processReturnDelivered } from '../utils/returnRefund';
 /** Page size per Firestore query. */
 const PAGE_SIZE = 200;
 
-/** Hard cap on parcels processed per run (across both statuses) to bound time. */
+/** Hard cap on parcels processed per run (across all statuses) to bound time. */
 const MAX_TRANSACTIONS_PER_RUN = 600;
+
+/**
+ * F79: a GUARANTEED budget reserved for the return leg (return_requested), so a
+ * large backlog of forward parcels (label_created/shipped) can never starve the
+ * money-critical returns (a return DELIVERED scan triggers the buyer refund).
+ * Returns are polled FIRST, up to this cap; the remainder of MAX_TRANSACTIONS_PER_RUN
+ * goes to the forward legs.
+ */
+const RETURN_LEG_RESERVED_BUDGET = 200;
+
+/** Statuses for the forward (buyer-bound) leg, polled after returns. */
+const FORWARD_STATUSES = ['label_created', 'shipped'] as const;
 
 /** Throttle between ShipEngine tracking calls (ms) to respect rate limits. */
 const SHIPENGINE_THROTTLE_MS = 150;
