@@ -104,7 +104,15 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
             <ThemeProvider value={CustomNavigationTheme}>
-              <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+              {/* merchantIdentifier is REQUIRED at runtime for the Apple Pay
+                  block in initPaymentSheet (iOS) — without it the whole sheet
+                  init throws `missingMerchantId`, breaking all card payments
+                  on iOS (F116). urlScheme powers the 3DS return URL. */}
+              <StripeProvider
+                publishableKey={STRIPE_PUBLISHABLE_KEY}
+                merchantIdentifier={STRIPE_MERCHANT_IDENTIFIER}
+                urlScheme={STRIPE_URL_SCHEME}
+              >
                 <AppContent fontsReady={fontsReady} />
               </StripeProvider>
             </ThemeProvider>
