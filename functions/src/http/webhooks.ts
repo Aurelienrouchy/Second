@@ -210,11 +210,70 @@ export const stripeWebhook = onRequest(
       }
 
       // =======================================================================
+      // PAYOUT.CANCELED — treated like payout.failed (F42)
+      // =======================================================================
+      // A canceled payout never reaches the bank: the wallet was already debited
+      // at walletWithdraw time, so re-credit it AND reverse the transfer, exactly
+      // like a failure. revertFailedPayout is idempotent via the request status.
+
+      else if (eventType === 'payout.canceled') {
+        await handlePayoutCanceled(event.data.object);
+      }
+
+      // =======================================================================
       // CHARGE.REFUNDED — Full or partial refund processed
       // =======================================================================
 
       else if (eventType === 'charge.refunded') {
         await handleChargeRefunded(event.data.object);
+      }
+
+      // =======================================================================
+      // REFUND.FAILED / REFUND.UPDATED — a refund did NOT settle (F104)
+      // =======================================================================
+      // We optimistically mark transactions 'refunded' when we CREATE a refund.
+      // If Stripe later reports the refund failed (e.g. the original card can no
+      // longer be credited), leaving the tx 'refunded' is wrong — the buyer was
+      // never actually reimbursed. We cannot auto-fix this (it needs an alternate
+      // refund channel), so raise a CRITICAL admin alert. ACK 200 (informational —
+      // a 400 would make Stripe retry forever).
+
+      else if (eventType === 'refund.failed') {
+        await handleRefundFailed(event.data.object);
+      } else if (eventType === 'refund.updated') {
+        await handleRefundUpdated(event.data.object);
+      }
+
+      // =======================================================================
+      // CHARGE.DISPUTE.FUNDS_WITHDRAWN / FUNDS_REINSTATED — chargeback cash flow
+      // =======================================================================
+      // Informational mirrors of the dispute lifecycle (Stripe debiting/recrediting
+      // the platform balance). The authoritative seller debit / hold release lives
+      // in dispute.created / dispute.closed; here we only log + ACK so the events
+      // never retry in a loop (F106).
+
+      else if (
+        eventType === 'charge.dispute.funds_withdrawn' ||
+        eventType === 'charge.dispute.funds_reinstated'
+      ) {
+        logger.info('Stripe webhook: dispute funds flow (informational)', {
+          eventType,
+          disputeId: event.data.object?.id,
+          amount: event.data.object?.amount,
+        });
+      }
+
+      // =======================================================================
+      // TRANSFER.REVERSED — a platform->connected transfer was reversed (F106)
+      // =======================================================================
+      // Our own reversals (rev_${transferId}) are deliberate (failed payout); this
+      // is the confirmation. Log for the audit trail + ACK so it never retries.
+
+      else if (eventType === 'transfer.reversed') {
+        logger.info('Stripe webhook: transfer reversed (informational)', {
+          transferId: event.data.object?.id,
+          amountReversed: event.data.object?.amount_reversed,
+        });
       }
 
       // =======================================================================
