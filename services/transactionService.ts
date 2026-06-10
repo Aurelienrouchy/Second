@@ -286,6 +286,28 @@ export class TransactionService {
   }
 
   /**
+   * F74 — seller cancels a paid order BEFORE the first carrier scan.
+   *
+   * Delegates to the `sellerCancelTransaction` callable: caller must be the
+   * seller, status must be `paid` or `label_created`. Refunds the buyer in full
+   * (Stripe + wallet portion), debits the seller exactly what was credited, and
+   * re-lists the article. Idempotent on the tx (already-refunded → no-op).
+   */
+  static async sellerCancelTransaction(
+    transactionId: string,
+    reason?: string
+  ): Promise<{ success: boolean; alreadyRefunded?: boolean }> {
+    const callable = httpsCallable<
+      { transactionId: string; reason?: string },
+      { success: boolean; alreadyRefunded?: boolean }
+    >(functions, 'sellerCancelTransaction');
+    const payload: { transactionId: string; reason?: string } = { transactionId };
+    if (reason) payload.reason = reason;
+    const result = await callable(payload);
+    return result.data;
+  }
+
+  /**
    * @deprecated Server-side only — handled by stripeWebhook Cloud Function.
    * Stub throws to surface any straggling caller instead of silently
    * hitting Firestore permission-denied (the transactions rule rejects
