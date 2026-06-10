@@ -598,10 +598,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
   await recordTransactionRevenue({
     transactionId,
     sellerId: result.sellerId,
-    serviceFee: result.serviceFee,
-    shippingCost: result.shippingCost,
-    taxTotal: result.taxTotal,
-    chargeId: result.chargeId,
+    serviceFee: result.serviceFee ?? 0,
+    shippingCost: result.shippingCost ?? 0,
+    taxTotal: result.taxTotal ?? 0,
+    chargeId: result.chargeId ?? null,
   });
 
   // =====================================================================
