@@ -15,3 +15,15 @@ const FALLBACK_TEST_PUBLISHABLE_KEY =
 export const STRIPE_PUBLISHABLE_KEY =
   process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
   FALLBACK_TEST_PUBLISHABLE_KEY;
+
+// Apple Pay merchant identifier — MUST match the value configured in the
+// `@stripe/stripe-react-native` config plugin (app.config.js). The native
+// SDK reads it from the StripeProvider prop at runtime (no Info.plist
+// fallback): a missing value makes initPaymentSheet throw `missingMerchantId`
+// on iOS — which fails the ENTIRE sheet init, not just Apple Pay. See F116.
+export const STRIPE_MERCHANT_IDENTIFIER = 'merchant.com.seconde.app';
+
+// App URL scheme (app.config.js `scheme`) — used by Stripe for the 3DS /
+// redirect-payment return URL. Kept in sync with the StripePayment returnURL
+// (`seconde://checkout/success`).
+export const STRIPE_URL_SCHEME = 'seconde';
