@@ -224,6 +224,85 @@ describe('TransactionService.updateTransactionStatus', () => {
   });
 });
 
+describe('TransactionService.sellerCancelTransaction (F74)', () => {
+  it('délègue à la callable sellerCancelTransaction avec le bon contrat', async () => {
+    const callable = jest.fn().mockResolvedValue({ data: { success: true } });
+    mockHttpsCallable.mockReturnValue(callable);
+
+    const result = await TransactionService.sellerCancelTransaction('tx_1', 'item_lost');
+
+    expect(mockHttpsCallable).toHaveBeenCalledWith(
+      expect.anything(),
+      'sellerCancelTransaction',
+    );
+    expect(callable).toHaveBeenCalledWith({ transactionId: 'tx_1', reason: 'item_lost' });
+    expect(result.success).toBe(true);
+  });
+
+  it('omet reason quand non fourni (jamais undefined dans le payload)', async () => {
+    const callable = jest.fn().mockResolvedValue({ data: { success: true } });
+    mockHttpsCallable.mockReturnValue(callable);
+
+    await TransactionService.sellerCancelTransaction('tx_1');
+
+    const payload = callable.mock.calls[0][0];
+    expect(payload).toEqual({ transactionId: 'tx_1' });
+    expect('reason' in payload).toBe(false);
+  });
+
+  it('remonte alreadyRefunded (idempotence) du backend', async () => {
+    mockHttpsCallable.mockReturnValue(
+      jest.fn().mockResolvedValue({ data: { success: true, alreadyRefunded: true } }),
+    );
+
+    const result = await TransactionService.sellerCancelTransaction('tx_1');
+    expect(result.alreadyRefunded).toBe(true);
+  });
+
+  it('propage l\'erreur de précondition (commande déjà expédiée)', async () => {
+    mockHttpsCallable.mockReturnValue(
+      jest.fn().mockRejectedValue(new Error('Cette commande ne peut plus être annulée')),
+    );
+
+    await expect(
+      TransactionService.sellerCancelTransaction('tx_1'),
+    ).rejects.toThrow(/ne peut plus être annulée/i);
+  });
+});
+
+describe('TransactionService — résolution admin de litige (F27/F88)', () => {
+  it('adminRefundTransaction délègue avec transactionId + reason', async () => {
+    const callable = jest.fn().mockResolvedValue({ data: { success: true } });
+    mockHttpsCallable.mockReturnValue(callable);
+
+    await TransactionService.adminRefundTransaction('tx_1', 'admin_dispute_refund');
+
+    expect(mockHttpsCallable).toHaveBeenCalledWith(
+      expect.anything(),
+      'adminRefundTransaction',
+    );
+    expect(callable).toHaveBeenCalledWith({
+      transactionId: 'tx_1',
+      reason: 'admin_dispute_refund',
+    });
+  });
+
+  it('resolveDispute (faveur vendeur) délègue et remonte la forme de retour', async () => {
+    const callable = jest.fn().mockResolvedValue({
+      data: { success: true, restored: 'delivered', releasedCents: 1200, disputesClosed: 1 },
+    });
+    mockHttpsCallable.mockReturnValue(callable);
+
+    const result = await TransactionService.resolveDispute('tx_1');
+
+    expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'resolveDispute');
+    expect(callable).toHaveBeenCalledWith({ transactionId: 'tx_1' });
+    expect(result.restored).toBe('delivered');
+    expect(result.releasedCents).toBe(1200);
+    expect(result.disputesClosed).toBe(1);
+  });
+});
+
 describe('TransactionService — stubs serveur-only (sécurité)', () => {
   it('updatePaymentInfo refuse d\'écrire côté client', async () => {
     await expect(
