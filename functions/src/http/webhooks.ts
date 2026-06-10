@@ -583,6 +583,22 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
   });
 
   // =====================================================================
+  // PLATFORM REVENUE LEDGER (E6 / F133c) — record gross revenue + tax once
+  // =====================================================================
+  // Idempotent by deterministic doc id; best-effort (never blocks the webhook).
+  // Records serviceFee (+ tax if collected) + shippingCost collected, and the
+  // Stripe processor fee from the charge's balance_transaction, so net margin per
+  // transaction is computable from platform_ledger.
+  await recordTransactionRevenue({
+    transactionId,
+    sellerId: result.sellerId,
+    serviceFee: result.serviceFee,
+    shippingCost: result.shippingCost,
+    taxTotal: result.taxTotal,
+    chargeId: result.chargeId,
+  });
+
+  // =====================================================================
   // SHIPPING LABEL (non-atomic, external call — safe to retry separately)
   // =====================================================================
 
