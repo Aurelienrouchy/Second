@@ -175,8 +175,8 @@ const LEDGER_ICON_MAP: Record<
   },
   funds_held: {
     name: 'lock-closed-outline',
-    color: colors.warning,
-    bg: colors.warningLight,
+    color: colors.muted,
+    bg: colors.backgroundSecondary,
   },
   funds_released: {
     name: 'lock-open-outline',
