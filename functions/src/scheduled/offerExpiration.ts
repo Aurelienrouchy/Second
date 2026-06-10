@@ -45,6 +45,7 @@ export const expireStaleOffers = onSchedule(
         .where('type', '==', 'offer')
         .where('offer.status', '==', 'pending')
         .where('offer.expiresAt', '<', now)
+        .limit(MAX_OFFERS_PER_RUN)
         .get();
 
       if (pendingOffersSnap.empty) {
