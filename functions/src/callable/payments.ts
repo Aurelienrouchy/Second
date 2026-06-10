@@ -1062,6 +1062,19 @@ export const createStripeCheckout = onCall(
           );
         }
 
+        // F137: gate the shipping financial rail server-side. A SHIPPING
+        // transaction's checkout charges the buyer a total that includes the
+        // ShipEngine label cost — refuse it while shipping is disabled. Only
+        // pending_payment (shipping) reaches here; meetup transactions never go
+        // through createStripeCheckout, so meetup is unaffected. Default OFF;
+        // enable with SHIPPING_ENABLED=true.
+        if (transaction.deliveryType === 'shipping' && !isShippingEnabled()) {
+          throw new HttpsError(
+            'failed-precondition',
+            'La livraison n\'est pas disponible pour le moment. Veuillez utiliser la remise en main propre.'
+          );
+        }
+
         // Idempotent: if a PaymentIntent already exists, retrieve clientSecret from Stripe
         // (never store client_secret in Firestore — it's a sensitive credential)
         if (transaction.stripePaymentIntentId) {
