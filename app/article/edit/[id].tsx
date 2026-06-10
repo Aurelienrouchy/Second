@@ -313,14 +313,31 @@ export default function EditArticleScreen() {
       const trimmedBrand = fields.brand.trim();
       articleData.brand = trimmedBrand || null;
 
-      // Delivery options
-      articleData.isHandDelivery = fields.isHandDelivery;
-      articleData.isShipping = fields.isShipping;
-      if (fields.neighborhoods.length > 0) {
-        articleData.neighborhoods = fields.neighborhoods;
-        articleData.neighborhood = fields.neighborhoods[0];
+      // Delivery options.
+      //
+      // F138 — when SHIPPING_ENABLED is OFF, the form forces meetup and loads a
+      // legacy shipping article as isShipping:false. Writing those forced values
+      // back would SILENTLY strip the article's shipping config (isShipping +
+      // packageSize) with no way to restore it when the flag is re-enabled. So
+      // while the flag is off we DO NOT touch the delivery fields at all — we
+      // leave the stored shipping config intact and only persist the other
+      // edits. When the flag is on, the form is authoritative as before.
+      if (SHIPPING_ENABLED) {
+        articleData.isHandDelivery = fields.isHandDelivery;
+        articleData.isShipping = fields.isShipping;
+        if (fields.neighborhoods.length > 0) {
+          articleData.neighborhoods = fields.neighborhoods;
+          articleData.neighborhood = fields.neighborhoods[0];
+        }
+        if (fields.packageSize) articleData.packageSize = fields.packageSize;
+      } else {
+        // Flag off: still allow editing the meetup neighborhoods (the only
+        // delivery control the form exposes), but never strip shipping config.
+        if (fields.neighborhoods.length > 0) {
+          articleData.neighborhoods = fields.neighborhoods;
+          articleData.neighborhood = fields.neighborhoods[0];
+        }
       }
-      if (fields.packageSize) articleData.packageSize = fields.packageSize;
 
       // Photos — always send the resolved images (local URIs now uploaded)
       if (finalImages.length > 0) {
