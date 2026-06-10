@@ -16,6 +16,7 @@ import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { applyTrackingOutcome, DELIVERABLE_STATUSES } from '../utils/trackingTransition';
 import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
+import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
