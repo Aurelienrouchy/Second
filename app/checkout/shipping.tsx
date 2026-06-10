@@ -393,13 +393,27 @@ export default function ShippingCheckoutScreen() {
         return;
       }
 
-      // Cloud Function errors arrive as FirebaseError with a readable
-      // message (e.g. "Cet article a deja ete vendu"). Surface it so
-      // the buyer understands why the purchase failed.
-      const msg = error instanceof Error ? error.message : 'Impossible d\'initier le paiement.';
-      Alert.alert('Article indisponible', msg, [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      // Map the callable error to the right title/message: a rate-limit
+      // (resource-exhausted) must NOT read as "Article indisponible" (F129).
+      // `failed-precondition` keeps the server message ("Cet article a déjà été
+      // vendu"). Only a genuine article-unavailable error ejects the buyer back.
+      const code = getCallableErrorCode(error);
+      const { title, message } = mapCallableError(error, {
+        title: 'Paiement impossible',
+        message: "Impossible d'initier le paiement. Veuillez réessayer.",
+      });
+      const articleUnavailable =
+        code === 'failed-precondition' &&
+        /vendu|indisponible|disponible/i.test(
+          error instanceof Error ? error.message : '',
+        );
+      Alert.alert(
+        articleUnavailable ? 'Article indisponible' : title,
+        message,
+        articleUnavailable
+          ? [{ text: 'OK', onPress: () => router.back() }]
+          : [{ text: 'OK' }],
+      );
     } finally {
       setSubmitting(false);
     }
