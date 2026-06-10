@@ -39,10 +39,6 @@ interface StripePaymentProps {
    * cancellation is surfaced as { success: false, error: 'cancelled' }.
    */
   onResult: (result: StripePaymentResult) => void;
-  /** Called when the parent should tear down the sheet (state reset). */
-  onClose: () => void;
-  /** Total amount — used for display in the sheet */
-  totalAmount: number;
 }
 
 // =============================================================================
