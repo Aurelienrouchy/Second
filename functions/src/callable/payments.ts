@@ -22,6 +22,13 @@ import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
+/**
+ * F24: Stripe's minimum card charge for CAD is 50 cents. A mixed wallet+card
+ * payment whose card remainder falls below this would create an invalid
+ * PaymentIntent, so we reject such a split before debiting the wallet.
+ */
+const STRIPE_MIN_CHARGE_CENTS = 50;
+
 // =============================================================================
 // HELPERS — Shop tier → buyer-fee reduction (Paid shop model)
 // =============================================================================
