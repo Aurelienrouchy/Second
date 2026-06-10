@@ -286,6 +286,51 @@ export class TransactionService {
   }
 
   /**
+   * F27/F88 + F10 + F26 — ADMIN refunds the buyer and closes the linked
+   * dispute(s). Delegates to `adminRefundTransaction` (admin-only, double
+   * guard server-side). Full buyer refund (Stripe + wallet portion) + seller
+   * debit + dispute docs flipped to `resolved`/`refunded`. Idempotent.
+   */
+  static async adminRefundTransaction(
+    transactionId: string,
+    reason?: string
+  ): Promise<{ success: boolean; alreadyRefunded?: boolean }> {
+    const callable = httpsCallable<
+      { transactionId: string; reason?: string },
+      { success: boolean; alreadyRefunded?: boolean }
+    >(functions, 'adminRefundTransaction');
+    const payload: { transactionId: string; reason?: string } = { transactionId };
+    if (reason) payload.reason = reason;
+    const result = await callable(payload);
+    return result.data;
+  }
+
+  /**
+   * F27/F88 + F10 + F26 — ADMIN closes a dispute in FAVOR of the SELLER (no
+   * refund). Delegates to `resolveDispute` (admin-only). Restores the
+   * pre-dispute status, clears `disputed`, releases any chargeback hold, and
+   * flips the dispute doc(s) to `resolved`/`dismissed`.
+   */
+  static async resolveDispute(
+    transactionId: string,
+    note?: string
+  ): Promise<{
+    success: boolean;
+    restored: string;
+    releasedCents: number;
+    disputesClosed: number;
+  }> {
+    const callable = httpsCallable<
+      { transactionId: string; note?: string },
+      { success: boolean; restored: string; releasedCents: number; disputesClosed: number }
+    >(functions, 'resolveDispute');
+    const payload: { transactionId: string; note?: string } = { transactionId };
+    if (note) payload.note = note;
+    const result = await callable(payload);
+    return result.data;
+  }
+
+  /**
    * F74 — seller cancels a paid order BEFORE the first carrier scan.
    *
    * Delegates to the `sellerCancelTransaction` callable: caller must be the
