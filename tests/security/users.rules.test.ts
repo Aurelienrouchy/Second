@@ -201,6 +201,43 @@ describe('users rules', () => {
     );
   });
 
+  // F59/F60: KYC requirements + bank verification fields are written ONLY by
+  // the Stripe webhook / onboarding callables (Admin SDK). A client must never
+  // self-clear a requirement or fake a verified bank to unblock payouts.
+  it('denies user from writing stripe requirements / bank-status fields (update)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'users', ALICE), { stripeRequirementsCurrentlyDue: [] }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users', ALICE), { stripeRequirementsPastDue: [] }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users', ALICE), { stripeRequirementsDisabledReason: null }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users', ALICE), { stripeRequirementsCurrentDeadline: 0 }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users', ALICE), { stripeBankAccountStatus: 'verified' }),
+    );
+  });
+
+  it('denies create with self-attributed stripe requirements / bank-status fields', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users', ALICE), {
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        stripeRequirementsCurrentlyDue: [],
+        stripeBankAccountStatus: 'verified',
+      }),
+    );
+  });
+
   // P1: same lock must apply at CREATE so a forged initial doc can't bypass it.
   it('denies create with self-attributed stripe* fields', async () => {
     const env = await getTestEnv();
