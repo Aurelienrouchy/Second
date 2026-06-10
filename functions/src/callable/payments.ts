@@ -17,6 +17,7 @@ import { applyTrackingOutcome, DELIVERABLE_STATUSES } from '../utils/trackingTra
 import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
 import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
+import { isShippingEnabled } from '../config/featureFlags';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
