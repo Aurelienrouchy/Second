@@ -26,6 +26,7 @@ import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import type { FailedOperationType } from '../utils/failedOperations';
+import { revertFailedPayout } from '../utils/payoutRecovery';
 
 /** Max replay attempts before a dead-letter is marked 'exhausted' (manual). */
 const MAX_ATTEMPTS = 6;
