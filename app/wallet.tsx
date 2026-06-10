@@ -179,6 +179,11 @@ const LEDGER_ICON_MAP: Record<
     color: colors.danger,
     bg: colors.dangerLight,
   },
+  debt_repayment: {
+    name: 'checkmark-done-circle-outline',
+    color: colors.sage,
+    bg: colors.sageLight,
+  },
 };
 
 /**
