@@ -345,13 +345,15 @@ describe('requestRefund — carrier-confirmed failure/lost', () => {
     });
     expect(result.success).toBe(true);
 
-    // Exactly ONE Stripe refund, on the right PI, with reverse_transfer (this is
-    // a destination charge, not a mixed wallet+card charge).
+    // Exactly ONE Stripe refund, on the right PI. Single-rail model: every charge
+    // is a platform charge, so the refund is a PLAIN refunds.create — NO
+    // reverse_transfer / refund_application_fee (the seller is debited via the
+    // wallet cascade, not via a connected-account transfer reversal).
     expect(stripeMock.calls.refundsCreate.length).toBe(1);
     const refundArgs = stripeMock.calls.refundsCreate[0][0] as Record<string, unknown>;
     expect(refundArgs.payment_intent).toBe('pi_123');
-    expect(refundArgs.reverse_transfer).toBe(true);
-    expect(refundArgs.refund_application_fee).toBe(true);
+    expect(refundArgs.reverse_transfer).toBeUndefined();
+    expect(refundArgs.refund_application_fee).toBeUndefined();
     // Deterministic idempotency key.
     const refundOpts = stripeMock.calls.refundsCreate[0][1] as Record<string, unknown>;
     expect(refundOpts.idempotencyKey).toBe('rf_buyer_tx1');
