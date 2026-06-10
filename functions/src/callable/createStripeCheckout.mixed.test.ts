@@ -187,3 +187,47 @@ describe('createStripeCheckout — F23 atomic revert on Stripe failure', () => {
     expect(tx.paidVia).toBeUndefined();
   });
 });
+
+// ===========================================================================
+// F137 — server-authoritative SHIPPING_ENABLED flag on createStripeCheckout
+// ===========================================================================
+
+describe('createStripeCheckout — F137 server shipping flag', () => {
+  function seedShippingPending() {
+    fs.setDoc('transactions/txShip', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      deliveryType: 'shipping',
+      amount: feeHolder.buyerTotal,
+      shippingCost: 5,
+      articleId: 'article1',
+    });
+    fs.setDoc('users/seller1', { stripeAccountId: 'acct_seller1' });
+  }
+
+  it('REFUSES checkout for a shipping transaction when SHIPPING_ENABLED is OFF', async () => {
+    seedShippingPending();
+    process.env.SHIPPING_ENABLED = 'false';
+
+    await expect(
+      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'txShip' } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+
+    // No PaymentIntent created.
+    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
+  });
+
+  it('ALLOWS checkout for a shipping transaction when SHIPPING_ENABLED is ON', async () => {
+    seedShippingPending();
+    process.env.SHIPPING_ENABLED = 'true';
+    stripeMock.impl.paymentIntentsCreate = async () => ({
+      id: 'pi_ship_ok',
+      client_secret: 'pi_ship_ok_secret',
+    });
+
+    const res = await call({ auth: { uid: 'buyer1' }, data: { transactionId: 'txShip' } });
+    expect(res.success).toBe(true);
+    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
+  });
+});
