@@ -72,7 +72,6 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/settings/email` | `settings/email.tsx` |
 | `/settings/password` | `settings/password.tsx` |
 | `/settings/phone` | `settings/phone.tsx` |
-| `/settings/payments` | `settings/payments.tsx` |
 | `/settings/shipping-options` | `settings/shipping-options.tsx` |
 | `/settings/notifications` | `settings/notifications.tsx` |
 | `/settings/preferences` | `settings/preferences.tsx` |
