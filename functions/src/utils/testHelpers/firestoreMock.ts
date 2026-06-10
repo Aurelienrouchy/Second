@@ -385,6 +385,7 @@ export function createFirestoreMock(): MockFirestore {
     serverTimestamp: () => ({ __sentinel: 'serverTimestamp' }),
     increment: (n) => ({ __sentinel: 'increment', value: n }),
     arrayUnion: (...args) => ({ __sentinel: 'arrayUnion', values: args }),
+    delete: () => ({ __sentinel: 'delete' }),
   };
 
   return {
