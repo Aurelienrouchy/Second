@@ -60,6 +60,7 @@ export const queryKeys = {
   wallet: {
     all: ['wallet'] as const,
     info: () => ['wallet', 'info'] as const,
+    withdrawals: (userId: string) => ['wallet', 'withdrawals', userId] as const,
   },
   stripe: {
     all: ['stripe'] as const,
