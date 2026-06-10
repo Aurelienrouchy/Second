@@ -1579,22 +1579,50 @@ export const rateSwap = onCall(
 );
 
 /**
- * Open a dispute on a swap — participant can dispute during shipping or after
- * completion (within the 7-day post-reception protection window). Transitions to
- * 'disputed'. If a top-up was paid AND not yet released to the payee's
- * withdrawable balance (topUpReleasedAt unset — i.e. the funds are still in
- * pendingBalance pre-reception or heldBalance during the window), it is refunded
- * to the payer. The charge.refunded webhook (handleSwapTopUpRefund) claws the
- * complement back from the correct bucket idempotently. Once releaseHeldFunds has
- * moved the funds to withdrawable balance (topUpReleasedAt set), no auto-refund
- * happens here — manual moderation handles that case.
+ * Statuses from which a participant may OPEN a swap dispute.
+ *  - 'accepted' / 'photos_pending': post-payment, pre-shipping. Closes F51 — a
+ *    payer whose top-up cleared but whose counterparty went silent now has an
+ *    in-app recourse instead of being stranded forever.
+ *  - 'shipping': the exchange is in transit.
+ *  - 'completed': only WITHIN the 7-day post-reception window (topUpReleasedAt
+ *    unset). After release the case is out of scope for self-service — admin
+ *    moderation handles it.
+ */
+const DISPUTABLE_SWAP_STATUSES = ['accepted', 'photos_pending', 'shipping', 'completed'] as const;
+
+/**
+ * Open a dispute on a swap (F48 — hardened).
+ *
+ * A dispute FREEZES the exchange; it does NOT refund anything by itself. The
+ * money decision is reserved for the admin callable resolveSwapDispute. This
+ * closes the original exploit where openSwapDispute auto-refunded the payer
+ * unconditionally inside the window — a malicious payer could confirm reception,
+ * dispute, claw back 100% of the top-up AND keep the received article.
+ *
+ * Freezing is implicit: 'disputed' is in ACTIVE_SWAP_STATUSES (articles stay
+ * engaged) and is excluded from releaseSwapTopUpHeldFunds (status == 'completed'
+ * filter), so the payee's complement can never auto-release while a dispute is
+ * open. The funds sit wherever they were (pendingBalance pre-reception, or
+ * heldBalance inside the window) until an admin rules.
+ *
+ * Guards: participant only, status in DISPUTABLE_SWAP_STATUSES, and for
+ * 'completed' the window must still be open (topUpReleasedAt unset). Idempotent:
+ * a swap already 'disputed' is rejected by the status guard (single dispute).
  */
 export const openSwapDispute = onCall(
-  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
     }
+
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'openSwapDispute',
+      maxCallsAuthenticated: 10,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
 
     const { swapId, reason } = request.data;
     if (!swapId || typeof swapId !== 'string') {
@@ -1604,10 +1632,10 @@ export const openSwapDispute = onCall(
       throw new HttpsError('invalid-argument', 'reason requis (texte non vide)');
     }
 
-    const trimmedReason = reason.trim();
+    const trimmedReason = reason.trim().substring(0, 1000);
 
     try {
-      const swapData = await db.runTransaction(async (tx) => {
+      await db.runTransaction(async (tx) => {
         const swapRef = db.collection('swaps').doc(swapId);
         const swapSnap = await tx.get(swapRef);
 
@@ -1622,36 +1650,236 @@ export const openSwapDispute = onCall(
           throw new HttpsError('permission-denied', 'Vous n\'etes pas participant de cet echange');
         }
 
-        if (!['shipping', 'completed'].includes(swap.status)) {
+        if (!(DISPUTABLE_SWAP_STATUSES as readonly string[]).includes(swap.status)) {
           throw new HttpsError(
             'failed-precondition',
             `Impossible d'ouvrir un litige sur un echange en statut "${swap.status}"`
           );
         }
 
+        // Bound the post-completion window: once the top-up has been released to
+        // the payee's withdrawable balance, the self-service dispute window is
+        // closed (admin moderation only).
+        if (swap.status === 'completed' && swap.topUpReleasedAt) {
+          throw new HttpsError(
+            'failed-precondition',
+            'La fenetre de litige (7 jours) est ecoulee. Contactez le support.'
+          );
+        }
+
         tx.update(swapRef, {
           status: 'disputed',
+          statusBeforeDispute: swap.status,
           disputeReason: trimmedReason,
           disputeOpenedBy: uid,
           disputeOpenedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });
-
-        return swap;
       });
 
-      // Refund the payer if the top-up was paid and not yet released.
-      if (!swapData.topUpReleasedAt) {
-        await refundSwapTopUpIfPaid(swapData, swapId);
-      }
-
-      logger.info('Swap dispute opened', { swapId, userId: request.auth.uid, reason: trimmedReason });
+      logger.info('Swap dispute opened (frozen, awaiting admin)', {
+        swapId, userId: request.auth.uid,
+      });
       return { success: true };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error opening swap dispute', { error: errMsg, swapId });
       throw new HttpsError('internal', 'Erreur lors de l\'ouverture du litige: ' + errMsg);
+    }
+  }
+);
+
+/**
+ * Resolve a swap dispute (F48 — admin-only, double guard + rate limited, mirrors
+ * resolveDispute in payments.ts). This is the ONLY way out of the 'disputed'
+ * terminal state.
+ *
+ * issue = 'refund_payer':
+ *   - Refund the paid top-up to the payer via Stripe (idempotent rf_swap_${id});
+ *     the charge.refunded webhook (handleSwapTopUpRefund) claws the payee's
+ *     wallet complement back from the correct bucket. No-op if nothing was paid.
+ *   - Release both parties' engaged articles (swap leaves ACTIVE_SWAP_STATUSES;
+ *     swapPartyItems isPending -> false). Articles are NEVER marked sold here.
+ *   - Transition the swap to 'cancelled'.
+ *
+ * issue = 'release_payee':
+ *   - Move the payee's top-up complement to withdrawable funds (wherever it sits:
+ *     pendingBalance pre-reception, or heldBalance inside the window) -> balance,
+ *     and stamp topUpReleasedAt (so releaseSwapTopUpHeldFunds never double-moves).
+ *   - The exchange STANDS: mark both sides' articles sold + swapPartyItems
+ *     swapped + increment the zone swapsCount.
+ *   - Transition the swap to 'completed'.
+ *
+ * Both branches are idempotent on the swap doc: a swap not in 'disputed' is
+ * rejected, so a replay after the first resolution fails the precondition.
+ */
+export const resolveSwapDispute = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentification requise');
+    }
+
+    // Admin double guard (custom claim OR users/{uid}.isAdmin), aligned with
+    // resolveDispute.
+    let isAdmin = request.auth.token.admin === true;
+    if (!isAdmin) {
+      const adminSnap = await db.collection('users').doc(request.auth.uid).get();
+      isAdmin = adminSnap.exists && adminSnap.data()?.isAdmin === true;
+    }
+    if (!isAdmin) {
+      throw new HttpsError('permission-denied', 'Privileges administrateur requis');
+    }
+
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'resolveSwapDispute',
+      maxCallsAuthenticated: 20,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
+    const { swapId, issue, note } = request.data ?? {};
+    if (!swapId || typeof swapId !== 'string') {
+      throw new HttpsError('invalid-argument', 'swapId requis');
+    }
+    if (issue !== 'refund_payer' && issue !== 'release_payee') {
+      throw new HttpsError('invalid-argument', 'issue doit etre "refund_payer" ou "release_payee"');
+    }
+    const adminUid = request.auth.uid;
+    const trimmedNote =
+      typeof note === 'string' && note.trim().length > 0 ? note.trim().substring(0, 500) : null;
+
+    try {
+      const result = await db.runTransaction(async (tx) => {
+        const swapRef = db.collection('swaps').doc(swapId);
+        const swapSnap = await tx.get(swapRef);
+        if (!swapSnap.exists) {
+          throw new HttpsError('not-found', 'Swap introuvable');
+        }
+        const swap = swapSnap.data()!;
+
+        if (swap.status !== 'disputed') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Impossible de resoudre un litige sur un echange en statut "${swap.status}"`
+          );
+        }
+
+        const topUp = swap.cashTopUp;
+        const topUpPaidUnreleased =
+          topUp != null &&
+          typeof topUp.amount === 'number' &&
+          !!swap.topUpPaidAt &&
+          !swap.topUpReleasedAt;
+
+        // Resolve payee + wallet read BEFORE any write (release branch only).
+        let payeeWalletRef: FirebaseFirestore.DocumentReference | null = null;
+        let payeeWalletData: FirebaseFirestore.DocumentData | null = null;
+        if (issue === 'release_payee' && topUpPaidUnreleased) {
+          const payeeId: string =
+            topUp.payerId === swap.initiatorId ? swap.receiverId : swap.initiatorId;
+          const { walletRef, walletData } = await getOrCreateSellerWallet(tx, payeeId);
+          payeeWalletRef = walletRef;
+          payeeWalletData = walletData;
+        }
+
+        const swapUpdate: Record<string, any> = {
+          disputeResolvedBy: adminUid,
+          disputeResolvedAt: FieldValue.serverTimestamp(),
+          disputeOutcome: issue,
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        if (trimmedNote) swapUpdate.disputeResolutionNote = trimmedNote;
+
+        let movedCents = 0;
+        if (issue === 'refund_payer') {
+          // Money clawed back via Stripe refund + charge.refunded webhook AFTER
+          // the tx (see below). Here we only flip the swap to a terminal,
+          // article-releasing state.
+          swapUpdate.status = 'cancelled';
+          swapUpdate.cancelReason = 'dispute_resolved_refund_payer';
+        } else {
+          // release_payee — the exchange stands. Move the complement to the
+          // payee's withdrawable balance from wherever it sits.
+          swapUpdate.status = 'completed';
+          if (!swap.completedAt) swapUpdate.completedAt = FieldValue.serverTimestamp();
+          swapUpdate.topUpReleasedAt = FieldValue.serverTimestamp();
+          if (!swap.topUpFundsHeldAt) {
+            swapUpdate.topUpFundsHeldAt = FieldValue.serverTimestamp();
+          }
+
+          if (topUpPaidUnreleased && payeeWalletRef && payeeWalletData) {
+            const payoutCents = Math.round(topUp.amount);
+            const pendingNow = (payeeWalletData.pendingBalance as number) || 0;
+            const heldNow = (payeeWalletData.heldBalance as number) || 0;
+            // Drain from held first (post-reception), then pending (pre-reception
+            // — funds never moved to held). Whatever is found is credited to the
+            // withdrawable balance.
+            const fromHeld = Math.min(payoutCents, heldNow);
+            const fromPending = Math.min(payoutCents - fromHeld, pendingNow);
+            movedCents = fromHeld + fromPending;
+            if (movedCents > 0) {
+              const walletUpdate: Record<string, any> = {
+                balance: FieldValue.increment(movedCents),
+                updatedAt: FieldValue.serverTimestamp(),
+              };
+              if (fromHeld > 0) walletUpdate.heldBalance = FieldValue.increment(-fromHeld);
+              if (fromPending > 0) walletUpdate.pendingBalance = FieldValue.increment(-fromPending);
+              tx.update(payeeWalletRef, walletUpdate);
+
+              const ledgerRef = payeeWalletRef.collection('ledger').doc();
+              tx.set(ledgerRef, {
+                type: 'funds_released',
+                amount: movedCents,
+                balanceAfter: ((payeeWalletData.balance as number) || 0) + movedCents,
+                description: 'Litige d\'echange clos en faveur du beneficiaire — fonds disponibles',
+                swapId,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        }
+
+        tx.update(swapRef, swapUpdate);
+        return { swap, movedCents, payerId: topUp?.payerId };
+      });
+
+      // --- Post-transaction side effects ---
+      if (issue === 'refund_payer') {
+        // Idempotent Stripe refund (rf_swap_${id}); the charge.refunded webhook
+        // debits the payee wallet from the right bucket. No-op if never paid.
+        await refundSwapTopUpIfPaid(result.swap, swapId);
+        await releasePartyItems(result.swap);
+      } else {
+        // The exchange stands — mark articles sold + items swapped.
+        await markSwapArticlesSold(result.swap, swapId, { incrementZoneCount: true });
+      }
+
+      logger.warn('[resolveSwapDispute] swap dispute resolved by admin', {
+        swapId, adminUid, issue, movedCents: result.movedCents,
+      });
+
+      // Notify both parties (best-effort).
+      const body =
+        issue === 'refund_payer'
+          ? 'Le litige a ete tranche : le complement a ete rembourse au payeur.'
+          : 'Le litige a ete tranche : l\'echange est maintenu.';
+      for (const target of [result.swap.initiatorId, result.swap.receiverId]) {
+        if (typeof target === 'string') {
+          sendPushNotification(target, 'Litige resolu', body, { swapId }, 'swap_update').catch(
+            () => undefined
+          );
+        }
+      }
+
+      return { success: true, issue, movedCents: result.movedCents };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[resolveSwapDispute] failed', { swapId, error: errMsg });
+      throw new HttpsError('internal', 'Erreur lors de la resolution du litige: ' + errMsg);
     }
   }
 );
