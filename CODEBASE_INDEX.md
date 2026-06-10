@@ -86,6 +86,7 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/settings/export-data` | `settings/export-data.tsx` |
 | `/settings/delete-account` | `settings/delete-account.tsx` |
 | `/settings/stripe-onboarding` | `settings/stripe-onboarding.tsx` |
+| `/settings/bank-account` | `settings/bank-account.tsx` |
 
 ### Admin — `app/admin/`
 | Route | Fichier |
