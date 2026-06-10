@@ -495,6 +495,145 @@ const DisputeCard = React.memo(function DisputeCard({
       {!!dispute.createdAt && (
         <Text style={styles.cardDate}>{formatDate(dispute.createdAt)}</Text>
       )}
+
+      {/* Resolution actions — only on OPEN disputes linked to a transaction. */}
+      {isOpen && !!dispute.transactionId && (
+        <View style={styles.actionsRow}>
+          {isResolving ? (
+            <View style={styles.actionsLoading}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : (
+            <>
+              <Pressable
+                style={[styles.actionBtn, styles.refundBtn, actionsDisabled && styles.actionBtnDisabled]}
+                onPress={() => onRefundBuyer(dispute)}
+                disabled={actionsDisabled}
+              >
+                <Ionicons name="cash-outline" size={16} color={colors.white} />
+                <Text style={styles.refundBtnText}>Rembourser l&apos;acheteur</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionBtn, styles.dismissBtn, actionsDisabled && styles.actionBtnDisabled]}
+                onPress={() => onResolveForSeller(dispute)}
+                disabled={actionsDisabled}
+              >
+                <Ionicons name="shield-checkmark-outline" size={16} color={colors.foreground} />
+                <Text style={styles.dismissBtnText}>Clôturer (vendeur)</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      )}
+    </View>
+  );
+});
+
+// =============================================================================
+// SWAP DISPUTE RESOLVER (F48) — manual swapId entry (swaps don't create
+// `disputes` docs, and firestore.rules restrict swap reads to participants, so
+// an admin resolves by swapId pulled from the support ticket / logs).
+// =============================================================================
+
+const SwapDisputeResolver = React.memo(function SwapDisputeResolver() {
+  const [swapId, setSwapId] = useState('');
+  const [issue, setIssue] = useState<'refund_payer' | 'release_payee'>('refund_payer');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleResolve = useCallback(() => {
+    const trimmed = swapId.trim();
+    if (!trimmed) {
+      Alert.alert('swapId requis', "Saisissez l'identifiant du swap à résoudre.");
+      return;
+    }
+    const label =
+      issue === 'refund_payer'
+        ? 'Rembourser le payeur (et libérer les articles)'
+        : 'Libérer le bénéficiaire (l’échange est validé)';
+    Alert.alert(
+      'Résoudre le litige swap',
+      `${label}\n\nCette action est irréversible.`,
+      [
+        { text: 'Retour', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          style: issue === 'refund_payer' ? 'destructive' : 'default',
+          onPress: async () => {
+            setIsSubmitting(true);
+            try {
+              await resolveSwapDispute(trimmed, issue);
+              Alert.alert('Litige swap résolu', 'Le swap a été traité.');
+              setSwapId('');
+            } catch (error) {
+              if (__DEV__) console.error('Error resolving swap dispute:', error);
+              Alert.alert(
+                'Erreur',
+                'La résolution a échoué. Vérifiez le swapId (le swap doit être en litige).',
+              );
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [swapId, issue]);
+
+  return (
+    <View style={styles.swapResolver}>
+      <Text style={styles.swapResolverTitle}>Résoudre un litige d&apos;échange</Text>
+      <Text style={styles.swapResolverHelp}>
+        Les swaps en litige n&apos;apparaissent pas dans la liste ci-dessus. Saisissez le swapId
+        (issu du ticket support / des logs) pour le résoudre.
+      </Text>
+
+      <TextInput
+        style={styles.swapInput}
+        value={swapId}
+        onChangeText={setSwapId}
+        placeholder="swapId"
+        placeholderTextColor={colors.muted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!isSubmitting}
+      />
+
+      <View style={styles.issueSelector}>
+        <Pressable
+          style={[styles.issueOption, issue === 'refund_payer' && styles.issueOptionActive]}
+          onPress={() => setIssue('refund_payer')}
+          disabled={isSubmitting}
+        >
+          <Text
+            style={[styles.issueOptionText, issue === 'refund_payer' && styles.issueOptionTextActive]}
+          >
+            Rembourser le payeur
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.issueOption, issue === 'release_payee' && styles.issueOptionActive]}
+          onPress={() => setIssue('release_payee')}
+          disabled={isSubmitting}
+        >
+          <Text
+            style={[styles.issueOptionText, issue === 'release_payee' && styles.issueOptionTextActive]}
+          >
+            Libérer le bénéficiaire
+          </Text>
+        </Pressable>
+      </View>
+
+      <Pressable
+        style={[styles.swapResolveBtn, isSubmitting && styles.actionBtnDisabled]}
+        onPress={handleResolve}
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? (
+          <ActivityIndicator size="small" color={colors.white} />
+        ) : (
+          <Text style={styles.swapResolveBtnText}>Résoudre le litige</Text>
+        )}
+      </Pressable>
     </View>
   );
 });
