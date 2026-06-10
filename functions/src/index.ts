@@ -228,8 +228,8 @@ export { checkSavedSearchNotifications } from './scheduled/savedSearches';
 // Draft image cleanup
 export { cleanupExpiredDrafts } from './scheduled/cleanupDrafts';
 
-// Offer expiration (hourly cleanup of stale pending offers)
-export { expireStaleOffers } from './scheduled/offerExpiration';
+// Offer expiration (hourly cleanup of stale pending offers + accepted-unconsumed)
+export { expireStaleOffers, expireStaleAcceptedOffers } from './scheduled/offerExpiration';
 
 // Transaction expiration (meetup_pending 48h + pending_payment 1h + paid-not-shipped 7d)
 export { expireOrphanedTransactions } from './scheduled/transactionExpiration';
