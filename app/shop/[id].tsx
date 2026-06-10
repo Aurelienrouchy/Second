@@ -346,6 +346,19 @@ export default function ShopDetailScreen() {
               </Pressable>
             </View>
           )}
+
+          {/* Owner-only: manage the paid tier (F134) */}
+          {isOwner && (
+            <View style={styles.section}>
+              <Pressable
+                style={styles.manageTierButton}
+                onPress={() => router.push(`/shop/upgrade?shopId=${shop.id}`)}
+              >
+                <Ionicons name="ribbon-outline" size={20} color={colors.cream} />
+                <Text style={styles.manageTierButtonText}>Gérer mon forfait</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
