@@ -65,8 +65,11 @@ const WALLET_COPY = {
     "Après une livraison, le montant de la vente est conservé 7 jours avant d'arriver dans votre solde. Cette fenêtre permet à l'acheteur·euse de signaler un éventuel problème. Passé ce délai, les fonds deviennent retirables.",
   blockDisputeTitle: 'Retrait momentanément indisponible',
   blockDisputeBody:
-    "Un litige est en cours sur l'une de vos transactions. Les retraits sont suspendus le temps de sa résolution. Nous reviendrons vers vous dès que possible.",
+    "Un litige est en cours sur l'une de vos ventes : les fonds concernés sont gelés le temps de sa résolution. Le reste de votre solde redeviendra retirable une fois le litige clos.",
   blockDisputeCta: 'Compris',
+  blockDisputeBannerTitle: 'Litige en cours',
+  blockDisputeBannerBody:
+    'Une de vos ventes fait l’objet d’un litige. Les fonds concernés sont gelés le temps de la résolution ; le reste de votre solde reste disponible.',
   blockDebtBannerTitle: 'Régularisation nécessaire',
   blockDebtBannerBody:
     'Un montant de {montant} reste à régulariser sur votre compte. Les retraits sont suspendus tant que ce solde n’est pas réglé. Vos prochaines ventes seront affectées à cette régularisation en priorité.',
