@@ -969,6 +969,47 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
+  // ── Payouts blocked banner ─────────────────────────────────────────────────
+
+  payoutBlockedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.dangerLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  payoutBlockedIcon: {
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // ── Bank account link ──────────────────────────────────────────────────────
+
+  bankLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  bankLinkTitle: {
+    ...typography.label,
+    color: colors.foreground,
+  },
+  bankLinkSubtitle: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+
   // ── Action buttons ─────────────────────────────────────────────────────────
 
   actionRow: {
