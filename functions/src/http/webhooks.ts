@@ -103,28 +103,21 @@ export const stripeWebhook = onRequest(
       const eventType = event.type;
 
       // =======================================================================
-      // UNIVERSAL IDEMPOTENCE — dedup by Stripe event.id
+      // UNIVERSAL IDEMPOTENCE — dedup by Stripe event.id (marker AFTER success)
       // =======================================================================
       // Stripe may deliver the same event multiple times (retries on a slow
-      // ACK, at-least-once delivery). We atomically claim each event.id by
-      // creating a stripe_events/{event.id} marker doc inside a transaction.
-      // If the marker already exists, the event was already handled — ACK and
-      // return without re-running any handler. The per-status guards inside
-      // each handler remain as defense-in-depth.
+      // ACK, at-least-once delivery). We dedup with a stripe_events/{event.id}
+      // marker, but the marker is written ONLY AFTER the handler succeeds (F3):
+      // committing it up-front meant a handler that threw left the marker behind,
+      // so Stripe's retry saw "already handled" and the event was lost forever
+      // (dispute.closed, payout.failed never replayed). Now a thrown handler
+      // returns 500 with NO marker, so Stripe re-delivers and the event is
+      // retried. Per-handler status guards make a re-run safe (defense-in-depth)
+      // and absorb the small window where a concurrent duplicate slips through
+      // before the marker is written.
       const eventMarkerRef = db.collection('stripe_events').doc(event.id);
-      const alreadyHandled = await db.runTransaction(async (tx) => {
-        const markerSnap = await tx.get(eventMarkerRef);
-        if (markerSnap.exists) {
-          return true;
-        }
-        tx.create(eventMarkerRef, {
-          type: eventType,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-        return false;
-      });
-
-      if (alreadyHandled) {
+      const markerSnap = await eventMarkerRef.get();
+      if (markerSnap.exists) {
         logger.info('Stripe webhook: duplicate event ignored', {
           eventId: event.id,
           eventType,
