@@ -135,7 +135,11 @@ export function useDeepLinking(): void {
     const url = pendingInitialUrlRef.current;
     if (!navigatorReadyRef.current || !url) return;
     initialUrlHandledRef.current = true;
-    handleDeepLink(url);
+    // Let Stripe consume a 3DS return URL first; only route ourselves if it
+    // didn't (F123).
+    void tryStripeURLCallback(url).then((stripeHandled) => {
+      if (!stripeHandled) handleDeepLink(url);
+    });
   };
 
   useEffect(() => {
