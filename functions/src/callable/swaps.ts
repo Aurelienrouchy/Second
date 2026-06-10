@@ -813,8 +813,11 @@ async function releasePartyItems(swap: FirebaseFirestore.DocumentData): Promise<
  * Issue a Stripe refund for a paid top-up and release the payer.
  * Refund reconciliation of the payee wallet happens via the charge.refunded
  * webhook (calqued on purchase refunds).
+ *
+ * Exported so the scheduled expiration job (scheduled/swaps.ts) can reuse the
+ * SAME idempotent refund (key rf_swap_${swapId}) — never duplicate this logic.
  */
-async function refundSwapTopUpIfPaid(swap: FirebaseFirestore.DocumentData, swapId: string): Promise<void> {
+export async function refundSwapTopUpIfPaid(swap: FirebaseFirestore.DocumentData, swapId: string): Promise<void> {
   const topUp = swap.cashTopUp;
   if (topUp == null) return;
   if (!swap.topUpPaidAt || !swap.topUpPaymentIntentId) return; // never paid → nothing to refund
