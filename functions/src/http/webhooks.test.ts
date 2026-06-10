@@ -703,4 +703,312 @@ describe('Stripe webhook — charge.refunded (bucket debit, full vs partial)', (
     expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(-4500);
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
   });
+
+  // F101/F28: charge.refunded fires for partial refunds too — must NOT unwind.
+  it('does NOT unwind the sale on a PARTIAL charge.refunded (review dead-letter)', async () => {
+    fs.setDoc('transactions/tx_partial', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'paid',
+      totalAmount: 50,
+      sellerPayout: 45,
+      sellerCreditedCents: 4500,
+      paidVia: 'card',
+      deliveryType: 'shipping',
+      articleId: 'article1',
+      stripePaymentIntentId: 'pi_partial',
+    });
+    fs.setDoc('wallets/seller1', {
+      balance: 0,
+      pendingBalance: 4500,
+      heldBalance: 0,
+      status: 'active',
+    });
+
+    // Partial commercial gesture: refunded 500 of 5000.
+    const res = await deliverEvent(
+      refundEvent({
+        eventId: 'evt_partial',
+        paymentIntentId: 'pi_partial',
+        amount: 5000,
+        amountRefunded: 500,
+      })
+    );
+    expect(res.statusCode).toBe(200);
+
+    // Sale untouched: still paid, seller credit intact, no debit.
+    expect(fs.getDoc('transactions/tx_partial')!.status).toBe('paid');
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(0);
+
+    // A review dead-letter was written (autoRefund:false, kind partial).
+    const dl = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('failed_operations/') &&
+        op.data.type === 'amount_mismatch' &&
+        (op.data.payload as Record<string, unknown>).kind === 'partial_charge_refund'
+    );
+    expect(dl).toBeDefined();
+    expect((dl!.data.payload as Record<string, unknown>).autoRefund).toBe(false);
+  });
+});
+
+// ===========================================================================
+// 5. charge.dispute.created / closed — hold lifecycle (F37, F38)
+// ===========================================================================
+
+describe('Stripe webhook — dispute hold lifecycle', () => {
+  function disputeCreatedEvent(opts: {
+    eventId: string;
+    paymentIntentId: string;
+    disputeId?: string;
+  }): Record<string, unknown> {
+    return {
+      id: opts.eventId,
+      type: 'charge.dispute.created',
+      data: {
+        object: {
+          id: opts.disputeId ?? 'dp_1',
+          payment_intent: opts.paymentIntentId,
+          reason: 'fraudulent',
+          amount: 4500,
+        },
+      },
+    };
+  }
+
+  function disputeClosedEvent(opts: {
+    eventId: string;
+    paymentIntentId: string;
+    status: string;
+    disputeId?: string;
+  }): Record<string, unknown> {
+    return {
+      id: opts.eventId,
+      type: 'charge.dispute.closed',
+      data: {
+        object: {
+          id: opts.disputeId ?? 'dp_1',
+          payment_intent: opts.paymentIntentId,
+          status: opts.status,
+        },
+      },
+    };
+  }
+
+  it('WON dispute releases the exact frozen hold (held -> balance)', async () => {
+    // Funds were released to balance, then a dispute froze them into heldBalance.
+    fs.setDoc('transactions/tx_won', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'completed',
+      sellerPayout: 45,
+      sellerCreditedCents: 4500,
+      paidVia: 'card',
+      deliveryType: 'shipping',
+      articleId: 'a',
+      stripePaymentIntentId: 'pi_won',
+    });
+    fs.setDoc('wallets/seller1', {
+      balance: 4500,
+      pendingBalance: 0,
+      heldBalance: 0,
+      status: 'active',
+    });
+
+    await deliverEvent(disputeCreatedEvent({ eventId: 'evt_dc_won', paymentIntentId: 'pi_won' }));
+    // Hold applied: 4500 moved balance -> held, persisted on the tx.
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(4500);
+    expect(fs.getDoc('transactions/tx_won')!.disputeFreezeCents).toBe(4500);
+
+    await deliverEvent(
+      disputeClosedEvent({ eventId: 'evt_dx_won', paymentIntentId: 'pi_won', status: 'won' })
+    );
+    // F37: the exact hold is released back to withdrawable balance.
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(4500);
+    expect(fs.getDoc('transactions/tx_won')!.disputed).toBe(false);
+    expect(fs.getDoc('transactions/tx_won')!.status).toBe('completed');
+  });
+
+  it('warning_closed releases the hold like a won dispute', async () => {
+    fs.setDoc('transactions/tx_warn', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'completed',
+      sellerPayout: 45,
+      sellerCreditedCents: 4500,
+      paidVia: 'card',
+      deliveryType: 'shipping',
+      stripePaymentIntentId: 'pi_warn',
+    });
+    fs.setDoc('wallets/seller1', {
+      balance: 4500,
+      pendingBalance: 0,
+      heldBalance: 0,
+      status: 'active',
+    });
+
+    await deliverEvent(disputeCreatedEvent({ eventId: 'evt_dc_warn', paymentIntentId: 'pi_warn' }));
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(4500);
+
+    await deliverEvent(
+      disputeClosedEvent({
+        eventId: 'evt_dx_warn',
+        paymentIntentId: 'pi_warn',
+        status: 'warning_closed',
+      })
+    );
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(4500);
+  });
+
+  it('LOST dispute cascades the debit including pendingBalance (F38)', async () => {
+    // Chargeback on a still-pending sale: the seller credit sits in pendingBalance.
+    // The freeze at created moves nothing (balance is 0), and the LOST debit must
+    // drain pendingBalance first — not other funds, not a false debt.
+    fs.setDoc('transactions/tx_lost', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'shipped',
+      sellerPayout: 45,
+      sellerCreditedCents: 4500,
+      paidVia: 'card',
+      deliveryType: 'shipping',
+      stripePaymentIntentId: 'pi_lost',
+    });
+    fs.setDoc('wallets/seller1', {
+      balance: 0,
+      pendingBalance: 4500,
+      heldBalance: 0,
+      status: 'active',
+    });
+
+    await deliverEvent(disputeCreatedEvent({ eventId: 'evt_dc_lost', paymentIntentId: 'pi_lost' }));
+    // Nothing in balance to freeze.
+    expect(fs.getDoc('transactions/tx_lost')!.disputeFreezeCents).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+
+    await deliverEvent(
+      disputeClosedEvent({ eventId: 'evt_dx_lost', paymentIntentId: 'pi_lost', status: 'lost' })
+    );
+    // F38: debit drained pendingBalance — no other-bucket debit, no false debt.
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.sellerDebt ?? 0).toBe(0);
+    expect(fs.getDoc('transactions/tx_lost')!.status).toBe('refunded');
+  });
+
+  it('LOST dispute on an UNCREDITED tx releases the frozen surplus (F37)', async () => {
+    // The tx was frozen (funds were in balance) but never credited for THIS sale
+    // (sellerCreditedCents = 0). The LOST debit target is 0, so the frozen amount
+    // must be returned to balance, not stranded in heldBalance.
+    fs.setDoc('transactions/tx_lost2', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'completed',
+      sellerPayout: 45,
+      // no sellerCreditedCents
+      paidVia: 'card',
+      deliveryType: 'shipping',
+      stripePaymentIntentId: 'pi_lost2',
+    });
+    fs.setDoc('wallets/seller1', {
+      balance: 4500,
+      pendingBalance: 0,
+      heldBalance: 0,
+      status: 'active',
+    });
+
+    await deliverEvent(disputeCreatedEvent({ eventId: 'evt_dc_l2', paymentIntentId: 'pi_lost2' }));
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(4500);
+    expect(fs.getDoc('transactions/tx_lost2')!.disputeFreezeCents).toBe(4500);
+
+    await deliverEvent(
+      disputeClosedEvent({ eventId: 'evt_dx_l2', paymentIntentId: 'pi_lost2', status: 'lost' })
+    );
+    // Debit target 0 (uncredited), so the surplus hold is released back.
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(4500);
+    expect(fs.getDoc('wallets/seller1')!.sellerDebt ?? 0).toBe(0);
+  });
+});
+
+// ===========================================================================
+// 6. payout.failed — re-credit wallet + reverse transfer (F36, F99)
+// ===========================================================================
+
+describe('Stripe webhook — payout.failed recovery', () => {
+  function payoutFailedEvent(opts: {
+    eventId: string;
+    withdrawalRequestId: string;
+    payoutId?: string;
+    userId?: string;
+  }): Record<string, unknown> {
+    return {
+      id: opts.eventId,
+      type: 'payout.failed',
+      data: {
+        object: {
+          id: opts.payoutId ?? 'po_failed',
+          failure_message: 'invalid bank account',
+          metadata: {
+            withdrawalRequestId: opts.withdrawalRequestId,
+            firebaseUserId: opts.userId ?? 'seller1',
+          },
+        },
+      },
+    };
+  }
+
+  it('re-credits the wallet AND reverses the persisted transfer', async () => {
+    fs.setDoc('withdrawal_requests/wr1', {
+      userId: 'seller1',
+      amount: 2000, // cents
+      status: 'processing',
+      stripeTransferId: 'tr_wr1',
+      stripePayoutId: 'po_failed',
+      stripeAccountId: 'acct_1',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, status: 'active' });
+
+    const res = await deliverEvent(
+      payoutFailedEvent({ eventId: 'evt_po_fail', withdrawalRequestId: 'wr1' })
+    );
+    expect(res.statusCode).toBe(200);
+
+    // Wallet re-credited.
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(2000);
+    // Request marked failed.
+    expect(fs.getDoc('withdrawal_requests/wr1')!.status).toBe('failed');
+    // F99: the platform->connected transfer was reversed with the deterministic key.
+    expect(stripeMock.calls.transfersCreateReversal.length).toBe(1);
+    expect(stripeMock.calls.transfersCreateReversal[0][0]).toBe('tr_wr1');
+    const revOpts = stripeMock.calls.transfersCreateReversal[0][2] as Record<string, unknown>;
+    expect(revOpts.idempotencyKey).toBe('rev_tr_wr1');
+  });
+
+  it('is idempotent: a replayed payout.failed does not double-credit', async () => {
+    fs.setDoc('withdrawal_requests/wr2', {
+      userId: 'seller1',
+      amount: 3000,
+      status: 'processing',
+      stripeTransferId: 'tr_wr2',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, status: 'active' });
+
+    await deliverEvent(
+      payoutFailedEvent({ eventId: 'evt_po_a', withdrawalRequestId: 'wr2', payoutId: 'po_a' })
+    );
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
+
+    // Stripe re-delivers a different event.id for the same payout — dedup does NOT
+    // short-circuit; the request status guard ('failed' != 'processing') must.
+    await deliverEvent(
+      payoutFailedEvent({ eventId: 'evt_po_b', withdrawalRequestId: 'wr2', payoutId: 'po_a' })
+    );
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
+    expect(fs.sumIncrements('wallets/seller1', 'balance')).toBe(3000);
+  });
 });
