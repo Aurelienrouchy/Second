@@ -43,7 +43,7 @@ import {
 } from '@/constants/theme';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useWallet } from '@/hooks/useWallet';
-import type { WalletLedgerEntry } from '@/types';
+import type { WalletLedgerEntry, WithdrawalRequest } from '@/types';
 import { formatCents } from '@/utils/formatPrice';
 
 // =============================================================================
