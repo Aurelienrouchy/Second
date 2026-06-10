@@ -2159,48 +2159,61 @@ async function handleAccountUpdated(account: any): Promise<void> {
   }
 
   const userDoc = usersQuery.docs[0];
+  const userData = userDoc.data() || {};
 
-  // Determine status — works for both Standard and Custom accounts.
-  // For Custom accounts, charges_enabled becomes true once capabilities
-  // are active and payouts_enabled becomes true once a bank account is
-  // attached and verified.
-  let status: string;
-  if (account.charges_enabled && account.payouts_enabled) {
-    status = 'active';
-  } else if (account.charges_enabled) {
-    // Custom accounts: charges enabled but no bank account yet
-    status = 'partially_active';
-  } else if (account.details_submitted) {
-    status = 'pending_verification';
-  } else {
-    status = 'pending';
-  }
-
-  // Check if external accounts (bank accounts) are attached
-  const hasExternalAccount =
-    account.external_accounts?.data?.length > 0 ||
-    false;
-
-  const updateData: Record<string, any> = {
-    stripeAccountStatus: status,
-    stripeChargesEnabled: account.charges_enabled || false,
-    stripePayoutsEnabled: account.payouts_enabled || false,
-    stripeDetailsSubmitted: account.details_submitted || false,
-  };
-
-  // Track external account status for Custom accounts
-  if (hasExternalAccount) {
-    updateData.stripeBankAccountAdded = true;
-  }
+  // Derive the canonical account state — works for both Standard and Custom
+  // accounts and persists KYC requirements (F59) + bank status alongside the
+  // charges/payouts/details booleans (F62/F117). Never undefined.
+  const state = deriveStripeAccountState(account);
+  const updateData = stripeAccountFirestoreFields(state);
 
   await userDoc.ref.update(updateData);
+
+  // KYC continuous remediation (F59c): notify the seller — idempotently — when
+  // a NEW requirement appears or the account becomes restricted. We compare the
+  // freshly derived currently_due against the previously persisted set so a
+  // stream of identical account.updated events does not spam the seller.
+  const prevDue: string[] = Array.isArray(userData.stripeRequirementsCurrentlyDue)
+    ? userData.stripeRequirementsCurrentlyDue
+    : [];
+  const nowDue = state.requirementsCurrentlyDue;
+  const prevDisabledReason =
+    typeof userData.stripeRequirementsDisabledReason === 'string'
+      ? userData.stripeRequirementsDisabledReason
+      : null;
+  const hasNewRequirement = nowDue.some((r) => !prevDue.includes(r));
+  const newlyDisabled =
+    state.disabledReason !== null && state.disabledReason !== prevDisabledReason;
+
+  if (nowDue.length > 0 && (hasNewRequirement || newlyDisabled)) {
+    try {
+      await sendPushNotification(
+        userDoc.id,
+        'Action requise sur votre compte vendeur',
+        'Stripe a besoin d\'informations supplementaires pour debloquer vos paiements. Ouvrez l\'application pour les fournir.',
+        {
+          type: 'stripe_requirements_due',
+          stripeAccountId,
+        },
+        'stripe_requirements_due'
+      );
+    } catch (notifyErr) {
+      logger.warn('Stripe webhook: failed to notify seller of new KYC requirement', {
+        userId: userDoc.id,
+        stripeAccountId,
+        error: notifyErr instanceof Error ? notifyErr.message : notifyErr,
+      });
+    }
+  }
 
   logger.info('Stripe webhook: seller account status updated', {
     userId: userDoc.id,
     stripeAccountId,
-    status,
-    chargesEnabled: account.charges_enabled,
-    payoutsEnabled: account.payouts_enabled,
-    hasExternalAccount,
+    status: state.status,
+    chargesEnabled: state.chargesEnabled,
+    payoutsEnabled: state.payoutsEnabled,
+    requirementsCurrentlyDue: nowDue,
+    disabledReason: state.disabledReason,
+    hasExternalAccount: state.hasExternalAccount,
   });
 }
