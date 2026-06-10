@@ -38,6 +38,7 @@ const getCountryLabel = (country: string) => COUNTRY_LABELS[country] ?? country;
 export default function ShopDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const user = useUser();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const { data: shop = null, isLoading } = useQuery<Shop | null>({
@@ -46,6 +47,8 @@ export default function ShopDetailScreen() {
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
   });
+
+  const isOwner = !!shop && !!user && shop.ownerId === user.id;
 
   const handleCall = () => {
     if (shop?.phoneNumber) {
