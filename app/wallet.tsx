@@ -393,6 +393,10 @@ export default function WalletScreen() {
         color: colors.muted,
         bg: colors.backgroundSecondary,
       };
+      // A debt repayment is an allocation, not a balance movement: render it
+      // neutrally (no +/-) so the seller sees their debt being cleared without
+      // misreading it as a credit to the withdrawable balance.
+      const isAllocation = item.type === 'debt_repayment';
       const credit = isCredit(item.type);
 
       return (
@@ -409,10 +413,14 @@ export default function WalletScreen() {
           <Text
             style={[
               styles.ledgerAmount,
-              credit ? styles.ledgerAmountCredit : styles.ledgerAmountDebit,
+              isAllocation
+                ? styles.ledgerAmountNeutral
+                : credit
+                  ? styles.ledgerAmountCredit
+                  : styles.ledgerAmountDebit,
             ]}
           >
-            {credit ? '+' : '-'}
+            {isAllocation ? '' : credit ? '+' : '-'}
             {formatCents(Math.abs(item.amount))}
           </Text>
         </View>
