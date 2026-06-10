@@ -62,6 +62,17 @@ const PENDING_PAYMENT_EXPIRY_MS = 1 * 60 * 60 * 1000;
 const PAID_NOT_SHIPPED_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * F26: a return leg with no carrier DELIVERED scan after this window is routed to
+ * admin for human review (a dispute doc is opened). We never auto-release nor
+ * auto-refund here — the buyer may never have posted the parcel (fraud) OR the
+ * carrier scan may simply be missing. Routing to admin is the safe default: it
+ * unblocks the funds-frozen dead-end (return_requested + disputed freezes the
+ * seller's payout forever) without silently favoring either party. 21 days is
+ * generous (a return ships + transits + scans well within that).
+ */
+const RETURN_LEG_STALE_MS = 21 * 24 * 60 * 60 * 1000;
+
+/**
  * Stripe PaymentIntent statuses that mean money is in flight or already captured.
  * If a 'pending_payment' transaction's PaymentIntent is in one of these states we
  * must NOT expire/cancel it — the webhook (PI.succeeded) is either about to fire
