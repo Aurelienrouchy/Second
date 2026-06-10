@@ -22,7 +22,11 @@ import { getShipEngine } from '../config/shipEngine';
 import { getStripe } from '../config/stripe';
 import { sendPushNotification } from '../utils/notifications';
 import { getOrCreateSellerWallet } from '../callable/wallet';
-import { creditSellerForSale, reconcileShippingCost, recordTransactionRevenue } from '../utils/labelFulfillment';
+import {
+  creditSellerForSale,
+  recordTransactionRevenue,
+  createLabelIdempotent,
+} from '../utils/labelFulfillment';
 import { writeFailedOperation, writeAdminAlert } from '../utils/failedOperations';
 import { issueTransactionRefund } from '../utils/refund';
 import { revertFailedPayout } from '../utils/payoutRecovery';
