@@ -66,6 +66,7 @@ export {
   createStripeCheckout,
   createStripeConnectAccount,
   addBankAccount,
+  uploadStripeIdentityDocument,
   getStripeAccountStatus,
   findPickupPoints,
   checkTrackingStatus,
