@@ -165,13 +165,20 @@ export const SwapStatusView = React.memo(function SwapStatusView({
 
 const styles = StyleSheet.create({
   statusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 16,
     backgroundColor: colors.surface,
     borderLeftWidth: 4,
     borderLeftColor: colors.sage,
+    gap: 8,
+  },
+  statusIndicatorDark: {
+    backgroundColor: colors.deep,
+    borderLeftColor: colors.rust,
+  },
+  statusBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   statusIcon: {
@@ -182,11 +189,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  statusIconDark: {
+    backgroundColor: colors.darkSurface2,
+  },
   statusText: {
     fontFamily: fonts.sansMedium,
     fontSize: 13,
     fontWeight: '500',
     color: colors.charcoal,
+  },
+  statusTextDark: {
+    color: colors.cream,
+  },
+  statusCaption: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
+  },
+  statusCaptionDark: {
+    color: colors.creamTranslucent60,
   },
   compactSenderCard: {
     flexDirection: 'row',
