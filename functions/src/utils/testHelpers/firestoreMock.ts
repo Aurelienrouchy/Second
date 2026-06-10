@@ -507,11 +507,19 @@ export function createStripeMock(): StripeMock {
         calls.transfersCreate.push(a);
         return impl.transfersCreate(...a);
       },
+      createReversal: (...a: unknown[]) => {
+        calls.transfersCreateReversal.push(a);
+        return impl.transfersCreateReversal(...a);
+      },
     },
     payouts: {
       create: (...a: unknown[]) => {
         calls.payoutsCreate.push(a);
         return impl.payoutsCreate(...a);
+      },
+      retrieve: (...a: unknown[]) => {
+        calls.payoutsRetrieve.push(a);
+        return impl.payoutsRetrieve(...a);
       },
     },
   };
