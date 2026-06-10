@@ -207,11 +207,17 @@ vi.mock('firebase-functions/v2/https', () => {
 // ---------------------------------------------------------------------------
 // Import the module under test
 // ---------------------------------------------------------------------------
-import { activateWallet, getWalletInfo, walletWithdraw, payWithWallet } from './wallet';
+import {
+  activateWallet,
+  getWalletInfo,
+  walletWithdraw,
+  payWithWallet,
+  refundWalletPayment,
+} from './wallet';
 
 // Because of our onCall mock, the exports are the raw handler functions
 type CallableHandler = (request: {
-  auth?: { uid: string } | null;
+  auth?: { uid: string; token?: Record<string, unknown> } | null;
   data?: Record<string, unknown>;
 }) => Promise<Record<string, unknown>>;
 
@@ -219,6 +225,7 @@ const callActivateWallet = activateWallet as unknown as CallableHandler;
 const callGetWalletInfo = getWalletInfo as unknown as CallableHandler;
 const callWalletWithdraw = walletWithdraw as unknown as CallableHandler;
 const callPayWithWallet = payWithWallet as unknown as CallableHandler;
+const callRefundWalletPayment = refundWalletPayment as unknown as CallableHandler;
 
 // ---------------------------------------------------------------------------
 // Reset state before each test
