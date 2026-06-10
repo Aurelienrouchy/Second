@@ -1354,6 +1354,11 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     marginBottom: spacing.xs,
   },
+  ledgerMovementHint: {
+    ...typography.caption,
+    color: colors.muted,
+    marginBottom: spacing.xs,
+  },
   ledgerDate: {
     ...typography.caption,
     color: colors.muted,
