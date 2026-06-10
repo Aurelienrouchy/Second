@@ -20,7 +20,7 @@
  */
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
-import { writeFailedOperation } from './failedOperations';
+import { writeFailedOperation, writeAdminAlert } from './failedOperations';
 import { getStripe } from '../config/stripe';
 
 type StripeClient = ReturnType<typeof getStripe>;
