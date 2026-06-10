@@ -50,6 +50,9 @@ const MAX_TRANSACTIONS_PER_RUN = 50;
 /** Number of label-creation attempts before giving up and refunding the buyer. */
 const MAX_ATTEMPTS = 4;
 
+/** Anti-overlap lock TTL (the job runs hourly; one run must finish well within). */
+const JOB_LOCK_TTL_MS = 30 * 60 * 1000;
+
 /**
  * Re-rate a fresh ShipEngine rate for a pending-label transaction.
  * Returns the chosen rate (cheapest home-delivery rate) or null if no rate /
