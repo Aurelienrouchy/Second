@@ -351,19 +351,31 @@ export const reconcileFinances = onSchedule(
     let balanceBreaches = 0;
 
     // -------------------------------------------------------------------------
-    // 1. reconcilePayments
+    // 1. reconcilePayments — scan BOTH stale 'pending_payment' (lost PI.succeeded)
+    //    AND stale 'paid' (F76: charge fully refunded on Stripe but tx still
+    //    'paid' = lost charge.refunded webhook). reconcileOnePayment dispatches on
+    //    the tx status internally.
     // -------------------------------------------------------------------------
     try {
       const cutoff = new Date(now - PAYMENT_STALE_MS);
-      const snap = await db
-        .collection('transactions')
-        .where('status', '==', 'pending_payment')
-        .where('createdAt', '<', cutoff)
-        .limit(MAX_PER_RUN)
-        .get();
+      const snaps = await Promise.all([
+        db
+          .collection('transactions')
+          .where('status', '==', 'pending_payment')
+          .where('createdAt', '<', cutoff)
+          .limit(MAX_PER_RUN)
+          .get(),
+        db
+          .collection('transactions')
+          .where('status', '==', 'paid')
+          .where('createdAt', '<', cutoff)
+          .limit(MAX_PER_RUN)
+          .get(),
+      ]);
+      const docs = [...snaps[0].docs, ...snaps[1].docs];
 
-      for (let i = 0; i < snap.docs.length; i += LOT_SIZE) {
-        const lot = snap.docs.slice(i, i + LOT_SIZE);
+      for (let i = 0; i < docs.length; i += LOT_SIZE) {
+        const lot = docs.slice(i, i + LOT_SIZE);
         const results = await Promise.allSettled(
           lot.map((doc) => reconcileOnePayment(doc, stripe))
         );
