@@ -222,7 +222,8 @@ export { expireStaleOffers } from './scheduled/offerExpiration';
 // Transaction expiration (meetup_pending 48h + pending_payment 1h + paid-not-shipped 7d)
 export { expireOrphanedTransactions } from './scheduled/transactionExpiration';
 
-// Tracking check (poll ShipEngine every 6h for shipped transactions)
+// Tracking check (poll ShipEngine every 12h for shipped transactions — the 12h
+// safety-net poller covering missed/undelivered ShipEngine webhooks; both legs)
 export { checkShippedTracking } from './scheduled/trackingCheck';
 
 // Release held funds (hourly: heldBalance -> balance after 7-day dispute window)
