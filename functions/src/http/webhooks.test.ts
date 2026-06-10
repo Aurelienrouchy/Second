@@ -360,11 +360,12 @@ describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () =>
     expect(fs.getDoc('transactions/tx1')!.status).toBe('refunded');
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
 
-    // Auto-refund issued with a deterministic idempotency key.
+    // Auto-refund issued with a deterministic idempotency key. Single-rail model:
+    // a plain platform-charge refund (NO reverse_transfer).
     expect(stripeMock.calls.refundsCreate.length).toBe(1);
     const refundArgs = stripeMock.calls.refundsCreate[0][0] as Record<string, unknown>;
     expect(refundArgs.payment_intent).toBe('pi_over');
-    expect(refundArgs.reverse_transfer).toBe(true);
+    expect(refundArgs.reverse_transfer).toBeUndefined();
     expect(refundOpts!.idempotencyKey).toBe('rf_mismatch_tx1');
 
     // Dead-letter records autoRefund: true.
