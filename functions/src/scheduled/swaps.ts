@@ -319,3 +319,131 @@ export const expireStalePostAcceptanceSwaps = onSchedule(
     }
   }
 );
+
+/**
+ * B9 — Dispute aging surveillance (swaps + transactions).
+ *
+ * A `disputed` swap (openSwapDispute) or a `disputed` transaction
+ * (reportTransactionProblem / failed delivery / chargeback) has NO automatic
+ * exit: the only resolution is an ADMIN callable (resolveSwapDispute /
+ * resolveDispute). We MUST NOT auto-decide — the direction of a dispute is not
+ * machine-derivable. But "never resolved" cannot mean "frozen forever, unseen":
+ * funds + engaged articles stay locked sine die if a dispute is forgotten.
+ *
+ * This job gives OPS VISIBILITY without touching the dispute: it scans disputes
+ * older than DISPUTE_AGING_THRESHOLD and writes ONE `swap_dispute_aging` /
+ * `transaction_dispute_aging` admin_alert per dispute. Idempotent + non-spammy
+ * via a `disputeAlertedAt` stamp (CF-only — both collections' update rules are
+ * strict allowlists that cannot write this field client-side): once stamped, the
+ * dispute is no longer re-alerted. The stamp write is transactional and re-checks
+ * the dispute is still open + not already alerted, so two overlapping runs cannot
+ * double-alert.
+ *
+ * Runs every 6 hours. Requires composite indexes:
+ *   swaps        (status ASC, disputeOpenedAt ASC)
+ *   transactions (status ASC, disputedAt ASC)
+ */
+const DISPUTE_AGING_THRESHOLD_MS = 5 * 24 * 60 * 60 * 1000; // 5 days
+const MAX_AGING_PER_COLLECTION = 300;
+
+export const alertAgingDisputes = onSchedule(
+  {
+    schedule: 'every 6 hours',
+    region: 'northamerica-northeast1',
+    memory: '512MiB',
+  },
+  async () => {
+    const cutoff = Timestamp.fromMillis(Date.now() - DISPUTE_AGING_THRESHOLD_MS);
+
+    try {
+      const [swapSnap, txSnap] = await Promise.all([
+        db
+          .collection('swaps')
+          .where('status', '==', 'disputed')
+          .where('disputeOpenedAt', '<', cutoff)
+          .limit(MAX_AGING_PER_COLLECTION)
+          .get(),
+        db
+          .collection('transactions')
+          .where('status', '==', 'disputed')
+          .where('disputedAt', '<', cutoff)
+          .limit(MAX_AGING_PER_COLLECTION)
+          .get(),
+      ]);
+
+      let alerted = 0;
+      let skipped = 0;
+
+      // Stamp `disputeAlertedAt` transactionally (re-check open + not-yet-alerted)
+      // BEFORE writing the alert, so an overlapping run cannot double-alert.
+      async function claimAlert(
+        ref: FirebaseFirestore.DocumentReference
+      ): Promise<FirebaseFirestore.DocumentData | null> {
+        return db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists) return null;
+          const data = snap.data()!;
+          if (data.status !== 'disputed' || data.disputeAlertedAt) return null;
+          tx.update(ref, { disputeAlertedAt: FieldValue.serverTimestamp() });
+          return data;
+        });
+      }
+
+      for (const doc of swapSnap.docs) {
+        const data = await claimAlert(doc.ref);
+        if (!data) {
+          skipped++;
+          continue;
+        }
+        await writeAdminAlert({
+          kind: 'swap_dispute_aging',
+          severity: 'warning',
+          refId: doc.id,
+          message: `Litige d'échange ouvert depuis plus de ${DISPUTE_AGING_THRESHOLD_MS / 86400000} jours sans résolution. Articles engagés et complément éventuel gelés — revue admin requise.`,
+          context: {
+            disputeReason: typeof data.disputeReason === 'string' ? data.disputeReason : null,
+            disputeOpenedBy: typeof data.disputeOpenedBy === 'string' ? data.disputeOpenedBy : null,
+            statusBeforeDispute:
+              typeof data.statusBeforeDispute === 'string' ? data.statusBeforeDispute : null,
+            initiatorId: typeof data.initiatorId === 'string' ? data.initiatorId : null,
+            receiverId: typeof data.receiverId === 'string' ? data.receiverId : null,
+          },
+        });
+        alerted++;
+      }
+
+      for (const doc of txSnap.docs) {
+        const data = await claimAlert(doc.ref);
+        if (!data) {
+          skipped++;
+          continue;
+        }
+        await writeAdminAlert({
+          kind: 'transaction_dispute_aging',
+          severity: 'warning',
+          refId: doc.id,
+          message: `Litige d'achat ouvert depuis plus de ${DISPUTE_AGING_THRESHOLD_MS / 86400000} jours sans résolution. Fonds gelés en fenêtre de litige — revue admin requise.`,
+          context: {
+            statusBeforeDispute:
+              typeof data.statusBeforeDispute === 'string' ? data.statusBeforeDispute : null,
+            buyerId: typeof data.buyerId === 'string' ? data.buyerId : null,
+            sellerId: typeof data.sellerId === 'string' ? data.sellerId : null,
+            deliveryType: typeof data.deliveryType === 'string' ? data.deliveryType : null,
+          },
+        });
+        alerted++;
+      }
+
+      logger.info('[alertAgingDisputes] run complete', {
+        swaps: swapSnap.size,
+        transactions: txSnap.size,
+        alerted,
+        skipped,
+      });
+    } catch (error) {
+      logger.error('[alertAgingDisputes] Error scanning aging disputes', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  }
+);
