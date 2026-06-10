@@ -69,11 +69,13 @@ export {
   findPickupPoints,
   checkTrackingStatus,
   cancelPendingTransaction,
+  sellerCancelTransaction,
   acceptMeetupOffer,
   confirmMeetupTransaction,
   completeMeetupTransaction,
   reportMeetupNoShow,
   adminRefundTransaction,
+  resolveDispute,
 } from './callable/payments';
 
 // Buyer Recourse Functions (anti-fraud refund & dispute & return)
