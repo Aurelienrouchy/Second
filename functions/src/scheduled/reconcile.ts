@@ -76,10 +76,24 @@ async function reconcileOnePayment(
 
   let piStatus: string | undefined;
   let amountReceived = 0;
+  let amountRefunded = 0;
+  let amountCaptured = 0;
   try {
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ['latest_charge'],
+    });
     piStatus = pi.status;
     amountReceived = pi.amount_received ?? pi.amount ?? 0;
+    const charge = (pi as any).latest_charge;
+    if (charge && typeof charge === 'object') {
+      amountRefunded = typeof charge.amount_refunded === 'number' ? charge.amount_refunded : 0;
+      amountCaptured =
+        typeof charge.amount_captured === 'number'
+          ? charge.amount_captured
+          : typeof charge.amount === 'number'
+            ? charge.amount
+            : 0;
+    }
   } catch (err) {
     logger.warn('[reconcilePayments] PI retrieve failed — skipping', {
       transactionId,
