@@ -181,7 +181,6 @@ export default function PaymentScreen() {
           params: {
             transactionId: transaction.id,
             deliveryType: transaction.deliveryType ?? 'shipping',
-            articleTitle: transaction.articleTitle ?? '',
             amount: String(transaction.amount ?? ''),
             shippingCost: String(transaction.shippingCost ?? 0),
             serviceFee: String(serviceFee),
