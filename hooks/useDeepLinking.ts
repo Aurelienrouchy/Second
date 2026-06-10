@@ -64,6 +64,25 @@ const DEEP_LINK_ROUTES: DeepLinkRoute[] = [
   },
 ];
 
+/**
+ * Give the Stripe SDK a chance to consume a 3DS / redirect-payment return URL
+ * BEFORE our own routing. On iOS, a 3DS challenge returns to the app via the
+ * `seconde://checkout/success` returnURL; Stripe must capture it to resume the
+ * PaymentIntent. Without this, Expo Router would route to app/checkout/success
+ * and flash a parasitic "Paiement confirmé" at $0.00 (F123).
+ *
+ * Returns true when Stripe handled the URL (callers must NOT route further).
+ * No-op on Android (handleURLCallback returns false there).
+ */
+async function tryStripeURLCallback(url: string): Promise<boolean> {
+  try {
+    return await handleURLCallback(url);
+  } catch (error) {
+    if (__DEV__) console.error('Stripe handleURLCallback error:', error);
+    return false;
+  }
+}
+
 function handleDeepLink(url: string): void {
   try {
     const parsed = Linking.parse(url);
