@@ -253,5 +253,8 @@ export { retentionPurge } from './scheduled/retentionPurge';
 // Stripe Webhook (payment confirmation + Connect account updates)
 export { stripeWebhook } from './http/webhooks';
 
-// ShipEngine tracking webhook (primary tracking path; poller is the safety net)
+// ShipEngine tracking webhook (intended primary tracking path once deployed +
+// registered with ShipEngine; until then the every-12h poller above is the
+// de-facto path and remains the safety net for missed webhooks). Requires the
+// SHIPENGINE_WEBHOOK_SECRET secret and manual endpoint registration in ShipEngine.
 export { shipEngineWebhook } from './http/shipEngineWebhook';
