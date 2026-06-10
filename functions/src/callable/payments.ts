@@ -496,6 +496,10 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory:
 
   const serviceFee = calculateServiceFee(articlePrice);
   const config = getServiceFeeConfig();
+  // Tax detail (additive, 0 when TAX_ENABLED=false) so the app can render a tax
+  // line in PriceBreakdown (vague app) without changing the total when OFF.
+  const tax = calculateTaxOnServiceFee(serviceFee);
+  const taxConfig = getTaxConfig();
 
   return {
     success: true,
@@ -503,6 +507,10 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory:
     serviceFeePercent: config.percent,
     serviceFeeFixed: config.fixed,
     serviceFeeMin: config.min,
+    taxEnabled: taxConfig.enabled,
+    taxGst: tax.gst,
+    taxQst: tax.qst,
+    taxTotal: tax.taxTotal,
   };
 });
 
