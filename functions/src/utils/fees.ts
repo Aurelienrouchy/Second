@@ -248,6 +248,15 @@ export function calculateServiceFee(
 }
 
 /**
+ * Calcule la taxe (TPS/TVQ) sur un service fee déjà calculé. Retourne tout à 0
+ * quand TAX_ENABLED=false. Utilisé par le webhook (registre de remise
+ * platform_ledger) pour ré-évaluer la taxe à partir du serviceFee encaissé.
+ */
+export function calculateTaxOnServiceFee(serviceFee: number): TaxBreakdown {
+  return computeTaxOnServiceFee(serviceFee);
+}
+
+/**
  * Retourne la config des frais (pour affichage côté client)
  */
 export function getServiceFeeConfig(): {
