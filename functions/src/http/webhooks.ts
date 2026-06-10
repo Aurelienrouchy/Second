@@ -22,7 +22,7 @@ import { getStripe } from '../config/stripe';
 import { sendPushNotification } from '../utils/notifications';
 import { getOrCreateSellerWallet } from '../callable/wallet';
 import { creditSellerForSale, reconcileShippingCost, recordTransactionRevenue } from '../utils/labelFulfillment';
-import { writeFailedOperation } from '../utils/failedOperations';
+import { writeFailedOperation, writeAdminAlert } from '../utils/failedOperations';
 import { issueTransactionRefund } from '../utils/refund';
 import { revertFailedPayout } from '../utils/payoutRecovery';
 import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
