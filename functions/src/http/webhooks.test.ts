@@ -1408,3 +1408,205 @@ describe('Stripe webhook — account.updated (KYC requirements)', () => {
     expect(pushCalls.filter((c) => c[4] === 'stripe_requirements_due').length).toBe(0);
   });
 });
+
+// ===========================================================================
+// E6 / F133c — platform_ledger service_fee_revenue written once per tx
+// ===========================================================================
+
+describe('Stripe webhook — platform revenue ledger (E6)', () => {
+  it('writes a service_fee_revenue entry exactly once per transaction', async () => {
+    fs.setDoc('transactions/tx_rev', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      totalAmount: 54, // dollars (50 + 4 fee)
+      sellerPayout: 50,
+      serviceFee: 4,
+      taxTotal: 0,
+      deliveryType: 'meetup',
+      articleId: 'article1',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, status: 'active' });
+
+    const event = piSucceededEvent({
+      eventId: 'evt_rev',
+      transactionId: 'tx_rev',
+      amountCents: 5400,
+    });
+
+    await deliverEvent(event);
+
+    const revenueWrites = fs.writeOps.filter(
+      (op: WriteOp) =>
+        op.path === 'platform_ledger/service_fee_revenue_tx_rev' &&
+        op.data.type === 'service_fee_revenue'
+    );
+    expect(revenueWrites.length).toBe(1);
+    expect(revenueWrites[0].data.serviceFee).toBe(4);
+    expect(revenueWrites[0].data.grossRevenue).toBe(4);
+    expect(revenueWrites[0].data.transactionId).toBe('tx_rev');
+
+    // Replay the same event.id => no second revenue entry (dedup short-circuits).
+    await deliverEvent(event);
+    const revenueWrites2 = fs.writeOps.filter(
+      (op: WriteOp) => op.path === 'platform_ledger/service_fee_revenue_tx_rev'
+    );
+    expect(revenueWrites2.length).toBe(1);
+  });
+
+  it('records processorFees + netMargin from the charge balance_transaction', async () => {
+    fs.setDoc('transactions/tx_rev2', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      totalAmount: 54,
+      sellerPayout: 50,
+      serviceFee: 4,
+      taxTotal: 0,
+      deliveryType: 'meetup',
+      articleId: 'article1',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, status: 'active' });
+    // Stripe charge fee: 1.50$ (150 cents) on this charge.
+    stripeMock.impl.chargesRetrieve = async () => ({
+      id: 'ch_test',
+      balance_transaction: { fee: 150 },
+    });
+
+    await deliverEvent(
+      piSucceededEvent({ eventId: 'evt_rev2', transactionId: 'tx_rev2', amountCents: 5400 })
+    );
+
+    const entry = fs.getDoc('platform_ledger/service_fee_revenue_tx_rev2')!;
+    expect(entry.processorFees).toBe(1.5);
+    // netMargin = serviceFee(4) - processorFees(1.5) - shippingCost(0) = 2.5
+    expect(entry.netMargin).toBe(2.5);
+  });
+
+  it('writes a tax_collected entry when taxTotal > 0', async () => {
+    fs.setDoc('transactions/tx_tax', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      totalAmount: 54.6,
+      sellerPayout: 50,
+      serviceFee: 4,
+      taxTotal: 0.6,
+      deliveryType: 'meetup',
+      articleId: 'article1',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, status: 'active' });
+
+    await deliverEvent(
+      piSucceededEvent({ eventId: 'evt_tax', transactionId: 'tx_tax', amountCents: 5460 })
+    );
+
+    const tax = fs.getDoc('platform_ledger/tax_collected_tx_tax');
+    expect(tax).toBeDefined();
+    expect(tax!.type).toBe('tax_collected');
+    expect(tax!.taxTotal).toBe(0.6);
+  });
+});
+
+// ===========================================================================
+// F134 — shop_tier webhook branch: grant tier + tierPaidUntil + ledger
+// ===========================================================================
+
+function shopTierEvent(opts: {
+  eventId: string;
+  shopId: string;
+  tier: 'pro' | 'premium';
+  periodMonths: number;
+  amountCents: number;
+  paymentIntentId?: string;
+}): Record<string, unknown> {
+  return {
+    id: opts.eventId,
+    type: 'payment_intent.succeeded',
+    data: {
+      object: {
+        id: opts.paymentIntentId ?? 'pi_tier',
+        amount: opts.amountCents,
+        amount_received: opts.amountCents,
+        latest_charge: 'ch_tier',
+        metadata: {
+          type: 'shop_tier',
+          shopId: opts.shopId,
+          tier: opts.tier,
+          periodMonths: String(opts.periodMonths),
+        },
+      },
+    },
+  };
+}
+
+describe('Stripe webhook — shop tier forfait (F134)', () => {
+  it('stamps tier + tierPaidUntil and writes shop_tier_revenue, idempotently', async () => {
+    fs.setDoc('shops/shop1', { ownerId: 'owner1', name: 'Friperie', status: 'approved' });
+
+    // pro default 2999/mo * 3 = 8997 cents.
+    const event = shopTierEvent({
+      eventId: 'evt_tier_1',
+      shopId: 'shop1',
+      tier: 'pro',
+      periodMonths: 3,
+      amountCents: 8997,
+      paymentIntentId: 'pi_tier_1',
+    });
+
+    const before = Date.now();
+    const res = await deliverEvent(event);
+    expect(res.statusCode).toBe(200);
+
+    const shop = fs.getDoc('shops/shop1')!;
+    expect(shop.tier).toBe('pro');
+    expect(shop.tierPaymentIntentId).toBe('pi_tier_1');
+    // tierPaidUntil ~ now + 3 months (a real Date in the future).
+    const until = (shop.tierPaidUntil as Date).getTime();
+    expect(until).toBeGreaterThan(before);
+
+    // Revenue ledger entry written once (deterministic per PaymentIntent).
+    const ledger = fs.getDoc('platform_ledger/shop_tier_revenue_pi_tier_1')!;
+    expect(ledger.type).toBe('shop_tier_revenue');
+    expect(ledger.tier).toBe('pro');
+    expect(ledger.periodMonths).toBe(3);
+    expect(ledger.amount).toBe(89.97);
+
+    // --- Replay the exact same event.id => no double application, no double ledger ---
+    await deliverEvent(event);
+    const ledgerWrites = fs.writeOps.filter(
+      (op: WriteOp) => op.path === 'platform_ledger/shop_tier_revenue_pi_tier_1'
+    );
+    expect(ledgerWrites.length).toBe(1);
+  });
+
+  it('does NOT apply the tier on an amount mismatch (dead-letters, ACK 200)', async () => {
+    fs.setDoc('shops/shop2', { ownerId: 'owner2', status: 'approved' });
+
+    // Pay 1000 cents for a forfait that costs 8997 → mismatch.
+    const res = await deliverEvent(
+      shopTierEvent({
+        eventId: 'evt_tier_mismatch',
+        shopId: 'shop2',
+        tier: 'pro',
+        periodMonths: 3,
+        amountCents: 1000,
+        paymentIntentId: 'pi_tier_mismatch',
+      })
+    );
+    expect(res.statusCode).toBe(200);
+
+    const shop = fs.getDoc('shops/shop2')!;
+    expect(shop.tier).toBeUndefined();
+    expect(shop.tierPaidUntil).toBeUndefined();
+
+    const deadLetters = fs.writeOps.filter(
+      (op: WriteOp) =>
+        op.path.startsWith('failed_operations/') && op.data.type === 'amount_mismatch'
+    );
+    expect(deadLetters.length).toBe(1);
+    expect((deadLetters[0].data.payload as Record<string, unknown>).kind).toBe(
+      'shop_tier_amount_mismatch'
+    );
+  });
+});
