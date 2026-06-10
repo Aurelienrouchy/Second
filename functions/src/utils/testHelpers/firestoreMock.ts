@@ -557,6 +557,10 @@ export function createStripeMock(): StripeMock {
       },
     },
     paymentIntents: {
+      create: (...a: unknown[]) => {
+        calls.paymentIntentsCreate.push(a);
+        return impl.paymentIntentsCreate(...a);
+      },
       retrieve: (...a: unknown[]) => {
         calls.paymentIntentsRetrieve.push(a);
         return impl.paymentIntentsRetrieve(...a);
@@ -564,6 +568,12 @@ export function createStripeMock(): StripeMock {
       cancel: (...a: unknown[]) => {
         calls.paymentIntentsCancel.push(a);
         return impl.paymentIntentsCancel(...a);
+      },
+    },
+    charges: {
+      retrieve: (...a: unknown[]) => {
+        calls.chargesRetrieve.push(a);
+        return impl.chargesRetrieve(...a);
       },
     },
     transfers: {
