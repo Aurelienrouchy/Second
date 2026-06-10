@@ -1119,6 +1119,31 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
+  // ── Active dispute banner ──────────────────────────────────────────────────
+
+  disputeBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.warningLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  disputeIcon: {
+    width: sizing.avatarSM,
+    height: sizing.avatarSM,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  disputeTitle: {
+    ...typography.label,
+    color: colors.warning,
+    marginBottom: spacing.xs,
+  },
+
   // ── Payouts blocked banner ─────────────────────────────────────────────────
 
   payoutBlockedBanner: {
