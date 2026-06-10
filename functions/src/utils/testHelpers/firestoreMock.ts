@@ -387,6 +387,19 @@ export function createFirestoreMock(): MockFirestore {
       };
       return b;
     },
+    bulkWriter: () => {
+      // BulkWriter commits each write as it is enqueued (best-effort, no atomic
+      // batching) — close() is the flush point. We commit eagerly so subsequent
+      // reads in the same run observe the writes.
+      const w: MockBulkWriter = {
+        set: (ref, data, opts) =>
+          commit({ method: 'set', path: ref.path, data, merge: opts?.merge }),
+        update: (ref, data) => commit({ method: 'update', path: ref.path, data }),
+        delete: (ref) => commit({ method: 'delete', path: ref.path, data: {} }),
+        close: async () => {},
+      };
+      return w;
+    },
   };
 
   const FieldValue: MockFieldValue = {
