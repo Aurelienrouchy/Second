@@ -589,6 +589,22 @@ export default function PaymentScreen() {
             </>
           )}
         </Pressable>
+
+        {/* Cancel — frees the article immediately instead of waiting for the
+            1h expiry (F122). */}
+        <Pressable
+          style={styles.cancelLink}
+          onPress={handleCancel}
+          disabled={isCancelling || isCreatingCheckout || showStripePayment}
+          hitSlop={8}
+        >
+          {isCancelling ? (
+            <ActivityIndicator size="small" color={colors.muted} />
+          ) : (
+            <Text style={styles.cancelLinkText}>Annuler la commande</Text>
+          )}
+        </Pressable>
+
         <Text style={styles.disclaimer}>
           En confirmant, vous acceptez les conditions générales de vente de Seconde
         </Text>
