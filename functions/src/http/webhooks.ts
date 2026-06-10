@@ -26,6 +26,7 @@ import { writeFailedOperation } from '../utils/failedOperations';
 import { issueTransactionRefund } from '../utils/refund';
 import { revertFailedPayout } from '../utils/payoutRecovery';
 import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
+import { shopTierPriceCents, type PaidShopTier } from '../callable/shopTier';
 
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
