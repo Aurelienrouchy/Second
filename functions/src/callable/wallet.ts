@@ -39,7 +39,7 @@ import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { getShipEngine } from '../config/shipEngine';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
-import { creditSellerForSale, reconcileShippingCost } from '../utils/labelFulfillment';
+import { creditSellerForSale, createLabelIdempotent } from '../utils/labelFulfillment';
 import { writeFailedOperation } from '../utils/failedOperations';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
