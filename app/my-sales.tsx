@@ -122,7 +122,7 @@ function SaleCard({
         {isReviewed && (
           <View style={styles.reviewDoneRow}>
             <Ionicons name="checkmark-circle" size={12} color={colors.success} />
-            <Text style={styles.reviewDoneText}>Avis laisse</Text>
+            <Text style={styles.reviewDoneText}>Avis laissé</Text>
           </View>
         )}
         {isCancellable && (
