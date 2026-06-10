@@ -1617,6 +1617,41 @@ describe('Stripe webhook — shop tier forfait (F134)', () => {
       'shop_tier_amount_mismatch'
     );
   });
+
+  // B10 (defensive): a shop suspended/rejected between purchase and webhook (race)
+  // must NOT get the tier stamped — surface for manual refund (admin_alert), ACK 200.
+  it('does NOT stamp the tier when the shop is not approved at confirmation (B10)', async () => {
+    fs.setDoc('shops/shop3', { ownerId: 'owner3', status: 'suspended' });
+
+    const res = await deliverEvent(
+      shopTierEvent({
+        eventId: 'evt_tier_not_approved',
+        shopId: 'shop3',
+        tier: 'pro',
+        periodMonths: 3,
+        amountCents: 8997,
+        paymentIntentId: 'pi_tier_not_approved',
+      })
+    );
+    expect(res.statusCode).toBe(200);
+
+    const shop = fs.getDoc('shops/shop3')!;
+    expect(shop.tier).toBeUndefined();
+    expect(shop.tierPaidUntil).toBeUndefined();
+    expect(shop.tierPaymentIntentId).toBeUndefined();
+
+    // No revenue ledger (nothing was granted).
+    expect(fs.getDoc('platform_ledger/shop_tier_revenue_pi_tier_not_approved')).toBeUndefined();
+
+    // An admin_alert for manual refund was raised.
+    const alert = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('admin_alerts/') && op.data.kind === 'shop_tier_not_approved'
+    );
+    expect(alert).toBeDefined();
+    expect(alert!.data.severity).toBe('critical');
+    expect((alert!.data.context as Record<string, unknown>).shopStatus).toBe('suspended');
+  });
 });
 
 // ===========================================================================
