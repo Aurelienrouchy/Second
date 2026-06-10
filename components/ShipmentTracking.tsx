@@ -60,11 +60,29 @@ interface CarrierStatusInfo {
   description: string;
 }
 
-/** Maps the ShipEngine carrier tracking code to a DS-tokenized presentation. */
+/**
+ * Maps the ShipEngine carrier tracking code to a DS-tokenized presentation.
+ *
+ * Covers every status the backend can emit via `ShipEngineClient.mapStatus`
+ * (UNKNOWN, TRANSIT, IN_TRANSIT, DELIVERED, FAILURE) plus the richer raw
+ * ShipEngine codes that can flow straight onto the transaction
+ * (LABEL_CREATED/ACCEPTED, OUT_FOR_DELIVERY, EXCEPTION, RETURNED,
+ * NOT_YET_IN_SYSTEM). Any unrecognized/UNKNOWN value falls back to a neutral
+ * "préparation" presentation — never a blank/unknown card (F125).
+ */
 function getCarrierStatusInfo(
   transaction: Transaction,
 ): CarrierStatusInfo {
   switch (transaction.trackingStatus) {
+    case 'LABEL_CREATED':
+    case 'ACCEPTED':
+      return {
+        icon: 'pricetag',
+        color: colors.primary,
+        label: 'Étiquette créée',
+        description:
+          "L'étiquette est prête, le colis va être déposé chez le transporteur",
+      };
     case 'TRANSIT':
     case 'IN_TRANSIT':
       return {
@@ -89,22 +107,40 @@ function getCarrierStatusInfo(
         label: 'Livré',
         description: 'Votre colis a été livré avec succès',
       };
+    case 'EXCEPTION':
     case 'FAILURE':
-    case 'RETURNED':
       return {
         icon: 'alert-circle',
         color: colors.danger,
         label: 'Problème de livraison',
         description: 'Un problème est survenu avec la livraison',
       };
+    case 'RETURNED':
+      return {
+        icon: 'arrow-undo',
+        color: colors.warning,
+        label: 'Colis retourné',
+        description: "Le colis est en cours de retour vers l'expéditeur",
+      };
+    case 'NOT_YET_IN_SYSTEM':
+      return {
+        icon: 'cube',
+        color: colors.muted,
+        label: 'En attente de prise en charge',
+        description: "Le transporteur n'a pas encore enregistré le colis",
+      };
+    case 'UNKNOWN':
     default:
-      // No carrier scan yet — distinguish "label created" from "preparing".
+      // No (or unrecognized) carrier scan yet — distinguish "label created"
+      // (status flipped, awaiting first scan) from "still preparing". Always a
+      // neutral, meaningful card — never blank (F125).
       if (transaction.status === 'label_created') {
         return {
           icon: 'pricetag',
           color: colors.primary,
           label: 'Étiquette créée',
-          description: "L'étiquette est prête, le colis va être déposé chez le transporteur",
+          description:
+            "L'étiquette est prête, le colis va être déposé chez le transporteur",
         };
       }
       return {
