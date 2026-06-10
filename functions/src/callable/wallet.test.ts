@@ -1072,6 +1072,124 @@ describe('payWithWallet', () => {
 });
 
 // ===========================================================================
+// refundWalletPayment — F21/F132: admin-only (buyer can NEVER self-refund)
+// ===========================================================================
+
+describe('refundWalletPayment', () => {
+  function setupRefundable(opts?: { status?: string; sellerCreditedCents?: number }) {
+    const { status = 'delivered', sellerCreditedCents = 4500 } = opts ?? {};
+    setDoc('transactions/tx1', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status,
+      totalAmount: 50,
+      walletAmountUsed: 5000,
+      sellerCreditedCents,
+      paidVia: 'wallet',
+      articleId: 'article1',
+    });
+    setDoc('wallets/buyer1', {
+      balance: 0,
+      pendingBalance: 0,
+      status: 'active',
+      currency: 'cad',
+    });
+    setDoc('wallets/seller1', {
+      balance: 0,
+      pendingBalance: 4500,
+      heldBalance: 0,
+      status: 'active',
+      currency: 'cad',
+    });
+    setDoc('articles/article1', { isSold: true });
+  }
+
+  it('requires authentication', async () => {
+    await expect(
+      callRefundWalletPayment({ auth: null, data: { transactionId: 'tx1' } })
+    ).rejects.toMatchObject({ code: 'unauthenticated' });
+  });
+
+  it('refuses a BUYER call after delivery (F21/F132 theft vector)', async () => {
+    setupRefundable({ status: 'delivered' });
+
+    // The buyer of the transaction, with no admin claim, must be denied BEFORE
+    // any refund logic runs.
+    await expect(
+      callRefundWalletPayment({
+        auth: { uid: 'buyer1', token: {} },
+        data: { transactionId: 'tx1' },
+      })
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+
+    // No wallet credit / debit / status change happened.
+    expect(writeOps.find((w) => w.path === 'wallets/buyer1')).toBeUndefined();
+    expect(
+      writeOps.find((w) => w.path === 'transactions/tx1' && w.method === 'update')
+    ).toBeUndefined();
+  });
+
+  it('refuses an arbitrary authenticated non-admin user', async () => {
+    setupRefundable();
+    await expect(
+      callRefundWalletPayment({
+        auth: { uid: 'randomUser', token: {} },
+        data: { transactionId: 'tx1' },
+      })
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it('refuses a buyer whose users/{uid}.isAdmin is false', async () => {
+    setupRefundable();
+    setDoc('users/buyer1', { isAdmin: false });
+    await expect(
+      callRefundWalletPayment({
+        auth: { uid: 'buyer1', token: {} },
+        data: { transactionId: 'tx1' },
+      })
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it('allows an admin via custom claim and processes the refund', async () => {
+    setupRefundable({ status: 'delivered', sellerCreditedCents: 4500 });
+
+    const result = await callRefundWalletPayment({
+      auth: { uid: 'adminUser', token: { admin: true } },
+      data: { transactionId: 'tx1' },
+    });
+
+    expect(result.success).toBe(true);
+
+    // Buyer credited back the full wallet amount.
+    const buyerCredit = writeOps.find(
+      (w) => w.path === 'wallets/buyer1' && w.method === 'update'
+    );
+    expect(buyerCredit).toBeDefined();
+
+    // Transaction marked refunded.
+    const txUpdate = writeOps.find(
+      (w) =>
+        w.path === 'transactions/tx1' &&
+        w.method === 'update' &&
+        w.data.status === 'refunded'
+    );
+    expect(txUpdate).toBeDefined();
+  });
+
+  it('allows an admin via users/{uid}.isAdmin fallback', async () => {
+    setupRefundable();
+    setDoc('users/adminUser', { isAdmin: true });
+
+    const result = await callRefundWalletPayment({
+      auth: { uid: 'adminUser', token: {} },
+      data: { transactionId: 'tx1' },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+// ===========================================================================
 // Cross-cutting: atomicity
 // ===========================================================================
 
