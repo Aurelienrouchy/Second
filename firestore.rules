@@ -881,13 +881,26 @@ service cloud.firestore {
     // sweepPendingLabels) AFTER the monetary move. A party (buyer or seller) of
     // the underlying transaction may READ the log entries concerning their
     // transaction; admins may read all. No client writes ever.
+    //
+    // F113 — the parties are DENORMALISED onto the doc (buyerId/sellerId) by the
+    // writer, so the common read path authorises WITHOUT a cross-collection
+    // get() (cost/latency, fragile on missing tx). A get() fallback is kept ONLY
+    // for legacy docs written before the denormalisation, so the rule still
+    // authorises them correctly.
     match /automatic_decisions_log/{logId} {
       allow read: if isAuthenticated() &&
                      (request.auth.token.admin == true ||
-                      request.auth.uid ==
-                        get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.buyerId ||
-                      request.auth.uid ==
-                        get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.sellerId);
+                      ('buyerId' in resource.data &&
+                       request.auth.uid == resource.data.buyerId) ||
+                      ('sellerId' in resource.data &&
+                       request.auth.uid == resource.data.sellerId) ||
+                      // Legacy fallback: docs without denormalised parties.
+                      (!('buyerId' in resource.data) &&
+                       !('sellerId' in resource.data) &&
+                       (request.auth.uid ==
+                          get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.buyerId ||
+                        request.auth.uid ==
+                          get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.sellerId)));
       allow create, update, delete: if false;
     }
 
