@@ -1053,3 +1053,234 @@ describe('Stripe webhook — payout.failed recovery', () => {
     expect(fs.sumIncrements('wallets/seller1', 'balance')).toBe(3000);
   });
 });
+
+// ===========================================================================
+// 7. F3/F98 — marker is written ONLY after the handler succeeds.
+//    A thrown handler returns 500 with NO marker, so Stripe's retry re-runs it.
+// ===========================================================================
+
+describe('Stripe webhook — idempotence marker after success (F3)', () => {
+  it('does NOT persist the marker when the handler throws (event is replayable)', async () => {
+    fs.setDoc('transactions/tx_f3', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      totalAmount: 50,
+      sellerPayout: 45,
+      deliveryType: 'meetup',
+      articleId: 'a',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, status: 'active' });
+
+    const event = piSucceededEvent({
+      eventId: 'evt_f3',
+      transactionId: 'tx_f3',
+      amountCents: 5000,
+    });
+
+    // Force the handler to throw on the FIRST delivery (simulates a Firestore
+    // UNAVAILABLE / contention / the old read-after-write throw).
+    const realRunTransaction = fs.db.runTransaction;
+    fs.db.runTransaction = (async () => {
+      throw new Error('simulated Firestore failure');
+    }) as typeof fs.db.runTransaction;
+
+    const res1 = await deliverEvent(event);
+    // Top-level catch returns 500 so Stripe re-delivers.
+    expect(res1.statusCode).toBe(500);
+    // No marker was written — the event is NOT considered handled.
+    expect(fs.getDoc('stripe_events/evt_f3')).toBeUndefined();
+    // No credit happened.
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
+
+    // Stripe retries the SAME event.id. The handler now succeeds.
+    fs.db.runTransaction = realRunTransaction;
+    const res2 = await deliverEvent(event);
+    expect(res2.statusCode).toBe(200);
+    // The handler ran this time — seller credited, tx paid.
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+    expect(fs.getDoc('transactions/tx_f3')!.status).toBe('paid');
+    // Marker now persisted exactly once.
+    const markerWrites = fs.countWrites(
+      (op: WriteOp) => op.path === 'stripe_events/evt_f3' && op.method === 'create'
+    );
+    expect(markerWrites).toBe(1);
+  });
+});
+
+// ===========================================================================
+// 8. F100 — two endpoint secrets (platform + Connect). The event is accepted
+//    when EITHER secret verifies; rejected (401) only when NONE do.
+// ===========================================================================
+
+describe('Stripe webhook — dual signing secrets (F100)', () => {
+  function deliverWithSecretAware(
+    event: Record<string, unknown>,
+    validSecret: string
+  ): Promise<FakeRes> {
+    // constructEvent succeeds only when called with the matching secret.
+    stripeMock.impl.constructEvent = (...a: unknown[]) => {
+      const secret = a[2] as string;
+      if (secret !== validSecret) {
+        throw new Error('No signatures found matching the expected signature');
+      }
+      return event;
+    };
+    const res = makeRes();
+    return handler(makeReq(), res).then(() => res);
+  }
+
+  function seedMeetupTx(txId: string) {
+    fs.setDoc(`transactions/${txId}`, {
+      buyerId: 'b',
+      sellerId: 's',
+      status: 'pending_payment',
+      totalAmount: 10,
+      sellerPayout: 9,
+      deliveryType: 'meetup',
+      articleId: 'a',
+    });
+    fs.setDoc('wallets/s', { balance: 0, pendingBalance: 0, status: 'active' });
+  }
+
+  it('accepts an event signed with the CONNECT secret (platform secret fails)', async () => {
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_platform';
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_connect';
+    seedMeetupTx('tx_connect');
+
+    const event = piSucceededEvent({
+      eventId: 'evt_connect',
+      transactionId: 'tx_connect',
+      amountCents: 1000,
+    });
+
+    const res = await deliverWithSecretAware(event, 'whsec_connect');
+    expect(res.statusCode).toBe(200);
+    // Handler ran (proves the event was accepted via the 2nd secret).
+    expect(fs.getDoc('transactions/tx_connect')!.status).toBe('paid');
+  });
+
+  it('accepts an event signed with the PLATFORM secret', async () => {
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_platform';
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_connect';
+    seedMeetupTx('tx_platform');
+
+    const event = piSucceededEvent({
+      eventId: 'evt_platform',
+      transactionId: 'tx_platform',
+      amountCents: 1000,
+    });
+
+    const res = await deliverWithSecretAware(event, 'whsec_platform');
+    expect(res.statusCode).toBe(200);
+    expect(fs.getDoc('transactions/tx_platform')!.status).toBe('paid');
+  });
+
+  it('rejects (401) when NEITHER secret verifies', async () => {
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_platform';
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_connect';
+
+    const event = piSucceededEvent({
+      eventId: 'evt_bad_sig',
+      transactionId: 'tx_x',
+      amountCents: 1000,
+    });
+
+    const res = await deliverWithSecretAware(event, 'whsec_some_other_secret');
+    expect(res.statusCode).toBe(401);
+  });
+
+  afterEach(() => {
+    delete process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+  });
+});
+
+// ===========================================================================
+// 9. F102 — payment_intent.payment_failed is emitted PER attempt. Cancel only
+//    when the live PaymentIntent is TERMINAL ('canceled'), not on a retry.
+// ===========================================================================
+
+describe('Stripe webhook — payment_failed is per-attempt (F102)', () => {
+  function paymentFailedEvent(opts: {
+    eventId: string;
+    transactionId: string;
+    paymentIntentId?: string;
+  }): Record<string, unknown> {
+    return {
+      id: opts.eventId,
+      type: 'payment_intent.payment_failed',
+      data: {
+        object: {
+          id: opts.paymentIntentId ?? 'pi_fail',
+          last_payment_error: { message: 'card_declined' },
+          metadata: { transactionId: opts.transactionId },
+        },
+      },
+    };
+  }
+
+  function seedPending(txId: string) {
+    fs.setDoc(`transactions/${txId}`, {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      totalAmount: 50,
+      articleId: 'article1',
+    });
+    fs.setDoc('articles/article1', { isSold: true });
+  }
+
+  it('does NOT cancel the transaction on a retryable attempt (PI not terminal)', async () => {
+    seedPending('tx_retry');
+    // Live PI is still retryable (buyer can fix the card in the same sheet).
+    stripeMock.impl.paymentIntentsRetrieve = async () => ({ status: 'requires_payment_method' });
+
+    const res = await deliverEvent(
+      paymentFailedEvent({ eventId: 'evt_fail_retry', transactionId: 'tx_retry' })
+    );
+    expect(res.statusCode).toBe(200);
+
+    // Transaction untouched: still pending_payment, article still locked.
+    expect(fs.getDoc('transactions/tx_retry')!.status).toBe('pending_payment');
+    expect(fs.getDoc('articles/article1')!.isSold).toBe(true);
+  });
+
+  it('cancels and releases the article when the PI is TERMINAL (canceled)', async () => {
+    seedPending('tx_terminal');
+    stripeMock.impl.paymentIntentsRetrieve = async () => ({ status: 'canceled' });
+
+    const res = await deliverEvent(
+      paymentFailedEvent({ eventId: 'evt_fail_terminal', transactionId: 'tx_terminal' })
+    );
+    expect(res.statusCode).toBe(200);
+
+    expect(fs.getDoc('transactions/tx_terminal')!.status).toBe('cancelled');
+    expect(fs.getDoc('transactions/tx_terminal')!.cancelReason).toBe('payment_failed');
+    expect(fs.getDoc('articles/article1')!.isSold).toBe(false);
+  });
+
+  it('restores the buyer wallet portion on a TERMINAL mixed-payment failure', async () => {
+    fs.setDoc('transactions/tx_mixed_fail', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      totalAmount: 50,
+      articleId: 'article1',
+      paidVia: 'wallet_and_card',
+      walletAmountUsed: 2000, // cents
+    });
+    fs.setDoc('articles/article1', { isSold: true });
+    fs.setDoc('wallets/buyer1', { balance: 500, status: 'active' });
+    stripeMock.impl.paymentIntentsRetrieve = async () => ({ status: 'canceled' });
+
+    const res = await deliverEvent(
+      paymentFailedEvent({ eventId: 'evt_mixed_fail', transactionId: 'tx_mixed_fail' })
+    );
+    expect(res.statusCode).toBe(200);
+
+    expect(fs.getDoc('transactions/tx_mixed_fail')!.status).toBe('cancelled');
+    // Wallet portion (2000) restored to the buyer (no read-after-write throw).
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(2500);
+    expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(2000);
+  });
+});
