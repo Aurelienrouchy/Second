@@ -1332,6 +1332,9 @@ export const createStripeCheckout = onCall(
             shippingCost: txResult.fees.shippingCost,
             serviceFee: txResult.fees.serviceFee,
             serviceFeePercent: txResult.fees.serviceFeePercent,
+            taxTotal: txResult.fees.taxTotal,
+            taxGst: txResult.fees.taxGst,
+            taxQst: txResult.fees.taxQst,
             buyerTotal: txResult.fees.buyerTotal,
           },
         };
