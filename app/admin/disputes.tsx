@@ -138,7 +138,7 @@ function formatDate(date: Date | null): string {
 // SCREEN
 // =============================================================================
 
-type TabType = 'open' | 'all';
+type TabType = 'open' | 'all' | 'swaps';
 
 export default function AdminDisputesScreen() {
   const router = useRouter();
@@ -147,6 +147,8 @@ export default function AdminDisputesScreen() {
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  // Per-dispute action in flight (keyed by dispute id) — disables both buttons.
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const loadDisputes = useCallback(async (tab: TabType) => {
     try {
