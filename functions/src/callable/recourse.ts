@@ -84,9 +84,9 @@ const REPORTABLE_STATUSES = new Set(['delivered']);
  * or `lost`). Any other status is refused with `failed-precondition`, steering
  * the buyer toward `reportTransactionProblem` instead.
  *
- * Reuses the shared refund core: card portion refunded via Stripe with
- * reverse_transfer, wallet portion re-credited, seller debited exactly what was
- * credited (shortfall -> sellerDebt). The article is NOT put back on sale (the
+ * Reuses the shared refund core: card portion refunded via a plain Stripe
+ * platform-charge refund, wallet portion re-credited, seller debited exactly
+ * what was credited (shortfall -> sellerDebt). The article is NOT put back on sale (the
  * parcel is lost/failed). Idempotent: a no-op if already refunded.
  */
 export const requestRefund = onCall(
