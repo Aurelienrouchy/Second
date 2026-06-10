@@ -866,6 +866,50 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
   logger.info('Stripe webhook: fully processed', { transactionId });
 }
 
+/**
+ * F77: re-drive a LOST payment_intent.succeeded from a dead-letter replay.
+ * retryFailedOperations calls this when a `lost_pi_succeeded_webhook` op is
+ * eligible: it retrieves the live PI from Stripe and replays the canonical
+ * handler, which is idempotent (status guards + deterministic keys). Routes
+ * swap top-up / shop tier PIs to their own handlers based on metadata.type so a
+ * lost top-up/forfait succeeded is also recoverable.
+ *
+ * @returns true if a handler ran to completion (resolve the dead-letter),
+ *          false if Stripe was unreachable / the PI was not actually succeeded
+ *          (keep retrying).
+ */
+export async function redrivePaymentIntentSucceeded(paymentIntentId: string): Promise<boolean> {
+  const stripe = getStripe();
+  if (!stripe) return false;
+  let pi: any;
+  try {
+    pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+  } catch (err) {
+    logger.warn('[redrivePaymentIntentSucceeded] PI retrieve failed', {
+      paymentIntentId,
+      error: err instanceof Error ? err.message : err,
+    });
+    return false;
+  }
+  if (pi.status !== 'succeeded') {
+    // Not actually paid (yet) — nothing to re-drive. Keep the dead-letter pending.
+    logger.info('[redrivePaymentIntentSucceeded] PI not succeeded — skipping', {
+      paymentIntentId,
+      status: pi.status,
+    });
+    return false;
+  }
+  const piType = pi.metadata?.type;
+  if (piType === 'swap_topup') {
+    await handleSwapTopUpSucceeded(pi);
+  } else if (piType === 'shop_tier') {
+    await handleShopTierSucceeded(pi);
+  } else {
+    await handlePaymentIntentSucceeded(pi);
+  }
+  return true;
+}
+
 // =============================================================================
 // HANDLER: payment_intent.succeeded (metadata.type === 'swap_topup')
 // =============================================================================
