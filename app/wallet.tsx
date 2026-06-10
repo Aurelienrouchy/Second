@@ -1060,6 +1060,9 @@ const styles = StyleSheet.create({
   ledgerAmountDebit: {
     color: colors.danger,
   },
+  ledgerAmountNeutral: {
+    color: colors.sage,
+  },
 
   // ── Empty state ────────────────────────────────────────────────────────────
 
