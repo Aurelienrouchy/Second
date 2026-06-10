@@ -43,15 +43,6 @@ import { isPaidStatus } from '@/lib/transactionStatusMeta';
 // CONSTANTS
 // =============================================================================
 
-/**
- * Transaction statuses that confirm the buyer's payment has been captured
- * server-side (set by stripeWebhook). Any of these means it is safe to show
- * the confirmation.
- */
-const PAID_STATUSES = new Set<string>([
-  'paid', 'label_created', 'shipped', 'delivered', 'completed',
-]);
-
 /** How long to wait for the webhook to flip status before proceeding anyway. */
 const PAYMENT_CONFIRM_TIMEOUT_MS = 12000;
 /** Delay between transaction status polls. */
