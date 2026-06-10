@@ -122,6 +122,7 @@ export default function PaymentScreen() {
   // =============================================================================
 
   const serviceFee = transaction?.serviceFee || 0;
+  const taxTotal = transaction?.taxTotal || 0;
   const totalAmount = transaction?.totalAmount || 0;
 
   // Wallet derived
