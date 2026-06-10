@@ -260,6 +260,27 @@ export default function WalletScreen() {
   // (KYC restriction / closed bank account). Distinct from "no account yet".
   const payoutsBlocked = !!user?.stripeAccountId && !user?.stripePayoutsEnabled;
 
+  // Active financial dispute signal, derived client-side from the ledger: a
+  // `dispute_hold` (money frozen for a contested sale) that has not yet been
+  // resolved by a later `funds_released`/`refund_*`. Used to surface WHY some
+  // funds are frozen BEFORE the user attempts a withdrawal (F119). The backend
+  // freeze is now scoped to the disputed funds only (D2): the rest of the
+  // balance stays withdrawable, so this is an informational banner, not a
+  // hard block of the whole wallet.
+  const hasActiveDisputeHold = useMemo(() => {
+    const ledger = wallet?.ledger;
+    if (!ledger?.length) return false;
+    const lastHoldIdx = ledger.findIndex((e) => e.type === 'dispute_hold');
+    if (lastHoldIdx === -1) return false;
+    // Ledger is DESC (most recent first); a resolution AFTER the hold appears
+    // at a LOWER index. If a release/refund precedes the most-recent hold, the
+    // dispute is considered resolved.
+    const resolvedAfter = ledger
+      .slice(0, lastHoldIdx)
+      .some((e) => e.type === 'funds_released' || e.type === 'refund_credit');
+    return !resolvedAfter && heldBalance > 0;
+  }, [wallet?.ledger, heldBalance]);
+
   const handleActivate = useCallback(async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
