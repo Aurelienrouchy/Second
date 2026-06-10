@@ -293,9 +293,9 @@ async function reconcileOneWithdrawal(
  * Invariant checks on wallet docs (no ledger replay — that is fragile across the
  * mixed-semantics ledger types). A breach is a structural bug, logged CRITICAL.
  */
-function checkWalletInvariants(
+async function checkWalletInvariants(
   doc: FirebaseFirestore.QueryDocumentSnapshot
-): boolean {
+): Promise<boolean> {
   const data = doc.data();
   const balance = typeof data.balance === 'number' ? data.balance : 0;
   const pending = typeof data.pendingBalance === 'number' ? data.pendingBalance : 0;
@@ -316,6 +316,15 @@ function checkWalletInvariants(
       pendingBalance: pending,
       heldBalance: held,
       sellerDebt: debt,
+    });
+    // F85: invariant breaches have no auto-retry path (they are structural bugs),
+    // so raise an operator alert in addition to the CRITICAL log.
+    await writeAdminAlert({
+      kind: 'wallet_invariant_breach',
+      severity: 'critical',
+      refId: doc.id,
+      message: 'Invariant de porte-monnaie violé (solde négatif) — corruption probable, audit requis.',
+      context: { walletId: doc.id, breaches, balance, pendingBalance: pending, heldBalance: held, sellerDebt: debt },
     });
     return true;
   }
