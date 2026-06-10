@@ -396,6 +396,22 @@ export const retryFailedOperations = onSchedule(
               refId: op.refId,
               attempts: nextAttempts,
             });
+            // F85: a log line alone is easy to miss. Write an actionable operator
+            // alert into admin_alerts so an exhausted financial dead-letter
+            // surfaces in the admin console, not just in the log stream.
+            await writeAdminAlert({
+              kind: 'dead_letter_exhausted',
+              severity: 'critical',
+              refId: op.refId ?? op.id,
+              message:
+                'Une opération financière en file morte a épuisé ses tentatives de rejeu automatique — intervention manuelle requise.',
+              context: {
+                failedOperationId: op.id,
+                type: op.type,
+                attempts: nextAttempts,
+                payload: op.payload,
+              },
+            });
             return 'exhausted' as const;
           }
           await opRef.update({
