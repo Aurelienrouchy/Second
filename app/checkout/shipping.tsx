@@ -639,7 +639,7 @@ export default function ShippingCheckoutScreen() {
           articlePrice={finalPrice}
           selectedEstimate={selectedEstimate}
           serviceFee={serviceFee}
-          totalAmount={totalAmount}
+          totalAmount={serverBuyerTotal ?? totalAmount}
           taxTotal={taxTotal}
         />
 
