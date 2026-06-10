@@ -56,6 +56,8 @@ the rules.
 | `withdrawal_requests` | owner / admin | denied |
 | `stripe_events` | admin only | denied |
 | `failed_operations` | admin only | denied |
+| `admin_alerts` | admin only | denied |
+| `job_locks` | denied | denied |
 | `platform_ledger` | admin only | denied |
 | `privacy_incidents` | admin only | denied |
 | `automatic_decisions_log` | party (buyer/seller of tx) / admin | denied |
