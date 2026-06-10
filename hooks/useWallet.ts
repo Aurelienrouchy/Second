@@ -14,7 +14,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { WalletService } from '@/services/walletService';
 
-export function useWallet(enabled = true) {
+/**
+ * @param enabled Gates the wallet info query (auth presence).
+ * @param userId  When provided, also fetches the user's withdrawal requests
+ *                (retraits en traitement) — read-only, owner-scoped.
+ */
+export function useWallet(enabled = true, userId?: string) {
   const queryClient = useQueryClient();
 
   // ── Query ──────────────────────────────────────────────────────────────────
@@ -29,6 +34,19 @@ export function useWallet(enabled = true) {
     queryFn: () => WalletService.getWalletInfo(),
     enabled,
     staleTime: 2 * 60 * 1000, // 2 min
+  });
+
+  // ── Withdrawal requests (retraits en traitement) ────────────────────────────
+
+  const {
+    data: withdrawals = [],
+    isLoading: isLoadingWithdrawals,
+    refetch: refetchWithdrawals,
+  } = useQuery({
+    queryKey: queryKeys.wallet.withdrawals(userId ?? ''),
+    queryFn: () => WalletService.getWithdrawalRequests(userId!),
+    enabled: enabled && !!userId,
+    staleTime: 60 * 1000, // 1 min — payout lifecycle moves slowly
   });
 
   // ── Mutations ──────────────────────────────────────────────────────────────
