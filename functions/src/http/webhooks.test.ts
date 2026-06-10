@@ -11,7 +11,7 @@
  *  1. handlePaymentIntentSucceeded replay (same event.id) => no double credit.
  *  2. Amount mismatch => tx NOT 'paid' + failed_operations dead-letter + ACK 200.
  *  3. Swap top-up => ONE fund movement (no double credit, no transfer_data).
- *  4. handleChargeRefunded => debit correct bucket + reverse_transfer on refund.
+ *  4. handleChargeRefunded => debit correct bucket on a (full) platform refund.
  *  (transactionExpiration + walletWithdraw + shipping re-pricing live in their
  *   own *.test.ts files.)
  */
