@@ -39,6 +39,7 @@ const STATUS_LABELS: Record<SwapStatus, string> = {
   shipping: 'Envoi',
   completed: 'Terminé',
   disputed: 'Litige',
+  expired: 'Expiré',
 };
 
 const STATUS_COLORS: Record<SwapStatus, string> = {
@@ -51,6 +52,7 @@ const STATUS_COLORS: Record<SwapStatus, string> = {
   shipping: colors.secondary,
   completed: colors.sage,
   disputed: colors.danger,
+  expired: colors.muted,
 };
 
 
