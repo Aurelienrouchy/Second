@@ -89,6 +89,7 @@ interface MockDb {
   collection(name: string): MockCollectionRef;
   runTransaction<T>(fn: (tx: MockTransaction) => Promise<T>): Promise<T>;
   batch(): MockBatch;
+  bulkWriter(): MockBulkWriter;
 }
 
 interface MockFieldValue {
