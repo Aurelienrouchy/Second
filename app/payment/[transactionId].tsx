@@ -368,7 +368,7 @@ export default function PaymentScreen() {
       while (Date.now() - startedAt < PAYMENT_CONFIRM_TIMEOUT_MS) {
         try {
           const trans = await TransactionService.getTransaction(transactionId);
-          if (trans && PAID_STATUSES.has(trans.status)) {
+          if (trans && isPaidStatus(trans.status)) {
             setConfirmingPayment(false);
             confirmAndExit();
             return;
