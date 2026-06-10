@@ -766,7 +766,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
           trackingNumber = fresh?.trackingNumber || '';
           labelUrl = fresh?.shippingLabelUrl || '';
           trackingUrl = fresh?.trackingUrl || '';
-          carrierCode = fresh?.carrierCode || '';
           logger.info('Stripe webhook: label creation outcome', { transactionId, outcome });
         } else {
           // 'failed': the reservation was cleared (createLabel error) — defer to
