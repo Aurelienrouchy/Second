@@ -124,7 +124,15 @@ export interface FeeBreakdown {
   serviceFeePercent: number;
   /** Partie fixe des frais */
   serviceFeeFixed: number;
-  /** Total que l'acheteur paie */
+  /** TPS sur le service fee (0 quand TAX_ENABLED=false). */
+  taxGst: number;
+  /** TVQ sur le service fee (0 quand TAX_ENABLED=false). */
+  taxQst: number;
+  /** Taxe perçue sur le service fee uniquement (= taxTotal ; 0 quand OFF). */
+  taxOnServiceFee: number;
+  /** Total taxe ajoutée au buyerTotal (0 quand OFF). */
+  taxTotal: number;
+  /** Total que l'acheteur paie (inclut la taxe quand TAX_ENABLED=true) */
   buyerTotal: number;
   /** Montant que le vendeur reçoit (= prix article, 100%) */
   sellerPayout: number;
