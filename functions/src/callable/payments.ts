@@ -1109,6 +1109,20 @@ export const createStripeCheckout = onCall(
             );
           }
 
+          // F24: Stripe rejects card charges below the CAD minimum (50¢). A mixed
+          // payment whose CARD remainder is 1–49¢ would create an invalid
+          // PaymentIntent AFTER the wallet was already debited (then the F05 revert
+          // fires — a confusing round-trip). Reject cleanly BEFORE debiting: the
+          // buyer should pay 100% via wallet (their balance covers all but a few
+          // cents) or reduce the wallet amount so the card portion clears 50¢.
+          const cardRemainderCents = totalChargeCents - walletAmount;
+          if (cardRemainderCents > 0 && cardRemainderCents < STRIPE_MIN_CHARGE_CENTS) {
+            throw new HttpsError(
+              'failed-precondition',
+              'Le montant restant à payer par carte est trop faible. Payez la totalité avec votre porte-monnaie ou réduisez le montant du porte-monnaie utilisé.'
+            );
+          }
+
           // Verify buyer has wallet with sufficient balance
           const buyerWalletRef = db.collection('wallets').doc(request.auth!.uid);
           const buyerWalletSnap = await tx.get(buyerWalletRef);
