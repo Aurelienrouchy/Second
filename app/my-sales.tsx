@@ -160,13 +160,14 @@ export default function MySalesScreen() {
       const allTx = await TransactionService.getUserTransactions(user!.id);
       const sellerTx = allTx.filter((t) => t.sellerId === user!.id);
 
-      const articles = await Promise.all(
-        sellerTx.map((t) =>
-          ArticlesService.getArticleById(t.articleId).catch(() => null),
-        ),
-      );
+      // Batch the article reads (one `in` query per 30 ids) instead of an N+1
+      // of getArticleById (F130).
+      const articlesById = await ArticlesService.getArticlesByIds(
+        sellerTx.map((t) => t.articleId),
+      ).catch(() => new Map());
 
-      // Check which completed transactions already have reviews
+      // Review checks only run for reviewable (terminal) statuses — a small
+      // subset, so this is not the N+1 driver.
       const reviewChecks = await Promise.all(
         sellerTx.map((tx) => {
           if (!isReviewableStatus(tx.status)) return Promise.resolve(false);
@@ -176,7 +177,7 @@ export default function MySalesScreen() {
 
       return sellerTx.map((tx, i) => ({
         transaction: tx,
-        article: articles[i],
+        article: articlesById.get(tx.articleId) ?? null,
         hasReview: reviewChecks[i],
       }));
     },
