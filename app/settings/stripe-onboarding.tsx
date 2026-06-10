@@ -1,23 +1,33 @@
 /**
  * Stripe Connect Onboarding Screen
  *
- * Allows sellers to set up their Stripe Connect account for receiving payouts.
- * Collects personal info (name, DOB), address, and bank details in a single
- * form, then calls createStripeConnectAccount + addBankAccount.
+ * Two responsibilities:
+ *  A) No account yet → collect personal info / address / bank details and call
+ *     createStripeConnectAccount.
+ *  B) Account exists → surface the REAL account state (F62/F117) derived from
+ *     chargesEnabled + payoutsEnabled + status, list the outstanding Stripe
+ *     requirements translated to readable FR + disabledReason, offer an
+ *     unconditional manual refresh, give access to bank-account management
+ *     (F60), and — when a document is due — drive in-app KYC remediation
+ *     (F59): pick recto (+ verso optional), compress, base64, upload via
+ *     uploadStripeIdentityDocument.
  *
  * Pre-fills name and address from the user's profile when available.
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { httpsCallable } from 'firebase/functions';
 import { Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -28,32 +38,15 @@ import { Button, ScreenHeader, Skeleton, Text } from '@/components/ui';
 import { functions } from '@/config/firebaseConfig';
 import { COPY_SELL_GATE } from '@/constants/authMessages';
 import { colors, spacing, radius, typography } from '@/constants/theme';
+import { queryKeys } from '@/lib/queryKeys';
+import { useStripeAccount } from '@/hooks/useStripeAccount';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { canSell } from '@/utils/age';
-
-// ---------------------------------------------------------------------------
-// CF callable typings
-// ---------------------------------------------------------------------------
-
-interface StripeAccountStatus {
-  hasAccount: boolean;
-  accountId?: string;
-  chargesEnabled?: boolean;
-  payoutsEnabled?: boolean;
-  detailsSubmitted?: boolean;
-  requirements?: string[];
-  status?: 'pending' | 'active' | 'restricted';
-}
-
-interface CreateAccountResponse {
-  success: boolean;
-  stripeAccountId: string;
-}
-
-interface AddBankAccountResponse {
-  success: boolean;
-  bankAccountLast4: string;
-}
+import {
+  needsIdentityDocument,
+  translateDisabledReason,
+  translateRequirement,
+} from '@/utils/stripeRequirements';
 
 // ---------------------------------------------------------------------------
 // Canadian provinces
@@ -121,6 +114,15 @@ export default function StripeOnboardingScreen() {
   const { user, isLoggedIn } = useAuthRequired();
   const queryClient = useQueryClient();
 
+  const {
+    status,
+    isLoading,
+    refetch,
+    isRefetching,
+    uploadDocument,
+    isUploadingDocument,
+  } = useStripeAccount(user?.id);
+
   // -- Personal info --
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -139,11 +141,14 @@ export default function StripeOnboardingScreen() {
   const [institutionNumber, setInstitutionNumber] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
 
+  // -- KYC document upload --
+  const [frontUri, setFrontUri] = useState<string | null>(null);
+  const [backUri, setBackUri] = useState<string | null>(null);
+
   // -- Pre-fill from user profile --
   useEffect(() => {
     if (!user) return;
 
-    // Attempt to split displayName into first/last
     if (user.displayName) {
       const parts = user.displayName.trim().split(/\s+/);
       if (parts.length >= 2) {
@@ -154,7 +159,6 @@ export default function StripeOnboardingScreen() {
       }
     }
 
-    // Pre-fill address
     if (user.address) {
       if (user.address.street) setStreet(user.address.street);
       if (user.address.city) setCity(user.address.city);
@@ -163,29 +167,8 @@ export default function StripeOnboardingScreen() {
     }
   }, [user]);
 
-  // ---- Stripe account status query ----
-  const {
-    data: accountStatus,
-    isLoading,
-    refetch,
-    isRefetching,
-  } = useQuery<StripeAccountStatus>({
-    queryKey: ['stripe', 'accountStatus', user?.id],
-    queryFn: async () => {
-      const fn = httpsCallable<Record<string, never>, StripeAccountStatus>(
-        functions,
-        'getStripeAccountStatus',
-      );
-      const result = await fn({});
-      return result.data;
-    },
-    enabled: !!user,
-    staleTime: 60 * 1000,
-  });
-
   // ---- Validation ----
   const validate = useCallback((): string | null => {
-    // Personal info
     if (!firstName.trim()) return 'Le prenom est requis';
     if (!lastName.trim()) return 'Le nom de famille est requis';
 
@@ -203,7 +186,6 @@ export default function StripeOnboardingScreen() {
       return 'Vous devez avoir au moins 18 ans';
     }
 
-    // Address
     if (!street.trim()) return "L'adresse est requise";
     if (!city.trim()) return 'La ville est requise';
     if (!province.trim()) return 'La province est requise';
@@ -212,7 +194,6 @@ export default function StripeOnboardingScreen() {
       return 'Le code postal doit etre au format A1A 1A1';
     }
 
-    // Bank info
     if (transitNumber.length !== 5) {
       return 'Le numero de transit doit contenir 5 chiffres';
     }
@@ -230,7 +211,7 @@ export default function StripeOnboardingScreen() {
     transitNumber, institutionNumber, accountNumber,
   ]);
 
-  // ---- Create Stripe account + add bank account mutation ----
+  // ---- Create Stripe account mutation ----
   const createAccountMutation = useMutation<
     { chargesEnabled: boolean; requirements?: string[] },
     Error
@@ -292,9 +273,7 @@ export default function StripeOnboardingScreen() {
     },
     onSuccess: async (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await queryClient.invalidateQueries({
-        queryKey: ['stripe', 'accountStatus', user?.id],
-      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.stripe.all });
 
       if (data.chargesEnabled) {
         Alert.alert(
@@ -332,6 +311,70 @@ export default function StripeOnboardingScreen() {
     createAccountMutation.mutate();
   }, [validate, createAccountMutation]);
 
+  // ---- KYC document picking + upload ----
+  const pickDocument = useCallback(
+    async (side: 'front' | 'back') => {
+      try {
+        const { status: perm } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (perm !== 'granted') {
+          Alert.alert(
+            'Permission requise',
+            "Nous avons besoin d'acceder a vos photos pour envoyer votre document.",
+          );
+          return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'] as const,
+          allowsEditing: false,
+          quality: 0.9,
+          exif: false,
+          preferredAssetRepresentationMode:
+            ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+          if (side === 'front') setFrontUri(result.assets[0].uri);
+          else setBackUri(result.assets[0].uri);
+        }
+      } catch (error) {
+        if (__DEV__) console.error('Error picking document:', error);
+        Alert.alert('Erreur', "Impossible de selectionner l'image.");
+      }
+    },
+    [],
+  );
+
+  const handleUploadDocument = useCallback(async () => {
+    if (!frontUri) {
+      Alert.alert('Erreur', "Ajoutez au moins le recto de votre piece d'identite.");
+      return;
+    }
+    try {
+      const res = await uploadDocument({
+        frontUri,
+        backUri: backUri ?? undefined,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setFrontUri(null);
+      setBackUri(null);
+      Alert.alert(
+        'Document envoye',
+        res.requirementsCurrentlyDue.length === 0 && res.payoutsEnabled
+          ? 'Votre document a ete recu et votre compte est a jour.'
+          : 'Votre document a ete recu. Stripe procede a sa verification, cela peut prendre quelques minutes a quelques jours.',
+      );
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Error uploading identity document:', error);
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "Impossible d'envoyer le document.";
+      Alert.alert('Erreur', msg);
+    }
+  }, [frontUri, backUri, uploadDocument]);
+
   // ---- Auth guard ----
   if (!isLoggedIn) {
     return (
@@ -355,7 +398,7 @@ export default function StripeOnboardingScreen() {
     );
   }
 
-  // ---- Age gate: selling requires 18+ (Stripe payout account) ----
+  // ---- Age gate: selling requires 18+ ----
   if (!canSell(user?.dateOfBirth)) {
     return (
       <View style={styles.container}>
@@ -388,16 +431,70 @@ export default function StripeOnboardingScreen() {
             width="100%"
             height={200}
             borderRadius={radius.xl}
-            style={{ marginTop: spacing.lg }}
+            style={styles.skeletonBlock}
           />
         </View>
       </View>
     );
   }
 
-  const isActive = accountStatus?.chargesEnabled === true;
-  const isPending =
-    accountStatus?.hasAccount && !accountStatus.chargesEnabled;
+  // ── Derived real state (F62/F117) ──────────────────────────────────────────
+  const hasAccount = status?.hasAccount === true;
+  const chargesEnabled = status?.chargesEnabled === true;
+  const payoutsEnabled = status?.payoutsEnabled === true;
+  const accountStatus = status?.status ?? 'none';
+  const requirementsCurrentlyDue = status?.requirementsCurrentlyDue ?? [];
+  const requirementsPastDue = status?.requirementsPastDue ?? [];
+  const disabledReasonText = translateDisabledReason(status?.disabledReason ?? null);
+
+  // Fully operational only when BOTH charges and payouts are enabled.
+  const fullyActive = hasAccount && chargesEnabled && payoutsEnabled;
+  const isRestricted = accountStatus === 'restricted';
+  // Payouts blocked while charges work → must distinguish from "active".
+  const payoutsBlocked = hasAccount && chargesEnabled && !payoutsEnabled;
+
+  // Outstanding requirements: past_due first (more urgent), de-duplicated.
+  const outstanding = Array.from(
+    new Set([...requirementsPastDue, ...requirementsCurrentlyDue]),
+  );
+
+  const showKycUpload =
+    hasAccount &&
+    needsIdentityDocument({
+      requirementsCurrentlyDue,
+      requirementsPastDue,
+      disabledReason: status?.disabledReason ?? null,
+    });
+
+  // Status card visuals.
+  const statusIcon = fullyActive
+    ? 'checkmark-circle'
+    : isRestricted || requirementsPastDue.length > 0
+      ? 'alert-circle'
+      : 'time';
+  const statusColor = fullyActive
+    ? colors.success
+    : isRestricted || requirementsPastDue.length > 0
+      ? colors.danger
+      : colors.primary;
+  const statusTitle = !hasAccount
+    ? 'Aucun compte configure'
+    : fullyActive
+      ? 'Votre compte est actif'
+      : payoutsBlocked
+        ? 'Retraits indisponibles : action requise'
+        : isRestricted
+          ? 'Compte restreint : action requise'
+          : 'Configuration en cours';
+  const statusDescription = !hasAccount
+    ? 'Configurez votre compte de paiement pour recevoir les gains de vos ventes.'
+    : fullyActive
+      ? 'Vous pouvez recevoir des paiements et demander des retraits.'
+      : payoutsBlocked
+        ? 'Vous pouvez recevoir des paiements, mais vos retraits sont bloques tant que les informations ci-dessous ne sont pas fournies.'
+        : isRestricted
+          ? 'Stripe a temporairement restreint votre compte. Fournissez les informations ci-dessous pour le reactiver.'
+          : 'Votre compte Stripe est en cours de verification. Vous recevrez une notification lorsque celui-ci sera actif.';
 
   return (
     <View style={styles.container}>
@@ -417,47 +514,53 @@ export default function StripeOnboardingScreen() {
           <View
             style={[
               styles.statusCard,
-              isActive && styles.statusCardActive,
-              isPending && styles.statusCardPending,
+              fullyActive && styles.statusCardActive,
+              (payoutsBlocked || isRestricted || requirementsPastDue.length > 0) &&
+                styles.statusCardAlert,
+              hasAccount &&
+                !fullyActive &&
+                !payoutsBlocked &&
+                !isRestricted &&
+                requirementsPastDue.length === 0 &&
+                styles.statusCardPending,
             ]}
           >
             <View style={styles.statusIconRow}>
-              <Ionicons
-                name={
-                  isActive
-                    ? 'checkmark-circle'
-                    : isPending
-                      ? 'time'
-                      : 'card-outline'
-                }
-                size={32}
-                color={
-                  isActive
-                    ? colors.success
-                    : isPending
-                      ? colors.primary
-                      : colors.muted
-                }
-              />
+              <Ionicons name={statusIcon} size={32} color={statusColor} />
             </View>
-            <Text style={styles.statusTitle}>
-              {isActive
-                ? 'Votre compte est actif'
-                : isPending
-                  ? 'Configuration en cours'
-                  : 'Aucun compte configure'}
-            </Text>
-            <Text style={styles.statusDescription}>
-              {isActive
-                ? 'Vous pouvez recevoir des paiements et demander des retraits.'
-                : isPending
-                  ? 'Votre compte Stripe est en cours de verification. Vous recevrez une notification lorsque celui-ci sera actif.'
-                  : 'Configurez votre compte de paiement pour recevoir les gains de vos ventes.'}
-            </Text>
+            <Text style={styles.statusTitle}>{statusTitle}</Text>
+            <Text style={styles.statusDescription}>{statusDescription}</Text>
 
-            {isPending && accountStatus?.detailsSubmitted === false && (
+            {disabledReasonText && hasAccount && !fullyActive ? (
+              <Text style={styles.disabledReason}>{disabledReasonText}</Text>
+            ) : null}
+
+            {/* Outstanding requirements list */}
+            {outstanding.length > 0 ? (
+              <View style={styles.requirementsBlock}>
+                <Text style={styles.requirementsTitle}>
+                  Informations a fournir
+                </Text>
+                {outstanding.map((key) => (
+                  <View key={key} style={styles.requirementRow}>
+                    <Ionicons
+                      name="ellipse"
+                      size={6}
+                      color={colors.danger}
+                      style={styles.requirementDot}
+                    />
+                    <Text style={styles.requirementText}>
+                      {translateRequirement(key)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Unconditional manual refresh once an account exists (F62/F117) */}
+            {hasAccount ? (
               <Button
-                variant="primary"
+                variant={fullyActive ? 'muted' : 'primary'}
                 fullWidth
                 onPress={() => refetch()}
                 loading={isRefetching}
@@ -465,11 +568,121 @@ export default function StripeOnboardingScreen() {
               >
                 Actualiser le statut
               </Button>
-            )}
+            ) : null}
           </View>
 
+          {/* ── KYC document remediation (F59) ── */}
+          {showKycUpload ? (
+            <View style={styles.formSection}>
+              <Text style={styles.formTitle}>Verification d'identite</Text>
+              <Text style={styles.formDescription}>
+                Stripe demande une piece d'identite pour reactiver votre compte.
+                Ajoutez une photo nette du recto (et du verso si demande).
+              </Text>
+
+              <View style={styles.docRow}>
+                <View style={styles.docSlot}>
+                  <Text style={styles.docLabel}>Recto</Text>
+                  <Pressable
+                    style={styles.docPicker}
+                    onPress={() => pickDocument('front')}
+                    disabled={isUploadingDocument}
+                  >
+                    {frontUri ? (
+                      <Image
+                        source={{ uri: frontUri }}
+                        style={styles.docPreview}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View style={styles.docPlaceholder}>
+                        <Ionicons
+                          name="add"
+                          size={28}
+                          color={colors.muted}
+                        />
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+
+                <View style={styles.docSlot}>
+                  <Text style={styles.docLabel}>Verso (optionnel)</Text>
+                  <Pressable
+                    style={styles.docPicker}
+                    onPress={() => pickDocument('back')}
+                    disabled={isUploadingDocument}
+                  >
+                    {backUri ? (
+                      <Image
+                        source={{ uri: backUri }}
+                        style={styles.docPreview}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View style={styles.docPlaceholder}>
+                        <Ionicons
+                          name="add"
+                          size={28}
+                          color={colors.muted}
+                        />
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+
+              <Button
+                variant="primary"
+                fullWidth
+                loading={isUploadingDocument}
+                disabled={isUploadingDocument || !frontUri}
+                onPress={handleUploadDocument}
+                style={styles.submitButton}
+                leftIcon={
+                  <Ionicons
+                    name="cloud-upload-outline"
+                    size={20}
+                    color={colors.white}
+                  />
+                }
+              >
+                Envoyer le document
+              </Button>
+            </View>
+          ) : null}
+
+          {/* ── Bank account management (F60) ── */}
+          {hasAccount ? (
+            <Pressable
+              style={styles.linkRow}
+              onPress={() => router.push('/settings/bank-account')}
+            >
+              <View style={styles.linkIcon}>
+                <Ionicons
+                  name="business-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={styles.linkTextBlock}>
+                <Text style={styles.linkTitle}>Compte bancaire</Text>
+                <Text style={styles.linkSubtitle}>
+                  {status?.bankAccountLast4
+                    ? `•••• ${status.bankAccountLast4} — gerer ou remplacer`
+                    : 'Ajouter un compte bancaire de retrait'}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.muted}
+              />
+            </Pressable>
+          ) : null}
+
           {/* Setup Form (only if no account yet) */}
-          {!accountStatus?.hasAccount && (
+          {!hasAccount && (
             <>
               {/* ── Personal Info Section ── */}
               <View style={styles.formSection}>
@@ -755,6 +968,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.lg,
   },
+  skeletonBlock: {
+    marginTop: spacing.lg,
+  },
   statusCard: {
     backgroundColor: colors.surfaceWarm,
     borderRadius: radius.xl,
@@ -766,6 +982,9 @@ const styles = StyleSheet.create({
   },
   statusCardPending: {
     backgroundColor: colors.primaryLight,
+  },
+  statusCardAlert: {
+    backgroundColor: colors.dangerLight,
   },
   statusIconRow: {
     marginBottom: spacing.md,
@@ -781,8 +1000,65 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
   },
+  disabledReason: {
+    ...typography.caption,
+    color: colors.danger,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  requirementsBlock: {
+    width: '100%',
+    marginTop: spacing.lg,
+  },
+  requirementsTitle: {
+    ...typography.label,
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  requirementDot: {
+    marginRight: spacing.sm,
+  },
+  requirementText: {
+    ...typography.body,
+    color: colors.foreground,
+    flex: 1,
+  },
   statusAction: {
     marginTop: spacing.lg,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    gap: spacing.md,
+  },
+  linkIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  linkTextBlock: {
+    flex: 1,
+  },
+  linkTitle: {
+    ...typography.label,
+    color: colors.foreground,
+  },
+  linkSubtitle: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: spacing.xs,
   },
   formSection: {
     marginTop: spacing.lg,
@@ -799,6 +1075,36 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.muted,
     marginBottom: spacing.lg,
+  },
+  docRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  docSlot: {
+    flex: 1,
+  },
+  docLabel: {
+    ...typography.label,
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+  },
+  docPicker: {
+    aspectRatio: 1.4,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  docPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  docPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   row: {
     flexDirection: 'row',
