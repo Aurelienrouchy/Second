@@ -301,6 +301,11 @@ export const stripeWebhook = onRequest(
         await eventMarkerRef.create({
           type: eventType,
           createdAt: FieldValue.serverTimestamp(),
+          // F107: TTL field so a Firestore TTL policy on `stripe_events.expiresAt`
+          // can purge old dedup markers (collection grows unboundedly otherwise).
+          // 90 days >> Stripe's 3-day retry window, so dedup is never weakened.
+          // NOTE: creating the TTL policy itself is a console/gcloud action.
+          expiresAt: Timestamp.fromMillis(Date.now() + STRIPE_EVENT_TTL_MS),
         });
       } catch (markerErr) {
         logger.info('Stripe webhook: event marker already claimed (concurrent delivery)', {
