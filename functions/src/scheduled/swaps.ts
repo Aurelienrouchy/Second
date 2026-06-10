@@ -172,3 +172,134 @@ export const expireStaleProposedSwaps = onSchedule(
     }
   }
 );
+
+/**
+ * Post-acceptance swaps stall after this delay. Applies to the intermediate
+ * money-bearing statuses 'accepted' / 'photos_pending' / 'shipping' where one
+ * party went silent (F51/F52). 14 days is intentionally longer than the
+ * proposal expiry (7d): the parties already committed (top-up may be paid,
+ * photos may be exchanged), so we give the exchange more room before forcibly
+ * unwinding it.
+ */
+const STALE_POST_ACCEPTANCE_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+/** Statuses an abandoned post-acceptance swap can be stuck in. */
+const POST_ACCEPTANCE_STALE_STATUSES = ['accepted', 'photos_pending', 'shipping'] as const;
+
+/**
+ * Expire stalled post-acceptance swaps (F51/F52).
+ *
+ * For each swap in 'accepted' / 'photos_pending' / 'shipping' whose last update
+ * is older than the delay:
+ *   1. Refund the paid top-up, if any (idempotent rf_swap_${swapId}); the
+ *      charge.refunded webhook claws the payee wallet complement back. Funds were
+ *      NOT yet released to withdrawable balance (a released top-up implies a
+ *      'completed' swap, which this query never matches).
+ *   2. Release both sides' swapPartyItems (isPending -> false). The swap leaves
+ *      ACTIVE_SWAP_STATUSES so the articles become eligible for new swaps.
+ *   3. Transition the swap to 'expired'.
+ *
+ * Idempotent: the cancel write is transactional and re-checks the status, and the
+ * refund key is deterministic per swap. Runs every hour.
+ *
+ * Requires composite index: swaps (status ASC, updatedAt ASC).
+ */
+export const expireStalePostAcceptanceSwaps = onSchedule(
+  {
+    schedule: 'every 1 hours',
+    region: 'northamerica-northeast1',
+    memory: '512MiB',
+    secrets: ['STRIPE_SECRET_KEY'],
+  },
+  async () => {
+    const cutoff = new Date(Date.now() - STALE_POST_ACCEPTANCE_EXPIRY_MS);
+
+    try {
+      const snaps = await Promise.all(
+        POST_ACCEPTANCE_STALE_STATUSES.map((status) =>
+          db
+            .collection('swaps')
+            .where('status', '==', status)
+            .where('updatedAt', '<', cutoff)
+            .get()
+        )
+      );
+
+      const staleDocs = snaps.flatMap((s) => s.docs);
+      if (staleDocs.length === 0) {
+        logger.info('[expireStalePostAcceptanceSwaps] No stale post-acceptance swaps found');
+        return;
+      }
+
+      logger.info('[expireStalePostAcceptanceSwaps] Expiring stale post-acceptance swaps', {
+        count: staleDocs.length,
+      });
+
+      let expired = 0;
+      let skipped = 0;
+      let errors = 0;
+
+      for (const doc of staleDocs) {
+        const swapId = doc.id;
+        try {
+          // Transition transactionally, re-checking the status for idempotence.
+          const swap = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(doc.ref);
+            if (!snap.exists) return null;
+            const data = snap.data()!;
+            if (!(POST_ACCEPTANCE_STALE_STATUSES as readonly string[]).includes(data.status)) {
+              return null; // status moved on between query and tx
+            }
+            tx.update(doc.ref, {
+              status: 'expired',
+              cancelReason: `post_acceptance_expired_14d_from_${data.status}`,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            return data;
+          });
+
+          if (!swap) {
+            skipped++;
+            continue;
+          }
+
+          // Refund the paid top-up (idempotent) + release items + notify.
+          await refundSwapTopUpIfPaid(swap, swapId);
+          await releaseSwapPartyItems(swap);
+
+          for (const target of [swap.initiatorId, swap.receiverId]) {
+            if (!target) continue;
+            try {
+              await sendPushNotification(
+                target,
+                'Échange expiré',
+                'Un échange est resté sans progression et a été annulé. Tout complément payé a été remboursé.',
+                { swapId },
+                'swap_update'
+              );
+            } catch (notifErr) {
+              logger.warn('[expireStalePostAcceptanceSwaps] notify failed', {
+                swapId,
+                error: notifErr instanceof Error ? notifErr.message : notifErr,
+              });
+            }
+          }
+
+          expired++;
+        } catch (err) {
+          errors++;
+          logger.error('[expireStalePostAcceptanceSwaps] error expiring swap', {
+            swapId,
+            error: err instanceof Error ? err.message : err,
+          });
+        }
+      }
+
+      logger.info('[expireStalePostAcceptanceSwaps] run complete', { expired, skipped, errors });
+    } catch (error) {
+      logger.error('[expireStalePostAcceptanceSwaps] Error expiring post-acceptance swaps', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  }
+);
