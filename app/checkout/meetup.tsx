@@ -4,7 +4,13 @@
  *
  * Select a meetup location from seller's preferred spots OR choose
  * "A convenir par messagerie" to skip spot selection.
- * Creates a meetup_pending transaction + chat, then navigates to success.
+ *
+ * Sends a structured meetup OFFER in the chat (renders an interactive
+ * OfferBubble) and navigates to success. The transaction is NOT created here
+ * — it is born server-side when the OTHER party accepts the offer via
+ * `acceptMeetupOffer`. Pre-creating it locked the article (isSold) and made
+ * the offer un-acceptable ("Cet article a déjà été vendu") — a systematic
+ * 48h dead-end (audit F8).
  */
 
 import React, { useState, useEffect } from 'react';
