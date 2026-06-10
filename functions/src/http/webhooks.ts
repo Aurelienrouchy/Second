@@ -2419,6 +2419,69 @@ async function handleChargeRefunded(charge: any): Promise<void> {
   });
 }
 
+// =============================================================================
+// HANDLER: refund.failed (F104)
+// =============================================================================
+
+/**
+ * A previously-created refund did NOT settle (e.g. the original card can no
+ * longer be credited). We optimistically mark transactions 'refunded' when we
+ * CREATE the refund, so a failed refund means our internal state says "refunded"
+ * while the buyer was never actually reimbursed. Code cannot pick an alternate
+ * refund channel automatically, so raise a CRITICAL admin alert keyed by the
+ * payment intent and ACK 200 (informational — never 400, which would loop).
+ * Idempotent: writes an admin_alert (operators dedup by refId + kind).
+ */
+async function handleRefundFailed(refund: any): Promise<void> {
+  const paymentIntentId =
+    typeof refund.payment_intent === 'string' ? refund.payment_intent : null;
+  const refId = paymentIntentId || (typeof refund.id === 'string' ? refund.id : 'unknown');
+
+  logger.error('CRITICAL Stripe webhook: refund.failed — buyer NOT reimbursed', {
+    refundId: refund.id,
+    paymentIntentId,
+    failureReason: refund.failure_reason || null,
+    status: refund.status,
+  });
+
+  await writeAdminAlert({
+    kind: 'refund_failed',
+    severity: 'critical',
+    refId,
+    message:
+      'Un remboursement Stripe a échoué — la transaction est marquée remboursée mais l\'acheteur n\'a pas été crédité. Canal de remboursement alternatif requis.',
+    context: {
+      refundId: refund.id ?? null,
+      paymentIntentId,
+      failureReason: refund.failure_reason ?? null,
+      amount: refund.amount ?? null,
+    },
+  });
+}
+
+// =============================================================================
+// HANDLER: refund.updated (F104)
+// =============================================================================
+
+/**
+ * refund.updated fires on any refund state change. Only the terminal 'failed'
+ * status is actionable for us (it means the buyer was never reimbursed) — we
+ * route that to the same alert as refund.failed. Every other transition
+ * (pending -> succeeded, etc.) is informational; log + ACK so Stripe never
+ * retries in a loop.
+ */
+async function handleRefundUpdated(refund: any): Promise<void> {
+  if (refund.status === 'failed' || refund.status === 'canceled') {
+    await handleRefundFailed(refund);
+    return;
+  }
+  logger.info('Stripe webhook: refund.updated (informational)', {
+    refundId: refund.id,
+    status: refund.status,
+    paymentIntentId: refund.payment_intent ?? null,
+  });
+}
+
 /**
  * Reconcile a swap top-up refund on the payee wallet.
  *
