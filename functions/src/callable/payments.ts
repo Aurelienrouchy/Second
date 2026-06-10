@@ -1322,19 +1322,9 @@ export const createStripeCheckout = onCall(
         };
       }
 
-      // Look up seller's Stripe Connect account
-      const sellerDoc = await db.collection('users').doc(txResult.sellerId).get();
-      if (!sellerDoc.exists) {
-        throw new HttpsError('not-found', 'Seller not found');
-      }
-      const sellerData = sellerDoc.data()!;
-      const sellerStripeAccountId = sellerData.stripeAccountId;
-      if (!sellerStripeAccountId) {
-        throw new HttpsError(
-          'failed-precondition',
-          'Le vendeur n\'a pas encore configuré son compte de paiement'
-        );
-      }
+      // B3: the seller's Stripe Connect account was already validated INSIDE the
+      // runTransaction (before the wallet debit) — no money moves on a seller with
+      // no account, and the wallet is never left debited on that precondition.
 
       // Convert dollars to cents for Stripe (all Stripe amounts are in smallest currency unit)
       const totalChargeCents = Math.round(txResult.fees.buyerTotal * 100);
