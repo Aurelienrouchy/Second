@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
+  Alert,
   Pressable,
   RefreshControl,
   StyleSheet,
