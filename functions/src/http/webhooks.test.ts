@@ -493,15 +493,21 @@ describe('Stripe webhook — swap top-up (single fund movement)', () => {
 });
 
 // ===========================================================================
-// 4. handleChargeRefunded => debit correct bucket + reverse_transfer
+// 4. handleChargeRefunded => debit correct bucket on a full platform refund
 // ===========================================================================
 
-describe('Stripe webhook — charge.refunded (bucket debit + reverse_transfer)', () => {
+describe('Stripe webhook — charge.refunded (bucket debit, full vs partial)', () => {
   function refundEvent(opts: {
     eventId: string;
     paymentIntentId: string;
     refundId?: string;
+    amount?: number;
+    amountRefunded?: number;
   }): Record<string, unknown> {
+    // Default to a FULL refund (amount === amount_refunded) so existing bucket
+    // tests exercise the full reconciliation path.
+    const amount = opts.amount ?? 5000;
+    const amountRefunded = opts.amountRefunded ?? amount;
     return {
       id: opts.eventId,
       type: 'charge.refunded',
@@ -509,6 +515,8 @@ describe('Stripe webhook — charge.refunded (bucket debit + reverse_transfer)',
         object: {
           id: 'ch_refund',
           payment_intent: opts.paymentIntentId,
+          amount,
+          amount_refunded: amountRefunded,
           refunds: { data: [{ id: opts.refundId ?? 'rf_ch' }] },
         },
       },
