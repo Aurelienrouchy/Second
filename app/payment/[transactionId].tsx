@@ -93,38 +93,49 @@ export default function PaymentScreen() {
   // =============================================================================
 
   const {
-    data: transaction = null,
+    data: queryResult,
     isLoading,
     isError,
     refetch,
   } = useQuery({
     queryKey: queryKeys.payments.transaction(transactionId ?? ''),
+    // Pure read — no Alert / router side effects here, so a refetch never fires
+    // a parasitic "déjà traitée" alert nor an extra back navigation (F121).
     queryFn: async () => {
       const trans = await TransactionService.getTransaction(transactionId!);
-
-      if (!trans) {
-        Alert.alert('Erreur', 'Transaction introuvable');
-        router.back();
-        return null;
-      }
-
+      if (!trans) return { transaction: null, notPayable: 'not_found' as const };
       if (trans.buyerId !== user?.id) {
-        Alert.alert('Erreur', 'Vous n\'etes pas autorise pour cette transaction');
-        router.back();
-        return null;
+        return { transaction: null, notPayable: 'forbidden' as const };
       }
-
       if (trans.status !== 'pending_payment') {
-        Alert.alert('Information', 'Cette transaction a deja ete traitee');
-        router.back();
-        return null;
+        return { transaction: null, notPayable: 'already_processed' as const };
       }
-
-      return trans;
+      return { transaction: trans, notPayable: null };
     },
     enabled: !!transactionId && !!user,
     staleTime: 2 * 60 * 1000, // 2 min
   });
+
+  const transaction = queryResult?.transaction ?? null;
+  const notPayable: NotPayableReason | null = queryResult?.notPayable ?? null;
+
+  // React to a not-payable transaction once (outside the queryFn). When the
+  // transaction is no longer payable (e.g. already paid in another tab/webhook),
+  // refresh the orders list so it shows up there, then return to the previous
+  // screen — without ever surfacing a misleading error on a successful payment.
+  useEffect(() => {
+    if (!notPayable) return;
+    if (notPayable === 'already_processed') {
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      router.back();
+      return;
+    }
+    const message =
+      notPayable === 'forbidden'
+        ? "Vous n'êtes pas autorisé pour cette transaction."
+        : 'Transaction introuvable.';
+    Alert.alert('Erreur', message, [{ text: 'OK', onPress: () => router.back() }]);
+  }, [notPayable, queryClient, router]);
 
   // =============================================================================
   // DERIVED
