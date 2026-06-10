@@ -15,10 +15,11 @@
  * `actualShippingCost` fields are in DOLLARS (consistent with createTransaction).
  */
 import * as logger from 'firebase-functions/logger';
+import { Timestamp } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../config/firebase';
 import { getOrCreateSellerWallet } from '../callable/wallet';
 import { getStripe } from '../config/stripe';
-import type { ShipEngineLabel } from '../config/shipEngine';
+import type { ShipEngineClient, ShipEngineLabel } from '../config/shipEngine';
 
 /**
  * Threshold (in DOLLARS) above which a difference between the real label cost
