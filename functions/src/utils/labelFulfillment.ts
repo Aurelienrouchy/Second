@@ -32,6 +32,10 @@ export const SHIPPING_COST_MISMATCH_THRESHOLD = 2;
  * runTransaction. Idempotent: if `sellerCreditedCents` is already set on the
  * transaction, this is a no-op (the seller was already credited).
  *
+ * F39: any outstanding `sellerDebt` is regularised FIRST — the credit pays down
+ * the debt before the remainder is added to pendingBalance — so future sales
+ * automatically clear the debt (as promised in the wallet copy).
+ *
  * The caller is responsible for the transaction status update (e.g. -> 'shipped')
  * and for having read the transaction snapshot used to produce `txData`.
  *
