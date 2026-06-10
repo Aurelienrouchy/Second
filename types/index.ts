@@ -962,7 +962,8 @@ export type WalletLedgerType =
   | 'funds_held'         // Fonds mis en attente (fenêtre de protection 7j)
   | 'funds_released'     // Fonds libérés après la fenêtre de protection
   | 'dispute_hold'       // Fonds gelés suite à l'ouverture d'un litige
-  | 'refund_debit';      // Débit du vendeur suite à un remboursement acheteur
+  | 'refund_debit'       // Débit du vendeur suite à un remboursement acheteur
+  | 'debt_repayment';    // Fonds libérés affectés en priorité au solde dû (régularisation)
 
 export interface WalletLedgerEntry {
   id: string;
