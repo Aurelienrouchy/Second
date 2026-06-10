@@ -89,7 +89,13 @@ export default function ShippingCheckoutScreen() {
   const [selectedEstimate, setSelectedEstimate] = useState<ShippingEstimate | null>(null);
   const [showStripePayment, setShowStripePayment] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  /** Server-authoritative buyer total (from createStripeCheckout feeBreakdown). */
+  /**
+   * Server-authoritative buyer total (createStripeCheckout feeBreakdown). The
+   * recap above (PriceBreakdown) is built from server-priced components
+   * (getServiceFee + getShippingEstimate); this is the final total the backend
+   * actually charges. Once known, it overrides the displayed recap total so the
+   * buyer never sees a client-guessed amount diverge from the charge (F124).
+   */
   const [serverBuyerTotal, setServerBuyerTotal] = useState<number | null>(null);
   const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
   const [pendingChatId, setPendingChatId] = useState<string | null>(null);
