@@ -402,7 +402,7 @@ Le dossier `contexts/` a été **entièrement supprimé** (shims legacy élimin�
 |---------|----------|
 | `cleanup.ts` | Nettoyage données expirées (search_index) |
 | `cleanupDrafts.ts` | Nettoyage images drafts expirés dans Storage (14j) |
-| `offerExpiration.ts` | Expiration offres pending dont expiresAt est passé (toutes les heures) |
+| `offerExpiration.ts` | Expiration offres `pending` (expiresAt passé) + offres `accepted` non consommées après 48h (F135) — toutes les heures |
 | `popularity.ts` | Recalcul scores popularité |
 | `savedSearches.ts` | Notif nouvelles correspondances |
 | `stats.ts` | Agrégation stats |
