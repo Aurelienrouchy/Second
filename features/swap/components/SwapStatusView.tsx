@@ -79,18 +79,29 @@ export const SwapStatusView = React.memo(function SwapStatusView({
   myItems,
   cashTopUpAmount,
 }: SwapStatusViewProps) {
+  const isDark = DARK_STATUSES.has(status);
+  const caption = STATUS_CAPTIONS[status];
   return (
     <>
-      {/* Status Indicator */}
-      <View style={styles.statusIndicator}>
-        <View style={styles.statusIcon}>
-          <Ionicons
-            name={getStatusIconName(status)}
-            size={20}
-            color={colors.surface}
-          />
+      {/* Status Indicator — dark (SwapZone sombre) for terminal/blocked states */}
+      <View style={[styles.statusIndicator, isDark && styles.statusIndicatorDark]}>
+        <View style={styles.statusBlock}>
+          <View style={[styles.statusIcon, isDark && styles.statusIconDark]}>
+            <Ionicons
+              name={getStatusIconName(status)}
+              size={20}
+              color={isDark ? colors.cream : colors.surface}
+            />
+          </View>
+          <Text style={[styles.statusText, isDark && styles.statusTextDark]}>
+            {STATUS_LABELS[status]}
+          </Text>
         </View>
-        <Text style={styles.statusText}>{STATUS_LABELS[status]}</Text>
+        {!!caption && (
+          <Text style={[styles.statusCaption, isDark && styles.statusCaptionDark]}>
+            {caption}
+          </Text>
+        )}
       </View>
 
       {/* Compact Sender Info */}
