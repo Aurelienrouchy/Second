@@ -283,7 +283,6 @@ export default function PaymentScreen() {
     async (result: StripePaymentResult) => {
       setShowStripePayment(false);
       setClientSecret(null);
-      setServerBuyerTotal(null);
 
       if (!result.success) {
         // User explicitly dismissed the sheet — the transaction stays payable
