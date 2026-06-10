@@ -1225,6 +1225,10 @@ async function handleDisputeCreated(dispute: any): Promise<void> {
     const sellerPayoutCents =
       typeof sellerPayout === 'number' ? Math.round(sellerPayout * 100) : 0;
 
+    // Track the EXACT amount moved balance -> heldBalance so dispute.closed can
+    // give it back on a WON/warning_closed outcome (F37). 0 if nothing in balance.
+    let freezeCents = 0;
+
     if (sellerId && sellerPayoutCents > 0) {
       const sellerWalletRef = db.collection('wallets').doc(sellerId);
       const sellerWalletSnap = await tx.get(sellerWalletRef);
@@ -1233,7 +1237,7 @@ async function handleDisputeCreated(dispute: any): Promise<void> {
         const walletData = sellerWalletSnap.data()!;
         const balanceNow = walletData.balance || 0;
         // Only move what's actually sitting in withdrawable balance.
-        const freezeCents = Math.min(sellerPayoutCents, balanceNow);
+        freezeCents = Math.min(sellerPayoutCents, balanceNow);
 
         if (freezeCents > 0) {
           tx.update(sellerWalletRef, {
@@ -1262,7 +1266,8 @@ async function handleDisputeCreated(dispute: any): Promise<void> {
     }
 
     // Preserve the status held BEFORE the dispute so dispute.closed (won) can
-    // restore the normal release cycle (paid/shipped/delivered).
+    // restore the normal release cycle (paid/shipped/delivered). Persist the
+    // exact hold so the close handler can release it (F37).
     tx.update(txDoc.ref, {
       status: 'disputed',
       statusBeforeDispute: txData.status,
@@ -1270,6 +1275,7 @@ async function handleDisputeCreated(dispute: any): Promise<void> {
       disputeId: dispute.id,
       disputedAt: FieldValue.serverTimestamp(),
       disputeReason: dispute.reason || null,
+      disputeFreezeCents: freezeCents,
     });
   });
 
