@@ -481,16 +481,29 @@ export default function ShippingCheckoutScreen() {
     setServerBuyerTotal(null);
 
     if (!result.success) {
-      // User explicitly cancelled the payment sheet — do nothing
-      if (result.error === 'cancelled') return;
+      // User explicitly dismissed the sheet — keep the transaction payable for
+      // ~1h (no new tx) and tell the buyer they can resume (audit F102).
+      if (result.error === 'cancelled') {
+        Alert.alert(
+          'Paiement annulé',
+          'Votre commande reste réservée pendant environ 1 heure. Reprenez le paiement quand vous voulez, ou annulez pour libérer l\'article.',
+          [
+            { text: 'Reprendre', onPress: retryStripePayment },
+            { text: 'Annuler la commande', style: 'destructive', onPress: cancelPendingTransaction },
+          ],
+        );
+        return;
+      }
 
-      // Payment failed — offer retry instead of immediately cancelling
+      // Real failure — classify (carte refusée / 3DS abandonné / réseau) and
+      // offer a retry on the SAME transaction (no new tx) rather than cancelling.
+      const classified = classifyStripePaymentError(result);
       Alert.alert(
-        'Le paiement a echoue',
-        result.error || 'Voulez-vous reessayer ?',
+        classified.title,
+        classified.message,
         [
-          { text: 'Reessayer', onPress: retryStripePayment },
-          { text: 'Annuler', style: 'destructive', onPress: cancelPendingTransaction },
+          { text: 'Réessayer', onPress: retryStripePayment },
+          { text: 'Annuler la commande', style: 'destructive', onPress: cancelPendingTransaction },
         ],
       );
       return;
