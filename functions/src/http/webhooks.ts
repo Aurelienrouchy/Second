@@ -1888,6 +1888,15 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
           const fromBalance = Math.min(remaining, balanceNow);
           const shortfall = remaining - fromBalance;
 
+          // B8/F37: a residual frozen amount may be released to `balance` in the
+          // SAME transaction (when the debit took LESS from heldBalance than was
+          // frozen at dispute.created). Compute it FIRST so the refund_debit
+          // ledger's balanceAfter reflects the FINAL balance after both moves —
+          // not a stale intermediate value.
+          const residualHold = Math.max(0, freezeCents - fromHeld);
+          const heldAfterDebit = heldNow - fromHeld;
+          const releaseResidual = Math.min(residualHold, Math.max(0, heldAfterDebit));
+
           const walletUpdate: Record<string, any> = {
             updatedAt: FieldValue.serverTimestamp(),
           };
@@ -1898,11 +1907,13 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
           tx.update(sellerWalletRef, walletUpdate);
 
           const debited = fromPending + fromHeld + fromBalance;
+          // Final withdrawable balance after the debit AND the residual release.
+          const balanceAfterAll = balanceNow - fromBalance + releaseResidual;
           const ledgerRef = sellerWalletRef.collection('ledger').doc();
           tx.set(ledgerRef, {
             type: 'refund_debit',
             amount: debited,
-            balanceAfter: (balanceNow - fromBalance),
+            balanceAfter: balanceAfterAll,
             description:
               shortfall > 0
                 ? 'Litige perdu — débit vendeur (dette enregistrée pour le solde manquant)'
@@ -1912,13 +1923,7 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
             ...(shortfall > 0 && { debtRecorded: shortfall }),
           });
 
-          // F37: if the debit took LESS from heldBalance than was frozen at
-          // dispute.created (e.g. uncredited tx -> sellerPayoutCents = 0, or a
-          // partial credit), the residual frozen amount would stay stranded in
-          // heldBalance. Release exactly that residual back to balance.
-          const residualHold = Math.max(0, freezeCents - fromHeld);
-          const heldAfterDebit = heldNow - fromHeld;
-          const releaseResidual = Math.min(residualHold, Math.max(0, heldAfterDebit));
+          // F37: release exactly the residual frozen amount back to balance.
           if (releaseResidual > 0) {
             tx.update(sellerWalletRef, {
               heldBalance: FieldValue.increment(-releaseResidual),
@@ -1928,7 +1933,7 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
             tx.set(releaseLedgerRef, {
               type: 'dispute_hold_released',
               amount: releaseResidual,
-              balanceAfter: (balanceNow - fromBalance) + releaseResidual,
+              balanceAfter: balanceAfterAll,
               description: 'Litige perdu — surplus gelé restitué',
               transactionId,
               createdAt: FieldValue.serverTimestamp(),
