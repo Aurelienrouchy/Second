@@ -37,7 +37,8 @@ Expo Router v4 file-based. Chaque fichier = 1 écran (`export default function`)
 | `/swap-zone` | `swap-zone.tsx` | Swap Zone généraliste (dark, filtres canoniques, dépôt + troc) |
 | `/swap-parties` | `swap-parties.tsx` | Legacy → Redirect `/swap-zone` |
 | `/swap-party/[id]` | `swap-party/[id].tsx` | Legacy → Redirect `/swap-zone` |
-| `/shop/[id]` | `shop/[id].tsx` | Boutique vendeur |
+| `/shop/[id]` | `shop/[id].tsx` | Boutique vendeur (CTA owner → forfait) |
+| `/shop/upgrade` | `shop/upgrade.tsx` | Achat/renouvellement forfait boutique (pro/premium, Payment Sheet) |
 | `/user/[id]` | `user/[id].tsx` | Profil public |
 | `/payment/[txId]` | `payment/[transactionId].tsx` | Paiement Stripe |
 | `/review/[txId]` | `review/[transactionId].tsx` | Laisser un avis (post-transaction) |
