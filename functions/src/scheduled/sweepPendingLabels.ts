@@ -38,10 +38,11 @@ import {
   ShipEngineRate,
 } from '../config/shipEngine';
 import { resolveSellerOriginAddress } from '../callable/payments';
-import { creditSellerForSale, reconcileShippingCost } from '../utils/labelFulfillment';
+import { createLabelIdempotent } from '../utils/labelFulfillment';
 import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
 import { logAutomatedDecision } from '../callable/automatedDecisions';
+import { acquireJobLock, releaseJobLock } from '../utils/jobLock';
 
 /** Process at most this many transactions per run to bound execution time. */
 const MAX_TRANSACTIONS_PER_RUN = 50;
