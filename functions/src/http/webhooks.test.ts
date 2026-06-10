@@ -1284,3 +1284,127 @@ describe('Stripe webhook — payment_failed is per-attempt (F102)', () => {
     expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(2000);
   });
 });
+
+// ===========================================================================
+// account.updated — KYC continuous remediation (F59) + status contract (F62)
+// ===========================================================================
+
+function accountUpdatedEvent(opts: {
+  eventId: string;
+  accountId: string;
+  chargesEnabled?: boolean;
+  payoutsEnabled?: boolean;
+  detailsSubmitted?: boolean;
+  currentlyDue?: string[];
+  pastDue?: string[];
+  disabledReason?: string | null;
+  externalAccounts?: unknown[];
+}): Record<string, unknown> {
+  return {
+    id: opts.eventId,
+    type: 'account.updated',
+    data: {
+      object: {
+        id: opts.accountId,
+        charges_enabled: opts.chargesEnabled ?? true,
+        payouts_enabled: opts.payoutsEnabled ?? true,
+        details_submitted: opts.detailsSubmitted ?? true,
+        requirements: {
+          currently_due: opts.currentlyDue ?? [],
+          past_due: opts.pastDue ?? [],
+          disabled_reason: opts.disabledReason ?? null,
+        },
+        external_accounts: { data: opts.externalAccounts ?? [] },
+      },
+    },
+  };
+}
+
+describe('Stripe webhook — account.updated (KYC requirements)', () => {
+  it('persists requirements + restricted status and notifies on a new currently_due', async () => {
+    fs.setDoc('users/seller_kyc', {
+      stripeAccountId: 'acct_kyc',
+      stripeRequirementsCurrentlyDue: [],
+    });
+
+    const res = await deliverEvent(
+      accountUpdatedEvent({
+        eventId: 'evt_acct_due',
+        accountId: 'acct_kyc',
+        chargesEnabled: true,
+        payoutsEnabled: false,
+        currentlyDue: ['individual.verification.document'],
+        pastDue: ['individual.verification.document'],
+        disabledReason: 'requirements.past_due',
+      })
+    );
+    expect(res.statusCode).toBe(200);
+
+    const u = fs.getDoc('users/seller_kyc')!;
+    expect(u.stripeRequirementsCurrentlyDue).toEqual(['individual.verification.document']);
+    expect(u.stripeRequirementsPastDue).toEqual(['individual.verification.document']);
+    expect(u.stripeRequirementsDisabledReason).toBe('requirements.past_due');
+    // past_due / disabled_reason => restricted status (not "active").
+    expect(u.stripeAccountStatus).toBe('restricted');
+
+    // Seller notified exactly once.
+    const notifs = pushCalls.filter((c) => c[4] === 'stripe_requirements_due');
+    expect(notifs.length).toBe(1);
+  });
+
+  it('does NOT re-notify when an identical account.updated repeats (idempotent)', async () => {
+    fs.setDoc('users/seller_idem', {
+      stripeAccountId: 'acct_idem',
+      // Already persisted requirement from a prior event.
+      stripeRequirementsCurrentlyDue: ['individual.verification.document'],
+      stripeRequirementsDisabledReason: 'requirements.past_due',
+    });
+
+    const res = await deliverEvent(
+      accountUpdatedEvent({
+        eventId: 'evt_acct_same',
+        accountId: 'acct_idem',
+        chargesEnabled: true,
+        payoutsEnabled: false,
+        currentlyDue: ['individual.verification.document'],
+        disabledReason: 'requirements.past_due',
+      })
+    );
+    expect(res.statusCode).toBe(200);
+
+    // No NEW requirement and no NEW disabled_reason => no push.
+    const notifs = pushCalls.filter((c) => c[4] === 'stripe_requirements_due');
+    expect(notifs.length).toBe(0);
+  });
+
+  it('clears requirements + marks active when the account is fully verified', async () => {
+    fs.setDoc('users/seller_ok', {
+      stripeAccountId: 'acct_ok',
+      stripeRequirementsCurrentlyDue: ['individual.verification.document'],
+      stripeRequirementsDisabledReason: 'requirements.past_due',
+    });
+
+    const res = await deliverEvent(
+      accountUpdatedEvent({
+        eventId: 'evt_acct_ok',
+        accountId: 'acct_ok',
+        chargesEnabled: true,
+        payoutsEnabled: true,
+        currentlyDue: [],
+        pastDue: [],
+        disabledReason: null,
+        externalAccounts: [{ id: 'ba_1', last4: '6789', status: 'verified', default_for_currency: true }],
+      })
+    );
+    expect(res.statusCode).toBe(200);
+
+    const u = fs.getDoc('users/seller_ok')!;
+    expect(u.stripeAccountStatus).toBe('active');
+    expect(u.stripeRequirementsCurrentlyDue).toEqual([]);
+    expect(u.stripeRequirementsDisabledReason).toBe(null);
+    expect(u.stripeBankAccountLast4).toBe('6789');
+    expect(u.stripeBankAccountStatus).toBe('verified');
+    // No push on a now-clean account.
+    expect(pushCalls.filter((c) => c[4] === 'stripe_requirements_due').length).toBe(0);
+  });
+});
