@@ -95,6 +95,7 @@ interface MockFieldValue {
   serverTimestamp(): ServerTimestampSentinel;
   increment(n: number): IncrementSentinel;
   arrayUnion(...args: unknown[]): ArrayUnionSentinel;
+  delete(): DeleteSentinel;
 }
 
 interface MockDocRef {
