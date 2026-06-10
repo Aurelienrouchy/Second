@@ -52,14 +52,25 @@ function isReviewableStatus(status: TransactionStatus): boolean {
   );
 }
 
+/**
+ * F74 — pre-ship statuses the seller can still cancel (before the first carrier
+ * scan flips the tx to `shipped`). Mirrors SELLER_CANCELLABLE in
+ * `functions/src/callable/payments.ts`.
+ */
+function isSellerCancellableStatus(status: TransactionStatus): boolean {
+  return status === 'paid' || status === 'label_created';
+}
+
 function SaleCard({
   item,
   onPress,
   onReview,
+  onCancel,
 }: {
   item: SaleItem;
   onPress: () => void;
   onReview?: () => void;
+  onCancel?: () => void;
 }) {
   const { transaction, article, hasReview } = item;
   const firstImage = article?.images?.[0];
