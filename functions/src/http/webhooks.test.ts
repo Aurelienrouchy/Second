@@ -318,7 +318,7 @@ describe('Stripe webhook — event dedup (stripe_events)', () => {
 // ===========================================================================
 
 describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () => {
-  it('does NOT mark paid, writes a failed_operations dead-letter, ACKs 200', async () => {
+  it('F30: buyer UNDERPAID => refund + release article (never marked paid), ACKs 200', async () => {
     fs.setDoc('transactions/tx1', {
       buyerId: 'buyer1',
       sellerId: 'seller1',
@@ -329,6 +329,13 @@ describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () =>
       articleId: 'article1',
     });
     fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, status: 'active' });
+    fs.setDoc('articles/article1', { isSold: true });
+
+    let refundOpts: Record<string, unknown> | undefined;
+    stripeMock.impl.refundsCreate = (...a: unknown[]) => {
+      refundOpts = a[1] as Record<string, unknown>;
+      return { id: 'rf_under' };
+    };
 
     // Buyer UNDERPAID: charged 40$ instead of 50$.
     const event = piSucceededEvent({
@@ -343,12 +350,17 @@ describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () =>
     expect(res.statusCode).toBe(200);
     expect(res.jsonBody).toEqual({ received: true });
 
-    // Transaction NOT marked paid.
-    expect(fs.getDoc('transactions/tx1')!.status).toBe('pending_payment');
-    // Seller NOT credited.
+    // Seller NEVER credited (tx was never paid).
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
 
-    // A failed_operations dead-letter was written with type amount_mismatch.
+    // F30: the partial charge is refunded (deterministic key) so the buyer is made
+    // whole, and the article is RELEASED so it is not locked forever.
+    expect(stripeMock.calls.refundsCreate.length).toBe(1);
+    expect(refundOpts?.idempotencyKey).toBe('rf_mismatch_tx1');
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('refunded');
+    expect(fs.getDoc('articles/article1')!.isSold).toBe(false);
+
+    // A failed_operations dead-letter is still written for human visibility.
     const deadLetters = fs.writeOps.filter(
       (op: WriteOp) =>
         op.path.startsWith('failed_operations/') &&
@@ -357,10 +369,6 @@ describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () =>
     );
     expect(deadLetters.length).toBe(1);
     expect(deadLetters[0].data.refId).toBe('tx1');
-    // Underpayment must NOT auto-refund (business decision).
-    expect((deadLetters[0].data.payload as Record<string, unknown>).autoRefund).toBe(false);
-    // No Stripe refund issued for an underpayment.
-    expect(stripeMock.calls.refundsCreate.length).toBe(0);
   });
 
   it('auto-refunds the buyer (idempotent key) when buyer OVERPAID', async () => {
