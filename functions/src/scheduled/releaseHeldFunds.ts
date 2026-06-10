@@ -195,18 +195,42 @@ export const releaseHeldFunds = onSchedule(
             const heldNow = walletData.heldBalance || 0;
             const moveCents = Math.min(sellerPayoutCents, heldNow);
 
-            tx.update(sellerWalletRef, {
+            // F39: regularise any outstanding sellerDebt FIRST. The released
+            // amount pays down the debt before the remainder lands in the
+            // withdrawable balance (debt repayment has priority on future funds).
+            const sellerDebt = walletData.sellerDebt || 0;
+            const debtRepayment = Math.min(sellerDebt, moveCents);
+            const toBalance = moveCents - debtRepayment;
+
+            const walletUpdate: Record<string, any> = {
               heldBalance: FieldValue.increment(-moveCents),
-              balance: FieldValue.increment(moveCents),
               updatedAt: FieldValue.serverTimestamp(),
-            });
+            };
+            if (toBalance > 0) walletUpdate.balance = FieldValue.increment(toBalance);
+            if (debtRepayment > 0) walletUpdate.sellerDebt = FieldValue.increment(-debtRepayment);
+            tx.update(sellerWalletRef, walletUpdate);
+
+            if (debtRepayment > 0) {
+              const debtLedgerRef = sellerWalletRef.collection('ledger').doc();
+              tx.set(debtLedgerRef, {
+                type: 'debt_repayment',
+                amount: debtRepayment,
+                balanceAfter: sellerDebt - debtRepayment,
+                description: 'Fonds libérés — régularisation du solde dû',
+                transactionId,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            }
 
             const ledgerRef = sellerWalletRef.collection('ledger').doc();
             tx.set(ledgerRef, {
               type: 'funds_released',
               amount: moveCents,
-              balanceAfter: (walletData.balance || 0) + moveCents,
-              description: 'Fenêtre de litige écoulée — fonds disponibles',
+              balanceAfter: (walletData.balance || 0) + toBalance,
+              description:
+                debtRepayment > 0
+                  ? 'Fenêtre de litige écoulée — fonds disponibles (après régularisation)'
+                  : 'Fenêtre de litige écoulée — fonds disponibles',
               transactionId,
               createdAt: FieldValue.serverTimestamp(),
             });
