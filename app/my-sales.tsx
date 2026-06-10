@@ -205,6 +205,42 @@ export default function MySalesScreen() {
     [router],
   );
 
+  // F74 — seller cancels a paid order before the first carrier scan. Explicit
+  // confirmation (irreversible: full buyer refund + article re-listed), then
+  // refetch so the cancelled row drops out of the cancellable state.
+  const handleCancelSale = useCallback(
+    (transactionId: string) => {
+      Alert.alert(
+        'Annuler la commande',
+        "L'acheteur sera intégralement remboursé et l'article sera remis en vente. Cette action est irréversible.",
+        [
+          { text: 'Retour', style: 'cancel' },
+          {
+            text: 'Annuler la commande',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await TransactionService.sellerCancelTransaction(transactionId);
+                Alert.alert(
+                  'Commande annulée',
+                  "L'acheteur a été remboursé et l'article est de nouveau en vente.",
+                );
+                refetch();
+              } catch (error) {
+                if (__DEV__) console.error('Error cancelling sale:', error);
+                Alert.alert(
+                  'Erreur',
+                  "Impossible d'annuler cette commande. Elle a peut-être déjà été expédiée.",
+                );
+              }
+            },
+          },
+        ],
+      );
+    },
+    [refetch],
+  );
+
   if (!user) {
     return (
       <View style={styles.container}>
