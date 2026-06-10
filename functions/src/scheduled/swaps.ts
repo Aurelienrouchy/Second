@@ -89,16 +89,19 @@ export const expireStaleProposedSwaps = onSchedule(
     const cutoff = new Date(Date.now() - STALE_SWAP_EXPIRY_MS);
 
     try {
+      // F81: bound each query (a large backlog must not load unboundedly).
       const [proposedSnap, paymentPendingSnap] = await Promise.all([
         db
           .collection('swaps')
           .where('status', '==', 'proposed')
           .where('createdAt', '<', cutoff)
+          .limit(MAX_PER_STATUS)
           .get(),
         db
           .collection('swaps')
           .where('status', '==', 'payment_pending')
           .where('createdAt', '<', cutoff)
+          .limit(MAX_PER_STATUS)
           .get(),
       ]);
 
@@ -114,32 +117,43 @@ export const expireStaleProposedSwaps = onSchedule(
         paymentPending: paymentPendingSnap.size,
       });
 
-      // 1. Cancel the swaps in batches.
-      let batch = db.batch();
-      let count = 0;
+      // F78: cancel each swap TRANSACTIONALLY with a status re-check. A blind
+      // batch.update would clobber a 'payment_pending' swap whose top-up was paid
+      // (webhook → 'accepted') between the query and the write, trapping the
+      // payer's funds. The per-doc tx only cancels if the status is STILL one we
+      // queried, so a state change between read and write is never overwritten.
+      const cancelled: FirebaseFirestore.DocumentData[] = [];
       for (const doc of staleDocs) {
-        const fromStatus = doc.data().status;
-        batch.update(doc.ref, {
-          status: 'cancelled',
-          cancelReason: fromStatus === 'payment_pending'
-            ? 'payment_pending_expired_7d'
-            : 'proposed_expired_7d',
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        count++;
-        if (count >= BATCH_SIZE) {
-          await batch.commit();
-          batch = db.batch();
-          count = 0;
+        try {
+          const swap = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(doc.ref);
+            if (!snap.exists) return null;
+            const data = snap.data()!;
+            // Re-verify the status is still expirable (not paid into 'accepted').
+            if (data.status !== 'proposed' && data.status !== 'payment_pending') {
+              return null;
+            }
+            tx.update(doc.ref, {
+              status: 'cancelled',
+              cancelReason: data.status === 'payment_pending'
+                ? 'payment_pending_expired_7d'
+                : 'proposed_expired_7d',
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            return data;
+          });
+          if (swap) cancelled.push(swap);
+        } catch (cancelErr) {
+          logger.error('[expireStaleProposedSwaps] failed to cancel swap', {
+            swapId: doc.id,
+            error: cancelErr instanceof Error ? cancelErr.message : cancelErr,
+          });
         }
       }
-      if (count > 0) {
-        await batch.commit();
-      }
 
-      // 2. Release items + notify initiators (non-critical side-effects).
-      for (const doc of staleDocs) {
-        const swap = doc.data();
+      // 2. Release items + notify initiators (non-critical side-effects). Only for
+      // the swaps actually cancelled above (status re-check passed).
+      for (const swap of cancelled) {
         try {
           await releaseSwapPartyItems(swap);
         } catch (releaseErr) {
