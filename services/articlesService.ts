@@ -349,6 +349,48 @@ export class ArticlesService {
   }
 
   /**
+   * Batch-fetch articles by id, returning a Map keyed by id (missing/inactive
+   * ids are simply absent). Replaces an N+1 of getArticleById calls (e.g. one
+   * per order/sale row, F130) with `documentId() in [...]` chunks of 30 (the
+   * Firestore `in` limit). Inactive (soft-deleted) articles are excluded, same
+   * as getArticleById.
+   */
+  static async getArticlesByIds(ids: string[]): Promise<Map<string, Article>> {
+    const result = new Map<string, Article>();
+    const unique = Array.from(new Set(ids.filter(Boolean)));
+    if (unique.length === 0) return result;
+
+    const CHUNK = 30; // Firestore `in` operator cap.
+    const chunks: string[][] = [];
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      chunks.push(unique.slice(i, i + CHUNK));
+    }
+
+    const snaps = await Promise.all(
+      chunks.map((chunk) =>
+        getDocs(
+          query(collection(firestore, 'articles'), where(documentId(), 'in', chunk)),
+        ),
+      ),
+    );
+
+    for (const snap of snaps) {
+      snap.forEach((d) => {
+        const data = d.data();
+        if (!data || !data.isActive) return; // mirror getArticleById
+        result.set(d.id, {
+          id: d.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          images: ArticlesService.fixArticleImageUrls(data.images),
+        } as Article);
+      });
+    }
+
+    return result;
+  }
+
+  /**
    * Map a search_index document to an Article.
    * search_index has a subset of Article fields with slightly different shapes
    * (e.g. firstImage instead of images[], no categoryIds).
