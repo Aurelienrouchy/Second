@@ -1780,45 +1780,49 @@ export const getStripeAccountStatus = onCall(
           payoutsEnabled: false,
           detailsSubmitted: false,
           status: 'none',
+          requirementsCurrentlyDue: [],
+          requirementsPastDue: [],
+          disabledReason: null,
+          currentDeadline: null,
+          bankAccountLast4: null,
         };
       }
 
-      // Retrieve the account from Stripe
-      const account = await stripe.accounts.retrieve(stripeAccountId);
-
-      // Determine status
-      let status: string;
-      if (account.charges_enabled && account.payouts_enabled) {
-        status = 'active';
-      } else if (account.details_submitted) {
-        status = 'pending_verification';
-      } else {
-        status = 'pending';
-      }
-
-      // Update Firestore with latest status
-      await userRef.update({
-        stripeAccountStatus: status,
-        stripeChargesEnabled: account.charges_enabled,
-        stripePayoutsEnabled: account.payouts_enabled,
-        stripeDetailsSubmitted: account.details_submitted,
+      // Retrieve the account from Stripe (expand external accounts so we can
+      // surface the default bank account last4 + verification status, F60b).
+      const account = await stripe.accounts.retrieve(stripeAccountId, {
+        expand: ['external_accounts'],
       });
+
+      const state = deriveStripeAccountState(account);
+
+      // Persist the canonical state — requirements + bank status included
+      // (F59a/F60b), all CF-only & never undefined.
+      await userRef.update(stripeAccountFirestoreFields(state));
 
       logger.info('Stripe account status checked', {
         userId,
         stripeAccountId,
-        status,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
+        status: state.status,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        requirementsCurrentlyDue: state.requirementsCurrentlyDue,
+        disabledReason: state.disabledReason,
       });
 
+      // Full contract consumed by the app (wallet ↔ onboarding loop, F62/F117).
       return {
         success: true,
         hasAccount: true,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
-        detailsSubmitted: account.details_submitted,
-        status,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        detailsSubmitted: state.detailsSubmitted,
+        status: state.status,
+        requirementsCurrentlyDue: state.requirementsCurrentlyDue,
+        requirementsPastDue: state.requirementsPastDue,
+        disabledReason: state.disabledReason,
+        currentDeadline: state.currentDeadline,
+        bankAccountLast4: state.bankAccountLast4,
       };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
