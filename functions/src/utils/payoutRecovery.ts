@@ -108,9 +108,16 @@ export async function revertFailedPayout(
         });
         reCredited = true;
       } else {
-        logger.warn('[revertFailedPayout] wallet not found — cannot re-credit', {
+        // F43: the wallet doc is gone (e.g. account deleted between the payout
+        // request and the failure). We cannot re-credit a wallet that does not
+        // exist; flag it so the post-tx admin_alert surfaces the loss for a human
+        // rather than abandoning the re-credit in silence.
+        walletMissingOwedCents = amount;
+        walletMissingOwnerId = ownerId;
+        logger.error('CRITICAL [revertFailedPayout] wallet not found — cannot re-credit', {
           withdrawalRequestId,
           ownerId,
+          owedCents: amount,
         });
       }
     }
