@@ -306,54 +306,36 @@ export const sweepPendingLabels = onSchedule(
             errors++;
             continue;
           }
-          try {
-            const label = await shipEngine.createLabel(rate.rateId);
 
-            // ATOMIC: credit seller, reconcile cost, persist label, mark shipped.
-            const ok = await db.runTransaction(async (tx) => {
-              const fresh = await tx.get(txRef);
-              const fdata = fresh.data();
-              if (!fdata) return false;
-              if (fdata.status !== 'paid' || fdata.labelCreationPending !== true) {
-                return false; // already resolved by another run
-              }
+          // F5/F82: idempotent, double-spend-safe label creation (reservation
+          // BEFORE the paid ShipEngine call). Persists the fresh rateId alongside
+          // the label fields. Returns 'created' | 'skip' (already resolved by the
+          // webhook / a concurrent run) | 'failed'.
+          const outcome = await createLabelIdempotent({
+            transactionRef: txRef,
+            transactionId,
+            rateId: rate.rateId,
+            shipEngine,
+            estimatedShippingCost:
+              typeof txData.shippingCost === 'number' ? txData.shippingCost : 0,
+            applyExtraUpdate: (_label, update) => {
+              update.shipEngineRateId = rate.rateId;
+              update.labelCreationNote = FieldValue.delete();
+            },
+          });
 
-              await creditSellerForSale(tx, txRef, fdata, transactionId);
-
-              const update: Record<string, any> = {
-                trackingNumber: label.trackingNumber,
-                shippingLabelUrl: label.labelDownload.href,
-                trackingUrl: label.trackingUrl,
-                carrierCode: label.carrierCode,
-                trackingStatus: 'LABEL_CREATED',
-                shipEngineLabelId: label.labelId,
-                shipEngineRateId: rate.rateId,
-                // 'label_created', NOT 'shipped' — the first real carrier scan
-                // advances it (poller / ShipEngine webhook).
-                status: 'label_created',
-                labelCreatedAt: FieldValue.serverTimestamp(),
-                labelCreationPending: false,
-                labelCreationNote: FieldValue.delete(),
-              };
-              reconcileShippingCost(
-                label,
-                typeof fdata.shippingCost === 'number' ? fdata.shippingCost : 0,
-                transactionId,
-                update
-              );
-              tx.update(txRef, update);
-              return true;
-            });
-
-            if (ok) {
+          if (outcome === 'created' || outcome === 'skip') {
+            if (outcome === 'created') {
               shipped++;
               logger.info('[sweepPendingLabels] label created on retry — shipped', {
                 transactionId,
-                trackingNumber: label.trackingNumber,
               });
 
-              // Notify buyer + system message (best-effort).
-              if (txData.chatId) {
+              // Notify buyer + system message (best-effort). Read the persisted
+              // label fields back (createLabelIdempotent committed them atomically).
+              const fresh = (await txRef.get()).data();
+              const trackingNumber = fresh?.trackingNumber || '';
+              if (txData.chatId && trackingNumber) {
                 let participants: string[] = [];
                 try {
                   const chatSnap = await db.collection('chats').doc(txData.chatId).get();
@@ -370,28 +352,24 @@ export const sweepPendingLabels = onSchedule(
                     senderId: 'system',
                     receiverId: 'system',
                     type: 'system',
-                    content: `Etiquette d'expedition generee !\n\nNumero de suivi: ${label.trackingNumber}\n\nLe vendeur peut maintenant expedier l'article.`,
+                    content: `Etiquette d'expedition generee !\n\nNumero de suivi: ${trackingNumber}\n\nLe vendeur peut maintenant expedier l'article.`,
                     participants,
                     timestamp: FieldValue.serverTimestamp(),
                     status: 'sent',
                     isRead: true,
                     shippingLabel: {
-                      labelUrl: label.labelDownload.href,
-                      trackingNumber: label.trackingNumber,
-                      trackingUrl: label.trackingUrl,
+                      labelUrl: fresh?.shippingLabelUrl || '',
+                      trackingNumber,
+                      trackingUrl: fresh?.trackingUrl || '',
                     },
                   })
                   .catch(() => undefined);
               }
             }
             continue;
-          } catch (labelErr) {
-            logger.error('[sweepPendingLabels] createLabel retry failed', {
-              transactionId,
-              error: labelErr instanceof Error ? labelErr.message : labelErr,
-            });
-            // fall through to attempt bookkeeping below
           }
+          // outcome === 'failed' → fall through to attempt bookkeeping below.
+          logger.error('[sweepPendingLabels] createLabel retry failed', { transactionId });
         }
 
         // Either re-rate failed or createLabel retry failed: bump the attempt
