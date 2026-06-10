@@ -220,7 +220,13 @@ export { updatePopularityScores } from './scheduled/popularity';
 // proposed swaps that were never accepted/declined (7-day expiry).
 // expireStalePostAcceptanceSwaps (F51/F52): unwinds money-bearing swaps stuck in
 // accepted/photos_pending/shipping after 14d — refunds the top-up + frees items.
-export { expireStaleProposedSwaps, expireStalePostAcceptanceSwaps } from './scheduled/swaps';
+// alertAgingDisputes (B9): ops visibility on disputed swaps/transactions stuck >5d
+// awaiting admin resolution (no auto-decide; idempotent admin_alert via stamp).
+export {
+  expireStaleProposedSwaps,
+  expireStalePostAcceptanceSwaps,
+  alertAgingDisputes,
+} from './scheduled/swaps';
 
 // Saved Searches
 export { checkSavedSearchNotifications } from './scheduled/savedSearches';
