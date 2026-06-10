@@ -375,7 +375,17 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               await onCompleteMeetup(message.id);
             } catch (error) {
               if (__DEV__) console.error('Error completing meetup:', error);
-              Alert.alert('Erreur', 'Impossible de terminer la transaction');
+              // B2 : la callable peut échouer si la transaction a été annulée
+              // (auto-annulation 7j) ou disputée entre-temps. On surface le
+              // message FR du service plutôt qu'un générique, et on ne marque
+              // jamais le message « terminée » côté UI tant que le backend n'a
+              // pas confirmé (le badge dépend de meetup.completedAt, écrit
+              // seulement après succès).
+              const message =
+                error instanceof Error && error.message
+                  ? error.message
+                  : 'Impossible de terminer la transaction. Réessayez ou contactez le support.';
+              Alert.alert('Transaction non finalisée', message);
             }
           },
         },
