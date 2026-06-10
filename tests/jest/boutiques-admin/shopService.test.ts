@@ -240,6 +240,42 @@ describe('ShopService.getShopById', () => {
     expect(shop?.updatedAt).toEqual(updatedAt);
   });
 
+  it('convertit tierPaidUntil (Timestamp CF) en Date (F134)', async () => {
+    const paidUntil = new Date('2026-09-01T00:00:00Z');
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'shop_1',
+      data: () => ({
+        name: 'Friperie',
+        status: 'approved',
+        tier: 'pro',
+        tierPaidUntil: { toDate: () => paidUntil },
+        createdAt: { toDate: () => new Date('2026-01-01') },
+        updatedAt: { toDate: () => new Date('2026-01-01') },
+      }),
+    });
+
+    const shop = await ShopService.getShopById('shop_1');
+    expect(shop?.tier).toBe('pro');
+    expect(shop?.tierPaidUntil).toEqual(paidUntil);
+  });
+
+  it('laisse tierPaidUntil undefined si absent (forfait jamais souscrit)', async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'shop_1',
+      data: () => ({
+        name: 'Friperie',
+        status: 'approved',
+        createdAt: { toDate: () => new Date('2026-01-01') },
+        updatedAt: { toDate: () => new Date('2026-01-01') },
+      }),
+    });
+
+    const shop = await ShopService.getShopById('shop_1');
+    expect(shop?.tierPaidUntil).toBeUndefined();
+  });
+
   it('retourne null si la boutique n\'existe pas', async () => {
     mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => null });
 
