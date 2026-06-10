@@ -25,6 +25,7 @@ import { creditSellerForSale, reconcileShippingCost } from '../utils/labelFulfil
 import { writeFailedOperation } from '../utils/failedOperations';
 import { issueTransactionRefund } from '../utils/refund';
 import { revertFailedPayout } from '../utils/payoutRecovery';
+import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
 
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
