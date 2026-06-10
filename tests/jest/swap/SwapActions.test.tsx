@@ -175,6 +175,12 @@ describe('SwapActions — statut accepted', () => {
 
     expect(screen.queryByText('En main propre')).toBeNull();
   });
+
+  it('expose l’ouverture de litige dès accepted (F51 — payeur coincé)', () => {
+    renderActions({ status: 'accepted', exchangeMode: 'shipping' });
+
+    expect(screen.getByText('Ouvrir un litige')).toBeOnTheScreen();
+  });
 });
 
 describe('SwapActions — statut photos_pending', () => {
