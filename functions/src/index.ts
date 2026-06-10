@@ -211,7 +211,9 @@ export { updatePopularityScores } from './scheduled/popularity';
 // permanent generalist Swap Zone (no time window) and are no longer exported.
 // expireStaleProposedSwaps replaces cleanupEndedParty: it frees items locked by
 // proposed swaps that were never accepted/declined (7-day expiry).
-export { expireStaleProposedSwaps } from './scheduled/swaps';
+// expireStalePostAcceptanceSwaps (F51/F52): unwinds money-bearing swaps stuck in
+// accepted/photos_pending/shipping after 14d — refunds the top-up + frees items.
+export { expireStaleProposedSwaps, expireStalePostAcceptanceSwaps } from './scheduled/swaps';
 
 // Saved Searches
 export { checkSavedSearchNotifications } from './scheduled/savedSearches';
