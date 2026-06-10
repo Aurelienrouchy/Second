@@ -215,21 +215,20 @@ async function reconcileOneWithdrawal(
       userId: data.userId,
       amount: data.amount,
     });
-    // Dead-letter: the canonical re-credit lives in handlePayoutFailed; record
-    // the divergence so a human / replay re-credits the seller's wallet.
-    await writeFailedOperation({
-      type: 'payout_reversal_failed',
-      refId: requestId,
-      payload: {
-        kind: 'lost_payout_failed_webhook',
+    // F36/F99: the payout.failed webhook was lost. Re-drive the EXACT same
+    // recovery the webhook would have run — re-credit the wallet AND reverse the
+    // platform->connected transfer — via the shared idempotent helper (no-op if
+    // the request is no longer 'processing'). The helper dead-letters its own
+    // transfer-reversal failures.
+    await revertFailedPayout(
+      {
+        withdrawalRequestId: requestId,
         payoutId,
-        payoutStatus,
-        userId: data.userId ?? null,
-        amount: data.amount ?? null,
-        stripeAccountId: stripeAccountId ?? null,
+        failureReason: `payout ${payoutStatus} (reconciled from Stripe)`,
+        ownerIdFallback: typeof data.userId === 'string' ? data.userId : null,
       },
-      error: `payout ${payoutStatus} but withdrawal_requests still processing`,
-    });
+      stripe
+    );
     return true;
   }
 
