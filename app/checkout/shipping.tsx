@@ -640,6 +640,7 @@ export default function ShippingCheckoutScreen() {
           selectedEstimate={selectedEstimate}
           serviceFee={serviceFee}
           totalAmount={totalAmount}
+          taxTotal={taxTotal}
         />
 
         {/* Wallet section */}
