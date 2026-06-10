@@ -71,8 +71,6 @@ export default function PaymentScreen() {
   // Stripe
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [showStripePayment, setShowStripePayment] = useState(false);
-  /** Server-authoritative buyer total (from createStripeCheckout feeBreakdown). */
-  const [serverBuyerTotal, setServerBuyerTotal] = useState<number | null>(null);
   /** True while polling Firestore for the webhook to flip status to 'paid'. */
   const [confirmingPayment, setConfirmingPayment] = useState(false);
 
