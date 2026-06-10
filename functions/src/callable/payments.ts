@@ -1140,6 +1140,7 @@ export const createStripeCheckout = onCall(
             fees: existingFees,
             existingPaymentIntentId: transaction.stripePaymentIntentId as string,
             sellerId: transaction.sellerId as string,
+            sellerStripeAccountId: '' as string,
             walletDebited: false,
             effectiveWalletAmount: 0,
           };
