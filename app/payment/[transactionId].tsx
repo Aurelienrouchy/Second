@@ -294,11 +294,33 @@ export default function PaymentScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      // Make the new order visible in my-orders/payments regardless of which
+      // confirmation branch we land on (F120).
+      const invalidateOrders = () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+      };
+
+      // Genuine confirmation: the webhook has flipped the status to paid+.
       const confirmAndExit = () => {
+        invalidateOrders();
         Alert.alert(
           'Paiement confirmé !',
           'L\'étiquette d\'expédition sera générée automatiquement. Le vendeur sera notifié.',
           [{ text: 'OK', onPress: () => router.back() }]
+        );
+      };
+
+      // Honest fallback when the webhook lags past the timeout: the card was
+      // charged but the order isn't confirmed yet. We do NOT claim success
+      // (F120) — we tell the buyer it is being confirmed and point them to
+      // their orders, where the final status will appear.
+      const pendingConfirmExit = () => {
+        invalidateOrders();
+        Alert.alert(
+          'Paiement en cours de confirmation',
+          'Votre paiement a bien été pris en compte. La confirmation de votre commande peut prendre quelques instants — vous la retrouverez dans « Mes commandes ».',
+          [{ text: 'Voir mes commandes', onPress: () => router.replace('/my-orders') }],
         );
       };
 
@@ -307,7 +329,7 @@ export default function PaymentScreen() {
       // status before confirming so we never claim success while still
       // pending_payment.
       if (!transactionId) {
-        confirmAndExit();
+        pendingConfirmExit();
         return;
       }
 
@@ -327,11 +349,11 @@ export default function PaymentScreen() {
         await new Promise((r) => setTimeout(r, PAYMENT_CONFIRM_POLL_MS));
       }
 
-      // Webhook lagging — confirm anyway; the order detail reflects final status.
+      // Webhook lagging past the timeout — be honest (not a fake success).
       setConfirmingPayment(false);
-      confirmAndExit();
+      pendingConfirmExit();
     },
-    [router, transactionId, retryStripePayment]
+    [router, transactionId, retryStripePayment, queryClient]
   );
 
   // =============================================================================
