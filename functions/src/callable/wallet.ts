@@ -814,51 +814,35 @@ export const payWithWallet = onCall(
         } else {
           const shipEngine = getShipEngine();
           if (shipEngine && rateId) {
-            try {
-              const label = await shipEngine.createLabel(rateId);
+            // F5/F82: idempotent, double-spend-safe label creation. The helper
+            // reserves the tx (atomic) BEFORE the paid ShipEngine call, so a
+            // function timeout / retry / concurrent sweep can never create a 2nd
+            // label; on success it credits the seller + persists the label fields
+            // ('label_created') atomically. Mirrors the webhook + sweep paths so
+            // the wallet shipping rail is no longer the only non-idempotent one
+            // (B1). On failure it flags labelCreationPending for sweepPendingLabels.
+            const outcome = await createLabelIdempotent({
+              transactionRef: txRef,
+              transactionId,
+              rateId,
+              shipEngine,
+              estimatedShippingCost: result.shippingCost,
+            });
 
-              // ATOMIC: credit the seller now that the label exists, reconcile
-              // the real label cost vs the estimated shippingCost, persist label
-              // fields, clear the pending flag, and mark 'label_created'.
-              // NOTE: 'label_created', NOT 'shipped' — the carrier hasn't scanned
-              // the parcel yet. The first real scan (poller / ShipEngine webhook)
-              // advances label_created -> shipped.
-              await db.runTransaction(async (tx) => {
-                const txSnap = await tx.get(txRef);
-                const tdata = txSnap.data();
-                if (!tdata) return;
-                if (
-                  tdata.status === 'label_created' ||
-                  tdata.status === 'shipped' ||
-                  tdata.status === 'delivered'
-                )
-                  return;
+            if (outcome === 'created' || outcome === 'skip') {
+              const fresh = (await txRef.get()).data();
+              const trackingNumber = fresh?.trackingNumber || '';
+              const labelUrl = fresh?.shippingLabelUrl || '';
+              const trackingUrl = fresh?.trackingUrl || '';
 
-                await creditSellerForSale(tx, txRef, tdata, transactionId);
-
-                const update: Record<string, any> = {
-                  trackingNumber: label.trackingNumber,
-                  shippingLabelUrl: label.labelDownload.href,
-                  trackingUrl: label.trackingUrl,
-                  carrierCode: label.carrierCode,
-                  trackingStatus: 'LABEL_CREATED',
-                  shipEngineLabelId: label.labelId,
-                  status: 'label_created',
-                  labelCreatedAt: FieldValue.serverTimestamp(),
-                  labelCreationPending: false,
-                };
-                reconcileShippingCost(label, result.shippingCost, transactionId, update);
-                tx.update(txRef, update);
-              });
-
-              logger.info('payWithWallet: ShipEngine label created — seller credited, transaction marked shipped', {
+              logger.info('payWithWallet: label creation outcome', {
                 transactionId,
-                trackingNumber: label.trackingNumber,
-                carrierCode: label.carrierCode,
+                outcome,
+                trackingNumber,
               });
 
-              // Send system message with tracking info
-              if (result.chatId) {
+              // Send system message with tracking info (only when we have a label).
+              if (result.chatId && trackingNumber) {
                 let participants: string[] = [];
                 try {
                   const chatSnap = await db.collection('chats').doc(result.chatId).get();
@@ -877,26 +861,30 @@ export const payWithWallet = onCall(
                   senderId: 'system',
                   receiverId: 'system',
                   type: 'system',
-                  content: `Paiement confirme !\n\nNumero de suivi: ${label.trackingNumber}\nEtiquette: disponible dans les details de la commande.\n\nLe vendeur peut maintenant expedier l'article.`,
+                  content: `Paiement confirme !\n\nNumero de suivi: ${trackingNumber}\nEtiquette: disponible dans les details de la commande.\n\nLe vendeur peut maintenant expedier l'article.`,
                   participants,
                   timestamp: FieldValue.serverTimestamp(),
                   status: 'sent',
                   isRead: true,
                   shippingLabel: {
-                    labelUrl: label.labelDownload.href,
-                    trackingNumber: label.trackingNumber,
-                    trackingUrl: label.trackingUrl,
+                    labelUrl,
+                    trackingNumber,
+                    trackingUrl,
                   },
                 });
               }
-            } catch (labelError) {
-              logger.error('payWithWallet: Error creating ShipEngine label (will retry manually)', {
+            } else {
+              // 'failed': the reservation was cleared (createLabel error) — defer
+              // to sweepPendingLabels which re-rates + retries. The seller is NOT
+              // credited (deferred-credit model); labelCreationPending makes the
+              // gelée tx VISIBLE to the sweep (it filters labelCreationPending==true
+              // && status=='paid'), closing the orphan-label/frozen-order window.
+              logger.error('payWithWallet: label creation failed (will retry via sweep)', {
                 transactionId,
-                error: labelError instanceof Error ? labelError.message : labelError,
               });
               await txRef.update({
                 labelCreationPending: true,
-                labelCreationNote: 'ShipEngine createLabel failed — retry needed',
+                labelCreationNote: 'ShipEngine createLabel failed — re-rate + retry required',
               }).catch((err) => {
                 logger.error('payWithWallet: Failed to flag labelCreationPending', {
                   transactionId,
