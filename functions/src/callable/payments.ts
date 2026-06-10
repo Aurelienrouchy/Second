@@ -2722,7 +2722,7 @@ export const adminRefundTransaction = onCall(
  * we cannot mark a paid/shipped/delivered transaction as cancelled this way.
  */
 export const cancelPendingTransaction = onCall(
-  { region: 'northamerica-northeast1', memory: '512MiB' },
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
