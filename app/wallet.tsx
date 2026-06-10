@@ -866,6 +866,39 @@ export default function WalletScreen() {
           </View>
         )}
 
+        {/* Retraits en cours (withdrawal_requests) — F128 */}
+        {withdrawals.length > 0 && (
+          <View style={styles.withdrawalsSection}>
+            <Text style={styles.historySectionTitle}>
+              {WALLET_COPY.withdrawalsSectionTitle}
+            </Text>
+            {withdrawals.map((w) => {
+              const p = getWithdrawalPresentation(w.status);
+              return (
+                <View key={w.id} style={styles.withdrawalRow}>
+                  <View style={[styles.ledgerIcon, { backgroundColor: p.bg }]}>
+                    <Ionicons name={p.icon} size={20} color={p.color} />
+                  </View>
+                  <View style={styles.ledgerContent}>
+                    <Text style={styles.ledgerDescription}>{p.label}</Text>
+                    <Text style={styles.withdrawalHint}>
+                      {w.status === 'failed' && w.failureReason
+                        ? w.failureReason
+                        : p.hint}
+                    </Text>
+                    <Text style={styles.ledgerDate}>
+                      {formatRelativeDate(w.createdAt.toISOString())}
+                    </Text>
+                  </View>
+                  <Text style={[styles.ledgerAmount, { color: p.color }]}>
+                    {formatCents(Math.abs(w.amount))}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Transaction history */}
         <View style={styles.historySection}>
           <Text style={styles.historySectionTitle}>HISTORIQUE</Text>
