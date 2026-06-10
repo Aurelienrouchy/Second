@@ -156,6 +156,13 @@ interface MockBatch {
   commit(): Promise<void>;
 }
 
+interface MockBulkWriter {
+  set(ref: MockDocRef, data: DocData, opts?: { merge?: boolean }): void;
+  update(ref: MockDocRef, data: DocData): void;
+  delete(ref: MockDocRef): void;
+  close(): Promise<void>;
+}
+
 /**
  * Apply a write (with sentinel resolution) onto a target document object,
  * mutating it in place. Mirrors Firestore semantics for increment/serverTimestamp.
