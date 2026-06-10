@@ -501,6 +501,7 @@ async function expirePendingPayment(
     // 3. Expire the transaction + release the article atomically. The status
     //    guard inside the transaction keeps this idempotent across runs.
     const expired = await db.runTransaction(async (tx) => {
+      // ── ALL READS FIRST ──
       const txSnap = await tx.get(doc.ref);
       const txData = txSnap.data();
       if (!txData || txData.status !== 'pending_payment') {
@@ -515,14 +516,63 @@ async function expirePendingPayment(
         articleSnap = await tx.get(articleRef);
       }
 
-      tx.update(doc.ref, {
+      // F22: a mixed (wallet_and_card) / wallet 'pending_payment' tx had its
+      // wallet part debited at createStripeCheckout time. If the buyer abandoned
+      // the Payment Sheet, that debit must be restored on expiry — same wallet
+      // reconciliation as cancelPendingTransaction. The status guard above makes
+      // this idempotent: a re-run sees 'cancelled' and never double-credits.
+      const walletAmountUsed =
+        typeof txData.walletAmountUsed === 'number' ? txData.walletAmountUsed : 0; // cents
+      const hasWalletDebit =
+        walletAmountUsed > 0 &&
+        (txData.paidVia === 'wallet_and_card' || txData.paidVia === 'wallet');
+      let buyerWalletSnap: FirebaseFirestore.DocumentSnapshot | null = null;
+      let buyerWalletRef: FirebaseFirestore.DocumentReference | null = null;
+      if (hasWalletDebit && typeof txData.buyerId === 'string' && txData.buyerId.length > 0) {
+        buyerWalletRef = db.collection('wallets').doc(txData.buyerId);
+        buyerWalletSnap = await tx.get(buyerWalletRef);
+      }
+
+      // ── ALL WRITES AFTER ALL READS ──
+      const txUpdate: Record<string, any> = {
         status: 'cancelled',
         cancelledAt: FieldValue.serverTimestamp(),
         cancelReason: 'pending_payment_expired_1h',
-      });
+      };
+      // F22/F73: clear the wallet markers so the PI (already cancelled in step 2)
+      // can never drive a second wallet re-credit via issueTransactionRefund.
+      if (hasWalletDebit) {
+        txUpdate.walletAmountUsed = FieldValue.delete();
+        txUpdate.paidVia = FieldValue.delete();
+      }
+      tx.update(doc.ref, txUpdate);
 
       if (articleRef && articleSnap && articleSnap.exists) {
         tx.update(articleRef, { isSold: false });
+      }
+
+      if (hasWalletDebit && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+        const walletData = buyerWalletSnap.data()!;
+        tx.update(buyerWalletRef, {
+          balance: FieldValue.increment(walletAmountUsed),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+        tx.set(buyerLedgerRef, {
+          type: 'refund_credit',
+          amount: walletAmountUsed,
+          balanceAfter: (walletData.balance || 0) + walletAmountUsed,
+          description: 'Remboursement — paiement non finalisé (porte-monnaie)',
+          transactionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        logger.info('[expireOrphanedTransactions] wallet portion restored on expiry', {
+          transactionId,
+          buyerId: txData.buyerId,
+          walletAmountRefunded: walletAmountUsed,
+        });
       }
       return true;
     });
