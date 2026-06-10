@@ -29,6 +29,13 @@ import { revertFailedPayout } from '../utils/payoutRecovery';
 import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
 import { shopTierPriceCents, type PaidShopTier } from '../callable/shopTier';
 
+/**
+ * F107: TTL for `stripe_events` dedup markers. 90 days is far beyond Stripe's
+ * ~3-day retry window, so purging older markers never weakens idempotence. A
+ * Firestore TTL policy must be created on the `expiresAt` field (console/gcloud).
+ */
+const STRIPE_EVENT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
 // =============================================================================
 // STRIPE WEBHOOK — Payment confirmed + Account updates
 // =============================================================================
