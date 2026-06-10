@@ -1299,6 +1299,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  // ── Withdrawals in progress ──────────────────────────────────────────────────
+
+  withdrawalsSection: {
+    marginTop: spacing.xl,
+  },
+  withdrawalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  withdrawalHint: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: spacing.xs,
+    lineHeight: 16,
+  },
+
   // ── History ────────────────────────────────────────────────────────────────
 
   historySection: {
