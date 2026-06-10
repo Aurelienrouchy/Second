@@ -1690,6 +1690,40 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     return;
   }
 
+  // F101/F28: charge.refunded fires for PARTIAL refunds too. The full
+  // reconciliation below (mark 'refunded', re-credit the WHOLE wallet portion,
+  // debit the ENTIRE sellerCreditedCents, relist the article) is only correct for
+  // a TOTAL refund. A partial refund — a small commercial gesture from the Stripe
+  // dashboard, OR an internal partial refund already reconciled by
+  // issueTransactionRefund (return-leg B2) — must NOT unwind the whole sale. Only
+  // proceed when amount_refunded >= amount (full). Otherwise dead-letter for human
+  // review and stop (internal refunds are already reconciled in Firestore).
+  const chargeAmount = typeof charge.amount === 'number' ? charge.amount : null;
+  const amountRefunded =
+    typeof charge.amount_refunded === 'number' ? charge.amount_refunded : null;
+  if (chargeAmount !== null && amountRefunded !== null && amountRefunded < chargeAmount) {
+    logger.warn('Stripe webhook: charge.refunded PARTIAL — not unwinding the sale (review)', {
+      chargeId: charge.id,
+      paymentIntentId,
+      chargeAmount,
+      amountRefunded,
+    });
+    await writeFailedOperation({
+      type: 'amount_mismatch',
+      refId: paymentIntentId,
+      payload: {
+        kind: 'partial_charge_refund',
+        chargeId: charge.id,
+        paymentIntentId,
+        chargeAmount,
+        amountRefunded,
+        autoRefund: false,
+      },
+      error: 'Partial charge.refunded — full reconciliation skipped, manual review',
+    });
+    return;
+  }
+
   // Look up the transaction by stripePaymentIntentId
   const txQuery = await db
     .collection('transactions')
