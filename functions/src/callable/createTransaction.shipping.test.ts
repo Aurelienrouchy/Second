@@ -369,3 +369,82 @@ describe('createTransaction — paid-shop tier expiry (F134)', () => {
     expect(tx.buyerFeeReduction).toBe(0);
   });
 });
+
+// ===========================================================================
+// F137 — server-authoritative SHIPPING_ENABLED flag on createTransaction
+// ===========================================================================
+
+describe('createTransaction — F137 server shipping flag', () => {
+  it('REFUSES a shipping transaction when SHIPPING_ENABLED is OFF', async () => {
+    seedArticleAndSeller(50);
+    process.env.SHIPPING_ENABLED = 'false';
+    shipEngineMock.getRatesImpl = () => [rate('se_rate_real', 14.99)];
+
+    await expect(
+      callCreate({
+        auth: { uid: 'buyer1' },
+        data: {
+          articleId: 'art1',
+          deliveryType: 'shipping',
+          amount: 50,
+          shippingCost: 14.99,
+          shippingAddress: VALID_ADDRESS,
+          shipEngineRateId: 'se_rate_real',
+          chatId: 'chat1',
+        },
+      })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+
+    // Refused EARLY: no re-pricing, article never locked.
+    expect(shipEngineMock.getRatesCalls.length).toBe(0);
+    expect(fs.getDoc('articles/art1')!.isSold).toBe(false);
+  });
+
+  it('ALLOWS meetup even when SHIPPING_ENABLED is OFF', async () => {
+    fs.setDoc('articles/art2', {
+      sellerId: 'seller1',
+      price: 30,
+      isSold: false,
+      isActive: true,
+    });
+    fs.setDoc('users/seller1', { displayName: 'Vendeur', stripeChargesEnabled: true });
+    process.env.SHIPPING_ENABLED = 'false';
+
+    const result = await callCreate({
+      auth: { uid: 'buyer1' },
+      data: {
+        articleId: 'art2',
+        deliveryType: 'meetup',
+        amount: 30,
+        meetupSpot: { name: 'Cafe', category: 'public', neighborhood: 'Plateau' },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    const tx = fs.getDoc(`transactions/${result.transactionId as string}`)!;
+    expect(tx.status).toBe('meetup_pending');
+    expect(tx.shippingCost).toBe(0);
+  });
+
+  it('ALLOWS a shipping transaction when SHIPPING_ENABLED is ON', async () => {
+    seedArticleAndSeller(50);
+    process.env.SHIPPING_ENABLED = 'true';
+    shipEngineMock.getRatesImpl = () => [rate('se_rate_real', 14.99)];
+
+    const result = await callCreate({
+      auth: { uid: 'buyer1' },
+      data: {
+        articleId: 'art1',
+        deliveryType: 'shipping',
+        amount: 50,
+        shippingCost: 14.99,
+        shippingAddress: VALID_ADDRESS,
+        shipEngineRateId: 'se_rate_real',
+        chatId: 'chat1',
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(fs.getDoc('articles/art1')!.isSold).toBe(true);
+  });
+});
