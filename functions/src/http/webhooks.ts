@@ -1461,7 +1461,10 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
 /**
  * A Stripe payout to the seller's bank failed (e.g. invalid bank account).
  * The wallet was already debited at walletWithdraw time, so we must re-credit
- * the withdrawn amount and mark the withdrawal request 'failed'.
+ * the withdrawn amount AND reverse the platform->connected transfer (otherwise
+ * the funds stay stranded on the Custom account and the next withdrawal would
+ * double-finance). Both effects live in the shared revertFailedPayout helper so
+ * the reconciliation replay (lost webhook) can re-drive the EXACT same logic.
  *
  * The payout is matched to its withdrawal_requests doc via metadata.
  * withdrawalRequestId (set by walletWithdraw inside the debit transaction).
@@ -1478,65 +1481,15 @@ async function handlePayoutFailed(payout: any): Promise<void> {
     return;
   }
 
-  const requestRef = db.collection('withdrawal_requests').doc(withdrawalRequestId);
-
-  await db.runTransaction(async (tx) => {
-    const requestSnap = await tx.get(requestRef);
-    if (!requestSnap.exists) {
-      logger.warn('Stripe webhook: payout.failed — withdrawal request not found', {
-        withdrawalRequestId,
-        payoutId: payout.id,
-      });
-      return;
-    }
-
-    const request = requestSnap.data()!;
-
-    // Idempotence: only act on a request still in flight.
-    if (request.status !== 'processing') {
-      logger.info('Stripe webhook: payout.failed — request not processing, skipping', {
-        withdrawalRequestId,
-        currentStatus: request.status,
-      });
-      return;
-    }
-
-    const amount = request.amount; // CENTS
-    const ownerId = request.userId || userId;
-
-    if (typeof amount === 'number' && amount > 0 && ownerId) {
-      const walletRef = db.collection('wallets').doc(ownerId);
-      const walletSnap = await tx.get(walletRef);
-      if (walletSnap.exists) {
-        const walletData = walletSnap.data()!;
-        tx.update(walletRef, {
-          balance: FieldValue.increment(amount),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        const ledgerRef = walletRef.collection('ledger').doc();
-        tx.set(ledgerRef, {
-          type: 'withdrawal_failed',
-          amount,
-          balanceAfter: (walletData.balance || 0) + amount,
-          description: 'Retrait échoué — fonds restitués',
-          withdrawalRequestId,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-      } else {
-        logger.warn('Stripe webhook: payout.failed — wallet not found, cannot re-credit', {
-          withdrawalRequestId,
-          ownerId,
-        });
-      }
-    }
-
-    tx.update(requestRef, {
-      status: 'failed',
-      failedAt: FieldValue.serverTimestamp(),
-      stripePayoutId: payout.id,
+  await revertFailedPayout(
+    {
+      withdrawalRequestId,
+      payoutId: payout.id,
       failureReason: payout.failure_message || payout.failure_code || null,
-    });
-  });
+      ownerIdFallback: typeof userId === 'string' ? userId : null,
+    },
+    getStripe()
+  );
 
   logger.warn('Stripe webhook: payout.failed — withdrawal reverted', {
     withdrawalRequestId,
