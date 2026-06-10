@@ -1156,6 +1156,25 @@ export const createStripeCheckout = onCall(
           transaction.buyerFeeReduction,
         );
 
+        // B3: validate the seller's Stripe Connect account BEFORE the wallet debit,
+        // inside this transaction (reads-before-writes preserved). Previously the
+        // lookup ran AFTER the runTransaction had already debited the wallet, so a
+        // seller disabled between createTransaction and checkout threw without
+        // reverting — the wallet portion stayed immobilised until cancel/expiry.
+        // Doing it here means a missing account aborts the tx with NO debit at all.
+        const sellerIdForCheckout = transaction.sellerId as string;
+        const sellerSnap = await tx.get(db.collection('users').doc(sellerIdForCheckout));
+        if (!sellerSnap.exists) {
+          throw new HttpsError('not-found', 'Seller not found');
+        }
+        const sellerStripeAccountId = sellerSnap.data()!.stripeAccountId;
+        if (!sellerStripeAccountId) {
+          throw new HttpsError(
+            'failed-precondition',
+            'Le vendeur n\'a pas encore configuré son compte de paiement'
+          );
+        }
+
         // --- Wallet debit (if applicable) ---
         // P2-10 (idempotence): the wallet debit lives INSIDE this runTransaction,
         // but `stripePaymentIntentId` (the existing-checkout guard above) is only
