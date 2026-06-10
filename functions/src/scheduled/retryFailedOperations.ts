@@ -192,36 +192,43 @@ async function replayOp(
       }
     }
 
-    // --- Payout reversal/cancel --------------------------------------------
+    // --- Lost payout.failed recovery ---------------------------------------
+    // F36/F99: a payout.failed webhook was lost. The canonical recovery is
+    // revertFailedPayout (re-credit wallet + reverse the platform->connected
+    // transfer), idempotent via the withdrawal_requests status. The dead-letter
+    // refId IS the withdrawalRequestId. Legacy 'processing_no_payout_id' docs
+    // (no payoutId, nothing to reverse) still surface here and exhaust to manual.
     case 'payout_reversal_failed': {
       if (!stripe) return 'retry';
-      const payoutId = op.payload.payoutId;
-      const stripeAccountId = op.payload.stripeAccountId;
-      if (typeof payoutId !== 'string' || !payoutId) {
-        logger.error('CRITICAL [retryFailedOperations] payout_reversal missing payoutId', {
+      const withdrawalRequestId =
+        op.refId ||
+        (typeof op.payload.withdrawalRequestId === 'string'
+          ? op.payload.withdrawalRequestId
+          : null);
+      if (!withdrawalRequestId) {
+        logger.error('CRITICAL [retryFailedOperations] payout_reversal missing withdrawalRequestId', {
           failedOperationId: op.id,
           refId: op.refId,
         });
         return 'retry';
       }
       try {
-        await stripe.payouts.cancel(
-          payoutId,
-          undefined,
-          typeof stripeAccountId === 'string' && stripeAccountId
-            ? { stripeAccount: stripeAccountId }
-            : undefined
+        await revertFailedPayout(
+          {
+            withdrawalRequestId,
+            payoutId: typeof op.payload.payoutId === 'string' ? op.payload.payoutId : null,
+            failureReason: 'payout failed (replayed from dead-letter)',
+            ownerIdFallback: typeof op.payload.userId === 'string' ? op.payload.userId : null,
+          },
+          stripe
         );
-        logger.info('[retryFailedOperations] payout cancel replayed', {
+        logger.info('[retryFailedOperations] payout failure recovery replayed', {
           failedOperationId: op.id,
-          payoutId,
+          withdrawalRequestId,
         });
         return 'resolved';
       } catch (err) {
-        // A payout already paid cannot be cancelled — that is a terminal, NOT a
-        // transient condition. Leave it for a human (it will exhaust) rather
-        // than spinning forever.
-        logger.warn('[retryFailedOperations] payout cancel replay failed — will retry', {
+        logger.warn('[retryFailedOperations] payout failure recovery replay failed — will retry', {
           failedOperationId: op.id,
           payoutId,
           error: err instanceof Error ? err.message : err,
