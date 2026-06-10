@@ -1733,6 +1733,61 @@ describe('Stripe webhook — dispute LOST mixed payment (F40 buyer wallet re-cre
     // No wallet portion → buyer balance unchanged.
     expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100);
   });
+
+  // B8: when a residual frozen amount is released back to `balance` in the SAME
+  // LOST transaction, the refund_debit ledger's balanceAfter must reflect the
+  // FINAL balance (after the residual release), not the stale intermediate value.
+  it('writes an exact balanceAfter on refund_debit when a frozen residual is released (B8)', async () => {
+    // Seller had 4500 in BOTH balance and pendingBalance at dispute.created.
+    // dispute.created freezes min(payout=4500, balance=4500)=4500 -> balance 0,
+    // held 4500. At LOST the debit drains the 4500 from pendingBalance, so it
+    // takes 0 from held; the full 4500 frozen residual is released back to balance.
+    fs.setDoc('transactions/tx_resid', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'shipped',
+      totalAmount: 50,
+      sellerPayout: 45,
+      sellerCreditedCents: 4500,
+      paidVia: 'card',
+      deliveryType: 'shipping',
+      stripePaymentIntentId: 'pi_resid',
+    });
+    fs.setDoc('wallets/seller1', {
+      balance: 4500,
+      pendingBalance: 4500,
+      heldBalance: 0,
+      status: 'active',
+    });
+    fs.setDoc('wallets/buyer1', { balance: 0, status: 'active' });
+
+    await deliverEvent(disputeCreatedEvent('evt_dc_resid', 'pi_resid'));
+    await deliverEvent(disputeClosedLostEvent('evt_dx_resid', 'pi_resid'));
+
+    // Final committed balance: pending drained (debit), residual 4500 back to balance.
+    const sw = fs.getDoc('wallets/seller1')!;
+    expect(sw.pendingBalance).toBe(0);
+    expect(sw.balance).toBe(4500); // 0 (frozen) + 4500 residual released
+    expect(sw.heldBalance).toBe(0);
+
+    // The refund_debit ledger reflects the FINAL balance (4500), not the stale 0.
+    const refundDebit = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('wallets/seller1/ledger/') && op.data.type === 'refund_debit'
+    );
+    expect(refundDebit).toBeDefined();
+    expect(refundDebit!.data.balanceAfter).toBe(4500);
+
+    // The residual-release ledger entry agrees with the same final balance.
+    const release = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('wallets/seller1/ledger/') &&
+        op.data.type === 'dispute_hold_released' &&
+        op.data.amount === 4500
+    );
+    expect(release).toBeDefined();
+    expect(release!.data.balanceAfter).toBe(4500);
+  });
 });
 
 // ===========================================================================
