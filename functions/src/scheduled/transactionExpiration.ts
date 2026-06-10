@@ -110,37 +110,43 @@ export const expireOrphanedTransactions = onSchedule(
         .get();
 
       if (!meetupSnap.empty) {
-        let batch = db.batch();
-        let count = 0;
-
+        // F13/F83: cancel each tx TRANSACTIONALLY with a status re-check instead
+        // of a blind batch. A batch.update would (a) reject the WHOLE batch if the
+        // article was hard-deleted between query and commit, and (b) clobber a tx
+        // whose status changed (e.g. a confirmation/payment landing) in that
+        // window. The per-doc tx only cancels while status is STILL
+        // 'meetup_pending', and tolerates a missing article.
         for (const doc of meetupSnap.docs) {
-          const data = doc.data();
+          try {
+            const cancelled = await db.runTransaction(async (tx) => {
+              const snap = await tx.get(doc.ref);
+              if (!snap.exists) return false;
+              const data = snap.data()!;
+              if (data.status !== 'meetup_pending') return false; // status moved on
 
-          // Cancel the transaction
-          batch.update(doc.ref, {
-            status: 'cancelled',
-            cancelledAt: FieldValue.serverTimestamp(),
-            cancelReason: 'meetup_expired_48h',
-          });
+              // Read the article BEFORE writing (Admin SDK READ_AFTER_WRITE).
+              const articleRef = data.articleId
+                ? db.collection('articles').doc(data.articleId)
+                : null;
+              const articleSnap = articleRef ? await tx.get(articleRef) : null;
 
-          // Release the article
-          if (data.articleId) {
-            const articleRef = db.collection('articles').doc(data.articleId);
-            batch.update(articleRef, { isSold: false });
+              tx.update(doc.ref, {
+                status: 'cancelled',
+                cancelledAt: FieldValue.serverTimestamp(),
+                cancelReason: 'meetup_expired_48h',
+              });
+              if (articleRef && articleSnap && articleSnap.exists) {
+                tx.update(articleRef, { isSold: false });
+              }
+              return true;
+            });
+            if (cancelled) totalExpired++;
+          } catch (cancelErr) {
+            logger.error('[expireOrphanedTransactions] failed to cancel meetup_pending tx', {
+              transactionId: doc.id,
+              error: cancelErr instanceof Error ? cancelErr.message : cancelErr,
+            });
           }
-
-          count++;
-          totalExpired++;
-
-          if (count >= BATCH_SIZE) {
-            await batch.commit();
-            batch = db.batch();
-            count = 0;
-          }
-        }
-
-        if (count > 0) {
-          await batch.commit();
         }
 
         // Loi 25 art. 12.1 — after the cancellations commit, journal each
