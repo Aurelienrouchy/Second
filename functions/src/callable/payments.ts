@@ -53,6 +53,41 @@ function feeReductionForShopTier(tier: unknown): number {
 }
 
 /**
+ * F134 — a paid tier only grants a reduction while the forfait is ACTIVE, i.e.
+ * `tierPaidUntil` is in the future. An expired (or never-paid) forfait reverts to
+ * basic (reduction 0). `tierPaidUntil` is CF-only (firestore.rules), stamped by
+ * the shop_tier webhook after payment. Accepts a Firestore Timestamp, a Date, an
+ * ISO string, or a millis number — anything unparseable / past → expired.
+ */
+function isShopTierActive(tierPaidUntil: unknown): boolean {
+  if (tierPaidUntil == null) return false;
+  let untilMs: number;
+  if (typeof (tierPaidUntil as any).toMillis === 'function') {
+    untilMs = (tierPaidUntil as any).toMillis();
+  } else if (tierPaidUntil instanceof Date) {
+    untilMs = tierPaidUntil.getTime();
+  } else if (typeof tierPaidUntil === 'number') {
+    untilMs = tierPaidUntil;
+  } else if (typeof tierPaidUntil === 'string') {
+    untilMs = Date.parse(tierPaidUntil);
+  } else {
+    return false;
+  }
+  return Number.isFinite(untilMs) && untilMs > Date.now();
+}
+
+/**
+ * Resolves the buyer-fee reduction from a shop doc: the tier reduction ONLY when
+ * the shop is approved AND the paid forfait is still active (tierPaidUntil > now).
+ * Expired or basic → 0.
+ */
+function reductionForShopDoc(shop: Record<string, any> | undefined): number {
+  if (!shop || shop.status !== 'approved') return 0;
+  if (!isShopTierActive(shop.tierPaidUntil)) return 0;
+  return feeReductionForShopTier(shop.tier);
+}
+
+/**
  * Resolves the buyer-fee reduction for a purchase from the SELLER's approved
  * shop tier, read 100% server-side (never trusted from the client). Resolution
  * order, both OUTSIDE runTransaction (no I/O inside a Firestore transaction):
