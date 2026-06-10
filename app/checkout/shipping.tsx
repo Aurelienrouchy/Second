@@ -685,8 +685,6 @@ export default function ShippingCheckoutScreen() {
           clientSecret={clientSecret}
           visible={showStripePayment}
           onResult={handlePaymentResult}
-          onClose={() => { setShowStripePayment(false); setClientSecret(null); setServerBuyerTotal(null); }}
-          totalAmount={serverBuyerTotal ?? totalAmount}
         />
       )}
       </KeyboardAvoidingView>
