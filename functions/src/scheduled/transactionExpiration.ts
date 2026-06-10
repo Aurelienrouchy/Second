@@ -116,6 +116,7 @@ export const expireOrphanedTransactions = onSchedule(
         // whose status changed (e.g. a confirmation/payment landing) in that
         // window. The per-doc tx only cancels while status is STILL
         // 'meetup_pending', and tolerates a missing article.
+        const cancelledMeetups: { id: string; data: FirebaseFirestore.DocumentData }[] = [];
         for (const doc of meetupSnap.docs) {
           try {
             const cancelled = await db.runTransaction(async (tx) => {
@@ -140,7 +141,10 @@ export const expireOrphanedTransactions = onSchedule(
               }
               return true;
             });
-            if (cancelled) totalExpired++;
+            if (cancelled) {
+              totalExpired++;
+              cancelledMeetups.push({ id: doc.id, data: doc.data() });
+            }
           } catch (cancelErr) {
             logger.error('[expireOrphanedTransactions] failed to cancel meetup_pending tx', {
               transactionId: doc.id,
@@ -149,13 +153,10 @@ export const expireOrphanedTransactions = onSchedule(
           }
         }
 
-        // Loi 25 art. 12.1 — after the cancellations commit, journal each
-        // AUTOMATED decision and notify the affected parties that the
-        // cancellation was automatic and can be contested. Best-effort; never
-        // affects the cancellation itself.
-        for (const doc of meetupSnap.docs) {
-          const data = doc.data();
-          const transactionId = doc.id;
+        // Loi 25 art. 12.1 — journal each AUTOMATED cancellation that ACTUALLY
+        // happened (status re-check passed) and notify the affected parties.
+        // Best-effort; never affects the cancellation itself.
+        for (const { id: transactionId, data } of cancelledMeetups) {
           await logAutomatedDecision({
             transactionId,
             userId: typeof data.buyerId === 'string' ? data.buyerId : (data.sellerId ?? ''),
