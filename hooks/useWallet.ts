@@ -51,6 +51,8 @@ export function useWallet(enabled = true, userId?: string) {
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
+  // Invalidating the `wallet` root key also refreshes the withdrawals list
+  // (queryKeys.wallet.withdrawals lives under the same `['wallet']` prefix).
   const invalidateWallet = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
 
