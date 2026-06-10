@@ -654,8 +654,10 @@ export function createStripeMock(): StripeMock {
       calls.transfersCreateReversal.length = 0;
       calls.payoutsCreate.length = 0;
       calls.payoutsRetrieve.length = 0;
+      calls.paymentIntentsCreate.length = 0;
       calls.paymentIntentsRetrieve.length = 0;
       calls.paymentIntentsCancel.length = 0;
+      calls.chargesRetrieve.length = 0;
       calls.accountsRetrieve.length = 0;
       calls.accountsUpdate.length = 0;
       calls.accountsCreateExternalAccount.length = 0;
