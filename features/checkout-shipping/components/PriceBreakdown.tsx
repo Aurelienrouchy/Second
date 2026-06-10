@@ -21,6 +21,12 @@ interface PriceBreakdownProps {
   selectedEstimate: ShippingEstimate | null;
   serviceFee: number;
   totalAmount: number;
+  /**
+   * Sales tax (TPS/TVQ) charged on the service fee. 0 when TAX_ENABLED=false
+   * (backend default) — the line is then hidden, leaving the recap visually
+   * unchanged. Already included in `totalAmount` when > 0 (audit F133).
+   */
+  taxTotal?: number;
 }
 
 // =============================================================================
