@@ -726,7 +726,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
   let trackingNumber = '';
   let labelUrl = '';
   let trackingUrl = '';
-  let carrierCode = '';
 
   if (result.deliveryType === 'shipping') {
     const rateId = result.shipEngineRateId;
