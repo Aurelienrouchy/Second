@@ -39,6 +39,10 @@ import { calculateFees } from '../utils/fees';
 import { getOrCreateSellerWallet } from './wallet';
 import { updateUserRating } from './reviews';
 import { sendPushNotification } from '../utils/notifications';
+import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
+
+/** Rate-limit sliding window (1 min), aligned with payments.ts. */
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 /**
  * Deterministic document id for the single permanent generalist Swap Zone.
