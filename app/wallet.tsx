@@ -617,10 +617,36 @@ export default function WalletScreen() {
           </View>
         )}
 
+        {/* Payouts blocked banner — action required (F62/F117) */}
+        {payoutsBlocked && (
+          <Pressable
+            style={styles.payoutBlockedBanner}
+            onPress={() => router.push('/settings/stripe-onboarding')}
+            testID="wallet-payouts-blocked"
+          >
+            <View style={styles.payoutBlockedIcon}>
+              <Ionicons name="alert-circle" size={18} color={colors.danger} />
+            </View>
+            <View style={styles.bucketTextBlock}>
+              <Text style={styles.debtTitle}>
+                Retraits indisponibles : action requise
+              </Text>
+              <Text style={styles.debtBody}>
+                La verification de votre compte de paiement doit etre completee
+                avant de pouvoir retirer vos fonds. Touchez pour la finaliser.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.danger} />
+          </Pressable>
+        )}
+
         {/* Action buttons */}
         <View style={styles.actionRow}>
           <Pressable
-            style={[styles.actionButton, hasDebt && styles.actionButtonDisabled]}
+            style={[
+              styles.actionButton,
+              (hasDebt || payoutsBlocked) && styles.actionButtonDisabled,
+            ]}
             onPress={handleWithdrawPress}
             testID="wallet-withdraw-button"
           >
