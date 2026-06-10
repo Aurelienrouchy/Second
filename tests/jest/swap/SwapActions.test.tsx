@@ -200,6 +200,12 @@ describe('SwapActions — statut photos_pending', () => {
     expect(screen.getByText("En attente des photos de l'autre participant")).toBeOnTheScreen();
     expect(screen.queryByText('Ajouter des photos')).toBeNull();
   });
+
+  it('expose l’ouverture de litige dès photos_pending (F51)', () => {
+    renderActions({ status: 'photos_pending', participant: { hasUploadedPhotos: true } });
+
+    expect(screen.getByText('Ouvrir un litige')).toBeOnTheScreen();
+  });
 });
 
 describe('SwapActions — statut shipping', () => {
