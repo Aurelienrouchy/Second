@@ -82,26 +82,41 @@ export const stripeWebhook = onRequest(
     // =========================================================================
 
     const sig = req.headers['stripe-signature'] as string | undefined;
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    // F100: two Stripe endpoints (platform + Connect) share this URL, each with
+    // its own signing secret. Try every configured secret; the event is valid as
+    // soon as ONE constructEvent succeeds, and only rejected (401) when NONE do.
+    const candidateSecrets = [
+      process.env.STRIPE_WEBHOOK_SECRET,
+      process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+    ].filter((s): s is string => typeof s === 'string' && s.length > 0);
 
     let event;
 
-    if (endpointSecret && sig) {
-      // Production path: verify signature
-      try {
-        event = stripe.webhooks.constructEvent(
-          (req as any).rawBody,
-          sig,
-          endpointSecret
-        );
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        logger.error('Stripe webhook: signature verification failed', { error: message });
+    if (candidateSecrets.length > 0 && sig) {
+      // Production path: verify signature against each configured endpoint secret.
+      let lastError: unknown = null;
+      for (const secret of candidateSecrets) {
+        try {
+          event = stripe.webhooks.constructEvent((req as any).rawBody, sig, secret);
+          lastError = null;
+          break;
+        } catch (err: unknown) {
+          lastError = err;
+        }
+      }
+      if (!event) {
+        const message = lastError instanceof Error ? lastError.message : 'Unknown error';
+        logger.error('Stripe webhook: signature verification failed (all secrets)', {
+          error: message,
+          secretsTried: candidateSecrets.length,
+        });
         res.status(401).send(`Webhook signature verification failed: ${message}`);
         return;
       }
-    } else if (!endpointSecret) {
-      logger.error('Stripe webhook: STRIPE_WEBHOOK_SECRET not configured — rejecting request');
+    } else if (candidateSecrets.length === 0) {
+      logger.error(
+        'Stripe webhook: no webhook secret configured (STRIPE_WEBHOOK_SECRET / STRIPE_CONNECT_WEBHOOK_SECRET) — rejecting request'
+      );
       res.status(500).send('Webhook secret not configured');
       return;
     } else {
