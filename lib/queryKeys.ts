@@ -61,6 +61,11 @@ export const queryKeys = {
     all: ['wallet'] as const,
     info: () => ['wallet', 'info'] as const,
   },
+  stripe: {
+    all: ['stripe'] as const,
+    accountStatus: (userId?: string) =>
+      ['stripe', 'accountStatus', userId ?? null] as const,
+  },
   automatedDecisions: {
     all: ['automated-decisions'] as const,
     log: (transactionId: string) =>
