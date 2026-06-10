@@ -22,7 +22,11 @@ import { prefetchHome } from '@/features/home';
 import { colors } from '@/constants/theme';
 import { queryClient } from '@/lib/queryClient';
 import { draftService } from '@/services/draftService';
-import { STRIPE_PUBLISHABLE_KEY } from '@/config/stripeConfig';
+import {
+  STRIPE_PUBLISHABLE_KEY,
+  STRIPE_MERCHANT_IDENTIFIER,
+  STRIPE_URL_SCHEME,
+} from '@/config/stripeConfig';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
