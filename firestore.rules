@@ -296,6 +296,7 @@ service cloud.firestore {
           'stripeBankAccountLast4', 'stripeBankAccountStatus',
           'stripeRequirementsCurrentlyDue', 'stripeRequirementsPastDue',
           'stripeRequirementsDisabledReason', 'stripeRequirementsCurrentDeadline',
+          'stripeAccountCreatedAt',
           'dateOfBirth',
           'isVerified', 'rating', 'reviewCount', 'sellerLikesCount'
         ];
