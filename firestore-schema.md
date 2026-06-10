@@ -990,6 +990,33 @@ interface FailedOperationDocument {
 > normalizes those legacy docs (transactionId→refId, reason→error) before
 > dispatch, so both shapes are replayable.
 
+### Webhook infrastructure (`stripeWebhook` / `shipEngineWebhook`)
+
+`stripeWebhook` (`http/webhooks.ts`) accepts events from **two distinct Stripe
+endpoint registrations that must both point at the same Cloud Function URL**
+(`https://northamerica-northeast1-seconde-b47a6.cloudfunctions.net/stripeWebhook`):
+
+| Stripe endpoint | Events | Signing secret |
+| --- | --- | --- |
+| PLATFORM | `payment_intent.*`, `charge.*` (incl. `charge.refunded`, `charge.dispute.*`) | `STRIPE_WEBHOOK_SECRET` |
+| CONNECT  | `payout.paid`, `payout.failed`, `account.updated`, connected-account disputes | `STRIPE_CONNECT_WEBHOOK_SECRET` |
+
+Each endpoint signs with its own secret. The handler tries `constructEvent` with
+every configured secret and only rejects (401) when **none** verify (F100). Both
+secrets live in Secret Manager and are declared in the function `secrets` array.
+
+Idempotence: each event is deduped by a `stripe_events/{event.id}` marker that is
+written **only after the handler succeeds** — a handler that throws leaves no
+marker so Stripe re-delivers (3-day retry window) and the event is replayed; the
+per-handler status guards make a replay safe (F3). The collection is server-only.
+
+`shipEngineWebhook` (`http/shipEngineWebhook.ts`) is the intended primary tracking
+path (the every-12h `checkShippedTracking` poller is the safety net). It is
+authenticated by the `SHIPENGINE_WEBHOOK_SECRET` shared secret (header
+`X-ShipEngine-Webhook-Secret` or `?secret=` query, timing-safe; fail-closed 500 if
+the secret is unset). The function must be DEPLOYED and its URL+secret REGISTERED in
+ShipEngine for the webhook to fire (else it returns 404 — manual founder action).
+
 ### `disputes/{disputeId}`
 
 Buyer-opened dispute tickets (server-only writes). Created by
