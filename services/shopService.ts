@@ -81,6 +81,9 @@ export class ShopService {
         id: shopDoc.id,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
+        // tierPaidUntil is a Firestore Timestamp (CF-owned, F134) — convert so
+        // the upgrade screen can compare it against `now`.
+        tierPaidUntil: data.tierPaidUntil?.toDate?.() ?? undefined,
         verificationDetails: data.verificationDetails
           ? {
               ...data.verificationDetails,
