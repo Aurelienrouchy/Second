@@ -272,3 +272,98 @@ describe('createTransaction — server-side shipping re-pricing', () => {
     expect(shipEngineMock.getRatesCalls.length).toBe(0);
   });
 });
+
+// ===========================================================================
+// F134 — paid-shop buyer-fee reduction only honoured for an ACTIVE forfait
+// ===========================================================================
+
+describe('createTransaction — paid-shop tier expiry (F134)', () => {
+  function inMonths(n: number): Date {
+    const d = new Date();
+    d.setMonth(d.getMonth() + n);
+    return d;
+  }
+
+  it('applies the pro reduction (50%) when the forfait is active', async () => {
+    seedArticleAndSeller(50);
+    // Approved shop owned by the seller, pro tier, paid into the future.
+    fs.setDoc('shops/shop1', {
+      ownerId: 'seller1',
+      status: 'approved',
+      tier: 'pro',
+      tierPaidUntil: inMonths(2),
+    });
+    shipEngineMock.getRatesImpl = () => [rate('se_rate_real', 10)];
+
+    const result = await callCreate({
+      auth: { uid: 'buyer1' },
+      data: {
+        articleId: 'art1',
+        deliveryType: 'shipping',
+        amount: 50,
+        shippingCost: 10,
+        shippingAddress: VALID_ADDRESS,
+        shipEngineRateId: 'se_rate_real',
+      },
+    });
+
+    const tx = fs.getDoc(`transactions/${result.transactionId as string}`)!;
+    // Full fee for a 50$ article = 4.00; pro reduction 0.5 → 2.00.
+    expect(tx.serviceFee).toBe(2.0);
+    expect(tx.buyerFeeReduction).toBe(0.5);
+  });
+
+  it('IGNORES an expired forfait (tierPaidUntil in the past) → full fee', async () => {
+    seedArticleAndSeller(50);
+    fs.setDoc('shops/shop1', {
+      ownerId: 'seller1',
+      status: 'approved',
+      tier: 'pro',
+      tierPaidUntil: inMonths(-1), // expired last month
+    });
+    shipEngineMock.getRatesImpl = () => [rate('se_rate_real', 10)];
+
+    const result = await callCreate({
+      auth: { uid: 'buyer1' },
+      data: {
+        articleId: 'art1',
+        deliveryType: 'shipping',
+        amount: 50,
+        shippingCost: 10,
+        shippingAddress: VALID_ADDRESS,
+        shipEngineRateId: 'se_rate_real',
+      },
+    });
+
+    const tx = fs.getDoc(`transactions/${result.transactionId as string}`)!;
+    // Expired tier → no reduction → full 4.00 fee.
+    expect(tx.serviceFee).toBe(4.0);
+    expect(tx.buyerFeeReduction).toBe(0);
+  });
+
+  it('IGNORES a tier with no tierPaidUntil at all → full fee', async () => {
+    seedArticleAndSeller(50);
+    fs.setDoc('shops/shop1', {
+      ownerId: 'seller1',
+      status: 'approved',
+      tier: 'premium', // would be 100% reduction IF active, but never paid
+    });
+    shipEngineMock.getRatesImpl = () => [rate('se_rate_real', 10)];
+
+    const result = await callCreate({
+      auth: { uid: 'buyer1' },
+      data: {
+        articleId: 'art1',
+        deliveryType: 'shipping',
+        amount: 50,
+        shippingCost: 10,
+        shippingAddress: VALID_ADDRESS,
+        shipEngineRateId: 'se_rate_real',
+      },
+    });
+
+    const tx = fs.getDoc(`transactions/${result.transactionId as string}`)!;
+    expect(tx.serviceFee).toBe(4.0);
+    expect(tx.buyerFeeReduction).toBe(0);
+  });
+});
