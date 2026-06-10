@@ -201,6 +201,58 @@ describe('walletWithdraw — dispute guard', () => {
 });
 
 // ===========================================================================
+// B4. Restricted-account guard (KYC remediation in flight)
+// ===========================================================================
+
+describe('walletWithdraw — restricted account guard (B4)', () => {
+  it('refuses withdrawal when stripeRequirementsDisabledReason is set (payouts flag still true)', async () => {
+    seedSeller({ balance: 5000 });
+    // Stripe flagged a disabled_reason but has not yet flipped payouts_enabled.
+    fs.setDoc('users/seller1', {
+      stripeAccountId: 'acct_seller1',
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
+      stripeAccountStatus: 'restricted',
+      stripeRequirementsDisabledReason: 'requirements.past_due',
+    });
+
+    await expect(
+      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+    await expect(
+      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+    ).rejects.toThrow('restreint');
+
+    // No money moved.
+    expect(stripeMock.calls.transfersCreate.length).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(5000);
+  });
+
+  it('refuses withdrawal when stripeAccountStatus is restricted (no disabledReason field present)', async () => {
+    seedSeller({ balance: 5000 });
+    fs.setDoc('users/seller1', {
+      stripeAccountId: 'acct_seller1',
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
+      stripeAccountStatus: 'restricted',
+    });
+
+    await expect(
+      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(stripeMock.calls.transfersCreate.length).toBe(0);
+  });
+
+  it('allows withdrawal for an active account with no restriction markers', async () => {
+    seedSeller({ balance: 5000 });
+    // seedSeller already sets stripeAccountStatus absent / not restricted.
+    const result = await callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } });
+    expect(result.success).toBe(true);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
+  });
+});
+
+// ===========================================================================
 // 6b. sellerDebt guard
 // ===========================================================================
 
