@@ -475,8 +475,8 @@ export default function WalletScreen() {
   }, [wallet, withdrawalInput, isWithdrawing, withdraw, presentWithdrawError]);
 
   const handleRefresh = useCallback(async () => {
-    await refetch();
-  }, [refetch]);
+    await Promise.all([refetch(), refetchWithdrawals()]);
+  }, [refetch, refetchWithdrawals]);
 
   const handleProtectionInfo = useCallback(() => {
     Alert.alert(WALLET_COPY.protectionTitle, WALLET_COPY.protectionBody, [
