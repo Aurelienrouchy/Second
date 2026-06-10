@@ -211,3 +211,51 @@ describe('swapService — getActiveSwaps (filtre statut)', () => {
     expect(statuses).not.toContain('completed');
   });
 });
+
+describe('swapService — openSwapDispute (F48/F51)', () => {
+  it('délègue à la callable openSwapDispute avec swapId + reason', async () => {
+    const callable = jest.fn((..._args: unknown[]) =>
+      Promise.resolve({ data: { success: true } }),
+    );
+    (httpsCallable as jest.Mock).mockReturnValue(callable);
+
+    await openSwapDispute('swap-1', "Je n'ai pas reçu l'article");
+
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'openSwapDispute');
+    expect(callable).toHaveBeenCalledWith({
+      swapId: 'swap-1',
+      reason: "Je n'ai pas reçu l'article",
+    });
+  });
+});
+
+describe('swapService — resolveSwapDispute (F48, admin)', () => {
+  it('délègue refund_payer avec note', async () => {
+    const callable = jest.fn((..._args: unknown[]) =>
+      Promise.resolve({ data: { success: true } }),
+    );
+    (httpsCallable as jest.Mock).mockReturnValue(callable);
+
+    await resolveSwapDispute('swap-1', 'refund_payer', 'remboursement payeur');
+
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'resolveSwapDispute');
+    expect(callable).toHaveBeenCalledWith({
+      swapId: 'swap-1',
+      issue: 'refund_payer',
+      note: 'remboursement payeur',
+    });
+  });
+
+  it('délègue release_payee et omet note quand absente (jamais undefined)', async () => {
+    const callable = jest.fn((..._args: unknown[]) =>
+      Promise.resolve({ data: { success: true } }),
+    );
+    (httpsCallable as jest.Mock).mockReturnValue(callable);
+
+    await resolveSwapDispute('swap-2', 'release_payee');
+
+    const payload = callable.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload).toEqual({ swapId: 'swap-2', issue: 'release_payee' });
+    expect('note' in payload).toBe(false);
+  });
+});
