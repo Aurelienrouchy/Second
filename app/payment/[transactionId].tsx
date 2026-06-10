@@ -866,6 +866,17 @@ const styles = StyleSheet.create({
     color: colors.cream,
     textTransform: 'uppercase',
   },
+  cancelLink: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  cancelLinkText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.muted,
+  },
   disclaimer: {
     fontFamily: fonts.sans,
     fontSize: 10,
