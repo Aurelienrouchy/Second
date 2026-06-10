@@ -635,8 +635,10 @@ export function createStripeMock(): StripeMock {
         throw new Error('constructEvent not stubbed for this test');
       };
       impl.refundsCreate = async () => ({ id: 'rf_default' });
+      impl.paymentIntentsCreate = async () => ({ id: 'pi_default', client_secret: 'pi_default_secret' });
       impl.paymentIntentsRetrieve = async () => ({ status: 'requires_payment_method' });
       impl.paymentIntentsCancel = async () => ({ id: 'pi_cancelled' });
+      impl.chargesRetrieve = async () => ({ id: 'ch_default', balance_transaction: { fee: 0 } });
       impl.transfersCreate = async () => ({ id: 'tr_default' });
       impl.transfersCreateReversal = async () => ({ id: 'trr_default' });
       impl.payoutsCreate = async () => ({ id: 'po_default' });
