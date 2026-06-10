@@ -131,6 +131,24 @@ export async function revertFailedPayout(
     });
   });
 
+  // F43: the wallet to re-credit was missing — surface an operator alert so the
+  // owed amount is never lost in silence (the request is still marked 'failed').
+  if (walletMissingOwedCents > 0) {
+    await writeAdminAlert({
+      kind: 'payout_recredit_no_wallet',
+      severity: 'critical',
+      refId: withdrawalRequestId,
+      message:
+        'Échec de retrait à restituer mais porte-monnaie introuvable — re-crédit impossible, intervention requise.',
+      context: {
+        withdrawalRequestId,
+        ownerId: walletMissingOwnerId,
+        owedCents: walletMissingOwedCents,
+        payoutId: input.payoutId ?? null,
+      },
+    });
+  }
+
   // Reverse the platform->connected transfer so the funds do not stay stranded
   // on the Custom account (which would double-finance the next withdrawal). This
   // runs OUTSIDE the runTransaction (Stripe network) and is idempotent via the
