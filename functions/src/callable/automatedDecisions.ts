@@ -100,12 +100,33 @@ export async function logAutomatedDecision(
       }
     }
 
+    // F113 — denormalise the transaction parties onto the log doc so the read
+    // rule on automatic_decisions_log can authorise the buyer/seller WITHOUT a
+    // per-row cross-collection get() at list time (the expensive path). Writes
+    // are rare scheduled events, so one extra read here trades a frequent read
+    // cost for a one-off write cost. Best-effort: a lookup miss never blocks the
+    // log (the rule keeps a legacy get() fallback for docs missing these).
+    let buyerId: string | null = null;
+    let sellerId: string | null = null;
+    try {
+      const txSnap = await db.collection('transactions').doc(input.transactionId).get();
+      if (txSnap.exists) {
+        const tx = txSnap.data()!;
+        buyerId = typeof tx.buyerId === 'string' ? tx.buyerId : null;
+        sellerId = typeof tx.sellerId === 'string' ? tx.sellerId : null;
+      }
+    } catch {
+      // ignore — denormalisation is best-effort, the rule falls back to get()
+    }
+
     const ref = await db.collection('automatic_decisions_log').add({
       transactionId: input.transactionId,
       userId: input.userId,
       decisionType: input.decisionType,
       criteria,
       result: typeof input.result === 'string' ? input.result : '',
+      buyerId,
+      sellerId,
       executedAt: FieldValue.serverTimestamp(),
     });
 
