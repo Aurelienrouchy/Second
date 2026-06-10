@@ -1854,6 +1854,56 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
         }
       }
 
+      // F40: re-credit the buyer's WALLET portion of a mixed payment. The bank
+      // refunds the card portion on a chargeback; the wallet portion is the
+      // platform's responsibility. Idempotent: this LOST branch only runs while
+      // status === 'disputed' and ends by setting status='refunded', so a replay
+      // (already 'refunded') never re-enters and never double-credits.
+      if (buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists && buyerWalletAmountUsed > 0) {
+        const bwd = buyerWalletSnap.data()!;
+        tx.update(buyerWalletRef, {
+          balance: FieldValue.increment(buyerWalletAmountUsed),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+        tx.set(buyerLedgerRef, {
+          type: 'refund_credit',
+          amount: buyerWalletAmountUsed,
+          balanceAfter: (bwd.balance || 0) + buyerWalletAmountUsed,
+          description: 'Litige perdu — portion porte-monnaie restituée',
+          transactionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        logger.info('Stripe webhook: dispute.closed LOST — buyer wallet portion re-credited', {
+          transactionId,
+          buyerId,
+          walletCents: buyerWalletAmountUsed,
+        });
+      } else if (buyerHasWalletPortion && (!buyerWalletSnap || !buyerWalletSnap.exists)) {
+        // F40/F93: the buyer wallet doc is gone — do not silently drop the
+        // re-credit. Create it with the owed balance so the buyer is made whole.
+        const recreateRef = db.collection('wallets').doc(buyerId);
+        tx.set(
+          recreateRef,
+          {
+            balance: FieldValue.increment(buyerWalletAmountUsed),
+            status: 'active',
+            currency: 'cad',
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        const buyerLedgerRef = recreateRef.collection('ledger').doc();
+        tx.set(buyerLedgerRef, {
+          type: 'refund_credit',
+          amount: buyerWalletAmountUsed,
+          balanceAfter: buyerWalletAmountUsed,
+          description: 'Litige perdu — portion porte-monnaie restituée (porte-monnaie recréé)',
+          transactionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+
       tx.update(txDoc.ref, {
         status: 'refunded',
         disputed: false,
