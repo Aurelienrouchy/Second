@@ -1566,38 +1566,65 @@ export const createStripeConnectAccount = onCall(
 
       const userData = userDoc.data()!;
 
-      // Idempotent: if account already exists, retrieve current status and return
+      // Idempotent: if account already exists, retrieve current status and return.
+      // F67 — derive the canonical state via the single source of truth
+      // (deriveStripeAccountState) so the status string written here matches the
+      // webhook / getStripeAccountStatus / addBankAccount writers exactly,
+      // instead of an ad-hoc 3-way mapping that omitted 'restricted' /
+      // 'partially_active' and the requirements.
       if (userData.stripeAccountId) {
-        const existingAccount = await stripe.accounts.retrieve(userData.stripeAccountId);
-
-        // Sync latest status to Firestore
-        const status = existingAccount.charges_enabled && existingAccount.payouts_enabled
-          ? 'active'
-          : existingAccount.details_submitted ? 'pending_verification' : 'pending';
-
-        await userRef.update({
-          stripeAccountStatus: status,
-          stripeChargesEnabled: existingAccount.charges_enabled,
-          stripePayoutsEnabled: existingAccount.payouts_enabled,
-          stripeDetailsSubmitted: existingAccount.details_submitted,
+        const existingAccount = await stripe.accounts.retrieve(userData.stripeAccountId, {
+          expand: ['external_accounts'],
         });
+        const state = deriveStripeAccountState(existingAccount);
+        await userRef.update(stripeAccountFirestoreFields(state));
 
         logger.info('Stripe Custom account already exists — returning status', {
           userId,
           stripeAccountId: userData.stripeAccountId,
-          chargesEnabled: existingAccount.charges_enabled,
+          chargesEnabled: state.chargesEnabled,
+          status: state.status,
         });
 
         return {
           success: true,
           stripeAccountId: userData.stripeAccountId,
-          chargesEnabled: existingAccount.charges_enabled,
-          payoutsEnabled: existingAccount.payouts_enabled,
-          detailsSubmitted: existingAccount.details_submitted,
-          requirements: existingAccount.requirements?.currently_due || [],
-          status,
+          chargesEnabled: state.chargesEnabled,
+          payoutsEnabled: state.payoutsEnabled,
+          detailsSubmitted: state.detailsSubmitted,
+          requirements: state.requirementsCurrentlyDue,
+          status: state.status,
         };
       }
+
+      // F69 — claim account creation ATOMICALLY to prevent two concurrent calls
+      // each creating a Custom account (one becomes a KYC+bank-bearing orphan).
+      // We re-read inside a transaction: the winner stamps a creation lock and
+      // proceeds; any concurrent caller sees either the stripeAccountId (a faster
+      // call already finished) or the in-progress lock and bails with 'aborted'.
+      // A stale lock (>2 min, e.g. a crash mid-create) is reclaimable so a real
+      // failure never blocks the seller forever.
+      const CREATION_LOCK_STALE_MS = 2 * 60 * 1000;
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        const d = snap.data() || {};
+        if (d.stripeAccountId) {
+          throw new HttpsError(
+            'aborted',
+            'Un compte de paiement a deja ete cree. Veuillez rafraichir.'
+          );
+        }
+        const startedAt = d.stripeAccountCreationStartedAt;
+        const startedMs =
+          startedAt && typeof startedAt.toMillis === 'function' ? startedAt.toMillis() : 0;
+        if (startedMs > 0 && Date.now() - startedMs < CREATION_LOCK_STALE_MS) {
+          throw new HttpsError(
+            'aborted',
+            'La creation de votre compte de paiement est deja en cours. Veuillez patienter.'
+          );
+        }
+        tx.update(userRef, { stripeAccountCreationStartedAt: FieldValue.serverTimestamp() });
+      });
 
       // ── Create the full Custom account ──────────────────────────────────
 
