@@ -365,11 +365,6 @@ export default function ShopUpgradeScreen() {
           clientSecret={clientSecret}
           visible={showStripePayment}
           onResult={handlePaymentResult}
-          onClose={() => {
-            setShowStripePayment(false);
-            setClientSecret(null);
-          }}
-          totalAmount={sheetTotal}
         />
       )}
     </View>
