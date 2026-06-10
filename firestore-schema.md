@@ -1095,17 +1095,28 @@ endpoint registrations that must both point at the same Cloud Function URL**
 
 | Stripe endpoint | Events | Signing secret |
 | --- | --- | --- |
-| PLATFORM | `payment_intent.*`, `charge.*` (incl. `charge.refunded`, `charge.dispute.*`) | `STRIPE_WEBHOOK_SECRET` |
-| CONNECT  | `payout.paid`, `payout.failed`, `account.updated`, connected-account disputes | `STRIPE_CONNECT_WEBHOOK_SECRET` |
+| PLATFORM | `payment_intent.*`, `charge.refunded`, `charge.dispute.*` (incl. `funds_withdrawn`/`funds_reinstated`), `refund.failed`/`refund.updated`, `transfer.reversed` | `STRIPE_WEBHOOK_SECRET` |
+| CONNECT  | `payout.paid`, `payout.failed`, `payout.canceled`, `account.updated`, connected-account disputes | `STRIPE_CONNECT_WEBHOOK_SECRET` |
 
 Each endpoint signs with its own secret. The handler tries `constructEvent` with
 every configured secret and only rejects (401) when **none** verify (F100). Both
 secrets live in Secret Manager and are declared in the function `secrets` array.
 
+Newly-handled events (F42/F104/F106): `payout.canceled` (treated like
+`payout.failed` → `revertFailedPayout`); `refund.failed` / `refund.updated`→failed
+(raise a critical `admin_alerts` doc — the internal tx says 'refunded' but the
+buyer was never reimbursed); `charge.dispute.funds_withdrawn`/`funds_reinstated`,
+`transfer.reversed` (informational — log + ACK 200, never 400). A lost
+`payment_intent.succeeded` is dead-lettered (`kind: lost_pi_succeeded_webhook`) and
+auto-replayed by `retryFailedOperations` via `redrivePaymentIntentSucceeded` (F77).
+
 Idempotence: each event is deduped by a `stripe_events/{event.id}` marker that is
 written **only after the handler succeeds** — a handler that throws leaves no
 marker so Stripe re-delivers (3-day retry window) and the event is replayed; the
 per-handler status guards make a replay safe (F3). The collection is server-only.
+Each marker carries `expiresAt = now + 90d` (F107) so a Firestore **TTL policy on
+`stripe_events.expiresAt`** can purge old markers (90d ≫ Stripe's 3-day retry
+window). The TTL policy itself is a console/gcloud action (founder).
 
 `shipEngineWebhook` (`http/shipEngineWebhook.ts`) is the intended primary tracking
 path (the every-12h `checkShippedTracking` poller is the safety net). It is
