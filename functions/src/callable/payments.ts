@@ -2739,6 +2739,22 @@ export const adminRefundTransaction = onCall(
         relistArticle: true,
         source: 'adminRefundTransaction',
       });
+
+      // F27/F88: a refund resolves the linked human-review dispute(s). Without
+      // this every dispute stays 'open' forever — the admin disputes list never
+      // empties AND the deleteUserAccount gate blocks both parties' deletion for
+      // life. Best-effort: the money has already moved, so a dispute-close
+      // failure must never surface as a refund failure.
+      await resolveOpenDisputesForTransaction(transactionId, {
+        resolvedBy: request.auth.uid,
+        resolution: 'refunded',
+      }).catch((e) => {
+        logger.error('[adminRefundTransaction] failed to close linked disputes', {
+          transactionId,
+          error: e instanceof Error ? e.message : e,
+        });
+      });
+
       logger.warn('[adminRefundTransaction] transaction refunded by admin', {
         transactionId,
         adminUid: request.auth.uid,
