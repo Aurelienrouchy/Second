@@ -465,8 +465,10 @@ export function createFirestoreMock(): MockFirestore {
 export interface StripeMockImpl {
   constructEvent: (...a: unknown[]) => unknown;
   refundsCreate: (...a: unknown[]) => unknown;
+  paymentIntentsCreate: (...a: unknown[]) => unknown;
   paymentIntentsRetrieve: (...a: unknown[]) => unknown;
   paymentIntentsCancel: (...a: unknown[]) => unknown;
+  chargesRetrieve: (...a: unknown[]) => unknown;
   transfersCreate: (...a: unknown[]) => unknown;
   transfersCreateReversal: (...a: unknown[]) => unknown;
   payoutsCreate: (...a: unknown[]) => unknown;
