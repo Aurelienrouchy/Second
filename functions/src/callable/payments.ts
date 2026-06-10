@@ -2203,9 +2203,10 @@ export const acceptMeetupOffer = onCall(
         transactionId: result.transactionId,
         buyerId: result.buyerId,
         sellerId: result.sellerId,
+        reused: result.reused,
       });
 
-      return { success: true, transactionId: result.transactionId };
+      return { success: true, transactionId: result.transactionId, reused: result.reused };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
