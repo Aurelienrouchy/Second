@@ -1313,6 +1313,23 @@ async function handleShopTierSucceeded(paymentIntent: any): Promise<void> {
     }
     const shop = snap.data()!;
 
+    // B10 (defensive): the callable refuses non-approved shops, but a shop could
+    // be suspended/rejected between purchase and this webhook (race). Stamping a
+    // tier here would encash a forfait that grants no buyer-fee reduction. Do NOT
+    // stamp — surface for manual refund (admin_alert) and ACK 200.
+    if (shop.status !== 'approved') {
+      logger.error('Stripe webhook: shop_tier shop not approved at confirmation', {
+        shopId,
+        status: shop.status,
+        paymentIntentId: paymentIntent.id,
+      });
+      return {
+        applied: false as const,
+        reason: 'not_approved' as const,
+        status: typeof shop.status === 'string' ? shop.status : 'unknown',
+      };
+    }
+
     // Amount mismatch: deterministic (the captured amount and server price will
     // not change on a Stripe retry). Persist the PI id + dead-letter, ACK 200.
     if (Math.abs(amountReceivedCents - expectedCents) > 1) {
