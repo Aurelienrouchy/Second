@@ -38,6 +38,74 @@ const BUYER_FEE_MIN = parseFloat(
 );
 
 // =============================================================================
+// TAXES TPS/TVQ — INFRASTRUCTURE DERRIÈRE FLAG (OFF par défaut)
+// =============================================================================
+//
+// ⚠️ ACTION MÉTIER REQUISE AVANT D'ACTIVER (TAX_ENABLED=true) ⚠️
+// Activer la taxe est une décision FISCALE du fondateur, PAS technique :
+//   - immatriculation TPS (numéro fédéral) + TVQ (numéro Revenu Québec)
+//     obligatoire avant de percevoir et remettre la taxe ;
+//   - seuil de petit fournisseur (30 000 $ / 4 trimestres) ;
+//   - statuer AVEC UN FISCALISTE sur la taxe du shipping refacturé — HORS SCOPE
+//     ici : on ne taxe QUE le service fee (la part de revenu plateforme,
+//     fourniture taxable en facilitateur de marketplace). Le shipping refacturé
+//     est laissé non taxé tant que le traitement n'est pas tranché.
+//
+// Tant que TAX_ENABLED=false (défaut), la taxe vaut 0 et `buyerTotal` est
+// STRICTEMENT inchangé (zéro régression). Quand true, la taxe s'ajoute au
+// `buyerTotal` et est conservée par la plateforme (incluse dans la charge
+// plateforme — pas de transfer_data, modèle vague 1).
+
+/** Active la perception de la taxe. OFF par défaut (décision fiscale fondateur). */
+const TAX_ENABLED = (process.env.TAX_ENABLED || 'false').toLowerCase() === 'true';
+
+/** Taux TPS (fédéral) — 5% par défaut. */
+const GST_RATE = parseFloat(process.env.GST_RATE || '0.05');
+
+/** Taux TVQ (Québec) — 9,975% par défaut. */
+const QST_RATE = parseFloat(process.env.QST_RATE || '0.09975');
+
+export interface TaxConfig {
+  enabled: boolean;
+  gstRate: number;
+  qstRate: number;
+}
+
+/**
+ * Config taxe serveur (jamais fournie par le client). Réglable via env vars :
+ *   TAX_ENABLED (défaut 'false'), GST_RATE (0.05), QST_RATE (0.09975).
+ */
+export function getTaxConfig(): TaxConfig {
+  return { enabled: TAX_ENABLED, gstRate: GST_RATE, qstRate: QST_RATE };
+}
+
+export interface TaxBreakdown {
+  /** TPS calculée sur le service fee (0 quand OFF). */
+  gst: number;
+  /** TVQ calculée sur le service fee (0 quand OFF). */
+  qst: number;
+  /** Total taxe = gst + qst (0 quand OFF). */
+  taxTotal: number;
+  /** Taxe perçue sur le service fee uniquement (= taxTotal — shipping non taxé). */
+  taxOnServiceFee: number;
+}
+
+/**
+ * Calcule la taxe SUR LE SERVICE FEE uniquement. Retourne tout à 0 quand
+ * TAX_ENABLED est false (invariance garantie). Le shipping refacturé n'est PAS
+ * taxé ici (hors scope — à trancher avec un fiscaliste).
+ */
+function computeTaxOnServiceFee(serviceFee: number): TaxBreakdown {
+  if (!TAX_ENABLED || typeof serviceFee !== 'number' || !isFinite(serviceFee) || serviceFee <= 0) {
+    return { gst: 0, qst: 0, taxTotal: 0, taxOnServiceFee: 0 };
+  }
+  const gst = Math.round(serviceFee * GST_RATE * 100) / 100;
+  const qst = Math.round(serviceFee * QST_RATE * 100) / 100;
+  const taxTotal = Math.round((gst + qst) * 100) / 100;
+  return { gst, qst, taxTotal, taxOnServiceFee: taxTotal };
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
