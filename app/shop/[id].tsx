@@ -594,5 +594,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
+  manageTierButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.rust,
+    padding: 16,
+    borderRadius: 8,
+  },
+  manageTierButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.cream,
+  },
 });
 
