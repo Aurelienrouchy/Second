@@ -1115,10 +1115,13 @@ export const createStripeCheckout = onCall(
         // freshly-debited amount, or the previously-recorded one on a retry.
         const effectiveWalletAmount = alreadyDebitedAmount > 0 ? alreadyDebitedAmount : walletAmount;
 
-        // Update fee fields atomically + wallet info
+        // Update fee fields atomically + wallet info. taxTotal is additive (0
+        // when TAX_ENABLED=false) and persisted so the webhook's platform_ledger
+        // remittance register reuses the authoritative figure.
         const updateData: Record<string, any> = {
           serviceFee: calculatedFees.serviceFee,
           serviceFeePercent: calculatedFees.serviceFeePercent,
+          taxTotal: calculatedFees.taxTotal,
           totalAmount: calculatedFees.buyerTotal,
           sellerPayout: calculatedFees.sellerPayout,
         };
