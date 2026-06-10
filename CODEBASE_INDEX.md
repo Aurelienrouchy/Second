@@ -326,6 +326,8 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `fixStorageUrl.ts` | Normalise URLs Firebase Storage |
 | `formatName.ts` | Formatage noms |
 | `imageUtils.ts` | Helpers images |
+| `stripePaymentError.ts` | Classifie une erreur Stripe Payment Sheet → titre/message/retryable FR |
+| `callableError.ts` | Mappe une erreur `httpsCallable` (code `functions/*`) → titre/message FR (rate-limit, permission, failed-precondition…), F129 |
 
 ## Config — `config/`
 
