@@ -1267,9 +1267,23 @@ export const createStripeCheckout = onCall(
             error: stripeError instanceof Error ? stripeError.message : stripeError,
           });
 
+          // F23: re-credit the wallet AND clear walletAmountUsed/paidVia on the
+          // transaction in ONE atomic runTransaction. Previously these were two
+          // separate operations: if the process died between them, the wallet was
+          // refunded but the tx still showed paidVia='wallet_and_card' +
+          // walletAmountUsed>0, so a later refund path would re-credit the wallet
+          // a second time. Fusing them removes that window entirely.
           const buyerWalletRef = db.collection('wallets').doc(request.auth!.uid);
           await db.runTransaction(async (revertTx) => {
             const walletSnap = await revertTx.get(buyerWalletRef);
+
+            // Always clear the wallet markers on the tx — even if the wallet doc
+            // is gone — so no refund path can re-credit a phantom wallet portion.
+            revertTx.update(txRef, {
+              walletAmountUsed: FieldValue.delete(),
+              paidVia: FieldValue.delete(),
+            });
+
             if (!walletSnap.exists) return;
 
             const walletData = walletSnap.data()!;
@@ -1287,12 +1301,6 @@ export const createStripeCheckout = onCall(
               transactionId,
               createdAt: FieldValue.serverTimestamp(),
             });
-          });
-
-          // Also revert the paidVia/walletAmountUsed fields on the transaction
-          await txRef.update({
-            walletAmountUsed: FieldValue.delete(),
-            paidVia: FieldValue.delete(),
           });
 
           throw stripeError;
