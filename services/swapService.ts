@@ -426,9 +426,13 @@ export async function rateSwap(
 
 /**
  * Open a dispute on a swap — delegates to Cloud Function `openSwapDispute`.
- * Callable by either participant while the swap is in `shipping` or
- * `completed`. The function transitions the swap to `disputed` (via
- * runTransaction) and refunds any paid cash top-up to the payer.
+ * Callable by either participant while the swap is in `accepted`,
+ * `photos_pending`, `shipping`, or `completed` (within the 7-day window). The
+ * function FREEZES the swap (status `disputed`) but no longer refunds anything
+ * on its own — the money decision is reserved for the admin callable
+ * `resolveSwapDispute` (F48 hardening). Opening a dispute from `accepted`/
+ * `photos_pending` is the exit for a top-up payer stuck waiting on a silent
+ * counterparty (F51).
  */
 export async function openSwapDispute(swapId: string, reason: string): Promise<void> {
   const disputeFn = httpsCallable<{ swapId: string; reason: string }, { success: boolean }>(
@@ -436,6 +440,33 @@ export async function openSwapDispute(swapId: string, reason: string): Promise<v
     'openSwapDispute'
   );
   await disputeFn({ swapId, reason });
+}
+
+/**
+ * F48 — ADMIN resolves a swap dispute. The ONLY way out of the terminal
+ * `disputed` state. Delegates to `resolveSwapDispute` (admin-only, double guard
+ * server-side):
+ *   - `refund_payer`  → refund the paid top-up + release both parties' articles
+ *                       + swap → `cancelled`.
+ *   - `release_payee` → move the top-up complement to the payee's withdrawable
+ *                       balance + swap → `completed` (the exchange stands).
+ * Idempotent on the swap doc (a swap not in `disputed` is rejected).
+ */
+export async function resolveSwapDispute(
+  swapId: string,
+  issue: 'refund_payer' | 'release_payee',
+  note?: string
+): Promise<void> {
+  const resolveFn = httpsCallable<
+    { swapId: string; issue: 'refund_payer' | 'release_payee'; note?: string },
+    { success: boolean }
+  >(functions, 'resolveSwapDispute');
+  const payload: { swapId: string; issue: 'refund_payer' | 'release_payee'; note?: string } = {
+    swapId,
+    issue,
+  };
+  if (note) payload.note = note;
+  await resolveFn(payload);
 }
 
 /**
