@@ -119,6 +119,12 @@ export interface User {
   stripeChargesEnabled?: boolean;
   stripePayoutsEnabled?: boolean;
   stripeDetailsSubmitted?: boolean;
+  stripeRequirementsCurrentlyDue?: string[];
+  stripeRequirementsPastDue?: string[];
+  stripeRequirementsDisabledReason?: string | null;
+  stripeBankAccountAdded?: boolean;
+  stripeBankAccountLast4?: string;
+  stripeBankAccountStatus?: string;
 }
 
 /**
