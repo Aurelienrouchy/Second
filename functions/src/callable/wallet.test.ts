@@ -534,6 +534,18 @@ describe('walletWithdraw', () => {
     expect(ledgerSet!.data.type).toBe('withdrawal');
     expect(ledgerSet!.data.amount).toBe(2000);
     expect(ledgerSet!.data.balanceAfter).toBe(3000);
+
+    // F35/F103: the Stripe transfer/payout ids are persisted on the withdrawal
+    // request so reconcileWithdrawals can recover from a lost payout webhook.
+    const wrUpdate = writeOps.find(
+      (w) =>
+        w.path.startsWith('withdrawal_requests/') &&
+        w.method === 'update' &&
+        (w.data as Record<string, unknown>).stripeTransferId !== undefined
+    );
+    expect(wrUpdate).toBeDefined();
+    expect((wrUpdate!.data as Record<string, unknown>).stripeTransferId).toBe('tr_123');
+    expect((wrUpdate!.data as Record<string, unknown>).stripePayoutId).toBe('po_123');
   });
 
   it('accepts exact minimum amount of 1000', async () => {
