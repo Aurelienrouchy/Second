@@ -152,18 +152,37 @@ const STATUS_META: Record<TransactionStatus, StatusMeta> = {
   },
 };
 
+/**
+ * Defensive fallback for a status not present in `STATUS_META`. The literal
+ * union should cover every status the backend emits, but a server-side status
+ * added ahead of the app (or an unexpected value) must NEVER crash the order
+ * lists / chat (audit F126) — it renders a neutral, truthful pill instead.
+ */
+const FALLBACK_META: StatusMeta = {
+  labelBuyer: 'Statut en cours',
+  labelSeller: 'Statut en cours',
+  variant: 'default',
+  descriptionBuyer: 'Le statut de cette commande est en cours de mise à jour.',
+  descriptionSeller: 'Le statut de cette vente est en cours de mise à jour.',
+};
+
+/** Resolves status metadata with a defensive fallback for unknown values. */
+function resolveMeta(status: TransactionStatus): StatusMeta {
+  return STATUS_META[status] ?? FALLBACK_META;
+}
+
 /** Returns the status label for the given perspective. */
 export function getStatusLabel(
   status: TransactionStatus,
   perspective: StatusPerspective,
 ): string {
-  const meta = STATUS_META[status];
+  const meta = resolveMeta(status);
   return perspective === 'seller' ? meta.labelSeller : meta.labelBuyer;
 }
 
 /** Returns the `Badge` variant for the given status. */
 export function getStatusVariant(status: TransactionStatus): StatusBadgeVariant {
-  return STATUS_META[status].variant;
+  return resolveMeta(status).variant;
 }
 
 /** Returns the short description for the given perspective (placeholders intact). */
@@ -171,7 +190,7 @@ export function getStatusDescription(
   status: TransactionStatus,
   perspective: StatusPerspective,
 ): string {
-  const meta = STATUS_META[status];
+  const meta = resolveMeta(status);
   return perspective === 'seller' ? meta.descriptionSeller : meta.descriptionBuyer;
 }
 
