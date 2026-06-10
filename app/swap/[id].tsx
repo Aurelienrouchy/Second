@@ -55,7 +55,6 @@ export default function SwapDetailScreen() {
 
   // Stripe top-up payment state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [topUpTotal, setTopUpTotal] = useState(0);
   const [showStripePayment, setShowStripePayment] = useState(false);
 
   // -----------------------------------------------------------------------
