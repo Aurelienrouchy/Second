@@ -438,6 +438,9 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       shipEngineRateId: txData.shipEngineRateId,
       deliveryType: txData.deliveryType,
       shippingCost: typeof txData.shippingCost === 'number' ? txData.shippingCost : 0,
+      serviceFee: typeof txData.serviceFee === 'number' ? txData.serviceFee : 0,
+      taxTotal: typeof txData.taxTotal === 'number' ? txData.taxTotal : 0,
+      chargeId: paymentIntent.latest_charge || null,
       articleId: txData.articleId,
       articleTitle: txData.articleTitle || null,
     };
