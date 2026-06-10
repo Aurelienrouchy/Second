@@ -374,7 +374,7 @@ Le dossier `contexts/` a été **entièrement supprimé** (shims legacy élimin�
 | `reviews.ts` | Avis vendeurs |
 | `search.ts` | Recherche visuelle (visualSearch, getSimilarProducts, backfillEmbeddings) |
 | `style.ts` | Profil style |
-| `swaps.ts` | Échanges |
+| `swaps.ts` | Échanges. `openSwapDispute` (F48 durci, rate-limit 10/min) : FIGE l'échange (aucun remboursement auto — l'exploit confirm-réception→dispute→refund+garde-article est fermé), statuts disputables `accepted`/`photos_pending`(F51)/`shipping`/`completed` (uniquement dans la fenêtre 7j, refusé si `topUpReleasedAt` posé), litige unique. `resolveSwapDispute` (admin-only double-garde + rate-limit 20/min, F48) : SEULE sortie de `disputed` — `refund_payer` (refund Stripe idempotent `rf_swap_<id>` + webhook charge.refunded débite le payee + libère les items + `cancelled`) OU `release_payee` (complément payee held/pending→balance + articles vendus + items swapped + `completed`). Idempotent (rejette un swap non-`disputed`) |
 | `users.ts` | Suppression compte (GDPR Art. 17 / Loi 25) |
 | `username.ts` | `assignUsername` (auto-dérivation legacy/rescue) + helpers partagés `validateChosenUsername` / `USERNAME_MIN_LEN` (3) / `CHOSEN_USERNAME_MAX_LEN` (20). Réserve `usernames/{handle}` atomiquement, immuable |
 | `checkUsernameAvailability.ts` | `checkUsernameAvailability` — probe lecture seule de la route signup (pseudo CHOISI). Input `{username}` → `{ok,available,reason?}` (`too_short`/`too_long`/`invalid_chars`/`taken`). Ne réserve rien, anti-énumération (jamais le uid) |
