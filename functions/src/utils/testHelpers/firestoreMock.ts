@@ -462,7 +462,9 @@ export function createStripeMock(): StripeMock {
   const calls: StripeMock['calls'] = {
     refundsCreate: [],
     transfersCreate: [],
+    transfersCreateReversal: [],
     payoutsCreate: [],
+    payoutsRetrieve: [],
     paymentIntentsRetrieve: [],
     paymentIntentsCancel: [],
   };
@@ -475,7 +477,9 @@ export function createStripeMock(): StripeMock {
     paymentIntentsRetrieve: async () => ({ status: 'requires_payment_method' }),
     paymentIntentsCancel: async () => ({ id: 'pi_cancelled' }),
     transfersCreate: async () => ({ id: 'tr_default' }),
+    transfersCreateReversal: async () => ({ id: 'trr_default' }),
     payoutsCreate: async () => ({ id: 'po_default' }),
+    payoutsRetrieve: async () => ({ status: 'pending' }),
   };
 
   const client: Record<string, unknown> = {
