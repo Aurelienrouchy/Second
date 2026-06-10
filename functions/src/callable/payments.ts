@@ -1489,8 +1489,28 @@ export const createStripeConnectAccount = onCall(
     if (!Number.isInteger(dobMonth) || dobMonth < 1 || dobMonth > 12) {
       throw new HttpsError('invalid-argument', 'Mois de naissance invalide (1-12)');
     }
-    if (!Number.isInteger(dobYear) || dobYear < 1900 || dobYear > new Date().getFullYear() - 18) {
-      throw new HttpsError('invalid-argument', 'Annee de naissance invalide (minimum 18 ans)');
+    if (!Number.isInteger(dobYear) || dobYear < 1900 || dobYear > new Date().getFullYear()) {
+      throw new HttpsError('invalid-argument', 'Annee de naissance invalide');
+    }
+    // F64 — verify the seller is at least 18 to the EXACT day, not just the
+    // year. A year-only check let a 17-year-old born earlier this calendar year
+    // (e.g. born in `currentYear - 18` but the birthday hasn't occurred yet)
+    // pass. Compute the real age from day/month/year server-side.
+    {
+      const now = new Date();
+      let age = now.getFullYear() - dobYear;
+      const hasHadBirthdayThisYear =
+        now.getMonth() + 1 > dobMonth ||
+        (now.getMonth() + 1 === dobMonth && now.getDate() >= dobDay);
+      if (!hasHadBirthdayThisYear) {
+        age -= 1;
+      }
+      if (age < 18) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Vous devez avoir au moins 18 ans pour vendre sur Second.'
+        );
+      }
     }
 
     // Address
