@@ -380,6 +380,7 @@ Le dossier `contexts/` a été **entièrement supprimé** (shims legacy élimin�
 | `checkUsernameAvailability.ts` | `checkUsernameAvailability` — probe lecture seule de la route signup (pseudo CHOISI). Input `{username}` → `{ok,available,reason?}` (`too_short`/`too_long`/`invalid_chars`/`taken`). Ne réserve rien, anti-énumération (jamais le uid) |
 | `consent.ts` | `recordSignupConsent` — UNIQUE point d'entrée submit signup : age-gate (≥16) + consentements + RÉSERVATION ATOMIQUE du pseudo choisi (`desiredUsername`) en un `runTransaction`. Pseudo pris par un autre uid → `already-exists` (PAS de suffixe auto, erreur inline, pas de rollback compte). Idempotent. + `setMarketingConsent` (retrait Loi 25 art. 14) |
 | `wallet.ts` | Porte-monnaie virtuel (activateWallet, getWalletInfo, walletWithdraw, payWithWallet, refundWalletPayment, getOrCreateSellerWallet helper) |
+| `shopTier.ts` | `purchaseShopTier` (F134, owner-only, rate-limit 5/min, secret STRIPE_SECRET_KEY) — encaissement forfait boutique : PaymentIntent CHARGE PLATEFORME DIRECTE (pas de transfer_data) tagged `metadata.type:'shop_tier'`, prix serveur `SHOP_TIER_{PRO,PREMIUM}_MONTHLY_CENTS` × periodMonths. Le tier (`tier`+`tierPaidUntil`) est posé par le webhook `handleShopTierSucceeded` APRÈS paiement (CF-only, jamais le client) + entrée `platform_ledger` `shop_tier_revenue`. `resolveBuyerFeeReduction` n'honore la réduction que si `tierPaidUntil > now` |
 
 ### Triggers — `functions/src/triggers/`
 | Fichier | Événement |
