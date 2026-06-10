@@ -449,10 +449,9 @@ export default function WalletScreen() {
 
   // ── Ledger list ────────────────────────────────────────────────────────────
 
-  const sortedLedger = useMemo(() => {
-    if (!wallet?.ledger) return [];
-    return [...wallet.ledger].reverse();
-  }, [wallet?.ledger]);
+  // The backend returns the ledger already sorted most-recent-first
+  // (orderBy createdAt desc). Render it as-is — do NOT reverse (F47).
+  const sortedLedger = wallet?.ledger ?? [];
 
   const renderLedgerItem = useCallback(
     ({ item }: { item: WalletLedgerEntry }) => {
