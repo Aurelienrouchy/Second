@@ -1182,6 +1182,23 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
       return;
     }
 
+    // ALL reads BEFORE all writes (Admin SDK READ_AFTER_WRITE_ERROR, cf. F1):
+    // read the article + buyer wallet now, write everything after.
+    const articleRef = txData.articleId
+      ? db.collection('articles').doc(txData.articleId)
+      : null;
+    const articleSnap = articleRef ? await tx.get(articleRef) : null;
+
+    const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
+    const shouldRefundWallet =
+      walletAmountUsed > 0 &&
+      (txData.paidVia === 'wallet_and_card' || txData.paidVia === 'wallet');
+    const buyerId = txData.buyerId;
+    const buyerWalletRef = shouldRefundWallet
+      ? db.collection('wallets').doc(buyerId)
+      : null;
+    const buyerWalletSnap = buyerWalletRef ? await tx.get(buyerWalletRef) : null;
+
     // Cancel the transaction
     tx.update(transactionRef, {
       status: 'cancelled',
@@ -1190,44 +1207,33 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
     });
 
     // Release the article so it can be purchased again
-    if (txData.articleId) {
-      const articleRef = db.collection('articles').doc(txData.articleId);
-      const articleSnap = await tx.get(articleRef);
-      if (articleSnap.exists) {
-        tx.update(articleRef, { isSold: false });
-      }
+    if (articleRef && articleSnap && articleSnap.exists) {
+      tx.update(articleRef, { isSold: false });
     }
 
     // F02: Refund wallet portion if this was a mixed wallet+card payment
-    const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
-    if (walletAmountUsed > 0 && (txData.paidVia === 'wallet_and_card' || txData.paidVia === 'wallet')) {
-      const buyerId = txData.buyerId;
-      const buyerWalletRef = db.collection('wallets').doc(buyerId);
-      const buyerWalletSnap = await tx.get(buyerWalletRef);
+    if (buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+      const walletData = buyerWalletSnap.data()!;
+      tx.update(buyerWalletRef, {
+        balance: FieldValue.increment(walletAmountUsed),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
 
-      if (buyerWalletSnap.exists) {
-        const walletData = buyerWalletSnap.data()!;
-        tx.update(buyerWalletRef, {
-          balance: FieldValue.increment(walletAmountUsed),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
+      const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
+      tx.set(buyerLedgerRef, {
+        type: 'refund_credit',
+        amount: walletAmountUsed,
+        balanceAfter: (walletData.balance || 0) + walletAmountUsed,
+        description: 'Remboursement — echec de paiement',
+        transactionId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
 
-        const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
-        tx.set(buyerLedgerRef, {
-          type: 'refund_credit',
-          amount: walletAmountUsed,
-          balanceAfter: (walletData.balance || 0) + walletAmountUsed,
-          description: 'Remboursement — echec de paiement',
-          transactionId,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-
-        logger.info('Stripe webhook: payment_failed — wallet portion refunded', {
-          transactionId,
-          buyerId,
-          walletAmountRefunded: walletAmountUsed,
-        });
-      }
+      logger.info('Stripe webhook: payment_failed — wallet portion refunded', {
+        transactionId,
+        buyerId,
+        walletAmountRefunded: walletAmountUsed,
+      });
     }
   });
 
