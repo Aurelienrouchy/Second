@@ -1248,7 +1248,16 @@ export class ChatService {
   }
 
   /**
-   * Marquer un meetup comme complété et déclencher le crédit vendeur via CF.
+   * Marquer un meetup comme complété et déclencher la finalisation via CF.
+   *
+   * B2 FIX : l'ordre est désormais callable d'abord → message ensuite, calqué
+   * sur `confirmMeetup`. L'ancienne version écrivait `offer.status='completed'`
+   * INCONDITIONNELLEMENT avant de résoudre/appeler la callable. Si la
+   * transaction réelle était entre-temps annulée (auto-annulation 7j) ou
+   * disputée, la callable échouait mais le message restait marqué « terminée »,
+   * faisant disparaître à tort les recours no-show. On exige maintenant une
+   * transaction `meetup_confirmed` et on n'écrit le message qu'après le succès
+   * de la callable.
    */
   static async completeMeetup(
     chatId: string,
@@ -1256,25 +1265,31 @@ export class ChatService {
     userId: string
   ): Promise<void> {
     try {
+      // Find the transaction linked to this chat FIRST. L'acheteur OU le vendeur
+      // peut compléter (les deux étaient présents), donc on résout la
+      // transaction selon le rôle du caller. Le backend
+      // (`completeMeetupTransaction`) exige le statut `meetup_confirmed`.
+      const transactionId = await this.findMeetupTransactionId(chatId, userId, [
+        'meetup_confirmed',
+      ]);
+
+      if (!transactionId) {
+        if (__DEV__) console.warn('[ChatService] completeMeetup: no meetup_confirmed transaction found for chatId', chatId);
+        throw new Error('Aucune transaction de rencontre à finaliser.');
+      }
+
+      // Appel server-authoritative D'ABORD. En cas d'échec (tx annulée,
+      // disputée, statut incompatible…), on propage l'erreur sans toucher au
+      // message — le badge « terminée » ne doit jamais précéder le backend.
+      const completeMeetupFn = httpsCallable(functions, 'completeMeetupTransaction');
+      await completeMeetupFn({ transactionId });
+
+      // Succès confirmé : on peut marquer le message comme complété.
       const messageRef = doc(firestore, 'messages', messageId);
       await updateDoc(messageRef, {
         'offer.meetup.completedAt': new Date(),
         'offer.status': 'completed',
       });
-
-      // Find the transaction linked to this chat and call the CF.
-      // L'acheteur OU le vendeur peut compléter (les deux étaient présents),
-      // donc on résout la transaction selon le rôle du caller. Le backend
-      // (`completeMeetupTransaction`) exige le statut `meetup_confirmed`.
-      const transactionId = await this.findMeetupTransactionId(chatId, userId, [
-        'meetup_confirmed',
-      ]);
-      if (transactionId) {
-        const completeMeetupFn = httpsCallable(functions, 'completeMeetupTransaction');
-        await completeMeetupFn({ transactionId });
-      } else {
-        if (__DEV__) console.warn('[ChatService] completeMeetup: no transaction found for chatId', chatId);
-      }
 
       await this.sendSystemMessage(
         chatId,
