@@ -234,7 +234,7 @@ const DisputeButton = React.memo(function DisputeButton({ disabled }: DisputeBut
         await openSwapDispute(swapId, reason);
         Alert.alert(
           'Litige ouvert',
-          "Notre équipe va examiner l'échange. Le complément éventuel est remboursé."
+          "L'échange est gelé. Notre équipe va l'examiner et tranchera (remboursement du complément ou libération au bénéficiaire)."
         );
       } catch (error) {
         if (__DEV__) console.error('Error opening swap dispute:', error);
