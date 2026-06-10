@@ -554,10 +554,9 @@ export default function StripeOnboardingScreen() {
           {/* ── KYC document remediation (F59) ── */}
           {showKycUpload ? (
             <View style={styles.formSection}>
-              <Text style={styles.formTitle}>Verification d'identite</Text>
+              <Text style={styles.formTitle}>{"Verification d'identite"}</Text>
               <Text style={styles.formDescription}>
-                Stripe demande une piece d'identite pour reactiver votre compte.
-                Ajoutez une photo nette du recto (et du verso si demande).
+                {"Stripe demande une piece d'identite pour reactiver votre compte. Ajoutez une photo nette du recto (et du verso si demande)."}
               </Text>
 
               <View style={styles.docRow}>
