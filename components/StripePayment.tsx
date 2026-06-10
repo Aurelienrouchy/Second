@@ -53,8 +53,6 @@ function StripePaymentComponent({
   clientSecret,
   visible,
   onResult,
-  onClose: _onClose,
-  totalAmount: _totalAmount,
 }: StripePaymentProps) {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const isPresentingRef = useRef(false);
