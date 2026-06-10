@@ -496,6 +496,62 @@ export const walletWithdraw = onCall(
           withdrawalRequestId: withdrawalRequestRef.id,
         };
       } catch (stripeError) {
+        // F41: a payouts.create that TIMED OUT may have actually created the
+        // payout on Stripe. Reverting + re-crediting blindly would then double-pay
+        // (the payout settles AND the wallet is restored). Before any revert,
+        // re-drive payouts.create with the SAME idempotency key: if the payout
+        // exists (or was just created), Stripe returns it instead of erroring, and
+        // we treat the withdrawal as VALID (persist ids, do NOT revert). Only a
+        // definitive failure (e.g. balance/account error reproduced) falls through
+        // to the revert. This confirmation is only meaningful once the transfer
+        // succeeded (a missing transfer means no payout could exist).
+        if (transfer) {
+          try {
+            const confirmedPayout = await stripe.payouts.create(
+              {
+                amount,
+                currency: 'cad',
+                metadata: {
+                  firebaseUserId: userId,
+                  walletWithdrawal: 'true',
+                  withdrawalRequestId: withdrawalRequestRef.id,
+                },
+              },
+              { stripeAccount: stripeAccountId, idempotencyKey: `po_${ledgerEntryRef.id}` }
+            );
+            // The payout DOES exist — the original error was a transient timeout.
+            // Persist the ids and complete the withdrawal normally (no revert).
+            await withdrawalRequestRef.update({
+              stripeTransferId: transfer.id,
+              stripePayoutId: confirmedPayout.id,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            logger.warn('Wallet withdrawal: payouts.create error was transient — payout confirmed', {
+              userId,
+              amount,
+              transferId: transfer.id,
+              payoutId: confirmedPayout.id,
+              withdrawalRequestId: withdrawalRequestRef.id,
+              originalError: stripeError instanceof Error ? stripeError.message : stripeError,
+            });
+            return {
+              success: true,
+              newBalance: newBalance!,
+              transferId: transfer.id,
+              payoutId: confirmedPayout.id,
+              withdrawalRequestId: withdrawalRequestRef.id,
+            };
+          } catch (confirmErr) {
+            // The payout genuinely did not go through — fall through to the revert
+            // path below (the transfer reversal there cleans up the moved funds).
+            logger.error('Wallet withdrawal: payout confirmation failed — reverting', {
+              userId,
+              withdrawalRequestId: withdrawalRequestRef.id,
+              error: confirmErr instanceof Error ? confirmErr.message : confirmErr,
+            });
+          }
+        }
+
         // Stripe failed — revert wallet debit
         logger.error('Stripe transfer/payout failed — reverting wallet debit', {
           userId,
