@@ -38,6 +38,7 @@ export const PriceBreakdown = React.memo(function PriceBreakdown({
   selectedEstimate,
   serviceFee,
   totalAmount,
+  taxTotal = 0,
 }: PriceBreakdownProps) {
   return (
     <>
