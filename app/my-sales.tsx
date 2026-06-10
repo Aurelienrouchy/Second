@@ -164,7 +164,7 @@ export default function MySalesScreen() {
       // of getArticleById (F130).
       const articlesById = await ArticlesService.getArticlesByIds(
         sellerTx.map((t) => t.articleId),
-      ).catch(() => new Map());
+      ).catch(() => new Map<string, Article>());
 
       // Review checks only run for reviewable (terminal) statuses — a small
       // subset, so this is not the N+1 driver.
