@@ -684,6 +684,15 @@ export const createTransaction = onCall(
     // inside runTransaction below without any further I/O. Defaults to 0 (full
     // fee) when the seller has no approved shop / on any lookup failure.
     let buyerFeeReduction = 0;
+    // F136: tracks whether a seller-accepted offer was verified for THIS amount
+    // pre-transaction. It gates the atomic price re-check below: an off-list
+    // amount is accepted inside runTransaction ONLY when this is true. This closes
+    // the price-raise-mid-checkout hole — if the seller raises the article price
+    // between this pre-read and the runTransaction, `amount !== livePrice` would
+    // otherwise be (mis)treated as a legitimate negotiated price even though no
+    // offer was ever verified (the pre-read saw amount == listedPrice, so the
+    // verify branch never ran).
+    let negotiatedOfferVerified = false;
     {
       const articlePriceSnap = await articleRef.get();
       if (!articlePriceSnap.exists) {
@@ -698,6 +707,7 @@ export const createTransaction = onCall(
           amount,
           chatId,
         });
+        negotiatedOfferVerified = true;
         logger.info('createTransaction: negotiated amount backed by accepted offer', {
           articleId, buyerId, amount, listedPrice, matchedOfferId,
         });
