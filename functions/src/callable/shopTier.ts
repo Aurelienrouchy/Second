@@ -120,6 +120,15 @@ export const purchaseShopTier = onCall(
     if (shop.ownerId !== ownerUid) {
       throw new HttpsError('permission-denied', 'Vous n\'êtes pas le propriétaire de cette boutique');
     }
+    // B10: only an APPROVED shop earns the buyer-fee reduction (reductionForShopDoc
+    // returns 0 otherwise). Refuse the purchase for pending/rejected/suspended shops
+    // so we never encash a forfait that grants no benefit (no auto-refund exists).
+    if (shop.status !== 'approved') {
+      throw new HttpsError(
+        'failed-precondition',
+        'Votre boutique doit être approuvée avant de souscrire à un forfait.'
+      );
+    }
 
     const amountCents = shopTierPriceCents(tier, periodMonths);
     if (!Number.isInteger(amountCents) || amountCents < 50) {
@@ -128,9 +137,18 @@ export const purchaseShopTier = onCall(
     }
 
     // DIRECT PLATFORM CHARGE — no transfer_data / on_behalf_of (vague 1 model):
-    // forfait revenue stays on the platform account. Deterministic idempotency
-    // key per (shop, tier, period) so a double-tap reuses the same PI.
-    const idempotencyKey = `shop_tier_${shopId}_${tier}_${periodMonths}`;
+    // forfait revenue stays on the platform account.
+    //
+    // B11: the idempotency key includes the shop's CURRENT tierPaidUntil so a
+    // LEGITIMATE renewal (which extends tierPaidUntil once the previous PI is
+    // applied) produces a DISTINCT key — Stripe no longer dedups it inside the 24h
+    // window. A true retry of the SAME attempt (before the webhook stamps the new
+    // tierPaidUntil) keeps the same key and is still deduped, so no double-charge.
+    const currentUntilMs =
+      shop.tierPaidUntil && typeof shop.tierPaidUntil.toMillis === 'function'
+        ? shop.tierPaidUntil.toMillis()
+        : 0;
+    const idempotencyKey = `shop_tier_${shopId}_${tier}_${periodMonths}_${currentUntilMs}`;
     let paymentIntent;
     try {
       paymentIntent = await stripe.paymentIntents.create(
