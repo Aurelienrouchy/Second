@@ -93,6 +93,7 @@ service cloud.firestore {
                         request.resource.data.status == 'pending') &&
                        !request.resource.data.keys().hasAny(
                          ['verificationDetails', 'plan', 'forfait', 'tier',
+                          'tierPaidUntil', 'tierPaymentIntentId', 'tierChargeId',
                           'feesTier', 'buyerFeePercent', 'isVerified']);
 
       // Allow update either by an admin (full moderation: approve / reject /
