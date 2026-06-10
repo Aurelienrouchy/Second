@@ -1433,6 +1433,26 @@ async function handleShopTierSucceeded(paymentIntent: any): Promise<void> {
       shopId,
       paymentIntentId: paymentIntent.id,
     });
+    return;
+  }
+
+  if (result.reason === 'not_approved') {
+    // B10: forfait paid for a shop that is not (or no longer) approved — no tier
+    // was stamped (grants no benefit). Flag for MANUAL REFUND; no auto-refund path.
+    await writeAdminAlert({
+      kind: 'shop_tier_not_approved',
+      severity: 'critical',
+      refId: shopId,
+      message: `Forfait ${tier} (${periodMonths} mois) payé pour une boutique non approuvée (statut: ${result.status}). Remboursement manuel requis.`,
+      context: {
+        paymentIntentId: paymentIntent.id,
+        chargeId: paymentIntent.latest_charge || null,
+        amountCents: amountReceivedCents,
+        tier,
+        periodMonths,
+        shopStatus: result.status,
+      },
+    });
   }
 }
 
