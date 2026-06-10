@@ -11,7 +11,7 @@
  *   1. requestRefund(transactionId)
  *        Buyer-only auto-refund, ALLOWED only when the carrier has already
  *        confirmed the parcel is `delivery_failed` or `lost`. Reuses the shared
- *        issueTransactionRefund core (reverse_transfer / sellerDebt). The
+ *        issueTransactionRefund core (plain Stripe refund / sellerDebt). The
  *        article is NOT re-listed (the parcel is gone). Idempotent.
  *
  *   2. reportTransactionProblem(transactionId, reason, details?)
