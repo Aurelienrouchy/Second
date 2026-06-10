@@ -547,8 +547,20 @@ service cloud.firestore {
       allow read: if true;
 
       // Owners can add/remove their own items.
+      // SECURITY (F112): a direct owner create must NOT be able to short-circuit
+      // the addItemToPartySecure Cloud Function by seeding the server-managed
+      // swap-lifecycle flags. isSwapped / isPending are CF-owned (Admin SDK), so
+      // a client create must leave them absent or forced to false; it may also
+      // never seed the CF-managed swap pointers (swapId / swappedWith /
+      // swappedAt / pendingSwapId). The owner is pinned to the caller.
       allow create: if isAuthenticated() &&
-                       request.resource.data.sellerId == request.auth.uid;
+                       request.resource.data.sellerId == request.auth.uid &&
+                       (!('isSwapped' in request.resource.data) ||
+                        request.resource.data.isSwapped == false) &&
+                       (!('isPending' in request.resource.data) ||
+                        request.resource.data.isPending == false) &&
+                       !request.resource.data.keys().hasAny(
+                         ['swapId', 'swappedWith', 'swappedAt', 'pendingSwapId']);
       allow delete: if isAuthenticated() &&
                        resource.data.sellerId == request.auth.uid;
 
