@@ -17,6 +17,7 @@
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getOrCreateSellerWallet } from '../callable/wallet';
+import { getStripe } from '../config/stripe';
 import type { ShipEngineLabel } from '../config/shipEngine';
 
 /**
