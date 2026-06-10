@@ -360,6 +360,22 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
       };
     }
 
+    // --- Credit seller's wallet pendingBalance ---
+    // P1 (atomicity payment<->label): for SHIPPING transactions the seller is
+    // credited ONLY after the shipping label is successfully created (deferred
+    // to the label step / sweepPendingLabels). Crediting here then failing the
+    // label would leave the seller paid for a parcel that never ships. For
+    // non-shipping (meetup is handled elsewhere; this guards anything that is
+    // not 'shipping') there is no label, so we credit immediately.
+    //
+    // F1: creditSellerForSale reads the wallet (tx.get via getOrCreateSellerWallet),
+    // so it MUST run BEFORE any tx.update below — the Admin SDK forbids a read after
+    // a buffered write in the same runTransaction (READ_AFTER_WRITE_ERROR).
+    const sellerId = txData.sellerId;
+    if (txData.deliveryType !== 'shipping') {
+      await creditSellerForSale(tx, transactionRef, txData, transactionId);
+    }
+
     // --- Mark transaction as paid ---
     tx.update(transactionRef, {
       status: 'paid',
@@ -375,18 +391,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
         isSold: true,
         soldAt: FieldValue.serverTimestamp(),
       });
-    }
-
-    // --- Credit seller's wallet pendingBalance ---
-    // P1 (atomicity payment<->label): for SHIPPING transactions the seller is
-    // credited ONLY after the shipping label is successfully created (deferred
-    // to the label step / sweepPendingLabels). Crediting here then failing the
-    // label would leave the seller paid for a parcel that never ships. For
-    // non-shipping (meetup is handled elsewhere; this guards anything that is
-    // not 'shipping') there is no label, so we credit immediately.
-    const sellerId = txData.sellerId;
-    if (txData.deliveryType !== 'shipping') {
-      await creditSellerForSale(tx, transactionRef, txData, transactionId);
     }
 
     return {
