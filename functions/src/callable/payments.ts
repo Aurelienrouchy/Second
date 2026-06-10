@@ -1771,6 +1771,165 @@ export const addBankAccount = onCall(
 );
 
 // =============================================================================
+// UPLOAD STRIPE IDENTITY DOCUMENT — KYC continuous remediation (white-label)
+// =============================================================================
+
+/**
+ * F59b — Lets a seller satisfy a Stripe identity-verification requirement
+ * entirely in-app (white-label: the seller never visits Stripe). The client
+ * sends a base64-encoded image; we create a Stripe `File` with
+ * purpose='identity_document', then attach it to the seller's Custom account
+ * via individual.verification.document.{front,back}.
+ *
+ * Auth: the caller must own the Stripe account (its uid carries stripeAccountId).
+ * Rate-limited (file uploads hit Stripe + Storage of the document on Stripe's
+ * side). Returns the refreshed requirements so the app can update its UI.
+ *
+ * Input: { frontImageBase64: string, backImageBase64?: string }
+ *   - base64 WITHOUT data-URI prefix; JPEG/PNG; capped at ~8 MB decoded.
+ */
+export const uploadStripeIdentityDocument = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'uploadStripeIdentityDocument',
+      maxCallsAuthenticated: 5,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe API not configured');
+    }
+
+    const userId = request.auth.uid;
+    const { frontImageBase64, backImageBase64 } = request.data ?? {};
+
+    // ── Input validation ──
+    if (typeof frontImageBase64 !== 'string' || frontImageBase64.length < 1) {
+      throw new HttpsError('invalid-argument', 'L\'image recto du document est requise');
+    }
+    if (backImageBase64 !== undefined && typeof backImageBase64 !== 'string') {
+      throw new HttpsError('invalid-argument', 'L\'image verso est invalide');
+    }
+
+    // ~8 MB decoded cap (base64 is ~4/3 the byte size).
+    const MAX_BYTES = 8 * 1024 * 1024;
+    const decodeImage = (b64: string, label: string): Buffer => {
+      let buf: Buffer;
+      try {
+        buf = Buffer.from(b64, 'base64');
+      } catch {
+        throw new HttpsError('invalid-argument', `Image ${label} invalide`);
+      }
+      if (buf.length < 1) {
+        throw new HttpsError('invalid-argument', `Image ${label} vide`);
+      }
+      if (buf.length > MAX_BYTES) {
+        throw new HttpsError('invalid-argument', `Image ${label} trop volumineuse (max 8 Mo)`);
+      }
+      return buf;
+    };
+
+    try {
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        throw new HttpsError('not-found', 'User not found');
+      }
+
+      const stripeAccountId = userDoc.data()!.stripeAccountId;
+      if (!stripeAccountId) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Aucun compte de paiement trouve. Publiez un article d\'abord.'
+        );
+      }
+
+      const frontBuffer = decodeImage(frontImageBase64, 'recto');
+
+      // Create the identity_document File on the connected account.
+      const frontFile = await stripe.files.create(
+        {
+          purpose: 'identity_document',
+          file: {
+            data: frontBuffer,
+            name: 'identity_front.jpg',
+            type: 'application/octet-stream',
+          },
+        },
+        { stripeAccount: stripeAccountId }
+      );
+
+      let backFileId: string | null = null;
+      if (typeof backImageBase64 === 'string' && backImageBase64.length > 0) {
+        const backBuffer = decodeImage(backImageBase64, 'verso');
+        const backFile = await stripe.files.create(
+          {
+            purpose: 'identity_document',
+            file: {
+              data: backBuffer,
+              name: 'identity_back.jpg',
+              type: 'application/octet-stream',
+            },
+          },
+          { stripeAccount: stripeAccountId }
+        );
+        backFileId = backFile.id;
+      }
+
+      // Attach the document to the individual's verification on the account.
+      await stripe.accounts.update(stripeAccountId, {
+        individual: {
+          verification: {
+            document: {
+              front: frontFile.id,
+              ...(backFileId ? { back: backFileId } : {}),
+            },
+          },
+        },
+      });
+
+      // Re-read the account to return fresh requirements + persist them.
+      const account = await stripe.accounts.retrieve(stripeAccountId, {
+        expand: ['external_accounts'],
+      });
+      const state = deriveStripeAccountState(account);
+      await userRef.update(stripeAccountFirestoreFields(state));
+
+      logger.info('Stripe identity document uploaded', {
+        userId,
+        stripeAccountId,
+        hasBack: backFileId !== null,
+        requirementsCurrentlyDue: state.requirementsCurrentlyDue,
+        status: state.status,
+      });
+
+      return {
+        success: true,
+        status: state.status,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        requirementsCurrentlyDue: state.requirementsCurrentlyDue,
+        requirementsPastDue: state.requirementsPastDue,
+        disabledReason: state.disabledReason,
+      };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error uploading Stripe identity document', { userId, error: message });
+      throw new HttpsError('internal', `Echec de l'envoi du document: ${message}`);
+    }
+  }
+);
+
+// =============================================================================
 // GET STRIPE ACCOUNT STATUS — Check if seller's Connect account is active
 // =============================================================================
 
