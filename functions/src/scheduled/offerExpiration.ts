@@ -18,6 +18,13 @@ import { db } from '../config/firebase';
 const BATCH_SIZE = 450;
 
 /**
+ * F80: bound the stale-offer query per run. An unbounded .get() loads every
+ * stale offer into memory (OOM/timeout at scale). The next hourly run picks up
+ * any remainder, so capping per run never loses work.
+ */
+const MAX_OFFERS_PER_RUN = 1000;
+
+/**
  * Find all offer messages that are still pending but past their
  * expiresAt timestamp and flip them to 'expired'.
  */
