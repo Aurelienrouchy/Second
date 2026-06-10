@@ -246,7 +246,7 @@ export default function ShippingCheckoutScreen() {
         setServiceFee(Math.max(2.00, Math.round((finalPrice * 0.05 + 1.50) * 100) / 100));
         setTaxTotal(0);
       });
-  }, [finalPrice]);
+  }, [finalPrice, article?.id]);
 
   // --- Derived ---------------------------------------------------------------
 
