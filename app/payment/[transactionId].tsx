@@ -172,6 +172,41 @@ export default function PaymentScreen() {
     }
   };
 
+  // Re-present the Payment Sheet on the SAME transaction (no new tx). The
+  // backend keeps the transaction payable for ~1h after a failed attempt
+  // (audit F102), so createStripeCheckout returns a fresh clientSecret for the
+  // same pending_payment transaction. Wallet selection is preserved.
+  const retryStripePayment = useCallback(async () => {
+    if (!transactionId) return;
+    try {
+      setIsCreatingCheckout(true);
+      const checkoutParams: Record<string, unknown> = { transactionId };
+      if (useWalletBalance && walletAmountCents > 0) {
+        checkoutParams.walletAmount = walletAmountCents;
+      }
+      const result = await httpsCallable(functions, 'createStripeCheckout')(checkoutParams);
+      const data = result.data as {
+        success: boolean;
+        clientSecret: string;
+        feeBreakdown?: { buyerTotal?: number };
+      };
+      if (!data.success || !data.clientSecret) {
+        throw new Error('Impossible de relancer le paiement');
+      }
+      setServerBuyerTotal(
+        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null,
+      );
+      setClientSecret(data.clientSecret);
+      setShowStripePayment(true);
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Error retrying payment:', error);
+      const msg = error instanceof Error ? error.message : 'Impossible de relancer le paiement.';
+      Alert.alert('Erreur', msg);
+    } finally {
+      setIsCreatingCheckout(false);
+    }
+  }, [transactionId, useWalletBalance, walletAmountCents]);
+
   const handlePaymentResult = useCallback(
     async (result: StripePaymentResult) => {
       setShowStripePayment(false);
@@ -179,9 +214,29 @@ export default function PaymentScreen() {
       setServerBuyerTotal(null);
 
       if (!result.success) {
-        if (result.error !== 'cancelled') {
-          Alert.alert('Paiement échoué', result.error || 'Veuillez réessayer.');
+        // User explicitly dismissed the sheet — the transaction stays payable
+        // for ~1h (no new tx needed), so we just inform without an error tone.
+        if (result.error === 'cancelled') {
+          Alert.alert(
+            'Paiement annulé',
+            'Votre commande reste réservée pendant environ 1 heure. Vous pouvez reprendre le paiement à tout moment.',
+          );
+          return;
         }
+
+        // A real failure — classify (carte refusée / 3DS abandonné / réseau)
+        // and offer a retry on the SAME transaction.
+        const classified = classifyStripePaymentError(result);
+        Alert.alert(
+          classified.title,
+          classified.message,
+          classified.retryable
+            ? [
+                { text: 'Plus tard', style: 'cancel' },
+                { text: 'Réessayer', onPress: retryStripePayment },
+              ]
+            : [{ text: 'OK' }],
+        );
         return;
       }
 
