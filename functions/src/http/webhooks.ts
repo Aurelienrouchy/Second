@@ -2063,6 +2063,44 @@ async function handlePayoutFailed(payout: any): Promise<void> {
 }
 
 // =============================================================================
+// HANDLER: payout.canceled (F42)
+// =============================================================================
+
+/**
+ * A Stripe payout was canceled before reaching the bank. Identical financial
+ * treatment to payout.failed: re-credit the wallet (debited at walletWithdraw
+ * time) AND reverse the platform->connected transfer. revertFailedPayout is
+ * idempotent via the withdrawal_requests status, so this is safe even if
+ * payout.failed and payout.canceled both arrive for the same request.
+ */
+async function handlePayoutCanceled(payout: any): Promise<void> {
+  const withdrawalRequestId = payout.metadata?.withdrawalRequestId;
+  const userId = payout.metadata?.firebaseUserId;
+
+  if (typeof withdrawalRequestId !== 'string' || !withdrawalRequestId) {
+    logger.warn('Stripe webhook: payout.canceled missing withdrawalRequestId metadata', {
+      payoutId: payout.id,
+    });
+    return;
+  }
+
+  await revertFailedPayout(
+    {
+      withdrawalRequestId,
+      payoutId: payout.id,
+      failureReason: 'payout canceled',
+      ownerIdFallback: typeof userId === 'string' ? userId : null,
+    },
+    getStripe()
+  );
+
+  logger.warn('Stripe webhook: payout.canceled — withdrawal reverted', {
+    withdrawalRequestId,
+    payoutId: payout.id,
+  });
+}
+
+// =============================================================================
 // HANDLER: payout.paid
 // =============================================================================
 
