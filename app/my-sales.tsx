@@ -124,6 +124,19 @@ function SaleCard({
             <Text style={styles.reviewDoneText}>Avis laisse</Text>
           </View>
         )}
+        {isCancellable && (
+          <Pressable
+            style={styles.cancelButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onCancel?.();
+            }}
+            hitSlop={4}
+          >
+            <Ionicons name="close-circle-outline" size={12} color={colors.danger} />
+            <Text style={styles.cancelButtonText}>Annuler la commande</Text>
+          </Pressable>
+        )}
       </View>
       <Ionicons name="chevron-forward" size={20} color={colors.muted} />
     </Pressable>
