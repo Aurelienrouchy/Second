@@ -242,6 +242,47 @@ describe('Stripe webhook — event dedup (stripe_events)', () => {
     expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(4500);
   });
 
+  it('regularises sellerDebt before crediting pendingBalance (F39)', async () => {
+    // A meetup sale credits the seller at PI.succeeded. The seller carries a debt
+    // (e.g. an earlier lost dispute after withdrawal). The credit must pay down the
+    // debt FIRST; only the remainder lands in pendingBalance.
+    fs.setDoc('transactions/tx_debt_repay', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      totalAmount: 50,
+      sellerPayout: 45, // 4500 cents credit
+      deliveryType: 'meetup',
+      articleId: 'article1',
+      chatId: null,
+    });
+    fs.setDoc('wallets/seller1', {
+      balance: 0,
+      pendingBalance: 0,
+      sellerDebt: 3000, // owes 3000 cents
+      status: 'active',
+      currency: 'cad',
+    });
+
+    await deliverEvent(
+      piSucceededEvent({ eventId: 'evt_debt_repay', transactionId: 'tx_debt_repay', amountCents: 5000 })
+    );
+
+    const w = fs.getDoc('wallets/seller1')!;
+    // 3000 of the 4500 credit cleared the debt; 1500 went to pendingBalance.
+    expect(w.sellerDebt).toBe(0);
+    expect(w.pendingBalance).toBe(1500);
+    expect(fs.sumIncrements('wallets/seller1', 'sellerDebt')).toBe(-3000);
+    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(1500);
+    // A dedicated debt_repayment ledger entry was written.
+    const repay = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('wallets/seller1/ledger/') && op.data.type === 'debt_repayment'
+    );
+    expect(repay).toBeDefined();
+    expect(repay!.data.amount).toBe(3000);
+  });
+
   it('creates a stripe_events marker the first time only', async () => {
     fs.setDoc('transactions/tx1', {
       buyerId: 'b',
