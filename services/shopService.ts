@@ -452,6 +452,41 @@ export class ShopService {
   }
 
   /**
+   * F134 — acheter / renouveler un forfait payant (pro|premium) pour N mois.
+   *
+   * Délègue à la callable `purchaseShopTier` (propriétaire uniquement, charge
+   * plateforme directe). Le forfait n'est PAS appliqué ici : le webhook stampe
+   * `tier` + `tierPaidUntil` sur la boutique APRÈS confirmation du paiement.
+   * Cette méthode retourne le `clientSecret` à confirmer via le Payment Sheet.
+   */
+  static async purchaseShopTier(
+    shopId: string,
+    tier: 'pro' | 'premium',
+    periodMonths: number
+  ): Promise<{
+    success: boolean;
+    clientSecret: string;
+    paymentIntentId: string;
+    tier: 'pro' | 'premium';
+    periodMonths: number;
+    amountCents: number;
+  }> {
+    const callable = httpsCallable<
+      { shopId: string; tier: 'pro' | 'premium'; periodMonths: number },
+      {
+        success: boolean;
+        clientSecret: string;
+        paymentIntentId: string;
+        tier: 'pro' | 'premium';
+        periodMonths: number;
+        amountCents: number;
+      }
+    >(functions, 'purchaseShopTier');
+    const result = await callable({ shopId, tier, periodMonths });
+    return result.data;
+  }
+
+  /**
    * Calculer la distance entre deux points géographiques (formule de Haversine)
    * @returns Distance en kilomètres
    */
