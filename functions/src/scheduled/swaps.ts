@@ -17,6 +17,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { sendPushNotification } from '../utils/notifications';
+import { refundSwapTopUpIfPaid } from '../callable/swaps';
 
 /** Resolve items arrays with backward compat for legacy single-item swaps */
 function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
