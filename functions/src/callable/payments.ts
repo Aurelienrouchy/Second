@@ -2063,22 +2063,6 @@ export const acceptMeetupOffer = onCall(
           throw new HttpsError('failed-precondition', 'Conversation invalide');
         }
 
-        // buyerId is ALWAYS the offer sender (the buyer proposes). sellerId is
-        // the OTHER participant — NEVER derived from request.auth.uid.
-        const buyerId = message.senderId;
-        if (typeof buyerId !== 'string' || !participants.includes(buyerId)) {
-          throw new HttpsError('failed-precondition', 'Émetteur de l\'offre invalide');
-        }
-        const sellerId = participants.find((p) => p !== buyerId);
-        if (typeof sellerId !== 'string' || sellerId.length === 0) {
-          throw new HttpsError('failed-precondition', 'Vendeur introuvable pour cette offre');
-        }
-
-        // The caller must be the seller (the party accepting the buyer's offer).
-        if (callerUid !== sellerId) {
-          throw new HttpsError('permission-denied', 'Seul le vendeur peut accepter cette offre');
-        }
-
         const articleId = chat.articleId;
         if (typeof articleId !== 'string' || articleId.length === 0) {
           throw new HttpsError('failed-precondition', 'Article introuvable pour cette conversation');
@@ -2090,17 +2074,33 @@ export const acceptMeetupOffer = onCall(
         }
         const articleData = articleSnap.data()!;
 
-        // The accepting seller must actually own the article.
-        if (articleData.sellerId !== sellerId) {
-          throw new HttpsError('permission-denied', 'Vous n\'êtes pas le vendeur de cet article');
+        // F9: derive seller from the ARTICLE (owner = seller) and buyer from the
+        // OTHER chat participant — NEVER from the offer sender (a seller
+        // counter-offer would mislabel the seller as buyer).
+        const sellerId = articleData.sellerId;
+        if (typeof sellerId !== 'string' || !participants.includes(sellerId)) {
+          throw new HttpsError('failed-precondition', 'Vendeur introuvable pour cette offre');
+        }
+        const buyerId = participants.find((p) => p !== sellerId);
+        if (typeof buyerId !== 'string' || buyerId.length === 0) {
+          throw new HttpsError('failed-precondition', 'Acheteur introuvable pour cette offre');
+        }
+        if (buyerId === sellerId) {
+          throw new HttpsError('invalid-argument', 'Le vendeur ne peut pas acheter son propre article');
         }
 
-        // Idempotency / anti-duplication: re-accepting is blocked by the
-        // `offer.status === 'pending'` guard above (a second call sees
-        // 'accepted' and throws), and a concurrent second buyer is blocked by
-        // the article lock (`isSold`) written below within the same
-        // runTransaction. Together they guarantee exactly one meetup
-        // transaction per accepted offer.
+        // The caller must be the party who did NOT emit the offer (the accepter):
+        // either side can accept the other side's offer or counter-offer.
+        if (typeof message.senderId !== 'string' || !participants.includes(message.senderId)) {
+          throw new HttpsError('failed-precondition', 'Émetteur de l\'offre invalide');
+        }
+        if (callerUid === message.senderId) {
+          throw new HttpsError('permission-denied', 'Vous ne pouvez pas accepter votre propre offre');
+        }
+        if (callerUid !== buyerId && callerUid !== sellerId) {
+          throw new HttpsError('permission-denied', 'Vous ne participez pas à cette conversation');
+        }
+
         const amount = offer.amount;
         if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
           throw new HttpsError('failed-precondition', 'Montant de l\'offre invalide');
@@ -2108,15 +2108,45 @@ export const acceptMeetupOffer = onCall(
         if (typeof articleData.price === 'number' && amount > articleData.price) {
           throw new HttpsError('failed-precondition', 'Le montant de l\'offre dépasse le prix de l\'article');
         }
-
-        if (articleData.isSold === true) {
-          throw new HttpsError('failed-precondition', 'Cet article a déjà été vendu');
-        }
         if (articleData.isActive === false) {
           throw new HttpsError('failed-precondition', 'Cet article n\'est plus disponible');
         }
-        if (buyerId === sellerId) {
-          throw new HttpsError('invalid-argument', 'Le vendeur ne peut pas acheter son propre article');
+
+        // F8: idempotency for the direct-checkout meetup flow. The checkout
+        // pre-creates the meetup_pending tx (locking the article) THEN sends the
+        // offer; without this an `isSold === true` would dead-end acceptance. If
+        // a non-cancelled meetup transaction already exists for this
+        // chat+buyer+article, accept the offer and return that tx instead of
+        // creating a duplicate or re-locking the article.
+        const existingTxSnap = await db
+          .collection('transactions')
+          .where('chatId', '==', chatId)
+          .where('buyerId', '==', buyerId)
+          .where('articleId', '==', articleId)
+          .where('deliveryType', '==', 'meetup')
+          .get();
+        const liveExisting = existingTxSnap.docs.find((d) => {
+          const s = d.data().status;
+          return s !== 'cancelled' && s !== 'refunded';
+        });
+
+        if (liveExisting) {
+          // ── WRITES: accept the offer, return the pre-existing tx. The article
+          //    is already locked by that tx; do NOT touch it.
+          tx.update(messageRef, { 'offer.status': 'accepted' });
+          return {
+            transactionId: liveExisting.id,
+            buyerId,
+            sellerId,
+            amount,
+            reused: true,
+          };
+        }
+
+        // No pre-existing tx: this is the chat-flow path. The article must be
+        // free to lock.
+        if (articleData.isSold === true) {
+          throw new HttpsError('failed-precondition', 'Cet article a déjà été vendu');
         }
 
         // ── ALL WRITES AFTER ALL READS ──
@@ -2158,7 +2188,7 @@ export const acceptMeetupOffer = onCall(
         const newTxRef = db.collection('transactions').doc();
         tx.set(newTxRef, transactionData);
 
-        return { transactionId: newTxRef.id, buyerId, sellerId, amount };
+        return { transactionId: newTxRef.id, buyerId, sellerId, amount, reused: false };
       });
 
       logger.info('Meetup offer accepted (server-authoritative)', {
