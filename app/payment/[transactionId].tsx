@@ -393,6 +393,13 @@ export default function PaymentScreen() {
             <Text style={styles.summaryValue}>{formatPrice(serviceFee)}</Text>
           </View>
 
+          {taxTotal > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>TPS + TVQ</Text>
+              <Text style={styles.summaryValue}>{formatPrice(taxTotal)}</Text>
+            </View>
+          )}
+
           <View style={styles.divider} />
 
           <View style={styles.summaryRow}>
