@@ -27,9 +27,6 @@ import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
 import { logAutomatedDecision } from '../callable/automatedDecisions';
 
-/** Firestore batch limit is 500; use 450 for safety margin */
-const BATCH_SIZE = 450;
-
 /**
  * Cap how many docs each query pulls per scheduled run. Each paid-not-shipped
  * doc triggers a Stripe network call (refund) and a runTransaction, so an
