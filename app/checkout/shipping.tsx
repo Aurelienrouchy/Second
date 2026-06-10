@@ -43,6 +43,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { classifyStripePaymentError } from '@/utils/stripePaymentError';
 import { getCallableErrorCode, mapCallableError } from '@/utils/callableError';
+import { isPaidStatus } from '@/lib/transactionStatusMeta';
 
 /** Default postal code used when seller location is unavailable */
 const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
