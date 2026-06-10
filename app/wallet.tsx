@@ -201,15 +201,25 @@ const LEDGER_ICON_MAP: Record<
 };
 
 /**
+ * Internal balance movements (held ↔ available) within the protection window.
+ * These shuffle money between the seller's own buckets — they are NOT a gain or
+ * a loss, so they render WITHOUT a +/- sign and in a neutral tone (F127). A
+ * `funds_held` line in particular must never look like a red debit.
+ */
+function isInternalMovement(type: WalletLedgerEntry['type']): boolean {
+  return type === 'funds_held' || type === 'funds_released';
+}
+
+/**
  * Credit-side entries are rendered with a leading "+" in success green.
- * Includes funds_released (protection window unlock) and withdrawal_failed
- * (a failed payout re-credited to the available balance).
+ * Includes withdrawal_failed (a failed payout re-credited to the available
+ * balance). funds_released is handled as a neutral internal movement, not a
+ * credit (F127).
  */
 function isCredit(type: WalletLedgerEntry['type']): boolean {
   return (
     type === 'sale_credit' ||
     type === 'refund_credit' ||
-    type === 'funds_released' ||
     type === 'withdrawal_failed'
   );
 }
