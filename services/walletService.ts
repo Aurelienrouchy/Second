@@ -98,4 +98,41 @@ export class WalletService {
     const { data } = await callable({ transactionId });
     return { success: data.success, newBalance: data.newBalance };
   }
+
+  /**
+   * Read the authenticated user's recent withdrawal requests (payout lifecycle).
+   *
+   * The `withdrawal_requests` doc is written server-side (walletWithdraw +
+   * payout webhooks) and is the source of truth for "retrait en traitement"
+   * (processing / completed / failed). Firestore rules allow the owner to read
+   * their own docs (read-only). Amounts are in cents.
+   */
+  static async getWithdrawalRequests(
+    userId: string,
+    max = 10,
+  ): Promise<WithdrawalRequest[]> {
+    const q = query(
+      collection(firestore, 'withdrawal_requests'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      fsLimit(max),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const toDate = (v: unknown): Date | undefined =>
+        v && typeof (v as { toDate?: unknown }).toDate === 'function'
+          ? (v as { toDate: () => Date }).toDate()
+          : undefined;
+      return {
+        id: d.id,
+        status: (data.status as WithdrawalRequestStatus) ?? 'processing',
+        amount: typeof data.amount === 'number' ? data.amount : 0,
+        failureReason:
+          typeof data.failureReason === 'string' ? data.failureReason : undefined,
+        createdAt: toDate(data.createdAt) ?? new Date(0),
+        updatedAt: toDate(data.updatedAt),
+      };
+    });
+  }
 }
