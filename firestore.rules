@@ -791,10 +791,11 @@ service cloud.firestore {
           (!('meetupConfirmedAt' in newData) ||
            newData.meetupConfirmedAt is timestamp);
 
-        // Path A: no sensitive field touched (e.g. updatedAt-only writes).
+        // Path A: only `updatedAt` touched (idle re-stamp).
         // Path B: the single legitimate meetup confirmation by the seller.
+        // Anything else is denied — it must go through a Cloud Function.
         return coreFieldsUnchanged &&
-          (sensitiveFieldsUntouched || isMeetupConfirmation);
+          (onlyUpdatedAtTouched || isMeetupConfirmation);
       }
     }
     
