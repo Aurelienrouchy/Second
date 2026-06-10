@@ -230,7 +230,7 @@ async function replayOp(
       } catch (err) {
         logger.warn('[retryFailedOperations] payout failure recovery replay failed — will retry', {
           failedOperationId: op.id,
-          payoutId,
+          withdrawalRequestId,
           error: err instanceof Error ? err.message : err,
         });
         return 'retry';
