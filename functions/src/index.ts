@@ -169,6 +169,12 @@ export {
   submitReport,
 } from './callable/shopModeration';
 
+// Paid Shop Tier encashment (F134). purchaseShopTier creates a direct platform
+// charge PaymentIntent for a pro/premium forfait; the webhook (shop_tier branch)
+// stamps tier + tierPaidUntil on the shop AFTER payment + a shop_tier_revenue
+// platform_ledger entry. tier/tierPaidUntil are CF-only (firestore.rules).
+export { purchaseShopTier } from './callable/shopTier';
+
 // ============================================================
 // TRIGGER FUNCTIONS (onDocument*)
 // ============================================================
