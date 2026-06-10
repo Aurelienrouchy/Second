@@ -461,6 +461,16 @@ export const walletWithdraw = onCall(
           { stripeAccount: stripeAccountId, idempotencyKey: `po_${ledgerEntryRef.id}` }
         );
 
+        // F35/F103: persist the Stripe ids on the withdrawal request BEFORE
+        // returning. This makes the Stripe-recovery branch of reconcileWithdrawals
+        // (payouts.retrieve) reachable, and lets a lost payout.failed webhook be
+        // re-driven from the persisted transfer id (transfer reversal + re-credit).
+        await withdrawalRequestRef.update({
+          stripeTransferId: transfer.id,
+          stripePayoutId: payout.id,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
         logger.info('Wallet withdrawal initiated', {
           userId,
           amount,
