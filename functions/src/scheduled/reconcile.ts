@@ -128,23 +128,51 @@ async function reconcileOnePayment(
     return true;
   }
 
-  // Case B: the PI was refunded/canceled but the transaction never reflected it.
-  if (
-    (piStatus === 'canceled' && status === 'pending_payment') ||
-    (piStatus === 'succeeded' &&
-      status === 'paid' &&
-      data.stripeRefundId == null &&
-      // a charge.refunded that never landed would leave status 'paid' with a
-      // refund recorded on Stripe; we only flag if Stripe shows a refund.
-      false)
-  ) {
-    // Canceled PI on a still-pending tx: let expireOrphanedTransactions handle
-    // it (it cancels + releases). Just log for visibility, no dead-letter.
+  // Case B1: canceled PI on a still-pending tx — let expireOrphanedTransactions
+  // handle it (it cancels + releases). Just log for visibility, no dead-letter.
+  if (piStatus === 'canceled' && status === 'pending_payment') {
     logger.warn('[reconcilePayments] canceled PI on pending_payment tx (expiry will handle)', {
       transactionId,
       paymentIntentId,
     });
     return false;
+  }
+
+  // Case B2 (F76): Stripe shows the charge was REFUNDED (fully) but our
+  // transaction is still 'paid' and never recorded a refund — the charge.refunded
+  // webhook was lost. The seller may have been credited for a refunded sale.
+  // Surface + dead-letter so the discrepancy is visible (the canonical
+  // handleChargeRefunded owns the state machine; we do not mutate money here).
+  // Only flag a FULL refund (amount_refunded >= amount_captured) to avoid
+  // mislabeling a deliberate partial refund.
+  if (
+    piStatus === 'succeeded' &&
+    status === 'paid' &&
+    data.stripeRefundId == null &&
+    amountRefunded > 0 &&
+    amountCaptured > 0 &&
+    amountRefunded >= amountCaptured
+  ) {
+    logger.error('CRITICAL [reconcilePayments] charge fully refunded on Stripe but tx still paid (lost webhook)', {
+      transactionId,
+      paymentIntentId,
+      amountRefunded,
+      amountCaptured,
+    });
+    await writeFailedOperation({
+      type: 'amount_mismatch', // generic money-divergence bucket; manual review
+      refId: transactionId,
+      payload: {
+        kind: 'lost_charge_refunded_webhook',
+        paymentIntentId,
+        amountRefunded,
+        amountCaptured,
+        firestoreStatus: status,
+        autoRefund: false,
+      },
+      error: 'Charge refunded on Stripe but transaction never marked refunded',
+    });
+    return true;
   }
 
   return false;
