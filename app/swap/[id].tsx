@@ -487,8 +487,6 @@ export default function SwapDetailScreen() {
           clientSecret={clientSecret}
           visible={showStripePayment}
           onResult={handlePaymentResult}
-          onClose={handleClosePayment}
-          totalAmount={topUpTotal}
         />
       )}
     </SafeAreaView>
