@@ -298,15 +298,24 @@ interface UserDocument {
   reviewCount?: number;
   articlesCount?: number;
 
-  // Stripe Connect Custom
+  // Stripe Connect Custom — ALL CF-only (Stripe webhook + onboarding callables
+  // via Admin SDK). Locked in firestore.rules: a client can never self-set or
+  // mutate these (payout redirect / KYC skip / fake bank verification).
   stripeAccountId?: string;        // Stripe Connect Custom account ID (acct_xxx)
-  stripeAccountStatus?: 'pending' | 'pending_verification' | 'partially_active' | 'active';
+  stripeAccountStatus?: 'pending' | 'pending_verification' | 'partially_active' | 'restricted' | 'active';
   stripeChargesEnabled?: boolean;  // Can receive payments via platform
   stripePayoutsEnabled?: boolean;  // Can receive payouts from Stripe
   stripeDetailsSubmitted?: boolean; // Onboarding details submitted
   stripeAccountCreatedAt?: Timestamp;
   stripeBankAccountAdded?: boolean;  // Bank account attached to Custom account
-  stripeBankAccountLast4?: string;   // Last 4 digits of bank account number
+  stripeBankAccountLast4?: string;   // Last 4 digits of default bank account
+  stripeBankAccountStatus?: string;  // Default external account verification (new|validated|verified|errored)
+  // KYC continuous remediation (F59) — written by handleAccountUpdated +
+  // getStripeAccountStatus + uploadStripeIdentityDocument. Never undefined.
+  stripeRequirementsCurrentlyDue?: string[];   // Stripe requirements currently due
+  stripeRequirementsPastDue?: string[];        // Past-due requirements (=> restricted)
+  stripeRequirementsDisabledReason?: string | null; // Payout disabled reason, or null
+  stripeRequirementsCurrentDeadline?: number | null; // Unix seconds deadline, or null
 
   // Status
   isVerified?: boolean;
