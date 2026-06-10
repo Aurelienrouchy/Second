@@ -23,6 +23,8 @@ import {
   proposeSwap,
   acceptSwap,
   getActiveSwaps,
+  openSwapDispute,
+  resolveSwapDispute,
   GENERALIST_ZONE_ID,
 } from '@/services/swapService';
 import type { Swap, SwapItemInfo, SwapStatus } from '@/types';
