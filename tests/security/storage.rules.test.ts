@@ -58,4 +58,32 @@ describe('storage rules', () => {
     const r = ref(storage, 'articles/article-1/public.jpg');
     await assertSucceeds(getBytes(r));
   });
+
+  // F109 — swap photo proof upload must be allowed for an authenticated user.
+  it('allows authenticated user to upload an image to /swaps/{id}/photos/...', async () => {
+    const env = await getTestEnv();
+    const storage = env.authenticatedContext(ALICE).storage();
+    const r = ref(storage, `swaps/swap-1/photos/${ALICE}_0_123.jpg`);
+    await assertSucceeds(
+      uploadBytes(r, makeBytes(1024 * 1024), { contentType: 'image/jpeg' }),
+    );
+  });
+
+  it('denies anonymous upload to /swaps/{id}/photos/...', async () => {
+    const env = await getTestEnv();
+    const storage = env.unauthenticatedContext().storage();
+    const r = ref(storage, 'swaps/swap-1/photos/anon_0_123.jpg');
+    await assertFails(
+      uploadBytes(r, makeBytes(1024), { contentType: 'image/jpeg' }),
+    );
+  });
+
+  it('denies authenticated user uploading a non-image to /swaps/{id}/photos/...', async () => {
+    const env = await getTestEnv();
+    const storage = env.authenticatedContext(ALICE).storage();
+    const r = ref(storage, `swaps/swap-1/photos/${ALICE}_0_123.pdf`);
+    await assertFails(
+      uploadBytes(r, makeBytes(1024), { contentType: 'application/pdf' }),
+    );
+  });
 });
