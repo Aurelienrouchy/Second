@@ -2990,6 +2990,109 @@ export const resolveDispute = onCall(
 );
 
 // =============================================================================
+// SELLER CANCEL TRANSACTION — Seller cancels a paid order before it ships
+// =============================================================================
+
+/**
+ * F74 — seller-initiated cancellation AFTER payment but BEFORE the first carrier
+ * scan. A seller who can no longer ship (item lost/broken) previously had no way
+ * to cancel + refund: the buyer stayed charged and had to wait out the 7-day
+ * paid-not-shipped expiry. This callable refunds immediately.
+ *
+ * Authorization: caller MUST be the seller of the transaction. Rate-limited.
+ *
+ * Allowed statuses: 'paid' | 'label_created' ONLY. These are exactly the
+ * pre-ship statuses (PRESHIP_STATUSES) — once a carrier scans the parcel the tx
+ * moves to 'shipped' and this is refused (the item is already in transit; that
+ * is a return/dispute, not a seller cancellation).
+ *
+ * Effect: issueTransactionRefund (key `rf_seller_<txId>` — full buyer refund via
+ * Stripe + wallet portion, seller debited exactly what was credited via the
+ * wallet cascade) + relist the article (isSold=false) + notify the buyer.
+ */
+export const sellerCancelTransaction = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'sellerCancelTransaction',
+      maxCallsAuthenticated: 10,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
+    const { transactionId, reason } = request.data ?? {};
+    if (typeof transactionId !== 'string' || transactionId.length === 0) {
+      throw new HttpsError('invalid-argument', 'Transaction ID is required');
+    }
+    const callerUid = request.auth.uid;
+    const txRef = db.collection('transactions').doc(transactionId);
+
+    // Pre-read (the Stripe refund must run outside the runTransaction).
+    const preSnap = await txRef.get();
+    if (!preSnap.exists) {
+      throw new HttpsError('not-found', 'Transaction not found');
+    }
+    const preData = preSnap.data()!;
+
+    if (preData.sellerId !== callerUid) {
+      throw new HttpsError('permission-denied', 'Seul le vendeur peut annuler cette commande');
+    }
+
+    // Idempotence: already refunded.
+    if (preData.status === 'refunded') {
+      return { success: true, alreadyRefunded: true };
+    }
+
+    // Only pre-ship statuses are seller-cancellable (before the first carrier
+    // scan moves the tx to 'shipped').
+    const SELLER_CANCELLABLE = new Set(['paid', 'label_created']);
+    if (!SELLER_CANCELLABLE.has(preData.status)) {
+      throw new HttpsError(
+        'failed-precondition',
+        `Cette commande ne peut plus être annulée (statut ${preData.status}). Une commande déjà expédiée relève d'un retour.`
+      );
+    }
+
+    try {
+      const result = await issueTransactionRefund(transactionId, preData, {
+        reason: typeof reason === 'string' ? reason : 'seller_cancelled',
+        idempotencyKey: `rf_seller_${transactionId}`,
+        relistArticle: true,
+        source: 'sellerCancelTransaction',
+      });
+
+      logger.warn('[sellerCancelTransaction] order cancelled + refunded by seller', {
+        transactionId,
+        sellerUid: callerUid,
+      });
+
+      // Notify the buyer (best-effort).
+      if (typeof preData.buyerId === 'string') {
+        sendPushNotification(
+          preData.buyerId,
+          'Commande annulée',
+          `Le vendeur a annulé « ${preData.articleTitle || 'votre commande'} ». Vous avez été intégralement remboursé(e).`,
+          { transactionId, articleId: preData.articleId ?? null },
+          'order_cancelled'
+        ).catch(() => undefined);
+      }
+
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[sellerCancelTransaction] refund failed', { transactionId, error: message });
+      throw new HttpsError('internal', `Cancellation failed: ${message}`);
+    }
+  }
+);
+
+// =============================================================================
 // CANCEL PENDING TRANSACTION — Buyer cancels a non-paid transaction
 // =============================================================================
 
