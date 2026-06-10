@@ -634,7 +634,13 @@ export class ChatService {
             throw new Error('Cette offre a expiré');
           }
         }
-        await updateDoc(messageRef, { 'offer.status': 'accepted' });
+        // Stamp acceptedAt so the server-side expiry job (F135) can measure the
+        // post-acceptance grace window precisely. amount stays untouched, so the
+        // message update rule (offer.amount immutable) still permits this write.
+        await updateDoc(messageRef, {
+          'offer.status': 'accepted',
+          'offer.acceptedAt': serverTimestamp(),
+        });
       }
 
       // System confirmation message (informational only; for meetup offers the
