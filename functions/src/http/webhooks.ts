@@ -160,8 +160,13 @@ export const stripeWebhook = onRequest(
       if (eventType === 'payment_intent.succeeded') {
         // Swap cash top-up payments are tagged with metadata.type === 'swap_topup'
         // and handled separately (advance swap + credit payee wallet pending).
-        if (event.data.object?.metadata?.type === 'swap_topup') {
+        // Shop tier forfait payments are tagged metadata.type === 'shop_tier'
+        // (F134) — they grant a paid tier on the shop after payment succeeds.
+        const piType = event.data.object?.metadata?.type;
+        if (piType === 'swap_topup') {
           await handleSwapTopUpSucceeded(event.data.object);
+        } else if (piType === 'shop_tier') {
+          await handleShopTierSucceeded(event.data.object);
         } else {
           await handlePaymentIntentSucceeded(event.data.object);
         }
