@@ -103,6 +103,22 @@ export async function issueTransactionRefund(
     return { success: true, alreadyRefunded: true };
   }
 
+  // F29: `preData` may be STALE (the caller read it before this call). Two
+  // distinct refund paths (different rf_* keys) on the SAME transaction could each
+  // see a non-refunded pre-read and each issue a REAL Stripe refund. Re-read the
+  // CURRENT status before the Stripe call so a transaction another path already
+  // refunded short-circuits here (the per-key idempotency only dedups the SAME
+  // key, not two different keys). The stage-2 lock re-reads again for the wallet
+  // reconciliation; this guard protects the irreversible Stripe refund.
+  const freshSnap = await txRef.get();
+  if (freshSnap.exists && freshSnap.data()!.status === 'refunded') {
+    logger.info('[issueTransactionRefund] already refunded (fresh read) — skipping', {
+      transactionId,
+      source,
+    });
+    return { success: true, alreadyRefunded: true };
+  }
+
   const paidVia = preData.paidVia;
   const isMixedCharge = paidVia === 'wallet_and_card' || paidVia === 'mixed';
 
