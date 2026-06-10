@@ -303,3 +303,156 @@ export async function recordTransactionRevenue(params: {
     });
   }
 }
+
+/**
+ * F5/F82 — Idempotent, double-spend-safe shipping label creation.
+ *
+ * PROBLEM
+ * -------
+ * `shipEngine.createLabel(rateId)` is a PAID external call that is NOT idempotent
+ * (ShipEngine bills a new label every time). The previous flow called it OUTSIDE
+ * any guard, then persisted `shipEngineLabelId` in a follow-up transaction. If
+ * the webhook timed out (or a concurrent sweep run / Stripe retry re-entered)
+ * between the external call and the persist, a SECOND paid label was created.
+ *
+ * SOLUTION — three phases:
+ *   1. RESERVE (atomic): only proceed if no `shipEngineLabelId` is already set AND
+ *      no fresh `labelReservationAt` lock is held (TTL'd so a crashed run cannot
+ *      wedge the tx forever). Claims the reservation. Returns 'skip' otherwise.
+ *   2. CREATE (external): call ShipEngine ONCE. Only reachable when WE hold the
+ *      reservation, so two concurrent runners can never both reach this line.
+ *   3. COMMIT (atomic): re-read under the lock; if a label was somehow already
+ *      persisted, no-op (idempotent). Otherwise credit the seller, persist the
+ *      label fields, clear the reservation, mark 'label_created'. On any failure
+ *      after RESERVE, the reservation is cleared so a later run can retry.
+ *
+ * @param applyExtraUpdate optional hook to merge extra fields into the commit
+ *        update (e.g. shipEngineRateId on the sweep retry). Receives the label.
+ * @returns 'created' (label made + committed), 'skip' (already labelled / locked),
+ *          or 'failed' (external/commit error — reservation cleared, retry later).
+ */
+export async function createLabelIdempotent(params: {
+  transactionRef: FirebaseFirestore.DocumentReference;
+  transactionId: string;
+  rateId: string;
+  shipEngine: ShipEngineClient;
+  estimatedShippingCost: number;
+  reservationTtlMs?: number;
+  applyExtraUpdate?: (label: ShipEngineLabel, update: Record<string, any>) => void;
+}): Promise<'created' | 'skip' | 'failed'> {
+  const {
+    transactionRef,
+    transactionId,
+    rateId,
+    shipEngine,
+    estimatedShippingCost,
+  } = params;
+  const reservationTtlMs = params.reservationTtlMs ?? 5 * 60 * 1000; // 5 min
+
+  // ---- Phase 1: RESERVE (atomic) ----
+  const reserved = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(transactionRef);
+    const data = snap.data();
+    if (!data) return false;
+
+    // Already labelled / advanced — nothing to do.
+    if (
+      data.shipEngineLabelId ||
+      data.status === 'label_created' ||
+      data.status === 'shipped' ||
+      data.status === 'delivered'
+    ) {
+      return false;
+    }
+
+    // Another runner holds a FRESH reservation — back off (it is creating the
+    // label right now). An expired reservation (crashed run) is reclaimable.
+    const reservedAtMs =
+      data.labelReservationAt instanceof Timestamp ? data.labelReservationAt.toMillis() : 0;
+    if (reservedAtMs > 0 && Date.now() - reservedAtMs < reservationTtlMs) {
+      return false;
+    }
+
+    tx.update(transactionRef, {
+      labelReservationAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+
+  if (!reserved) {
+    logger.info('[createLabelIdempotent] reservation not acquired — skipping', { transactionId });
+    return 'skip';
+  }
+
+  // ---- Phase 2: CREATE (external, exactly once — we hold the reservation) ----
+  let label: ShipEngineLabel;
+  try {
+    label = await shipEngine.createLabel(rateId);
+  } catch (labelError) {
+    // Clear the reservation so a later run can retry the (paid) creation.
+    await transactionRef
+      .update({ labelReservationAt: FieldValue.delete() })
+      .catch(() => undefined);
+    logger.error('[createLabelIdempotent] createLabel failed — reservation cleared', {
+      transactionId,
+      error: labelError instanceof Error ? labelError.message : labelError,
+    });
+    return 'failed';
+  }
+
+  // ---- Phase 3: COMMIT (atomic) ----
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(transactionRef);
+      const data = snap.data();
+      if (!data) return;
+      // Idempotence: a concurrent path persisted the label first — no-op.
+      if (
+        data.shipEngineLabelId ||
+        data.status === 'label_created' ||
+        data.status === 'shipped' ||
+        data.status === 'delivered'
+      ) {
+        return;
+      }
+
+      await creditSellerForSale(tx, transactionRef, data, transactionId);
+
+      const update: Record<string, any> = {
+        trackingNumber: label.trackingNumber,
+        shippingLabelUrl: label.labelDownload.href,
+        trackingUrl: label.trackingUrl,
+        carrierCode: label.carrierCode,
+        trackingStatus: 'LABEL_CREATED',
+        shipEngineLabelId: label.labelId,
+        status: 'label_created',
+        labelCreatedAt: FieldValue.serverTimestamp(),
+        labelCreationPending: false,
+        labelReservationAt: FieldValue.delete(),
+      };
+      reconcileShippingCost(label, estimatedShippingCost, transactionId, update);
+      if (params.applyExtraUpdate) params.applyExtraUpdate(label, update);
+      tx.update(transactionRef, update);
+    });
+  } catch (commitErr) {
+    // The label EXISTS on ShipEngine but we failed to persist it. Do NOT clear
+    // the reservation blindly — clearing it would let a later run create a SECOND
+    // paid label. Persist the label id best-effort so the next run's reservation
+    // guard sees it and skips re-creation; surface the divergence.
+    logger.error('CRITICAL [createLabelIdempotent] label created but commit failed', {
+      transactionId,
+      shipEngineLabelId: label.labelId,
+      error: commitErr instanceof Error ? commitErr.message : commitErr,
+    });
+    await transactionRef
+      .update({
+        shipEngineLabelId: label.labelId,
+        trackingNumber: label.trackingNumber,
+        labelReservationAt: FieldValue.delete(),
+      })
+      .catch(() => undefined);
+    return 'failed';
+  }
+
+  return 'created';
+}
