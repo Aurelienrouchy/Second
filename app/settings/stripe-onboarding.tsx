@@ -49,26 +49,6 @@ import {
 } from '@/utils/stripeRequirements';
 
 // ---------------------------------------------------------------------------
-// Canadian provinces
-// ---------------------------------------------------------------------------
-
-const PROVINCES = [
-  { code: 'AB', label: 'Alberta' },
-  { code: 'BC', label: 'Colombie-Britannique' },
-  { code: 'MB', label: 'Manitoba' },
-  { code: 'NB', label: 'Nouveau-Brunswick' },
-  { code: 'NL', label: 'Terre-Neuve-et-Labrador' },
-  { code: 'NS', label: 'Nouvelle-Ecosse' },
-  { code: 'NT', label: 'Territoires du Nord-Ouest' },
-  { code: 'NU', label: 'Nunavut' },
-  { code: 'ON', label: 'Ontario' },
-  { code: 'PE', label: 'Ile-du-Prince-Edouard' },
-  { code: 'QC', label: 'Quebec' },
-  { code: 'SK', label: 'Saskatchewan' },
-  { code: 'YT', label: 'Yukon' },
-] as const;
-
-// ---------------------------------------------------------------------------
 // Validation helpers
 // ---------------------------------------------------------------------------
 
