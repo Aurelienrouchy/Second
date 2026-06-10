@@ -118,6 +118,24 @@ export default function PaymentScreen() {
   });
 
   // =============================================================================
+  // DERIVED
+  // =============================================================================
+
+  const serviceFee = transaction?.serviceFee || 0;
+  const totalAmount = transaction?.totalAmount || 0;
+
+  // Wallet derived
+  const totalAmountCents = Math.round(totalAmount * 100);
+  const walletBalanceCents = wallet?.hasWallet ? wallet.balance : 0;
+  const walletCoversAll = useWalletBalance && walletBalanceCents >= totalAmountCents;
+  const cardAmountDollars = useWalletBalance
+    ? Math.max(0, (totalAmountCents - walletBalanceCents) / 100)
+    : totalAmount;
+  const walletAmountCents = useWalletBalance
+    ? Math.min(walletBalanceCents, totalAmountCents)
+    : 0;
+
+  // =============================================================================
   // STRIPE PAYMENT
   // =============================================================================
 
