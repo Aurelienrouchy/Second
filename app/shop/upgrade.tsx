@@ -172,8 +172,8 @@ export default function ShopUpgradeScreen() {
       if (!result.success || !result.clientSecret) {
         throw new Error('Impossible de créer le paiement du forfait');
       }
-      // amountCents is server-authoritative — display it in the sheet.
-      setSheetTotal(result.amountCents / 100);
+      // amountCents is server-authoritative; the native sheet displays the
+      // PaymentIntent amount directly.
       setClientSecret(result.clientSecret);
       setShowStripePayment(true);
     } catch (error: unknown) {
