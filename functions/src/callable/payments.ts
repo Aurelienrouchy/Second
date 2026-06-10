@@ -852,7 +852,13 @@ export const createTransaction = onCall(
           : calculateServiceFee(amount, buyerFeeReduction);
         // Shipping cost is the SERVER re-priced value, never the client input.
         const shipping = deliveryType === 'shipping' ? serverShippingCost : 0;
-        const totalAmount = amount + shipping + fee;
+        // Tax on the service fee (0 when TAX_ENABLED=false → totalAmount
+        // unchanged; meetup has no fee, so no tax either). Persisted so the
+        // webhook's platform_ledger remittance register can reuse the figure.
+        const tax = deliveryType === 'meetup'
+          ? { taxTotal: 0 }
+          : calculateTaxOnServiceFee(fee);
+        const totalAmount = Math.round((amount + shipping + fee + tax.taxTotal) * 100) / 100;
 
         const transactionData: Record<string, any> = {
           articleId,
@@ -861,6 +867,8 @@ export const createTransaction = onCall(
           amount,
           shippingCost: shipping,
           serviceFee: fee,
+          // Tax on service fee (0 when OFF). Additive — never undefined.
+          taxTotal: tax.taxTotal,
           // Persisted so createStripeCheckout re-applies the SAME reduction when
           // it recomputes the authoritative charge (otherwise it would revert to
           // the full buyer fee). Always a bounded number (0 = full fee), never
