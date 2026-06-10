@@ -118,11 +118,12 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
 
     await runScheduler();
 
-    // One Stripe refund with reverse_transfer for a destination (card) charge.
+    // One plain Stripe refund for a (now platform) card charge — single-rail
+    // model has no transfer to reverse.
     expect(refundCount).toBe(1);
     const refundArgs = stripeMock.calls.refundsCreate[0][0] as Record<string, unknown>;
     expect(refundArgs.payment_intent).toBe('pi_paid');
-    expect(refundArgs.reverse_transfer).toBe(true);
+    expect(refundArgs.reverse_transfer).toBeUndefined();
     const refundOpts = stripeMock.calls.refundsCreate[0][1] as Record<string, unknown>;
     expect(refundOpts.idempotencyKey).toBe('rf_txp');
 
