@@ -343,6 +343,20 @@ export const walletWithdraw = onCall(
         'Les virements ne sont pas encore actives sur votre compte.'
       );
     }
+    // B4: the boolean payouts/charges flags can still be `true` transitorily while
+    // Stripe has already flagged the account `restricted` (a disabled_reason set,
+    // or a past_due requirement) — deriveStripeAccountState surfaces this via the
+    // continuous-KYC sync. Refuse the withdrawal in that window so we never initiate
+    // a transfer/payout on an account the app itself shows as "restreint".
+    if (
+      userData.stripeRequirementsDisabledReason != null ||
+      userData.stripeAccountStatus === 'restricted'
+    ) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Votre compte de paiement est restreint. Completez les informations demandees avant de retirer.'
+      );
+    }
 
     const stripeAccountId = userData.stripeAccountId;
     const walletRef = db.collection('wallets').doc(userId);
