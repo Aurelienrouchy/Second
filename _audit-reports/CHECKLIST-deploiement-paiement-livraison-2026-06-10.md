@@ -46,6 +46,17 @@ Le code accepte désormais DEUX secrets (`STRIPE_WEBHOOK_SECRET` + `STRIPE_CONNE
 2. Déployer `shipEngineWebhook` (inclus dans le deploy functions, sans `--force`).
 3. Enregistrer l'URL + le secret côté dashboard ShipEngine (webhook tracking).
 
+## 4 bis. Seed des marques (collection Firestore `brands`)
+
+L'app lit les marques depuis la collection `brands` (sélecteur de marque + matching IA). Le script est prêt et validé sur émulateur (7309 marques, schéma compatible UI + IA).
+
+```bash
+npm run import:brands:dry     # valider sans credentials (compte + exemples)
+npm run import:brands         # écrire en prod (nécessite functions/serviceAccountKey.json)
+```
+
+Idempotent (`merge:true`), ré-exécutable. Source : `vinted-brands.txt`.
+
 ## 5. Flags & config
 
 | Variable | Où | Valeur actuelle | Quand l'activer |
