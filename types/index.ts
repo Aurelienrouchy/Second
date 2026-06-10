@@ -603,6 +603,13 @@ export interface Shop {
    * omettre (ne pas écrire) tant que le forfait n'est pas souscrit.
    */
   tier?: 'basic' | 'pro' | 'premium';
+  /**
+   * Date d'expiration du forfait payant (stampée 100% serveur par le webhook
+   * après paiement, F134). Tant que `tierPaidUntil > now`, la réduction de frais
+   * acheteur du `tier` s'applique ; passée cette date, retour au tier `basic`.
+   * Optionnel : absent tant qu'aucun forfait payant n'a été souscrit.
+   */
+  tierPaidUntil?: Date;
   verificationDetails?: ShopVerificationDetails;
   legalInfo?: ShopLegalInfo;
   rating?: number;
