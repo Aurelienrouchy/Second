@@ -6,10 +6,18 @@
  * and leaves formatting to the UI layer.
  */
 
+import {
+  collection,
+  getDocs,
+  limit as fsLimit,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
-import { functions } from '@/config/firebaseConfig';
-import type { WalletInfo } from '@/types';
+import { firestore, functions } from '@/config/firebaseConfig';
+import type { WalletInfo, WithdrawalRequest, WithdrawalRequestStatus } from '@/types';
 
 // =============================================================================
 // RESPONSE TYPES (Cloud Function return shapes)
