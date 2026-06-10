@@ -536,10 +536,14 @@ export function createStripeMock(): StripeMock {
       impl.paymentIntentsRetrieve = async () => ({ status: 'requires_payment_method' });
       impl.paymentIntentsCancel = async () => ({ id: 'pi_cancelled' });
       impl.transfersCreate = async () => ({ id: 'tr_default' });
+      impl.transfersCreateReversal = async () => ({ id: 'trr_default' });
       impl.payoutsCreate = async () => ({ id: 'po_default' });
+      impl.payoutsRetrieve = async () => ({ status: 'pending' });
       calls.refundsCreate.length = 0;
       calls.transfersCreate.length = 0;
+      calls.transfersCreateReversal.length = 0;
       calls.payoutsCreate.length = 0;
+      calls.payoutsRetrieve.length = 0;
       calls.paymentIntentsRetrieve.length = 0;
       calls.paymentIntentsCancel.length = 0;
     },
