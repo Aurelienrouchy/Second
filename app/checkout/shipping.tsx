@@ -238,16 +238,20 @@ export default function ShippingCheckoutScreen() {
     if (!finalPrice) return;
     httpsCallable(functions, 'getServiceFee')({ articlePrice: finalPrice })
       .then((r) => {
-        const d = r.data as { serviceFee: number };
+        const d = r.data as { serviceFee: number; taxTotal?: number };
         setServiceFee(d.serviceFee || 0);
+        setTaxTotal(typeof d.taxTotal === 'number' ? d.taxTotal : 0);
       })
-      .catch(() => setServiceFee(Math.max(2.00, Math.round((finalPrice * 0.05 + 1.50) * 100) / 100)));
+      .catch(() => {
+        setServiceFee(Math.max(2.00, Math.round((finalPrice * 0.05 + 1.50) * 100) / 100));
+        setTaxTotal(0);
+      });
   }, [finalPrice]);
 
   // --- Derived ---------------------------------------------------------------
 
   const totalAmount = finalPrice
-    ? finalPrice + (selectedEstimate?.amount || 0) + serviceFee
+    ? finalPrice + (selectedEstimate?.amount || 0) + serviceFee + taxTotal
     : 0;
 
   /** Total in cents for wallet comparison (backend amounts are in cents). */
