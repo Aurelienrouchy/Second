@@ -507,6 +507,7 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
 | `transactions` | `status ASC, fundsReleaseAt ASC` | `releaseHeldFunds` (`scheduled/releaseHeldFunds.ts`, `status == 'delivered'` + `fundsReleaseAt <= now` + `orderBy fundsReleaseAt asc` + cursor) |
 | `transactions` | `status ASC, returnRequestedAt ASC` | **F26** — `expireOrphanedTransactions` route les retours périmés vers admin (`scheduled/transactionExpiration.ts`, `status == 'return_requested'` + `returnRequestedAt <`) |
 | `swaps` | `status ASC, topUpFundsReleaseAt ASC` | `releaseHeldFunds` swap top-up sweep (`scheduled/releaseHeldFunds.ts`, `status == 'completed'` + `topUpFundsReleaseAt <= now` + `orderBy topUpFundsReleaseAt asc` + cursor) |
+| `swaps` | `status ASC, updatedAt ASC` | **F51/F52** — `expireStalePostAcceptanceSwaps` (`scheduled/swaps.ts`, `status == 'accepted'\|'photos_pending'\|'shipping'` + `updatedAt <` cutoff 14j) |
 | `transactions` | `labelCreationPending ASC, status ASC, createdAt ASC` | `sweepPendingLabels` (`scheduled/sweepPendingLabels.ts`, `labelCreationPending == true` + `status == 'paid'` + `orderBy createdAt asc`) |
 | `transactions` | `sellerId ASC, disputed ASC` | listing des litiges vendeur ouverts (blocage retrait) |
 | `withdrawal_requests` | `status ASC, createdAt ASC` | `reconcileFinances` payouts bloqués (`scheduled/reconcile.ts`, `status == 'processing'` + `createdAt <`) |
