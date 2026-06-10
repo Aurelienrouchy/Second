@@ -861,6 +861,69 @@ async function refundSwapTopUpIfPaid(swap: FirebaseFirestore.DocumentData, swapI
 }
 
 /**
+ * Mark every article on both sides of a swap as sold + inactive, and flag the
+ * matching swapPartyItems as swapped + increment the zone swapsCount. This is the
+ * "the exchange stands" side-effect set, shared by confirmSwapReception (both
+ * received) and resolveSwapDispute (admin rules in favor of the payee). Idempotent
+ * enough for reruns: setting isSold/isSwapped twice is harmless; swapsCount is
+ * incremented by the single caller that transitions to a terminal "stands" state.
+ */
+async function markSwapArticlesSold(
+  swap: FirebaseFirestore.DocumentData,
+  swapId: string,
+  opts: { incrementZoneCount: boolean } = { incrementZoneCount: true }
+): Promise<void> {
+  const allArticleIds: string[] = [];
+  for (const item of [
+    ...getSwapItems(swap, 'initiator'),
+    ...getSwapItems(swap, 'receiver'),
+  ]) {
+    if (item.articleId) allArticleIds.push(item.articleId);
+  }
+
+  for (const articleId of allArticleIds) {
+    try {
+      await db.collection('articles').doc(articleId).update({
+        isSold: true,
+        isActive: false,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      logger.warn('Failed to mark article as sold after swap completion', {
+        articleId,
+        swapId,
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
+    }
+  }
+
+  if (!swap.partyId) return;
+
+  const partyItemsRef = db.collection('swapPartyItems');
+  for (const side of ['initiator', 'receiver'] as const) {
+    const sellerId = side === 'initiator' ? swap.initiatorId : swap.receiverId;
+    for (const item of getSwapItems(swap, side)) {
+      if (!item.articleId) continue;
+      const q = await partyItemsRef
+        .where('partyId', '==', swap.partyId)
+        .where('articleId', '==', item.articleId)
+        .where('sellerId', '==', sellerId)
+        .get();
+      for (const d of q.docs) {
+        await d.ref.update({ isSwapped: true });
+      }
+    }
+  }
+
+  if (opts.incrementZoneCount) {
+    await db.collection('swapParties').doc(swap.partyId).update({
+      swapsCount: FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+}
+
+/**
  * Decline a swap — either participant can decline while status is 'proposed'.
  * (Top-up swaps are never paid at 'proposed' stage, so no refund needed.)
  */
