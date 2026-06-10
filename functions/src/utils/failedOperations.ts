@@ -102,3 +102,56 @@ export async function writeFailedOperation(
     return null;
   }
 }
+
+/**
+ * Severity of an operator-facing alert. `critical` = money may be lost / a
+ * customer is stuck; `warning` = needs eyes but not bleeding.
+ */
+export type AdminAlertSeverity = 'critical' | 'warning';
+
+interface WriteAdminAlertInput {
+  /** Short machine code for the alert kind (e.g. 'payout_recredit_no_wallet'). */
+  kind: string;
+  severity: AdminAlertSeverity;
+  /** The primary entity id this alert is about. */
+  refId: string;
+  /** Human-readable message for the admin console. */
+  message: string;
+  /** Anything useful for triage. */
+  context?: Record<string, unknown>;
+}
+
+/**
+ * Persist an OPERATOR-FACING alert into `admin_alerts` (F85/F43). Distinct from
+ * `failed_operations` (which is the auto-retry queue): an admin_alert is for the
+ * cases code CANNOT self-heal (a re-credit with no wallet to credit, a
+ * dead-letter exhausted after MAX_ATTEMPTS, a reconcile divergence). The admin
+ * console reads `admin_alerts` where status == 'open'. Best-effort, never throws.
+ */
+export async function writeAdminAlert(input: WriteAdminAlertInput): Promise<string | null> {
+  try {
+    const ref = await db.collection('admin_alerts').add({
+      kind: input.kind,
+      severity: input.severity,
+      refId: input.refId,
+      message: input.message,
+      context: input.context ?? {},
+      status: 'open',
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    logger.error('CRITICAL [adminAlert] operator alert recorded', {
+      adminAlertId: ref.id,
+      kind: input.kind,
+      severity: input.severity,
+      refId: input.refId,
+    });
+    return ref.id;
+  } catch (alertErr) {
+    logger.error('CRITICAL [adminAlert] could not write admin_alert doc', {
+      kind: input.kind,
+      refId: input.refId,
+      writeError: alertErr instanceof Error ? alertErr.message : alertErr,
+    });
+    return null;
+  }
+}
