@@ -180,4 +180,44 @@ describe('transactions rules', () => {
       updateDoc(doc(db, 'transactions', TX_ID), { returnReason: 'damaged' }),
     );
   });
+
+  // F110 — the shipping address must not be mutable post-creation by a party
+  // (the sweepPendingLabels job reads it to buy the carrier label).
+  it('denies a party mutating shippingAddress post-creation (F110)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), {
+        shippingAddress: { street: 'hacker st', city: 'X', province: 'QC', postalCode: 'A1A1A1' },
+      }),
+    );
+  });
+
+  // F111 — the guard is an ALLOWLIST: any field outside {updatedAt} (or the
+  // meetup-confirmation set) is rejected, so a forgotten/arbitrary field can
+  // never become client-writable.
+  it('denies a party seeding an arbitrary field (F111 allowlist)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { someArbitraryField: 'pwned' }),
+    );
+  });
+
+  it('denies a party forging noShowReport (F111 allowlist)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'transactions', TX_ID), { noShowReport: { by: BOB } }),
+    );
+  });
+
+  // The allowlist still permits a benign updatedAt-only re-stamp.
+  it('allows a party writing only updatedAt (allowlist path A)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'transactions', TX_ID), { updatedAt: new Date() }),
+    );
+  });
 });
