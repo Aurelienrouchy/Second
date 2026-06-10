@@ -69,28 +69,48 @@ export async function creditSellerForSale(
     isNew: sellerWalletIsNew,
   } = await getOrCreateSellerWallet(tx, sellerId);
 
-  if (!sellerWalletIsNew) {
-    tx.update(sellerWalletRef, {
-      pendingBalance: FieldValue.increment(sellerPayoutCents),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-  } else {
-    tx.update(sellerWalletRef, {
-      pendingBalance: sellerPayoutCents,
-      updatedAt: FieldValue.serverTimestamp(),
+  // F39: recover any outstanding sellerDebt FIRST (the wallet copy promises
+  // "vos prochaines ventes seront affectées à cette régularisation en priorité").
+  // The credit pays down the debt before the remainder lands in pendingBalance.
+  const sellerDebt = sellerWalletData.sellerDebt || 0;
+  const debtRepayment = Math.min(sellerDebt, sellerPayoutCents);
+  const toPending = sellerPayoutCents - debtRepayment;
+
+  const walletUpdate: Record<string, any> = {
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  if (debtRepayment > 0) walletUpdate.sellerDebt = FieldValue.increment(-debtRepayment);
+  if (sellerWalletIsNew) {
+    walletUpdate.pendingBalance = toPending;
+  } else if (toPending > 0) {
+    walletUpdate.pendingBalance = FieldValue.increment(toPending);
+  }
+  tx.update(sellerWalletRef, walletUpdate);
+
+  if (debtRepayment > 0) {
+    const debtLedgerRef = sellerWalletRef.collection('ledger').doc();
+    tx.set(debtLedgerRef, {
+      type: 'debt_repayment',
+      amount: debtRepayment,
+      balanceAfter: sellerDebt - debtRepayment,
+      description: 'Vente — régularisation du solde dû',
+      transactionId,
+      createdAt: FieldValue.serverTimestamp(),
     });
   }
 
-  const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
-  tx.set(sellerLedgerRef, {
-    type: 'sale_credit',
-    amount: sellerPayoutCents,
-    balanceAfter: (sellerWalletData.pendingBalance || 0) + sellerPayoutCents,
-    description: 'Vente — fonds en attente de livraison',
-    transactionId,
-    createdAt: FieldValue.serverTimestamp(),
-    status: 'pending',
-  });
+  if (toPending > 0) {
+    const sellerLedgerRef = sellerWalletRef.collection('ledger').doc();
+    tx.set(sellerLedgerRef, {
+      type: 'sale_credit',
+      amount: toPending,
+      balanceAfter: (sellerWalletData.pendingBalance || 0) + toPending,
+      description: 'Vente — fonds en attente de livraison',
+      transactionId,
+      createdAt: FieldValue.serverTimestamp(),
+      status: 'pending',
+    });
+  }
 
   // Persist the EXACT amount credited so a later refund/dispute debits precisely
   // this figure (and records any shortfall as sellerDebt rather than masking it).
