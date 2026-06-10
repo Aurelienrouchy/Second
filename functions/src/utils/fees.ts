@@ -203,8 +203,14 @@ export function calculateFees(
     serviceFeeBeforeReduction * (1 - reduction) * 100
   ) / 100;
 
-  // Total acheteur = article + livraison + frais de protection (réduits)
-  const buyerTotal = Math.round((articlePrice + shippingCost + serviceFee) * 100) / 100;
+  // Taxe sur le service fee uniquement. 0 quand TAX_ENABLED=false → buyerTotal
+  // strictement inchangé (zéro régression). Quand ON, elle s'ajoute au total.
+  const tax = computeTaxOnServiceFee(serviceFee);
+
+  // Total acheteur = article + livraison + frais de protection (réduits) + taxe
+  const buyerTotal = Math.round(
+    (articlePrice + shippingCost + serviceFee + tax.taxTotal) * 100
+  ) / 100;
 
   // Vendeur reçoit 100% du prix article — 0% commission vendeur
   const sellerPayout = articlePrice;
@@ -217,6 +223,10 @@ export function calculateFees(
     feeReduction: reduction,
     serviceFeePercent: BUYER_FEE_PERCENT,
     serviceFeeFixed: BUYER_FEE_FIXED,
+    taxGst: tax.gst,
+    taxQst: tax.qst,
+    taxOnServiceFee: tax.taxOnServiceFee,
+    taxTotal: tax.taxTotal,
     buyerTotal,
     sellerPayout,
   };
