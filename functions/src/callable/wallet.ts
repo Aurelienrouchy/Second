@@ -347,18 +347,27 @@ export const walletWithdraw = onCall(
     const stripeAccountId = userData.stripeAccountId;
     const walletRef = db.collection('wallets').doc(userId);
 
-    // --- Dispute guard: refuse withdrawal while a dispute is active ---
-    // A seller with any transaction currently in 'disputed' status (chargeback
-    // open) cannot cash out: the funds may need to be clawed back. Funds in
-    // heldBalance/pendingBalance are already non-withdrawable; this guard also
-    // freezes the rest of the balance for the duration of the dispute.
+    // --- Dispute guard: refuse withdrawal while a FINANCIAL dispute is active ---
+    // A seller with a transaction in 'disputed' status whose funds flowed through
+    // the platform (chargeback / contested return) cannot cash out: the funds may
+    // need to be clawed back. Funds in heldBalance/pendingBalance are already
+    // non-withdrawable; this guard also freezes the rest of the balance.
+    //
+    // F10: a MEETUP no-show dispute is cash-in-hand — NO money flowed through the
+    // platform, so there is nothing to claw back and nothing at stake on the
+    // wallet. Such a dispute must NOT freeze ALL of a seller's withdrawals (a
+    // free griefing vector: anyone could open a meetup tx + report no-show to
+    // freeze the seller indefinitely). We exclude `deliveryType == 'meetup'` from
+    // the global block; only disputes with real financial exposure freeze.
     const disputedSnap = await db
       .collection('transactions')
       .where('sellerId', '==', userId)
       .where('disputed', '==', true)
-      .limit(1)
       .get();
-    if (!disputedSnap.empty) {
+    const hasFinancialDispute = disputedSnap.docs.some(
+      (d) => d.data().deliveryType !== 'meetup'
+    );
+    if (hasFinancialDispute) {
       throw new HttpsError(
         'failed-precondition',
         'Un litige est en cours sur l\'une de vos ventes. Les retraits sont suspendus jusqu\'à sa résolution.'
