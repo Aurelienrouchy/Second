@@ -71,6 +71,19 @@ service firebase.storage {
                    && (request.resource == null || isValidImageUpload());
     }
 
+    // Swap photo proofs — swaps/{swapId}/photos/{uid}_{i}_{ts}.jpg
+    // Both swap participants must be able to upload their proof photos; the
+    // catch-all deny below would otherwise block every accepted swap at the
+    // photos stage (F109). Swap participation cannot be verified in Storage
+    // rules (same limitation as chat_images/), so we mirror that posture:
+    // auth required + MIME image/* validation + 10MB size limit. The filename
+    // is uid-prefixed by the client for traceability.
+    match /swaps/{swapId}/photos/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && (request.resource == null || isValidImageUpload());
+    }
+
     // Deny all other access
     match /{allPaths=**} {
       allow read, write: if false;
