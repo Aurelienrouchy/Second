@@ -87,11 +87,15 @@ export const deleteUserAccount = onCall(
     }
 
     // 0c. Active transactions (any non-terminal status, buyer or seller side)
-    //     block deletion. Terminal statuses = completed | cancelled | refunded.
-    //     Everything else is a live obligation between buyer and seller
-    //     (in transit, awaiting meetup, in the dispute window, refund in
-    //     progress, return requested, etc.) and must be resolved first.
-    const TERMINAL_TX_STATUSES = ['completed', 'cancelled', 'refunded'];
+    //     block deletion. Terminal statuses = completed | cancelled | refunded |
+    //     meetup_completed. Everything else is a live obligation between buyer
+    //     and seller (in transit, awaiting meetup, in the dispute window, refund
+    //     in progress, return requested, etc.) and must be resolved first.
+    //     F87: meetup_completed is terminal by design (completeMeetupTransaction
+    //     is the last state of a meetup; reviews.ts treats it as terminal and no
+    //     code ever evolves it) — omitting it blocked deletion forever for anyone
+    //     who completed a single meetup (Loi 25 / RGPD art. 17 violation).
+    const TERMINAL_TX_STATUSES = ['completed', 'cancelled', 'refunded', 'meetup_completed'];
     const [txAsBuyer, txAsSeller] = await Promise.all([
       db.collection('transactions').where('buyerId', '==', uid).get(),
       db.collection('transactions').where('sellerId', '==', uid).get(),
@@ -104,6 +108,55 @@ export const deleteUserAccount = onCall(
       throw new HttpsError(
         'failed-precondition',
         'Vous avez une transaction en cours. Veuillez attendre sa finalisation (livraison, rencontre ou remboursement) avant de supprimer votre compte.',
+      );
+    }
+
+    // 0d. F89: a withdrawal in 'processing' blocks deletion. At withdrawal time
+    //     the wallet is already debited (so the bucket gate 0a passes) and the
+    //     source sale is 'completed' (so 0c passes) — but the payout is still
+    //     1-3 business days out. If it later FAILS, handlePayoutFailed must find
+    //     both the withdrawal_requests doc AND the wallet to re-credit. Deleting
+    //     now destroys both, stranding rejected funds on an orphaned Connect
+    //     account with no platform record. Refuse until payout.paid/failed lands.
+    const processingWithdrawal = await db
+      .collection('withdrawal_requests')
+      .where('userId', '==', uid)
+      .where('status', '==', 'processing')
+      .limit(1)
+      .get();
+    if (!processingWithdrawal.empty) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Un retrait est en cours de traitement. Veuillez réessayer une fois le virement réglé (1 à 3 jours ouvrés).',
+      );
+    }
+
+    // 0e. F90 (+F56): a non-terminal swap — or one with a paid-but-unsettled
+    //     cash top-up — blocks deletion. deleteUserAccount HARD-deletes swaps
+    //     (step 9), and every top-up recovery path (refundSwapTopUpIfPaid,
+    //     openSwapDispute, confirmSwapReception, releaseHeldFunds) needs the swap
+    //     doc. Deleting it destroys the payer's refund path AND freezes the
+    //     payee's escrowed funds forever. Terminal = declined | cancelled |
+    //     completed. A top-up that was paid (topUpPaidAt) but never released
+    //     (topUpReleasedAt) nor refunded (topUpRefundedAt) is also unsettled even
+    //     if the status looks terminal, so we block on that too.
+    const TERMINAL_SWAP_STATUSES = ['declined', 'cancelled', 'completed'];
+    const [swapsAsInit, swapsAsRecv] = await Promise.all([
+      db.collection('swaps').where('initiatorId', '==', uid).get(),
+      db.collection('swaps').where('receiverId', '==', uid).get(),
+    ]);
+    const hasBlockingSwap = [...swapsAsInit.docs, ...swapsAsRecv.docs].some((d) => {
+      const data = d.data();
+      const status = data.status;
+      const nonTerminal =
+        typeof status === 'string' && !TERMINAL_SWAP_STATUSES.includes(status);
+      const unsettledTopUp = !!data.topUpPaidAt && !data.topUpReleasedAt && !data.topUpRefundedAt;
+      return nonTerminal || unsettledTopUp;
+    });
+    if (hasBlockingSwap) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Vous avez un échange en cours ou un complément non réglé. Veuillez le finaliser avant de supprimer votre compte.',
       );
     }
 
