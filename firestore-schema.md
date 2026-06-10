@@ -947,6 +947,31 @@ interface WithdrawalRequestDocument {
 }
 ```
 
+### `shops/{shopId}` — paid-tier fields (F134)
+
+Shops are owner-writable for profile fields but the validation status, the
+verification metadata, and the **paid forfait tier** are admin/Cloud-Function
+owned (firestore.rules `match /shops`). The fee-reduction tier and its expiry are
+set ONLY by the `shop_tier` webhook (`handleShopTierSucceeded`) after a
+`purchaseShopTier` PaymentIntent succeeds — a client can never self-attribute a
+tier (CF-only fields locked on both create and update).
+
+```typescript
+interface ShopTierFields {
+  // CF-ONLY (locked in firestore.rules — set by the shop_tier webhook):
+  tier?: 'pro' | 'premium';        // basic (absent) → 0 reduction; pro → 0.5; premium → 1
+  tierPaidUntil?: Timestamp;       // Forfait active only while > now; expired → basic (reduction 0)
+  tierPaymentIntentId?: string;    // Idempotence guard (replay of same PI is a no-op)
+  tierChargeId?: string | null;
+}
+```
+
+The buyer-fee reduction (`resolveBuyerFeeReduction`, `callable/payments.ts`) is
+honoured ONLY when `status === 'approved'` AND `tierPaidUntil > now`. Pricing:
+`SHOP_TIER_PRO_MONTHLY_CENTS` (2999) / `SHOP_TIER_PREMIUM_MONTHLY_CENTS` (7999),
+overridable by env. Swap top-ups DELIBERATELY do not get the reduction (peer
+balancing payment, no shop relationship).
+
 ### `platform_ledger/{entryId}`
 
 Append-only platform accounting ledger (server-only). Records platform-side
