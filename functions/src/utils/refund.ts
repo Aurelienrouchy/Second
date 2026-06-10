@@ -232,7 +232,7 @@ export async function issueTransactionRefund(
     }
 
     // Re-credit buyer wallet portion (card portion goes back via Stripe).
-    if (buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+    if (buyerWalletRef) {
       let refundCents =
         paidVia === 'wallet'
           ? Math.round((data.totalAmount || 0) * 100)
@@ -246,17 +246,36 @@ export async function issueTransactionRefund(
         refundCents = Math.min(refundCents, Math.round(opts.buyerWalletRefundOverrideCents));
       }
       if (refundCents > 0) {
-        const wd = buyerWalletSnap.data()!;
-        tx.update(buyerWalletRef, {
-          balance: FieldValue.increment(refundCents),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
+        // F93: when the buyer wallet doc no longer exists, do NOT silently drop the
+        // re-credit — re-create the wallet (getOrCreate) with the owed balance so
+        // the buyer is made whole. set(..., {merge:true}) + FieldValue.increment is
+        // safe for both the existing and the recreated case.
+        const wd = buyerWalletSnap && buyerWalletSnap.exists ? buyerWalletSnap.data()! : null;
+        if (wd) {
+          tx.update(buyerWalletRef, {
+            balance: FieldValue.increment(refundCents),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          tx.set(
+            buyerWalletRef,
+            {
+              balance: FieldValue.increment(refundCents),
+              status: 'active',
+              currency: 'cad',
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
         const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
         tx.set(buyerLedgerRef, {
           type: 'refund_credit',
           amount: refundCents,
-          balanceAfter: (wd.balance || 0) + refundCents,
-          description: 'Remboursement — retour au porte-monnaie',
+          balanceAfter: (wd?.balance || 0) + refundCents,
+          description: wd
+            ? 'Remboursement — retour au porte-monnaie'
+            : 'Remboursement — retour au porte-monnaie (porte-monnaie recréé)',
           transactionId,
           createdAt: FieldValue.serverTimestamp(),
         });
