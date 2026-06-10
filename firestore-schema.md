@@ -806,6 +806,8 @@ interface TransactionDocument {
   disputedAt?: Timestamp;
   disputeReason?: string;
   statusBeforeDispute?: string;    // Status captured at dispute.created (or buyer report), restored if won
+  disputeFreezeCents?: number;     // Exact amount moved balance -> heldBalance at dispute.created;
+                                   // released back to balance by dispute.closed (won/closed, or LOST surplus)
   disputeOutcome?: 'won' | 'lost' | string; // Set by charge.dispute.closed
   disputeClosedAt?: Timestamp;
   buyerReport?: {                  // Set by reportTransactionProblem (buyer "delivered but problem").
