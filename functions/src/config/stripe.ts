@@ -2,12 +2,15 @@
  * Stripe Connect client initialization
  * Stripe Connect Custom accounts for marketplace payments
  *
- * Architecture:
+ * Architecture (single-rail / separate charges & transfers):
  * - Each seller has a Stripe Connect Custom account (created silently)
- * - Payments via destination charges with application_fee_amount
- * - Platform takes the buyer protection fee (5% + 1.50$)
+ * - Payments are PLATFORM charges (no destination transfer at capture); the
+ *   seller is credited in the wallet ledger and paid out by a single
+ *   platform->connected transfer at withdrawal time
+ * - Platform keeps the buyer protection fee (5% + 1.50$) and the shippingCost
+ *   used to pay the ShipEngine label
  * - Bank accounts collected in-app (addBankAccount callable)
- * - Payouts controlled via manual schedule + requestWithdrawal callable
+ * - Payouts controlled via manual schedule + walletWithdraw callable
  */
 
 import Stripe from 'stripe';
