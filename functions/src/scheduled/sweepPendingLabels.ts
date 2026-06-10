@@ -272,6 +272,16 @@ export const sweepPendingLabels = onSchedule(
     secrets: ['STRIPE_SECRET_KEY', 'SHIPENGINE_API_KEY'],
   },
   async () => {
+    // F82: anti-overlap lock. This job creates PAID ShipEngine labels; two
+    // concurrent runs (scheduler overrun / retry) picking the same docs could
+    // each pay for a duplicate label. Take a short-lived lock; skip if held.
+    const locked = await acquireJobLock('sweepPendingLabels', JOB_LOCK_TTL_MS);
+    if (!locked) {
+      logger.info('[sweepPendingLabels] another run holds the lock — skipping');
+      return;
+    }
+
+    try {
     let shipped = 0;
     let refunded = 0;
     let retried = 0;
