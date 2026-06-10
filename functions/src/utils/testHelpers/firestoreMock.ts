@@ -623,6 +623,12 @@ export function createStripeMock(): StripeMock {
       impl.transfersCreateReversal = async () => ({ id: 'trr_default' });
       impl.payoutsCreate = async () => ({ id: 'po_default' });
       impl.payoutsRetrieve = async () => ({ status: 'pending' });
+      impl.accountsRetrieve = async () => ({ id: 'acct_default', charges_enabled: true, payouts_enabled: true, details_submitted: true });
+      impl.accountsUpdate = async () => ({ id: 'acct_default' });
+      impl.accountsCreateExternalAccount = async () => ({ id: 'ba_default', last4: '0000', status: 'new' });
+      impl.accountsListExternalAccounts = async () => ({ data: [] });
+      impl.accountsDeleteExternalAccount = async () => ({ id: 'ba_default', deleted: true });
+      impl.filesCreate = async () => ({ id: 'file_default' });
       calls.refundsCreate.length = 0;
       calls.transfersCreate.length = 0;
       calls.transfersCreateReversal.length = 0;
@@ -630,6 +636,12 @@ export function createStripeMock(): StripeMock {
       calls.payoutsRetrieve.length = 0;
       calls.paymentIntentsRetrieve.length = 0;
       calls.paymentIntentsCancel.length = 0;
+      calls.accountsRetrieve.length = 0;
+      calls.accountsUpdate.length = 0;
+      calls.accountsCreateExternalAccount.length = 0;
+      calls.accountsListExternalAccounts.length = 0;
+      calls.accountsDeleteExternalAccount.length = 0;
+      calls.filesCreate.length = 0;
     },
   };
 }
