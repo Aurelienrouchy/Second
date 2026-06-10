@@ -1121,9 +1121,11 @@ interface SwapDocument {
   //   proposed -> payment_pending -> accepted -> ... (cash top-up swaps)
   //   proposed -> declined | cancelled
   //   payment_pending -> cancelled (initiator) | expired by cron
-  //   shipping | completed -> disputed
+  //   accepted | photos_pending | shipping | completed(in-window) -> disputed (openSwapDispute, F48)
+  //   accepted | photos_pending | shipping -> expired (expireStalePostAcceptanceSwaps, 14d, F51/F52)
+  //   disputed -> cancelled (admin refund_payer) | completed (admin release_payee) (resolveSwapDispute, F48)
   status: 'proposed' | 'payment_pending' | 'accepted' | 'declined' | 'cancelled'
-        | 'photos_pending' | 'shipping' | 'completed' | 'disputed';
+        | 'photos_pending' | 'shipping' | 'completed' | 'disputed' | 'expired';
   message?: string;
 
   // Optional cash adjustment, paid for real via Stripe with the SAME buyer
