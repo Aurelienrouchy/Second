@@ -236,7 +236,7 @@ export default function ShippingCheckoutScreen() {
 
   useEffect(() => {
     if (!finalPrice) return;
-    httpsCallable(functions, 'getServiceFee')({ articlePrice: finalPrice })
+    httpsCallable(functions, 'getServiceFee')({ articlePrice: finalPrice, articleId: article?.id })
       .then((r) => {
         const d = r.data as { serviceFee: number; taxTotal?: number };
         setServiceFee(d.serviceFee || 0);
