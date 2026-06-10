@@ -678,6 +678,30 @@ export default function WalletScreen() {
           </View>
         </Pressable>
 
+        {/* Bank account management — useful after a failed payout (F60) */}
+        {!!user?.stripeAccountId && (
+          <Pressable
+            style={styles.bankLinkRow}
+            onPress={() => router.push('/settings/bank-account')}
+            testID="wallet-bank-account-link"
+          >
+            <View style={styles.actionIconCircle}>
+              <Ionicons
+                name="business-outline"
+                size={18}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.bucketTextBlock}>
+              <Text style={styles.bankLinkTitle}>Compte bancaire</Text>
+              <Text style={styles.bankLinkSubtitle}>
+                Gerer ou remplacer votre compte de retrait
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+        )}
+
         {/* Withdrawal form (inline) */}
         {showWithdrawal && (
           <View style={styles.withdrawalForm}>
