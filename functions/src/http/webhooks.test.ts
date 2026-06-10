@@ -1618,3 +1618,219 @@ describe('Stripe webhook — shop tier forfait (F134)', () => {
     );
   });
 });
+
+// ===========================================================================
+// 9. F40 — dispute LOST on a MIXED payment re-credits the buyer wallet portion
+// ===========================================================================
+
+describe('Stripe webhook — dispute LOST mixed payment (F40 buyer wallet re-credit)', () => {
+  function disputeCreatedEvent(eventId: string, paymentIntentId: string) {
+    return {
+      id: eventId,
+      type: 'charge.dispute.created',
+      data: { object: { id: 'dp_mix', payment_intent: paymentIntentId, reason: 'fraudulent', amount: 5000 } },
+    };
+  }
+  function disputeClosedLostEvent(eventId: string, paymentIntentId: string) {
+    return {
+      id: eventId,
+      type: 'charge.dispute.closed',
+      data: { object: { id: 'dp_mix', payment_intent: paymentIntentId, status: 'lost' } },
+    };
+  }
+
+  it('re-credits the buyer wallet portion on a LOST mixed-payment chargeback', async () => {
+    // Mixed payment: buyer paid 2000c via wallet + the rest via card. On a LOST
+    // chargeback the bank refunds the card portion; the platform must give the
+    // wallet portion back (F40).
+    fs.setDoc('transactions/tx_mix', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'shipped',
+      totalAmount: 50,
+      sellerPayout: 45,
+      sellerCreditedCents: 4500,
+      paidVia: 'wallet_and_card',
+      walletAmountUsed: 2000, // cents
+      deliveryType: 'shipping',
+      articleId: 'a',
+      stripePaymentIntentId: 'pi_mix',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 4500, heldBalance: 0, status: 'active' });
+    fs.setDoc('wallets/buyer1', { balance: 100, status: 'active' });
+
+    await deliverEvent(disputeCreatedEvent('evt_dc_mix', 'pi_mix'));
+    await deliverEvent(disputeClosedLostEvent('evt_dx_mix', 'pi_mix'));
+
+    // Seller debited (deferred-credit cascade from pendingBalance).
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
+    // F40: buyer wallet re-credited the wallet portion (100 + 2000).
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(2100);
+    // A refund_credit ledger entry was written for the buyer.
+    const credit = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('wallets/buyer1/ledger/') &&
+        op.data.type === 'refund_credit' &&
+        op.data.amount === 2000
+    );
+    expect(credit).toBeDefined();
+    expect(fs.getDoc('transactions/tx_mix')!.status).toBe('refunded');
+  });
+
+  it('does NOT re-credit on a pure-card LOST dispute (no wallet portion)', async () => {
+    fs.setDoc('transactions/tx_card', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'shipped',
+      totalAmount: 50,
+      sellerPayout: 45,
+      sellerCreditedCents: 4500,
+      paidVia: 'card',
+      deliveryType: 'shipping',
+      stripePaymentIntentId: 'pi_card',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 4500, heldBalance: 0, status: 'active' });
+    fs.setDoc('wallets/buyer1', { balance: 100, status: 'active' });
+
+    await deliverEvent(disputeCreatedEvent('evt_dc_card', 'pi_card'));
+    await deliverEvent(disputeClosedLostEvent('evt_dx_card', 'pi_card'));
+
+    // No wallet portion → buyer balance unchanged.
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100);
+  });
+});
+
+// ===========================================================================
+// 10. F42 — payout.canceled is treated like payout.failed
+// ===========================================================================
+
+describe('Stripe webhook — payout.canceled (F42)', () => {
+  it('re-credits the wallet AND reverses the transfer like payout.failed', async () => {
+    fs.setDoc('withdrawal_requests/wr_cancel', {
+      userId: 'seller1',
+      amount: 2500,
+      status: 'processing',
+      stripeTransferId: 'tr_cancel',
+      stripePayoutId: 'po_cancel',
+      stripeAccountId: 'acct_1',
+    });
+    fs.setDoc('wallets/seller1', { balance: 0, status: 'active' });
+
+    const res = await deliverEvent({
+      id: 'evt_po_cancel',
+      type: 'payout.canceled',
+      data: {
+        object: {
+          id: 'po_cancel',
+          metadata: { withdrawalRequestId: 'wr_cancel', firebaseUserId: 'seller1' },
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(2500);
+    expect(fs.getDoc('withdrawal_requests/wr_cancel')!.status).toBe('failed');
+    expect(stripeMock.calls.transfersCreateReversal.length).toBe(1);
+    expect(stripeMock.calls.transfersCreateReversal[0][0]).toBe('tr_cancel');
+  });
+});
+
+// ===========================================================================
+// 11. F43 — payout failure with a MISSING wallet writes an admin_alert
+// ===========================================================================
+
+describe('Stripe webhook — payout.failed missing wallet (F43)', () => {
+  it('writes a critical admin_alert when the wallet to re-credit is gone', async () => {
+    fs.setDoc('withdrawal_requests/wr_nowallet', {
+      userId: 'ghost',
+      amount: 1500,
+      status: 'processing',
+      stripeTransferId: 'tr_nowallet',
+    });
+    // No wallets/ghost doc exists.
+
+    const res = await deliverEvent({
+      id: 'evt_po_nowallet',
+      type: 'payout.failed',
+      data: {
+        object: {
+          id: 'po_nowallet',
+          failure_message: 'account closed',
+          metadata: { withdrawalRequestId: 'wr_nowallet', firebaseUserId: 'ghost' },
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    // Request still marked failed, but a critical alert was raised (not silent).
+    expect(fs.getDoc('withdrawal_requests/wr_nowallet')!.status).toBe('failed');
+    const alert = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('admin_alerts/') &&
+        op.data.kind === 'payout_recredit_no_wallet'
+    );
+    expect(alert).toBeDefined();
+    expect(alert!.data.severity).toBe('critical');
+    expect((alert!.data.context as Record<string, unknown>).owedCents).toBe(1500);
+  });
+});
+
+// ===========================================================================
+// 12. F104 — refund.failed raises a critical admin_alert (buyer NOT reimbursed)
+// ===========================================================================
+
+describe('Stripe webhook — refund.failed (F104)', () => {
+  it('raises a critical admin_alert and ACKs 200', async () => {
+    const res = await deliverEvent({
+      id: 'evt_rf_failed',
+      type: 'refund.failed',
+      data: {
+        object: {
+          id: 're_failed',
+          payment_intent: 'pi_refund_failed',
+          status: 'failed',
+          failure_reason: 'charge_for_pending_refund_disputed',
+          amount: 5000,
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const alert = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('admin_alerts/') && op.data.kind === 'refund_failed'
+    );
+    expect(alert).toBeDefined();
+    expect(alert!.data.severity).toBe('critical');
+    expect(alert!.data.refId).toBe('pi_refund_failed');
+  });
+
+  it('refund.updated to failed routes to the same alert', async () => {
+    const res = await deliverEvent({
+      id: 'evt_rf_updated',
+      type: 'refund.updated',
+      data: {
+        object: { id: 're_updated', payment_intent: 'pi_ru', status: 'failed', amount: 3000 },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const alert = fs.writeOps.find(
+      (op: WriteOp) =>
+        op.path.startsWith('admin_alerts/') && op.data.kind === 'refund_failed'
+    );
+    expect(alert).toBeDefined();
+  });
+
+  it('refund.updated to succeeded is informational (no alert)', async () => {
+    const res = await deliverEvent({
+      id: 'evt_rf_ok',
+      type: 'refund.updated',
+      data: {
+        object: { id: 're_ok', payment_intent: 'pi_ok', status: 'succeeded', amount: 3000 },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const alert = fs.writeOps.find((op: WriteOp) => op.path.startsWith('admin_alerts/'));
+    expect(alert).toBeUndefined();
+  });
+});
