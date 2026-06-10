@@ -460,11 +460,23 @@ export default function WalletScreen() {
         color: colors.muted,
         bg: colors.backgroundSecondary,
       };
-      // A debt repayment is an allocation, not a balance movement: render it
-      // neutrally (no +/-) so the seller sees their debt being cleared without
-      // misreading it as a credit to the withdrawable balance.
+      // Neutral entries carry NO +/- sign and a calm tone:
+      //  - debt_repayment: an allocation clearing a debt, not a balance credit.
+      //  - funds_held / funds_released: internal moves between the seller's own
+      //    buckets (held ↔ available). A `funds_held` line must never read as a
+      //    red loss — it is the protection window, not a debit (F127).
       const isAllocation = item.type === 'debt_repayment';
+      const isMovement = isInternalMovement(item.type);
+      const isNeutral = isAllocation || isMovement;
       const credit = isCredit(item.type);
+
+      // Clarify what an internal movement means right under the description.
+      const movementHint =
+        item.type === 'funds_held'
+          ? WALLET_COPY.fundsHeldMovementHint
+          : item.type === 'funds_released'
+            ? WALLET_COPY.fundsReleasedMovementHint
+            : null;
 
       return (
         <View style={styles.ledgerItem}>
@@ -473,6 +485,9 @@ export default function WalletScreen() {
           </View>
           <View style={styles.ledgerContent}>
             <Text style={styles.ledgerDescription}>{item.description}</Text>
+            {movementHint ? (
+              <Text style={styles.ledgerMovementHint}>{movementHint}</Text>
+            ) : null}
             <Text style={styles.ledgerDate}>
               {formatRelativeDate(item.createdAt)}
             </Text>
@@ -480,14 +495,14 @@ export default function WalletScreen() {
           <Text
             style={[
               styles.ledgerAmount,
-              isAllocation
+              isNeutral
                 ? styles.ledgerAmountNeutral
                 : credit
                   ? styles.ledgerAmountCredit
                   : styles.ledgerAmountDebit,
             ]}
           >
-            {isAllocation ? '' : credit ? '+' : '-'}
+            {isNeutral ? '' : credit ? '+' : '-'}
             {formatCents(Math.abs(item.amount))}
           </Text>
         </View>
