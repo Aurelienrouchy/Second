@@ -309,3 +309,89 @@ describe('expireOrphanedTransactions — does not expire in-flight payments', ()
     expect(fs.getDoc('transactions/txlp')!.status).toBe('paid');
   });
 });
+
+// ===========================================================================
+// F22. Mixed (wallet+card) pending_payment expiry restores the wallet portion
+// ===========================================================================
+
+describe('expireOrphanedTransactions — F22 mixed wallet portion restitution', () => {
+  function seedMixedPending(opts?: { walletCents?: number; paidVia?: string }) {
+    const { walletCents = 2500, paidVia = 'wallet_and_card' } = opts ?? {};
+    fs.setDoc('transactions/txmix', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'pending_payment',
+      deliveryType: 'shipping',
+      articleId: 'article1',
+      walletAmountUsed: walletCents,
+      paidVia,
+      stripePaymentIntentId: 'pi_mix',
+      createdAt: new Date(Date.now() - TWO_HOURS_MS), // older than 1h cutoff
+    });
+    fs.setDoc('articles/article1', { isSold: true });
+    fs.setDoc('wallets/buyer1', { balance: 0, status: 'active', currency: 'cad' });
+    // Abandoned PI: cancelable.
+    stripeMock.impl.paymentIntentsRetrieve = async () => ({ status: 'requires_payment_method' });
+  }
+
+  it('restores the debited wallet part exactly once and expires the tx', async () => {
+    seedMixedPending({ walletCents: 2500 });
+
+    await runScheduler();
+
+    // PI cancelled, tx expired, article released.
+    expect(stripeMock.calls.paymentIntentsCancel.length).toBe(1);
+    expect(fs.getDoc('transactions/txmix')!.status).toBe('cancelled');
+    expect(fs.getDoc('articles/article1')!.isSold).toBe(false);
+
+    // Wallet credited back the exact debited amount, once.
+    expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(2500);
+
+    // A refund_credit ledger entry was written.
+    const ledger = fs.writeOps.find(
+      (w) =>
+        w.path.startsWith('wallets/buyer1/ledger/') &&
+        (w.data as Record<string, unknown>).type === 'refund_credit'
+    );
+    expect(ledger).toBeDefined();
+    expect((ledger!.data as Record<string, unknown>).amount).toBe(2500);
+
+    // The wallet markers were purged from the transaction.
+    const tx = fs.getDoc('transactions/txmix')!;
+    expect(tx.walletAmountUsed).toBeUndefined();
+    expect(tx.paidVia).toBeUndefined();
+  });
+
+  it('restores a 100% wallet pending_payment portion', async () => {
+    seedMixedPending({ walletCents: 5000, paidVia: 'wallet' });
+
+    await runScheduler();
+
+    expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(5000);
+    expect(fs.getDoc('transactions/txmix')!.status).toBe('cancelled');
+  });
+
+  it('is idempotent: a 2nd scheduler run does not re-credit the wallet', async () => {
+    seedMixedPending({ walletCents: 2500 });
+
+    await runScheduler();
+    // Re-arm the PI retrieve for the (now cancelled) tx — it won't be queried
+    // again since status != pending_payment, but keep the mock consistent.
+    await runScheduler();
+
+    // Still exactly one credit of 2500.
+    expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(2500);
+  });
+
+  it('does NOT credit the wallet when the PI is still in flight (succeeded)', async () => {
+    seedMixedPending({ walletCents: 2500 });
+    stripeMock.impl.paymentIntentsRetrieve = async () => ({ status: 'succeeded' });
+
+    await runScheduler();
+
+    // Not expired (captured payment) -> wallet untouched, tx untouched.
+    expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(0);
+    expect(fs.getDoc('transactions/txmix')!.status).toBe('pending_payment');
+    expect(stripeMock.calls.paymentIntentsCancel.length).toBe(0);
+  });
+});
