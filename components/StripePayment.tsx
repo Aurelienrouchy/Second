@@ -87,7 +87,13 @@ function StripePaymentComponent({
 
       if (initError) {
         if (__DEV__) console.error('Stripe initPaymentSheet error:', initError);
-        onResult({ success: false, error: initError.message });
+        onResult({
+          success: false,
+          error: initError.message,
+          errorCode: String(initError.code ?? ''),
+          declineCode: initError.declineCode,
+          errorType: initError.type,
+        });
         return;
       }
 
@@ -98,10 +104,16 @@ function StripePaymentComponent({
         // User cancelled — surface a stable 'cancelled' code so the
         // consumer can distinguish a dismissal from a real failure.
         if (presentError.code === 'Canceled') {
-          onResult({ success: false, error: 'cancelled' });
+          onResult({ success: false, error: 'cancelled', errorCode: 'Canceled' });
           return;
         }
-        onResult({ success: false, error: presentError.message });
+        onResult({
+          success: false,
+          error: presentError.message,
+          errorCode: String(presentError.code ?? ''),
+          declineCode: presentError.declineCode,
+          errorType: presentError.type,
+        });
         return;
       }
 
