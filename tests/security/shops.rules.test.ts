@@ -153,6 +153,42 @@ describe('shops rules — self-approval & forfait lock (B1/B2/B3)', () => {
     );
   });
 
+  it('denies owner self-attributing a paid tier or tierPaidUntil (F134, CF-only)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(OWNER).firestore();
+    // The tier (lowers buyer fees) and its paid-until expiry are CF-only: only
+    // the shop_tier webhook (Admin SDK) may set them after payment succeeds.
+    await assertFails(
+      updateDoc(doc(db, 'shops', SHOP_ID), { tier: 'premium' }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'shops', SHOP_ID), {
+        tierPaidUntil: new Date(Date.now() + 365 * 24 * 3600 * 1000),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'shops', SHOP_ID), {
+        tier: 'pro',
+        tierPaidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+      }),
+    );
+  });
+
+  it('denies owner granting itself a tier at create time (F134)', async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    const db = env.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      setDoc(doc(db, 'shops', 'new-shop-tier'), {
+        ownerId: OWNER,
+        name: 'Sneaky Shop',
+        status: 'pending',
+        tier: 'premium',
+        tierPaidUntil: new Date(Date.now() + 365 * 24 * 3600 * 1000),
+      }),
+    );
+  });
+
   it('denies a stranger updating a shop they do not own', async () => {
     const env = await getTestEnv();
     const db = env.authenticatedContext(STRANGER).firestore();
