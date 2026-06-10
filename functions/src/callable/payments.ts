@@ -1292,6 +1292,7 @@ export const createStripeCheckout = onCall(
           fees: calculatedFees,
           existingPaymentIntentId: null as string | null,
           sellerId: transaction.sellerId as string,
+          sellerStripeAccountId: sellerStripeAccountId as string,
           walletDebited,
           effectiveWalletAmount,
         };
