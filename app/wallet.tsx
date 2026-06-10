@@ -237,11 +237,13 @@ export default function WalletScreen() {
     isLoading,
     isRefetching,
     refetch,
+    withdrawals,
+    refetchWithdrawals,
     activate,
     isActivating,
     withdraw,
     isWithdrawing,
-  } = useWallet(!!user);
+  } = useWallet(!!user, user?.id);
 
   // ── Withdrawal flow state ──────────────────────────────────────────────────
 
