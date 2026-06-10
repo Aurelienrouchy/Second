@@ -63,6 +63,12 @@ export const PriceBreakdown = React.memo(function PriceBreakdown({
           <Text style={styles.priceLabel}>Frais de protection Seconde</Text>
           <Text style={styles.priceValue}>{formatPrice(serviceFee)}</Text>
         </View>
+        {taxTotal > 0 && (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>TPS + TVQ</Text>
+            <Text style={styles.priceValue}>{formatPrice(taxTotal)}</Text>
+          </View>
+        )}
         <View style={styles.priceDivider} />
         <View style={styles.priceRowTotal}>
           <Text style={styles.priceTotalLabel}>Total</Text>
