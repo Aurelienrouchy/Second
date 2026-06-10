@@ -56,6 +56,10 @@ export async function revertFailedPayout(
 
   let reCredited = false;
   let transferId: string | null = null;
+  // F43: when the wallet to re-credit is gone, we cannot self-heal — record the
+  // owed amount so the post-tx admin_alert makes the loss visible (never silent).
+  let walletMissingOwedCents = 0;
+  let walletMissingOwnerId: string | null = null;
 
   await db.runTransaction(async (tx) => {
     const requestSnap = await tx.get(requestRef);
