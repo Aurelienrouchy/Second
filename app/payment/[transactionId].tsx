@@ -259,6 +259,45 @@ export default function PaymentScreen() {
     }
   }, [transactionId, useWalletBalance, walletAmountCents]);
 
+  // F122 — Cancel an abandoned pending_payment from this screen instead of
+  // leaving the article locked (isSold) until the 1h expiry. cancelPendingTransaction
+  // (vague 3) cancels the PaymentIntent and refunds any wallet portion, then
+  // re-lists the article. Confirmation required (irreversible).
+  const handleCancel = useCallback(() => {
+    if (!transactionId || isCancelling) return;
+    Alert.alert(
+      'Annuler la commande',
+      "L'article sera de nouveau disponible à l'achat. Vous pourrez le racheter plus tard s'il est toujours en vente.",
+      [
+        { text: 'Continuer le paiement', style: 'cancel' },
+        {
+          text: 'Annuler la commande',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsCancelling(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              await httpsCallable(functions, 'cancelPendingTransaction')({ transactionId });
+              queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+              queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              router.back();
+            } catch (error: unknown) {
+              if (__DEV__) console.error('Error cancelling transaction:', error);
+              const { title, message } = mapCallableError(error, {
+                title: 'Annulation impossible',
+                message: 'Impossible d’annuler cette commande pour le moment.',
+              });
+              Alert.alert(title, message);
+            } finally {
+              setIsCancelling(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [transactionId, isCancelling, queryClient, router]);
+
   const handlePaymentResult = useCallback(
     async (result: StripePaymentResult) => {
       setShowStripePayment(false);
