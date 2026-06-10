@@ -7,7 +7,7 @@
  * Flow:
  * 1. Parent obtains a clientSecret from the createStripeCheckout CF
  * 2. When `visible` turns true, we init + present the Payment Sheet
- * 3. On success/error/cancel, we call onResult / onClose
+ * 3. On success/error/cancel, we call onResult
  */
 
 import { useCallback, useEffect, useRef } from 'react';
