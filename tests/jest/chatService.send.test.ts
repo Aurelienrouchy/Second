@@ -195,6 +195,70 @@ describe('ChatService.acceptOffer — expiration (régression H9)', () => {
   });
 });
 
+describe('ChatService.completeMeetup — ordre callable→message (B2)', () => {
+  /** getDocs renvoie une tx meetup_confirmed pour la 1re requête (en acheteur). */
+  function txFound(id = 'tx-confirmed') {
+    return { empty: false, docs: [{ id }], forEach: () => {}, size: 1 };
+  }
+
+  it('appelle la callable AVANT de marquer le message, et seulement après succès', async () => {
+    mockGetDocs.mockResolvedValueOnce(txFound());
+
+    const order: string[] = [];
+    mockCallable.mockImplementationOnce((..._a: unknown[]) => {
+      order.push('callable');
+      return Promise.resolve({ data: { success: true } });
+    });
+    mockUpdateDoc.mockImplementationOnce((..._a: unknown[]) => {
+      order.push('updateDoc');
+      return Promise.resolve();
+    });
+
+    await ChatService.completeMeetup('chat-1', 'msg-1', 'sender');
+
+    // La callable a bien été invoquée avec l'id de transaction résolu.
+    expect(mockCallable).toHaveBeenCalledWith({ transactionId: 'tx-confirmed' });
+    // L'ordre impose callable d'abord, écriture du message ensuite.
+    expect(order).toEqual(['callable', 'updateDoc']);
+
+    // Le message est marqué 'completed' une fois le backend confirmé.
+    const completed = mockUpdateDoc.mock.calls.find(
+      ([, payload]) => (payload as Record<string, unknown>)['offer.status'] === 'completed',
+    );
+    expect(completed).toBeDefined();
+  });
+
+  it('ne marque PAS le message si la callable échoue (tx annulée/disputée)', async () => {
+    mockGetDocs.mockResolvedValueOnce(txFound());
+    mockCallable.mockImplementationOnce(() =>
+      Promise.reject(new Error('Cannot complete meetup from status cancelled')),
+    );
+
+    await expect(
+      ChatService.completeMeetup('chat-1', 'msg-1', 'sender'),
+    ).rejects.toThrow(/Cannot complete meetup from status cancelled/);
+
+    // Aucun updateDoc ne doit avoir posé 'offer.status' = 'completed'.
+    const completed = mockUpdateDoc.mock.calls.find(
+      ([, payload]) => (payload as Record<string, unknown>)['offer.status'] === 'completed',
+    );
+    expect(completed).toBeUndefined();
+  });
+
+  it('lève une erreur claire et ne touche pas le message si aucune tx confirmée', async () => {
+    // getDocs renvoie le défaut empty:true pour acheteur ET vendeur.
+    await expect(
+      ChatService.completeMeetup('chat-1', 'msg-1', 'sender'),
+    ).rejects.toThrow(/Aucune transaction de rencontre à finaliser/);
+
+    expect(mockCallable).not.toHaveBeenCalled();
+    const completed = mockUpdateDoc.mock.calls.find(
+      ([, payload]) => (payload as Record<string, unknown>)['offer.status'] === 'completed',
+    );
+    expect(completed).toBeUndefined();
+  });
+});
+
 describe('ChatService.rejectOffer', () => {
   it('passe l’offre en "rejected"', async () => {
     mockGetDoc.mockReset();
