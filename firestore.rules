@@ -734,14 +734,23 @@ service cloud.firestore {
       allow delete: if false;
 
       function isValidTransactionUpdate(oldData, newData) {
-        // SECURITY: payment / shipping / delivery / dispute / fund-release /
-        // cancellation transitions are owned by Cloud Functions (stripeWebhook,
-        // checkShippedTracking, shipEngineWebhook, releaseHeldFunds,
-        // sweepPendingLabels, reconcileFinances, cancelPendingTransaction,
-        // adminRefundTransaction). The ONLY client-allowed write is the seller
-        // confirming a meetup (peer-to-peer, no money side-effect). Everything
-        // else MUST go through a callable so invariants (Stripe, escrow ledger,
-        // shipping labels) are enforced atomically.
+        // SECURITY (F110/F111): payment / shipping / delivery / dispute /
+        // fund-release / cancellation transitions are owned by Cloud Functions
+        // (stripeWebhook, checkShippedTracking, shipEngineWebhook,
+        // releaseHeldFunds, sweepPendingLabels, reconcileFinances,
+        // cancelPendingTransaction, adminRefundTransaction). The ONLY
+        // client-allowed write is the seller confirming a meetup (peer-to-peer,
+        // no money side-effect). Everything else MUST go through a callable so
+        // invariants (Stripe, escrow ledger, shipping labels) are enforced
+        // atomically.
+        //
+        // This guard is an ALLOWLIST: a non-meetup-confirmation client write may
+        // touch ONLY `updatedAt`. Listing forbidden fields one by one (the old
+        // DENYLIST) was fragile — meetup*/noShowReport/shippingAddress/new
+        // timestamps could be (and were, F110/F111) forgotten, letting a party
+        // mutate the shipping address post-creation or seed arbitrary fields.
+        // With an allowlist, ANY field outside the permitted set is rejected by
+        // default, so a forgotten field can never become writable.
 
         // Cannot change core transaction data.
         let coreFieldsUnchanged = newData.articleId == oldData.articleId &&
@@ -749,42 +758,13 @@ service cloud.firestore {
           newData.sellerId == oldData.sellerId &&
           newData.amount == oldData.amount;
 
-        // SECURITY: server-only sensitive fields. A client must never be able to
-        // create, mutate, or remove any of these — they drive money movement,
-        // escrow release, shipping, and dispute resolution (all CF-owned via the
-        // Admin SDK, which bypasses these rules). diff().affectedKeys() catches
-        // adds, edits AND deletes, so listing them in the whitelist below is the
-        // primary guard; this is a belt-and-suspenders explicit assertion.
-        let sensitiveFieldsUntouched =
-          !newData.diff(oldData).affectedKeys().hasAny([
-            'status', 'amount', 'totalAmount', 'sellerPayout', 'serviceFee',
-            'serviceFeePercent', 'sellerCreditedCents', 'walletAmountUsed',
-            'paidVia',
-            'shippingCost', 'actualShippingCost', 'shippingCostDelta',
-            'insuranceCost', 'shippingReconciledAt',
-            'fundsReleaseAt', 'fundsReleasedAt',
-            'disputed', 'disputeId', 'disputedAt', 'disputeReason',
-            'statusBeforeDispute', 'disputeOutcome', 'disputeClosedAt',
-            'buyerReport', 'refundInitiatedAt',
-            // Buyer-return leg (B2) — written exclusively by requestReturn /
-            // processReturnDelivered (Admin SDK). A buyer is a party to the tx,
-            // so without this guard they could forge returnLabelCost (inflate
-            // their refund), returnTrackingNumber / returnDeliveredAt (fake the
-            // return-delivered refund trigger), or returnReason. All CF-only.
-            'returnLabelId', 'returnTrackingNumber', 'returnLabelUrl',
-            'returnCarrierCode', 'returnLabelCost', 'returnReason',
-            'returnTrackingStatus', 'returnRequestedAt', 'returnDeliveredAt',
-            'labelCreationPending', 'labelCreationNote', 'labelAttempts',
-            'lastLabelAttemptAt', 'labelStaleNudgedAt',
-            'shipEngineRateId', 'shipEngineLabelId', 'trackingNumber',
-            'trackingUrl', 'trackingStatus', 'shippingLabelUrl', 'carrierCode',
-            'stripePaymentIntentId', 'stripeChargeId', 'stripeRefundId',
-            'stripeRefundIssuedAt', 'refundReason', 'refundStartedAt',
-            'refundedAt', 'cancelReason', 'cancelledBy', 'cancelledAt',
-            'meetupSpot', 'deliveryType',
-            'paidAt', 'labelCreatedAt', 'shippedAt', 'deliveredAt',
-            'deliveryFailedAt', 'completedAt', 'createdAt'
-          ]);
+        // ALLOWLIST path: only `updatedAt` may change (e.g. an idle re-stamp).
+        // Any other key — including ALL the money/shipping/dispute/meetup fields
+        // and the shippingAddress (F110) — falls outside this set and is denied,
+        // forcing the write through a Cloud Function. The meetup confirmation
+        // (below) is the single explicit exception.
+        let onlyUpdatedAtTouched =
+          newData.diff(oldData).affectedKeys().hasOnly(['updatedAt']);
 
         // Meetup status transition: ONLY the seller can confirm a meetup
         // (meetup_pending -> meetup_confirmed). The meetup_confirmed ->
