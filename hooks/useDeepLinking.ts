@@ -153,9 +153,12 @@ export function useDeepLinking(): void {
     });
 
     // Handle deep links while app is running (warm start). The navigator is
-    // already mounted by then, so route immediately.
+    // already mounted by then, so route immediately — unless the URL is a
+    // Stripe 3DS return, which Stripe must consume first (F123).
     const subscription = Linking.addEventListener('url', (event) => {
-      handleDeepLink(event.url);
+      void tryStripeURLCallback(event.url).then((stripeHandled) => {
+        if (!stripeHandled) handleDeepLink(event.url);
+      });
     });
 
     return () => {
