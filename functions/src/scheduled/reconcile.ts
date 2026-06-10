@@ -420,7 +420,7 @@ export const reconcileFinances = onSchedule(
         const snap = await q.get();
         if (snap.empty) break;
         for (const doc of snap.docs) {
-          if (checkWalletInvariants(doc)) balanceBreaches++;
+          if (await checkWalletInvariants(doc)) balanceBreaches++;
         }
         scanned += snap.size;
         lastId = snap.docs[snap.docs.length - 1].id;
