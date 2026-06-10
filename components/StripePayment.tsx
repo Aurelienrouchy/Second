@@ -19,7 +19,14 @@ import { useStripe } from '@stripe/stripe-react-native';
 
 export interface StripePaymentResult {
   success: boolean;
+  /** Human-readable error message (Stripe SDK message), if any. */
   error?: string;
+  /** Stripe SDK error code (e.g. 'Canceled', 'Failed', 'Timeout'). */
+  errorCode?: string;
+  /** Stripe decline code (e.g. 'insufficient_funds') when a card is declined. */
+  declineCode?: string;
+  /** Stripe error type (e.g. 'card_error', 'api_connection_error'). */
+  errorType?: string;
 }
 
 interface StripePaymentProps {
