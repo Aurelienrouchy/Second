@@ -1144,11 +1144,25 @@ interface SwapDocument {
   // Post-reception buyer-protection window (7 days), mirrors a delivered purchase:
   topUpFundsHeldAt?: Timestamp;  // set at confirmSwapReception: pendingBalance -> heldBalance
   topUpFundsReleaseAt?: Timestamp; // = topUpFundsHeldAt + 7d; releaseHeldFunds sweeps when due
-  topUpReleasedAt?: Timestamp;   // set by releaseHeldFunds (held -> balance, withdrawable). While
-                                 // UNSET (pre-reception or in-window), openSwapDispute can refund the payer.
-  topUpRefundId?: string;        // Stripe refund id (cancel/dispute)
+  topUpReleasedAt?: Timestamp;   // set by releaseHeldFunds OR resolveSwapDispute(release_payee)
+                                 // (held/pending -> balance, withdrawable). While UNSET (pre-reception
+                                 // or in-window), the top-up is still refundable to the payer.
+  topUpRefundId?: string;        // Stripe refund id (cancel/dispute/expiration)
   topUpRefundedAt?: Timestamp;
   topUpRefundReconciledAt?: Timestamp; // wallet debit reconciled via charge.refunded
+
+  // Dispute fields (F48). openSwapDispute FREEZES the swap (no auto-refund); the
+  // money decision is reserved for the admin callable resolveSwapDispute.
+  statusBeforeDispute?: string;  // status captured when the dispute was opened
+  disputeReason?: string;        // free text (<=1000 chars)
+  disputeOpenedBy?: string;      // uid of the participant who opened it
+  disputeOpenedAt?: Timestamp;
+  disputeResolvedBy?: string;    // admin uid (resolveSwapDispute)
+  disputeResolvedAt?: Timestamp;
+  disputeOutcome?: 'refund_payer' | 'release_payee'; // admin ruling
+  disputeResolutionNote?: string; // admin note (<=500 chars)
+  cancelReason?: string;         // e.g. cancelled_by_initiator | dispute_resolved_refund_payer
+                                 //      | post_acceptance_expired_14d_from_<status>
 
   partyId?: string;              // Linked Swap Zone (id 'generalist')
 
