@@ -511,6 +511,12 @@ export function createStripeMock(): StripeMock {
     payoutsRetrieve: [],
     paymentIntentsRetrieve: [],
     paymentIntentsCancel: [],
+    accountsRetrieve: [],
+    accountsUpdate: [],
+    accountsCreateExternalAccount: [],
+    accountsListExternalAccounts: [],
+    accountsDeleteExternalAccount: [],
+    filesCreate: [],
   };
 
   const impl: StripeMockImpl = {
@@ -524,6 +530,12 @@ export function createStripeMock(): StripeMock {
     transfersCreateReversal: async () => ({ id: 'trr_default' }),
     payoutsCreate: async () => ({ id: 'po_default' }),
     payoutsRetrieve: async () => ({ status: 'pending' }),
+    accountsRetrieve: async () => ({ id: 'acct_default', charges_enabled: true, payouts_enabled: true, details_submitted: true }),
+    accountsUpdate: async () => ({ id: 'acct_default' }),
+    accountsCreateExternalAccount: async () => ({ id: 'ba_default', last4: '0000', status: 'new' }),
+    accountsListExternalAccounts: async () => ({ data: [] }),
+    accountsDeleteExternalAccount: async () => ({ id: 'ba_default', deleted: true }),
+    filesCreate: async () => ({ id: 'file_default' }),
   };
 
   const client: Record<string, unknown> = {
