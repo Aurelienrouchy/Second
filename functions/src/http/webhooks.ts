@@ -51,7 +51,18 @@ export const stripeWebhook = onRequest(
     region: 'northamerica-northeast1',
     cors: false,
     memory: '512MiB',
-    secrets: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'SHIPENGINE_API_KEY'],
+    // F100: TWO Stripe endpoints point at this URL — the PLATFORM endpoint
+    // (payment_intent.*, charge.*) signed with STRIPE_WEBHOOK_SECRET and the
+    // CONNECT endpoint (payout.*, account.updated, connected-account disputes)
+    // signed with STRIPE_CONNECT_WEBHOOK_SECRET. Each Stripe endpoint has its own
+    // signing secret; we try both below. Both must be registered in the Stripe
+    // dashboard against this same URL (see firestore-schema.md).
+    secrets: [
+      'STRIPE_SECRET_KEY',
+      'STRIPE_WEBHOOK_SECRET',
+      'STRIPE_CONNECT_WEBHOOK_SECRET',
+      'SHIPENGINE_API_KEY',
+    ],
   },
   async (req, res) => {
     if (req.method !== 'POST') {
