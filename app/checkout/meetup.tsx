@@ -144,17 +144,10 @@ export default function MeetupCheckoutScreen() {
         article.id,
       );
 
-      // Create meetup transaction (with or without spot) — use finalPrice
-      const transactionId = await TransactionService.createMeetupTransaction(
-        article.id,
-        currentUser.uid,
-        article.sellerId,
-        finalPrice,
-        selectedSpot, // null if "via chat" option
-        chat.id,
-      );
-
-      // Send structured meetup offer in chat (renders an interactive OfferBubble)
+      // Send the structured meetup OFFER in the chat only — no transaction is
+      // created here (audit F8). It is created server-side by
+      // `acceptMeetupOffer` when the seller accepts, which also locks the
+      // article atomically. Pre-locking it here made the offer un-acceptable.
       const meetupLocation: MeetupSpot = selectedSpot ?? {
         name: 'A convenir',
         category: 'other_public',
@@ -171,14 +164,14 @@ export default function MeetupCheckoutScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Invalidate home cache so the sold article disappears
+      // Refresh home so the chat surfaces (the article stays available until
+      // the seller accepts the offer — it is only marked sold on acceptance).
       queryClient.invalidateQueries({ queryKey: homeKeys.all });
 
-      // Navigate to success
+      // Navigate to success (offer-sent confirmation — no transaction yet).
       router.replace({
         pathname: '/checkout/success' as any,
         params: {
-          transactionId,
           deliveryType: 'meetup',
           articleTitle: article.title,
           amount: String(finalPrice),
