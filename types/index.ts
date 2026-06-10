@@ -408,6 +408,8 @@ export interface Transaction {
   // Service fee (commission Seconde)
   serviceFee?: number;
   serviceFeePercent?: number;
+  /** Sales tax (TPS/TVQ) on the service fee. 0/absent when TAX_ENABLED=false. */
+  taxTotal?: number;
   sellerPayout?: number;
   // Stripe payment
   stripePaymentIntentId?: string;
