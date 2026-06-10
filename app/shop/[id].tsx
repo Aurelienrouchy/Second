@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Image } from 'expo-image';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { colors } from '@/constants/theme';
+import { useUser } from '@/hooks/useAuth';
 
 // react-native-maps : on utilise le provider natif par défaut (Apple Maps sur iOS,
 // Google Maps natif sur Android). PROVIDER_GOOGLE sur iOS exigerait une clé Maps
