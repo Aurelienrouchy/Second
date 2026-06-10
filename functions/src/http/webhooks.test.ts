@@ -15,7 +15,7 @@
  *  (transactionExpiration + walletWithdraw + shipping re-pricing live in their
  *   own *.test.ts files.)
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createFirestoreMock, createStripeMock } from '../utils/testHelpers/firestoreMock';
 import type {
   WriteOp,
