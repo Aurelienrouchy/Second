@@ -153,6 +153,8 @@ beforeEach(() => {
   shipEngineMock.getRatesCalls.length = 0;
   process.env.STRIPE_SECRET_KEY = 'sk_test';
   process.env.SHIPENGINE_API_KEY = 'se_test';
+  // F137: these tests exercise the shipping rail, which is OFF by default.
+  process.env.SHIPPING_ENABLED = 'true';
 });
 
 // ===========================================================================
