@@ -1724,6 +1724,20 @@ export const createStripeConnectAccount = onCall(
         status: state.status,
       };
     } catch (error: unknown) {
+      // F69 — release the creation lock so a failed Stripe create does not block
+      // the seller's retry for the staleness window. Best-effort; never masks the
+      // original error. The 'aborted' lock-contention path already threw above
+      // (it is an HttpsError) and never set the lock, so it is unaffected.
+      if (!(error instanceof HttpsError)) {
+        try {
+          await db
+            .collection('users')
+            .doc(userId)
+            .update({ stripeAccountCreationStartedAt: FieldValue.delete() });
+        } catch {
+          // ignore — staleness reclaim covers a failed unlock
+        }
+      }
       if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
       // Log full Stripe error details (type, code, statusCode, param) for debugging
