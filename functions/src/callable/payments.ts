@@ -2745,6 +2745,82 @@ export const cancelPendingTransaction = onCall(
     const callerUid = request.auth.uid;
 
     try {
+      // ── F73: cancel the Stripe PaymentIntent BEFORE the Firestore mutation ──
+      // A mixed wallet+card 'pending_payment' tx holds an uncaptured PI whose
+      // clientSecret the buyer still controls. If we only refund the wallet part
+      // and leave the PI confirmable, a late capture -> handlePaymentIntentSucceeded
+      // -> 'cancelled_needs_refund' -> issueTransactionRefund would re-credit the
+      // wallet a SECOND time. Same pattern as expirePendingPayment: retrieve,
+      // refuse to act while in flight/captured, then cancel.
+      const preSnap = await txRef.get();
+      if (!preSnap.exists) {
+        throw new HttpsError('not-found', 'Transaction not found');
+      }
+      const preData = preSnap.data()!;
+
+      if (preData.buyerId !== callerUid && preData.sellerId !== callerUid) {
+        throw new HttpsError('permission-denied', 'Only buyer or seller can cancel');
+      }
+
+      const cancellableStatuses = new Set([
+        'pending',
+        'pending_payment',
+        'meetup_pending',
+        'meetup_confirmed',
+      ]);
+      if (!cancellableStatuses.has(preData.status)) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Cannot cancel transaction in status ${preData.status}`
+        );
+      }
+
+      const paymentIntentId =
+        typeof preData.stripePaymentIntentId === 'string' ? preData.stripePaymentIntentId : null;
+      if (paymentIntentId) {
+        const stripe = getStripe();
+        if (!stripe) {
+          throw new HttpsError('failed-precondition', 'Stripe API not configured');
+        }
+        // PI statuses where money is in flight or already captured — never cancel.
+        const STRIPE_PI_IN_FLIGHT = new Set(['requires_capture', 'processing', 'succeeded']);
+        let piStatus: string | undefined;
+        try {
+          const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+          piStatus = pi.status;
+        } catch (retrieveErr) {
+          throw new HttpsError(
+            'unavailable',
+            'Impossible de vérifier le paiement. Réessayez dans un instant.'
+          );
+        }
+        if (piStatus && STRIPE_PI_IN_FLIGHT.has(piStatus)) {
+          // The card payment is captured/in flight — cancelling here would risk a
+          // double-refund. Refuse; the buyer keeps a paid transaction.
+          throw new HttpsError(
+            'failed-precondition',
+            'Le paiement est en cours de traitement et ne peut plus être annulé.'
+          );
+        }
+        if (piStatus !== 'canceled') {
+          try {
+            await stripe.paymentIntents.cancel(paymentIntentId);
+            logger.info('cancelPendingTransaction: PaymentIntent cancelled', {
+              transactionId,
+              paymentIntentId,
+              piStatusBefore: piStatus,
+            });
+          } catch (cancelErr) {
+            // It may have just become uncancelable (e.g. just succeeded) — abort
+            // rather than refund the wallet while the card could still capture.
+            throw new HttpsError(
+              'failed-precondition',
+              'Le paiement n\'a pas pu être annulé. Réessayez dans un instant.'
+            );
+          }
+        }
+      }
+
       await db.runTransaction(async (tx) => {
         // ── ALL READS FIRST (Firestore requires reads before writes) ──
         const snap = await tx.get(txRef);
@@ -2753,21 +2829,13 @@ export const cancelPendingTransaction = onCall(
         }
         const data = snap.data()!;
 
-        // H15: Allow both buyer and seller to cancel
+        // Re-check inside the transaction (idempotent across concurrent calls).
         if (data.buyerId !== callerUid && data.sellerId !== callerUid) {
           throw new HttpsError(
             'permission-denied',
             'Only buyer or seller can cancel'
           );
         }
-
-        // H15: Added meetup_confirmed to cancellable statuses
-        const cancellableStatuses = new Set([
-          'pending',
-          'pending_payment',
-          'meetup_pending',
-          'meetup_confirmed',
-        ]);
         if (!cancellableStatuses.has(data.status)) {
           throw new HttpsError(
             'failed-precondition',
@@ -2795,11 +2863,19 @@ export const cancelPendingTransaction = onCall(
         }
 
         // ── ALL WRITES AFTER ALL READS ──
-        tx.update(txRef, {
+        const txUpdate: Record<string, any> = {
           status: 'cancelled',
           cancelledAt: FieldValue.serverTimestamp(),
           cancelledBy: callerUid,
-        });
+        };
+        // F73: purge the wallet markers so a late card capture (race between our
+        // PI cancel and a confirm) cannot trigger a SECOND wallet re-credit in
+        // issueTransactionRefund — it keys on walletAmountUsed/paidVia.
+        if (hasWalletDebit) {
+          txUpdate.walletAmountUsed = FieldValue.delete();
+          txUpdate.paidVia = FieldValue.delete();
+        }
+        tx.update(txRef, txUpdate);
 
         // Release the article so it can be purchased again.
         // createTransaction marks isSold=true atomically at creation
