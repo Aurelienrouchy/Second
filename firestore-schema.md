@@ -1495,6 +1495,50 @@ interface SearchIndexDocument {
 }
 ```
 
+### `brands/{docId}`
+
+Brand catalog seeded from `vinted-brands.txt` (canonical source, ~7309 unique
+brands). Two consumers read this collection with **different field needs**, so a
+seeded doc must satisfy both:
+
+1. **UI brand picker** — `components/search/BrandSelectionSheet.tsx`. Queries
+   `where('searchKey', '>=', q)` / `orderBy('label')`. Reads `label`, `value`,
+   `searchKey`.
+2. **IA brand matcher** — `functions/src/services/brands.ts` (`loadBrands`,
+   used by `analyzeProductImage`). Reads `name`, `aliases`, `popularity`
+   (falls back to `doc.id` when `name` is absent — which yields the hyphenated
+   id and degrades matching, hence `name` must be seeded).
+
+`docId` = `searchKey` with `/` → `_` and spaces → `-` (e.g. `louis vuitton` →
+`louis-vuitton`). `name` keeps the proper **spaced** form (`louis vuitton`),
+never the hyphenated id.
+
+```typescript
+interface BrandDocument {
+  // UI picker contract
+  label: string;       // display name, e.g. "louis vuitton" (spaced)
+  value: string;       // lowercase search/dedup value (== searchKey)
+  searchKey: string;   // lowercase, used for range queries
+
+  // IA matcher contract
+  name: string;        // proper spaced name (== label), NOT the hyphenated id
+  aliases: string[];   // seeded empty []; alternate names for fuzzy matching
+  popularity: number;  // seeded 0; ranking signal for matcher
+
+  // metadata
+  tier: 'luxury' | 'premium' | 'standard';
+  count: number;       // seeded 0
+  isCustom?: boolean;  // true only for user-added brands (client create path)
+  updatedAt: Timestamp; // serverTimestamp on seed; createdAt on custom create
+}
+```
+
+Seeded via `scripts/import-brands.js` (Admin SDK, bypasses rules). Idempotent
+(`merge: true`, batches of 500). Run `npm run import:brands:dry` to validate
+without credentials. Custom brands added at runtime by authenticated users go
+through `firestore.rules` (create only, keys `['label','value','searchKey']`,
+`isCustom == true`).
+
 ### `wallets/{userId}`
 
 Virtual wallet for buyers and sellers. All amounts are in **cents** (not dollars) to avoid floating-point issues. Balance mutations are server-side only via Cloud Functions with `runTransaction`.
