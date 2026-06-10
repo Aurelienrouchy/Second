@@ -31,7 +31,6 @@ import {
 } from 'react-native';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Alert } from 'react-native';
 
 interface SaleItem {
   transaction: Transaction;
