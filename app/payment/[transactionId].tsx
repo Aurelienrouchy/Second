@@ -279,7 +279,7 @@ export default function PaymentScreen() {
       setConfirmingPayment(false);
       confirmAndExit();
     },
-    [router, transactionId]
+    [router, transactionId, retryStripePayment]
   );
 
   // =============================================================================
