@@ -82,6 +82,7 @@ function SaleCard({
 
   const isReviewable = isReviewableStatus(transaction.status) && !hasReview;
   const isReviewed = isReviewableStatus(transaction.status) && hasReview;
+  const isCancellable = isSellerCancellableStatus(transaction.status);
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
