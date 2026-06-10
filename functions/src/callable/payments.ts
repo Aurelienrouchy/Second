@@ -1686,8 +1686,11 @@ export const addBankAccount = onCall(
       // Canadian routing_number = transit (5) + institution (3) = 8 digits
       const routingNumber = `${transitNumber}${institutionNumber}`;
 
-      // Create external bank account on the Custom connected account
-      await stripe.accounts.createExternalAccount(stripeAccountId, {
+      // Create external bank account on the Custom connected account.
+      // F60a — REPLACEMENT support: mark the new account as the default for CAD
+      // so an existing (e.g. closed) bank account is superseded as the payout
+      // destination. Stripe demotes the previous default automatically.
+      const newBank = (await stripe.accounts.createExternalAccount(stripeAccountId, {
         external_account: {
           object: 'bank_account',
           country: 'CA',
@@ -1698,7 +1701,29 @@ export const addBankAccount = onCall(
             ? { account_holder_name: accountHolderName.trim().substring(0, 200) }
             : {}),
         },
-      });
+        default_for_currency: true,
+      })) as any;
+
+      // Best-effort cleanup: delete any other (now non-default) external bank
+      // accounts so a closed account can no longer be selected. Never let this
+      // fail the call — the new default is already set above.
+      try {
+        const externals = await stripe.accounts.listExternalAccounts(stripeAccountId, {
+          object: 'bank_account',
+          limit: 10,
+        });
+        for (const ext of (externals as any).data ?? []) {
+          if (ext.id && ext.id !== newBank.id) {
+            await stripe.accounts.deleteExternalAccount(stripeAccountId, ext.id);
+          }
+        }
+      } catch (cleanupErr) {
+        logger.warn('addBankAccount: could not prune old external accounts', {
+          userId,
+          stripeAccountId,
+          error: cleanupErr instanceof Error ? cleanupErr.message : cleanupErr,
+        });
+      }
 
       // Configure manual payouts — the platform controls disbursement
       // via the requestWithdrawal callable (Stripe Payouts API)
@@ -1712,22 +1737,29 @@ export const addBankAccount = onCall(
         },
       });
 
-      // Update user document with bank account status
+      const bankAccountLast4 =
+        typeof newBank.last4 === 'string' ? newBank.last4 : accountNumber.slice(-4);
+      const bankAccountStatus = typeof newBank.status === 'string' ? newBank.status : null;
+
+      // Update user document with bank account status (CF-only fields).
       await userRef.update({
         stripeBankAccountAdded: true,
-        stripeBankAccountLast4: accountNumber.slice(-4),
+        stripeBankAccountLast4: bankAccountLast4,
+        ...(bankAccountStatus !== null ? { stripeBankAccountStatus: bankAccountStatus } : {}),
       });
 
       logger.info('Bank account added to Stripe Custom account', {
         userId,
         stripeAccountId,
         routingNumber,
-        accountLast4: accountNumber.slice(-4),
+        accountLast4: bankAccountLast4,
+        bankAccountStatus,
       });
 
       return {
         success: true,
-        bankAccountLast4: accountNumber.slice(-4),
+        bankAccountLast4,
+        bankAccountStatus,
       };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
