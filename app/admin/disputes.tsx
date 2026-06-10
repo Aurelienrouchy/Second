@@ -293,14 +293,24 @@ export default function AdminDisputesScreen() {
   }, [user, router]);
 
   useEffect(() => {
-    if (isAdmin) {
+    // The 'swaps' tab is a manual resolver (no firestore list — rules restrict
+    // swap reads to participants), so we only load for the dispute-doc tabs.
+    if (isAdmin && selectedTab !== 'swaps') {
       loadDisputes(selectedTab);
     }
   }, [isAdmin, selectedTab, loadDisputes]);
 
   const renderDisputeItem = useCallback(
-    ({ item }: { item: Dispute }) => <DisputeCard dispute={item} />,
-    [],
+    ({ item }: { item: Dispute }) => (
+      <DisputeCard
+        dispute={item}
+        isResolving={resolvingId === item.id}
+        actionsDisabled={resolvingId !== null}
+        onRefundBuyer={handleRefundBuyer}
+        onResolveForSeller={handleResolveForSeller}
+      />
+    ),
+    [resolvingId, handleRefundBuyer, handleResolveForSeller],
   );
 
   const renderEmpty = useCallback(
