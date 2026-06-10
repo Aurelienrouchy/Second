@@ -723,7 +723,11 @@ export const createSwapTopUpCheckout = onCall(
         );
       }
 
-      // Fees: top-up base (cents → dollars) is the "article price", shipping 0
+      // Fees: top-up base (cents → dollars) is the "article price", shipping 0.
+      // F134 — the paid-shop buyer-fee reduction is DELIBERATELY NOT applied to a
+      // swap top-up: the forfait monetizes reduced BUYER fees on a shop's article
+      // SALES, and a top-up is a peer-to-peer swap balancing payment (no shop, no
+      // seller-shop relationship). Always full fee, full tax (when TAX_ENABLED).
       const fees = calculateFees(reserved.amount / 100, 0);
       const totalChargeCents = Math.round(fees.buyerTotal * 100);
       const applicationFeeCents = Math.round(fees.serviceFee * 100);
