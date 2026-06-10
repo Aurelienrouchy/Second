@@ -58,9 +58,6 @@ async function releaseSwapPartyItems(swap: FirebaseFirestore.DocumentData): Prom
  */
 const STALE_SWAP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-/** Firestore batch limit is 500; use 450 for safety margin */
-const BATCH_SIZE = 450;
-
 /** F81: bound each unfiltered status query so a backlog cannot OOM the run. */
 const MAX_PER_STATUS = 300;
 
