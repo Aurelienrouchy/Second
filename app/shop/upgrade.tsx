@@ -124,7 +124,6 @@ export default function ShopUpgradeScreen() {
   // Stripe Payment Sheet state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [showStripePayment, setShowStripePayment] = useState(false);
-  const [sheetTotal, setSheetTotal] = useState(0);
 
   const {
     data: shop = null,
