@@ -436,7 +436,9 @@ export interface StripeMockImpl {
   paymentIntentsRetrieve: (...a: unknown[]) => unknown;
   paymentIntentsCancel: (...a: unknown[]) => unknown;
   transfersCreate: (...a: unknown[]) => unknown;
+  transfersCreateReversal: (...a: unknown[]) => unknown;
   payoutsCreate: (...a: unknown[]) => unknown;
+  payoutsRetrieve: (...a: unknown[]) => unknown;
 }
 
 export interface StripeMock {
