@@ -204,6 +204,7 @@ export const checkShippedTracking = onSchedule(
 
         keepGoing = snap.size === PAGE_SIZE;
       }
+     }
     }
 
     logger.info('[checkShippedTracking] run complete', {
