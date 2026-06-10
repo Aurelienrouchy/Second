@@ -185,13 +185,16 @@ export const SwapActions = React.memo(function SwapActions({
         </Pressable>
       )}
 
-      {/* Dispute escape hatch — available while shipping and during the
-          post-completion protection window. The backend (openSwapDispute,
-          which accepts both 'shipping' and 'completed') is the source of
-          truth on eligibility. */}
-      {(status === 'shipping' || status === 'completed') && (
-        <DisputeButton disabled={isProcessing} />
-      )}
+      {/* Dispute escape hatch — available once the swap is locked in
+          (post-acceptance) and through the post-completion protection window.
+          Exposing it from 'accepted'/'photos_pending' is the exit for a top-up
+          payer stranded by a silent counterparty (F51). The backend
+          (openSwapDispute, DISPUTABLE_SWAP_STATUSES) is the source of truth on
+          eligibility — it FREEZES the swap; an admin then resolves it. */}
+      {(status === 'accepted' ||
+        status === 'photos_pending' ||
+        status === 'shipping' ||
+        status === 'completed') && <DisputeButton disabled={isProcessing} />}
 
       {/* Completed - Rate */}
       {status === 'completed' && !hasRated && (
