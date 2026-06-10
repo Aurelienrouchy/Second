@@ -491,22 +491,40 @@ export class TransactionService {
   }
 
   /**
-   * Get all transactions for a user (buyer or seller)
+   * Default cap on the number of buyer/seller transactions fetched per side.
+   * Bounds the my-orders / my-sales reads so the queries never load an entire
+   * (potentially huge) transaction history in one shot (F130). Backed by the
+   * composite indexes (buyerId|sellerId, createdAt desc).
    */
-  static async getUserTransactions(userId: string): Promise<Transaction[]> {
+  static readonly USER_TRANSACTIONS_PAGE_SIZE = 50;
+
+  /**
+   * Get the most recent transactions for a user (buyer or seller), bounded.
+   *
+   * @param userId The user whose transactions to fetch.
+   * @param max    Max docs per side (buyer + seller). Defaults to the page size.
+   */
+  static async getUserTransactions(
+    userId: string,
+    max: number = TransactionService.USER_TRANSACTIONS_PAGE_SIZE,
+  ): Promise<Transaction[]> {
     try {
       const transactionsRef = collection(firestore, 'transactions');
-      
-      // Get transactions where user is buyer
+
+      // Bounded + server-sorted (composite indexes exist). Capping each side
+      // avoids loading the whole collection for a heavy account (F130).
       const buyerQuery = query(
         transactionsRef,
-        where('buyerId', '==', userId)
+        where('buyerId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        fsLimit(max),
       );
-      
-      // Get transactions where user is seller
+
       const sellerQuery = query(
         transactionsRef,
-        where('sellerId', '==', userId)
+        where('sellerId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        fsLimit(max),
       );
 
       const [buyerSnapshot, sellerSnapshot] = await Promise.all([
@@ -524,7 +542,7 @@ export class TransactionService {
         transactions.push(mapTransaction(doc.id, doc.data()));
       });
 
-      // Sort by creation date (most recent first)
+      // Merge buyer+seller sides and keep most-recent-first.
       return transactions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (error: any) {
       throw new Error(`Erreur lors de la récupération des transactions: ${error.message}`);
