@@ -422,9 +422,19 @@ const keyExtractor = (item: Dispute) => item.id;
 
 interface DisputeCardProps {
   dispute: Dispute;
+  isResolving: boolean;
+  actionsDisabled: boolean;
+  onRefundBuyer: (dispute: Dispute) => void;
+  onResolveForSeller: (dispute: Dispute) => void;
 }
 
-const DisputeCard = React.memo(function DisputeCard({ dispute }: DisputeCardProps) {
+const DisputeCard = React.memo(function DisputeCard({
+  dispute,
+  isResolving,
+  actionsDisabled,
+  onRefundBuyer,
+  onResolveForSeller,
+}: DisputeCardProps) {
   const isOpen = dispute.status === 'open';
   return (
     <View style={styles.card}>
