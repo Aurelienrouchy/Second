@@ -401,7 +401,7 @@ Le dossier `contexts/` a été **entièrement supprimé** (shims legacy élimin�
 | `popularity.ts` | Recalcul scores popularité |
 | `savedSearches.ts` | Notif nouvelles correspondances |
 | `stats.ts` | Agrégation stats |
-| `swaps.ts` | Expiration swaps stale (proposed + payment_pending non payés, 7j) → libère les items |
+| `swaps.ts` | `expireStaleProposedSwaps` : expiration swaps stale (proposed + payment_pending non payés, 7j) → libère les items. `expireStalePostAcceptanceSwaps` (F51/F52, toutes les heures, index `status,updatedAt`) : déroule les swaps bloqués en `accepted`/`photos_pending`/`shipping` après 14j → refund top-up payé (idempotent `rf_swap_<id>`) + libère les items + statut `expired` |
 | `trackingCheck.ts` | Filet de sécurité (toutes les 12h, paginé orderBy createdAt + startAfter, throttle ShipEngine) : poll les transactions `label_created` + `shipped` + `return_requested` (même index `status,createdAt`). 1er scan transporteur → `shipped` ; DELIVERED → contrat heldBalance (+7j) ; FAILURE → `delivery_failed` ; relance vendeur si `label_created` sans scan depuis 3j. Branche RETOUR : poll `returnTrackingNumber`/`returnCarrierCode` ; DELIVERED → `utils/returnRefund.processReturnDelivered`. Délègue à `utils/trackingTransition` |
 | `transactionExpiration.ts` | Expiration meetup_pending (48h), pending_payment (1h), paid-not-shipped (7j) orphelins |
 | `releaseHeldFunds.ts` | Toutes les heures : libère heldBalance → balance après la fenêtre de litige 7j (delivered → completed). Expose `applyDeliveredHeldFunds` (contrat pending→held à la livraison) |
