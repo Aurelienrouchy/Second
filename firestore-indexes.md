@@ -524,14 +524,20 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
   d'index ajouté (orphelin évité).
 - `wallets/{uid}/ledger` (`callable/wallet.ts`) : `orderBy createdAt desc` sur une
   sous-collection mono-champ → index auto-créé, pas de composite requis.
-- `withdrawal_requests userId ==` (`callable/users.ts`, suppression de compte) :
-  égalité mono-champ → index auto-créé.
 - **Recours acheteur (B2/B3)** : `requestReturn` / `reportTransactionProblem` /
   `requestRefund` (`callable/recourse.ts`) et `processReturnDelivered`
   (`utils/returnRefund.ts`) ne font que des accès `doc(id)` directs — aucune
-  requête `where`/`orderBy`. Le poller `return_requested` réutilise l'index
-  existant `transactions` (`status ASC, createdAt ASC`) — **aucun nouvel index
-  n'est ajouté** par ce chantier de recours.
+  requête `where`/`orderBy`.
+
+  > **MISE À JOUR (vague 4 — rail de résolution)** : l'affirmation historique
+  > « `withdrawal_requests userId ==` est mono-champ → index auto-créé » est
+  > **obsolète** pour la gate F89 : `deleteUserAccount` interroge désormais
+  > `userId == uid && status == 'processing'` (deux égalités) → index composite
+  > `userId ASC, status ASC` ajouté ci-dessus. De même, le poller des retours
+  > périmés (F26) filtre `status == 'return_requested' && returnRequestedAt <`
+  > (inégalité sur un champ différent du `==`) → index composite
+  > `status ASC, returnRequestedAt ASC` ajouté (l'ancien `status + createdAt` ne
+  > couvre pas une inégalité sur `returnRequestedAt`).
 
   > **MISE À JOUR (gate suppression de compte)** : l'affirmation historique
   > « la collection `disputes` n'est jamais listée → aucun index requis » est
