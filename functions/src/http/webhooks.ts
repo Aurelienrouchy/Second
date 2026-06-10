@@ -1125,6 +1125,44 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
 
   const transactionRef = db.collection('transactions').doc(transactionId);
 
+  // F102: Stripe emits payment_intent.payment_failed on EVERY failed attempt
+  // (card declined, 3DS abandoned), but the buyer can immediately retry in the
+  // SAME Payment Sheet on the SAME PaymentIntent. Cancelling on the first failure
+  // relisted the article mid-checkout and, if the retry then succeeded, produced
+  // a PI.succeeded on a 'cancelled' tx → auto-refund + lost sale.
+  //
+  // The PaymentIntent status is the authority: only a TERMINAL 'canceled' PI is a
+  // real, final failure. Anything else (requires_payment_method/requires_action/
+  // processing) is a retryable attempt — do nothing and let the 1h pending_payment
+  // expiry (which re-reads the live PI status, transactionExpiration.ts) decide.
+  const stripe = getStripe();
+  let piTerminallyCanceled = false;
+  if (stripe && typeof paymentIntent.id === 'string') {
+    try {
+      const livePi = await stripe.paymentIntents.retrieve(paymentIntent.id);
+      piTerminallyCanceled = livePi.status === 'canceled';
+      if (!piTerminallyCanceled) {
+        logger.info('Stripe webhook: payment_failed is a retryable attempt — not cancelling', {
+          transactionId,
+          paymentIntentId: paymentIntent.id,
+          piStatus: livePi.status,
+        });
+      }
+    } catch (retrieveErr) {
+      // Could not reach Stripe — be conservative and do NOT cancel; the 1h expiry
+      // will reconcile against the live PI status.
+      logger.warn('Stripe webhook: payment_failed PI retrieve failed — deferring to expiry', {
+        transactionId,
+        paymentIntentId: paymentIntent.id,
+        error: retrieveErr instanceof Error ? retrieveErr.message : retrieveErr,
+      });
+    }
+  }
+
+  if (!piTerminallyCanceled) {
+    return;
+  }
+
   await db.runTransaction(async (tx) => {
     const txSnap = await tx.get(transactionRef);
     const txData = txSnap.data();
