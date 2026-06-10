@@ -1356,50 +1356,86 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
     const sellerPayoutCents =
       typeof txData.sellerCreditedCents === 'number' ? txData.sellerCreditedCents : 0;
 
+    // F37: amount moved balance -> heldBalance at dispute.created (persisted).
+    const freezeCents =
+      typeof txData.disputeFreezeCents === 'number' ? txData.disputeFreezeCents : 0;
+
+    const sellerWalletRef = sellerId ? db.collection('wallets').doc(sellerId) : null;
+    const sellerWalletSnap = sellerWalletRef ? await tx.get(sellerWalletRef) : null;
+
     if (outcome === 'won') {
-      // Seller keeps the funds. Restore the pre-dispute status so the normal
-      // release cycle can resume; clear the dispute flag.
+      // Seller keeps the funds. F37: give the frozen amount back (heldBalance ->
+      // balance) so the dispute_hold is never stranded. Restore the pre-dispute
+      // status so the normal release cycle can resume; clear the dispute flag.
+      if (freezeCents > 0 && sellerWalletRef && sellerWalletSnap && sellerWalletSnap.exists) {
+        const walletData = sellerWalletSnap.data()!;
+        const heldNow = walletData.heldBalance || 0;
+        const releaseCents = Math.min(freezeCents, heldNow);
+        if (releaseCents > 0) {
+          tx.update(sellerWalletRef, {
+            heldBalance: FieldValue.increment(-releaseCents),
+            balance: FieldValue.increment(releaseCents),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          const ledgerRef = sellerWalletRef.collection('ledger').doc();
+          tx.set(ledgerRef, {
+            type: 'dispute_hold_released',
+            amount: releaseCents,
+            balanceAfter: (walletData.balance || 0) + releaseCents,
+            description: 'Litige gagné — fonds gelés restitués',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
       const restored = txData.statusBeforeDispute || 'delivered';
       tx.update(txDoc.ref, {
         status: restored,
         disputed: false,
         disputeClosedAt: FieldValue.serverTimestamp(),
         disputeOutcome: 'won',
+        disputeFreezeCents: 0,
       });
 
-      logger.warn('Stripe webhook: dispute.closed WON — status restored', {
+      logger.warn('Stripe webhook: dispute.closed WON — status restored, hold released', {
         transactionId,
         restored,
+        releasedCents: freezeCents,
       });
       return;
     }
 
     if (outcome === 'lost') {
-      // Stripe already clawed back the funds from the platform. Debit the
-      // seller: heldBalance first, then balance. Track any shortfall as debt.
+      // Stripe already clawed back the funds from the platform. F38: cascade the
+      // debit pendingBalance -> heldBalance -> balance (aligned with
+      // handleChargeRefunded) so a chargeback on a still-pending sale drains the
+      // sale's own pending credit instead of other sales / false debt. Track any
+      // shortfall as debt.
       if (sellerId && sellerPayoutCents > 0) {
-        const sellerWalletRef = db.collection('wallets').doc(sellerId);
-        const sellerWalletSnap = await tx.get(sellerWalletRef);
-
-        if (sellerWalletSnap.exists) {
+        if (sellerWalletRef && sellerWalletSnap && sellerWalletSnap.exists) {
           const walletData = sellerWalletSnap.data()!;
+          const pendingNow = walletData.pendingBalance || 0;
           const heldNow = walletData.heldBalance || 0;
           const balanceNow = walletData.balance || 0;
 
-          const fromHeld = Math.min(sellerPayoutCents, heldNow);
-          const remainingAfterHeld = sellerPayoutCents - fromHeld;
-          const fromBalance = Math.min(remainingAfterHeld, balanceNow);
-          const shortfall = remainingAfterHeld - fromBalance;
+          const fromPending = Math.min(sellerPayoutCents, pendingNow);
+          let remaining = sellerPayoutCents - fromPending;
+          const fromHeld = Math.min(remaining, heldNow);
+          remaining -= fromHeld;
+          const fromBalance = Math.min(remaining, balanceNow);
+          const shortfall = remaining - fromBalance;
 
           const walletUpdate: Record<string, any> = {
             updatedAt: FieldValue.serverTimestamp(),
           };
+          if (fromPending > 0) walletUpdate.pendingBalance = FieldValue.increment(-fromPending);
           if (fromHeld > 0) walletUpdate.heldBalance = FieldValue.increment(-fromHeld);
           if (fromBalance > 0) walletUpdate.balance = FieldValue.increment(-fromBalance);
           if (shortfall > 0) walletUpdate.sellerDebt = FieldValue.increment(shortfall);
           tx.update(sellerWalletRef, walletUpdate);
 
-          const debited = fromHeld + fromBalance;
+          const debited = fromPending + fromHeld + fromBalance;
           const ledgerRef = sellerWalletRef.collection('ledger').doc();
           tx.set(ledgerRef, {
             type: 'refund_debit',
@@ -1413,6 +1449,29 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
             createdAt: FieldValue.serverTimestamp(),
             ...(shortfall > 0 && { debtRecorded: shortfall }),
           });
+
+          // F37: if the debit took LESS from heldBalance than was frozen at
+          // dispute.created (e.g. uncredited tx -> sellerPayoutCents = 0, or a
+          // partial credit), the residual frozen amount would stay stranded in
+          // heldBalance. Release exactly that residual back to balance.
+          const residualHold = Math.max(0, freezeCents - fromHeld);
+          const heldAfterDebit = heldNow - fromHeld;
+          const releaseResidual = Math.min(residualHold, Math.max(0, heldAfterDebit));
+          if (releaseResidual > 0) {
+            tx.update(sellerWalletRef, {
+              heldBalance: FieldValue.increment(-releaseResidual),
+              balance: FieldValue.increment(releaseResidual),
+            });
+            const releaseLedgerRef = sellerWalletRef.collection('ledger').doc();
+            tx.set(releaseLedgerRef, {
+              type: 'dispute_hold_released',
+              amount: releaseResidual,
+              balanceAfter: (balanceNow - fromBalance) + releaseResidual,
+              description: 'Litige perdu — surplus gelé restitué',
+              transactionId,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          }
         } else {
           // No wallet at all: record full payout as debt.
           logger.warn('Stripe webhook: dispute.closed LOST — seller wallet missing, recording full debt', {
@@ -1429,6 +1488,35 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
             { merge: true }
           );
         }
+      } else if (
+        // Uncredited tx (sellerPayoutCents = 0) but funds were still frozen at
+        // dispute.created (rare): release the whole frozen amount on LOST so it
+        // is never stranded. Stripe pulled the money from the platform, not from
+        // a credit the seller never received.
+        freezeCents > 0 &&
+        sellerWalletRef &&
+        sellerWalletSnap &&
+        sellerWalletSnap.exists
+      ) {
+        const walletData = sellerWalletSnap.data()!;
+        const heldNow = walletData.heldBalance || 0;
+        const releaseCents = Math.min(freezeCents, heldNow);
+        if (releaseCents > 0) {
+          tx.update(sellerWalletRef, {
+            heldBalance: FieldValue.increment(-releaseCents),
+            balance: FieldValue.increment(releaseCents),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          const releaseLedgerRef = sellerWalletRef.collection('ledger').doc();
+          tx.set(releaseLedgerRef, {
+            type: 'dispute_hold_released',
+            amount: releaseCents,
+            balanceAfter: (walletData.balance || 0) + releaseCents,
+            description: 'Litige perdu — surplus gelé restitué',
+            transactionId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
       }
 
       tx.update(txDoc.ref, {
@@ -1437,6 +1525,7 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
         disputeClosedAt: FieldValue.serverTimestamp(),
         disputeOutcome: 'lost',
         refundedAt: FieldValue.serverTimestamp(),
+        disputeFreezeCents: 0,
       });
 
       logger.warn('Stripe webhook: dispute.closed LOST — seller debited, transaction refunded', {
@@ -1445,18 +1534,43 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
       return;
     }
 
-    // Other outcomes (e.g. warning_closed): clear the flag, restore status.
+    // Other outcomes (e.g. warning_closed): treat like WON — the seller keeps the
+    // funds. F37: release the frozen hold, clear the flag, restore the status.
+    if (freezeCents > 0 && sellerWalletRef && sellerWalletSnap && sellerWalletSnap.exists) {
+      const walletData = sellerWalletSnap.data()!;
+      const heldNow = walletData.heldBalance || 0;
+      const releaseCents = Math.min(freezeCents, heldNow);
+      if (releaseCents > 0) {
+        tx.update(sellerWalletRef, {
+          heldBalance: FieldValue.increment(-releaseCents),
+          balance: FieldValue.increment(releaseCents),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        const ledgerRef = sellerWalletRef.collection('ledger').doc();
+        tx.set(ledgerRef, {
+          type: 'dispute_hold_released',
+          amount: releaseCents,
+          balanceAfter: (walletData.balance || 0) + releaseCents,
+          description: 'Litige clôturé — fonds gelés restitués',
+          transactionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
     const restored = txData.statusBeforeDispute || 'delivered';
     tx.update(txDoc.ref, {
       status: restored,
       disputed: false,
       disputeClosedAt: FieldValue.serverTimestamp(),
       disputeOutcome: outcome || 'closed',
+      disputeFreezeCents: 0,
     });
 
-    logger.info('Stripe webhook: dispute.closed other outcome — status restored', {
+    logger.info('Stripe webhook: dispute.closed other outcome — status restored, hold released', {
       transactionId,
       outcome,
+      releasedCents: freezeCents,
     });
   });
 }
