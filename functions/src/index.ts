@@ -52,6 +52,7 @@ export {
   confirmSwapReception,
   rateSwap,
   openSwapDispute,
+  resolveSwapDispute,
   getSwapPartyLeaderboard,
   addItemToPartySecure,
   removeItemFromPartySecure,
