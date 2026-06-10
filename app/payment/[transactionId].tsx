@@ -6,7 +6,7 @@
  * Creates a Stripe checkout session and presents the native Payment Sheet.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,7 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { httpsCallable } from 'firebase/functions';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -36,6 +36,7 @@ import { TransactionService } from '@/services/transactionService';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
 import { classifyStripePaymentError } from '@/utils/stripePaymentError';
+import { mapCallableError } from '@/utils/callableError';
 
 // =============================================================================
 // CONSTANTS
