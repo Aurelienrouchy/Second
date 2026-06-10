@@ -424,6 +424,74 @@ export const expireOrphanedTransactions = onSchedule(
       });
     }
 
+    // =========================================================================
+    // 5. F26: route stale return legs to admin. A `return_requested` tx whose
+    //    return parcel never scanned DELIVERED after 21 days is a frozen-funds
+    //    dead-end (seller payout blocked forever). We open a `disputes` doc for
+    //    human review (safe default — no silent auto-release / auto-refund) and
+    //    stamp `returnEscalatedAt` so it is escalated exactly once.
+    // =========================================================================
+
+    try {
+      const returnCutoff = new Date(now - RETURN_LEG_STALE_MS);
+      const returnSnap = await db
+        .collection('transactions')
+        .where('status', '==', 'return_requested')
+        .where('returnRequestedAt', '<', returnCutoff)
+        .limit(MAX_PER_RUN)
+        .get();
+
+      if (!returnSnap.empty) {
+        let escalated = 0;
+        for (const doc of returnSnap.docs) {
+          const data = doc.data();
+          // Idempotence: already escalated.
+          if (data.returnEscalatedAt) continue;
+          try {
+            await db.runTransaction(async (tx) => {
+              const snap = await tx.get(doc.ref);
+              if (!snap.exists) return;
+              const d = snap.data()!;
+              if (d.status !== 'return_requested' || d.returnEscalatedAt) return;
+
+              const disputeRef = db.collection('disputes').doc();
+              tx.set(disputeRef, {
+                transactionId: doc.id,
+                type: 'return_not_delivered',
+                buyerId: d.buyerId ?? null,
+                sellerId: d.sellerId ?? null,
+                articleId: d.articleId ?? null,
+                articleTitle: d.articleTitle ?? null,
+                reason: 'return_leg_stale',
+                details:
+                  'Colis de retour non livré (aucun scan DELIVERED) après 21 jours — revue manuelle requise.',
+                status: 'open',
+                statusBeforeDispute: 'return_requested',
+                createdAt: FieldValue.serverTimestamp(),
+              });
+
+              tx.update(doc.ref, {
+                returnEscalatedAt: FieldValue.serverTimestamp(),
+              });
+            });
+            escalated++;
+          } catch (e) {
+            logger.error('[expireOrphanedTransactions] Failed to escalate stale return', {
+              transactionId: doc.id,
+              error: e instanceof Error ? e.message : e,
+            });
+          }
+        }
+        logger.warn(
+          `[expireOrphanedTransactions] Escalated ${escalated}/${returnSnap.size} stale return legs to admin (21d)`
+        );
+      }
+    } catch (error) {
+      logger.error('[expireOrphanedTransactions] Error escalating stale return legs', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
     logger.info(`[expireOrphanedTransactions] Total expired: ${totalExpired}`);
   }
 );
