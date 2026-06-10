@@ -202,3 +202,22 @@ export function fillFundsReleaseAt(text: string, formattedDate?: string): string
   if (!text.includes('{fundsReleaseAt}')) return text;
   return text.replace('{fundsReleaseAt}', formattedDate ?? 'sous peu');
 }
+
+/**
+ * Transaction statuses that confirm the buyer's payment has been captured
+ * server-side (set by stripeWebhook / payWithWallet). Reaching any of these
+ * means it is safe to show a payment confirmation. Single source of truth for
+ * the checkout/payment confirmation polling (was duplicated, F131).
+ */
+export const PAID_STATUSES: ReadonlySet<TransactionStatus> = new Set<TransactionStatus>([
+  'paid',
+  'label_created',
+  'shipped',
+  'delivered',
+  'completed',
+]);
+
+/** True once a transaction's payment has been captured server-side. */
+export function isPaidStatus(status: TransactionStatus): boolean {
+  return PAID_STATUSES.has(status);
+}
