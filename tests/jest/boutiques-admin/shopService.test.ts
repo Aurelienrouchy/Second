@@ -319,3 +319,26 @@ describe('ShopService.getPendingShops', () => {
     await expect(ShopService.getPendingShops()).resolves.toEqual([]);
   });
 });
+
+describe('ShopService.purchaseShopTier (F134)', () => {
+  it("appelle la callable 'purchaseShopTier' avec shopId + tier + periodMonths", async () => {
+    await ShopService.purchaseShopTier('shop_1', 'pro', 3);
+
+    expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'purchaseShopTier');
+    expect(mockPurchaseTierFn).toHaveBeenCalledWith({
+      shopId: 'shop_1',
+      tier: 'pro',
+      periodMonths: 3,
+    });
+  });
+
+  it('remonte clientSecret + amountCents (montant serveur-autoritaire) du backend', async () => {
+    const result = await ShopService.purchaseShopTier('shop_1', 'pro', 3);
+
+    expect(result.success).toBe(true);
+    expect(result.clientSecret).toBe('pi_secret_123');
+    expect(result.amountCents).toBe(8997);
+    expect(result.tier).toBe('pro');
+    expect(result.periodMonths).toBe(3);
+  });
+});
