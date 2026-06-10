@@ -1023,27 +1023,39 @@ ShipEngine for the webhook to fire (else it returns 404 — manual founder actio
 
 ### `disputes/{disputeId}`
 
-Buyer-opened dispute tickets (server-only writes). Created by
-`reportTransactionProblem` when a buyer flags a delivered-but-problematic order
-("delivered but problem"). NO money moves at creation — the parent transaction
-is frozen (`disputed=true`, status `disputed`) so the held-funds release stays
-blocked, and an admin resolves the outcome via `adminRefundTransaction`. A buyer
-cannot open a second dispute on an already-disputed transaction.
+Dispute tickets (server-only writes). Created by `reportTransactionProblem`
+(buyer flags a delivered-but-problematic order), `reportMeetupNoShow`
+(`type: 'meetup_no_show'`), or `expireOrphanedTransactions`
+(`type: 'return_not_delivered'`, F26 — a return leg never scanned DELIVERED).
+NO money moves at creation — the parent transaction is frozen (`disputed=true`).
+A dispute is CLOSED by either `adminRefundTransaction` (refund the buyer →
+`resolution: 'refunded'`) or `resolveDispute` (admin dismisses in favor of the
+seller, no refund → `resolution: 'dismissed'`). Closing a dispute is what lets
+the admin list empty AND unblocks both parties' account deletion (F27/F88).
 
 ```typescript
 interface DisputeDocument {
   transactionId: string;           // Parent transaction
-  buyerId: string;                 // Reporting buyer (== transaction.buyerId)
+  buyerId: string | null;          // Reporting/affected buyer (== transaction.buyerId)
   sellerId: string | null;
   articleId: string | null;
   articleTitle: string | null;
+  type?: 'meetup_no_show' | 'return_not_delivered' | string; // omitted for the buyer "delivered but problem" report
   reason:
     | 'not_received_despite_delivered'
     | 'not_as_described'
     | 'damaged'
-    | 'other';
-  details?: string;                // Optional buyer free text (<= 1000 chars; omitted when empty)
-  status: 'open' | string;         // 'open' at creation; admin moves it on resolution
+    | 'return_leg_stale'
+    | 'other'
+    | string;
+  details?: string;                // Optional free text (<= 1000 chars; omitted when empty)
+  reportedBy?: string;             // Who filed (meetup no-show / generic reports)
+  reportedAgainst?: string | null; // The accused party (meetup no-show)
+  status: 'open' | 'resolved';     // 'open' at creation; closed by admin CFs
+  resolution?: 'refunded' | 'dismissed'; // Set when status -> 'resolved'
+  resolvedBy?: string;             // Admin uid that closed the dispute
+  resolvedAt?: Timestamp;
+  resolutionNote?: string;         // Optional admin note (<= 500 chars)
   statusBeforeDispute: string;     // Transaction status captured at report time
   createdAt: Timestamp;
 }
