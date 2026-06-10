@@ -594,19 +594,40 @@ service cloud.firestore {
 
       // Participants may ONLY decline a proposed swap client-side. All other
       // transitions are CF-only (Admin SDK bypasses these rules).
+      //
+      // SECURITY (F53): the financial / lifecycle fields (cashTopUp, every
+      // topUp* field, and the paid-tier fields) are CF-only. The previous guard
+      // protected cashTopUp by OBJECT EQUALITY, which is brittle: a client could
+      // mutate a topUp* sibling, the tier, or add an arbitrary financial field
+      // and still pass. The ALLOWLIST below (hasOnly on the decline fields) is
+      // now the primary guard — it rejects ANY key outside the decline set —
+      // and we keep an explicit denylist via affectedKeys() as belt-and-braces
+      // so the intent (these fields are CF-only) is documented and enforced even
+      // if the allowlist were ever loosened.
       allow update: if isAuthenticated() &&
                        (resource.data.initiatorId == request.auth.uid ||
                         resource.data.receiverId == request.auth.uid) &&
-                       // Immutable identity + money fields
+                       // Immutable identity fields
                        request.resource.data.initiatorId == resource.data.initiatorId &&
                        request.resource.data.receiverId == resource.data.receiverId &&
-                       request.resource.data.cashTopUp == resource.data.cashTopUp &&
-                       // Only these fields may change in a client decline
+                       // Only these fields may change in a client decline (ALLOWLIST).
                        request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['status', 'updatedAt', 'declinedBy', 'declinedAt']) &&
+                       // CF-only financial / tier fields can never be touched by a
+                       // client write (belt-and-braces denylist; F53).
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['cashTopUp', 'topUpAmount', 'topUpPaymentIntentId',
+                                  'topUpChargeId', 'topUpPaidAt', 'topUpReleasedAt',
+                                  'topUpRefundedAt', 'topUpRefundId', 'tier',
+                                  'feesTier', 'serviceFee']) &&
                        // Single permitted transition: proposed -> declined
                        resource.data.status == 'proposed' &&
-                       request.resource.data.status == 'declined';
+                       request.resource.data.status == 'declined' &&
+                       // SECURITY (F115): declinedBy must identify the acting
+                       // participant — a client cannot attribute the decline to
+                       // the other party. When present it MUST be the caller.
+                       (!('declinedBy' in request.resource.data) ||
+                        request.resource.data.declinedBy == request.auth.uid);
 
       // No client delete — cancellation goes through the cancelSwap callable
       // (which may need to refund a paid top-up via Stripe).
