@@ -15,9 +15,11 @@
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
+import { Timestamp } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../config/firebase';
 import { sendPushNotification } from '../utils/notifications';
 import { refundSwapTopUpIfPaid } from '../callable/swaps';
+import { writeAdminAlert } from '../utils/failedOperations';
 
 /** Resolve items arrays with backward compat for legacy single-item swaps */
 function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
