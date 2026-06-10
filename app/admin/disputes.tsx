@@ -196,6 +196,77 @@ export default function AdminDisputesScreen() {
     }
   }, []);
 
+  // F27/F88 — refund the buyer (closes the dispute too). Destructive: confirm.
+  const handleRefundBuyer = useCallback(
+    (dispute: Dispute) => {
+      if (!dispute.transactionId) {
+        Alert.alert('Action impossible', 'Ce litige n’est lié à aucune transaction.');
+        return;
+      }
+      const txId = dispute.transactionId;
+      Alert.alert(
+        "Rembourser l'acheteur",
+        "L'acheteur sera intégralement remboursé et le vendeur débité. Le litige sera clôturé. Cette action est irréversible.",
+        [
+          { text: 'Retour', style: 'cancel' },
+          {
+            text: "Rembourser l'acheteur",
+            style: 'destructive',
+            onPress: async () => {
+              setResolvingId(dispute.id);
+              try {
+                await TransactionService.adminRefundTransaction(txId, 'admin_dispute_refund');
+                Alert.alert('Remboursé', "L'acheteur a été remboursé et le litige clôturé.");
+                await loadDisputes(selectedTab);
+              } catch (error) {
+                if (__DEV__) console.error('Error refunding dispute:', error);
+                Alert.alert('Erreur', 'Le remboursement a échoué. Réessayez.');
+              } finally {
+                setResolvingId(null);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [loadDisputes, selectedTab],
+  );
+
+  // F27/F88 + F10 + F26 — close in favor of the seller (no refund).
+  const handleResolveForSeller = useCallback(
+    (dispute: Dispute) => {
+      if (!dispute.transactionId) {
+        Alert.alert('Action impossible', 'Ce litige n’est lié à aucune transaction.');
+        return;
+      }
+      const txId = dispute.transactionId;
+      Alert.alert(
+        'Clôturer en faveur du vendeur',
+        "Le litige sera clôturé sans remboursement : la transaction reprend son cours normal et les fonds éventuellement gelés sont restitués au vendeur.",
+        [
+          { text: 'Retour', style: 'cancel' },
+          {
+            text: 'Clôturer',
+            onPress: async () => {
+              setResolvingId(dispute.id);
+              try {
+                await TransactionService.resolveDispute(txId);
+                Alert.alert('Litige clôturé', 'Le litige a été résolu en faveur du vendeur.');
+                await loadDisputes(selectedTab);
+              } catch (error) {
+                if (__DEV__) console.error('Error resolving dispute for seller:', error);
+                Alert.alert('Erreur', 'La clôture a échoué. Réessayez.');
+              } finally {
+                setResolvingId(null);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [loadDisputes, selectedTab],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
