@@ -200,6 +200,24 @@ export const stripeWebhook = onRequest(
         logger.info('Stripe webhook: unhandled event type', { eventType });
       }
 
+      // Handler succeeded (or the event was unhandled / a legitimate skip):
+      // claim the event.id so Stripe retries don't re-run it. create() is a
+      // no-op-then-throw if a concurrent delivery already wrote it; we swallow
+      // that — the work is done, ACK 200. Anything that threw above skipped this
+      // line, leaving NO marker, so Stripe re-delivers (F3).
+      try {
+        await eventMarkerRef.create({
+          type: eventType,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch (markerErr) {
+        logger.info('Stripe webhook: event marker already claimed (concurrent delivery)', {
+          eventId: event.id,
+          eventType,
+          error: markerErr instanceof Error ? markerErr.message : markerErr,
+        });
+      }
+
       res.json({ received: true });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
