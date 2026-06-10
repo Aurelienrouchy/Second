@@ -1294,16 +1294,19 @@ async function handleDisputeCreated(dispute: any): Promise<void> {
 /**
  * Resolve a closed dispute.
  *
- *  - WON (dispute.status === 'won'): the seller keeps the money. Restore the
- *    transaction status that preceded the dispute so the normal release cycle
- *    resumes (heldBalance -> balance via releaseHeldFunds), and clear the
- *    `disputed` flag. Funds stay where they are (heldBalance / pendingBalance).
+ *  - WON (dispute.status === 'won'): the seller keeps the money. F37: release the
+ *    exact amount frozen at dispute.created (disputeFreezeCents) from heldBalance
+ *    back to balance — otherwise the hold stays stranded forever. Restore the
+ *    transaction status that preceded the dispute and clear the `disputed` flag.
  *
  *  - LOST (dispute.status === 'lost'): Stripe has already pulled the money back
- *    from the platform. Debit the seller: take from heldBalance first, then
- *    balance. If the seller doesn't have enough (already withdrawn before the
- *    freeze), record the shortfall as `sellerDebt` (blocks future withdrawals)
- *    and write a 'refund_debit' ledger entry. Mark the transaction 'refunded'.
+ *    from the platform. F38: debit the seller across pendingBalance -> heldBalance
+ *    -> balance (aligned with handleChargeRefunded), recording any shortfall as
+ *    `sellerDebt`. F37: any frozen amount the debit did not consume from
+ *    heldBalance is released back to balance. Mark the transaction 'refunded'.
+ *
+ *  - OTHER (e.g. warning_closed): treated like WON — release the hold, restore
+ *    the status.
  */
 async function handleDisputeClosed(dispute: any): Promise<void> {
   const paymentIntentId = dispute.payment_intent;
