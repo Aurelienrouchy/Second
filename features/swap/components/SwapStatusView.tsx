@@ -25,6 +25,17 @@ const STATUS_LABELS: Record<SwapStatus, string> = {
   shipping: "En cours d'envoi",
   completed: 'Terminé',
   disputed: 'Litige',
+  expired: 'Échange expiré',
+};
+
+/**
+ * Short copy shown under the status indicator for terminal/blocked states.
+ * Empty string = no caption.
+ */
+const STATUS_CAPTIONS: Partial<Record<SwapStatus, string>> = {
+  expired:
+    "Cet échange a expiré faute d'activité. Les articles ont été libérés et tout complément payé a été remboursé.",
+  disputed: "Un litige est ouvert. Notre équipe examine l'échange.",
 };
 
 const SHOW_SUMMARY_STATUSES: ReadonlySet<SwapStatus> = new Set([
@@ -35,10 +46,18 @@ const SHOW_SUMMARY_STATUSES: ReadonlySet<SwapStatus> = new Set([
   'completed',
 ]);
 
+/**
+ * Statuses rendered with the SOMBRE SwapZone treatment (dark indicator) — the
+ * terminal/blocked states stand out from the active editorial flow.
+ */
+const DARK_STATUSES: ReadonlySet<SwapStatus> = new Set(['expired', 'disputed']);
+
 function getStatusIconName(
   status: SwapStatus
-): 'checkmark-circle' | 'close-circle' | 'swap-horizontal' {
+): 'checkmark-circle' | 'close-circle' | 'alert-circle' | 'time-outline' | 'swap-horizontal' {
   if (status === 'completed') return 'checkmark-circle';
+  if (status === 'expired') return 'time-outline';
+  if (status === 'disputed') return 'alert-circle';
   if (status === 'declined' || status === 'cancelled') return 'close-circle';
   return 'swap-horizontal';
 }
