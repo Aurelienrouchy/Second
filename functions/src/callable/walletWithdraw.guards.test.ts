@@ -156,6 +156,48 @@ describe('walletWithdraw — dispute guard', () => {
     expect(result.success).toBe(true);
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
   });
+
+  // F10: a meetup no-show dispute is cash-in-hand (no escrow) and must NOT
+  // freeze all of a seller's withdrawals — otherwise anyone can grief a seller
+  // for free by reporting a no-show on a meetup tx they created.
+  it('does NOT block withdrawal when the only disputed sale is a meetup no-show', async () => {
+    seedSeller({ balance: 5000 });
+    fs.setDoc('transactions/txmeet', {
+      sellerId: 'seller1',
+      buyerId: 'buyer1',
+      status: 'disputed',
+      disputed: true,
+      deliveryType: 'meetup',
+    });
+
+    const result = await callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } });
+    expect(result.success).toBe(true);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
+  });
+
+  // A real financial dispute STILL blocks even if a meetup dispute also exists.
+  it('blocks when a financial (non-meetup) dispute exists alongside a meetup one', async () => {
+    seedSeller({ balance: 5000 });
+    fs.setDoc('transactions/txmeet', {
+      sellerId: 'seller1',
+      buyerId: 'buyer1',
+      status: 'disputed',
+      disputed: true,
+      deliveryType: 'meetup',
+    });
+    fs.setDoc('transactions/txship', {
+      sellerId: 'seller1',
+      buyerId: 'buyer2',
+      status: 'disputed',
+      disputed: true,
+      deliveryType: 'shipping',
+    });
+
+    await expect(
+      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(stripeMock.calls.transfersCreate.length).toBe(0);
+  });
 });
 
 // ===========================================================================
