@@ -25,8 +25,9 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
-import type { FailedOperationType } from '../utils/failedOperations';
+import { type FailedOperationType, writeAdminAlert } from '../utils/failedOperations';
 import { revertFailedPayout } from '../utils/payoutRecovery';
+import { redrivePaymentIntentSucceeded } from '../http/webhooks';
 
 /** Max replay attempts before a dead-letter is marked 'exhausted' (manual). */
 const MAX_ATTEMPTS = 6;
