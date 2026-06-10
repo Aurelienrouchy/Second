@@ -382,10 +382,19 @@ export default function AdminDisputesScreen() {
             Tous
           </Text>
         </Pressable>
+        <Pressable
+          style={[styles.tab, selectedTab === 'swaps' && styles.tabActive]}
+          onPress={() => setSelectedTab('swaps')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'swaps' && styles.tabTextActive]}>
+            Swaps
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Liste des litiges */}
-      {isLoading ? (
+      {selectedTab === 'swaps' ? (
+        <SwapDisputeResolver />
+      ) : isLoading ? (
         <View style={styles.skeletonContainer}>
           {Array.from({ length: 4 }).map((_, i) => (
             <DisputeCardSkeleton key={i} />
