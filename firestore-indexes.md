@@ -506,7 +506,9 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
 | `transactions` | `status ASC, createdAt ASC` | `checkShippedTracking` pagination par statut (`scheduled/trackingCheck.ts`, `status == 'label_created'\|'shipped'\|'return_requested'` + `orderBy createdAt asc` + cursor) ; `reconcileFinances` lost-PI (`scheduled/reconcile.ts`, `status == 'pending_payment'` + `createdAt <`) ; `transactionExpiration` (`status == X` + `createdAt <`) |
 | `transactions` | `status ASC, fundsReleaseAt ASC` | `releaseHeldFunds` (`scheduled/releaseHeldFunds.ts`, `status == 'delivered'` + `fundsReleaseAt <= now` + `orderBy fundsReleaseAt asc` + cursor) |
 | `transactions` | `status ASC, returnRequestedAt ASC` | **F26** — `expireOrphanedTransactions` route les retours périmés vers admin (`scheduled/transactionExpiration.ts`, `status == 'return_requested'` + `returnRequestedAt <`) |
+| `transactions` | `status ASC, disputedAt ASC` | **B9** — `alertAgingDisputes` (`scheduled/swaps.ts`, `status == 'disputed'` + `disputedAt <` cutoff 5j) |
 | `swaps` | `status ASC, topUpFundsReleaseAt ASC` | `releaseHeldFunds` swap top-up sweep (`scheduled/releaseHeldFunds.ts`, `status == 'completed'` + `topUpFundsReleaseAt <= now` + `orderBy topUpFundsReleaseAt asc` + cursor) |
+| `swaps` | `status ASC, disputeOpenedAt ASC` | **B9** — `alertAgingDisputes` (`scheduled/swaps.ts`, `status == 'disputed'` + `disputeOpenedAt <` cutoff 5j) |
 | `swaps` | `status ASC, updatedAt ASC` | **F51/F52** — `expireStalePostAcceptanceSwaps` (`scheduled/swaps.ts`, `status == 'accepted'\|'photos_pending'\|'shipping'` + `updatedAt <` cutoff 14j) |
 | `transactions` | `labelCreationPending ASC, status ASC, createdAt ASC` | `sweepPendingLabels` (`scheduled/sweepPendingLabels.ts`, `labelCreationPending == true` + `status == 'paid'` + `orderBy createdAt asc`) |
 | `transactions` | `sellerId ASC, disputed ASC` | listing des litiges vendeur ouverts (blocage retrait) |
