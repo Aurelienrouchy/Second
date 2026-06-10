@@ -471,6 +471,12 @@ export interface StripeMockImpl {
   transfersCreateReversal: (...a: unknown[]) => unknown;
   payoutsCreate: (...a: unknown[]) => unknown;
   payoutsRetrieve: (...a: unknown[]) => unknown;
+  accountsRetrieve: (...a: unknown[]) => unknown;
+  accountsUpdate: (...a: unknown[]) => unknown;
+  accountsCreateExternalAccount: (...a: unknown[]) => unknown;
+  accountsListExternalAccounts: (...a: unknown[]) => unknown;
+  accountsDeleteExternalAccount: (...a: unknown[]) => unknown;
+  filesCreate: (...a: unknown[]) => unknown;
 }
 
 export interface StripeMock {
