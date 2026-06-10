@@ -245,6 +245,40 @@ async function replayOp(
     // auto-refund to make the buyer whole, replay that refund idempotently;
     // otherwise leave the op pending until it exhausts and surfaces for review.
     case 'amount_mismatch': {
+      // F77: a LOST payment_intent.succeeded was dead-lettered under this bucket
+      // with kind 'lost_pi_succeeded_webhook'. Re-drive the canonical PI.succeeded
+      // handler (idempotent) so the buyer's paid order is recovered automatically
+      // instead of waiting for a human. refId IS the transactionId; the PI id is
+      // in the payload.
+      if (op.payload.kind === 'lost_pi_succeeded_webhook') {
+        const paymentIntentId = op.payload.paymentIntentId;
+        if (typeof paymentIntentId !== 'string' || !paymentIntentId) {
+          logger.error('CRITICAL [retryFailedOperations] lost PI op missing paymentIntentId', {
+            failedOperationId: op.id,
+            refId: op.refId,
+          });
+          return 'retry';
+        }
+        try {
+          const ran = await redrivePaymentIntentSucceeded(paymentIntentId);
+          if (ran) {
+            logger.info('[retryFailedOperations] lost PI.succeeded re-driven', {
+              failedOperationId: op.id,
+              refId: op.refId,
+            });
+            return 'resolved';
+          }
+          return 'retry';
+        } catch (err) {
+          logger.warn('[retryFailedOperations] lost PI.succeeded re-drive failed — will retry', {
+            failedOperationId: op.id,
+            refId: op.refId,
+            error: err instanceof Error ? err.message : err,
+          });
+          return 'retry';
+        }
+      }
+
       if (op.payload.autoRefund === true && stripe) {
         const paymentIntentId = op.payload.paymentIntentId;
         if (typeof paymentIntentId === 'string' && paymentIntentId) {
