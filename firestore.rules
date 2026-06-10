@@ -769,9 +769,9 @@ service cloud.firestore {
         // Meetup status transition: ONLY the seller can confirm a meetup
         // (meetup_pending -> meetup_confirmed). The meetup_confirmed ->
         // meetup_completed transition is CF-only (completeMeetupTransaction),
-        // which unlocks the review. The status field is in the sensitive list
-        // above, so when a meetup confirmation happens we permit ONLY the exact
-        // key set {status, meetupConfirmedAt, updatedAt} and re-validate it.
+        // which unlocks the review. `status` is outside the allowlist above, so
+        // a meetup confirmation is permitted ONLY via this exact key set
+        // {status, meetupConfirmedAt, updatedAt}, re-validated below.
         //
         // SECURITY (P1-5): the canonical path is the confirmMeetupTransaction
         // callable (Admin SDK, runTransaction) which stamps meetupConfirmedAt +
