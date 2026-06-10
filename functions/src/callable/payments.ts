@@ -2770,6 +2770,226 @@ export const adminRefundTransaction = onCall(
 );
 
 // =============================================================================
+// RESOLVE DISPUTE — Admin closes a dispute WITHOUT a refund (favor of seller)
+// =============================================================================
+
+/**
+ * Mark every OPEN `disputes` doc linked to a transaction as resolved. Best-effort
+ * batch update; never throws on a missing collection. Shared by adminRefundTransaction
+ * (resolution: 'refunded') and resolveDispute (resolution: 'dismissed').
+ */
+async function resolveOpenDisputesForTransaction(
+  transactionId: string,
+  opts: { resolvedBy: string; resolution: 'refunded' | 'dismissed' }
+): Promise<number> {
+  const openSnap = await db
+    .collection('disputes')
+    .where('transactionId', '==', transactionId)
+    .where('status', '==', 'open')
+    .get();
+  if (openSnap.empty) return 0;
+  const batch = db.batch();
+  for (const d of openSnap.docs) {
+    batch.update(d.ref, {
+      status: 'resolved',
+      resolution: opts.resolution,
+      resolvedBy: opts.resolvedBy,
+      resolvedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  await batch.commit();
+  return openSnap.size;
+}
+
+/**
+ * F27/F88 + F10 + F26 — admin closes a dispute in favor of the SELLER (no
+ * refund). This is the missing other half of adminRefundTransaction: a dispute
+ * that the admin rules unfounded must be closeable WITHOUT moving money to the
+ * buyer, otherwise every meetup no-show, contested return and chargeback inquiry
+ * stays 'disputed' forever — freezing the seller's withdrawals (walletWithdraw
+ * blocks on any disputed tx) and blocking both parties' account deletion.
+ *
+ * In one runTransaction it:
+ *   1. closes the linked OPEN dispute doc(s) (status 'resolved', dismissed),
+ *   2. restores `statusBeforeDispute` on the transaction (so the normal release
+ *      cycle resumes), clears `disputed`,
+ *   3. releases any chargeback hold: disputeFreezeCents from heldBalance ->
+ *      balance (mirrors the dispute.closed WON path, F37). Meetup no-shows and
+ *      returns carry no freeze (meetup = cash; return funds sit in the normal
+ *      heldBalance release cycle), so this is a no-op for them.
+ *
+ * Admin-only, double guard + rate limited (aligned with adminRefundTransaction).
+ */
+export const resolveDispute = onCall(
+  { region: 'northamerica-northeast1', memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    let isAdmin = request.auth.token.admin === true;
+    if (!isAdmin) {
+      const adminSnap = await db.collection('users').doc(request.auth.uid).get();
+      isAdmin = adminSnap.exists && adminSnap.data()?.isAdmin === true;
+    }
+    if (!isAdmin) {
+      throw new HttpsError('permission-denied', 'Admin privileges required');
+    }
+
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'resolveDispute',
+      maxCallsAuthenticated: 20,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
+    const { transactionId, note } = request.data ?? {};
+    if (typeof transactionId !== 'string' || transactionId.length === 0) {
+      throw new HttpsError('invalid-argument', 'Transaction ID is required');
+    }
+    const adminUid = request.auth.uid;
+    const txRef = db.collection('transactions').doc(transactionId);
+
+    try {
+      // Pre-query the linked OPEN disputes OUTSIDE the runTransaction (queries
+      // are not transactionally locked); they are closed in a batch after the tx.
+      const openDisputesSnap = await db
+        .collection('disputes')
+        .where('transactionId', '==', transactionId)
+        .where('status', '==', 'open')
+        .get();
+
+      const result = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(txRef);
+        if (!snap.exists) {
+          throw new HttpsError('not-found', 'Transaction not found');
+        }
+        const data = snap.data()!;
+
+        // Only a disputed/return_requested transaction can be dismissed here.
+        if (data.status !== 'disputed' && data.status !== 'return_requested') {
+          throw new HttpsError(
+            'failed-precondition',
+            `Cannot resolve a dispute for a transaction in status ${data.status}`
+          );
+        }
+
+        const sellerId = data.sellerId;
+        const freezeCents =
+          typeof data.disputeFreezeCents === 'number' ? data.disputeFreezeCents : 0;
+
+        // Read seller wallet BEFORE writes (only when there is a hold to release).
+        const sellerWalletRef =
+          freezeCents > 0 && typeof sellerId === 'string'
+            ? db.collection('wallets').doc(sellerId)
+            : null;
+        const sellerWalletSnap = sellerWalletRef ? await tx.get(sellerWalletRef) : null;
+
+        // Restore the pre-dispute status so the normal release cycle can resume.
+        const restored =
+          typeof data.statusBeforeDispute === 'string' && data.statusBeforeDispute.length > 0
+            ? data.statusBeforeDispute
+            : data.status === 'return_requested'
+              ? 'delivered'
+              : 'delivered';
+
+        const txUpdate: Record<string, any> = {
+          status: restored,
+          disputed: false,
+          disputeResolvedAt: FieldValue.serverTimestamp(),
+          disputeOutcome: 'dismissed',
+          disputeFreezeCents: 0,
+        };
+        if (typeof note === 'string' && note.trim().length > 0) {
+          txUpdate.disputeResolutionNote = note.trim().substring(0, 500);
+        }
+        tx.update(txRef, txUpdate);
+
+        // F37: release the chargeback hold back to withdrawable balance.
+        let releasedCents = 0;
+        if (
+          freezeCents > 0 &&
+          sellerWalletRef &&
+          sellerWalletSnap &&
+          sellerWalletSnap.exists
+        ) {
+          const walletData = sellerWalletSnap.data()!;
+          const heldNow = walletData.heldBalance || 0;
+          releasedCents = Math.min(freezeCents, heldNow);
+          if (releasedCents > 0) {
+            tx.update(sellerWalletRef, {
+              heldBalance: FieldValue.increment(-releasedCents),
+              balance: FieldValue.increment(releasedCents),
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            const ledgerRef = sellerWalletRef.collection('ledger').doc();
+            tx.set(ledgerRef, {
+              type: 'dispute_hold_released',
+              amount: releasedCents,
+              balanceAfter: (walletData.balance || 0) + releasedCents,
+              description: 'Litige clôturé (en faveur du vendeur) — fonds gelés restitués',
+              transactionId,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          }
+        }
+
+        return { restored, releasedCents, sellerId, buyerId: data.buyerId };
+      });
+
+      // Close the linked dispute doc(s) in a batch (outside the tx).
+      if (!openDisputesSnap.empty) {
+        const batch = db.batch();
+        for (const d of openDisputesSnap.docs) {
+          batch.update(d.ref, {
+            status: 'resolved',
+            resolution: 'dismissed',
+            resolvedBy: adminUid,
+            resolvedAt: FieldValue.serverTimestamp(),
+            ...(typeof note === 'string' && note.trim().length > 0
+              ? { resolutionNote: note.trim().substring(0, 500) }
+              : {}),
+          });
+        }
+        await batch.commit();
+      }
+
+      logger.warn('[resolveDispute] dispute dismissed by admin (favor of seller)', {
+        transactionId,
+        adminUid,
+        restored: result.restored,
+        releasedCents: result.releasedCents,
+        disputesClosed: openDisputesSnap.size,
+      });
+
+      // Notify both parties (best-effort).
+      if (typeof result.sellerId === 'string') {
+        sendPushNotification(
+          result.sellerId,
+          'Litige clôturé',
+          'Le litige sur votre vente a été résolu en votre faveur. Vos fonds sont de nouveau disponibles.',
+          { transactionId },
+          'order_cancelled'
+        ).catch(() => undefined);
+      }
+
+      return {
+        success: true,
+        restored: result.restored,
+        releasedCents: result.releasedCents,
+        disputesClosed: openDisputesSnap.size,
+      };
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[resolveDispute] failed', { transactionId, error: message });
+      throw new HttpsError('internal', `Failed to resolve dispute: ${message}`);
+    }
+  }
+);
+
+// =============================================================================
 // CANCEL PENDING TRANSACTION — Buyer cancels a non-paid transaction
 // =============================================================================
 
