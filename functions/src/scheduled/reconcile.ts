@@ -349,11 +349,30 @@ export const reconcileFinances = onSchedule(
 
     // -------------------------------------------------------------------------
     // 3. reconcileBalances (invariant checks)
+    // F75: paginate over ALL wallets (cursor on __name__) instead of only the
+    // first MAX_PER_RUN — a 200-doc cap silently skipped every wallet beyond the
+    // first page, so a breach on wallet #201 was never detected. The scan is
+    // read-only + cheap; a global hard cap guards against a runaway loop.
     // -------------------------------------------------------------------------
     try {
-      const snap = await db.collection('wallets').limit(MAX_PER_RUN).get();
-      for (const doc of snap.docs) {
-        if (checkWalletInvariants(doc)) balanceBreaches++;
+      let lastId: string | null = null;
+      let scanned = 0;
+      while (scanned < BALANCE_SCAN_HARD_CAP) {
+        let q = db.collection('wallets').orderBy('__name__').limit(WALLET_PAGE_SIZE);
+        if (lastId) q = q.startAfter(lastId);
+        const snap = await q.get();
+        if (snap.empty) break;
+        for (const doc of snap.docs) {
+          if (checkWalletInvariants(doc)) balanceBreaches++;
+        }
+        scanned += snap.size;
+        lastId = snap.docs[snap.docs.length - 1].id;
+        if (snap.size < WALLET_PAGE_SIZE) break;
+      }
+      if (scanned >= BALANCE_SCAN_HARD_CAP) {
+        logger.warn('[reconcileBalances] hit BALANCE_SCAN_HARD_CAP — not all wallets scanned', {
+          scanned,
+        });
       }
     } catch (err) {
       logger.error('[reconcileFinances] reconcileBalances pass failed', {
