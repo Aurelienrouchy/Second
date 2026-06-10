@@ -435,6 +435,25 @@ debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, jobLock.ts (F8
 
 ---
 
+## Scripts — `scripts/`
+
+| Script | npm | Rôle |
+|--------|-----|------|
+| `import-brands.js` | `import:brands` / `import:brands:dry` | Seed collection `brands` depuis `vinted-brands.txt` (~7309 marques). Écrit `label`/`value`/`searchKey` (UI picker) + `name`/`aliases`/`popularity` (IA matcher) + `tier`/`count`/`updatedAt`. Idempotent (`merge`, batch 500). Admin SDK (bypass rules). |
+
+**Seed brands — commande fondateur :**
+```bash
+# 1. Valider sans credentials (parse + dédup + 5 docs exemple) :
+npm run import:brands:dry
+
+# 2a. Écriture PROD : placer functions/serviceAccountKey.json puis :
+npm run import:brands
+
+# 2b. OU tester contre l'émulateur (sans service account) :
+firebase emulators:exec --only firestore 'FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/import-brands.js'
+```
+Source canonique = `vinted-brands.txt` (identique à `data/brands-list.json`). Ré-exécutable sans effet de bord (merge sur docId = searchKey normalisé).
+
 ## Layers ESLint boundaries
 
 ```
