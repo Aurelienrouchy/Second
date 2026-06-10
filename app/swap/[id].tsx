@@ -187,11 +187,6 @@ export default function SwapDetailScreen() {
     Alert.alert('Paiement confirmé !', "Le complément a bien été réglé.");
   }, []);
 
-  const handleClosePayment = useCallback(() => {
-    setShowStripePayment(false);
-    setClientSecret(null);
-  }, []);
-
   const handleCancel = useCallback(async () => {
     Alert.alert(
       "Annuler l'échange",
