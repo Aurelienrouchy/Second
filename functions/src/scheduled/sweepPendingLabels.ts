@@ -414,5 +414,8 @@ export const sweepPendingLabels = onSchedule(
     }
 
     logger.info('[sweepPendingLabels] run complete', { shipped, refunded, retried, errors });
+    } finally {
+      await releaseJobLock('sweepPendingLabels');
+    }
   }
 );
