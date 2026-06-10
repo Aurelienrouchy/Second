@@ -851,11 +851,11 @@ export const createTransaction = onCall(
         }
 
         // Verify the amount is valid:
-        // - Exact listed price is always accepted.
+        // - Exact listed price (live, re-read here) is always accepted.
         // - A negotiated (off-list) price is accepted ONLY when a seller-accepted
         //   offer for this buyer + article + amount was verified pre-transaction
-        //   (verifyAcceptedOfferForNegotiatedAmount). This block re-checks the
-        //   price invariant atomically against the live article.
+        //   (negotiatedOfferVerified). This block re-checks the price invariant
+        //   atomically against the LIVE article.
         // - Amounts above listed price are rejected (overpay protection).
         if (amount > articleData.price) {
           throw new HttpsError(
@@ -867,6 +867,18 @@ export const createTransaction = onCall(
           throw new HttpsError(
             'invalid-argument',
             'Le montant doit être supérieur à zéro.'
+          );
+        }
+        // F136: an off-list amount against the LIVE price MUST be backed by a
+        // verified accepted offer. If the seller raised the price between the
+        // pre-read and this transaction, `amount !== articleData.price` becomes
+        // true without `negotiatedOfferVerified` (the pre-read saw amount ==
+        // listedPrice, so the offer check never ran). Reject — the buyer is
+        // trying to pay a stale lower price not covered by any accepted offer.
+        if (amount !== articleData.price && !negotiatedOfferVerified) {
+          throw new HttpsError(
+            'failed-precondition',
+            'Le prix de l\'article a changé. Veuillez rafraichir la page et reessayer.'
           );
         }
 
