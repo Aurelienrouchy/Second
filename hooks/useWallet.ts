@@ -82,6 +82,10 @@ export function useWallet(enabled = true, userId?: string) {
     isRefetching,
     refetch,
 
+    withdrawals,
+    isLoadingWithdrawals,
+    refetchWithdrawals,
+
     activate: activateMutation.mutateAsync,
     isActivating: activateMutation.isPending,
 
