@@ -37,8 +37,15 @@ export interface ArrayUnionSentinel {
   __sentinel: 'arrayUnion';
   values: unknown[];
 }
+export interface DeleteSentinel {
+  __sentinel: 'delete';
+}
 
-type Sentinel = IncrementSentinel | ServerTimestampSentinel | ArrayUnionSentinel;
+type Sentinel =
+  | IncrementSentinel
+  | ServerTimestampSentinel
+  | ArrayUnionSentinel
+  | DeleteSentinel;
 
 function isSentinel(v: unknown): v is Sentinel {
   return typeof v === 'object' && v !== null && '__sentinel' in (v as Record<string, unknown>);
