@@ -449,7 +449,9 @@ export interface StripeMock {
   calls: {
     refundsCreate: unknown[][];
     transfersCreate: unknown[][];
+    transfersCreateReversal: unknown[][];
     payoutsCreate: unknown[][];
+    payoutsRetrieve: unknown[][];
     paymentIntentsRetrieve: unknown[][];
     paymentIntentsCancel: unknown[][];
   };
