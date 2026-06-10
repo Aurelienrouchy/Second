@@ -624,6 +624,17 @@ export const createTransaction = onCall(
     } | null = null;
 
     if (deliveryType === 'shipping') {
+      // F137: server-authoritative shipping flag. The client UI hides shipping,
+      // but the callable stays invocable by a direct call — so we gate the
+      // financial shipping rail HERE. Meetup is never gated by this flag (handled
+      // below, no early return). Default OFF; enable with SHIPPING_ENABLED=true.
+      if (!isShippingEnabled()) {
+        throw new HttpsError(
+          'failed-precondition',
+          'La livraison n\'est pas disponible pour le moment. Veuillez utiliser la remise en main propre.'
+        );
+      }
+
       // NOTE: the client-supplied `shippingCost` is intentionally NOT trusted.
       // It is re-priced server-side below via ShipEngine. We only require the
       // address and a valid (non-fallback) ShipEngine rateId to re-tarify.
