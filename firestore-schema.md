@@ -1087,6 +1087,44 @@ interface FailedOperationDocument {
 > normalizes those legacy docs (transactionId→refId, reason→error) before
 > dispatch, so both shapes are replayable.
 
+### `admin_alerts/{alertId}` (F43/F85)
+
+Operator-facing alerts for financial cases code CANNOT self-heal — distinct from
+`failed_operations` (the auto-retry queue). Written via `writeAdminAlert`
+(`utils/failedOperations.ts`, best-effort, never throws). The admin console reads
+`status == 'open'`. Server-write only; admin read.
+
+```typescript
+interface AdminAlertDocument {
+  kind:
+    | 'payout_recredit_no_wallet'  // payout failed but the wallet to re-credit is gone (F43)
+    | 'dead_letter_exhausted'      // a failed_operation exhausted MAX_ATTEMPTS (F85)
+    | 'refund_failed'              // Stripe refund.failed — buyer not reimbursed (F104)
+    | 'wallet_invariant_breach';   // reconcileBalances found a negative bucket (F85)
+  severity: 'critical' | 'warning';
+  refId: string;                   // primary entity id (withdrawal/transaction/PI/wallet)
+  message: string;                 // human-readable (FR) console message
+  context: Record<string, any>;    // triage data
+  status: 'open';                  // operators close manually
+  createdAt: Timestamp;
+}
+```
+
+### `job_locks/{jobName}` (F82)
+
+Anti-overlap lock for scheduled jobs that perform PAID external side-effects (e.g.
+`sweepPendingLabels` — ShipEngine labels). `acquireJobLock(jobName, ttlMs)` runs a
+transaction that takes the lock only if free OR expired (TTL guards a crashed run);
+`releaseJobLock` clears it in a `finally`. Server-only.
+
+```typescript
+interface JobLockDocument {
+  lockedAt: Timestamp;
+  lockedUntil: Timestamp;  // now + ttlMs while held; Timestamp(0) when released
+  releasedAt?: Timestamp;
+}
+```
+
 ### Webhook infrastructure (`stripeWebhook` / `shipEngineWebhook`)
 
 `stripeWebhook` (`http/webhooks.ts`) accepts events from **two distinct Stripe
