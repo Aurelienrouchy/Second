@@ -39,6 +39,7 @@
 | 32 | `automated_decision_contestations` | Root | Human-review requests against automated decisions (Loi 25 art. 12.1) — author-create, author/admin-read |
 | 33 | `admin_alerts` | Root | Operator-facing alerts for non-auto-recoverable financial cases (F43/F85) — server-write only |
 | 34 | `job_locks` | Root | Anti-overlap locks for scheduled jobs with paid side-effects (F82) — server-only |
+| 35 | `brands` | Root | Brand catalog (seeded from `vinted-brands.txt`). Powers UI brand picker + IA brand matching. |
 
 ---
 
