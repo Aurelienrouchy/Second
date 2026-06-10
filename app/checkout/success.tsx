@@ -83,13 +83,14 @@ export default function CheckoutSuccessScreen() {
           <Ionicons name="checkmark" size={32} color={colors.success} />
         </View>
 
-        {/* Title */}
+        {/* Title — for meetup, an offer was sent (not yet confirmed): the
+            seller must accept it before the transaction exists (F8/F17). */}
         <Text style={styles.title}>
-          {isMeetup ? 'Meetup confirmé' : 'Paiement confirmé'}
+          {isMeetup ? 'Demande envoyée' : 'Paiement confirmé'}
         </Text>
         <Text style={styles.subtitle}>
           {isMeetup
-            ? 'Le vendeur a été notifié. Convenez d\'un créneau par messagerie pour finaliser la transaction.'
+            ? 'Votre demande de rencontre a été envoyée au vendeur. Vous serez notifié·e dès qu\'il l\'aura acceptée — convenez ensuite d\'un créneau par messagerie.'
             : 'Le vendeur a été notifié et préparera l\'expédition de votre article. Vous recevrez un numéro de suivi.'}
         </Text>
 
