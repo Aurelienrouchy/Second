@@ -41,6 +41,7 @@ import { homeKeys } from '@/features/home/query-keys';
 import { useAuthStore } from '@/store/authStore';
 import { useWallet } from '@/hooks/useWallet';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
+import { classifyStripePaymentError } from '@/utils/stripePaymentError';
 
 /** Default postal code used when seller location is unavailable */
 const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
