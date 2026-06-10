@@ -161,9 +161,8 @@ export default function SwapDetailScreen() {
     if (!id) return;
     setIsProcessing(true);
     try {
-      const { clientSecret: secret, feeBreakdown } = await createSwapTopUpCheckout(id);
-      // feeBreakdown amounts are in cents; the sheet displays dollars.
-      setTopUpTotal(feeBreakdown.buyerTotal / 100);
+      const { clientSecret: secret } = await createSwapTopUpCheckout(id);
+      // The native sheet displays the server-authoritative PaymentIntent amount.
       setClientSecret(secret);
       setShowStripePayment(true);
     } catch (error) {
