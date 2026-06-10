@@ -1329,6 +1329,8 @@ interface WalletLedgerEntry {
     | 'funds_held'         // delivered: pendingBalance -> heldBalance
     | 'funds_released'     // dispute window elapsed: heldBalance -> balance
     | 'dispute_hold'       // dispute opened: balance -> heldBalance (frozen)
+    | 'dispute_hold_released' // dispute won/closed: heldBalance -> balance (hold returned)
+    | 'debt_repayment'     // sale credit / release applied to sellerDebt first
     | 'purchase_debit'
     | 'withdrawal'
     | 'refund_credit'
