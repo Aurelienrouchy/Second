@@ -1683,6 +1683,21 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
     const sellerWalletRef = sellerId ? db.collection('wallets').doc(sellerId) : null;
     const sellerWalletSnap = sellerWalletRef ? await tx.get(sellerWalletRef) : null;
 
+    // F40: on a LOST dispute (chargeback) of a MIXED payment, the buyer recovers
+    // the CARD portion through their bank, but the WALLET portion they already
+    // spent at checkout is NOT clawed back by Stripe — the platform must re-credit
+    // it (otherwise the buyer loses that part). Read the buyer wallet now (before
+    // any write — Admin SDK READ_AFTER_WRITE) so the LOST branch can re-credit.
+    const buyerId = txData.buyerId;
+    const buyerWalletAmountUsed =
+      typeof txData.walletAmountUsed === 'number' ? txData.walletAmountUsed : 0; // cents
+    const buyerHasWalletPortion =
+      buyerWalletAmountUsed > 0 &&
+      (txData.paidVia === 'wallet_and_card' || txData.paidVia === 'mixed' || txData.paidVia === 'wallet');
+    const buyerWalletRef =
+      buyerHasWalletPortion && buyerId ? db.collection('wallets').doc(buyerId) : null;
+    const buyerWalletSnap = buyerWalletRef ? await tx.get(buyerWalletRef) : null;
+
     if (outcome === 'won') {
       // Seller keeps the funds. F37: give the frozen amount back (heldBalance ->
       // balance) so the dispute_hold is never stranded. Restore the pre-dispute
