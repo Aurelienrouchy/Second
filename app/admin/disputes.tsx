@@ -802,6 +802,108 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: spacing.xs,
   },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  actionsLoading: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+  },
+  actionBtnDisabled: {
+    opacity: 0.5,
+  },
+  refundBtn: {
+    backgroundColor: colors.danger,
+  },
+  refundBtnText: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  dismissBtn: {
+    backgroundColor: colors.surfaceWarm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dismissBtnText: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '700',
+    color: colors.foreground,
+  },
+  swapResolver: {
+    padding: spacing.md,
+    gap: spacing.sm + 4,
+  },
+  swapResolverTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '700',
+    color: colors.foreground,
+  },
+  swapResolverHelp: {
+    fontSize: typography.bodySmall.fontSize,
+    color: colors.muted,
+    lineHeight: 19,
+  },
+  swapInput: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    fontSize: typography.body.fontSize,
+    color: colors.foreground,
+  },
+  issueSelector: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  issueOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceWarm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  issueOptionActive: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  issueOptionText: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  issueOptionTextActive: {
+    color: colors.primary,
+  },
+  swapResolveBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    marginTop: spacing.xs,
+  },
+  swapResolveBtnText: {
+    fontSize: typography.body.fontSize,
+    fontWeight: '700',
+    color: colors.white,
+  },
   skeletonContainer: {
     flex: 1,
     padding: spacing.md,
