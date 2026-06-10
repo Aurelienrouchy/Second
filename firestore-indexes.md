@@ -505,10 +505,13 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
 | --- | --- | --- |
 | `transactions` | `status ASC, createdAt ASC` | `checkShippedTracking` pagination par statut (`scheduled/trackingCheck.ts`, `status == 'label_created'\|'shipped'\|'return_requested'` + `orderBy createdAt asc` + cursor) ; `reconcileFinances` lost-PI (`scheduled/reconcile.ts`, `status == 'pending_payment'` + `createdAt <`) ; `transactionExpiration` (`status == X` + `createdAt <`) |
 | `transactions` | `status ASC, fundsReleaseAt ASC` | `releaseHeldFunds` (`scheduled/releaseHeldFunds.ts`, `status == 'delivered'` + `fundsReleaseAt <= now` + `orderBy fundsReleaseAt asc` + cursor) |
+| `transactions` | `status ASC, returnRequestedAt ASC` | **F26** — `expireOrphanedTransactions` route les retours périmés vers admin (`scheduled/transactionExpiration.ts`, `status == 'return_requested'` + `returnRequestedAt <`) |
 | `swaps` | `status ASC, topUpFundsReleaseAt ASC` | `releaseHeldFunds` swap top-up sweep (`scheduled/releaseHeldFunds.ts`, `status == 'completed'` + `topUpFundsReleaseAt <= now` + `orderBy topUpFundsReleaseAt asc` + cursor) |
 | `transactions` | `labelCreationPending ASC, status ASC, createdAt ASC` | `sweepPendingLabels` (`scheduled/sweepPendingLabels.ts`, `labelCreationPending == true` + `status == 'paid'` + `orderBy createdAt asc`) |
 | `transactions` | `sellerId ASC, disputed ASC` | listing des litiges vendeur ouverts (blocage retrait) |
 | `withdrawal_requests` | `status ASC, createdAt ASC` | `reconcileFinances` payouts bloqués (`scheduled/reconcile.ts`, `status == 'processing'` + `createdAt <`) |
+| `withdrawal_requests` | `userId ASC, status ASC` | **F89** — gate suppression de compte (`callable/users.ts`, `userId == uid && status == 'processing'` + `limit(1)`) |
+| `disputes` | `transactionId ASC, status ASC` | **F27/F88** — `resolveDispute` + `adminRefundTransaction` ferment les litiges liés (`callable/payments.ts`, `transactionId == txId && status == 'open'`) |
 
 ### Requêtes SANS index composite (volontairement non ajoutées)
 
