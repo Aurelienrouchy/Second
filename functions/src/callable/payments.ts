@@ -530,13 +530,40 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory:
     windowMs: RATE_LIMIT_WINDOW_MS,
   });
 
-  const { articlePrice } = request.data;
+  const { articlePrice, articleId } = request.data;
 
   if (!articlePrice || articlePrice <= 0) {
     throw new HttpsError('invalid-argument', 'Article price is required');
   }
 
-  const serviceFee = calculateServiceFee(articlePrice);
+  // F96 — honest display of the paid-shop buyer-fee reduction.
+  // When the caller provides the `articleId`, resolve the SELLER's active shop
+  // tier reduction server-side (same authority as createStripeCheckout) so the
+  // displayed fee matches what will actually be charged. Without `articleId`
+  // (legacy callers), we fall back to the full fee (reduction 0). The reduction
+  // is NEVER trusted from the client — it is read from the shop doc here exactly
+  // like createTransaction. On any lookup failure we degrade to the full fee
+  // (resolveBuyerFeeReduction is best-effort and returns 0 on error).
+  let feeReduction = 0;
+  if (typeof articleId === 'string' && articleId.length > 0) {
+    try {
+      const articleSnap = await db.collection('articles').doc(articleId).get();
+      if (articleSnap.exists) {
+        const articleData = articleSnap.data()!;
+        if (typeof articleData.sellerId === 'string') {
+          feeReduction = await resolveBuyerFeeReduction({
+            shopId: articleData.shopId,
+            sellerId: articleData.sellerId,
+          });
+        }
+      }
+    } catch {
+      // Best-effort: a shop lookup failure must never break the fee display.
+      feeReduction = 0;
+    }
+  }
+
+  const serviceFee = calculateServiceFee(articlePrice, feeReduction);
   const config = getServiceFeeConfig();
   // Tax detail (additive, 0 when TAX_ENABLED=false) so the app can render a tax
   // line in PriceBreakdown (vague app) without changing the total when OFF.
@@ -546,6 +573,9 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory:
   return {
     success: true,
     serviceFee,
+    // The reduction fraction applied (0 = full fee). Lets the client surface the
+    // discount honestly. Defaults to 0 when no articleId / no active shop tier.
+    feeReduction,
     serviceFeePercent: config.percent,
     serviceFeeFixed: config.fixed,
     serviceFeeMin: config.min,
