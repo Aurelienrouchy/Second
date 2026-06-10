@@ -197,6 +197,45 @@ describe('createStripeCheckout — F23 atomic revert on Stripe failure', () => {
 // again). This guards the exact invariant the charge-model migration enforces.
 // ===========================================================================
 
+// ===========================================================================
+// B3 — the seller Stripe account is validated INSIDE the runTransaction, BEFORE
+// the wallet debit. A seller with no account aborts the tx with NO debit (the
+// staged wallet debit is discarded because the tx callback throws before commit).
+// ===========================================================================
+
+describe('createStripeCheckout — B3 seller account validated before wallet debit', () => {
+  it('does NOT debit the wallet (mixed) when the seller has no Stripe account', async () => {
+    seedPending();
+    // Seller exists but has NO stripeAccountId (disabled after createTransaction).
+    fs.setDoc('users/seller1', { displayName: 'Vendeur' });
+
+    await expect(
+      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+
+    // Wallet untouched — the precondition fired before the debit, inside the tx,
+    // so no staged debit was ever committed (no immobilised balance, B3).
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
+    const tx = fs.getDoc('transactions/tx1')!;
+    expect(tx.walletAmountUsed).toBeUndefined();
+    expect(tx.paidVia).toBeUndefined();
+    // No PaymentIntent and no Stripe call.
+    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
+  });
+
+  it('does NOT debit the wallet (mixed) when the seller doc is missing', async () => {
+    seedPending();
+    fs.setDoc('users/seller1', null); // seller user doc gone
+
+    await expect(
+      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })
+    ).rejects.toMatchObject({ code: 'not-found' });
+
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
+    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
+  });
+});
+
 describe('createStripeCheckout — single-rail platform charge (no transfer_data)', () => {
   it('carte-seule: charges the full buyerTotal with NO transfer_data / application_fee / on_behalf_of', async () => {
     seedPending();
