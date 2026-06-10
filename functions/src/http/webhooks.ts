@@ -567,10 +567,49 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
           }
         }
       } else {
-        logger.error('CRITICAL Stripe webhook: amount underpaid — dead-lettered for manual reconciliation', {
+        // F30: buyer UNDERPAID. We cannot fulfill at the wrong price, and the
+        // article was locked (isSold=true) at createTransaction time. Leaving it
+        // here strands the buyer's (partial) charge AND locks the article forever.
+        // Deterministic safe treatment: refund the captured charge in full
+        // (idempotent key) so the buyer is made whole, RELEASE the article so it
+        // can be sold again, and keep the dead-letter for human visibility. The
+        // refund key is distinct from the overpaid path; both never run for the
+        // same transaction (mutually exclusive branches).
+        logger.error('CRITICAL Stripe webhook: amount underpaid — refunding + releasing article', {
           transactionId,
           paymentIntentId: paymentIntent.id,
         });
+        const stripe = getStripe();
+        if (stripe) {
+          const underpaidTxData = 'txData' in result ? result.txData : {};
+          try {
+            await issueTransactionRefund(
+              transactionId,
+              { ...underpaidTxData, stripePaymentIntentId: paymentIntent.id },
+              {
+                reason: 'amount_mismatch_buyer_underpaid',
+                idempotencyKey: `rf_mismatch_${transactionId}`,
+                // Item never fulfilled — re-list it so it is not locked forever.
+                relistArticle: true,
+                source: 'webhook_amount_mismatch_underpaid',
+              }
+            );
+            logger.warn('Stripe webhook: amount underpaid — auto-refunded + article released', {
+              transactionId,
+              paymentIntentId: paymentIntent.id,
+            });
+          } catch (refundErr) {
+            // issueTransactionRefund already dead-lettered the Stripe failure with
+            // the same deterministic key; a later replay is safe. The article is
+            // released by the refund core's atomic stage; if that never committed,
+            // the dead-letter above keeps the case visible for a human.
+            logger.error('CRITICAL Stripe webhook: amount underpaid auto-refund FAILED', {
+              transactionId,
+              paymentIntentId: paymentIntent.id,
+              error: refundErr instanceof Error ? refundErr.message : refundErr,
+            });
+          }
+        }
       }
       // ACK 200 (return normally): the outer handler responds received:true.
       return;
