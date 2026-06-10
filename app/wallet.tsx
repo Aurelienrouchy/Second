@@ -259,8 +259,8 @@ export default function WalletScreen() {
       return;
     }
 
-    // Check that user has Stripe Connect set up
-    if (!user.stripeAccountId || !user.stripePayoutsEnabled) {
+    // No Stripe account yet → guide to setup.
+    if (!user.stripeAccountId) {
       Alert.alert(
         'Compte de paiement requis',
         'Configurez votre compte de paiement pour retirer vos fonds.',
@@ -268,6 +268,24 @@ export default function WalletScreen() {
           { text: 'Annuler', style: 'cancel' },
           {
             text: 'Configurer',
+            onPress: () => router.push('/settings/stripe-onboarding'),
+          },
+        ],
+      );
+      return;
+    }
+
+    // Account exists but payouts are disabled (KYC restriction / bank issue) →
+    // surface the real blocker and route to remediation, never let the user
+    // believe the account is fully active (F62/F117).
+    if (!user.stripePayoutsEnabled) {
+      Alert.alert(
+        'Retraits indisponibles : action requise',
+        'Vos retraits sont bloques tant que la verification de votre compte de paiement n\'est pas terminee. Completez les informations demandees pour les reactiver.',
+        [
+          { text: 'Plus tard', style: 'cancel' },
+          {
+            text: 'Resoudre',
             onPress: () => router.push('/settings/stripe-onboarding'),
           },
         ],
