@@ -185,7 +185,7 @@ export const expireOrphanedTransactions = onSchedule(
           }
         }
 
-        logger.info(`[expireOrphanedTransactions] Expired ${meetupSnap.size} meetup_pending transactions`);
+        logger.info(`[expireOrphanedTransactions] Expired ${cancelledMeetups.length} meetup_pending transactions`);
       }
     } catch (error) {
       logger.error('[expireOrphanedTransactions] Error expiring meetup_pending transactions', {
