@@ -121,7 +121,7 @@ export const checkShippedTracking = onSchedule(
         if (snap.empty) break;
 
         for (const doc of snap.docs) {
-          if (processed >= MAX_TRANSACTIONS_PER_RUN) break;
+          if (processed >= phase.cap || processed >= MAX_TRANSACTIONS_PER_RUN) break;
 
           const data = doc.data();
           const transactionId = doc.id;
