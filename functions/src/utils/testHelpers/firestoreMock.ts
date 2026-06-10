@@ -578,6 +578,34 @@ export function createStripeMock(): StripeMock {
         return impl.payoutsRetrieve(...a);
       },
     },
+    accounts: {
+      retrieve: (...a: unknown[]) => {
+        calls.accountsRetrieve.push(a);
+        return impl.accountsRetrieve(...a);
+      },
+      update: (...a: unknown[]) => {
+        calls.accountsUpdate.push(a);
+        return impl.accountsUpdate(...a);
+      },
+      createExternalAccount: (...a: unknown[]) => {
+        calls.accountsCreateExternalAccount.push(a);
+        return impl.accountsCreateExternalAccount(...a);
+      },
+      listExternalAccounts: (...a: unknown[]) => {
+        calls.accountsListExternalAccounts.push(a);
+        return impl.accountsListExternalAccounts(...a);
+      },
+      deleteExternalAccount: (...a: unknown[]) => {
+        calls.accountsDeleteExternalAccount.push(a);
+        return impl.accountsDeleteExternalAccount(...a);
+      },
+    },
+    files: {
+      create: (...a: unknown[]) => {
+        calls.filesCreate.push(a);
+        return impl.filesCreate(...a);
+      },
+    },
   };
 
   return {
