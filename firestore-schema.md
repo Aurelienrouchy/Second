@@ -950,20 +950,75 @@ interface WithdrawalRequestDocument {
 ### `platform_ledger/{entryId}`
 
 Append-only platform accounting ledger (server-only). Records platform-side
-financial variances for tax/audit traceability — does not move user funds.
-Written by `reconcileShippingCost` (label cost reconciliation, P1).
+revenue and financial variances for tax/audit traceability — does not move user
+funds. Writers:
+ - `reconcileShippingCost` (`utils/labelFulfillment.ts`) — shipping cost variance.
+ - `recordTransactionRevenue` (`utils/labelFulfillment.ts`, E6/F133c) — gross
+   revenue + tax per purchase (deterministic doc id, idempotent).
+ - `handleShopTierSucceeded` (`http/webhooks.ts`, F134) — paid-shop forfait revenue.
+
+Doc ids are DETERMINISTIC for the revenue entries (`service_fee_revenue_${txId}`,
+`tax_collected_${txId}`, `shop_tier_revenue_${paymentIntentId}`) so a webhook
+replay overwrites the same id — exactly one entry per transaction / forfait.
 
 ```typescript
-interface PlatformLedgerDocument {
-  type: 'shipping_cost_variance';   // Real label cost differed from the billed estimate
-  transactionId: string;
-  estimatedShippingCost: number;    // shippingCost billed to the buyer (dollars)
-  actualShippingCost: number;       // Real ShipEngine label cost (dollars)
-  delta: number;                    // actual - estimated (dollars). Logged CRITICAL when |delta| > $2
-  currency: 'cad';
-  createdAt: Timestamp;
-}
+type PlatformLedgerDocument =
+  | {
+      type: 'shipping_cost_variance';   // Real label cost differed from the billed estimate
+      transactionId: string;
+      estimatedShippingCost: number;    // shippingCost billed to the buyer (dollars)
+      actualShippingCost: number;       // Real ShipEngine label cost (dollars)
+      delta: number;                    // actual - estimated (dollars). Logged CRITICAL when |delta| > $2
+      currency: 'cad';
+      createdAt: Timestamp;
+    }
+  | {
+      // E6 / F133c — platform GROSS revenue for one successful purchase. Net
+      // margin = serviceFee − processorFees − shippingCost (computable here).
+      type: 'service_fee_revenue';
+      transactionId: string;
+      sellerId: string;
+      serviceFee: number;               // buyer protection fee collected (dollars)
+      taxCollected: number;             // TPS/TVQ on the fee (dollars; 0 when TAX_ENABLED=false)
+      shippingCostCollected: number;    // shipping billed to the buyer (dollars)
+      grossRevenue: number;             // serviceFee + taxCollected + shippingCostCollected
+      processorFees?: number;           // Stripe fee on the charge (balance_transaction.fee, dollars)
+      netMargin?: number;               // serviceFee − processorFees − shippingCostCollected
+      currency: 'cad';
+      createdAt: Timestamp;
+    }
+  | {
+      // F133c — tax remittance register entry (only when TAX_ENABLED=true).
+      type: 'tax_collected';
+      transactionId: string;
+      taxTotal: number;                 // TPS + TVQ on the service fee (dollars)
+      currency: 'cad';
+      createdAt: Timestamp;
+    }
+  | {
+      // F134 — paid-shop forfait revenue (direct platform charge).
+      type: 'shop_tier_revenue';
+      shopId: string;
+      ownerId: string | null;
+      tier: 'pro' | 'premium';
+      periodMonths: number;
+      amount: number;                   // forfait price paid (dollars)
+      paymentIntentId: string;
+      chargeId: string | null;
+      currency: 'cad';
+      createdAt: Timestamp;
+    };
 ```
+
+> **Taxes TPS/TVQ (F133) — activation = DÉCISION FISCALE DU FONDATEUR.** Le rail
+> de taxe (`utils/fees.ts`, flag `TAX_ENABLED`, défaut `false`) est une
+> infrastructure : OFF, la taxe vaut 0 et `buyerTotal` est inchangé. Activer
+> `TAX_ENABLED=true` exige l'**immatriculation TPS (fédéral) + TVQ (Revenu
+> Québec)** et le dépassement du seuil de petit fournisseur (30 000 $/4 trim.).
+> Seul le **service fee** est taxé (fourniture taxable en facilitateur de
+> marketplace) ; le **shipping refacturé est HORS SCOPE** — à trancher avec un
+> fiscaliste avant de le taxer. Taux réglables par env : `GST_RATE` (0.05),
+> `QST_RATE` (0.09975).
 
 ### `failed_operations/{opId}`
 
