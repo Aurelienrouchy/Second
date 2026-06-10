@@ -887,7 +887,12 @@ export const payWithWallet = onCall(
  *    c. Mark transaction as 'refunded'
  *    d. Release article (isSold = false)
  *
- * Authorization: buyer of the transaction OR admin.
+ * Authorization: ADMIN ONLY (aligned with adminRefundTransaction). A buyer must
+ * never reach this — F21/F132: a wallet-only buyer could otherwise refund
+ * himself in full AFTER delivery (status shipped/delivered/meetup_completed)
+ * while keeping the article, debiting the seller — a direct theft vector with
+ * no dispute, seller consent or admin review. Support uses this to resolve
+ * wallet-only refunds (the card/destination-charge path is adminRefundTransaction).
  */
 export const refundWalletPayment = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
@@ -896,6 +901,25 @@ export const refundWalletPayment = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    // Admin guard: custom claim OR users/{uid}.isAdmin fallback (same double
+    // guard as adminRefundTransaction). Enforced BEFORE any refund logic.
+    let isAdmin = request.auth.token.admin === true;
+    if (!isAdmin) {
+      const adminSnap = await db.collection('users').doc(request.auth.uid).get();
+      isAdmin = adminSnap.exists && adminSnap.data()?.isAdmin === true;
+    }
+    if (!isAdmin) {
+      throw new HttpsError('permission-denied', 'Admin only');
+    }
+
+    const { callerKey, isAuthenticated } = resolveCallerKey(request);
+    await checkRateLimit(callerKey, isAuthenticated, {
+      functionName: 'refundWalletPayment',
+      maxCallsAuthenticated: 20,
+      maxCallsUnauthenticated: 0,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
     const { transactionId } = request.data ?? {};
 
     if (typeof transactionId !== 'string' || transactionId.length === 0) {
@@ -903,7 +927,6 @@ export const refundWalletPayment = onCall(
     }
 
     const callerUid = request.auth.uid;
-    const isAdmin = request.auth.token.admin === true;
 
     try {
       const txRef = db.collection('transactions').doc(transactionId);
@@ -916,11 +939,6 @@ export const refundWalletPayment = onCall(
         }
 
         const txData = txSnap.data()!;
-
-        // Authorization: buyer or admin
-        if (txData.buyerId !== callerUid && !isAdmin) {
-          throw new HttpsError('permission-denied', 'Only the buyer or an admin can refund this transaction');
-        }
 
         // Must be a 100% wallet payment
         if (txData.paidVia !== 'wallet') {
