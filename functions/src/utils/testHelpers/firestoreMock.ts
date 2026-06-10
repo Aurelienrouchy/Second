@@ -178,6 +178,8 @@ function applyWrite(
         const arr = Array.isArray(target[k]) ? (target[k] as unknown[]).slice() : [];
         for (const item of v.values) if (!arr.includes(item)) arr.push(item);
         target[k] = arr;
+      } else if (v.__sentinel === 'delete') {
+        delete target[k];
       }
     } else {
       target[k] = v;
