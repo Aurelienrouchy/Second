@@ -17,6 +17,9 @@
 
 // --- Firestore : observable finement (le mock global de jest.setup est nu) ---
 const mockGetDoc = jest.fn();
+const mockGetDocs = jest.fn((..._args: unknown[]) =>
+  Promise.resolve({ empty: true, docs: [], forEach: () => {}, size: 0 }),
+);
 const mockAddDoc = jest.fn((..._args: unknown[]) => Promise.resolve({ id: 'msg-new' }));
 const mockUpdateDoc = jest.fn((..._args: unknown[]) => Promise.resolve());
 
@@ -24,7 +27,7 @@ jest.mock('firebase/firestore', () => ({
   collection: jest.fn((_db: unknown, name: string) => ({ name })),
   doc: jest.fn((_db: unknown, col: string, id: string) => ({ col, id })),
   getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  getDocs: jest.fn((..._args: unknown[]) => Promise.resolve({ forEach: () => {}, size: 0 })),
+  getDocs: (...args: unknown[]) => mockGetDocs(...args),
   addDoc: (...args: unknown[]) => mockAddDoc(...args),
   updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
   query: jest.fn(),
