@@ -331,7 +331,7 @@ describe('requestRefund — anti-fraud gate', () => {
 // ===========================================================================
 
 describe('requestRefund — carrier-confirmed failure/lost', () => {
-  it('refunds on delivery_failed: ONE Stripe refund (reverse_transfer) + exact seller debit + status refunded', async () => {
+  it('refunds on delivery_failed: ONE plain Stripe refund + exact seller debit + status refunded', async () => {
     seedCardTransaction({
       status: 'delivery_failed',
       totalAmount: 50,
