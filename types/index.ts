@@ -869,7 +869,8 @@ export type SwapStatus =
   | 'photos_pending'   // En attente des photos
   | 'shipping'         // En cours d'envoi
   | 'completed'        // Échange terminé
-  | 'disputed';        // Litige ouvert
+  | 'disputed'         // Litige ouvert
+  | 'expired';         // Échange expiré (abandonné après acceptation, F48/F51)
 
 // Swap exchange mode
 export type SwapExchangeMode = 'hand_delivery' | 'shipping';
