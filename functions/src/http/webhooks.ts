@@ -744,61 +744,31 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     } else {
       const shipEngine = getShipEngine();
       if (shipEngine && rateId) {
-        try {
-          const label = await shipEngine.createLabel(rateId);
-          trackingNumber = label.trackingNumber;
-          labelUrl = label.labelDownload.href;
-          trackingUrl = label.trackingUrl;
-          carrierCode = label.carrierCode;
+        // F5/F82: idempotent, double-spend-safe label creation. The helper
+        // reserves the tx (atomic) BEFORE the paid ShipEngine call, so a webhook
+        // timeout / Stripe retry / concurrent sweep can never create a 2nd label;
+        // on success it credits the seller + persists the label atomically.
+        const outcome = await createLabelIdempotent({
+          transactionRef,
+          transactionId,
+          rateId,
+          shipEngine,
+          estimatedShippingCost: result.shippingCost ?? 0,
+        });
 
-          // ATOMIC: credit the seller (now that the label exists), reconcile the
-          // real label cost vs the estimated shippingCost, persist label fields,
-          // clear the pending flag, and mark 'label_created' — all in one tx.
-          // NOTE: status is 'label_created', NOT 'shipped'. A label existing does
-          // not mean the parcel was handed to the carrier. The first real carrier
-          // scan (tracking poller / ShipEngine webhook) advances label_created ->
-          // shipped, which lets the stale-label sweep nudge non-shipping sellers.
-          await db.runTransaction(async (tx) => {
-            const txSnap = await tx.get(transactionRef);
-            const tdata = txSnap.data();
-            if (!tdata) return;
-            // Idempotence: don't re-credit / re-label if already advanced.
-            if (
-              tdata.status === 'label_created' ||
-              tdata.status === 'shipped' ||
-              tdata.status === 'delivered'
-            )
-              return;
-
-            await creditSellerForSale(tx, transactionRef, tdata, transactionId);
-
-            const update: Record<string, any> = {
-              trackingNumber,
-              shippingLabelUrl: labelUrl,
-              trackingUrl,
-              carrierCode,
-              trackingStatus: 'LABEL_CREATED',
-              shipEngineLabelId: label.labelId,
-              status: 'label_created',
-              labelCreatedAt: FieldValue.serverTimestamp(),
-              labelCreationPending: false,
-            };
-            reconcileShippingCost(label, result.shippingCost ?? 0, transactionId, update);
-            tx.update(transactionRef, update);
-          });
-
-          logger.info('ShipEngine label created — seller credited, transaction marked shipped', {
-            transactionId,
-            trackingNumber,
-            carrierCode,
-          });
-        } catch (labelError) {
-          logger.error('Error creating ShipEngine label (deferring to sweepPendingLabels)', {
-            transactionId,
-            error: labelError instanceof Error ? labelError.message : labelError,
-          });
-          // Payment is still valid but the seller is NOT credited and the
-          // transaction stays 'paid'. sweepPendingLabels will re-rate + retry.
+        if (outcome === 'created' || outcome === 'skip') {
+          // Read back the persisted label fields for the chat system message
+          // below (a 'skip' means another path already created the label).
+          const fresh = (await transactionRef.get()).data();
+          trackingNumber = fresh?.trackingNumber || '';
+          labelUrl = fresh?.shippingLabelUrl || '';
+          trackingUrl = fresh?.trackingUrl || '';
+          carrierCode = fresh?.carrierCode || '';
+          logger.info('Stripe webhook: label creation outcome', { transactionId, outcome });
+        } else {
+          // 'failed': the reservation was cleared (createLabel error) — defer to
+          // sweepPendingLabels which re-rates + retries. Payment stays valid; the
+          // seller is NOT credited (deferred-credit model).
           await db.collection('transactions').doc(transactionId).update({
             labelCreationPending: true,
             labelCreationNote: 'ShipEngine createLabel failed — re-rate + retry required',
