@@ -1547,28 +1547,14 @@ export const createStripeConnectAccount = onCall(
         },
       });
 
-      // Determine status from the freshly created account
-      const chargesEnabled = account.charges_enabled === true;
-      const payoutsEnabled = account.payouts_enabled === true;
-      const detailsSubmitted = account.details_submitted === true;
-      const pendingRequirements = account.requirements?.currently_due || [];
-
-      let status: string;
-      if (chargesEnabled && payoutsEnabled) {
-        status = 'active';
-      } else if (detailsSubmitted) {
-        status = 'pending_verification';
-      } else {
-        status = 'pending';
-      }
+      // Derive the canonical state from the freshly created account so the
+      // initial requirements (F59a) are persisted alongside the booleans.
+      const state = deriveStripeAccountState(account);
 
       // Store everything in the user document
       await userRef.update({
         stripeAccountId: account.id,
-        stripeAccountStatus: status,
-        stripeChargesEnabled: chargesEnabled,
-        stripePayoutsEnabled: payoutsEnabled,
-        stripeDetailsSubmitted: detailsSubmitted,
+        ...stripeAccountFirestoreFields(state),
         stripeBankAccountAdded: true,
         stripeBankAccountLast4: accountNumber.slice(-4),
         stripeAccountCreatedAt: FieldValue.serverTimestamp(),
@@ -1577,21 +1563,21 @@ export const createStripeConnectAccount = onCall(
       logger.info('Stripe Custom account created with full onboarding', {
         userId,
         stripeAccountId: account.id,
-        chargesEnabled,
-        payoutsEnabled,
-        detailsSubmitted,
-        pendingRequirements,
-        status,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        detailsSubmitted: state.detailsSubmitted,
+        requirementsCurrentlyDue: state.requirementsCurrentlyDue,
+        status: state.status,
       });
 
       return {
         success: true,
         stripeAccountId: account.id,
-        chargesEnabled,
-        payoutsEnabled,
-        detailsSubmitted,
-        requirements: pendingRequirements,
-        status,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        detailsSubmitted: state.detailsSubmitted,
+        requirements: state.requirementsCurrentlyDue,
+        status: state.status,
       };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
