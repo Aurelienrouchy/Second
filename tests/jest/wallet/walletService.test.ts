@@ -24,12 +24,14 @@
  * Vit dans tests/jest/ → ramassé par Jest, ignoré par Vitest.
  */
 
+import { getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
 import { WalletService } from '@/services/walletService';
 import type { WalletInfo } from '@/types';
 
 const mockHttpsCallable = httpsCallable as jest.Mock;
+const mockGetDocs = getDocs as jest.Mock;
 
 /**
  * Helper : enregistre un retour pour la callable et capture, par appel, le nom
