@@ -1967,21 +1967,28 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
  * client-supplied buyerId/sellerId. Worse, any path deriving buyer/seller from
  * `request.auth.uid` would mislabel the seller (the accepter) as the buyer.
  *
- * This callable makes acceptance authoritative:
- *   - buyerId  = offer message `senderId` (the buyer always proposes the offer),
- *   - sellerId = the OTHER chat participant (NOT request.auth.uid).
- * The caller MUST be the seller (a participant who is not the offer sender).
+ * F9 — buyer/seller are derived from the ARTICLE, never from the offer sender:
+ *   - sellerId = article.sellerId (the article owner is always the seller),
+ *   - buyerId  = the OTHER chat participant.
+ * Deriving the buyer from `message.senderId` broke seller counter-offers: when
+ * the seller emits a counter-offer, senderId is the seller, so the old code
+ * mislabelled the seller as buyer and threw permission-denied. The caller must
+ * be the participant who did NOT emit the offer (the accepter) — so either side
+ * can accept the other side's offer/counter-offer.
  *
  * In ONE runTransaction it:
  *   1. re-reads the offer message (must be a pending meetup offer in this chat),
- *   2. re-reads the article (must exist, not sold/inactive, seller-owned),
+ *   2. re-reads the article (must exist, seller-owned),
  *   3. flips `offer.status` to 'accepted',
  *   4. marks the article sold,
  *   5. creates the linked `meetup_pending` transaction (NO platform fee).
  *
- * Idempotent: if a non-cancelled meetup transaction already exists for this
- * chat, it returns that transaction id without creating a duplicate and without
- * re-locking the article.
+ * F8 — idempotency for the direct-checkout meetup flow. checkout/meetup
+ * pre-creates the meetup_pending tx (locking the article) THEN sends the offer,
+ * so acceptMeetupOffer would otherwise reject on `isSold === true` — a 48h
+ * dead-end. If a non-cancelled meetup transaction already exists for this
+ * chat+buyer+article, we accept the offer and return THAT transaction id
+ * instead of rejecting / creating a duplicate (no re-lock, no second tx).
  */
 export const acceptMeetupOffer = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
