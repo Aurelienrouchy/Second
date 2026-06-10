@@ -80,6 +80,17 @@ const WALLET_COPY = {
   withdrawSuccessTitle: 'Retrait envoyé',
   withdrawSuccessBody:
     'Votre demande de retrait a été enregistrée. Le transfert vers votre compte bancaire sera traité sous 2 à 3 jours ouvrés.',
+  withdrawalsSectionTitle: 'RETRAITS EN COURS',
+  withdrawalProcessingLabel: 'Retrait en traitement',
+  withdrawalProcessingHint: 'Transfert vers votre compte bancaire en cours (2 à 3 jours ouvrés).',
+  withdrawalCompletedLabel: 'Retrait effectué',
+  withdrawalCompletedHint: 'Les fonds ont été envoyés vers votre compte bancaire.',
+  withdrawalFailedLabel: 'Retrait échoué',
+  withdrawalFailedHint:
+    'Le transfert n’a pas abouti ; le montant a été recrédité sur votre solde disponible.',
+  // Internal balance movements — neutral, not a loss (F127).
+  fundsHeldMovementHint: 'Fonds en attente de libération',
+  fundsReleasedMovementHint: 'Fonds disponibles',
 } as const;
 
 // =============================================================================
