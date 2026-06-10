@@ -582,9 +582,11 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     // P1 (amount mismatch — deterministic): the captured amount does not match
     // what we expected. This cannot self-heal on a Stripe retry, so we MUST NOT
     // 500. Persist a dead-letter for manual reconciliation BEFORE returning. If
-    // the buyer OVERPAID, we additionally auto-refund the difference idempotently
-    // (a defensive, buyer-favourable action); an UNDERPAYMENT is left for a human
-    // (refunding the full charge or chasing the balance is a business decision).
+    // the buyer OVERPAID, we additionally CANCEL the sale and refund the FULL
+    // charge idempotently (the tx never reaches 'paid', no seller credit; the
+    // entire charge returns to the buyer — buyer-favourable and deterministic).
+    // An UNDERPAYMENT is left for a human (refunding the full charge or chasing
+    // the balance is a business decision).
     if (result.reason === 'amount_mismatch') {
       const mismatch = 'mismatch' in result ? result.mismatch : undefined;
       const buyerOverpaid = mismatch?.buyerOverpaid === true;
