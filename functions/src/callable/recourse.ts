@@ -50,7 +50,16 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 /** Allowed reason codes for a buyer-initiated return ("item not as described"). */
 const RETURN_REASONS = new Set(['not_as_described', 'damaged', 'wrong_item', 'other']);
 
-/** Carrier-confirmed failure statuses that authorize a buyer auto-refund. */
+/**
+ * Carrier-confirmed failure statuses that authorize a buyer auto-refund.
+ *
+ * B7: `'lost'` has NO writer today — `trackingTransition.ts` only ever writes
+ * `'delivery_failed'`, which covers both failed and lost parcels. `'lost'` is kept
+ * RESERVED for a future carrier mapping (it is consistently present in the sibling
+ * dispute-blocking status sets in releaseHeldFunds/offerExpiration/payments, and
+ * covered by recourse.test.ts) so a later `'lost'` writer is auto-refundable
+ * without re-touching this gate. Remove it only if those sibling sets drop it too.
+ */
 const AUTO_REFUNDABLE_STATUSES = new Set(['delivery_failed', 'lost']);
 
 /** Allowed reason codes for a "delivered but problem" buyer report. */
