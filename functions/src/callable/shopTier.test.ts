@@ -147,4 +147,78 @@ describe('purchaseShopTier (F134)', () => {
       callPurchase({ auth: null, data: { shopId: 'shop1', tier: 'pro', periodMonths: 1 } })
     ).rejects.toMatchObject({ code: 'unauthenticated' });
   });
+
+  // B10: a forfait only grants a benefit on an APPROVED shop (reductionForShopDoc
+  // returns 0 otherwise). Refuse the purchase for non-approved shops.
+  it('refuses a forfait purchase on a non-approved shop (B10)', async () => {
+    for (const status of ['pending', 'rejected', 'suspended']) {
+      fs.reset();
+      stripeMock.reset();
+      process.env.STRIPE_SECRET_KEY = 'sk_test';
+      fs.setDoc('shops/shop1', { ownerId: 'owner1', name: 'Friperie', status });
+
+      await expect(
+        callPurchase({
+          auth: { uid: 'owner1' },
+          data: { shopId: 'shop1', tier: 'pro', periodMonths: 12 },
+        })
+      ).rejects.toMatchObject({ code: 'failed-precondition' });
+      // No money movement for a shop that earns no reduction.
+      expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
+    }
+  });
+
+  // B11: the idempotency key includes the shop's current tierPaidUntil so a true
+  // renewal (which extends tierPaidUntil) gets a DISTINCT key — Stripe does not
+  // dedup it inside its 24h window. A retry of the SAME attempt keeps the key.
+  it('uses a renewal-distinct idempotency key keyed on tierPaidUntil (B11)', async () => {
+    // First subscription: no prior tierPaidUntil -> currentUntilMs = 0.
+    fs.setDoc('shops/shop1', { ownerId: 'owner1', status: 'approved' });
+    stripeMock.impl.paymentIntentsCreate = async () => ({
+      id: 'pi_a',
+      client_secret: 'sec_a',
+    });
+    await callPurchase({
+      auth: { uid: 'owner1' },
+      data: { shopId: 'shop1', tier: 'pro', periodMonths: 3 },
+    });
+    const key1 = (stripeMock.calls.paymentIntentsCreate[0][1] as Record<string, unknown>)
+      .idempotencyKey as string;
+    expect(key1).toBe('shop_tier_shop1_pro_3_0');
+
+    // Renewal AFTER the previous PI was applied: tierPaidUntil now set.
+    const until = { toMillis: () => 1_900_000_000_000 };
+    fs.setDoc('shops/shop1', { ownerId: 'owner1', status: 'approved', tierPaidUntil: until });
+    await callPurchase({
+      auth: { uid: 'owner1' },
+      data: { shopId: 'shop1', tier: 'pro', periodMonths: 3 },
+    });
+    const key2 = (stripeMock.calls.paymentIntentsCreate[1][1] as Record<string, unknown>)
+      .idempotencyKey as string;
+    // Same (shop, tier, period) but a DISTINCT key — the renewal is not deduped.
+    expect(key2).toBe('shop_tier_shop1_pro_3_1900000000000');
+    expect(key2).not.toBe(key1);
+  });
+
+  // A pure retry of the SAME attempt (tierPaidUntil unchanged) keeps the key, so
+  // Stripe still dedups it (no double-charge).
+  it('reuses the same idempotency key for a true retry of the same attempt (B11)', async () => {
+    const until = { toMillis: () => 1_800_000_000_000 };
+    fs.setDoc('shops/shop1', { ownerId: 'owner1', status: 'approved', tierPaidUntil: until });
+    stripeMock.impl.paymentIntentsCreate = async () => ({ id: 'pi_x', client_secret: 'sec_x' });
+
+    await callPurchase({
+      auth: { uid: 'owner1' },
+      data: { shopId: 'shop1', tier: 'premium', periodMonths: 1 },
+    });
+    await callPurchase({
+      auth: { uid: 'owner1' },
+      data: { shopId: 'shop1', tier: 'premium', periodMonths: 1 },
+    });
+    const k1 = (stripeMock.calls.paymentIntentsCreate[0][1] as Record<string, unknown>)
+      .idempotencyKey as string;
+    const k2 = (stripeMock.calls.paymentIntentsCreate[1][1] as Record<string, unknown>)
+      .idempotencyKey as string;
+    expect(k2).toBe(k1);
+  });
 });
