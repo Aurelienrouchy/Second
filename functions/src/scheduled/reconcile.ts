@@ -39,6 +39,12 @@ const MAX_PER_RUN = 200;
 /** Process Stripe-bound work in small concurrent lots. */
 const LOT_SIZE = 10;
 
+/** F75: page size when scanning ALL wallets for invariant breaches. */
+const WALLET_PAGE_SIZE = 500;
+
+/** F75: hard ceiling so the wallet scan can never run unbounded. */
+const BALANCE_SCAN_HARD_CAP = 100_000;
+
 type StripeClient = ReturnType<typeof getStripe>;
 
 // =============================================================================
