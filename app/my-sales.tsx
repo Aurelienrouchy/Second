@@ -292,7 +292,7 @@ export default function MySalesScreen() {
           <Ionicons name="wallet-outline" size={64} color={colors.muted} />
           <Text style={styles.emptyTitle}>Aucune vente</Text>
           <Text style={styles.emptyText}>
-            Vos ventes apparaitront ici une fois que vous aurez vendu votre premier
+            Vos ventes apparaîtront ici une fois que vous aurez vendu votre premier
             article.
           </Text>
         </View>
