@@ -168,7 +168,10 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             await onAcceptOffer(message.id, message.id);
           } catch (error) {
             if (__DEV__) console.error('Error accepting offer:', error);
-            Alert.alert('Erreur', "Impossible d'accepter l'offre");
+            // Surface the server reason (FirebaseError message) so a genuine
+            // failure is actionable instead of an opaque generic alert.
+            const msg = error instanceof Error ? error.message : "Impossible d'accepter l'offre";
+            Alert.alert('Erreur', msg);
           } finally {
             setIsAccepting(false);
           }
