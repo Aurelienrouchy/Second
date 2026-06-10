@@ -1683,19 +1683,25 @@ export const createStripeConnectAccount = onCall(
         metadata: {
           firebaseUserId: userId,
         },
+      }, {
+        // F69 — belt-and-braces: a deterministic idempotency key means that even
+        // if two requests somehow slipped past the Firestore creation lock,
+        // Stripe returns the SAME account object instead of minting two.
+        idempotencyKey: `connect_account_${userId}`,
       });
 
       // Derive the canonical state from the freshly created account so the
       // initial requirements (F59a) are persisted alongside the booleans.
       const state = deriveStripeAccountState(account);
 
-      // Store everything in the user document
+      // Store everything in the user document and release the creation lock.
       await userRef.update({
         stripeAccountId: account.id,
         ...stripeAccountFirestoreFields(state),
         stripeBankAccountAdded: true,
         stripeBankAccountLast4: accountNumber.slice(-4),
         stripeAccountCreatedAt: FieldValue.serverTimestamp(),
+        stripeAccountCreationStartedAt: FieldValue.delete(),
       });
 
       logger.info('Stripe Custom account created with full onboarding', {
