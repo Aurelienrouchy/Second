@@ -60,13 +60,21 @@ const PAYMENT_CONFIRM_POLL_MS = 1500;
 // MAIN COMPONENT
 // =============================================================================
 
+/**
+ * Reasons a pending_payment transaction cannot be paid on this screen.
+ * Returned by the queryFn (no side effects) and acted on by an effect.
+ */
+type NotPayableReason = 'not_found' | 'forbidden' | 'already_processed';
+
 export default function PaymentScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useUser();
+  const queryClient = useQueryClient();
 
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Stripe
   const [clientSecret, setClientSecret] = useState<string | null>(null);
