@@ -922,7 +922,9 @@ interface WithdrawalRequestDocument {
   currency: 'cad';
   ledgerEntryId: string;          // Linked wallets/{userId}/ledger entry id
   stripeAccountId: string;        // Seller's Stripe Connect Custom account
-  stripePayoutId?: string;        // Stripe Payout ID (po_xxx) — set by payout.* webhook
+  stripeTransferId?: string;      // Platform->connected transfer (tr_xxx) — persisted at walletWithdraw
+                                  // so a lost payout.failed can be reverted (revertFailedPayout)
+  stripePayoutId?: string;        // Stripe Payout ID (po_xxx) — persisted at walletWithdraw + payout.* webhook
   status: 'processing' | 'completed' | 'failed';
   failureReason?: string;         // Set if status is 'failed'
   failedAt?: Timestamp;           // Set if status is 'failed'
