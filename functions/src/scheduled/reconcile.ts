@@ -24,7 +24,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
-import { writeFailedOperation } from '../utils/failedOperations';
+import { writeFailedOperation, writeAdminAlert } from '../utils/failedOperations';
 import { revertFailedPayout } from '../utils/payoutRecovery';
 
 /** Only inspect transactions older than this (let webhooks land first). */
