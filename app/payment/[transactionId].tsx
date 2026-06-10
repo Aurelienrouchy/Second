@@ -35,6 +35,7 @@ import { WalletService } from '@/services/walletService';
 import { TransactionService } from '@/services/transactionService';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
+import { classifyStripePaymentError } from '@/utils/stripePaymentError';
 
 // =============================================================================
 // CONSTANTS
