@@ -107,12 +107,11 @@ async function resolveBuyerFeeReduction(params: {
     if (typeof shopId === 'string' && shopId.length > 0) {
       const shopSnap = await db.collection('shops').doc(shopId).get();
       if (shopSnap.exists) {
-        const shop = shopSnap.data()!;
-        if (shop.status === 'approved') {
-          return feeReductionForShopTier(shop.tier);
-        }
+        // Reduction only when approved AND the paid forfait is still active
+        // (tierPaidUntil > now). Expired tier → 0 (basic).
+        return reductionForShopDoc(shopSnap.data());
       }
-      // shopId present but shop missing/not approved → no reduction.
+      // shopId present but shop missing → no reduction.
       return 0;
     }
 
@@ -125,7 +124,7 @@ async function resolveBuyerFeeReduction(params: {
       .get();
     const approvedShop = shopsSnap.docs.find((d) => d.data()?.status === 'approved');
     if (approvedShop) {
-      return feeReductionForShopTier(approvedShop.data()?.tier);
+      return reductionForShopDoc(approvedShop.data());
     }
   } catch (error) {
     logger.warn('createTransaction: shop tier lookup failed, applying full buyer fee', {
