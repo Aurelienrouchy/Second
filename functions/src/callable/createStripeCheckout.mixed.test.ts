@@ -189,6 +189,72 @@ describe('createStripeCheckout — F23 atomic revert on Stripe failure', () => {
 });
 
 // ===========================================================================
+// SINGLE-RAIL CHARGE MODEL — the PaymentIntent must ALWAYS be a plain platform
+// charge: NO transfer_data.destination, NO application_fee_amount, NO
+// on_behalf_of, on BOTH the carte-seule and the mixed wallet+card branch.
+// Re-introducing any of those would double-finance every sale (Stripe would
+// auto-transfer to the connected account AND walletWithdraw would transfer
+// again). This guards the exact invariant the charge-model migration enforces.
+// ===========================================================================
+
+describe('createStripeCheckout — single-rail platform charge (no transfer_data)', () => {
+  it('carte-seule: charges the full buyerTotal with NO transfer_data / application_fee / on_behalf_of', async () => {
+    seedPending();
+    stripeMock.impl.paymentIntentsCreate = async () => ({
+      id: 'pi_cardonly',
+      client_secret: 'pi_cardonly_secret',
+    });
+
+    const res = await call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    expect(res.success).toBe(true);
+
+    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
+    const [piParams, reqOpts] = stripeMock.calls.paymentIntentsCreate[0] as [
+      Record<string, unknown>,
+      Record<string, unknown>,
+    ];
+    // Full buyerTotal charged to the platform (1000c = $10).
+    expect(piParams.amount).toBe(1000);
+    expect(piParams.currency).toBe('cad');
+    // Single-rail invariants.
+    expect(piParams.transfer_data).toBeUndefined();
+    expect(piParams.application_fee_amount).toBeUndefined();
+    expect(piParams.on_behalf_of).toBeUndefined();
+    // Deterministic idempotency key tied to the transaction.
+    expect(reqOpts.idempotencyKey).toBe('pi_tx1');
+  });
+
+  it('mixed wallet+card: charges only the card remainder with NO transfer_data / application_fee / on_behalf_of', async () => {
+    seedPending();
+    stripeMock.impl.paymentIntentsCreate = async () => ({
+      id: 'pi_mixed',
+      client_secret: 'pi_mixed_secret',
+    });
+
+    // total = 1000c, wallet = 600c → card remainder = 400c.
+    const res = await call({
+      auth: { uid: 'buyer1' },
+      data: { transactionId: 'tx1', walletAmount: 600 },
+    });
+    expect(res.success).toBe(true);
+
+    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
+    const [piParams, reqOpts] = stripeMock.calls.paymentIntentsCreate[0] as [
+      Record<string, unknown>,
+      Record<string, unknown>,
+    ];
+    // Only the card remainder is charged (wallet portion already debited).
+    expect(piParams.amount).toBe(400);
+    expect(piParams.currency).toBe('cad');
+    // Same single-rail invariants as the carte-seule branch.
+    expect(piParams.transfer_data).toBeUndefined();
+    expect(piParams.application_fee_amount).toBeUndefined();
+    expect(piParams.on_behalf_of).toBeUndefined();
+    expect(reqOpts.idempotencyKey).toBe('pi_tx1');
+  });
+});
+
+// ===========================================================================
 // F137 — server-authoritative SHIPPING_ENABLED flag on createStripeCheckout
 // ===========================================================================
 
