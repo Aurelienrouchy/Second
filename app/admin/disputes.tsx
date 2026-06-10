@@ -1,19 +1,24 @@
 /**
- * Admin Panel — Disputes Review (flow-achat P1-13)
+ * Admin Panel — Disputes Review + Resolution (F27/F88 + F10 + F26 + F48)
  *
  * Liste les litiges (`disputes/{id}`) ouverts par les callables serveur
  * (`reportTransactionProblem` / `reportMeetupNoShow`, Admin SDK + runTransaction).
- * Un litige gèle la transaction sous-jacente (`disputed=true`) : sans écran
- * admin, ces transactions restaient gelées indéfiniment. Cet écran rend les
- * litiges LISIBLES (lecture seule).
+ * Un litige gèle la transaction sous-jacente (`disputed=true`) : sans résolution
+ * admin, ces transactions ET la suppression de compte des deux parties restaient
+ * gelées indéfiniment. Cet écran RÉSOUT désormais les litiges.
  *
  * SÉCURITÉ / RÔLES : la lecture des `disputes` est autorisée aux admins par
  * firestore.rules (request.auth.token.admin). Aucun write client n'est permis
- * (creation/update/delete: false) — la RÉSOLUTION (remboursement acheteur,
- * déblocage des fonds) est une mutation financière qui passe EXCLUSIVEMENT par
- * la callable serveur `adminRefundTransaction` (Stripe reverse_transfer +
- * runTransaction idempotent). Elle est volontairement HORS de cet écran (cf.
- * 'deferred' du rapport) : ce composant ne fait que lister/consulter.
+ * (creation/update/delete: false) — la RÉSOLUTION passe EXCLUSIVEMENT par des
+ * callables serveur admin-only (double garde) :
+ *   - `adminRefundTransaction` → rembourse l'acheteur + clôt le dispute,
+ *   - `resolveDispute`         → clôt en faveur du vendeur (sans remboursement),
+ *   - `resolveSwapDispute`     → litige SWAP (rembourse le payeur OU libère le
+ *                                bénéficiaire). Les swaps disputed ne créent PAS
+ *                                de doc `disputes` (et les rules limitent leur
+ *                                lecture aux participants) : la résolution se
+ *                                fait par saisie manuelle du swapId (issu du
+ *                                ticket support / logs).
  *
  * Suit les conventions de app/admin/reports.tsx (état local, FlashList,
  * Skeleton, tokens DS, useUser, défense en profondeur). L'accès admin est
@@ -24,6 +29,8 @@ import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { firestore } from '@/config/firebaseConfig';
 import { APP_LOCALE } from '@/constants/locale';
 import { useUser } from '@/hooks/useAuth';
+import { TransactionService } from '@/services/transactionService';
+import { resolveSwapDispute } from '@/services/swapService';
 import { UserService } from '@/services/userService';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -36,7 +43,15 @@ import {
   query,
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '@/constants/theme';
 
