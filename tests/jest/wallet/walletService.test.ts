@@ -173,3 +173,64 @@ describe('WalletService.payWithWallet', () => {
     );
   });
 });
+
+describe('WalletService.getWithdrawalRequests', () => {
+  /** Build a Firestore-like snapshot doc with a toDate-capable timestamp. */
+  function docOf(id: string, data: Record<string, unknown>) {
+    return { id, data: () => data };
+  }
+  const ts = (iso: string) => ({ toDate: () => new Date(iso) });
+
+  it('mappe les withdrawal_requests du user (montants en cents, statut, date) — F128', async () => {
+    mockGetDocs.mockResolvedValueOnce({
+      docs: [
+        docOf('wr1', {
+          userId: 'u1',
+          amount: 5000,
+          status: 'processing',
+          createdAt: ts('2026-06-08T10:00:00.000Z'),
+        }),
+        docOf('wr2', {
+          userId: 'u1',
+          amount: 3000,
+          status: 'failed',
+          failureReason: 'Compte bancaire fermé',
+          createdAt: ts('2026-06-07T10:00:00.000Z'),
+          updatedAt: ts('2026-06-07T12:00:00.000Z'),
+        }),
+      ],
+    });
+
+    const requests = await WalletService.getWithdrawalRequests('u1');
+
+    expect(requests).toHaveLength(2);
+    // Amounts stay in cents (no division) and the status is surfaced as-is.
+    expect(requests[0]).toMatchObject({ id: 'wr1', amount: 5000, status: 'processing' });
+    expect(requests[0].createdAt).toBeInstanceOf(Date);
+    // A failed payout carries its failureReason for the UI copy.
+    expect(requests[1]).toMatchObject({
+      id: 'wr2',
+      status: 'failed',
+      failureReason: 'Compte bancaire fermé',
+    });
+    expect(requests[1].updatedAt).toBeInstanceOf(Date);
+  });
+
+  it('défaut le statut à processing et le montant à 0 sur un doc partiel', async () => {
+    mockGetDocs.mockResolvedValueOnce({
+      docs: [docOf('wr3', { userId: 'u1' })],
+    });
+
+    const [req] = await WalletService.getWithdrawalRequests('u1');
+
+    expect(req.status).toBe('processing');
+    expect(req.amount).toBe(0);
+    expect(req.failureReason).toBeUndefined();
+  });
+
+  it('renvoie une liste vide quand le user n’a aucun retrait', async () => {
+    mockGetDocs.mockResolvedValueOnce({ docs: [] });
+
+    await expect(WalletService.getWithdrawalRequests('u1')).resolves.toEqual([]);
+  });
+});
