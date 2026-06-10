@@ -37,7 +37,6 @@ import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { firestore, auth } from '@/config/firebaseConfig';
 import { Article, MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
-import { TransactionService } from '@/services/transactionService';
 import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
 import { homeKeys } from '@/features/home/query-keys';
