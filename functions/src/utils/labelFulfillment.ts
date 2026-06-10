@@ -194,3 +194,111 @@ export function reconcileShippingCost(
 
   return delta;
 }
+
+/**
+ * E6 / F133(c) — Platform revenue accounting. Writes the platform's GROSS revenue
+ * for ONE successful purchase transaction into `platform_ledger`, so net margin
+ * per transaction is computable (revenue − processor fees − shipping cost).
+ *
+ * Idempotent by DETERMINISTIC doc id (`service_fee_revenue_${transactionId}`):
+ * a replayed PI.succeeded (handled defensively by the webhook's stripe_events
+ * dedup + per-handler status guards) writes the same id, so a `set` is a no-op
+ * overwrite — exactly one revenue entry per transaction.
+ *
+ * Entries written (best-effort; a ledger failure must NEVER block the webhook —
+ * the payment is already committed):
+ *   - `service_fee_revenue`: serviceFee (+ tax if collected) + shippingCost
+ *     collected from the buyer. Records `processorFees` (Stripe fee on the
+ *     charge, read from the balance_transaction) when resolvable, leaving net
+ *     margin = serviceFee − processorFees − shippingCostVariance computable.
+ *   - `tax_collected` (only when taxTotal > 0): the TPS/TVQ remittance register
+ *     entry. Activation is a fondateur fiscal decision (see utils/fees.ts).
+ *
+ * All amounts in DOLLARS (consistent with the transaction fields).
+ *
+ * @param chargeId Stripe charge id (paymentIntent.latest_charge) to resolve the
+ *                 processor fee from its balance_transaction. Optional.
+ */
+export async function recordTransactionRevenue(params: {
+  transactionId: string;
+  sellerId: string;
+  serviceFee: number;
+  shippingCost: number;
+  taxTotal: number;
+  chargeId?: string | null;
+}): Promise<void> {
+  const { transactionId, sellerId, serviceFee, shippingCost, taxTotal, chargeId } = params;
+
+  // Best-effort processor fee from the Stripe balance_transaction (frais Stripe
+  // payés par la plateforme). A failure here only omits the fee — gross revenue
+  // is still recorded so the entry is never lost.
+  let processorFees: number | null = null;
+  try {
+    if (chargeId) {
+      const stripe = getStripe();
+      if (stripe) {
+        const charge = await stripe.charges.retrieve(chargeId, {
+          expand: ['balance_transaction'],
+        });
+        const bt = (charge as any)?.balance_transaction;
+        if (bt && typeof bt.fee === 'number') {
+          processorFees = Math.round(bt.fee) / 100; // cents → dollars
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('[recordTransactionRevenue] could not resolve processor fee', {
+      transactionId,
+      chargeId,
+      error: err instanceof Error ? err.message : err,
+    });
+  }
+
+  try {
+    const revenueRef = db.collection('platform_ledger').doc(`service_fee_revenue_${transactionId}`);
+    const revenue: Record<string, any> = {
+      type: 'service_fee_revenue',
+      transactionId,
+      sellerId,
+      serviceFee: serviceFee || 0,
+      taxCollected: taxTotal || 0,
+      shippingCostCollected: shippingCost || 0,
+      grossRevenue: Math.round(((serviceFee || 0) + (taxTotal || 0) + (shippingCost || 0)) * 100) / 100,
+      currency: 'cad',
+      createdAt: FieldValue.serverTimestamp(),
+    };
+    if (processorFees !== null) {
+      revenue.processorFees = processorFees;
+      // Net of processor fees + shipping cost the platform must pay the carrier.
+      revenue.netMargin = Math.round(
+        ((serviceFee || 0) - processorFees - (shippingCost || 0)) * 100
+      ) / 100;
+    }
+    await revenueRef.set(revenue);
+
+    // Tax remittance register (only when actually collected — TAX_ENABLED=true).
+    if (taxTotal && taxTotal > 0) {
+      const taxRef = db.collection('platform_ledger').doc(`tax_collected_${transactionId}`);
+      await taxRef.set({
+        type: 'tax_collected',
+        transactionId,
+        taxTotal,
+        currency: 'cad',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    logger.info('[recordTransactionRevenue] platform revenue recorded', {
+      transactionId,
+      serviceFee,
+      taxTotal,
+      shippingCost,
+      processorFees,
+    });
+  } catch (err) {
+    logger.error('[recordTransactionRevenue] failed to write platform_ledger revenue entry', {
+      transactionId,
+      error: err instanceof Error ? err.message : err,
+    });
+  }
+}
