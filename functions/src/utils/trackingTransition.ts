@@ -110,20 +110,28 @@ export async function applyTrackingOutcome(
       const creditedCents =
         typeof data.sellerCreditedCents === 'number' ? data.sellerCreditedCents : 0;
 
+      // ALL reads first (Admin SDK forbids read-after-write in a transaction):
+      // read the wallet BEFORE any tx.update, otherwise getOrCreateSellerWallet's
+      // tx.get throws READ_AFTER_WRITE_ERROR and the delivery never commits (F1).
+      let wallet: { walletRef: FirebaseFirestore.DocumentReference; walletData: FirebaseFirestore.DocumentData } | null =
+        null;
+      if (sellerId && creditedCents > 0) {
+        wallet = await getOrCreateSellerWallet(tx, sellerId);
+      }
+
       tx.update(txRef, {
         trackingStatus: 'DELIVERED',
         status: 'delivered',
         deliveredAt: FieldValue.serverTimestamp(),
       });
 
-      if (sellerId && creditedCents > 0) {
-        const { walletRef, walletData } = await getOrCreateSellerWallet(tx, sellerId);
+      if (wallet) {
         // Move exactly what was credited (creditedCents), not a freshly derived
         // payout, so credit and held-move can never drift.
         applyDeliveredHeldFunds(
           tx,
-          walletRef,
-          walletData,
+          wallet.walletRef,
+          wallet.walletData,
           txRef,
           transactionId,
           creditedCents,
