@@ -808,8 +808,12 @@ interface TransactionDocument {
   statusBeforeDispute?: string;    // Status captured at dispute.created (or buyer report), restored if won
   disputeFreezeCents?: number;     // Exact amount moved balance -> heldBalance at dispute.created;
                                    // released back to balance by dispute.closed (won/closed, or LOST surplus)
-  disputeOutcome?: 'won' | 'lost' | string; // Set by charge.dispute.closed
+  disputeOutcome?: 'won' | 'lost' | 'dismissed' | string; // Set by charge.dispute.closed; 'dismissed' by resolveDispute (admin closes in favor of seller, no refund)
   disputeClosedAt?: Timestamp;
+  disputeResolvedAt?: Timestamp;   // Set by resolveDispute (admin dismissal — F27/F88/F10)
+  disputeResolutionNote?: string;  // Optional admin note attached by resolveDispute (<= 500 chars)
+  returnEscalatedAt?: Timestamp;   // F26: set ONCE by expireOrphanedTransactions when a return_requested
+                                   // leg has no DELIVERED scan after 21d — a dispute doc is opened for admin review
   buyerReport?: {                  // Set by reportTransactionProblem (buyer "delivered but problem").
     reason: 'not_received_despite_delivered' | 'not_as_described' | 'damaged' | 'other';
     details?: string;              // Optional free text (<= 1000 chars; omitted when empty)
