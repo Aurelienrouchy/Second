@@ -715,6 +715,25 @@ export default function WalletScreen() {
           </View>
         )}
 
+        {/* Active dispute banner — explains WHY some funds are frozen before the
+            user attempts a withdrawal (F119). Scoped freeze (D2): the disputed
+            funds are held, the rest of the balance stays withdrawable. */}
+        {hasActiveDisputeHold && (
+          <View style={styles.disputeBanner}>
+            <View style={styles.disputeIcon}>
+              <Ionicons name="alert-circle" size={18} color={colors.warning} />
+            </View>
+            <View style={styles.bucketTextBlock}>
+              <Text style={styles.disputeTitle}>
+                {WALLET_COPY.blockDisputeBannerTitle}
+              </Text>
+              <Text style={styles.debtBody}>
+                {WALLET_COPY.blockDisputeBannerBody}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Payouts blocked banner — action required (F62/F117) */}
         {payoutsBlocked && (
           <Pressable
