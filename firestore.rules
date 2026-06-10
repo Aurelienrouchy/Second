@@ -269,7 +269,9 @@ service cloud.firestore {
           'onboardingCompleted', 'createdAt', 'id',
           'stripeAccountId', 'stripeChargesEnabled', 'stripePayoutsEnabled',
           'stripeAccountStatus', 'stripeDetailsSubmitted', 'stripeBankAccountAdded',
-          'stripeBankAccountLast4',
+          'stripeBankAccountLast4', 'stripeBankAccountStatus',
+          'stripeRequirementsCurrentlyDue', 'stripeRequirementsPastDue',
+          'stripeRequirementsDisabledReason', 'stripeRequirementsCurrentDeadline',
           'dateOfBirth',
           'isVerified', 'rating', 'reviewCount', 'sellerLikesCount'
         ];
