@@ -605,17 +605,20 @@ export class ChatService {
       const offerData = messageDoc.data();
 
       if (offerData?.offer?.meetup) {
-        // P1-4 / P1-7: server-authoritative meetup acceptance. The callable
+        // Server-authoritative meetup acceptance. The callable
         // `acceptMeetupOffer` runs a single runTransaction that (1) flips the
         // offer to 'accepted', (2) locks the article (isSold), and (3) creates
-        // the meetup transaction — deriving buyer/seller from the offer + chat
-        // participants server-side (never from a client-supplied receiverId).
-        // The previous client `updateDoc('offer.status','accepted')` left an
-        // orphaned 'accepted' offer if the follow-up tx creation failed, and
-        // derived seller from the message's receiverId which could be wrong.
+        // the meetup transaction — deriving buyer/seller from the ARTICLE
+        // (article.sellerId = seller, the other chat participant = buyer), so
+        // acceptance works for the party that did NOT emit the offer, incl.
+        // a seller counter-offer accepted by the buyer (audit F9).
+        //
+        // `reused:true` is returned when a non-terminal meetup transaction
+        // already existed for this chat+article — it is accepted and returned
+        // rather than failing, so this is a success (audit F8).
         const acceptMeetupOfferFn = httpsCallable<
           { chatId: string; messageId: string },
-          { success: boolean; transactionId: string }
+          { success: boolean; transactionId: string; reused?: boolean }
         >(functions, 'acceptMeetupOffer');
         await acceptMeetupOfferFn({ chatId, messageId });
       } else {
