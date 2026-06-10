@@ -1126,6 +1126,173 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
 }
 
 // =============================================================================
+// HANDLER: payment_intent.succeeded (metadata.type === 'shop_tier') — F134
+// =============================================================================
+
+/**
+ * Confirm a paid shop tier forfait purchase. AFTER the platform charge succeeds:
+ *  1. Verify the captured amount matches the server forfait price (base+period).
+ *  2. Idempotently stamp `tier` + `tierPaidUntil` (now + periodMonths) on the
+ *     shop. A replay (same status guard via tierPaymentIntentId) is a no-op.
+ *  3. Write a `shop_tier_revenue` platform_ledger entry (idempotent, deterministic
+ *     id) so the forfait revenue is accounted (E6).
+ *
+ * tier/tierPaidUntil are CF-only in firestore.rules — only this Admin SDK path
+ * (and admin moderation) may set them; a client can never self-attribute a tier.
+ */
+async function handleShopTierSucceeded(paymentIntent: any): Promise<void> {
+  const shopId = paymentIntent.metadata?.shopId;
+  const tier = paymentIntent.metadata?.tier as PaidShopTier | undefined;
+  const periodMonths = parseInt(paymentIntent.metadata?.periodMonths || '0', 10);
+
+  if (
+    typeof shopId !== 'string' ||
+    shopId.length === 0 ||
+    shopId.length > 200 ||
+    shopId.includes('/')
+  ) {
+    logger.error('Stripe webhook: shop_tier PaymentIntent missing/invalid shopId', {
+      paymentIntentId: paymentIntent.id,
+      shopId,
+    });
+    return;
+  }
+  if (tier !== 'pro' && tier !== 'premium') {
+    logger.error('Stripe webhook: shop_tier PaymentIntent invalid tier', {
+      paymentIntentId: paymentIntent.id,
+      shopId,
+      tier,
+    });
+    return;
+  }
+  if (!Number.isInteger(periodMonths) || periodMonths < 1 || periodMonths > 12) {
+    logger.error('Stripe webhook: shop_tier PaymentIntent invalid periodMonths', {
+      paymentIntentId: paymentIntent.id,
+      shopId,
+      periodMonths,
+    });
+    return;
+  }
+
+  const amountReceivedCents = paymentIntent.amount_received || paymentIntent.amount;
+  const expectedCents = shopTierPriceCents(tier, periodMonths);
+  const shopRef = db.collection('shops').doc(shopId);
+
+  const result = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(shopRef);
+    if (!snap.exists) {
+      logger.error('Stripe webhook: shop_tier shop not found', { shopId });
+      return { applied: false as const, reason: 'shop_not_found' as const };
+    }
+    const shop = snap.data()!;
+
+    // Amount mismatch: deterministic (the captured amount and server price will
+    // not change on a Stripe retry). Persist the PI id + dead-letter, ACK 200.
+    if (Math.abs(amountReceivedCents - expectedCents) > 1) {
+      logger.error('Stripe webhook: shop_tier amount mismatch', {
+        shopId,
+        received: amountReceivedCents,
+        expected: expectedCents,
+      });
+      return {
+        applied: false as const,
+        reason: 'amount_mismatch' as const,
+        received: amountReceivedCents,
+        expected: expectedCents,
+      };
+    }
+
+    // Idempotence: a replay carrying the same PaymentIntent id was already
+    // applied — do nothing (do not extend tierPaidUntil twice).
+    if (shop.tierPaymentIntentId === paymentIntent.id) {
+      logger.info('Stripe webhook: shop_tier already applied (same PaymentIntent)', {
+        shopId,
+        paymentIntentId: paymentIntent.id,
+      });
+      return { applied: false as const, reason: 'already_applied' as const };
+    }
+
+    // tierPaidUntil = max(now, current paid-until) + periodMonths so a renewal
+    // before expiry STACKS onto the remaining time rather than truncating it.
+    const now = Date.now();
+    const currentUntilMs =
+      shop.tierPaidUntil && typeof shop.tierPaidUntil.toMillis === 'function'
+        ? shop.tierPaidUntil.toMillis()
+        : 0;
+    const baseMs = Math.max(now, currentUntilMs);
+    const paidUntil = new Date(baseMs);
+    paidUntil.setMonth(paidUntil.getMonth() + periodMonths);
+
+    tx.update(shopRef, {
+      tier,
+      tierPaidUntil: paidUntil,
+      tierPaymentIntentId: paymentIntent.id,
+      tierChargeId: paymentIntent.latest_charge || null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return {
+      applied: true as const,
+      ownerId: typeof shop.ownerId === 'string' ? shop.ownerId : null,
+      paidUntilIso: paidUntil.toISOString(),
+    };
+  });
+
+  if (result.applied) {
+    // Forfait revenue ledger entry (idempotent: deterministic per PaymentIntent).
+    try {
+      await db
+        .collection('platform_ledger')
+        .doc(`shop_tier_revenue_${paymentIntent.id}`)
+        .set({
+          type: 'shop_tier_revenue',
+          shopId,
+          ownerId: result.ownerId,
+          tier,
+          periodMonths,
+          amount: amountReceivedCents / 100,
+          paymentIntentId: paymentIntent.id,
+          chargeId: paymentIntent.latest_charge || null,
+          currency: 'cad',
+          createdAt: FieldValue.serverTimestamp(),
+        });
+    } catch (ledgerErr) {
+      logger.error('Stripe webhook: shop_tier_revenue ledger write failed', {
+        shopId,
+        paymentIntentId: paymentIntent.id,
+        error: ledgerErr instanceof Error ? ledgerErr.message : ledgerErr,
+      });
+    }
+    logger.info('Stripe webhook: shop tier applied', {
+      shopId,
+      tier,
+      periodMonths,
+      paidUntil: result.paidUntilIso,
+    });
+    return;
+  }
+
+  if (result.reason === 'amount_mismatch') {
+    await writeFailedOperation({
+      type: 'amount_mismatch',
+      refId: shopId,
+      payload: {
+        paymentIntentId: paymentIntent.id,
+        received: result.received,
+        expected: result.expected,
+        autoRefund: false,
+        kind: 'shop_tier_amount_mismatch',
+      },
+      error: 'Shop tier amount does not match expected forfait price',
+    });
+    logger.error('CRITICAL Stripe webhook: shop_tier amount mismatch — dead-lettered', {
+      shopId,
+      paymentIntentId: paymentIntent.id,
+    });
+  }
+}
+
+// =============================================================================
 // HANDLER: payment_intent.payment_failed
 // =============================================================================
 
