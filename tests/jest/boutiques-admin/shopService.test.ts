@@ -38,10 +38,23 @@ const mockRejectFn = jest.fn((..._args: unknown[]) =>
 const mockSuspendFn = jest.fn((..._args: unknown[]) =>
   Promise.resolve({ data: { ok: true, shopId: 'shop_1', status: 'suspended' } }),
 );
+const mockPurchaseTierFn = jest.fn((..._args: unknown[]) =>
+  Promise.resolve({
+    data: {
+      success: true,
+      clientSecret: 'pi_secret_123',
+      paymentIntentId: 'pi_123',
+      tier: 'pro',
+      periodMonths: 3,
+      amountCents: 8997,
+    },
+  }),
+);
 const mockHttpsCallable = jest.fn((_fns: unknown, name: string) => {
   if (name === 'approveShop') return mockApproveFn;
   if (name === 'rejectShop') return mockRejectFn;
   if (name === 'suspendShop') return mockSuspendFn;
+  if (name === 'purchaseShopTier') return mockPurchaseTierFn;
   return jest.fn();
 });
 jest.mock('firebase/functions', () => ({
