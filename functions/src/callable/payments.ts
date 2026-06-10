@@ -2118,16 +2118,22 @@ export const acceptMeetupOffer = onCall(
         // a non-cancelled meetup transaction already exists for this
         // chat+buyer+article, accept the offer and return that tx instead of
         // creating a duplicate or re-locking the article.
+        // Single-field equality query (chatId) — no composite index needed; the
+        // remaining filters are applied in memory (a chat has few transactions).
         const existingTxSnap = await db
           .collection('transactions')
           .where('chatId', '==', chatId)
-          .where('buyerId', '==', buyerId)
-          .where('articleId', '==', articleId)
-          .where('deliveryType', '==', 'meetup')
           .get();
         const liveExisting = existingTxSnap.docs.find((d) => {
-          const s = d.data().status;
-          return s !== 'cancelled' && s !== 'refunded';
+          const t = d.data();
+          const s = t.status;
+          return (
+            t.buyerId === buyerId &&
+            t.articleId === articleId &&
+            t.deliveryType === 'meetup' &&
+            s !== 'cancelled' &&
+            s !== 'refunded'
+          );
         });
 
         if (liveExisting) {
