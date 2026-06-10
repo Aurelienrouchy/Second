@@ -448,3 +448,59 @@ describe('createTransaction — F137 server shipping flag', () => {
     expect(fs.getDoc('articles/art1')!.isSold).toBe(true);
   });
 });
+
+// ===========================================================================
+// F136 — reject a price RAISE mid-checkout not covered by an accepted offer
+// ===========================================================================
+
+describe('createTransaction — F136 atomic price re-validation', () => {
+  it('rejects when the seller raises the price between pre-read and the transaction', async () => {
+    // Buyer sees & pays the listed price (50). At pre-read amount == listedPrice,
+    // so the accepted-offer check never runs (negotiatedOfferVerified = false).
+    seedArticleAndSeller(50);
+
+    // Mutate the LIVE article price to 80 just before the runTransaction. The
+    // re-pricing getRates call sits between the pre-read and the transaction, so
+    // we use it as a deterministic hook to simulate the concurrent price raise.
+    shipEngineMock.getRatesImpl = () => {
+      fs.setDoc('articles/art1', {
+        sellerId: 'seller1',
+        price: 80, // raised mid-checkout
+        isSold: false,
+        isActive: true,
+        weight: '0.5',
+        dimensions: { length: '30', width: '25', height: '10' },
+        location: { postalCode: 'H2X 1Y4', city: 'Montreal', province: 'QC' },
+      });
+      // Re-seed the seller (setDoc replaces the whole doc, not the collection).
+      fs.setDoc('users/seller1', {
+        displayName: 'Vendeur Test',
+        stripeAccountId: 'acct_seller1',
+        stripeChargesEnabled: true,
+        phoneNumber: '5145559876',
+        addresses: [
+          { isDefault: true, street: '999 rue du Vendeur', city: 'Montreal', province: 'QC', postalCode: 'H3Z 2Y7' },
+        ],
+      });
+      return [rate('se_rate_real', 14.99)];
+    };
+
+    await expect(
+      callCreate({
+        auth: { uid: 'buyer1' },
+        data: {
+          articleId: 'art1',
+          deliveryType: 'shipping',
+          amount: 50, // stale price, no accepted offer
+          shippingCost: 14.99,
+          shippingAddress: VALID_ADDRESS,
+          shipEngineRateId: 'se_rate_real',
+          chatId: 'chat1',
+        },
+      })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+
+    // Article NOT locked — the stale-price purchase was refused.
+    expect(fs.getDoc('articles/art1')!.isSold).toBe(false);
+  });
+});
