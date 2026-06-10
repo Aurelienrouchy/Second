@@ -91,12 +91,22 @@ export const checkShippedTracking = onSchedule(
 
     const now = Date.now();
 
-    // Paginate each tracked status independently with a stable orderBy + cursor.
-    for (const status of TRACKED_STATUSES) {
+    // F79: poll the RETURN leg FIRST with a reserved budget so a forward-parcel
+    // backlog can never starve returns (a return DELIVERED scan refunds the
+    // buyer). Returns get up to RETURN_LEG_RESERVED_BUDGET; the forward legs get
+    // the remainder of MAX_TRANSACTIONS_PER_RUN. Each phase has its own cap so the
+    // total still respects MAX_TRANSACTIONS_PER_RUN.
+    const phases: { statuses: readonly string[]; cap: number }[] = [
+      { statuses: ['return_requested'], cap: Math.min(RETURN_LEG_RESERVED_BUDGET, MAX_TRANSACTIONS_PER_RUN) },
+      { statuses: FORWARD_STATUSES, cap: MAX_TRANSACTIONS_PER_RUN },
+    ];
+
+    for (const phase of phases) {
+     for (const status of phase.statuses) {
       let lastCreatedAt: Timestamp | null = null;
       let keepGoing = true;
 
-      while (keepGoing && processed < MAX_TRANSACTIONS_PER_RUN) {
+      while (keepGoing && processed < phase.cap && processed < MAX_TRANSACTIONS_PER_RUN) {
         let query = db
           .collection('transactions')
           .where('status', '==', status)
