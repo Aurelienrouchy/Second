@@ -122,7 +122,7 @@ export const expireStaleProposedSwaps = onSchedule(
       // (webhook → 'accepted') between the query and the write, trapping the
       // payer's funds. The per-doc tx only cancels if the status is STILL one we
       // queried, so a state change between read and write is never overwritten.
-      const cancelled: FirebaseFirestore.DocumentData[] = [];
+      const cancelled: { id: string; data: FirebaseFirestore.DocumentData }[] = [];
       for (const doc of staleDocs) {
         try {
           const swap = await db.runTransaction(async (tx) => {
@@ -142,7 +142,7 @@ export const expireStaleProposedSwaps = onSchedule(
             });
             return data;
           });
-          if (swap) cancelled.push(swap);
+          if (swap) cancelled.push({ id: doc.id, data: swap });
         } catch (cancelErr) {
           logger.error('[expireStaleProposedSwaps] failed to cancel swap', {
             swapId: doc.id,
@@ -153,12 +153,12 @@ export const expireStaleProposedSwaps = onSchedule(
 
       // 2. Release items + notify initiators (non-critical side-effects). Only for
       // the swaps actually cancelled above (status re-check passed).
-      for (const swap of cancelled) {
+      for (const { id: swapId, data: swap } of cancelled) {
         try {
           await releaseSwapPartyItems(swap);
         } catch (releaseErr) {
           logger.error('[expireStaleProposedSwaps] Failed to release party items', {
-            swapId: doc.id,
+            swapId,
             error: releaseErr instanceof Error ? releaseErr.message : releaseErr,
           });
         }
@@ -169,19 +169,19 @@ export const expireStaleProposedSwaps = onSchedule(
               swap.initiatorId,
               'Échange expiré',
               'Ta proposition d\'échange est restée sans suite et a été annulée.',
-              { swapId: doc.id },
+              { swapId },
               'swap_update'
             );
           } catch (notifErr) {
             logger.warn('[expireStaleProposedSwaps] Failed to notify initiator', {
-              swapId: doc.id,
+              swapId,
               error: notifErr instanceof Error ? notifErr.message : notifErr,
             });
           }
         }
       }
 
-      logger.info(`[expireStaleProposedSwaps] Expired ${staleDocs.length} stale swaps`);
+      logger.info(`[expireStaleProposedSwaps] Expired ${cancelled.length} stale swaps`);
     } catch (error) {
       logger.error('[expireStaleProposedSwaps] Error expiring stale swaps', {
         error: error instanceof Error ? error.message : error,
