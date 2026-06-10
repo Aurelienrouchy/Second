@@ -224,6 +224,43 @@ function isCredit(type: WalletLedgerEntry['type']): boolean {
   );
 }
 
+/** Presentation (icon + copy + tone) for an in-progress withdrawal request. */
+function getWithdrawalPresentation(status: WithdrawalRequest['status']): {
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  bg: string;
+  label: string;
+  hint: string;
+} {
+  switch (status) {
+    case 'completed':
+      return {
+        icon: 'checkmark-circle-outline',
+        color: colors.success,
+        bg: colors.successLight,
+        label: WALLET_COPY.withdrawalCompletedLabel,
+        hint: WALLET_COPY.withdrawalCompletedHint,
+      };
+    case 'failed':
+      return {
+        icon: 'alert-circle-outline',
+        color: colors.danger,
+        bg: colors.dangerLight,
+        label: WALLET_COPY.withdrawalFailedLabel,
+        hint: WALLET_COPY.withdrawalFailedHint,
+      };
+    case 'processing':
+    default:
+      return {
+        icon: 'time-outline',
+        color: colors.warning,
+        bg: colors.warningLight,
+        label: WALLET_COPY.withdrawalProcessingLabel,
+        hint: WALLET_COPY.withdrawalProcessingHint,
+      };
+  }
+}
+
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
