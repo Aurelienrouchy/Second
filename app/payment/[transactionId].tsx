@@ -167,15 +167,28 @@ export default function PaymentScreen() {
       setIsCreatingCheckout(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Full wallet payment
+      // Full wallet payment. payWithWallet is server-authoritative and flips the
+      // transaction to 'paid' synchronously (no webhook wait), so we can confirm
+      // immediately. Invalidate orders/payments so the new order appears in
+      // my-orders (F120). Single navigation to success — no double back (F121).
       if (walletCoversAll) {
         await WalletService.payWithWallet(transaction.id);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Paiement confirme !',
-          "L'etiquette d'expedition sera generee automatiquement. Le vendeur sera notifie.",
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
+        queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+        router.replace({
+          pathname: '/checkout/success' as any,
+          params: {
+            transactionId: transaction.id,
+            deliveryType: transaction.deliveryType ?? 'shipping',
+            articleTitle: transaction.articleTitle ?? '',
+            amount: String(transaction.amount ?? ''),
+            shippingCost: String(transaction.shippingCost ?? 0),
+            serviceFee: String(serviceFee),
+            totalAmount: String(totalAmount),
+            chatId: transaction.chatId ?? '',
+          },
+        });
         return;
       }
 
