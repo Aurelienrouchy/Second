@@ -16,6 +16,7 @@
  */
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
+import { Timestamp } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../config/firebase';
 import { getShipEngine } from '../config/shipEngine';
 import { getStripe } from '../config/stripe';
