@@ -2072,34 +2072,52 @@ export const getSwapPartyLeaderboard = onCall(
     }
 
     try {
-      const swapsSnapshot = await db
-        .collection('swaps')
-        .where('partyId', '==', partyId)
-        .where('status', '==', 'completed')
-        .get();
-
       const userSwapCounts: Record<string, { count: number; name: string; image?: string }> = {};
 
-      swapsSnapshot.docs.forEach((doc) => {
-        const swap = doc.data();
-        if (!userSwapCounts[swap.initiatorId]) {
-          userSwapCounts[swap.initiatorId] = {
-            count: 0,
-            name: swap.initiatorName,
-            image: swap.initiatorImage,
-          };
-        }
-        userSwapCounts[swap.initiatorId].count++;
+      // F58: bound the scan. An unfiltered .get() over ALL completed swaps in a
+      // party (potentially thousands) loads everything into memory → OOM/timeout.
+      // Paginate with a cursor up to a safety cap; a leaderboard tolerates a hard
+      // ceiling on the swaps it aggregates.
+      const LEADERBOARD_PAGE_SIZE = 500;
+      const LEADERBOARD_SCAN_CAP = 5000;
+      let cursor: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      let scanned = 0;
+      while (scanned < LEADERBOARD_SCAN_CAP) {
+        let q = db
+          .collection('swaps')
+          .where('partyId', '==', partyId)
+          .where('status', '==', 'completed')
+          .orderBy('__name__')
+          .limit(LEADERBOARD_PAGE_SIZE);
+        if (cursor) q = q.startAfter(cursor);
+        const page = await q.get();
+        if (page.empty) break;
 
-        if (!userSwapCounts[swap.receiverId]) {
-          userSwapCounts[swap.receiverId] = {
-            count: 0,
-            name: swap.receiverName,
-            image: swap.receiverImage,
-          };
-        }
-        userSwapCounts[swap.receiverId].count++;
-      });
+        page.docs.forEach((doc) => {
+          const swap = doc.data();
+          if (!userSwapCounts[swap.initiatorId]) {
+            userSwapCounts[swap.initiatorId] = {
+              count: 0,
+              name: swap.initiatorName,
+              image: swap.initiatorImage,
+            };
+          }
+          userSwapCounts[swap.initiatorId].count++;
+
+          if (!userSwapCounts[swap.receiverId]) {
+            userSwapCounts[swap.receiverId] = {
+              count: 0,
+              name: swap.receiverName,
+              image: swap.receiverImage,
+            };
+          }
+          userSwapCounts[swap.receiverId].count++;
+        });
+
+        scanned += page.size;
+        cursor = page.docs[page.docs.length - 1];
+        if (page.size < LEADERBOARD_PAGE_SIZE) break;
+      }
 
       const leaderboard = Object.entries(userSwapCounts)
         .map(([userId, data]) => ({ userId, ...data }))
