@@ -230,6 +230,9 @@ export default function WalletScreen() {
   const sellerDebt = wallet?.sellerDebt ?? 0;
   const heldReleaseAt = wallet?.heldReleaseAt ?? null;
   const hasDebt = sellerDebt > 0;
+  // Payouts blocked while a Stripe account exists but verification isn't done
+  // (KYC restriction / closed bank account). Distinct from "no account yet".
+  const payoutsBlocked = !!user?.stripeAccountId && !user?.stripePayoutsEnabled;
 
   const handleActivate = useCallback(async () => {
     try {
