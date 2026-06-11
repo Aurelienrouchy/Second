@@ -51,6 +51,7 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         onChangeText={onChangeText}
         multiline
         maxLength={1000}
+        autoCorrect={false}
         placeholderTextColor={colors.muted}
       />
 
