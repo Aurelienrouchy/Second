@@ -70,11 +70,18 @@
       "mcp__argent__debugger-connect",
       "mcp__argent__debugger-status",
       "mcp__argent__native-describe-screen",
-      "mcp__argent__screenshot-diff"
+      "mcp__argent__screenshot-diff",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 *)",
+      "Bash(gcloud auth *)",
+      "Bash(sips -g pixelWidth -g pixelHeight t6-tmp-measure.png)"
     ],
     "deny": [],
     "ask": []
   },
+  "enabledMcpjsonServers": [
+    "argent"
+  ],
   "hooks": {
     "PreToolUse": [
       {
@@ -98,8 +105,5 @@
         ]
       }
     ]
-  },
-  "enabledMcpjsonServers": [
-    "argent"
-  ]
+  }
 }
