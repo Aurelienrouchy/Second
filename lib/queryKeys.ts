@@ -42,6 +42,7 @@ export const queryKeys = {
     all: ['swap-parties'] as const,
     list: () => ['swap-parties', 'list'] as const,
     detail: (id: string) => ['swap-parties', id] as const,
+    items: (id: string) => ['swap-parties', id, 'items'] as const,
   },
   payments: {
     all: ['payments'] as const,
