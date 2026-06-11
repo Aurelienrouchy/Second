@@ -201,8 +201,8 @@ export class ArticlesService {
       return articleId;
     } catch (error: any) {
       // httpsCallable wraps errors in FirebaseError with .code and .message
-      const message = error.message || 'Erreur lors de la creation';
-      throw new Error(`Erreur lors de la creation de l'article: ${message}`);
+      const message = error.message || 'Erreur lors de la création';
+      throw new Error(`Erreur lors de la création de l'article: ${message}`);
     }
   }
 
