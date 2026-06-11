@@ -27,6 +27,12 @@ export function useNetworkStatus(): {
     isInternetReachable?: boolean | null;
   } | null>(null);
 
+  // Passive updates are the primary source — drop the foreground override
+  // whenever the listener reports a fresh value to avoid masking it.
+  useEffect(() => {
+    setForegroundState(null);
+  }, [networkState.isConnected, networkState.isInternetReachable]);
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
