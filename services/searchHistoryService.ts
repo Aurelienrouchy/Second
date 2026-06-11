@@ -158,8 +158,11 @@ export class SearchHistoryService {
 
       return items;
     } catch (error: any) {
-      console.error('Error getting search history:', error);
-      throw new Error(`Erreur lors de la récupération de l'historique: ${error.message}`);
+      // Reading recent searches is non-critical: a failure (offline, perms race
+      // on first load, or an absent index) must degrade to an empty grid, never
+      // surface an error toast. The caller treats [] as "no history yet".
+      if (__DEV__) console.warn('Error getting search history:', error);
+      return [];
     }
   }
 
