@@ -301,7 +301,7 @@ interface UserDocument {
   // Stats
   rating?: number;              // Average review rating (0-5)
   reviewCount?: number;
-  articlesCount?: number;
+  articlesCount?: number;       // Active & not-sold listings. Canonical writer: updateSellerArticlesCount trigger (triggers/products.ts)
 
   // Stripe Connect Custom — ALL CF-only (Stripe webhook + onboarding callables
   // via Admin SDK). Locked in firestore.rules: a client can never self-set or
