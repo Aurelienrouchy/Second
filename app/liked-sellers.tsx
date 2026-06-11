@@ -183,12 +183,13 @@ export default function LikedSellersScreen() {
 
   // Sellers' article counts change when their stock sells out via other users'
   // actions — there is no local signal, so refresh the list on screen focus.
+  const userId = user?.id;
   useFocusEffect(
     useCallback(() => {
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.sellers.liked(user.id) });
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sellers.liked(userId) });
       }
-    }, [queryClient, user?.id])
+    }, [queryClient, userId])
   );
 
   const handleSellerPress = useCallback((sellerId: string) => {
