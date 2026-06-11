@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { ScreenHeader, Text } from '@/components/ui';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
