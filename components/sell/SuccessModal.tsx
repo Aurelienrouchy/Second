@@ -80,7 +80,7 @@ export default function SuccessModal({
 
           {/* Description */}
           <Text style={styles.description}>
-            Ton {articleTitle ? articleTitle.toLowerCase() : 'article'} est
+            Ton {articleTitle ? articleTitle : 'article'} est
             maintenant visible par tous les acheteurs.
           </Text>
 
