@@ -579,7 +579,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons name="search-outline" size={40} color={darkMode ? colors.darkBorderStrong : colors.borderStrong} />
-                <Text style={[styles.emptyText, darkMode && { color: mutedColor }]}>Aucune marque trouvee</Text>
+                <Text style={[styles.emptyText, darkMode && { color: mutedColor }]}>Aucune marque trouvée</Text>
               </View>
             }
           />
