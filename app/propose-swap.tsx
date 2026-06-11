@@ -82,7 +82,7 @@ export default function ProposeSwapScreen() {
   // --- React Query: the zone's deposited items (to scope the receiver
   // selector to what THEY actually deposited, when possible) ---
   const { data: zoneItems = [] } = useQuery({
-    queryKey: queryKeys.swapParties.detail(effectivePartyId),
+    queryKey: queryKeys.swapParties.items(effectivePartyId),
     queryFn: () => getPartyItemsExtended(effectivePartyId),
     enabled: !!receiverId,
     staleTime: 5 * 60 * 1000,
