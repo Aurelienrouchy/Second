@@ -13,7 +13,7 @@
 
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
   Alert,
