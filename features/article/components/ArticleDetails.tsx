@@ -90,7 +90,7 @@ function ArticleDetailsComponent({
           </View>
         ))}
         {/* packageSize badge (sage) */}
-        {article.packageSize && (
+        {article.isShipping && article.packageSize && (
           <View style={styles.packageTag}>
             <Text style={styles.packageTagText}>{PACKAGE_SIZE_LABELS[article.packageSize || ''] || article.packageSize}</Text>
           </View>
