@@ -1,4 +1,6 @@
-import { useNetworkState } from 'expo-network';
+import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
+import { getNetworkStateAsync, useNetworkState } from 'expo-network';
 
 /**
  * Thin wrapper around expo-network's useNetworkState.
@@ -10,15 +12,42 @@ import { useNetworkState } from 'expo-network';
  *
  * Both default to `true` while the initial state is being resolved so that the
  * app does not flash an offline banner on cold start.
+ *
+ * On some platforms the passive listener does not fire when the app returns to
+ * the foreground (e.g. connectivity restored while backgrounded), leaving a
+ * stale offline banner. We re-query actively on foreground to reconcile.
  */
 export function useNetworkStatus(): {
   isConnected: boolean;
   isInternetReachable: boolean;
 } {
   const networkState = useNetworkState();
+  const [foregroundState, setForegroundState] = useState<{
+    isConnected?: boolean | null;
+    isInternetReachable?: boolean | null;
+  } | null>(null);
 
-  return {
-    isConnected: networkState.isConnected ?? true,
-    isInternetReachable: networkState.isInternetReachable ?? true,
-  };
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        getNetworkStateAsync()
+          .then((state) =>
+            setForegroundState({
+              isConnected: state.isConnected,
+              isInternetReachable: state.isInternetReachable,
+            })
+          )
+          .catch((error) => {
+            if (__DEV__) console.warn('[useNetworkStatus] foreground refresh failed:', error);
+          });
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const isConnected = foregroundState?.isConnected ?? networkState.isConnected ?? true;
+  const isInternetReachable =
+    foregroundState?.isInternetReachable ?? networkState.isInternetReachable ?? true;
+
+  return { isConnected, isInternetReachable };
 }
