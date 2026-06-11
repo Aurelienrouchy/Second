@@ -59,12 +59,13 @@ export default function ProfileScreen() {
 
   // Sales count updates after the seller accepts an offer / confirms a meetup
   // elsewhere in the flow; refresh stats on focus so the counter stays current.
+  const userId = user?.id;
   useFocusEffect(
     useCallback(() => {
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: ['users', 'stats', user.id] });
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ['users', 'stats', userId] });
       }
-    }, [queryClient, user?.id])
+    }, [queryClient, userId])
   );
 
   const { wallet } = useWallet(!!user);
