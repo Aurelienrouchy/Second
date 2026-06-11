@@ -22,16 +22,14 @@ export function useNetworkStatus(): {
   isInternetReachable: boolean;
 } {
   const networkState = useNetworkState();
+  const passiveConnected = networkState.isConnected;
+  const passiveReachable = networkState.isInternetReachable;
   const [foregroundState, setForegroundState] = useState<{
     isConnected?: boolean | null;
     isInternetReachable?: boolean | null;
+    passiveConnected?: boolean | null;
+    passiveReachable?: boolean | null;
   } | null>(null);
-
-  // Passive updates are the primary source — drop the foreground override
-  // whenever the listener reports a fresh value to avoid masking it.
-  useEffect(() => {
-    setForegroundState(null);
-  }, [networkState.isConnected, networkState.isInternetReachable]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
@@ -41,6 +39,8 @@ export function useNetworkStatus(): {
             setForegroundState({
               isConnected: state.isConnected,
               isInternetReachable: state.isInternetReachable,
+              passiveConnected,
+              passiveReachable,
             })
           )
           .catch((error) => {
@@ -49,11 +49,19 @@ export function useNetworkStatus(): {
       }
     });
     return () => subscription.remove();
-  }, []);
+  }, [passiveConnected, passiveReachable]);
 
-  const isConnected = foregroundState?.isConnected ?? networkState.isConnected ?? true;
+  // Passive updates are the primary source — the foreground override only
+  // applies until the listener reports a fresh value, to avoid masking it.
+  const overrideActive =
+    foregroundState !== null &&
+    foregroundState.passiveConnected === passiveConnected &&
+    foregroundState.passiveReachable === passiveReachable;
+
+  const isConnected =
+    (overrideActive ? foregroundState.isConnected : null) ?? passiveConnected ?? true;
   const isInternetReachable =
-    foregroundState?.isInternetReachable ?? networkState.isInternetReachable ?? true;
+    (overrideActive ? foregroundState.isInternetReachable : null) ?? passiveReachable ?? true;
 
   return { isConnected, isInternetReachable };
 }
