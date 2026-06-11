@@ -81,7 +81,7 @@ export default function ProposeSwapScreen() {
 
   // --- React Query: the zone's deposited items (to scope the receiver
   // selector to what THEY actually deposited, when possible) ---
-  const { data: zoneItems } = useQuery({
+  const { data: zoneItems = [] } = useQuery({
     queryKey: queryKeys.swapParties.detail(effectivePartyId),
     queryFn: () => getPartyItemsExtended(effectivePartyId),
     enabled: !!receiverId,
@@ -90,7 +90,7 @@ export default function ProposeSwapScreen() {
 
   // Set of article ids the receiver has deposited in the zone.
   const receiverZoneArticleIds = useMemo<Set<string>>(() => {
-    if (!zoneItems || !receiverId) return new Set();
+    if (!receiverId) return new Set();
     return new Set(
       zoneItems.filter((i) => i.sellerId === receiverId).map((i) => i.articleId)
     );
