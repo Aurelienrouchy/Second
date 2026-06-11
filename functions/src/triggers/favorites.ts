@@ -50,13 +50,28 @@ export const onArticleFavorited = onDocumentUpdated(
           ...removedFavoriteIds.map((id) => ({ id, delta: -1 })),
         ].map(async ({ id, delta }) => {
           try {
-            await db
-              .collection('articles')
-              .doc(id)
-              .update({
-                favoritesCount: FieldValue.increment(delta),
-                likes: FieldValue.increment(delta),
+            // Increments are fine; decrements are clamped at 0 inside a
+            // transaction so a double-removal can never drive the counter
+            // negative.
+            if (delta >= 0) {
+              await db
+                .collection('articles')
+                .doc(id)
+                .update({
+                  favoritesCount: FieldValue.increment(delta),
+                  likes: FieldValue.increment(delta),
+                });
+            } else {
+              await db.runTransaction(async (tx) => {
+                const ref = db.collection('articles').doc(id);
+                const snap = await tx.get(ref);
+                if (!snap.exists) return;
+                const data = snap.data() || {};
+                const favoritesCount = Math.max(0, (data.favoritesCount || 0) + delta);
+                const likes = Math.max(0, (data.likes || 0) + delta);
+                tx.update(ref, { favoritesCount, likes });
               });
+            }
           } catch (err) {
             // Article may have been hard-deleted; counter is moot then.
             console.error(
