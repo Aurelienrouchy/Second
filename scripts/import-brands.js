@@ -176,16 +176,15 @@ async function runImport() {
       }
     }
 
-    if (!serviceAccount) {
-      console.error('❌ Erreur: Aucun fichier service account trouvé.');
-      console.error('Chemins recherchés:');
-      SERVICE_ACCOUNT_PATHS.forEach(p => console.error(`  - ${p}`));
-      console.error('\nAstuce: lancez avec --dry-run pour valider sans credentials,');
-      console.error('ou définissez FIRESTORE_EMULATOR_HOST pour viser l\'émulateur.');
-      process.exit(1);
+    if (serviceAccount) {
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    } else {
+      console.log('ℹ️ Aucun service account local — fallback Application Default Credentials (gcloud ADC).');
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+        projectId: process.env.GCLOUD_PROJECT || 'seconde-b47a6',
+      });
     }
-
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   }
 
   const db = admin.firestore();
