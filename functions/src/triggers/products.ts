@@ -273,6 +273,88 @@ export const updateShopArticlesCount = onDocumentWritten(
 );
 
 /**
+ * Maintain `users/{sellerId}.articlesCount` — the denormalized count read by
+ * `getLikedSellers` / `getFeaturedSellers` to show "N articles" on seller cards.
+ *
+ * No writer existed for this counter, so it stayed at 0 (or stale) and the
+ * "Vendeurs suivis" screen showed "0 articles" for sellers who actually have
+ * items in sale (m8). We mirror the exact predicate of the seller-articles read
+ * path: an article contributes +1 to its seller's count iff it is active and not
+ * sold. The DELTA between before/after contributions is applied, so it is correct
+ * across create, delete, sold toggle, and deactivation. Each write is isolated so
+ * a missing seller never aborts siblings.
+ */
+export const updateSellerArticlesCount = onDocumentWritten(
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB' },
+  async (event) => {
+    const articleId = event.params.articleId;
+
+    try {
+      const before = event.data?.before?.exists ? event.data.before.data() ?? null : null;
+      const after = event.data?.after?.exists ? event.data.after.data() ?? null : null;
+
+      const countedSellerId = (
+        data: FirebaseFirestore.DocumentData | null,
+      ): string | null => {
+        if (!data) return null;
+        const sellerId = data.sellerId;
+        if (typeof sellerId !== 'string' || sellerId.length === 0) return null;
+        if (data.isActive !== true) return null;
+        if (data.isSold === true) return null;
+        return sellerId;
+      };
+
+      const beforeSellerId = countedSellerId(before);
+      const afterSellerId = countedSellerId(after);
+
+      if (beforeSellerId === afterSellerId) return;
+
+      const deltas = new Map<string, number>();
+      if (beforeSellerId) {
+        deltas.set(beforeSellerId, (deltas.get(beforeSellerId) || 0) - 1);
+      }
+      if (afterSellerId) {
+        deltas.set(afterSellerId, (deltas.get(afterSellerId) || 0) + 1);
+      }
+
+      await Promise.all(
+        Array.from(deltas.entries()).map(async ([sellerId, delta]) => {
+          if (delta === 0) return;
+          try {
+            // Clamp at 0 on decrement so a missing/never-seeded counter can't go
+            // negative; increments are safe via FieldValue.increment.
+            if (delta > 0) {
+              await db
+                .collection('users')
+                .doc(sellerId)
+                .update({ articlesCount: FieldValue.increment(delta) });
+            } else {
+              await db.runTransaction(async (tx) => {
+                const ref = db.collection('users').doc(sellerId);
+                const snap = await tx.get(ref);
+                if (!snap.exists) return;
+                const current = snap.data()?.articlesCount || 0;
+                tx.update(ref, { articlesCount: Math.max(0, current + delta) });
+              });
+            }
+            logger.info(
+              `Adjusted articlesCount for seller ${sellerId} by ${delta} (article ${articleId})`,
+            );
+          } catch (error) {
+            logger.warn(
+              `Could not update articlesCount for seller ${sellerId}`,
+              { articleId, delta, error: error instanceof Error ? error.message : String(error) },
+            );
+          }
+        }),
+      );
+    } catch (error) {
+      logger.error(`Error updating seller articlesCount for article ${articleId}`, { error });
+    }
+  }
+);
+
+/**
  * Update user stats when article is created/updated/sold
  */
 export const updateUserStats = onDocumentWritten(
