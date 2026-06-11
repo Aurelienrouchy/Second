@@ -262,11 +262,13 @@ export function useFavorites() {
         );
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _err, articleId) => {
       // Invalidate the favorites list so the Favorites screen refreshes
       if (userId) {
         queryClient.invalidateQueries({ queryKey: favoritesKeys.list(userId) });
       }
+      // Refresh the article doc so its likes counter reflects the toggle
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.detail(articleId) });
     },
   });
 
