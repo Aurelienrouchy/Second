@@ -200,7 +200,7 @@ export default function PreviewScreen() {
         articleData.neighborhoods = [pricing.neighborhood];
       }
 
-      if (pricing.packageSize) articleData.packageSize = pricing.packageSize;
+      if (pricing.isShipping && pricing.packageSize) articleData.packageSize = pricing.packageSize;
 
       const articleId = await ArticlesService.createArticle(articleData);
       await draftService.deleteDraft(true);
