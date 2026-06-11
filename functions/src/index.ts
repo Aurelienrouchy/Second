@@ -180,7 +180,7 @@ export { purchaseShopTier } from './callable/shopTier';
 // ============================================================
 
 // Product Triggers
-export { updateSearchIndex, updateUserStats, updateShopArticlesCount } from './triggers/products';
+export { updateSearchIndex, updateUserStats, updateShopArticlesCount, updateSellerArticlesCount } from './triggers/products';
 
 // Embedding Triggers
 export { generateEmbeddingOnCreate, generateEmbeddingOnUpdate } from './triggers/embeddings';
