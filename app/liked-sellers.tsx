@@ -167,6 +167,7 @@ const SellerCard: React.FC<SellerCardProps> = ({
 export default function LikedSellersScreen() {
   const user = useUser();
   const { likedSellerIds, toggleLike } = useSellerLikes(user?.id);
+  const queryClient = useQueryClient();
 
   const { data: sellers = [], isLoading } = useQuery<LikedSeller[]>({
     queryKey: queryKeys.sellers.liked(user?.id ?? ''),
@@ -179,6 +180,16 @@ export default function LikedSellersScreen() {
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Sellers' article counts change when their stock sells out via other users'
+  // actions — there is no local signal, so refresh the list on screen focus.
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sellers.liked(user.id) });
+      }
+    }, [queryClient, user?.id])
+  );
 
   const handleSellerPress = useCallback((sellerId: string) => {
     router.push(`/user/${sellerId}` as any);
