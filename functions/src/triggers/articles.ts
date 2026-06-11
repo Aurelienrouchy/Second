@@ -129,6 +129,42 @@ export const onArticleSold = onDocumentUpdated(
 
     const articleId = event.params.articleId;
 
+    // Remove the sold article from every favoriter's list so it stops counting
+    // against their cap and disappears from the Favoris screen immediately.
+    // Each favorites doc is touched independently; one failure never aborts the
+    // others. The onArticleFavorited trigger then decrements the (clamped)
+    // counters for each removal.
+    try {
+      const favSnap = await db.collection('favorites')
+        .where('articleIds', 'array-contains', articleId)
+        .get();
+
+      if (!favSnap.empty) {
+        await Promise.all(
+          favSnap.docs.map(async (favDoc) => {
+            try {
+              await favDoc.ref.update({
+                articleIds: FieldValue.arrayRemove(articleId),
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+            } catch (error) {
+              logger.error('[onArticleSold] Failed to remove sold article from favorites', {
+                articleId,
+                userId: favDoc.id,
+                error: error instanceof Error ? error.message : error,
+              });
+            }
+          })
+        );
+        logger.info(`[onArticleSold] Removed sold article from ${favSnap.size} favorites docs`, { articleId });
+      }
+    } catch (error) {
+      logger.error('[onArticleSold] Failed to query favorites for sold article', {
+        articleId,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
     // Find all chats related to this article
     const chatsSnap = await db.collection('chats')
       .where('articleId', '==', articleId)
