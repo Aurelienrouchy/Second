@@ -48,6 +48,7 @@ export default function ProfileScreen() {
   const { signOut } = useAuthActions();
   const { user, requireAuth, showAuthSheet } = useAuthRequired();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const { data: stats } = useQuery({
     queryKey: ['users', 'stats', user?.id] as const,
@@ -55,6 +56,16 @@ export default function ProfileScreen() {
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Sales count updates after the seller accepts an offer / confirms a meetup
+  // elsewhere in the flow; refresh stats on focus so the counter stays current.
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['users', 'stats', user.id] });
+      }
+    }, [queryClient, user?.id])
+  );
 
   const { wallet } = useWallet(!!user);
 
