@@ -132,7 +132,7 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
       }
       if (__DEV__) console.error('[useSellerLikes] Toggle failed:', _err);
     },
-    onSettled: () => {
+    onSettled: (_data, _err, sellerId) => {
       // Refetch to ensure consistency with server
       queryClient.invalidateQueries({ queryKey });
       // Also invalidate the full liked sellers list (used by liked-sellers screen)
@@ -141,6 +141,8 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
           queryKey: queryKeys.sellers.liked(currentUserId),
         });
       }
+      // Refresh the seller's public profile so its followers counter reflects the toggle
+      queryClient.invalidateQueries({ queryKey: ['users', 'publicProfile', sellerId] });
     },
   });
 
