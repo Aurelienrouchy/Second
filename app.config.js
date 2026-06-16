@@ -213,72 +213,72 @@ export default {
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/article"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/chat"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/user"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/shop"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/swap-party"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/swap"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/notifications"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/search"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/favorites"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/messages"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/profile"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/sell"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/settings"
             },
             {
               "scheme": "https",
-              "host": "www.seconde.app",
+              "host": "www.seconde.ca",
               "pathPrefix": "/my-orders"
             }
           ],
