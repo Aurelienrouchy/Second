@@ -92,7 +92,7 @@ function handleDeepLink(url: string): void {
     for (const route of DEEP_LINK_ROUTES) {
       const match = `/${path}`.match(route.pattern);
       if (match) {
-        route.handler(match, new URL(url.replace('seconde://', 'https://seconde.app/')));
+        route.handler(match, new URL(url.replace('seconde://', 'https://seconde.ca/')));
         return;
       }
     }
