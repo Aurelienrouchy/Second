@@ -51,12 +51,12 @@ type SectionId =
   | 'discover';
 
 const SECTIONS: ReadonlyArray<SectionId> = [
-  'trending-brands',
   'new-arrivals',
-  'pour-toi',
   'swap-zone',
-  'price-drops',
+  'trending-brands',
   'featured-sellers',
+  'pour-toi',
+  'price-drops',
   'discover',
 ];
 
