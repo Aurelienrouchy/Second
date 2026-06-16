@@ -160,12 +160,18 @@ const styles = StyleSheet.create({
     // Inset the 2-col grid to the home gutter so it aligns with its
     // SectionHeader and the loadMoreButton (which already insets marginHorizontal lg).
     paddingHorizontal: spacing.lg,
+    // Same inter-element gap as the "Nouveautés" rail (spacing.sm), applied
+    // both between columns and between rows.
+    columnGap: spacing.sm,
+    rowGap: spacing.sm,
   },
   gridItem: {
-    width: '50%',
-    borderRightWidth: 0.5,
-    borderBottomWidth: 0.5,
-    borderColor: colors.border,
+    // 2-col layout with a spacing.sm column gap: each item takes just under
+    // half so the single gap fits without wrapping. flexGrow absorbs the
+    // half-gap rounding so both columns stay equal width.
+    flexBasis: 0,
+    flexGrow: 1,
+    minWidth: '45%',
     backgroundColor: colors.background,
   },
   loadMoreButton: {
