@@ -55,7 +55,7 @@ export function partitionTokens(tokens: string[]): {
 
 // ─── Deep link builder ──────────────────────────────────────────────────────
 
-const DEEP_LINK_HOST = 'seconde.app';
+const DEEP_LINK_HOST = 'seconde.ca';
 
 /**
  * Build a deep link URL from notification type and data.
