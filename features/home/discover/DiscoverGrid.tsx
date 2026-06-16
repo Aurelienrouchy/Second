@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Pressable,
   StyleSheet,
   Text,
