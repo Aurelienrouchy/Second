@@ -95,7 +95,7 @@ export default function HelpSettingsScreen() {
       } else {
         Alert.alert(
           'Email',
-          'Vous pouvez nous contacter à support@seconde.app',
+          'Vous pouvez nous contacter à contact@seconde.ca',
           [{ text: 'OK' }]
         );
       }
