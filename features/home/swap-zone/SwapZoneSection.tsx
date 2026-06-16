@@ -75,11 +75,10 @@ const styles = StyleSheet.create({
   // radius — full-bleed is the sanctioned exception.
   //
   // Vertical rhythm: the band is flush — NO margin top or bottom. It butts
-  // directly against whatever sits above (header/chips when the upper feed is
-  // empty, the pour-toi rail when populated) for a bold, immersive dark break.
-  // Below the band we also add NO marginBottom — the NEXT section's
-  // SectionHeader (paddingTop 28) is the sole owner of that gap. A marginBottom
-  // here would stack onto it (32 + 28 = 60) and over-space "Découvrez".
+  // directly against the new-arrivals rail above for a bold, immersive dark
+  // break. Below the band we also add NO marginBottom — the next section's
+  // (trending-brands) SectionHeader (paddingTop 28) is the sole owner of that
+  // gap. A marginBottom here would stack onto it and over-space the section.
   section: {
     marginTop: 0,
     marginBottom: 0,
