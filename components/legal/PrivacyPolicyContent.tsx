@@ -227,7 +227,7 @@ function PrivacyPolicyContentComponent() {
         (www.cai.gouv.qc.ca).
       </Text>
       <View style={styles.infoCard}>
-        <Caption>Email : privacy@seconde.app</Caption>
+        <Caption>Email : contact@seconde.ca</Caption>
       </View>
       <View style={styles.infoCard}>
         <Text variant="body" style={styles.companyName}>Commission d'accès à l'information du Québec (CAI)</Text>
