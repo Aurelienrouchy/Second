@@ -88,9 +88,9 @@ export function useArticleActions({
   const handleShare = useCallback(async () => {
     if (!article) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Universal link — requires Apple AASA / Android assetlinks on seconde.app
+    // Universal link — requires Apple AASA / Android assetlinks on seconde.ca
     // Fallback scheme: seconde://article/{id} (configured in app.config.js)
-    const webUrl = `https://seconde.app/article/${article.id}`;
+    const webUrl = `https://seconde.ca/article/${article.id}`;
     const shareMessage = `Découvrez cet article sur Seconde : ${article.title} — ${formatPrice(article.price)}\n${webUrl}`;
     try {
       await Share.share({
