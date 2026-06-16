@@ -56,7 +56,7 @@ function PrivacyPolicyContentComponent() {
       <Text variant="bodySmall" style={styles.paragraph}>
         Seconde a désigné un responsable de la protection des renseignements personnels,
         conformément à l'article 3.1 de la Loi 25. Pour toute question relative à vos
-        renseignements personnels ou pour exercer vos droits : privacy@seconde.app.
+        renseignements personnels ou pour exercer vos droits : contact@seconde.ca.
       </Text>
       <View style={styles.infoCard}>
         <Text variant="body" style={styles.companyName}>Seconde Inc.</Text>
