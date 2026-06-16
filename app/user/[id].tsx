@@ -269,7 +269,7 @@ export default function UserProfileScreen() {
       const name = formatDisplayName(profileUser.displayName);
       await Share.share({
         message: `Découvre le profil de ${name} sur Seconde !`,
-        url: `https://seconde.app/user/${id}`,
+        url: `https://seconde.ca/user/${id}`,
       });
     } catch {
       // User cancelled share
