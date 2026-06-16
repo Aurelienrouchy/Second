@@ -222,7 +222,7 @@ function PrivacyPolicyContentComponent() {
 
       <Text variant="h3" style={styles.sectionTitle}>10. Nous joindre et plainte</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        Pour exercer vos droits ou porter plainte : privacy@seconde.app. Vous pouvez aussi
+        Pour exercer vos droits ou porter plainte : contact@seconde.ca. Vous pouvez aussi
         déposer une plainte auprès de la Commission d'accès à l'information du Québec
         (www.cai.gouv.qc.ca).
       </Text>
