@@ -95,8 +95,8 @@ export default {
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "associatedDomains": [
-        "applinks:seconde.app",
-        "applinks:www.seconde.app"
+        "applinks:seconde.ca",
+        "applinks:www.seconde.ca"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
