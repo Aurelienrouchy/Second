@@ -61,7 +61,7 @@ function PrivacyPolicyContentComponent() {
       <View style={styles.infoCard}>
         <Text variant="body" style={styles.companyName}>Seconde Inc.</Text>
         <Caption>Montréal, Québec, Canada</Caption>
-        <Caption>Email : privacy@seconde.app</Caption>
+        <Caption>Email : contact@seconde.ca</Caption>
       </View>
 
       <Text variant="h3" style={styles.sectionTitle}>2. Renseignements que nous recueillons</Text>
