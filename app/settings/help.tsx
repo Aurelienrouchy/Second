@@ -83,7 +83,7 @@ export default function HelpSettingsScreen() {
   const router = useRouter();
 
   const handleContact = async () => {
-    const email = 'support@seconde.app';
+    const email = 'contact@seconde.ca';
     const subject = encodeURIComponent('Demande de support - Seconde App');
     const body = encodeURIComponent('Bonjour,\n\nJe vous contacte concernant...\n\n');
     const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
