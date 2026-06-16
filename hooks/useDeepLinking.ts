@@ -21,7 +21,7 @@ import { handleURLCallback } from '@stripe/stripe-react-native';
  *   seconde://sell                 → /sell
  *   seconde://settings             → /settings
  *
- * Universal links (https://seconde.app/...) follow the same path patterns.
+ * Universal links (https://seconde.ca/...) follow the same path patterns.
  *
  * NOTE: Expo Router handles most deep linking automatically via file-based routing.
  * This hook handles edge cases and custom URL patterns that don't map 1:1 to routes.
