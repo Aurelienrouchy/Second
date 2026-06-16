@@ -166,7 +166,7 @@ export default function LegalNoticeScreen() {
           </View>
           <View style={styles.signalItem}>
             <Ionicons name="mail" size={18} color={colors.warning} />
-            <Caption style={styles.signalText}>Par email : abuse@seconde.app</Caption>
+            <Caption style={styles.signalText}>Par email : contact@seconde.ca</Caption>
           </View>
         </View>
 
