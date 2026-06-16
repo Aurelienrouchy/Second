@@ -94,7 +94,7 @@ export default function LegalNoticeScreen() {
 
         <Label style={styles.subTitle}>Responsable de la protection des renseignements personnels</Label>
         <InfoCard>
-          <Caption>Email : privacy@seconde.app</Caption>
+          <Caption>Email : contact@seconde.ca</Caption>
         </InfoCard>
 
         <Label style={styles.subTitle}>Autorité de contrôle</Label>
