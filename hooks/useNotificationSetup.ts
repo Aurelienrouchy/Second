@@ -124,7 +124,7 @@ function isFcmRegistrationToken(token: string): boolean {
 /**
  * Convertit le `deepLink` produit par le backend
  * (functions/src/utils/notifications.ts `buildDeepLink`, ex.
- * `https://seconde.app/my-orders?transactionId=…`) en href interne consommable
+ * `https://seconde.ca/my-orders?transactionId=…`) en href interne consommable
  * par Expo Router. Renvoie `null` si l'URL ne contient pas de path exploitable.
  */
 function deepLinkToHref(deepLink: string | undefined): Href | null {
