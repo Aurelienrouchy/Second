@@ -59,7 +59,7 @@ const DEEP_LINK_HOST = 'seconde.ca';
 
 /**
  * Build a deep link URL from notification type and data.
- * Produces both scheme (seconde://) and universal (https://seconde.app/) links.
+ * Produces both scheme (seconde://) and universal (https://seconde.ca/) links.
  */
 export function buildDeepLink(
   notificationType: string,
