@@ -10,8 +10,8 @@
     </array>
     <key>com.apple.developer.associated-domains</key>
     <array>
-      <string>applinks:seconde.app</string>
-      <string>applinks:www.seconde.app</string>
+      <string>applinks:seconde.ca</string>
+      <string>applinks:www.seconde.ca</string>
     </array>
     <key>com.apple.developer.in-app-payments</key>
     <array>

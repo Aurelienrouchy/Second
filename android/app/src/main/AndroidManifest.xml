@@ -17,6 +17,7 @@
     </intent>
   </queries>
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false">
+    <meta-data android:name="com.google.android.gms.wallet.api.enabled" android:value="true"/>
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT" android:value="true"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
@@ -35,14 +36,34 @@
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/article"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/chat"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/user"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/shop"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/swap-party"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/swap"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/notifications"/>
-        <data android:scheme="https" android:host="seconde.app" android:pathPrefix="/search"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/article"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/chat"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/user"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/shop"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/swap-party"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/swap"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/notifications"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/search"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/favorites"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/messages"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/profile"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/sell"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/settings"/>
+        <data android:scheme="https" android:host="seconde.ca" android:pathPrefix="/my-orders"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/article"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/chat"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/user"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/shop"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/swap-party"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/swap"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/notifications"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/search"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/favorites"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/messages"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/profile"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/sell"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/settings"/>
+        <data android:scheme="https" android:host="www.seconde.ca" android:pathPrefix="/my-orders"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
