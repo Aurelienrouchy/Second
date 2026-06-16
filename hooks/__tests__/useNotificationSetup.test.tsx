@@ -80,7 +80,7 @@ jest.mock('expo-notifications', () => ({
   AndroidImportance: { MAX: 5, HIGH: 4, DEFAULT: 3 },
 }));
 
-// expo-linking : parse réaliste d'une URL universelle (https://seconde.app/...).
+// expo-linking : parse réaliste d'une URL universelle (https://seconde.ca/...).
 jest.mock('expo-linking', () => ({
   parse: (url: string) => {
     const m = /^https?:\/\/[^/]+\/([^?]*)(?:\?(.*))?$/.exec(url);
