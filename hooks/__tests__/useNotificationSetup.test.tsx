@@ -227,7 +227,7 @@ describe('routing au tap — par type de notification', () => {
     await mountSetup();
     act(() =>
       captured.response?.(
-        tap({ deepLink: 'https://seconde.app/my-orders?transactionId=tx42' }),
+        tap({ deepLink: 'https://seconde.ca/my-orders?transactionId=tx42' }),
       ),
     );
     expect(mockPush).toHaveBeenCalledWith('/my-orders?transactionId=tx42');
