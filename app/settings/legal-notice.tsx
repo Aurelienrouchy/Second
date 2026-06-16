@@ -46,8 +46,8 @@ export default function LegalNoticeScreen() {
 
         <Label style={styles.subTitle}>Contact</Label>
         <InfoCard>
-          <Caption>Email : contact@seconde.app</Caption>
-          <Caption>Support : support@seconde.app</Caption>
+          <Caption>Email : contact@seconde.ca</Caption>
+          <Caption>Support : contact@seconde.ca</Caption>
         </InfoCard>
 
         <Text variant="h3" style={styles.sectionTitle}>2. Directeur de la publication</Text>
