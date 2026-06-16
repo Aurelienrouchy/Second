@@ -98,10 +98,9 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.lg,
     paddingRight: 0,
     gap: spacing.sm,
-    // No paddingBottom: pour-toi sits directly above the SwapZone dark band,
-    // whose marginTop xl (32) is the sole, intentional editorial pause. A rail
-    // paddingBottom here would stack onto it (8 + 32 = 40) and create the
-    // parasitic gap above the SwapZone card. The band owns that space.
+    // No paddingBottom: the next section's SectionHeader (paddingTop 28) is the
+    // sole owner of the inter-section vertical space. A rail paddingBottom here
+    // would stack onto it and double the gap below "Pour toi".
   },
   horizontalCardWrapper: {
     width: COMPACT_CARD_WIDTH,
