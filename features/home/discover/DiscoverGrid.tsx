@@ -154,25 +154,27 @@ const DiscoverGridComponent: React.FC = () => {
 
 export const DiscoverGrid = React.memo(DiscoverGridComponent);
 
+// 2-col grid sizing derived from DS tokens (home gutter + inter-column gap),
+// so a lone last item stays half-width and left-aligned (flexGrow would
+// stretch an orphan to full width).
+const GRID_H_PADDING = spacing.lg;
+const GRID_COLUMN_GAP = spacing.sm;
+const GRID_ITEM_WIDTH =
+  (Dimensions.get('window').width - GRID_H_PADDING * 2 - GRID_COLUMN_GAP) / 2;
+
 const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    // Inset the 2-col grid to the home gutter so it aligns with its
-    // SectionHeader and the loadMoreButton (which already insets marginHorizontal lg).
-    paddingHorizontal: spacing.lg,
-    // Same inter-element gap as the "Nouveautés" rail (spacing.sm), applied
-    // both between columns and between rows.
-    columnGap: spacing.sm,
+    // Inset to the home gutter so the grid aligns with its SectionHeader and
+    // the loadMoreButton (both inset by spacing.lg).
+    paddingHorizontal: GRID_H_PADDING,
+    // Same inter-element gap as the "Nouveautés" rail (spacing.sm).
+    columnGap: GRID_COLUMN_GAP,
     rowGap: spacing.sm,
   },
   gridItem: {
-    // 2-col layout with a spacing.sm column gap: each item takes just under
-    // half so the single gap fits without wrapping. flexGrow absorbs the
-    // half-gap rounding so both columns stay equal width.
-    flexBasis: 0,
-    flexGrow: 1,
-    minWidth: '45%',
+    width: GRID_ITEM_WIDTH,
     backgroundColor: colors.background,
   },
   loadMoreButton: {
