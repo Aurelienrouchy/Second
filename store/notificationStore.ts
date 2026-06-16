@@ -44,7 +44,7 @@ export interface PushNotificationData {
   /**
    * Full universal-link URL built by the server
    * (functions/src/utils/notifications.ts `buildDeepLink`), e.g.
-   * `https://seconde.app/my-orders?transactionId=…`. Preferred routing source.
+   * `https://seconde.ca/my-orders?transactionId=…`. Preferred routing source.
    */
   deepLink?: string;
 
