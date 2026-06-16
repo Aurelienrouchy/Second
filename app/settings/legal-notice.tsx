@@ -54,7 +54,7 @@ export default function LegalNoticeScreen() {
         <InfoCard>
           <Caption>Aurélien Rouchy</Caption>
           <Caption>En qualité de : Président</Caption>
-          <Caption>Email : legal@seconde.app</Caption>
+          <Caption>Email : contact@seconde.ca</Caption>
         </InfoCard>
 
         <Text variant="h3" style={styles.sectionTitle}>3. Hébergement</Text>
