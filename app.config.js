@@ -61,7 +61,6 @@ export default {
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.seconde.app",
           "enableGooglePay": true
         }
       ],
