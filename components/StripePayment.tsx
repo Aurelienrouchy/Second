@@ -66,11 +66,8 @@ function StripePaymentComponent({
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: 'Seconde',
-        // Apple Pay / Google Pay will be enabled automatically
-        // if the user has them configured on their device
-        applePay: {
-          merchantCountryCode: 'CA',
-        },
+        // Google Pay is enabled automatically when the user has it
+        // configured on their device (Android only)
         googlePay: {
           merchantCountryCode: 'CA',
           testEnv: __DEV__,

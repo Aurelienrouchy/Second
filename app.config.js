@@ -92,7 +92,7 @@ export default {
     "ios": {
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:seconde.ca",
