@@ -254,6 +254,25 @@ export const releaseHeldFunds = onSchedule(
           if (moved) {
             released++;
 
+            // Analytics (§12): order_completed = funds released after the 7-day
+            // window (shipping rail). distinct_id = buyer.
+            if (typeof data.buyerId === 'string' && data.buyerId) {
+              let daysToComplete = 0;
+              const createdAt = data.createdAt;
+              if (createdAt && typeof createdAt.toMillis === 'function') {
+                daysToComplete =
+                  Math.round(((Date.now() - createdAt.toMillis()) / (24 * 60 * 60 * 1000)) * 100) /
+                  100;
+              }
+              await captureServerEvent(data.buyerId, 'order_completed', {
+                transaction_id: transactionId,
+                delivery_type: 'shipping',
+                seller_net_cents: sellerPayoutCents,
+                days_to_complete: daysToComplete,
+                $insert_id: `order_completed_${transactionId}`,
+              });
+            }
+
             // Loi 25 art. 12.1 — journal the AUTOMATED decision (best-effort,
             // never throws, never rolls back the money move above).
             await logAutomatedDecision({
