@@ -148,15 +148,15 @@ function StripePaymentComponent({
       }
 
       // 3. Payment succeeded
-      onResult({ success: true });
+      emitResult({ success: true });
     } catch (err) {
       if (__DEV__) console.error('Stripe payment error:', err);
       const message = err instanceof Error ? err.message : 'Erreur de paiement inattendue';
-      onResult({ success: false, error: message });
+      emitResult({ success: false, error: message });
     } finally {
       isPresentingRef.current = false;
     }
-  }, [clientSecret, initPaymentSheet, presentPaymentSheet, onResult]);
+  }, [clientSecret, initPaymentSheet, presentPaymentSheet, emitResult]);
 
   useEffect(() => {
     if (visible && clientSecret) {

@@ -198,7 +198,7 @@ export default function LikedSellersScreen() {
 
   const handleToggleLike = useCallback((sellerId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    toggleLike(sellerId);
+    toggleLike(sellerId, 'liked_sellers');
   }, [toggleLike]);
 
   const renderSeller = useCallback(({ item, index }: { item: LikedSeller; index: number }) => (
