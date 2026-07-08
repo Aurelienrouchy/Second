@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { colors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import ProductGrid from '@/components/ProductGrid';
