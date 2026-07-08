@@ -205,11 +205,20 @@ export default function ReviewScreen() {
     }
 
     if (rating === 0) {
+      track('review_submit_failed', {
+        transaction_id: transactionId ?? '',
+        failure_type: 'validation_rating',
+      });
       Alert.alert('Note requise', 'Veuillez attribuer une note de 1 a 5 etoiles.');
       return;
     }
 
     if (comment.trim().length < 5) {
+      track('review_submit_failed', {
+        transaction_id: transactionId ?? '',
+        rating,
+        failure_type: 'validation_comment',
+      });
       Alert.alert('Commentaire requis', 'Le commentaire doit contenir au moins 5 caracteres.');
       return;
     }
