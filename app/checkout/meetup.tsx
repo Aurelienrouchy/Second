@@ -175,7 +175,7 @@ export default function MeetupCheckoutScreen() {
         category: 'other_public',
         neighborhood: { id: 'tbd', name: 'A convenir', borough: 'A convenir' },
       };
-      await ChatService.sendMeetupOffer(
+      const messageId = await ChatService.sendMeetupOffer(
         chat.id,
         currentUser.uid,
         article.sellerId,
@@ -183,6 +183,22 @@ export default function MeetupCheckoutScreen() {
         meetupLocation,
         `Demande de meetup pour "${article.title}"`,
       );
+      track('offer_sent', {
+        article_id: article.id,
+        seller_id: article.sellerId,
+        chat_id: chat.id,
+        message_id: messageId,
+        source: 'checkout_direct',
+        mode: 'meetup',
+        offer_amount_cents: Math.round(finalPrice * 100),
+        list_price_cents: Math.round(article.price * 100),
+        discount_pct: article.price
+          ? Math.round(((article.price - finalPrice) / article.price) * 100)
+          : 0,
+        has_message: false,
+        spot_category: meetupLocation.category,
+        neighborhood_id: meetupLocation.neighborhood?.id,
+      });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
