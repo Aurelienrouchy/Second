@@ -128,8 +128,29 @@ export default function PricingScreen() {
       'Quitter ?',
       'Tes modifications seront sauvegardées dans le brouillon.',
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Quitter', onPress: () => router.back() },
+        {
+          text: 'Annuler',
+          style: 'cancel',
+          onPress: () =>
+            track('sell_exit_prompted', {
+              flow_step: 'pricing',
+              confirmed_leave: false,
+              photo_count: photos.length,
+              has_price: !!price,
+            }),
+        },
+        {
+          text: 'Quitter',
+          onPress: () => {
+            track('sell_exit_prompted', {
+              flow_step: 'pricing',
+              confirmed_leave: true,
+              photo_count: photos.length,
+              has_price: !!price,
+            });
+            router.back();
+          },
+        },
       ],
     );
   };
