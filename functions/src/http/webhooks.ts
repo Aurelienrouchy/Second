@@ -1135,7 +1135,13 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    return { outcome: 'accepted' as const };
+    return {
+      outcome: 'accepted' as const,
+      payerId:
+        swap.cashTopUp && typeof swap.cashTopUp.payerId === 'string'
+          ? swap.cashTopUp.payerId
+          : null,
+    };
   });
 
   // P1 (amount mismatch — deterministic): the captured top-up amount does not
