@@ -147,10 +147,17 @@ export default function TabLayout() {
   }, [resumeDraft, router, openCaptureOverlay]);
 
   const handleDiscardDraft = useCallback(async () => {
+    if (resumeDraft) {
+      track('sell_draft_discarded', {
+        draft_step: draftStepLabel(resumeDraft.currentStep),
+        photo_count: resumeDraft.photos.length,
+        platform: 'ios',
+      });
+    }
     setResumeDraft(null);
     await draftService.deleteDraft();
     openCaptureOverlay();
-  }, [openCaptureOverlay]);
+  }, [resumeDraft, openCaptureOverlay]);
 
   return (
     <ImmersiveOverlay>
