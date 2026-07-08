@@ -38,12 +38,6 @@ export default function AdminShopDetailScreen() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const rejectionModalRef = useRef<RejectionModalRef>(null);
 
-  useEffect(() => {
-    if (id) {
-      loadShopDetails();
-    }
-  }, [id, user]);
-
   const loadShopDetails = async () => {
     try {
       setIsLoading(true);
