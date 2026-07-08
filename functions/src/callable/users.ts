@@ -11,6 +11,7 @@ import * as logger from 'firebase-functions/logger';
 import { db, auth, storage, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { recordPrivacyIncident } from './privacyIncidents';
+import { captureServerEvent } from '../lib/analytics';
 
 // =============================================================================
 // DELETE USER ACCOUNT — GDPR Art. 17 / Loi 25 exhaustive cleanup
