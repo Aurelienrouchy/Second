@@ -353,6 +353,13 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const handleCounterLocation = async () => {
     const name = counterLocationName.trim();
     if (!name) {
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'location',
+        validation_result: 'empty',
+        success: false,
+      });
       Alert.alert('Erreur', 'Veuillez entrer le nom du lieu');
       return;
     }
@@ -371,11 +378,27 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       setIsCountering(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await onCounterLocation(message.id, newLocation, counterMessage || undefined);
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'location',
+        neighborhood_id: meetup.location.neighborhood?.id,
+        validation_result: 'ok',
+        success: true,
+      });
       setActiveCounterPanel(null);
       setCounterLocationName('');
       setCounterMessage('');
     } catch (error) {
       if (__DEV__) console.error('Error counter-offering location:', error);
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'location',
+        neighborhood_id: meetup.location.neighborhood?.id,
+        validation_result: 'ok',
+        success: false,
+      });
       Alert.alert('Erreur', "Impossible d'envoyer la contre-offre de lieu");
     } finally {
       setIsCountering(false);
