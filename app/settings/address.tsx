@@ -142,6 +142,7 @@ export default function AddressSettingsScreen() {
 
     const streetAddress = `${streetNumber} ${route}`.trim();
     const fullAddress = details.formatted_address;
+    const hasGeo = !!details.geometry?.location;
 
     Alert.alert(
       'Mettre à jour l\'adresse ?',
@@ -154,13 +155,16 @@ export default function AddressSettingsScreen() {
         {
           text: 'Confirmer',
           onPress: () =>
-            persistAddress({
-              street: streetAddress,
-              city,
-              province,
-              postalCode,
-              country,
-            }),
+            persistAddress(
+              {
+                street: streetAddress,
+                city,
+                province,
+                postalCode,
+                country,
+              },
+              { mode: 'autocomplete', hasGeo },
+            ),
         }
       ]
     );
