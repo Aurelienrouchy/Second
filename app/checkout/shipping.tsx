@@ -651,6 +651,11 @@ export default function ShippingCheckoutScreen() {
         const trans = await TransactionService.getTransaction(pendingTransactionId);
         if (trans && isPaidStatus(trans.status)) {
           setConfirmingPayment(false);
+          track('payment_confirmation_polled', {
+            transaction_id: pendingTransactionId,
+            outcome: 'confirmed',
+            poll_duration_ms: Date.now() - startedAt,
+          });
           navigateToSuccess();
           return;
         }
@@ -663,6 +668,11 @@ export default function ShippingCheckoutScreen() {
     // Webhook is lagging — proceed to the confirmation screen anyway (the
     // payment did succeed; the order detail will reflect the final status).
     setConfirmingPayment(false);
+    track('payment_confirmation_polled', {
+      transaction_id: pendingTransactionId,
+      outcome: 'timeout',
+      poll_duration_ms: Date.now() - startedAt,
+    });
     navigateToSuccess();
   }, [pendingTransactionId, retryStripePayment, cancelPendingTransaction, navigateToSuccess]);
 
