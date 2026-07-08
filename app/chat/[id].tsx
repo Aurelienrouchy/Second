@@ -228,22 +228,46 @@ export default function ChatScreen() {
   }, [sendImage, isOtherBlocked, chatId, chat?.articleId, chat?.sellerId, user?.id]);
 
   const handleMakeOffer = useCallback(() => {
+    const currentPrice = article?.price ?? chat?.articlePrice;
+    const defaultMode =
+      SHIPPING_ENABLED && article?.isShipping && !article?.isHandDelivery ? 'shipping' : 'meetup';
+    const emitOfferModal = (
+      blocked_reason:
+        | 'none'
+        | 'user_blocked'
+        | 'no_price'
+        | 'sold'
+        | 'inactive'
+        | 'pending_offer_exists',
+    ) => {
+      track('offer_modal_opened', {
+        source: 'chat',
+        article_id: chat?.articleId ?? '',
+        price_cents: currentPrice ? Math.round(currentPrice * 100) : 0,
+        default_mode: defaultMode,
+        blocked_reason,
+      });
+    };
+
     if (isOtherBlocked) {
+      emitOfferModal('user_blocked');
       Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour faire une offre.');
       return;
     }
-    const currentPrice = article?.price ?? chat?.articlePrice;
     if (!currentPrice) {
+      emitOfferModal('no_price');
       Alert.alert('Erreur', 'Aucun article associe a cette conversation');
       return;
     }
 
     // H1: Block offers on sold or inactive articles
     if (article?.isSold) {
+      emitOfferModal('sold');
       Alert.alert('Article vendu', 'Cet article n\'est plus disponible.');
       return;
     }
     if (article?.isActive === false) {
+      emitOfferModal('inactive');
       Alert.alert('Article indisponible', 'Cet article n\'est plus disponible.');
       return;
     }
@@ -253,12 +277,14 @@ export default function ChatScreen() {
       (msg) => msg.type === 'offer' && msg.offer?.status === 'pending' && msg.senderId === user?.id
     );
     if (hasPendingOffer) {
+      emitOfferModal('pending_offer_exists');
       Alert.alert('Offre en cours', 'Vous avez déjà une offre en attente pour cet article.');
       return;
     }
+    emitOfferModal('none');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
-  }, [article?.price, article?.isSold, article?.isActive, chat?.articlePrice, messages, user?.id, isOtherBlocked]);
+  }, [article?.price, article?.isSold, article?.isActive, article?.isShipping, article?.isHandDelivery, chat?.articlePrice, chat?.articleId, messages, user?.id, isOtherBlocked]);
 
   const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
