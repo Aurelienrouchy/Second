@@ -95,7 +95,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange,
   const handleImagePress = useCallback((index: number) => {
     setCurrentIndex(index);
     setIsZoomModalVisible(true);
-  }, []);
+    if (articleId) {
+      track('article_image_zoomed', {
+        article_id: articleId,
+        image_index: index,
+        image_count: images.length,
+      });
+    }
+  }, [articleId, images.length]);
 
   const handleCloseZoom = useCallback(() => {
     scale.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.ease) });
