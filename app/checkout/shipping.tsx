@@ -435,11 +435,18 @@ export default function ShippingCheckoutScreen() {
 
       setPendingTransactionId(transactionId);
       setPendingChatId(chat.id);
-      setServerBuyerTotal(
-        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null,
-      );
+      const buyerTotal =
+        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null;
+      setServerBuyerTotal(buyerTotal);
       setClientSecret(data.clientSecret);
       setShowStripePayment(true);
+      track('payment_sheet_presented', {
+        source: 'checkout',
+        context_id: transactionId,
+        server_buyer_total_cents: Math.round((buyerTotal ?? totalAmount) * 100),
+        wallet_amount_cents: walletAmountCents > 0 ? walletAmountCents : undefined,
+        is_retry: false,
+      });
     } catch (error: unknown) {
       if (__DEV__) console.error('Error initiating payment:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -453,6 +460,28 @@ export default function ShippingCheckoutScreen() {
           if (__DEV__) console.error('Error cancelling orphan transaction:', cancelError);
         }
       }
+
+      // Map the callable error to the right title/message: a rate-limit
+      // (resource-exhausted) must NOT read as "Article indisponible" (F129).
+      // `failed-precondition` keeps the server message ("Cet article a déjà été
+      // vendu"). Only a genuine article-unavailable error ejects the buyer back.
+      const code = getCallableErrorCode(error);
+      const articleUnavailable =
+        code === 'failed-precondition' &&
+        /vendu|indisponible|disponible/i.test(
+          error instanceof Error ? error.message : '',
+        );
+      track('payment_init_failed', {
+        transaction_id: createdTransactionId ?? undefined,
+        failure_type: isRateExpiredError(error)
+          ? 'rate_expired'
+          : code === 'resource-exhausted'
+            ? 'rate_limited'
+            : articleUnavailable
+              ? 'article_unavailable'
+              : 'other',
+        error_code: code ?? undefined,
+      });
 
       // ── Tarif de livraison expiré (re-tarification serveur) ──────────────
       // Le serveur a invalidé le rateId : on propose de réactualiser
@@ -469,20 +498,10 @@ export default function ShippingCheckoutScreen() {
         return;
       }
 
-      // Map the callable error to the right title/message: a rate-limit
-      // (resource-exhausted) must NOT read as "Article indisponible" (F129).
-      // `failed-precondition` keeps the server message ("Cet article a déjà été
-      // vendu"). Only a genuine article-unavailable error ejects the buyer back.
-      const code = getCallableErrorCode(error);
       const { title, message } = mapCallableError(error, {
         title: 'Paiement impossible',
         message: "Impossible d'initier le paiement. Veuillez réessayer.",
       });
-      const articleUnavailable =
-        code === 'failed-precondition' &&
-        /vendu|indisponible|disponible/i.test(
-          error instanceof Error ? error.message : '',
-        );
       Alert.alert(
         articleUnavailable ? 'Article indisponible' : title,
         message,
