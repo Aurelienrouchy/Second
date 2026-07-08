@@ -243,7 +243,11 @@ export default function ShippingCheckoutScreen() {
   }, [article, sellerPostalCode, addressForm.postalCode, addressForm.city, addressForm.province, addressForm.fullName]);
 
   useEffect(() => {
-    if (addressForm.postalCode.replace(/\s/g, '').length >= 6) fetchShippingEstimates();
+    if (addressForm.postalCode.replace(/\s/g, '').length >= 6) {
+      (async () => {
+        await fetchShippingEstimates();
+      })();
+    }
   }, [addressForm.postalCode, fetchShippingEstimates]);
 
   // --- Service fee -----------------------------------------------------------
