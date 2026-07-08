@@ -2654,6 +2654,7 @@ export const acceptMeetupOffer = onCall(
           amount,
           reused: false,
           negotiated,
+          articleId,
         };
       });
 
