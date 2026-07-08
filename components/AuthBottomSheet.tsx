@@ -48,6 +48,13 @@ const TITLE_DURATION = 200;
 
 type AuthMode = 'signIn' | 'signUp' | 'forgotPassword';
 
+// Maps the internal camelCase mode to the analytics enum (snake_case).
+const ANALYTICS_MODE = {
+  signIn: 'signin',
+  signUp: 'signup',
+  forgotPassword: 'forgot_password',
+} as const;
+
 const AuthBottomSheet: React.FC = () => {
   const [authType, setAuthType] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
