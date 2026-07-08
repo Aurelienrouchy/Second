@@ -280,6 +280,56 @@ export default function PhotosReviewScreen() {
     }
   };
 
+  // =============================================================================
+  // AUTO-START ANALYSIS
+  // =============================================================================
+
+  useEffect(() => {
+    if (photos.length === 0 || analysisTriggered.current) return;
+    analysisTriggered.current = true;
+
+    // On resume, the draft may already hold an AI result for these exact
+    // photos. Re-running the analysis would waste the Gemini quota, so hydrate
+    // from the draft instead and only run a fresh analysis when there is none.
+    const hydrateOrAnalyze = async () => {
+      try {
+        const draft = await draftService.loadDraft();
+        if (
+          draft?.aiResult &&
+          draft.photos.length === photos.length &&
+          draft.storageUrls.length > 0
+        ) {
+          if (__DEV__) console.log('[PhotosReview] Hydrating AI result from draft');
+          analysisAttempt.current += 1;
+          track('ai_analysis_started', {
+            photo_count: photos.length,
+            hydrated_from_draft: true,
+            attempt_number: analysisAttempt.current,
+          });
+          setStorageUrls(draft.storageUrls);
+          setAiResult(draft.aiResult);
+          buildFinalPills(draft.aiResult);
+          setProgressSteps((prev) => prev.map((s) => ({ ...s, state: 'done' as const })));
+          setAnalysisState('complete');
+          track('ai_analysis_completed', {
+            photo_count: photos.length,
+            prefilled_count: countPrefilledFields(draft.aiResult),
+            detected_category: !!draft.aiResult.category?.categoryId,
+            detected_brand: !!draft.aiResult.brand?.detected,
+            detected_size: !!(draft.aiResult.size?.normalized || draft.aiResult.size?.detected),
+            duration_ms: 0,
+          });
+          return;
+        }
+      } catch (e) {
+        if (__DEV__) console.error('[PhotosReview] Failed to read draft for hydration:', e);
+      }
+      await runAnalysis();
+    };
+
+    hydrateOrAnalyze();
+  }, [photos.length]);
+
   // Count pre-filled fields
   const prefilledCount = aiResult
     ? [
