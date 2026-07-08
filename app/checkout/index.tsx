@@ -282,7 +282,7 @@ export default function CheckoutScreen() {
               styles.deliveryOption,
               effectiveDelivery === 'meetup' && styles.deliveryOptionSelected,
             ]}
-            onPress={() => setSelectedDelivery('meetup')}
+            onPress={() => handleSelectDelivery('meetup')}
           >
             <View
               style={[
