@@ -492,15 +492,42 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       'Confirmer le meetup',
       'Confirmez-vous que le meetup a bien eu lieu et que la transaction est terminée ?',
       [
-        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Annuler',
+          style: 'cancel',
+          onPress: () =>
+            track('meetup_confirmed', {
+              chat_id: chatId,
+              message_id: message.id,
+              article_id: articleId ?? '',
+              offer_amount_cents: Math.round(amount * 100),
+              dialog_outcome: 'cancelled',
+            }),
+        },
         {
           text: 'Confirmer',
           onPress: async () => {
             try {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               await onConfirmMeetup(message.id);
+              track('meetup_confirmed', {
+                chat_id: chatId,
+                message_id: message.id,
+                article_id: articleId ?? '',
+                offer_amount_cents: Math.round(amount * 100),
+                dialog_outcome: 'confirmed',
+                result: 'success',
+              });
             } catch (error) {
               if (__DEV__) console.error('Error confirming meetup:', error);
+              track('meetup_confirmed', {
+                chat_id: chatId,
+                message_id: message.id,
+                article_id: articleId ?? '',
+                offer_amount_cents: Math.round(amount * 100),
+                dialog_outcome: 'confirmed',
+                result: 'error',
+              });
               Alert.alert('Erreur', 'Impossible de confirmer le meetup');
             }
           },

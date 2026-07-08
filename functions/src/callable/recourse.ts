@@ -270,6 +270,7 @@ export const reportTransactionProblem = onCall(
 
     const txRef = db.collection('transactions').doc(transactionId);
     const buyerUid = request.auth.uid;
+    let disputeHeldCents = 0;
 
     const disputeId = await db.runTransaction(async (tx) => {
       const snap = await tx.get(txRef);
@@ -282,6 +283,11 @@ export const reportTransactionProblem = onCall(
       if (data.buyerId !== buyerUid) {
         throw new HttpsError('permission-denied', 'Only the buyer can report a problem');
       }
+
+      disputeHeldCents =
+        typeof data.sellerCreditedCents === 'number'
+          ? data.sellerCreditedCents
+          : Math.round(((data.sellerPayout ?? data.amount ?? 0) as number) * 100);
 
       // Refuse a re-report on an already-disputed / resolved transaction.
       if (data.disputed === true || data.status === 'disputed') {
