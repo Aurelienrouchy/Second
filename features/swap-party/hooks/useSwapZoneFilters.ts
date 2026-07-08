@@ -175,16 +175,33 @@ export function useSwapZoneFilters(items: SwapPartyItemExtended[]) {
   // ── Mutators ──
   const handleSortSelect = useCallback((sortId: string) => {
     setSelectedSort(sortId as SortBy);
+    track('search_filter_applied', {
+      screen: 'swap_zone',
+      filter_type: 'sort',
+      sort_value: sortId,
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
   const handleCategorySelect = useCallback((categoryPath: string[]) => {
     setSelectedCategoryPath(categoryPath);
+    track('search_filter_applied', {
+      screen: 'swap_zone',
+      filter_type: 'category',
+      category_path: categoryPath,
+      category_depth: categoryPath.length,
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
   const handleSizesConfirm = useCallback((sizes: ArticleSize[]) => {
     setFilters((prev) => ({ ...prev, sizes }));
+    track('search_filter_applied', {
+      screen: 'swap_zone',
+      filter_type: 'sizes',
+      values: sizes.map((s) => s.value),
+      values_count: sizes.length,
+    });
   }, []);
 
   const handleColorSelect = useCallback((color: string) => {
