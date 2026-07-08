@@ -82,6 +82,13 @@ export default function SellTabScreen() {
       const step = draft.currentStep;
       if (__DEV__) console.log('[SellTab] Resuming draft at step:', step);
 
+      track('sell_draft_resumed', {
+        draft_step: draftStepLabel(step),
+        photo_count: draft.photos.length,
+        has_ai_result: !!draft.aiResult,
+        platform,
+      });
+
       if (step >= 4) {
         // Step 4: Preview
         router.replace({

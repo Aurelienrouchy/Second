@@ -120,20 +120,33 @@ export function useArticleActions({
   const handleBuy = useCallback(() => {
     if (!article) return;
 
+    const buyEventBase = {
+      article_id: article.id,
+      seller_id: article.sellerId,
+      price_cents: Math.round(article.price * 100),
+    };
+
     if (article.isSold) {
+      track('buy_button_tapped', { ...buyEventBase, outcome: 'blocked_sold' });
       Alert.alert('Article vendu', 'Cet article a déjà été vendu.');
       return;
     }
 
     if (user && user.id === article.sellerId) {
+      track('buy_button_tapped', { ...buyEventBase, outcome: 'blocked_own' });
       Alert.alert('Erreur', 'Vous ne pouvez pas acheter votre propre article.');
       return;
+    }
+
+    if (!user) {
+      track('buy_button_tapped', { ...buyEventBase, outcome: 'auth_gated' });
     }
 
     requireAuth(
       () => {
         if (isTransitioning.current) return;
         isTransitioning.current = true;
+        track('buy_button_tapped', { ...buyEventBase, outcome: 'navigated' });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         router.push({
           pathname: '/checkout' as any,
