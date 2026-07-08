@@ -207,23 +207,34 @@ export default function SwapDetailScreen() {
         },
       ]
     );
-  }, [id]);
+  }, [id, swap?.cashTopUp?.amount]);
 
   const handlePayTopUp = useCallback(async () => {
     if (!id) return;
+    const cashTopUpCents = swap?.cashTopUp?.amount ?? 0;
     setIsProcessing(true);
     try {
       const { clientSecret: secret } = await createSwapTopUpCheckout(id);
       // The native sheet displays the server-authoritative PaymentIntent amount.
       setClientSecret(secret);
       setShowStripePayment(true);
+      track('swap_topup_payment_started', {
+        swap_id: id,
+        cash_top_up_cents: cashTopUpCents,
+        outcome: 'sheet_presented',
+      });
     } catch (error) {
       if (__DEV__) console.error('Error creating swap top-up checkout:', error);
+      track('swap_topup_payment_started', {
+        swap_id: id,
+        cash_top_up_cents: cashTopUpCents,
+        outcome: 'init_failed',
+      });
       Alert.alert('Erreur', "Impossible d'initier le paiement du complément");
     } finally {
       setIsProcessing(false);
     }
-  }, [id]);
+  }, [id, swap?.cashTopUp?.amount]);
 
   const handlePaymentResult = useCallback((result: StripePaymentResult) => {
     setShowStripePayment(false);
