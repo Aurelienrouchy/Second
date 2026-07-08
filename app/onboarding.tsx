@@ -230,6 +230,7 @@ export default function OnboardingScreen() {
           }
         };
 
+        let attemptNumber = 1;
         let saved = await persist();
         while (!saved) {
           const retry = await new Promise<boolean>(resolve => {
@@ -242,7 +243,9 @@ export default function OnboardingScreen() {
               ]
             );
           });
+          track('onboarding_save_failed', { retry_chosen: retry, attempt_number: attemptNumber });
           if (!retry) break;
+          attemptNumber += 1;
           saved = await persist();
         }
       } else {
