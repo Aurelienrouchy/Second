@@ -3824,6 +3824,10 @@ export const cancelPendingTransaction = onCall(
         // time; cancelling must undo that.
         if (articleRef && articleSnap && articleSnap.exists) {
           tx.update(articleRef, { isSold: false });
+          cancelRelisted = true;
+        }
+        if (hasWalletDebit) {
+          cancelRefundCents = walletAmountUsed;
         }
 
         // F03: Refund wallet portion if wallet was debited
