@@ -267,6 +267,12 @@ export default function ReviewScreen() {
       );
     } catch (err: unknown) {
       hasSubmittedRef.current = false;
+      track('review_submit_failed', {
+        transaction_id: transaction.id,
+        rating,
+        failure_type: 'server',
+        error_code: getCallableErrorCode(err) ?? undefined,
+      });
       Alert.alert('Erreur', getReviewErrorMessage(err));
       if (__DEV__) console.error('Error submitting review:', err);
     } finally {
