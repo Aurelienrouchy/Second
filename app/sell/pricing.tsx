@@ -285,7 +285,11 @@ export default function PricingScreen() {
 
         <HandDeliveryCard
           isActive={isHandDelivery}
-          onToggle={() => setIsHandDelivery((prev) => !prev)}
+          onToggle={() => {
+            const enabled = !isHandDelivery;
+            setIsHandDelivery(enabled);
+            track('sell_field_edited', { screen: 'sell', field: 'hand_delivery', enabled });
+          }}
           selectedNeighborhoods={selectedNeighborhoods}
           onNeighborhoodToggle={handleNeighborhoodToggle}
           onViewMore={() => neighborhoodSheetRef.current?.show()}
@@ -294,9 +298,21 @@ export default function PricingScreen() {
         {SHIPPING_ENABLED && (
           <ShippingCard
             isActive={isShipping}
-            onToggle={() => setIsShipping((prev) => !prev)}
+            onToggle={() => {
+              const enabled = !isShipping;
+              setIsShipping(enabled);
+              track('sell_field_edited', { screen: 'sell', field: 'shipping', enabled });
+            }}
             packageSize={packageSize}
-            onPackageSizeSelect={setPackageSize}
+            onPackageSizeSelect={(size) => {
+              setPackageSize(size);
+              track('sell_field_edited', {
+                screen: 'sell',
+                field: 'package_size',
+                value: size,
+                matched_ai_suggestion: size === aiResult?.packageSize?.suggested,
+              });
+            }}
             aiSuggestedSize={aiResult?.packageSize?.suggested}
           />
         )}
