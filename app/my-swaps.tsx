@@ -63,6 +63,19 @@ const getTotalValue = (items: SwapItemInfo[], cashDollars = 0): number => {
 
 type FilterType = 'all' | 'pending' | 'active' | 'completed';
 
+function matchesFilter(swap: Swap, filter: FilterType): boolean {
+  switch (filter) {
+    case 'pending':
+      return swap.status === 'proposed';
+    case 'active':
+      return ['payment_pending', 'accepted', 'photos_pending', 'shipping', 'disputed'].includes(swap.status);
+    case 'completed':
+      return ['completed', 'declined', 'cancelled', 'expired'].includes(swap.status);
+    default:
+      return true;
+  }
+}
+
 export default function MySwapsScreen() {
   const user = useUser();
   const [filter, setFilter] = useState<FilterType>('all');
