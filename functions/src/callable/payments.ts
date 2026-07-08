@@ -16,6 +16,7 @@ import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { applyTrackingOutcome, DELIVERABLE_STATUSES } from '../utils/trackingTransition';
 import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
+import { captureServerEvent } from '../lib/analytics';
 import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
 import { isShippingEnabled } from '../config/featureFlags';
 
