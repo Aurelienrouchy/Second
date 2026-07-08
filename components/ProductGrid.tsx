@@ -136,6 +136,7 @@ function ProductGridComponent({
   emptyMessage = 'Aucun article trouvé',
   emptyIcon = 'search-outline',
   skeletonCount = 6,
+  favoriteSource,
   testID,
 }: ProductGridProps) {
   const renderItem = useCallback(
@@ -144,6 +145,7 @@ function ProductGridComponent({
         <ProductCard
           product={toProductCardProduct(item)}
           onPress={() => onProductPress(item)}
+          favoriteSource={favoriteSource}
           testID={`product-card-${item.id}`}
         />
       );
