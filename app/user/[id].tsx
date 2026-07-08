@@ -39,6 +39,7 @@ import {
 } from '@/features/user-profile';
 import type { ProfileTab, ProfileReview } from '@/features/user-profile';
 import { useSellerLikes } from '@/hooks/useSellerLikes';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
