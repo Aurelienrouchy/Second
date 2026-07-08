@@ -65,6 +65,19 @@ function VisualSearchCameraComponent({
     }
   }, [permission]);
 
+  // Fire once when the OS resolves the camera permission to denied.
+  const cameraDeniedTracked = useRef(false);
+  useEffect(() => {
+    if (permission?.status === 'denied' && !cameraDeniedTracked.current) {
+      cameraDeniedTracked.current = true;
+      track('permission_denied', {
+        permission: 'camera',
+        context: 'visual_search',
+        can_ask_again: permission.canAskAgain,
+      });
+    }
+  }, [permission]);
+
   // Take a photo
   const handleCapture = async () => {
     if (!cameraRef.current || isCapturing) return;
