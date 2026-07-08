@@ -92,6 +92,15 @@ function SaveSearchButtonComponent({
 
       setIsModalVisible(false);
 
+      track('saved_search_created', {
+        outcome: 'success',
+        notify_new_items: notifyNewItems,
+        name_length: searchName.trim().length,
+        name_is_default: searchName.trim() === generateDefaultName(query, filters),
+        query_length: query.length,
+        filter_keys: filterKeysOf(filters),
+      });
+
       Alert.alert(
         'Recherche sauvegardée',
         notifyNewItems
@@ -103,6 +112,14 @@ function SaveSearchButtonComponent({
       onSaved?.();
     } catch (error) {
       if (__DEV__) console.error('Error saving search:', error);
+      track('saved_search_created', {
+        outcome: 'error',
+        notify_new_items: notifyNewItems,
+        name_length: searchName.trim().length,
+        name_is_default: searchName.trim() === generateDefaultName(query, filters),
+        query_length: query.length,
+        filter_keys: filterKeysOf(filters),
+      });
       Alert.alert(
         'Erreur',
         'Impossible de sauvegarder la recherche. Veuillez réessayer.',
@@ -111,6 +128,15 @@ function SaveSearchButtonComponent({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Modal dismissed without saving (X / hardware back).
+  const handleCancel = () => {
+    track('saved_search_cancelled', {
+      notify_toggled: notifyNewItems,
+      name_edited: searchName.trim() !== generateDefaultName(query, filters),
+    });
+    setIsModalVisible(false);
   };
 
   const generateDefaultName = (q: string, f: Partial<SearchFilters>): string => {
