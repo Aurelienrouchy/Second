@@ -242,6 +242,12 @@ export function useSwapZoneFilters(items: SwapPartyItemExtended[]) {
 
   const handleMaterialsConfirm = useCallback((selected: string[]) => {
     setFilters((prev) => ({ ...prev, materials: selected }));
+    track('search_filter_applied', {
+      screen: 'swap_zone',
+      filter_type: 'materials',
+      values: selected,
+      values_count: selected.length,
+    });
   }, []);
 
   const handleConditionSelect = useCallback((condition: string) => {
@@ -249,13 +255,33 @@ export function useSwapZoneFilters(items: SwapPartyItemExtended[]) {
       ...prev,
       condition: prev.condition === condition ? undefined : condition,
     }));
+    track('search_filter_applied', {
+      screen: 'swap_zone',
+      filter_type: 'condition',
+      values: [condition],
+      values_count: 1,
+    });
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFilters({ ...DEFAULT_FILTERS });
+    setFilters((prev) => {
+      const clearedKeys: string[] = [];
+      if (selectedCategoryPath.length > 0) clearedKeys.push('category');
+      if ((prev.sizes?.length || 0) > 0) clearedKeys.push('sizes');
+      if ((prev.colors?.length || 0) > 0) clearedKeys.push('colors');
+      if ((prev.brands?.length || 0) > 0) clearedKeys.push('brands');
+      if ((prev.materials?.length || 0) > 0) clearedKeys.push('materials');
+      if (prev.condition) clearedKeys.push('condition');
+      if (selectedSort !== 'recent') clearedKeys.push('sort');
+      track('search_filters_cleared', {
+        screen: 'swap_zone',
+        cleared_filter_keys: clearedKeys,
+      });
+      return { ...DEFAULT_FILTERS };
+    });
     setSelectedCategoryPath([]);
     setSelectedSort('recent');
-  }, []);
+  }, [selectedCategoryPath, selectedSort]);
 
   return {
     filters,
