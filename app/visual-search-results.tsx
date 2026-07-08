@@ -22,9 +22,26 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing, typography, radius } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { searchByImage, VisualSearchResult } from '@/services/visualSearchService';
 import ProductCard from '@/components/ProductCard';
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
+
+type VisualSearchErrorCode =
+  | 'unauthenticated'
+  | 'resource-exhausted'
+  | 'invalid-argument'
+  | 'internal'
+  | 'unavailable';
+
+function mapErrorToCode(err: any): VisualSearchErrorCode {
+  const code = String(err?.code || err?.message || '');
+  if (code.includes('unauthenticated')) return 'unauthenticated';
+  if (code.includes('resource-exhausted')) return 'resource-exhausted';
+  if (code.includes('invalid-argument')) return 'invalid-argument';
+  if (code.includes('unavailable') || code.includes('network')) return 'unavailable';
+  return 'internal';
+}
 
 function mapErrorToUserMessage(err: any): string {
   const code = err?.code || err?.message || '';
