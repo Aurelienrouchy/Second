@@ -64,14 +64,18 @@ interface PrivacySettings {
   showProfilePhoto: boolean;
   aiProfilingConsent: boolean;
   marketingConsent: boolean;
+  analyticsConsent: boolean;
 }
 
 // Privacy-by-default (Loi 25 art. 9.1, LCAP) : tous les défauts sont OFF.
 // Source de vérité partagée : UserService.PRIVACY_DEFAULTS.
+// Exception : analyticsConsent suit un modèle OPT-OUT (activé par défaut,
+// statistiques anonymisées) — voir COPY_ANALYTICS.
 const DEFAULT_PRIVACY: PrivacySettings = {
   showProfilePhoto: UserService.PRIVACY_DEFAULTS.showProfilePhoto,
   aiProfilingConsent: UserService.PRIVACY_DEFAULTS.aiProfilingConsent,
   marketingConsent: UserService.PRIVACY_DEFAULTS.marketingConsent,
+  analyticsConsent: true,
 };
 
 const COPY_AI = {
