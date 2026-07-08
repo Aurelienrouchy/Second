@@ -517,12 +517,21 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     return {
       processed: true,
       sellerId,
+      buyerId: txData.buyerId,
       chatId: txData.chatId,
       shipEngineRateId: txData.shipEngineRateId,
       deliveryType: txData.deliveryType,
       shippingCost: typeof txData.shippingCost === 'number' ? txData.shippingCost : 0,
       serviceFee: typeof txData.serviceFee === 'number' ? txData.serviceFee : 0,
       taxTotal: typeof txData.taxTotal === 'number' ? txData.taxTotal : 0,
+      itemAmount:
+        typeof txData.amount === 'number'
+          ? txData.amount
+          : typeof txData.sellerPayout === 'number'
+            ? txData.sellerPayout
+            : 0,
+      totalAmount: typeof txData.totalAmount === 'number' ? txData.totalAmount : 0,
+      sellerPayout: typeof txData.sellerPayout === 'number' ? txData.sellerPayout : 0,
       chargeId: paymentIntent.latest_charge || null,
       articleId: txData.articleId,
       articleTitle: txData.articleTitle || null,
