@@ -180,6 +180,7 @@ export default function SearchScreen() {
         onRequestClose={() => screen.setShowVisualSearch(false)}
       >
         <VisualSearchCamera
+          source="search"
           onClose={() => screen.setShowVisualSearch(false)}
           onPhotoCapture={screen.handleVisualSearchCapture}
         />
