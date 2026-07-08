@@ -380,7 +380,15 @@ export default function DeleteAccountScreen() {
         >
           Supprimer définitivement
         </Button>
-        <Button variant="muted" fullWidth onPress={() => setStep('info')} disabled={loading}>
+        <Button
+          variant="muted"
+          fullWidth
+          onPress={() => {
+            track('account_deletion_abandoned', { step_at_abort: 'confirm' });
+            setStep('info');
+          }}
+          disabled={loading}
+        >
           Retour
         </Button>
       </View>
