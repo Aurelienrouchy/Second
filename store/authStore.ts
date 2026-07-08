@@ -231,6 +231,7 @@ export const useAuthStore = create<AuthStore>()(
             pendingConsentUser: null,
           });
           await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
+          analyticsIdentify(fresh);
 
           // ── Filet de sécurité username ──
           // Le username persistant/immuable est assigné serveur à la création
