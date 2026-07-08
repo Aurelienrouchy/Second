@@ -266,7 +266,7 @@ function VisualSearchCameraComponent({
         <View style={styles.overlay}>
           {/* Top controls */}
           <View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <TouchableOpacity style={styles.closeButton} onPress={handleCancel}>
               <Ionicons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
