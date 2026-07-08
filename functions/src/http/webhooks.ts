@@ -1860,6 +1860,9 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
   const transactionId = txDoc.id;
   const outcome = dispute.status; // 'won' | 'lost' | 'warning_closed' | ...
 
+  // Set inside the LOST branch so order_refunded is emitted after commit.
+  let lostRefundBuyerId: string | null = null;
+
   await db.runTransaction(async (tx) => {
     const txSnap = await tx.get(txDoc.ref);
     const txData = txSnap.data();
