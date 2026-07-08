@@ -27,10 +27,6 @@ export default function VerifyEmailScreen() {
   const [emailSent, setEmailSent] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
 
-  useEffect(() => {
-    checkVerificationStatus();
-  }, []);
-
   const checkVerificationStatus = async () => {
     setChecking(true);
     try {
@@ -43,6 +39,12 @@ export default function VerifyEmailScreen() {
       setChecking(false);
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      await checkVerificationStatus();
+    })();
+  }, []);
 
   const handleSendVerification = async () => {
     setLoading(true);
