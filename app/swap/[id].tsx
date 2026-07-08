@@ -78,6 +78,25 @@ export default function SwapDetailScreen() {
     return () => unsubscribe();
   }, [id]);
 
+  // Fire swap_viewed once, on the first real-time delivery of a loaded swap.
+  // The not_found branch is intentionally not tracked (swap_viewed requires a
+  // SwapStatus, unavailable when the swap does not exist — see notes).
+  const viewedRef = useRef(false);
+  useEffect(() => {
+    if (isLoading || viewedRef.current || !swap || !id) return;
+    viewedRef.current = true;
+    track('swap_viewed', {
+      swap_id: id,
+      outcome: 'loaded',
+      status: swap.status,
+      is_initiator: swap.initiatorId === user?.id,
+      is_top_up_payer: swap.cashTopUp?.payerId === user?.id,
+      cash_top_up_cents: swap.cashTopUp?.amount ?? 0,
+      ...(swap.exchangeMode ? { exchange_mode: swap.exchangeMode } : {}),
+      source: viewSource,
+    });
+  }, [isLoading, swap, id, user?.id, viewSource]);
+
   // -----------------------------------------------------------------------
   // Derived participant context
   // -----------------------------------------------------------------------
