@@ -247,12 +247,13 @@ export default function SwapZoneScreen() {
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setIsManualRefreshing(true);
+    track('list_refreshed', { screen: 'swap_zone', items_count: items.length });
     try {
       await refetchParty();
     } finally {
       setIsManualRefreshing(false);
     }
-  }, [refetchParty]);
+  }, [refetchParty, items.length]);
 
   const handleAddItems = useCallback(
     async (articles: Article[]) => {
