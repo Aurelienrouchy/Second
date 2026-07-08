@@ -14,6 +14,7 @@ import { COMPACT_CARD_WIDTH } from '@/components/ProductCard.constants';
 import { spacing } from '@/constants/theme';
 import { useUser } from '@/hooks/useAuth';
 import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
+import { track } from '@/lib/analytics';
 import type { Article } from '@/types';
 
 /** Map Article to the subset ProductCard expects (location type differs). */
