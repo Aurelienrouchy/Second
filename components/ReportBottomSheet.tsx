@@ -52,17 +52,27 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
     const [description, setDescription] = useState('');
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState<'reason' | 'description'>('reason');
+    // Latest step + submit flag for the abandon event fired from onChange.
+    const stepRef = useRef<'reason' | 'description'>('reason');
+    stepRef.current = step;
+    const submittedRef = useRef(false);
 
     const snapPoints = useMemo(() => ['60%', '80%'], []);
 
     useImperativeHandle(ref, () => ({
-      open: (type: ReportType, id: string, ownerId?: string) => {
+      open: (type: ReportType, id: string, source: ReportSourceScreen, ownerId?: string) => {
         setTargetType(type);
         setTargetId(id);
         setTargetOwnerId(ownerId);
         setSelectedReason(null);
         setDescription('');
         setStep('reason');
+        submittedRef.current = false;
+        track('report_opened', {
+          target_type: type,
+          target_id: id,
+          source_screen: source,
+        });
         setIsOpen(true);
       },
       close: () => {
