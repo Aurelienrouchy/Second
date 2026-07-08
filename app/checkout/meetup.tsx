@@ -219,6 +219,13 @@ export default function MeetupCheckoutScreen() {
       });
     } catch (error: any) {
       if (__DEV__) console.error('Error creating meetup transaction:', error);
+      track('offer_send_failed', {
+        article_id: article.id,
+        source: 'checkout_direct',
+        mode: 'meetup',
+        offer_amount_cents: Math.round(finalPrice * 100),
+        failure_type: 'server_error',
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
       // Cloud Function errors arrive as FirebaseError with a readable
