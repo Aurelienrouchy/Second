@@ -179,6 +179,16 @@ export const expireOrphanedTransactions = onSchedule(
                 error: err instanceof Error ? err.message : err,
               });
             });
+
+            // Analytics (§12): system-expiry cancellation of a pending meetup.
+            await captureServerEvent(data.buyerId, 'order_cancelled', {
+              transaction_id: transactionId,
+              cancelled_by: 'system_expiry',
+              stage: 'pending_payment',
+              refunded_cents: 0,
+              article_relisted: true,
+              $insert_id: `order_cancelled_${transactionId}`,
+            });
           }
         }
 
