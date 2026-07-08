@@ -159,6 +159,9 @@ const GlobalListeners = React.memo(function GlobalListeners() {
   // ── Deep linking : custom URL patterns (Expo Router gère le reste) ──
   useDeepLinking();
 
+  // ── Analytics : screen views on every route change (route pattern only) ──
+  useScreenTracking();
+
   // ── Sell drafts : prune expired drafts + orphaned local images once at
   // startup so stale FileSystem/Storage artifacts don't accumulate. Fire-
   // and-forget; failures are swallowed (draftService logs in dev). ──
