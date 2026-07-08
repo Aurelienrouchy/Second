@@ -230,6 +230,10 @@ export async function applyTrackingOutcome(
 
   // ---- Real carrier scan: label_created -> shipped ----
   if (CARRIER_SCANNED.has(mappedStatus)) {
+    let shippedBuyerId: string | null = null;
+    let shippedCarrier = '';
+    let shippedDaysSincePaid = 0;
+
     const changed = await db.runTransaction(async (tx) => {
       const snap = await tx.get(txRef);
       if (!snap.exists) return false;
@@ -243,6 +247,9 @@ export async function applyTrackingOutcome(
           shippedAt: FieldValue.serverTimestamp(),
           trackingStatus: mappedStatus,
         });
+        shippedBuyerId = typeof data.buyerId === 'string' ? data.buyerId : null;
+        shippedCarrier = typeof data.carrierCode === 'string' ? data.carrierCode : '';
+        shippedDaysSincePaid = daysSince(data.paidAt);
         return true;
       }
       // Already shipped/delivered/etc — just refresh trackingStatus if changed.
@@ -251,6 +258,16 @@ export async function applyTrackingOutcome(
       }
       return false;
     });
+
+    // Analytics (§12): order_shipped follows the BUYER.
+    if (changed && shippedBuyerId) {
+      await captureServerEvent(shippedBuyerId, 'order_shipped', {
+        transaction_id: transactionId,
+        carrier: shippedCarrier,
+        days_since_paid: shippedDaysSincePaid,
+        $insert_id: `order_shipped_${transactionId}`,
+      });
+    }
     return { kind: changed ? 'shipped' : 'tracking_updated', changed };
   }
 
