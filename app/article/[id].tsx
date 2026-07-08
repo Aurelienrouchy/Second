@@ -50,7 +50,7 @@ import {
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 export default function ArticleDetailScreen() {
-  const { id, partyId, swapItemId } = useLocalSearchParams<{ id: string; partyId?: string; swapItemId?: string }>();
+  const { id, partyId, swapItemId, source } = useLocalSearchParams<{ id: string; partyId?: string; swapItemId?: string; source?: string }>();
   const isSwapContext = !!partyId;
   const makeOfferModalRef = useRef<MakeOfferModalRef>(null);
   const reportBottomSheetRef = useRef<ReportBottomSheetRef>(null);
