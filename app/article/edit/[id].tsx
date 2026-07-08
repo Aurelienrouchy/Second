@@ -820,7 +820,10 @@ export default function EditArticleScreen() {
           {/* Condition */}
           <ConditionSelector
             value={fields.condition}
-            onChange={(value) => updateField('condition', value)}
+            onChange={(value) => {
+              updateField('condition', value);
+              track('sell_field_edited', { screen: 'edit', field: 'condition', value });
+            }}
           />
 
           {/* Separator */}
