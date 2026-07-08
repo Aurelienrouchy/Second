@@ -216,8 +216,8 @@ export default function ChatScreen() {
         track('message_sent', {
           chat_id: chatId ?? '',
           message_type: 'image',
-          has_article: !!chat?.articleId,
-          is_seller: user?.id === chat?.sellerId,
+          has_article: !!chatArticleId,
+          is_seller: userId === chatSellerId,
           outcome: 'success',
         });
       }
@@ -226,8 +226,8 @@ export default function ChatScreen() {
       track('message_sent', {
         chat_id: chatId ?? '',
         message_type: 'image',
-        has_article: !!chat?.articleId,
-        is_seller: user?.id === chat?.sellerId,
+        has_article: !!chatArticleId,
+        is_seller: userId === chatSellerId,
         outcome: 'error',
       });
       const msg = err instanceof Error ? err.message : '';
@@ -235,7 +235,7 @@ export default function ChatScreen() {
     } finally {
       setIsSendingImage(false);
     }
-  }, [sendImage, isOtherBlocked, chatId, chat?.articleId, chat?.sellerId, user?.id]);
+  }, [sendImage, isOtherBlocked, chatId, chatArticleId, chatSellerId, userId]);
 
   const handleMakeOffer = useCallback(() => {
     const currentPrice = article?.price ?? chat?.articlePrice;
