@@ -33,12 +33,22 @@ export function useChatModeration({
     const handleBlock = async () => {
       try {
         await ModerationService.blockUser(currentUserId, otherParticipant.userId, otherParticipant.userName);
+        track('user_blocked', {
+          blocked_user_id: otherParticipant.userId,
+          source: 'chat',
+          success: true,
+        });
         Alert.alert(
           'Utilisateur bloque',
           `${formatDisplayName(otherParticipant.userName)} a ete bloque.`,
         );
         router.back();
       } catch (err: unknown) {
+        track('user_blocked', {
+          blocked_user_id: otherParticipant.userId,
+          source: 'chat',
+          success: false,
+        });
         const message = err instanceof Error ? err.message : 'Une erreur est survenue';
         Alert.alert('Erreur', message);
       }
