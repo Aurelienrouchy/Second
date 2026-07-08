@@ -44,6 +44,7 @@ import {
 } from '../config/shipEngine';
 import { resolveSellerOriginAddress } from './payments';
 import { Timestamp } from 'firebase-admin/firestore';
+import { captureServerEvent } from '../lib/analytics';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
