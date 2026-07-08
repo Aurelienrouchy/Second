@@ -95,6 +95,16 @@ export default function AdminShopsScreen() {
     }
   };
 
+  useEffect(() => {
+    checkAdminAccess();
+  }, [user]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadShops();
+    }
+  }, [selectedTab, isAdmin]);
+
   const handleApprove = async (shop: Shop) => {
     if (!user) return;
 
