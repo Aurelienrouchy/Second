@@ -1483,6 +1483,18 @@ async function handleShopTierSucceeded(paymentIntent: any): Promise<void> {
       periodMonths,
       paidUntil: result.paidUntilIso,
     });
+    // Analytics (§12): distinct_id = shop owner; poses the shop_tier user property.
+    if (result.ownerId) {
+      await captureServerEvent(result.ownerId, 'shop_tier_activated', {
+        shop_id: shopId,
+        tier,
+        period_months: periodMonths,
+        amount_cents: amountReceivedCents,
+        is_renewal: result.isRenewal,
+        $set: { shop_tier: tier, has_shop: true },
+        $insert_id: `shop_tier_${paymentIntent.id}`,
+      });
+    }
     return;
   }
 
