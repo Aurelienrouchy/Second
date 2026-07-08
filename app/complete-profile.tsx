@@ -114,18 +114,40 @@ export default function CompleteProfileScreen() {
       .then((res) => {
         // Ignore if a newer keystroke superseded this request.
         if (reqId !== requestIdRef.current) return;
+        usernameCheckCountRef.current += 1;
         if (res.available) {
           setUsernameStatus('available');
           setUsernameError(undefined);
+          track('username_checked', {
+            result: 'available',
+            username_length: value.length,
+            attempt_index: usernameCheckCountRef.current,
+          });
         } else if (res.reason === 'taken') {
           setUsernameStatus('taken');
           setUsernameError(COPY_USERNAME.errTaken);
+          track('username_checked', {
+            result: 'taken',
+            username_length: value.length,
+            attempt_index: usernameCheckCountRef.current,
+          });
         } else if (res.reason) {
           setUsernameStatus('invalid');
           setUsernameError(reasonToError(res.reason));
+          track('username_checked', {
+            result: 'invalid',
+            invalid_reason: res.reason,
+            username_length: value.length,
+            attempt_index: usernameCheckCountRef.current,
+          });
         } else {
           setUsernameStatus('available');
           setUsernameError(undefined);
+          track('username_checked', {
+            result: 'available',
+            username_length: value.length,
+            attempt_index: usernameCheckCountRef.current,
+          });
         }
       })
       .catch((error) => {
@@ -133,6 +155,12 @@ export default function CompleteProfileScreen() {
         if (__DEV__) console.log('[complete-profile] availability check failed:', error);
         setUsernameStatus('network-error');
         setUsernameError(COPY_USERNAME.errNetwork);
+        usernameCheckCountRef.current += 1;
+        track('username_checked', {
+          result: 'network_error',
+          username_length: value.length,
+          attempt_index: usernameCheckCountRef.current,
+        });
       });
   }, []);
 
