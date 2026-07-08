@@ -123,6 +123,28 @@ export default function MeetupCheckoutScreen() {
   const selectedSpot = isSpotSelected ? (selectedOption as MeetupSpot) : null;
   const isViaChatSelected = selectedOption === VIA_CHAT_OPTION;
 
+  const handleSelectSpot = (spot: MeetupSpot) => {
+    setSelectedOption(spot);
+    if (!article) return;
+    track('meetup_spot_selected', {
+      article_id: article.id,
+      option: 'seller_spot',
+      spot_category: spot.category,
+      neighborhood_id: spot.neighborhood?.id,
+      seller_spots_count: article.preferredMeetupSpots?.length ?? 0,
+    });
+  };
+
+  const handleSelectViaChat = () => {
+    setSelectedOption(VIA_CHAT_OPTION);
+    if (!article) return;
+    track('meetup_spot_selected', {
+      article_id: article.id,
+      option: 'via_chat',
+      seller_spots_count: article.preferredMeetupSpots?.length ?? 0,
+    });
+  };
+
   const handleConfirm = async () => {
     if (!article || !selectedOption || submitting || !currentUser) return;
 
