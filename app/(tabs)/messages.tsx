@@ -111,10 +111,20 @@ export default function MessagesScreen() {
   const activeTab = pickedTab ?? defaultTab;
 
   const handleChatPress = useCallback(
-    (chatId: string) => {
-      router.push(`/chat/${chatId}`);
+    (chat: Chat) => {
+      const unread = user ? chat.unreadCount?.[user.id] || 0 : 0;
+      track('conversation_opened', {
+        chat_id: chat.id,
+        conversation_type: getConversationType(chat),
+        unread_count: unread,
+        is_blocked: isChatBlocked(chat),
+        has_article: chat.articleId != null,
+        article_id: chat.articleId ?? undefined,
+        last_message_type: chat.lastMessageType ?? 'text',
+      });
+      router.push(`/chat/${chat.id}`);
     },
-    [router]
+    [router, user, getConversationType, isChatBlocked]
   );
 
   const currentUserId = user?.id ?? null;
