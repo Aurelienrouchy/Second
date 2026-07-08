@@ -183,7 +183,8 @@ export function useArticleSearch({
   // Logged once per queryKey when the first page resolves (success/empty/error);
   // pagination reuses the same key and is skipped via loggedKeyRef.
   const queryKeyStr = useMemo(() => JSON.stringify(queryKey), [queryKey]);
-  const searchStartRef = useRef<number>(Date.now());
+  // Seeded by the effect below at mount (before the logging effect reads it).
+  const searchStartRef = useRef<number>(0);
   const loggedKeyRef = useRef<string>('');
 
   useEffect(() => {
