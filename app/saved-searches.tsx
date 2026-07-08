@@ -317,7 +317,7 @@ export default function SavedSearches() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, reloadKey]);
+  }, [userId, reloadKey]);
 
   const handleRetry = useCallback(() => {
     track('error_retry_tapped', { screen: 'saved_searches', error_context: 'saved_searches_load' });
