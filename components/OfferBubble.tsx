@@ -679,6 +679,14 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const handlePayment = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    track('offer_pay_tapped', {
+      chat_id: chatId,
+      article_id: articleId ?? undefined,
+      offer_amount_cents: Math.round(amount * 100),
+      transaction_exists: !!transactionId,
+      destination: transactionId ? 'payment' : articleId ? 'checkout' : 'error',
+    });
+
     if (transactionId) {
       // Transaction already exists — go straight to payment
       router.push(`/payment/${transactionId}`);
