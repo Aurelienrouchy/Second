@@ -20,37 +20,38 @@ type GuardState = 'checking' | 'allowed' | 'denied';
 export default function AdminLayout() {
   const user = useUser();
   const isAuthLoading = useIsLoading();
-  const [state, setState] = useState<GuardState>('checking');
+  const [adminCheck, setAdminCheck] = useState<{ uid: string; isAdmin: boolean } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (isAuthLoading) {
-      setState('checking');
-      return;
-    }
+    if (isAuthLoading || !user) return;
 
-    if (!user) {
-      setState('denied');
-      return;
-    }
-
-    setState('checking');
     UserService.isUserAdmin(user.id)
       .then((isAdmin) => {
         if (cancelled) return;
-        setState(isAdmin ? 'allowed' : 'denied');
+        setAdminCheck({ uid: user.id, isAdmin });
       })
       .catch((error) => {
         if (__DEV__) console.error('[AdminLayout] admin check failed:', error);
         if (cancelled) return;
-        setState('denied');
+        setAdminCheck({ uid: user.id, isAdmin: false });
       });
 
     return () => {
       cancelled = true;
     };
   }, [user, isAuthLoading]);
+
+  const state: GuardState = isAuthLoading
+    ? 'checking'
+    : !user
+      ? 'denied'
+      : adminCheck?.uid === user.id
+        ? adminCheck.isAdmin
+          ? 'allowed'
+          : 'denied'
+        : 'checking';
 
   if (state === 'checking') {
     return (
