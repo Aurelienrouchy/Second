@@ -179,6 +179,7 @@ export default function ChatScreen() {
 
   const handlePickImage = useCallback(async () => {
     if (isOtherBlocked) {
+      track('blocked_action_attempted', { chat_id: chatId ?? '', attempted_action: 'image' });
       Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour lui envoyer une image.');
       return;
     }
@@ -202,15 +203,29 @@ export default function ChatScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         await sendImage(result.assets[0].uri);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        track('message_sent', {
+          chat_id: chatId ?? '',
+          message_type: 'image',
+          has_article: !!chat?.articleId,
+          is_seller: user?.id === chat?.sellerId,
+          outcome: 'success',
+        });
       }
     } catch (err: unknown) {
       if (__DEV__) console.error('Error picking image:', err);
+      track('message_sent', {
+        chat_id: chatId ?? '',
+        message_type: 'image',
+        has_article: !!chat?.articleId,
+        is_seller: user?.id === chat?.sellerId,
+        outcome: 'error',
+      });
       const msg = err instanceof Error ? err.message : '';
       Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer l'image");
     } finally {
       setIsSendingImage(false);
     }
-  }, [sendImage, isOtherBlocked]);
+  }, [sendImage, isOtherBlocked, chatId, chat?.articleId, chat?.sellerId, user?.id]);
 
   const handleMakeOffer = useCallback(() => {
     if (isOtherBlocked) {
