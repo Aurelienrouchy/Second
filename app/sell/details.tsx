@@ -211,10 +211,24 @@ export default function DetailsScreen() {
         'Quitter ?',
         'Tes modifications seront sauvegardées dans le brouillon.',
         [
-          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Annuler',
+            style: 'cancel',
+            onPress: () =>
+              track('sell_exit_prompted', {
+                flow_step: 'details',
+                confirmed_leave: false,
+                photo_count: photos.length,
+              }),
+          },
           {
             text: 'Quitter',
             onPress: () => {
+              track('sell_exit_prompted', {
+                flow_step: 'details',
+                confirmed_leave: true,
+                photo_count: photos.length,
+              });
               allowLeaveRef.current = true;
               navigation.dispatch(e.data.action);
             },
