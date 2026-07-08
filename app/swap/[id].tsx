@@ -264,9 +264,11 @@ export default function SwapDetailScreen() {
             setIsProcessing(true);
             try {
               await cancelSwap(id);
+              track('swap_cancelled', { swap_id: id, outcome: 'success' });
               router.back();
             } catch (error) {
               if (__DEV__) console.error('Error cancelling swap:', error);
+              track('swap_cancelled', { swap_id: id, outcome: 'error' });
               Alert.alert('Erreur', "Impossible d'annuler l'échange");
             } finally {
               setIsProcessing(false);
