@@ -17,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
 import { colors, spacing, fonts, radius, sizing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { useNotificationStore, selectUnreadCount } from '@/store/notificationStore';
 import { CATEGORIES } from '@/data/categories-v2';
 
