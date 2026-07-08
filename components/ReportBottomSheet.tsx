@@ -135,6 +135,13 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
           ]
         );
       } catch (error: any) {
+        track('report_submitted', {
+          target_type: targetType,
+          target_id: targetId,
+          reason: selectedReason,
+          has_description: description.trim().length > 0,
+          success: false,
+        });
         Alert.alert('Erreur', error.message || 'Une erreur est survenue');
       } finally {
         setLoading(false);
