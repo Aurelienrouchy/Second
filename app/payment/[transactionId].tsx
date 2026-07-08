@@ -259,6 +259,10 @@ export default function PaymentScreen() {
   // same pending_payment transaction. Wallet selection is preserved.
   const retryStripePayment = useCallback(async () => {
     if (!transactionId) return;
+    track('payment_retried', {
+      transaction_id: transactionId,
+      uses_wallet: useWalletBalance,
+    });
     try {
       setIsCreatingCheckout(true);
       const checkoutParams: Record<string, unknown> = { transactionId };
@@ -275,6 +279,13 @@ export default function PaymentScreen() {
       }
       setClientSecret(data.clientSecret);
       setShowStripePayment(true);
+      track('payment_sheet_presented', {
+        source: 'payment',
+        context_id: transactionId,
+        server_buyer_total_cents: totalAmountCents,
+        wallet_amount_cents: walletAmountCents > 0 ? walletAmountCents : undefined,
+        is_retry: true,
+      });
     } catch (error: unknown) {
       if (__DEV__) console.error('Error retrying payment:', error);
       const msg = error instanceof Error ? error.message : 'Impossible de relancer le paiement.';

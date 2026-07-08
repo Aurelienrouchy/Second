@@ -61,7 +61,7 @@ export default function MyArticlesScreen() {
     swipeableRefs.current.forEach((ref) => ref?.close());
   };
 
-  const handleDeleteArticle = (article: Article) => {
+  const handleDeleteArticle = (article: Article, entry: 'menu' | 'swipe' = 'menu') => {
     Alert.alert(
       'Supprimer définitivement',
       `"${article.title}" sera supprimé définitivement. Cette action est irréversible.`,
@@ -73,6 +73,14 @@ export default function MyArticlesScreen() {
           onPress: async () => {
             try {
               await ArticlesService.deleteArticle(article.id);
+              track('article_deleted', {
+                article_id: article.id,
+                is_sold: article.isSold,
+                outcome: 'success',
+                source: 'my_articles',
+                entry,
+                price_cents: Math.round(article.price * 100),
+              });
               queryClient.setQueryData<Article[]>(
                 queryKeys.articles.userList(user!.id),
                 (old) => old?.filter((a) => a.id !== article.id) ?? []
@@ -80,6 +88,14 @@ export default function MyArticlesScreen() {
               closeAllSwipeables();
             } catch (error) {
               if (__DEV__) console.error('Erreur suppression:', error);
+              track('article_deleted', {
+                article_id: article.id,
+                is_sold: article.isSold,
+                outcome: 'error',
+                source: 'my_articles',
+                entry,
+                price_cents: Math.round(article.price * 100),
+              });
               Alert.alert('Erreur', 'Impossible de supprimer l\'article');
             }
           },
