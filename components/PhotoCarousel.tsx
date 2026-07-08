@@ -58,7 +58,7 @@ export default function PhotoCarousel({
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
+        viewabilityConfig={VIEWABILITY_CONFIG}
         bounces={false}
       />
 
