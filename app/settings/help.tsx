@@ -14,6 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 
