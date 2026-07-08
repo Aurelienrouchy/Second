@@ -630,6 +630,16 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               });
             } catch (error) {
               if (__DEV__) console.error('Error completing meetup:', error);
+              track('meetup_completed', {
+                chat_id: chatId,
+                article_id: articleId ?? '',
+                transaction_id: transactionId ?? undefined,
+                offer_amount_cents: Math.round(amount * 100),
+                role,
+                dialog_outcome: 'confirmed',
+                result: 'error',
+                error_code: errCode(error),
+              });
               // B2 : la callable peut échouer si la transaction a été annulée
               // (auto-annulation 7j) ou disputée entre-temps. On surface le
               // message FR du service plutôt qu'un générique, et on ne marque
