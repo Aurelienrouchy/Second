@@ -78,7 +78,7 @@ const AnimatedDot: React.FC<AnimatedDotProps> = ({ index, currentIndex }) => {
 };
 
 // ─── Main Component ───
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange, articleId }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isZoomModalVisible, setIsZoomModalVisible] = useState(false);
   const scale = useSharedValue(1);
