@@ -105,8 +105,17 @@ function toSwapItemInfo(item: SwapPartyItemExtended): SwapItemInfo {
 // SCREEN
 // =============================================================================
 
+const SWAP_ZONE_SOURCES = ['home', 'profile', 'my_swaps_empty', 'deep_link'] as const;
+type SwapZoneSource = (typeof SWAP_ZONE_SOURCES)[number];
+
 export default function SwapZoneScreen() {
   const partyId = GENERALIST_ZONE_ID;
+  const { source: sourceParam } = useLocalSearchParams<{ source?: string }>();
+  const viewSource: SwapZoneSource = SWAP_ZONE_SOURCES.includes(
+    sourceParam as SwapZoneSource
+  )
+    ? (sourceParam as SwapZoneSource)
+    : 'deep_link';
   const user = useUser();
   const { requireAuth } = useRequireAuth();
   const queryClient = useQueryClient();
