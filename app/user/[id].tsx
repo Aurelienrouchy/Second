@@ -379,7 +379,7 @@ export default function UserProfileScreen() {
                 success: true,
               });
               queryClient.invalidateQueries({
-                queryKey: ['blockedUsers', currentUser.id],
+                queryKey: ['blockedUsers', currentUserId],
               });
               Alert.alert('Utilisateur bloqué', `${name} a été bloqué.`, [
                 { text: 'OK', onPress: () => router.back() },
