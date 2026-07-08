@@ -270,9 +270,15 @@ export function useSearchScreen() {
 
   // ─── Navigation handlers ────────────────────────────────────────
   const handleClose = useCallback(() => {
+    const keys = buildFilterKeys(filters, selectedCategoryPath, selectedSort);
+    track('search_closed', {
+      had_results: articles.length > 0,
+      query_length: activeSearchQuery.trim().length,
+      any_filter_active: keys.length > 0,
+    });
     Keyboard.dismiss();
     router.back();
-  }, []);
+  }, [filters, selectedCategoryPath, selectedSort, articles.length, activeSearchQuery]);
 
   const handleProductPress = useCallback(
     (article: Article | ArticleWithLocation) => {

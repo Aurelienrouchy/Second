@@ -43,8 +43,12 @@ export default function EmailSettingsScreen() {
   const isAppleOnAndroid = provider === 'apple.com' && Platform.OS !== 'ios';
   const hasPasswordProvider = AuthService.hasPasswordProvider();
 
+  const emailAuthProvider: 'password' | 'google' | 'apple' =
+    provider === 'google.com' ? 'google' : provider === 'apple.com' ? 'apple' : 'password';
+
   const handleReauthSocial = async () => {
     setReauthLoading(true);
+    const reauthProvider: 'google' | 'apple' = provider === 'google.com' ? 'google' : 'apple';
     try {
       if (provider === 'google.com') {
         await AuthService.reauthenticateWithGoogle();
@@ -52,11 +56,22 @@ export default function EmailSettingsScreen() {
         await AuthService.reauthenticateWithApple();
       }
       setReauthDone(true);
+      track('reauth_performed', {
+        context: 'email_change',
+        provider: reauthProvider,
+        result: 'success',
+      });
     } catch (error: unknown) {
       const code = error != null && typeof error === 'object' && 'code' in error
         ? (error as { code: string }).code
         : undefined;
-      if (code !== 'ERR_REQUEST_CANCELED' && code !== 'SIGN_IN_CANCELLED') {
+      const cancelled = code === 'ERR_REQUEST_CANCELED' || code === 'SIGN_IN_CANCELLED';
+      track('reauth_performed', {
+        context: 'email_change',
+        provider: reauthProvider,
+        result: cancelled ? 'cancelled' : 'error',
+      });
+      if (!cancelled) {
         Alert.alert('Erreur', 'La vérification a échoué. Veuillez réessayer.');
       }
     } finally {
