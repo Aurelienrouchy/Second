@@ -20,6 +20,17 @@ import { db, FieldValue } from '../config/firebase';
 import { sendPushNotification } from '../utils/notifications';
 import { refundSwapTopUpIfPaid } from '../callable/swaps';
 import { writeAdminAlert } from '../utils/failedOperations';
+import { captureServerEvent } from '../lib/analytics';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function swapDaysOpen(swap: FirebaseFirestore.DocumentData): number {
+  const createdAt = swap.createdAt;
+  if (createdAt && typeof createdAt.toMillis === 'function') {
+    return Math.round(((Date.now() - createdAt.toMillis()) / MS_PER_DAY) * 100) / 100;
+  }
+  return 0;
+}
 
 /** Resolve items arrays with backward compat for legacy single-item swaps */
 function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
