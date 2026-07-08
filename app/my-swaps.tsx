@@ -333,7 +333,7 @@ function SwapCard({
   const isMultiArticle = myItems.length > 1 || theirItems.length > 1;
 
   const handlePress = () => {
-    router.push(`/swap/${swap.id}`);
+    router.push({ pathname: '/swap/[id]', params: { id: swap.id, source: 'my_swaps' } });
   };
 
   const formatDate = (date: Date) => {
