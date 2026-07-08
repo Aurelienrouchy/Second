@@ -427,6 +427,9 @@ Le dossier `contexts/` a été **entièrement supprimé** (shims legacy élimin�
 | `ai.ts` | Intégration Gemini |
 | `brands.ts` | Gestion marques |
 
+### Lib backend — `functions/src/lib/`
+analytics.ts (PostHog serveur `posthog-node` — `captureServerEvent(distinctId, event, properties)` : source de vérité §12 « backend » des événements analytics ; `flushAt:1`/`flushInterval:0` + `captureImmediate`, clé publique `POSTHOG_API_KEY` via `process.env` (pas Secret Manager), no-op si absente, ne throw jamais ; `$insert_id` = id métier pour l'idempotence anti-replay webhook ; union typée `ServerEvent` des 21 noms serveur du catalogue)
+
 ### Config backend — `functions/src/config/`
 firebase.ts, gemini.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, stripe.ts
 
