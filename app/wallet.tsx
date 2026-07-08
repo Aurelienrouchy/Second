@@ -45,6 +45,7 @@ import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useWallet } from '@/hooks/useWallet';
 import type { WalletLedgerEntry, WithdrawalRequest } from '@/types';
 import { formatCents } from '@/utils/formatPrice';
+import { track } from '@/lib/analytics';
 
 // =============================================================================
 // COPY (spec UX_PAIEMENT_LIVRAISON — telle quelle)
