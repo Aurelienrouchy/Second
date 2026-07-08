@@ -356,7 +356,9 @@ export default function CompleteProfileScreen() {
     acceptedPrivacy,
   ].filter(Boolean).length;
   const fieldsFilledRef = useRef(fieldsFilledCount);
-  fieldsFilledRef.current = fieldsFilledCount;
+  useEffect(() => {
+    fieldsFilledRef.current = fieldsFilledCount;
+  }, [fieldsFilledCount]);
 
   // ── Mandatory step: lock the Android hardware back (no-op, consume it). The
   // iOS back-swipe is already blocked via gestureEnabled:false in the Stack. ──
