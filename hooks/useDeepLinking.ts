@@ -126,7 +126,9 @@ export function useDeepLinking(): void {
 
   // Defer the cold-start URL until the navigator is ready, then consume once.
   const navigatorReadyRef = useRef(navigatorReady);
-  navigatorReadyRef.current = navigatorReady;
+  useEffect(() => {
+    navigatorReadyRef.current = navigatorReady;
+  }, [navigatorReady]);
   const pendingInitialUrlRef = useRef<string | null>(null);
   const initialUrlHandledRef = useRef(false);
 
