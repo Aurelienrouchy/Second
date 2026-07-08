@@ -559,7 +559,7 @@ export default function ShippingCheckoutScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [pendingTransactionId, fetchShippingEstimates]);
+  }, [pendingTransactionId, fetchShippingEstimates, useWalletBalance, totalAmount]);
 
   const cancelPendingTransaction = useCallback(async () => {
     if (pendingTransactionId) {
