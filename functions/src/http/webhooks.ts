@@ -32,6 +32,7 @@ import { issueTransactionRefund } from '../utils/refund';
 import { revertFailedPayout } from '../utils/payoutRecovery';
 import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
 import { shopTierPriceCents, type PaidShopTier } from '../callable/shopTier';
+import { captureServerEvent } from '../lib/analytics';
 
 /**
  * F107: TTL for `stripe_events` dedup markers. 90 days is far beyond Stripe's
