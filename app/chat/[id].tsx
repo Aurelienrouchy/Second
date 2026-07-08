@@ -140,6 +140,10 @@ export default function ChatScreen() {
 
   // ─── Handlers ───
 
+  const userId = user?.id;
+  const chatArticleId = chat?.articleId;
+  const chatSellerId = chat?.sellerId;
+
   const handleSendMessage = useCallback(async () => {
     if (!messageText.trim() || !user) return;
     if (isOtherBlocked) {
