@@ -228,6 +228,11 @@ export default function EditArticleScreen() {
       initialImagesRef.current = loadedImages;
     } catch (error) {
       if (__DEV__) console.error('Error loading article:', error);
+      track('article_edit_opened', {
+        article_id: articleId,
+        outcome: 'load_error',
+        source: editSource,
+      });
       Alert.alert('Erreur', 'Impossible de charger l\'article');
       router.back();
     } finally {
