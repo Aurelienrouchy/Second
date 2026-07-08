@@ -96,6 +96,19 @@ export default function CaptureScreen() {
     }
   }, [permission]);
 
+  // Fire once when the OS resolves the camera permission to denied.
+  const cameraDeniedTracked = useRef(false);
+  useEffect(() => {
+    if (permission?.status === 'denied' && !cameraDeniedTracked.current) {
+      cameraDeniedTracked.current = true;
+      track('permission_denied', {
+        permission: 'camera',
+        context: 'sell_capture',
+        can_ask_again: permission.canAskAgain,
+      });
+    }
+  }, [permission]);
+
   // Initialize or load draft on mount
   useEffect(() => {
     const initDraft = async () => {
