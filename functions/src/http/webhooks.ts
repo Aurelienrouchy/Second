@@ -1308,6 +1308,16 @@ async function handleSwapTopUpSucceeded(paymentIntent: any): Promise<void> {
       paymentIntentId: paymentIntent.id,
       payeeId,
     });
+    // Analytics (§12): distinct_id = payer of the cash top-up.
+    const payerId = 'payerId' in result ? result.payerId : null;
+    if (payerId) {
+      await captureServerEvent(payerId, 'swap_topup_paid', {
+        swap_id: swapId,
+        cash_top_up_cents: baseAmountCents,
+        payer_id: payerId,
+        $insert_id: `swap_topup_${swapId}`,
+      });
+    }
   }
 }
 
