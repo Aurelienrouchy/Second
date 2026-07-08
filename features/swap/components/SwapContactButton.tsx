@@ -14,6 +14,7 @@ import { colors, fonts } from '@/constants/theme';
 import { useUser } from '@/hooks/useAuth';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { ChatService } from '@/services/chatService';
+import { track } from '@/lib/analytics';
 
 interface SwapContactButtonProps {
   otherUserId: string;
