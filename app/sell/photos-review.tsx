@@ -299,9 +299,22 @@ export default function PhotosReviewScreen() {
         buildFinalPills(response.result);
         setProgressSteps((prev) => prev.map((s) => ({ ...s, state: 'done' as const })));
         setAnalysisState('complete');
+        track('ai_analysis_completed', {
+          photo_count: photos.length,
+          prefilled_count: countPrefilledFields(response.result),
+          detected_category: !!response.result.category?.categoryId,
+          detected_brand: !!response.result.brand?.detected,
+          detected_size: !!(response.result.size?.normalized || response.result.size?.detected),
+          duration_ms: Date.now() - analysisStartedAt,
+        });
       } else {
         setErrorMessage(response.error?.message || "Une erreur est survenue lors de l'analyse");
         setAnalysisState('error');
+        track('ai_analysis_failed', {
+          photo_count: photos.length,
+          error_code: response.error?.code ?? 'analysis_failed',
+          attempt_number: attemptNumber,
+        });
       }
     } catch (error: unknown) {
       // Ignore cancellations triggered by unmount / leaving the screen.
@@ -309,6 +322,11 @@ export default function PhotosReviewScreen() {
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
       setErrorMessage(message);
       setAnalysisState('error');
+      track('ai_analysis_failed', {
+        photo_count: photos.length,
+        error_code: error instanceof Error ? error.name : 'exception',
+        attempt_number: attemptNumber,
+      });
     }
   };
 
