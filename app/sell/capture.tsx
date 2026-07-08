@@ -178,9 +178,24 @@ export default function CaptureScreen() {
       });
       if (!result.canceled && result.assets.length > 0) {
         const uris = result.assets.map((asset) => asset.uri);
+        const added = uris.slice(0, remainingSlots);
         setPhotos((prev) => {
           const remaining = MAX_PHOTOS - prev.length;
           return [...prev, ...uris.slice(0, remaining)];
+        });
+        track('sell_photo_added', {
+          screen: 'capture',
+          method: 'gallery',
+          count_added: added.length,
+          photo_count_after: photos.length + added.length,
+        });
+      } else if (result.canceled) {
+        track('sell_photo_added', {
+          screen: 'capture',
+          method: 'gallery',
+          count_added: 0,
+          photo_count_after: photos.length,
+          cancelled: true,
         });
       }
     } catch (error) {
@@ -190,7 +205,12 @@ export default function CaptureScreen() {
 
   const handleRemovePhoto = useCallback((index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+    track('sell_photo_removed', {
+      screen: 'capture',
+      photo_index: index,
+      photo_count_after: Math.max(0, photos.length - 1),
+    });
+  }, [photos.length]);
 
   const handleClose = () => {
     const draft = draftRef.current;
