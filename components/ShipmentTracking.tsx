@@ -229,31 +229,51 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       );
       const result = await checkTracking({ transactionId: transaction.id });
 
+      track('tracking_refreshed', {
+        transaction_id: transaction.id,
+        tracking_status: transaction.trackingStatus ?? '',
+        success: !!result.data?.success,
+      });
+
       if (result.data?.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onStatusUpdate?.();
       }
     } catch (error: unknown) {
       if (__DEV__) console.error('Error refreshing tracking:', error);
+      track('tracking_refreshed', {
+        transaction_id: transaction.id,
+        tracking_status: transaction.trackingStatus ?? '',
+        success: false,
+      });
       Alert.alert('Erreur', 'Impossible de mettre à jour le suivi');
     } finally {
       setIsRefreshing(false);
     }
-  }, [transaction.id, onStatusUpdate]);
+  }, [transaction.id, transaction.trackingStatus, onStatusUpdate]);
 
   const handleOpenTracking = useCallback(() => {
     if (transaction.trackingUrl) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      track('tracking_link_opened', {
+        transaction_id: transaction.id,
+        carrier_code: transaction.carrierCode ?? '',
+        tracking_status: transaction.trackingStatus ?? '',
+      });
       Linking.openURL(transaction.trackingUrl);
     }
-  }, [transaction.trackingUrl]);
+  }, [transaction.trackingUrl, transaction.id, transaction.carrierCode, transaction.trackingStatus]);
 
   const handleDownloadLabel = useCallback(() => {
     if (transaction.shippingLabelUrl) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      track('shipping_label_downloaded', {
+        transaction_id: transaction.id,
+        status: transaction.status,
+      });
       Linking.openURL(transaction.shippingLabelUrl);
     }
-  }, [transaction.shippingLabelUrl]);
+  }, [transaction.shippingLabelUrl, transaction.id, transaction.status]);
 
   // ---------------------------------------------------------------------------
   // BUYER RECOURSE — wired to the buyer-facing callables
