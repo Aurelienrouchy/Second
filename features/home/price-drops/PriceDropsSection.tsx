@@ -222,7 +222,12 @@ const PriceDropsSectionComponent: React.FC = () => {
       <SectionHeader
         title="Baisses de prix"
         action="Voir tout"
-        onActionPress={() => router.push('/search')}
+        onActionPress={() =>
+          router.push({
+            pathname: '/search',
+            params: { source: 'home_see_all', sectionId: 'price-drops' },
+          })
+        }
       />
       <View style={styles.container}>
         <ScrollView

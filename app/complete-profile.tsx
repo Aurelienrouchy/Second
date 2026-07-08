@@ -231,6 +231,24 @@ export default function CompleteProfileScreen() {
   const ageValid = age !== null && age >= MIN_AGE_REGISTER;
   const showAgeError = dobTouched && dobComplete && (isoDob === null || !ageValid);
 
+  // signup_age_checked: fire once the DOB is complete, and again when its
+  // outcome changes. Never sends the DOB — only the result + a coarse age band.
+  const lastAgeResultRef = useRef<'valid' | 'invalid_date' | 'underage' | null>(null);
+  useEffect(() => {
+    if (!dobComplete) {
+      lastAgeResultRef.current = null;
+      return;
+    }
+    const result: 'valid' | 'invalid_date' | 'underage' =
+      isoDob === null ? 'invalid_date' : !ageValid ? 'underage' : 'valid';
+    if (lastAgeResultRef.current === result) return;
+    lastAgeResultRef.current = result;
+    track('signup_age_checked', {
+      result,
+      ...(result === 'valid' && age !== null ? { age_band: ageToBand(age) } : {}),
+    });
+  }, [dobComplete, isoDob, ageValid, age]);
+
   // ── Submit gate ──
   // CONTINUER enabled only when: @pseudo confirmed free+well-formed, DOB valid
   // (age >= 16), both required boxes checked, not already submitting.
