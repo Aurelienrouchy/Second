@@ -2128,6 +2128,8 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
         disputeFreezeCents: 0,
       });
 
+      lostRefundBuyerId = typeof buyerId === 'string' ? buyerId : null;
+
       logger.warn('Stripe webhook: dispute.closed LOST — seller debited, transaction refunded', {
         transactionId,
       });
