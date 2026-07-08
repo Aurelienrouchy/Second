@@ -542,7 +542,22 @@ export default function EditArticleScreen() {
       });
       if (!result.canceled && result.assets.length > 0) {
         const newImages = result.assets.map((asset) => ({ url: asset.uri }));
-        setEditedImages((prev) => [...prev, ...newImages.slice(0, remainingSlots)]);
+        const added = newImages.slice(0, remainingSlots);
+        setEditedImages((prev) => [...prev, ...added]);
+        track('sell_photo_added', {
+          screen: 'edit',
+          method: 'gallery',
+          count_added: added.length,
+          photo_count_after: editedImages.length + added.length,
+        });
+      } else if (result.canceled) {
+        track('sell_photo_added', {
+          screen: 'edit',
+          method: 'gallery',
+          count_added: 0,
+          photo_count_after: editedImages.length,
+          cancelled: true,
+        });
       }
     } catch (error) {
       if (__DEV__) console.error('Error picking images:', error);
@@ -551,7 +566,12 @@ export default function EditArticleScreen() {
 
   const handleRemovePhoto = useCallback((index: number) => {
     setEditedImages((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+    track('sell_photo_removed', {
+      screen: 'edit',
+      photo_index: index,
+      photo_count_after: Math.max(0, editedImages.length - 1),
+    });
+  }, [editedImages.length]);
 
   const handleMakePrimary = useCallback((index: number) => {
     if (index === 0) return;
