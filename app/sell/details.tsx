@@ -31,6 +31,7 @@ import { getMaterialItems } from '@/data/materials';
 import { getSizesForCategory } from '@/data/sizes';
 import { getCategoryInfoFromIds } from '@/data/categories-v2';
 import draftService, { ArticleDraft, DraftFields } from '@/services/draftService';
+import { track } from '@/lib/analytics';
 import { colors, spacing } from '@/constants/theme';
 
 // Lift the sticky footer to sit spacing.md (16) above the keyboard when open;
