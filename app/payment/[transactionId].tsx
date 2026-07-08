@@ -687,6 +687,9 @@ export default function PaymentScreen() {
           clientSecret={clientSecret}
           visible={showStripePayment}
           onResult={handlePaymentResult}
+          analyticsSource="payment"
+          analyticsContextId={transaction.id}
+          analyticsAmountCents={Math.round(cardAmountDollars * 100)}
         />
       )}
 
