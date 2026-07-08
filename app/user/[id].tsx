@@ -353,7 +353,7 @@ export default function UserProfileScreen() {
 
   const handleBlock = useCallback(() => {
     if (!id || !profileUser) return;
-    if (!currentUser?.id) {
+    if (!currentUserId) {
       showAuthSheet('Connectez-vous pour bloquer cet utilisateur');
       return;
     }
