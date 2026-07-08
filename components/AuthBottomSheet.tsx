@@ -28,6 +28,7 @@ import { Alert, BackHandler, Text, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { track } from '@/lib/analytics';
 import { useAuthActions } from '@/hooks/useAuth';
 import { AuthService } from '@/services/authService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
