@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
 import { colors as colorData } from '@/data/colors';
 import { getConditionLabel } from '@/data/conditions';
+import { track } from '@/lib/analytics';
 
 import type { ArticleSize, SearchFilters, SortBy, SwapPartyItemExtended } from '@/types';
 
