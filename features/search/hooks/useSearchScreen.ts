@@ -203,6 +203,43 @@ export function useSearchScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // search_opened — one event per mount, carrying the entry context.
+  useEffect(() => {
+    const entrySource: 'query' | 'category' | 'category_path' | 'brands' | 'shop' | 'filters' | 'browse' | 'none' =
+      isBrowseAll ? 'browse'
+        : params.query ? 'query'
+        : params.categoryPath ? 'category_path'
+        : params.category ? 'category'
+        : params.brands ? 'brands'
+        : params.shopId ? 'shop'
+        : params.filters ? 'filters'
+        : 'none';
+    track('search_opened', {
+      source: ((params.source as SearchOpenedSource) || 'other'),
+      entry_source: entrySource,
+      is_browse_all: isBrowseAll,
+      initial_category_path: initialCategoryPath,
+      initial_brands: params.brands ? params.brands.split(',') : undefined,
+      brand_name: params.brands ? params.brands.split(',')[0] : undefined,
+    });
+    // Restored search (saved search / deep link carrying a query or filters),
+    // excluding the "Voir tout" browse-all entry which carries a sort-only filter.
+    if (!isBrowseAll && (params.query || params.filters)) {
+      const q = params.query || '';
+      const keys = buildFilterKeys(filters, selectedCategoryPath, selectedSort);
+      track('search_performed', {
+        trigger: 'restored',
+        query: q.slice(0, 100),
+        query_length: q.length,
+        has_active_filters: keys.length > 0,
+        active_filter_keys: keys,
+        category_path: selectedCategoryPath.length > 0 ? selectedCategoryPath : undefined,
+        sort_by: selectedSort,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-hide results when everything is cleared. En mode "parcourir tout"
   // (Voir tout home), aucun terme/catégorie/filtre n'est requis : on garde la
   // grille visible (tout le catalogue trié récent).
