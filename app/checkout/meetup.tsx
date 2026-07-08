@@ -40,6 +40,7 @@ import { Article, MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
 import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
 import { homeKeys } from '@/features/home/query-keys';
+import { track } from '@/lib/analytics';
 
 // Special sentinel for "to be decided via chat"
 const VIA_CHAT_OPTION = '__via_chat__';
