@@ -167,8 +167,22 @@ export default function MyOrdersScreen() {
   });
 
   const handleOrderPress = useCallback(
-    (orderItem: OrderItem) => {
+    (orderItem: OrderItem, fromDeepLink = false) => {
       const { transaction } = orderItem;
+      const destination: 'payment' | 'chat' | 'article' =
+        transaction.status === 'pending_payment'
+          ? 'payment'
+          : transaction.chatId
+            ? 'chat'
+            : 'article';
+      track('order_card_tapped', {
+        role: 'buyer',
+        transaction_id: transaction.id,
+        status: transaction.status,
+        delivery_type: transaction.deliveryType,
+        destination,
+        from_deep_link: fromDeepLink,
+      });
       if (transaction.status === 'pending_payment') {
         router.push(`/payment/${transaction.id}`);
         return;
