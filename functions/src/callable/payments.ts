@@ -2893,8 +2893,32 @@ export const completeMeetupTransaction = onCall(
           meetupCompletedBy: callerUid,
         });
 
-        return { chatId: data.chatId, sellerId };
+        return {
+          chatId: data.chatId,
+          sellerId,
+          buyerId: data.buyerId,
+          sellerPayout: typeof data.sellerPayout === 'number' ? data.sellerPayout : data.amount,
+          createdAt: data.createdAt,
+        };
       });
+
+      // Analytics (§12): order_completed follows the BUYER. Meetup is cash-in-
+      // hand — seller_net_cents reflects the sale value (no platform ledger move).
+      if (transactionData.buyerId) {
+        let daysToComplete = 0;
+        const createdAt = transactionData.createdAt;
+        if (createdAt && typeof createdAt.toMillis === 'function') {
+          daysToComplete =
+            Math.round(((Date.now() - createdAt.toMillis()) / (24 * 60 * 60 * 1000)) * 100) / 100;
+        }
+        await captureServerEvent(transactionData.buyerId, 'order_completed', {
+          transaction_id: transactionId,
+          delivery_type: 'meetup',
+          seller_net_cents: Math.round((transactionData.sellerPayout ?? 0) * 100),
+          days_to_complete: daysToComplete,
+          $insert_id: `order_completed_${transactionId}`,
+        });
+      }
 
       // Send system message (non-critical, outside transaction)
       if (transactionData.chatId) {
