@@ -691,7 +691,16 @@ export default function ShippingCheckoutScreen() {
                 </View>
                 <Switch
                   value={useWalletBalance}
-                  onValueChange={setUseWalletBalance}
+                  onValueChange={(enabled) => {
+                    setUseWalletBalance(enabled);
+                    track('wallet_payment_toggled', {
+                      screen: 'checkout',
+                      enabled,
+                      wallet_balance_cents: walletBalanceCents,
+                      total_cents: totalAmountCents,
+                      covers_all: walletBalanceCents >= totalAmountCents,
+                    });
+                  }}
                   trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor={colors.white}
                 />
