@@ -70,7 +70,7 @@ export function useChatModeration({
         { options, destructiveButtonIndex, cancelButtonIndex },
         (buttonIndex) => {
           if (buttonIndex === 0) {
-            reportSheetRef.current?.open('user', otherParticipant.userId);
+            reportSheetRef.current?.open('user', otherParticipant.userId, 'chat');
           } else if (buttonIndex === 1) {
             confirmBlock();
           }
