@@ -288,10 +288,7 @@ export default function SavedSearches() {
 
   // Load saved searches
   useEffect(() => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
+    if (!userId) return;
 
     let cancelled = false;
 
@@ -299,7 +296,7 @@ export default function SavedSearches() {
       try {
         setIsLoading(true);
         setHasError(false);
-        const results = await SavedSearchService.getSavedSearches(user.id);
+        const results = await SavedSearchService.getSavedSearches(userId);
         if (!cancelled) {
           setSearches(results);
         }
