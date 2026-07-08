@@ -57,6 +57,7 @@ const HomeHeaderComponent: React.FC<HomeHeaderProps> = ({
           style={styles.headerButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            track('notification_center_opened', { unread_count: notificationCount });
             router.push('/notifications' as any);
           }}
         >
