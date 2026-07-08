@@ -203,7 +203,7 @@ function VisualSearchCameraComponent({
             <Text style={styles.galleryFallbackText}>Sélectionner depuis la galerie</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
             <Text style={styles.cancelText}>Annuler</Text>
           </TouchableOpacity>
         </View>
