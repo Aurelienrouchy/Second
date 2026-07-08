@@ -175,6 +175,13 @@ export default function DetailsScreen() {
     // Resolve the French labels from the category tree (same shape as the AI
     // path) — never derive the name from the raw id suffix (e.g. "solid").
     const info = getCategoryInfoFromIds(categoryIds);
+    const aiCatLast = aiResult?.category?.categoryPath?.[aiResult.category.categoryPath.length - 1];
+    track('sell_field_edited', {
+      screen: 'sell',
+      field: 'category',
+      value: categoryIds[categoryIds.length - 1],
+      matched_ai_suggestion: !!aiCatLast && categoryIds[categoryIds.length - 1] === aiCatLast,
+    });
     setFields((prev) => ({
       ...prev,
       categoryIds,
