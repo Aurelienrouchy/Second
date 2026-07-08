@@ -289,11 +289,28 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const handleCounterPrice = async () => {
     const newAmount = parseFloat(counterPriceAmount);
     if (isNaN(newAmount) || newAmount < MIN_OFFER_AMOUNT) {
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'price',
+        original_amount_cents: Math.round(amount * 100),
+        validation_result: 'invalid',
+        success: false,
+      });
       Alert.alert('Erreur', 'Veuillez entrer un montant valide');
       return;
     }
 
     if (newAmount > MAX_OFFER_AMOUNT) {
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'price',
+        original_amount_cents: Math.round(amount * 100),
+        new_amount_cents: Math.round(newAmount * 100),
+        validation_result: 'too_high',
+        success: false,
+      });
       Alert.alert('Montant trop élevé', `Maximum ${MAX_OFFER_AMOUNT} $ CA`);
       return;
     }
@@ -304,11 +321,29 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       setIsCountering(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await onCounterPrice(message.id, newAmount, counterMessage || undefined);
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'price',
+        original_amount_cents: Math.round(amount * 100),
+        new_amount_cents: Math.round(newAmount * 100),
+        validation_result: 'ok',
+        success: true,
+      });
       setActiveCounterPanel(null);
       setCounterPriceAmount('');
       setCounterMessage('');
     } catch (error) {
       if (__DEV__) console.error('Error counter offering:', error);
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'price',
+        original_amount_cents: Math.round(amount * 100),
+        new_amount_cents: Math.round(newAmount * 100),
+        validation_result: 'ok',
+        success: false,
+      });
       Alert.alert('Erreur', "Impossible d'envoyer la contre-offre");
     } finally {
       setIsCountering(false);
