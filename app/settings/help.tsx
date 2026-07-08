@@ -50,15 +50,20 @@ interface FAQItemProps {
   icon: keyof typeof Ionicons.glyphMap;
   question: string;
   answer: string;
+  faqKey: string;
 }
 
-const FAQItem = ({ icon, question, answer }: FAQItemProps) => {
+const FAQItem = ({ icon, question, answer, faqKey }: FAQItemProps) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <Pressable
       style={({ pressed }) => [styles.faqItem, pressed && { opacity: 0.7 }]}
-      onPress={() => setExpanded(!expanded)}
+      onPress={() => {
+        const next = !expanded;
+        setExpanded(next);
+        track('faq_item_opened', { faq_key: faqKey, expanded: next });
+      }}
     >
       <View style={styles.faqHeader}>
         <View style={styles.faqIconContainer}>
