@@ -63,6 +63,22 @@ const AuthBottomSheet: React.FC = () => {
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  // Device-level Sign in with Apple availability, for the social auth_submitted.
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    let mounted = true;
+    AppleAuthentication.isAvailableAsync()
+      .then((available) => {
+        if (mounted) setAppleAvailable(available);
+      })
+      .catch(() => {
+        if (mounted) setAppleAvailable(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const {
     signInWithEmail,
