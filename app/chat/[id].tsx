@@ -285,7 +285,7 @@ export default function ChatScreen() {
     emitOfferModal('none');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
-  }, [article?.price, article?.isSold, article?.isActive, article?.isShipping, article?.isHandDelivery, chat?.articlePrice, chat?.articleId, messages, user?.id, isOtherBlocked]);
+  }, [article?.price, article?.isSold, article?.isActive, article?.isShipping, article?.isHandDelivery, chat?.articlePrice, chat?.articleId, chatId, messages, user?.id, isOtherBlocked]);
 
   const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
