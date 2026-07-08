@@ -2815,6 +2815,33 @@ async function handleAccountUpdated(account: any): Promise<void> {
     }
   }
 
+  // Analytics (§12): seller_activated fires ONCE, the first time the account
+  // reaches charges+payouts enabled (transition guard against the previously
+  // persisted flags). Poses seller_onboarded=true. $insert_id = seller uid so a
+  // replay can never double-count. distinct_id = seller.
+  const wasActivated =
+    userData.stripeChargesEnabled === true && userData.stripePayoutsEnabled === true;
+  const nowActivated =
+    state.chargesEnabled && state.payoutsEnabled && state.status === 'active';
+  if (!wasActivated && nowActivated) {
+    let daysSinceSignup = 0;
+    const createdAt = userData.createdAt;
+    if (createdAt && typeof createdAt.toMillis === 'function') {
+      daysSinceSignup = Math.max(
+        0,
+        Math.round((Date.now() - createdAt.toMillis()) / (24 * 60 * 60 * 1000))
+      );
+    }
+    const kycDocumentRequired = prevDue.some((r) => r.includes('document'));
+    await captureServerEvent(userDoc.id, 'seller_activated', {
+      seller_id: userDoc.id,
+      days_since_signup: daysSinceSignup,
+      kyc_document_required: kycDocumentRequired,
+      $set: { seller_onboarded: true },
+      $insert_id: userDoc.id,
+    });
+  }
+
   logger.info('Stripe webhook: seller account status updated', {
     userId: userDoc.id,
     stripeAccountId,
