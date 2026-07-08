@@ -139,7 +139,7 @@ const SaveButton: React.FC<{
   isLiked: boolean;
   onPress: () => void;
   testID: string;
-}> = memo(({ isLiked, onPress, testID }) => {
+}> = memo(function SaveButton({ isLiked, onPress, testID }) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
