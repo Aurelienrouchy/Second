@@ -328,6 +328,7 @@ export default function EditArticleScreen() {
         .filter(({ uri }) => !isStorageUrl(uri) && !uri.startsWith('https://'));
 
       if (localUris.length > 0) {
+        uploadedCount = localUris.length;
         const localUriStrings = localUris.map(({ uri }) => uri);
         const uploaded = await ArticlesService.uploadImagesReactNative(localUriStrings, id);
         // Replace local URIs with uploaded Storage URLs
