@@ -595,17 +595,39 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const handleCompleteMeetup = async () => {
     if (!onCompleteMeetup) return;
 
+    const role: 'buyer' | 'seller' = isSeller ? 'seller' : 'buyer';
     Alert.alert(
       'Terminer la transaction',
       'Confirmez-vous que la remise en main propre a bien eu lieu ?',
       [
-        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Annuler',
+          style: 'cancel',
+          onPress: () =>
+            track('meetup_completed', {
+              chat_id: chatId,
+              article_id: articleId ?? '',
+              transaction_id: transactionId ?? undefined,
+              offer_amount_cents: Math.round(amount * 100),
+              role,
+              dialog_outcome: 'cancelled',
+            }),
+        },
         {
           text: 'Terminer',
           onPress: async () => {
             try {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               await onCompleteMeetup(message.id);
+              track('meetup_completed', {
+                chat_id: chatId,
+                article_id: articleId ?? '',
+                transaction_id: transactionId ?? undefined,
+                offer_amount_cents: Math.round(amount * 100),
+                role,
+                dialog_outcome: 'confirmed',
+                result: 'success',
+              });
             } catch (error) {
               if (__DEV__) console.error('Error completing meetup:', error);
               // B2 : la callable peut échouer si la transaction a été annulée
