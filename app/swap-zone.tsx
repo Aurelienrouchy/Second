@@ -259,6 +259,10 @@ export default function SwapZoneScreen() {
       if (!user || !party || isAddingItem || articles.length === 0) return;
       setIsAddingItem(true);
       setPendingAddCount(articles.length);
+      const articleIds = articles.map((a) => a.id);
+      const totalValueCents = Math.round(
+        articles.reduce((sum, a) => sum + (a.price || 0), 0) * 100
+      );
       try {
         await Promise.all(
           articles.map((article) =>
@@ -276,8 +280,20 @@ export default function SwapZoneScreen() {
         // no intermediate empty gap.
         await invalidatePartyData();
         queryClient.invalidateQueries({ queryKey: queryKeys.articles.userList(user.id) });
+        track('swap_items_deposited', {
+          articles_count: articles.length,
+          article_ids: articleIds,
+          total_value_cents: totalValueCents,
+          outcome: 'success',
+        });
       } catch (error) {
         if (__DEV__) console.error('Error adding items:', error);
+        track('swap_items_deposited', {
+          articles_count: articles.length,
+          article_ids: articleIds,
+          total_value_cents: totalValueCents,
+          outcome: 'error',
+        });
         Alert.alert('Erreur', "Impossible d'ajouter les articles");
       } finally {
         setIsAddingItem(false);
