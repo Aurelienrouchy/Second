@@ -60,7 +60,12 @@ const NewArrivalsSectionComponent: React.FC = () => {
         onActionPress={() =>
           router.push({
             pathname: '/search',
-            params: { browse: '1', filters: JSON.stringify({ sortBy: 'recent' }) },
+            params: {
+              browse: '1',
+              filters: JSON.stringify({ sortBy: 'recent' }),
+              source: 'home_see_all',
+              sectionId: 'new-arrivals',
+            },
           })
         }
       />
