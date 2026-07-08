@@ -183,11 +183,22 @@ export default function SwapDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             if (!id) return;
+            const cashTopUpCents = swap?.cashTopUp?.amount ?? 0;
             setIsProcessing(true);
             try {
               await declineSwap(id);
+              track('swap_declined', {
+                swap_id: id,
+                outcome: 'success',
+                cash_top_up_cents: cashTopUpCents,
+              });
             } catch (error) {
               if (__DEV__) console.error('Error declining swap:', error);
+              track('swap_declined', {
+                swap_id: id,
+                outcome: 'error',
+                cash_top_up_cents: cashTopUpCents,
+              });
               Alert.alert('Erreur', "Impossible de refuser l'échange");
             } finally {
               setIsProcessing(false);
