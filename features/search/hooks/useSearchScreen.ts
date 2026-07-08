@@ -632,12 +632,45 @@ export function useSearchScreen() {
   const handleSortRemove = useCallback(() => {
     setSelectedSort('recent');
     setFilters({ ...filters, sortBy: 'recent' });
-  }, [filters, setFilters]);
+    track('search_filter_removed', {
+      screen: 'search',
+      filter_type: 'sort',
+      remaining_active_filter_keys: buildFilterKeys(
+        { ...filters, sortBy: 'recent' },
+        selectedCategoryPath,
+        'recent',
+      ),
+    });
+  }, [filters, setFilters, selectedCategoryPath]);
 
   const handleCategoryRemove = useCallback(() => {
     setSelectedCategoryPath([]);
     categoryNav.goToRoot();
-  }, [categoryNav, setSelectedCategoryPath]);
+    track('search_filter_removed', {
+      screen: 'search',
+      filter_type: 'category',
+      remaining_active_filter_keys: buildFilterKeys(filters, [], selectedSort),
+    });
+  }, [categoryNav, setSelectedCategoryPath, filters, selectedSort]);
+
+  // Chip X for multi-value dimensions + condition — wraps the data-hook remover
+  // so we can emit search_filter_removed with the post-removal key set.
+  const handleFilterRemoveTracked = useCallback(
+    (filterType: keyof SearchFilters, value?: string | ArticleSize) => {
+      handleFilterRemove(filterType, value);
+      const ft: SearchFilterKey =
+        filterType === 'minPrice' || filterType === 'maxPrice' ? 'price' : (filterType as SearchFilterKey);
+      const remaining = buildFilterKeys(filters, selectedCategoryPath, selectedSort).filter(
+        (k) => k !== ft,
+      );
+      track('search_filter_removed', {
+        screen: 'search',
+        filter_type: ft,
+        remaining_active_filter_keys: remaining,
+      });
+    },
+    [handleFilterRemove, filters, selectedCategoryPath, selectedSort]
+  );
 
   // ─── Label helpers ──────────────────────────────────────────────
   const getCategoryLabel = (): string =>
