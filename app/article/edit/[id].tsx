@@ -950,7 +950,10 @@ export default function EditArticleScreen() {
                   <Pressable
                     key={size}
                     style={[styles.packageSizeChip, isSelected && styles.packageSizeChipSelected]}
-                    onPress={() => updateField('packageSize', size)}
+                    onPress={() => {
+                      updateField('packageSize', size);
+                      track('sell_field_edited', { screen: 'edit', field: 'package_size', value: size });
+                    }}
                   >
                     <Text style={[styles.packageSizeChipText, isSelected && styles.packageSizeChipTextSelected]}>
                       {labels[size]}
