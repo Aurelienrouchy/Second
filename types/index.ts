@@ -60,6 +60,13 @@ export interface UserPreferences {
    * app/settings/privacy.tsx. ABSENT => pas de consentement marketing actif (privacy by default).
    */
   marketingConsent?: boolean;
+  /**
+   * Consentement aux statistiques d'usage anonymisées (analytics produit).
+   * Modèle OPT-OUT (Loi 25) : activé par défaut, aucune donnée personnelle
+   * collectée. ABSENT => activé (true). Retirable/réactivable à tout moment
+   * depuis app/settings/privacy.tsx (câblé sur lib/analytics#setAnalyticsEnabled).
+   */
+  analyticsConsent?: boolean;
 }
 
 /**
