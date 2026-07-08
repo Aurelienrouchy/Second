@@ -422,7 +422,7 @@ export default function OnboardingScreen() {
                   key={s}
                   label={s}
                   selected={sizesBottom.includes(s)}
-                  onPress={() => toggleSize(setSizesBottom, sizesBottom, s)}
+                  onPress={() => toggleSize(setSizesBottom, sizesBottom, s, 'bottom')}
                 />
               ))}
             </View>
