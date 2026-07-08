@@ -294,7 +294,10 @@ export default function MyOrdersScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => refetch()}
+              onRefresh={() => {
+                track('list_refreshed', { screen: 'my_orders', items_count: orders.length });
+                refetch();
+              }}
               tintColor={colors.primary}
             />
           }
