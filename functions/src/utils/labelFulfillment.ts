@@ -20,6 +20,7 @@ import { db, FieldValue } from '../config/firebase';
 import { getOrCreateSellerWallet } from '../callable/wallet';
 import { getStripe } from '../config/stripe';
 import type { ShipEngineClient, ShipEngineLabel } from '../config/shipEngine';
+import { captureServerEvent } from '../lib/analytics';
 
 /**
  * Threshold (in DOLLARS) above which a difference between the real label cost
