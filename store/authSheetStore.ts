@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { track } from '@/lib/analytics';
+
 // ─── State ──────────────────────────────────────────────────────────────────
 
 interface AuthSheetState {
@@ -12,8 +14,14 @@ interface AuthSheetState {
   version: number;
 }
 
+/** Analytics attribution threaded by the gate that opened the sheet. */
+interface AuthSheetShowOptions {
+  source?: string;
+  gateKey?: string;
+}
+
 interface AuthSheetActions {
-  show: (message?: string, onSuccess?: () => void) => void;
+  show: (message?: string, onSuccess?: () => void, opts?: AuthSheetShowOptions) => void;
   hide: () => void;
   reset: () => void;
 }
