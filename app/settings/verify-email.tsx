@@ -46,14 +46,17 @@ export default function VerifyEmailScreen() {
 
   const handleSendVerification = async () => {
     setLoading(true);
+    const isResend = emailSent;
     try {
       await AuthService.sendEmailVerification();
       setEmailSent(true);
+      track('email_verification_sent', { is_resend: isResend, result: 'success' });
       Alert.alert(
         'Email envoyé',
         'Un email de vérification a été envoyé à votre adresse email. Cliquez sur le lien dans l\'email pour vérifier votre compte.'
       );
     } catch (error: unknown) {
+      track('email_verification_sent', { is_resend: isResend, result: 'error' });
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
       Alert.alert('Erreur', message);
     } finally {
