@@ -404,8 +404,18 @@ export default function SavedSearches() {
         setSearches((prev) =>
           prev.map((s) => (s.id === item.id ? { ...s, notifyNewItems: newValue } : s)),
         );
+        track('saved_search_notify_toggled', {
+          saved_search_id: item.id,
+          new_value: newValue,
+          outcome: 'success',
+        });
       } catch (error) {
         if (__DEV__) console.error('Failed to toggle notifications:', error);
+        track('saved_search_notify_toggled', {
+          saved_search_id: item.id,
+          new_value: !item.notifyNewItems,
+          outcome: 'error',
+        });
       }
     },
     [user?.id],
