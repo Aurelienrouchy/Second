@@ -246,6 +246,14 @@ export default function ReviewScreen() {
         articleId: transaction.articleId,
       });
 
+      track('review_submitted', {
+        transaction_id: transaction.id,
+        article_id: transaction.articleId,
+        transaction_type: transactionType,
+        rating,
+        comment_length: comment.trim().length,
+      });
+
       // Refresh the buyer (orders) and seller (sales) lists so the "Laisser un
       // avis" CTA flips to "Avis laisse" when the user returns. Both lists key
       // off queryKeys.orders.* so a single `orders` invalidation covers them.
