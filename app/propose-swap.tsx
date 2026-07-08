@@ -300,6 +300,15 @@ export default function ProposeSwapScreen() {
     effectivePartyId,
   ]);
 
+  const handleBack = useCallback(() => {
+    track('swap_propose_abandoned', {
+      initiator_items_count: initiatorItems.length,
+      receiver_items_count: receiverItems.length,
+      had_message: message.trim().length > 0,
+    });
+    router.back();
+  }, [initiatorItems.length, receiverItems.length, message]);
+
   // --- Loading state ---
   if (isLoading) {
     return (
@@ -311,15 +320,6 @@ export default function ProposeSwapScreen() {
   }
 
   const bothSidesSelected = initiatorItems.length > 0 && receiverItems.length > 0;
-
-  const handleBack = useCallback(() => {
-    track('swap_propose_abandoned', {
-      initiator_items_count: initiatorItems.length,
-      receiver_items_count: receiverItems.length,
-      had_message: message.trim().length > 0,
-    });
-    router.back();
-  }, [initiatorItems.length, receiverItems.length, message]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
