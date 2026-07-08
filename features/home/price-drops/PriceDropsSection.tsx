@@ -87,6 +87,17 @@ const PriceDropCard = React.memo<PriceDropCardProps>(({ article, index }) => {
     });
   };
   const handlePress = () => {
+    track('article_card_tapped', {
+      article_id: article.id,
+      source: 'home_price_drops',
+      price_cents: Math.round(article.price * 100),
+      brand: article.brand,
+      is_sold: false,
+      reduction_pct:
+        article.originalPrice > 0
+          ? Math.round((1 - article.price / article.originalPrice) * 100)
+          : undefined,
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/article/${article.id}`);
   };

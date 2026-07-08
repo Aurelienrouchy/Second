@@ -159,6 +159,7 @@ export default function AddPasswordScreen() {
         return;
       }
 
+      track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'error', after_reauth: false, error_code: code });
       Alert.alert('Erreur', message);
     } finally {
       setIsSaving(false);
