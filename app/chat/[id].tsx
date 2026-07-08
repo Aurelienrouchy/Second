@@ -250,6 +250,7 @@ export default function ChatScreen() {
     };
 
     if (isOtherBlocked) {
+      track('blocked_action_attempted', { chat_id: chatId ?? '', attempted_action: 'offer' });
       emitOfferModal('user_blocked');
       Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour faire une offre.');
       return;
