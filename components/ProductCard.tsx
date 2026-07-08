@@ -149,8 +149,8 @@ const SaveButton: React.FC<{
   const handlePress = useCallback(() => {
     scale.set(withTiming(1.3, { duration: 200, easing: Easing.out(Easing.ease) }, () => {
       scale.set(withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) }));
-    });
- )   onPress();
+    }));
+    onPress();
   }, [onPress, scale]);
 
   return (
