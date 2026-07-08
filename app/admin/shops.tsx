@@ -39,16 +39,6 @@ export default function AdminShopsScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const rejectionModalRef = useRef<RejectionModalRef>(null);
 
-  useEffect(() => {
-    checkAdminAccess();
-  }, [user]);
-
-  useEffect(() => {
-    if (isAdmin) {
-      loadShops();
-    }
-  }, [selectedTab, isAdmin]);
-
   const checkAdminAccess = async () => {
     if (!user) {
       router.replace('/(tabs)');
