@@ -41,6 +41,7 @@ import { getShipEngine } from '../config/shipEngine';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { creditSellerForSale, createLabelIdempotent } from '../utils/labelFulfillment';
 import { writeFailedOperation } from '../utils/failedOperations';
+import { captureServerEvent } from '../lib/analytics';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
