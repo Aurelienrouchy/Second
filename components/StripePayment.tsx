@@ -43,6 +43,14 @@ interface StripePaymentProps {
    * cancellation is surfaced as { success: false, error: 'cancelled' }.
    */
   onResult: (result: StripePaymentResult) => void;
+  /**
+   * Analytics context for the single `payment_sheet_completed` instrumentation
+   * (checkout-payment domain). When omitted the event is not emitted — callers
+   * that want the result tracked pass source + context id + amount (cents).
+   */
+  analyticsSource?: PaymentSheetSource;
+  analyticsContextId?: string;
+  analyticsAmountCents?: number;
 }
 
 // =============================================================================
