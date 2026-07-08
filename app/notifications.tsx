@@ -355,7 +355,13 @@ export default function NotificationsScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={isRefetching}
-                onRefresh={() => refetch()}
+                onRefresh={() => {
+                  track('list_refreshed', {
+                    screen: 'notifications',
+                    items_count: notifications.length,
+                  });
+                  refetch();
+                }}
                 tintColor={colors.primary}
               />
             }
