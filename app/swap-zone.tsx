@@ -337,10 +337,12 @@ export default function SwapZoneScreen() {
                 // deletion, so we deliberately do NOT refetch here — an
                 // invalidate would flip `isRefetching` and trigger the
                 // FlashList RefreshControl (the pull-to-refresh scroll jump).
+                track('swap_item_removed', { article_id: articleId, outcome: 'success' });
               } catch (error) {
                 if (__DEV__) console.error('Error removing item:', error);
                 // Rollback: restore the snapshot, then surface the error.
                 queryClient.setQueryData<PartyDetailData>(detailKey, prev);
+                track('swap_item_removed', { article_id: articleId, outcome: 'error' });
                 Alert.alert('Erreur', "Impossible de retirer l'article");
               }
             },
