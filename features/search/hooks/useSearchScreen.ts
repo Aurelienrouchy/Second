@@ -302,11 +302,21 @@ export function useSearchScreen() {
     }
     if (trimmedQuery || hasActiveFilters || selectedCategoryPath.length > 0) {
       setIsSearching(true);
+      const keys = buildFilterKeys(filters, selectedCategoryPath, selectedSort);
+      track('search_performed', {
+        trigger: 'submit',
+        query: trimmedQuery.slice(0, 100),
+        query_length: trimmedQuery.length,
+        has_active_filters: keys.length > 0,
+        active_filter_keys: keys,
+        category_path: selectedCategoryPath.length > 0 ? selectedCategoryPath : undefined,
+        sort_by: selectedSort,
+      });
       // Explicit OK/Enter: commit immediately, bypassing the 350ms debounce.
       commitSearchQuery(trimmedQuery);
       Keyboard.dismiss();
     }
-  }, [searchQuery, filters, selectedCategoryPath, hasActiveFilters, user, commitSearchQuery]);
+  }, [searchQuery, filters, selectedCategoryPath, selectedSort, hasActiveFilters, user, commitSearchQuery]);
 
   const handleRecentSearchTap = useCallback((item: SearchHistoryItem) => {
     setSearchQueryLocal(item.query);
