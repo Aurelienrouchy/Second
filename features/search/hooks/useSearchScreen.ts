@@ -587,10 +587,12 @@ export function useSearchScreen() {
     let minPrice = (!isNaN(parsedMin) && parsedMin >= 0) ? parsedMin : undefined;
     let maxPrice = (!isNaN(parsedMax) && parsedMax >= 0) ? parsedMax : undefined;
     // Ensure min <= max when both are provided
+    let wasSwapped = false;
     if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
       const temp = minPrice;
       minPrice = maxPrice;
       maxPrice = temp;
+      wasSwapped = true;
       setMinPriceText(String(minPrice));
       setMaxPriceText(String(maxPrice));
     }

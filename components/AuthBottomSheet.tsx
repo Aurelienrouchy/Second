@@ -293,17 +293,15 @@ const AuthBottomSheet: React.FC = () => {
   // Wraps AuthToggle's onSelect to record the signIn↔signUp switch.
   const handleModeSelect = useCallback(
     (next: AuthMode) => {
-      setAuthType((prev) => {
-        if (prev !== next) {
-          track('auth_mode_switched', {
-            from_mode: ANALYTICS_MODE[prev],
-            to_mode: ANALYTICS_MODE[next],
-          });
-        }
-        return next;
-      });
+      if (authType !== next) {
+        track('auth_mode_switched', {
+          from_mode: ANALYTICS_MODE[authType],
+          to_mode: ANALYTICS_MODE[next],
+        });
+      }
+      setAuthType(next);
     },
-    [],
+    [authType],
   );
 
   const handleForgotPasswordOpen = useCallback(() => {
