@@ -44,6 +44,18 @@ export default function CheckoutSuccessScreen() {
 
   const isMeetup = deliveryType === 'meetup';
 
+  const viewedRef = useRef(false);
+  useEffect(() => {
+    if (viewedRef.current) return;
+    viewedRef.current = true;
+    track('order_confirmation_viewed', {
+      delivery_type: deliveryType,
+      transaction_id: transactionId || undefined,
+      total_cents: totalAmount != null ? Math.round(parseFloat(totalAmount) * 100) : undefined,
+      has_chat_id: !!chatId,
+    });
+  }, [deliveryType, transactionId, totalAmount, chatId]);
+
   // =============================================================================
   // HANDLERS
   // =============================================================================
