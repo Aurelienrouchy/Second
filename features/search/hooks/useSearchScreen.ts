@@ -88,6 +88,7 @@ export function useSearchScreen() {
     query?: string;
     filters?: string;
     browse?: string;
+    source?: string;
   }>();
 
   const user = useUser();
