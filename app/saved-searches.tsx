@@ -367,9 +367,9 @@ export default function SavedSearches() {
             style: 'destructive',
             onPress: async () => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              if (!user?.id) return;
+              if (!userId) return;
               try {
-                await SavedSearchService.deleteSavedSearch(user.id, item.id);
+                await SavedSearchService.deleteSavedSearch(userId, item.id);
                 setSearches((prev) => prev.filter((s) => s.id !== item.id));
                 track('saved_search_deleted', {
                   saved_search_id: item.id,
