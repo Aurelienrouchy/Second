@@ -179,6 +179,73 @@ export function useArticleSearch({
     return data.pages.flatMap((page) => page.articles);
   }, [data]);
 
+  // ── search_results_loaded — one event per committed query/filter set ──
+  // Logged once per queryKey when the first page resolves (success/empty/error);
+  // pagination reuses the same key and is skipped via loggedKeyRef.
+  const queryKeyStr = useMemo(() => JSON.stringify(queryKey), [queryKey]);
+  const searchStartRef = useRef<number>(Date.now());
+  const loggedKeyRef = useRef<string>('');
+
+  useEffect(() => {
+    searchStartRef.current = Date.now();
+  }, [queryKeyStr]);
+
+  useEffect(() => {
+    if (!enabled || isLoading || isFetchingNextPage) return;
+    if (loggedKeyRef.current === queryKeyStr) return;
+    loggedKeyRef.current = queryKeyStr;
+
+    const latencyMs = Date.now() - searchStartRef.current;
+    const filterKeys = computeActiveFilterKeys(filters, selectedCategoryPath);
+    const queryLength = activeSearchQuery.trim().length;
+    const categoryPath =
+      selectedCategoryPath.length > 0 ? selectedCategoryPath : undefined;
+    const sortBy = filters.sortBy ?? 'recent';
+
+    if (queryError) {
+      track('search_results_loaded', {
+        outcome: 'error',
+        results_count: 0,
+        has_next_page: false,
+        latency_ms: latencyMs,
+        query_length: queryLength,
+        active_filter_keys: filterKeys,
+        sort_by: sortBy,
+        category_path: categoryPath,
+        is_browse_all: browseAll,
+        error_code: queryError.message,
+      });
+      return;
+    }
+
+    const count = articles.length;
+    track('search_results_loaded', {
+      outcome: count === 0 ? 'empty' : 'success',
+      results_count: count,
+      has_next_page: !!hasNextPage,
+      latency_ms: latencyMs,
+      query_length: queryLength,
+      active_filter_keys: filterKeys,
+      sort_by: sortBy,
+      category_path: categoryPath,
+      is_browse_all: browseAll,
+      empty_reason:
+        count === 0 ? (queryLength > 0 ? 'query' : 'filters') : undefined,
+    });
+  }, [
+    enabled,
+    isLoading,
+    isFetchingNextPage,
+    queryError,
+    articles,
+    queryKeyStr,
+    filters,
+    selectedCategoryPath,
+    activeSearchQuery,
+    hasNextPage,
+    browseAll,
+  ]);
+
   const loadMore = useCallback(() => {
     if (!isFetchingNextPage && hasNextPage) {
       fetchNextPage();

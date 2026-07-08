@@ -89,7 +89,10 @@ export default function AddressSettingsScreen() {
   const [manualPostalCode, setManualPostalCode] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const persistAddress = async (address: AddressInput) => {
+  const persistAddress = async (
+    address: AddressInput,
+    meta: { mode: 'autocomplete' | 'manual'; hasGeo: boolean },
+  ) => {
     if (!user) return;
     try {
       await UserService.updateUserProfile(user.id, {
@@ -105,11 +108,24 @@ export default function AddressSettingsScreen() {
       // Rafraîchir les données utilisateur depuis Firestore
       await refreshUser();
 
+      track('address_saved', {
+        mode: meta.mode,
+        province: address.province,
+        has_geo: meta.hasGeo,
+        success: true,
+      });
+
       Alert.alert('Succès', 'Votre adresse a été mise à jour', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
       if (__DEV__) console.error('Error updating address:', error);
+      track('address_saved', {
+        mode: meta.mode,
+        province: address.province,
+        has_geo: meta.hasGeo,
+        success: false,
+      });
       Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour de l\'adresse');
     }
   };
