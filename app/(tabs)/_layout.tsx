@@ -32,6 +32,15 @@ import { AUTH_MESSAGES, COPY_SELL_GATE } from '@/constants/authMessages';
 import { useChatStore, selectUnreadChatCount } from '@/store/chatStore';
 import { canSell } from '@/utils/age';
 
+const sellPlatform = Platform.OS === 'ios' ? 'ios' : 'android';
+
+function draftStepLabel(step: number): '1' | '1b' | '2' | '3' | '4' {
+  if (step >= 4) return '4';
+  if (step >= 3) return '3';
+  if (step >= 2) return '2';
+  return '1';
+}
+
 // ── Badge component for tab icons ──
 function TabBadge({ count }: { count: number }) {
   if (count <= 0) return null;
