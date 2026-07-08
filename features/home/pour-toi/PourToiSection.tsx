@@ -38,10 +38,17 @@ function toCardProduct(article: Article): ProductCardProduct {
 
 const PourToiItem = React.memo<{ article: Article }>(({ article }) => {
   const router = useRouter();
-  const handlePress = useCallback(
-    () => router.push(`/article/${article.id}`),
-    [router, article.id]
-  );
+  const handlePress = useCallback(() => {
+    track('article_card_tapped', {
+      article_id: article.id,
+      source: 'home_pour_toi',
+      price_cents: Math.round(article.price * 100),
+      brand: article.brand,
+      condition: article.condition,
+      is_sold: !!article.isSold,
+    });
+    router.push(`/article/${article.id}`);
+  }, [router, article.id, article.price, article.brand, article.condition, article.isSold]);
 
   return (
     <View style={styles.horizontalCardWrapper}>
