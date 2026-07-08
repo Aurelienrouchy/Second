@@ -482,7 +482,16 @@ export default function DetailsScreen() {
         title="Taille"
         items={allSizeItems}
         selectedValue={fields.size}
-        onSelect={(value) => updateField('size', value)}
+        onSelect={(value) => {
+          updateField('size', value);
+          track('sell_field_edited', {
+            screen: 'sell',
+            field: 'size',
+            value,
+            matched_ai_suggestion:
+              value === (aiResult?.size?.normalized || aiResult?.size?.detected),
+          });
+        }}
         type="size"
       />
       <BrandSelectionSheet
