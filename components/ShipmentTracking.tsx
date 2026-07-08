@@ -390,13 +390,23 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         );
         return;
       }
+      track('refund_requested', {
+        transaction_id: transaction.id,
+        status: refundStatus,
+        success: false,
+        redirected_to_report: false,
+        error_code:
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : undefined,
+      });
       Alert.alert('Demande impossible', getRecourseErrorMessage(error), [
         { text: 'Compris' },
       ]);
     } finally {
       setIsRefunding(false);
     }
-  }, [isRefunding, requestRefund, transaction.id, onStatusUpdate, openReportSheet]);
+  }, [isRefunding, requestRefund, transaction.id, transaction.status, onStatusUpdate, openReportSheet]);
 
   const handleRequestRefund = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
