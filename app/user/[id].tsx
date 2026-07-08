@@ -398,7 +398,7 @@ export default function UserProfileScreen() {
         },
       ],
     );
-  }, [id, profileUser, currentUser?.id, showAuthSheet, queryClient, router]);
+  }, [id, profileUser, currentUserId, showAuthSheet, queryClient, router]);
 
   const handleMore = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
