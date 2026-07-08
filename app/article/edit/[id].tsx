@@ -605,12 +605,20 @@ export default function EditArticleScreen() {
 
   // Delivery management
   const handleNeighborhoodToggle = useCallback((neighborhood: MeetupNeighborhood) => {
+    let countAfter = 0;
     setFields((prev) => {
       const exists = prev.neighborhoods.some((n) => n.id === neighborhood.id);
       const newNeighborhoods = exists
         ? prev.neighborhoods.filter((n) => n.id !== neighborhood.id)
         : [...prev.neighborhoods, neighborhood];
+      countAfter = newNeighborhoods.length;
       return { ...prev, neighborhoods: newNeighborhoods };
+    });
+    track('sell_field_edited', {
+      screen: 'edit',
+      field: 'neighborhoods',
+      value: neighborhood.id,
+      selected_count_after: countAfter,
     });
   }, []);
 
