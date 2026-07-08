@@ -36,7 +36,6 @@ function analyticsIdentify(user: User): void {
     articles_count: user.articlesCount,
     marketing_consent: user.preferences?.marketingConsent,
     onboarding_completed: user.onboardingCompleted,
-    preferred_size_system: user.preferences?.sizes?.length ? undefined : undefined,
   });
 }
 
