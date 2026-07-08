@@ -214,7 +214,7 @@ export default function MyOrdersScreen() {
     if (!target) return;
 
     handledDeepLinkRef.current = deepLinkTransactionId;
-    handleOrderPress(target);
+    handleOrderPress(target, true);
   }, [deepLinkTransactionId, loading, orders, handleOrderPress]);
 
   const handleReview = useCallback(

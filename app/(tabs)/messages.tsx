@@ -323,7 +323,7 @@ interface ConversationItemProps {
    * (AUTH-RR-03 / FX-05).
    */
   currentUserId: string | null;
-  onPress: (chatId: string) => void;
+  onPress: (chat: Chat) => void;
   isUnread: boolean;
   unreadCount: number;
   isBlocked: boolean;
