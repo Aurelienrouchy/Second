@@ -497,7 +497,7 @@ export function useArticleActions({
           (buttonIndex) => {
             if (buttonIndex === 0) {
               requireAuth(
-                () => reportBottomSheetRef.current?.open('article', article.id, article.sellerId),
+                () => reportBottomSheetRef.current?.open('article', article.id, 'article_detail', article.sellerId),
                 'Connectez-vous pour signaler cet article'
               );
             }
@@ -510,7 +510,7 @@ export function useArticleActions({
             style: 'destructive',
             onPress: () => {
               requireAuth(
-                () => reportBottomSheetRef.current?.open('article', article.id, article.sellerId),
+                () => reportBottomSheetRef.current?.open('article', article.id, 'article_detail', article.sellerId),
                 'Connectez-vous pour signaler cet article'
               );
             },
