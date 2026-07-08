@@ -28,6 +28,7 @@ import {
 } from 'firebase/firestore';
 import { firestore } from '@/config/firebaseConfig';
 import { useUser } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 import {
   guestPreferencesService,
