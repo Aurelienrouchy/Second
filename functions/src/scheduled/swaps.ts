@@ -188,6 +188,14 @@ export const expireStaleProposedSwaps = onSchedule(
               error: notifErr instanceof Error ? notifErr.message : notifErr,
             });
           }
+
+          // Analytics (§12): swap_expired — distinct_id = initiator.
+          await captureServerEvent(swap.initiatorId, 'swap_expired', {
+            swap_id: swapId,
+            status_before: typeof swap.status === 'string' ? swap.status : null,
+            days_open: swapDaysOpen(swap),
+            $insert_id: `swap_expired_${swapId}`,
+          });
         }
       }
 
