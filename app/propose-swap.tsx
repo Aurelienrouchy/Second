@@ -167,12 +167,11 @@ export default function ProposeSwapScreen() {
   const [receiverSeeded, setReceiverSeeded] = useState(false);
 
   // Seed receiver items once when initial data becomes available
-  React.useEffect(() => {
-    if (!receiverSeeded && initialReceiverItems.length > 0) {
-      setReceiverItems(initialReceiverItems);
-      setReceiverSeeded(true);
-    }
-  }, [initialReceiverItems, receiverSeeded]);
+  // (state adjustment during render — https://react.dev/learn/you-might-not-need-an-effect)
+  if (!receiverSeeded && initialReceiverItems.length > 0) {
+    setReceiverSeeded(true);
+    setReceiverItems(initialReceiverItems);
+  }
 
   // Fire swap_propose_opened once the receiver side is known (params or the
   // target-article query resolving). entry_source is derived from the nav shape.
