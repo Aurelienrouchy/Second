@@ -285,9 +285,20 @@ export default function UserProfileScreen() {
 
   const handleArticlePress = useCallback(
     (articleId: string) => {
+      const article = articles.find((a) => a.id === articleId);
+      if (article) {
+        track('article_card_tapped', {
+          article_id: articleId,
+          source: 'public_profile',
+          price_cents: Math.round(article.price * 100),
+          brand: article.brand,
+          condition: article.condition,
+          is_sold: !!article.isSold,
+        });
+      }
       router.push(`/article/${articleId}`);
     },
-    [router],
+    [router, articles],
   );
 
   const handleReviewerPress = useCallback(
