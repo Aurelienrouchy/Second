@@ -12,6 +12,7 @@ import { SectionHeader } from '@/components/home/SectionHeader';
 import ProductCard, { SkeletonCard } from '@/components/ProductCard';
 import { COMPACT_CARD_WIDTH } from '@/components/ProductCard.constants';
 import { spacing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { HomeArticle, useNewArrivals } from './useNewArrivals';
 
 // =============================================================================
