@@ -282,9 +282,18 @@ export function useSearchScreen() {
 
   const handleProductPress = useCallback(
     (article: Article | ArticleWithLocation) => {
+      track('article_card_tapped', {
+        article_id: article.id,
+        source: 'search',
+        price_cents: Math.round(article.price * 100),
+        brand: article.brand,
+        condition: article.condition,
+        is_sold: !!article.isSold,
+        query_length: activeSearchQuery.trim().length,
+      });
       router.push(`/article/${article.id}`);
     },
-    []
+    [activeSearchQuery]
   );
 
   // ─── Search handlers ────────────────────────────────────────────
