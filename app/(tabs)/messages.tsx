@@ -354,7 +354,7 @@ const ConversationItem = React.memo(function ConversationItem({
   const lastMessagePreview = getLastMessagePreviewStatic(chat);
   const timestamp = formatTimestampStatic(chat.lastMessageTimestamp);
 
-  const handlePress = useCallback(() => onPress(chat.id), [onPress, chat.id]);
+  const handlePress = useCallback(() => onPress(chat), [onPress, chat]);
 
   return (
     <Pressable
