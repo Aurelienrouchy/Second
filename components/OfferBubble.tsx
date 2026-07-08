@@ -539,11 +539,22 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const handleReportNoShow = async () => {
     if (!onReportNoShow) return;
 
+    const role: 'buyer' | 'seller' = isSeller ? 'seller' : 'buyer';
     Alert.alert(
       'Signaler une absence',
       "L'autre personne ne s'est pas présentée à la rencontre ? Vous pouvez la signaler.",
       [
-        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Annuler',
+          style: 'cancel',
+          onPress: () =>
+            track('meetup_no_show_reported', {
+              chat_id: chatId,
+              article_id: articleId ?? '',
+              role,
+              dialog_outcome: 'cancelled',
+            }),
+        },
         {
           text: 'Signaler',
           style: 'destructive',
@@ -557,8 +568,22 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
                 'other_party_no_show',
                 "L'autre personne ne s'est pas présentée à la rencontre.",
               );
+              track('meetup_no_show_reported', {
+                chat_id: chatId,
+                article_id: articleId ?? '',
+                role,
+                dialog_outcome: 'confirmed',
+                result: 'success',
+              });
             } catch (error) {
               if (__DEV__) console.error('Error reporting no-show:', error);
+              track('meetup_no_show_reported', {
+                chat_id: chatId,
+                article_id: articleId ?? '',
+                role,
+                dialog_outcome: 'confirmed',
+                result: 'error',
+              });
               Alert.alert('Erreur', "Impossible de signaler l'absence");
             }
           },
