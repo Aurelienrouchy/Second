@@ -33,6 +33,10 @@ type NotificationType =
   | 'offerReceived'
   | 'offerResponse';
 
+// Analytics `pref_key` enum excludes the hidden swapZoneReminder toggle, which
+// is never rendered (so never reaches handleToggle).
+type NotificationPrefKey = Exclude<NotificationType, 'swapZoneReminder'>;
+
 interface NotificationSetting {
   id: NotificationType;
   title: string;
