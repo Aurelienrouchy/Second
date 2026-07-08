@@ -358,6 +358,12 @@ export default function StripeOnboardingScreen() {
         frontUri,
         backUri: backUri ?? undefined,
       });
+      track('kyc_document_uploaded', {
+        has_back_side: !!backUri,
+        success: true,
+        requirements_remaining_count: res.requirementsCurrentlyDue.length,
+        payouts_enabled_after: res.payoutsEnabled,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setFrontUri(null);
       setBackUri(null);
@@ -369,6 +375,14 @@ export default function StripeOnboardingScreen() {
       );
     } catch (error: unknown) {
       if (__DEV__) console.error('Error uploading identity document:', error);
+      track('kyc_document_uploaded', {
+        has_back_side: !!backUri,
+        success: false,
+        error_code:
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : undefined,
+      });
       const msg =
         error instanceof Error
           ? error.message
