@@ -368,6 +368,7 @@ export default function PhotosReviewScreen() {
 
       if (!result.canceled && result.assets.length > 0) {
         const uris = result.assets.map((asset) => asset.uri);
+        const added = uris.slice(0, remainingSlots);
         setPhotos((prev) => {
           const remaining = MAX_PHOTOS - prev.length;
           return [...prev, ...uris.slice(0, remaining)];
@@ -376,6 +377,20 @@ export default function PhotosReviewScreen() {
         // publishing falls back to the local photos (re-uploaded at publish)
         // instead of silently dropping the freshly added images.
         setStorageUrls([]);
+        track('sell_photo_added', {
+          screen: 'photos_review',
+          method: 'gallery',
+          count_added: added.length,
+          photo_count_after: photos.length + added.length,
+        });
+      } else if (result.canceled) {
+        track('sell_photo_added', {
+          screen: 'photos_review',
+          method: 'gallery',
+          count_added: 0,
+          photo_count_after: photos.length,
+          cancelled: true,
+        });
       }
     } catch (error) {
       if (__DEV__) console.error('Error picking images:', error);
