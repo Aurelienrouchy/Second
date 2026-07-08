@@ -468,8 +468,28 @@ export default function EditArticleScreen() {
         'Modifications non enregistrées',
         'Voulez-vous vraiment quitter sans enregistrer ?',
         [
-          { text: 'Rester', style: 'cancel' },
-          { text: 'Quitter', style: 'destructive', onPress: () => router.back() },
+          {
+            text: 'Rester',
+            style: 'cancel',
+            onPress: () =>
+              track('sell_exit_prompted', {
+                flow_step: 'edit',
+                confirmed_leave: false,
+                has_unsaved_changes: true,
+              }),
+          },
+          {
+            text: 'Quitter',
+            style: 'destructive',
+            onPress: () => {
+              track('sell_exit_prompted', {
+                flow_step: 'edit',
+                confirmed_leave: true,
+                has_unsaved_changes: true,
+              });
+              router.back();
+            },
+          },
         ]
       );
     } else {
