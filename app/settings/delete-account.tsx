@@ -132,10 +132,12 @@ export default function DeleteAccountScreen() {
         error instanceof Error && error.message ? error.message : undefined;
 
       if (code === 'functions/failed-precondition' && serverMessage) {
+        track('account_deletion_submitted', { auth_provider: deleteAuthProvider, outcome: 'server_refused' });
         Alert.alert('Suppression impossible', serverMessage, [{ text: 'Compris' }]);
         return;
       }
 
+      track('account_deletion_submitted', { auth_provider: deleteAuthProvider, outcome: 'error' });
       Alert.alert(
         'Erreur',
         serverMessage || 'Une erreur est survenue lors de la suppression du compte'
