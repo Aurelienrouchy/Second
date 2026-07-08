@@ -191,24 +191,24 @@ export default function MySwapsScreen() {
         <FilterTab
           label="Tous"
           isActive={filter === 'all'}
-          onPress={() => setFilter('all')}
+          onPress={() => handleFilterSelect('all')}
         />
         <FilterTab
           label="En attente"
           isActive={filter === 'pending'}
-          onPress={() => setFilter('pending')}
+          onPress={() => handleFilterSelect('pending')}
           badge={pendingCount > 0 ? pendingCount : undefined}
         />
         <FilterTab
           label="En cours"
           isActive={filter === 'active'}
-          onPress={() => setFilter('active')}
+          onPress={() => handleFilterSelect('active')}
           badge={activeCount > 0 ? activeCount : undefined}
         />
         <FilterTab
           label="Historique"
           isActive={filter === 'completed'}
-          onPress={() => setFilter('completed')}
+          onPress={() => handleFilterSelect('completed')}
         />
       </View>
 
