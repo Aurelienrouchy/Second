@@ -141,6 +141,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     React.useImperativeHandle(ref, () => ({
       present: () => {
         resetState();
+        submittedRef.current = false;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setIsOpen(true);
       },
