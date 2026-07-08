@@ -118,6 +118,8 @@ export default function PrivacySettingsScreen() {
         // État courant du consentement marketing ; absent => pas de consentement (false).
         marketingConsent:
           preferences?.marketingConsent ?? UserService.PRIVACY_DEFAULTS.marketingConsent,
+        // Opt-out : absent => activé (true).
+        analyticsConsent: preferences?.analyticsConsent ?? true,
       };
     },
     enabled: !!user?.id,
