@@ -497,7 +497,15 @@ export default function DetailsScreen() {
       <BrandSelectionSheet
         ref={brandSheetRef}
         selectedBrand={fields.brand}
-        onSelectSingle={(brand) => updateField('brand', brand)}
+        onSelectSingle={(brand) => {
+          updateField('brand', brand);
+          track('sell_field_edited', {
+            screen: 'sell',
+            field: 'brand',
+            value: brand,
+            matched_ai_suggestion: !!aiResult?.brand?.detected && brand === aiResult.brand.detected,
+          });
+        }}
         initialSearchQuery={aiResult?.brand?.detected || ''}
         singleSelect
       />
