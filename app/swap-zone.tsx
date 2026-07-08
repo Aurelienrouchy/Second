@@ -474,12 +474,20 @@ export default function SwapZoneScreen() {
     // The deposit entry is always visible (even logged-out) so the "add your
     // articles" affordance can never disappear. A logged-out tap routes through
     // the canonical auth gate, mirroring handleItemPress.
+    const openDeposit = () => {
+      // Empty inventory renders as the drop zone; otherwise it's the add button.
+      track('swap_deposit_opened', {
+        entry_variant: userItems.length === 0 ? 'drop_zone' : 'add_button',
+        my_items_count: userItems.length,
+      });
+      setDepositOpened(true);
+    };
     if (!user) {
-      requireAuth(() => setDepositOpened(true), AUTH_MESSAGES.swapParty);
+      requireAuth(openDeposit, AUTH_MESSAGES.swapParty);
       return;
     }
-    setDepositOpened(true);
-  }, [user, requireAuth]);
+    openDeposit();
+  }, [user, requireAuth, userItems.length]);
 
   // Present the modal right after it mounts (when depositOpened flips to true).
   useEffect(() => {
