@@ -37,12 +37,14 @@ import {
 import type { AnalyticsEvents } from '@/types/analytics';
 import type { Article } from '@/types';
 
-type FavoriteSource = AnalyticsEvents['article_favorited']['source'];
+export type FavoriteSource = AnalyticsEvents['article_favorited']['source'];
 
 /** Context threaded by the caller so the canonical mutation can attribute the toggle. */
 export interface ToggleFavoriteOptions {
   source: FavoriteSource;
-  article?: Article | null;
+  sellerId?: string;
+  priceCents?: number;
+  brand?: string;
   via?: 'heart' | 'long_press';
 }
 

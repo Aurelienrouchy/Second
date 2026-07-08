@@ -1,11 +1,29 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { QueryDocumentSnapshot } from 'firebase/firestore';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
 import { Article, ArticleSize, SearchFilters, SortBy } from '@/types';
+
+/** Active filter dimension names for the search analytics funnel. */
+function computeActiveFilterKeys(
+  filters: SearchFilters,
+  categoryPath: string[],
+): string[] {
+  const keys: string[] = [];
+  if (categoryPath.length > 0) keys.push('category');
+  if ((filters.colors?.length ?? 0) > 0) keys.push('colors');
+  if ((filters.sizes?.length ?? 0) > 0) keys.push('sizes');
+  if ((filters.materials?.length ?? 0) > 0) keys.push('materials');
+  if ((filters.brands?.length ?? 0) > 0) keys.push('brands');
+  if (filters.condition) keys.push('condition');
+  if (filters.minPrice !== undefined || filters.maxPrice !== undefined) keys.push('price');
+  if (filters.sortBy && filters.sortBy !== 'recent') keys.push('sort');
+  return keys;
+}
 
 const SEARCH_DEBOUNCE_MS = 350;
 const PAGE_SIZE = 20;
