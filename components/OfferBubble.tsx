@@ -212,7 +212,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               action: 'accept',
               dialog_outcome: 'confirmed',
               result: 'error',
-              error_code: msg,
+              error_code: errCode(error),
               offer_amount_cents: Math.round(amount * 100),
               is_meetup_offer: isMeetupOffer,
               role,
