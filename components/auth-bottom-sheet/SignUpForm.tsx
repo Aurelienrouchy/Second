@@ -56,8 +56,20 @@ function SignUpFormComponent({
   const handleBlur = useCallback(
     (field: 'displayName' | 'email' | 'password') => {
       setTouched((prev) => ({ ...prev, [field]: true }));
+      const invalid =
+        field === 'displayName'
+          ? displayName.trim().length < 3
+          : field === 'email'
+            ? !email.includes('@') || !email.includes('.')
+            : password.length < 6;
+      if (invalid) {
+        track('auth_form_error_shown', {
+          field: field === 'displayName' ? 'display_name' : field,
+          mode: 'signup',
+        });
+      }
     },
-    [],
+    [displayName, email, password],
   );
 
   const displayNameInvalid =
