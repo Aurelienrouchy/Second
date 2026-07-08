@@ -188,13 +188,22 @@ export default function FavoritesScreen() {
   );
 
   const handleRefresh = useCallback(() => {
+    track('list_refreshed', { screen: 'favorites', items_count: favoriteArticles.length });
     queryClient.invalidateQueries({
       queryKey: favoritesKeys.list(user?.id ?? 'guest'),
     });
-  }, [queryClient, user?.id]);
+  }, [queryClient, user?.id, favoriteArticles.length]);
 
   const handleArticlePress = useCallback(
     (article: Article | ArticleWithLocation) => {
+      track('article_card_tapped', {
+        article_id: article.id,
+        source: 'favorites',
+        price_cents: Math.round(article.price * 100),
+        brand: article.brand,
+        condition: article.condition,
+        is_sold: !!article.isSold,
+      });
       router.push(`/article/${article.id}`);
     },
     [router]
