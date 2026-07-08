@@ -238,6 +238,10 @@ export default function NotificationsScreen() {
 
     try {
       await NotificationService.markAllAsRead(user.id);
+      track('notifications_marked_all_read', {
+        unread_count: notifications.filter((n) => !n.isRead).length,
+        total_count: notifications.length,
+      });
       queryClient.setQueryData<Notification[]>(
         queryKeys.notifications.list(user.id),
         (old) => old?.map((n) => ({ ...n, isRead: true })) ?? [],

@@ -35,16 +35,19 @@ export default function PasswordSettingsScreen() {
 
   const handleSave = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
+      track('password_changed', { success: false, validation_error: 'empty' });
       Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
       return;
     }
 
     if (newPassword.length < 6) {
+      track('password_changed', { success: false, validation_error: 'too_short' });
       Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
+      track('password_changed', { success: false, validation_error: 'mismatch' });
       Alert.alert('Erreur', 'Les nouveaux mots de passe ne correspondent pas.');
       return;
     }
@@ -55,12 +58,14 @@ export default function PasswordSettingsScreen() {
     try {
       // 1. Re-authentifier
       await AuthService.reauthenticate(currentPassword);
-      
+
       // 2. Mettre à jour le mot de passe
       await AuthService.updatePassword(newPassword);
 
+      track('password_changed', { success: true });
+
       Alert.alert(
-        'Succès', 
+        'Succès',
         'Votre mot de passe a été mis à jour.',
         [
           { text: 'OK', onPress: () => router.back() }
@@ -68,6 +73,10 @@ export default function PasswordSettingsScreen() {
       );
     } catch (error: unknown) {
       if (__DEV__) console.error('Error updating password:', error);
+      const code = error != null && typeof error === 'object' && 'code' in error
+        ? (error as { code: string }).code
+        : undefined;
+      track('password_changed', { success: false, error_code: code });
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la mise à jour du mot de passe';
       Alert.alert('Erreur', message);
     } finally {
