@@ -96,12 +96,16 @@ export default function AdminShopsScreen() {
   };
 
   useEffect(() => {
-    checkAdminAccess();
+    (async () => {
+      await checkAdminAccess();
+    })();
   }, [user]);
 
   useEffect(() => {
     if (isAdmin) {
-      loadShops();
+      (async () => {
+        await loadShops();
+      })();
     }
   }, [selectedTab, isAdmin]);
 
