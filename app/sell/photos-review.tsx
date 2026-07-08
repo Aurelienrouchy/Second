@@ -422,7 +422,12 @@ export default function PhotosReviewScreen() {
     setStorageUrls((prev) =>
       prev.length > index ? prev.filter((_, i) => i !== index) : prev,
     );
-  }, [isAnalyzing]);
+    track('sell_photo_removed', {
+      screen: 'photos_review',
+      photo_index: index,
+      photo_count_after: Math.max(0, photos.length - 1),
+    });
+  }, [isAnalyzing, photos.length]);
 
   // =============================================================================
   // NAVIGATION HANDLERS
