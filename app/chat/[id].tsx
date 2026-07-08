@@ -184,8 +184,14 @@ export default function ChatScreen() {
       return;
     }
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
+        track('permission_denied', {
+          permission: 'photos',
+          context: 'chat_image',
+          can_ask_again: canAskAgain,
+          action_taken: 'cancel',
+        });
         Alert.alert('Permission requise', 'Nous avons besoin de votre permission pour accéder à la galerie');
         return;
       }
