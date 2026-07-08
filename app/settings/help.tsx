@@ -140,6 +140,7 @@ export default function HelpSettingsScreen() {
               icon={item.icon}
               question={item.question}
               answer={item.answer}
+              faqKey={`faq_${index}`}
             />
           ))}
         </View>
