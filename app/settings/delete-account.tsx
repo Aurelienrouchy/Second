@@ -39,9 +39,16 @@ export default function DeleteAccountScreen() {
   const isAppleOnAndroid = provider === 'apple.com' && Platform.OS !== 'ios';
   const hasPasswordProvider = AuthService.hasPasswordProvider();
 
+  const deleteAuthProvider =
+    provider === 'google.com' ? 'google'
+      : provider === 'apple.com' ? 'apple'
+        : provider === 'password' ? 'password'
+          : 'unknown';
+
   const handleReauthSocial = async () => {
     if (isUnknownProvider || isAppleOnAndroid) return;
     setLoading(true);
+    const reauthProvider: 'google' | 'apple' = provider === 'google.com' ? 'google' : 'apple';
     try {
       if (provider === 'google.com') {
         await AuthService.reauthenticateWithGoogle();
@@ -49,9 +56,12 @@ export default function DeleteAccountScreen() {
         await AuthService.reauthenticateWithApple();
       }
       setReauthDone(true);
+      track('reauth_performed', { context: 'delete_account', provider: reauthProvider, result: 'success' });
     } catch (error: unknown) {
       const code = (error as { code?: string }).code;
-      if (code !== 'ERR_REQUEST_CANCELED' && code !== 'SIGN_IN_CANCELLED') {
+      const cancelled = code === 'ERR_REQUEST_CANCELED' || code === 'SIGN_IN_CANCELLED';
+      track('reauth_performed', { context: 'delete_account', provider: reauthProvider, result: cancelled ? 'cancelled' : 'error' });
+      if (!cancelled) {
         Alert.alert('Erreur', 'La vérification a échoué. Veuillez réessayer.');
       }
     } finally {
@@ -65,7 +75,9 @@ export default function DeleteAccountScreen() {
     try {
       await AuthService.reauthenticate(password);
       setReauthDone(true);
+      track('reauth_performed', { context: 'delete_account', provider: 'password', result: 'success' });
     } catch (error: unknown) {
+      track('reauth_performed', { context: 'delete_account', provider: 'password', result: 'error' });
       const message = (error as { message?: string }).message;
       Alert.alert('Erreur', message || 'Mot de passe incorrect. Veuillez réessayer.');
     } finally {
