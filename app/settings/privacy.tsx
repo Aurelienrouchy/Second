@@ -159,12 +159,26 @@ export default function PrivacySettingsScreen() {
       );
       return { previousSettings };
     },
-    onError: (_error, _updates, context) => {
+    onSuccess: (_data, updates) => {
+      if (updates.showProfilePhoto !== undefined) {
+        track('privacy_setting_toggled', { setting_key: 'showProfilePhoto', new_value: updates.showProfilePhoto, success: true });
+      }
+      if (updates.aiProfilingConsent !== undefined) {
+        track('privacy_setting_toggled', { setting_key: 'aiProfilingConsent', new_value: updates.aiProfilingConsent, success: true });
+      }
+    },
+    onError: (_error, updates, context) => {
       if (context?.previousSettings) {
         queryClient.setQueryData(
           ['userPrivacyPreferences', user?.id],
           context.previousSettings
         );
+      }
+      if (updates.showProfilePhoto !== undefined) {
+        track('privacy_setting_toggled', { setting_key: 'showProfilePhoto', new_value: updates.showProfilePhoto, success: false });
+      }
+      if (updates.aiProfilingConsent !== undefined) {
+        track('privacy_setting_toggled', { setting_key: 'aiProfilingConsent', new_value: updates.aiProfilingConsent, success: false });
       }
       Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
     },
