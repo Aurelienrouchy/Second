@@ -198,10 +198,24 @@ export default function DeleteAccountScreen() {
 
       {/* Actions */}
       <View style={styles.actions}>
-        <Button variant="danger" fullWidth onPress={() => setStep('confirm')}>
+        <Button
+          variant="danger"
+          fullWidth
+          onPress={() => {
+            track('account_deletion_started', { auth_provider: deleteAuthProvider });
+            setStep('confirm');
+          }}
+        >
           Continuer
         </Button>
-        <Button variant="muted" fullWidth onPress={() => router.back()}>
+        <Button
+          variant="muted"
+          fullWidth
+          onPress={() => {
+            track('account_deletion_abandoned', { step_at_abort: 'info' });
+            router.back();
+          }}
+        >
           Annuler
         </Button>
       </View>
