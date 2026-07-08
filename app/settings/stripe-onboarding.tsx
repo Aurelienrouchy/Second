@@ -255,6 +255,12 @@ export default function StripeOnboardingScreen() {
       };
     },
     onSuccess: async (data) => {
+      track('seller_account_submitted', {
+        validation_result: 'ok',
+        success: true,
+        charges_enabled_after: data.chargesEnabled,
+        requirements_count_after: data.requirements?.length ?? 0,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await queryClient.invalidateQueries({ queryKey: queryKeys.stripe.all });
 
