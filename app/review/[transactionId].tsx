@@ -35,6 +35,7 @@ import { createReview } from '@/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
 import { UserService } from '@/services/userService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
+import { track } from '@/lib/analytics';
 import type { Article, Transaction, User } from '@/types';
 
 // =============================================================================
