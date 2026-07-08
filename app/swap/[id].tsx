@@ -45,8 +45,14 @@ import {
 } from '@/features/swap';
 import type { SwapActionHandlers, SwapParticipantContext } from '@/features/swap';
 
+const SWAP_VIEW_SOURCES = ['my_swaps', 'push', 'post_proposal', 'deep_link'] as const;
+type SwapViewSource = (typeof SWAP_VIEW_SOURCES)[number];
+
 export default function SwapDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, source: sourceParam } = useLocalSearchParams<{ id: string; source?: string }>();
+  const viewSource: SwapViewSource = SWAP_VIEW_SOURCES.includes(sourceParam as SwapViewSource)
+    ? (sourceParam as SwapViewSource)
+    : 'deep_link';
   const user = useUser();
   const insets = useSafeAreaInsets();
 
