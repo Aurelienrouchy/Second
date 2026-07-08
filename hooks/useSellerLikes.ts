@@ -165,12 +165,12 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
   });
 
   const toggleLike = useCallback(
-    (sellerId: string) => {
+    (sellerId: string, source: SellerFollowSource = 'public_profile') => {
       if (!currentUserId) {
         if (__DEV__) console.warn('[useSellerLikes] User not authenticated');
         return;
       }
-      mutation.mutate(sellerId);
+      mutation.mutate({ sellerId, source });
     },
     [currentUserId, mutation]
   );
