@@ -105,8 +105,15 @@ export default function MyArticlesScreen() {
   };
 
   const handleMarkAsSold = async (article: Article) => {
+    const nextState: 'sold' | 'relisted' = article.isSold ? 'relisted' : 'sold';
     try {
       await httpsCallable(functions, 'toggleArticleSold')({ articleId: article.id });
+      track('article_sold_toggled', {
+        article_id: article.id,
+        new_state: nextState,
+        success: true,
+        source: 'my_articles',
+      });
       queryClient.setQueryData<Article[]>(
         queryKeys.articles.userList(user!.id),
         (old) =>
@@ -114,12 +121,21 @@ export default function MyArticlesScreen() {
       );
     } catch (error) {
       if (__DEV__) console.error('Erreur mise a jour:', error);
+      track('article_sold_toggled', {
+        article_id: article.id,
+        new_state: nextState,
+        success: false,
+        source: 'my_articles',
+      });
       Alert.alert('Erreur', 'Impossible de mettre a jour l\'article');
     }
   };
 
   const handleEditArticle = (article: Article) => {
-    router.push(`/article/edit/${article.id}`);
+    router.push({
+      pathname: '/article/edit/[id]',
+      params: { id: article.id, source: 'my_articles' },
+    });
   };
 
   const showActionSheet = (article: Article) => {
