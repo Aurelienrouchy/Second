@@ -359,11 +359,22 @@ export default function SwapDetailScreen() {
       {
         text: 'Oui, envoyé !',
         onPress: async () => {
+          const exchangeMode = swap?.exchangeMode ?? '';
           setIsProcessing(true);
           try {
             await confirmShipping(id, user.id);
+            track('swap_shipping_confirmed', {
+              swap_id: id,
+              exchange_mode: exchangeMode,
+              outcome: 'success',
+            });
           } catch (error) {
             if (__DEV__) console.error('Error confirming shipping:', error);
+            track('swap_shipping_confirmed', {
+              swap_id: id,
+              exchange_mode: exchangeMode,
+              outcome: 'error',
+            });
             Alert.alert('Erreur', "Impossible de confirmer l'envoi");
           } finally {
             setIsProcessing(false);
@@ -371,7 +382,7 @@ export default function SwapDetailScreen() {
         },
       },
     ]);
-  }, [id, user]);
+  }, [id, user, swap?.exchangeMode]);
 
   const handleConfirmReception = useCallback(async () => {
     if (!id || !user) return;
