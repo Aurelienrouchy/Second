@@ -66,6 +66,14 @@ export default function AdminShopDetailScreen() {
     }
   };
 
+  useEffect(() => {
+    if (id) {
+      (async () => {
+        await loadShopDetails();
+      })();
+    }
+  }, [id, user]);
+
   const handleApprove = () => {
     if (!user || !shop) return;
 
