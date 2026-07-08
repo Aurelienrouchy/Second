@@ -169,7 +169,12 @@ const TrendingBrandsSectionComponent: React.FC = () => {
       <SectionHeader
         title="Tendances"
         action="Voir tout"
-        onActionPress={() => router.push('/search')}
+        onActionPress={() =>
+          router.push({
+            pathname: '/search',
+            params: { source: 'home_see_all', sectionId: 'trending-brands' },
+          })
+        }
       />
       <View style={styles.container}>
         <ScrollView
