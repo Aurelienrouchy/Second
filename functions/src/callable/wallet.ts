@@ -812,10 +812,57 @@ export const payWithWallet = onCall(
           deliveryType: txData.deliveryType,
           shipEngineRateId: txData.shipEngineRateId || null,
           shippingCost: typeof txData.shippingCost === 'number' ? txData.shippingCost : 0,
+          serviceFee: typeof txData.serviceFee === 'number' ? txData.serviceFee : 0,
+          taxTotal: typeof txData.taxTotal === 'number' ? txData.taxTotal : 0,
+          itemAmount:
+            typeof txData.amount === 'number'
+              ? txData.amount
+              : typeof txData.sellerPayout === 'number'
+                ? txData.sellerPayout
+                : 0,
+          sellerPayout: typeof txData.sellerPayout === 'number' ? txData.sellerPayout : 0,
+          totalAmountCents,
           articleId: txData.articleId || null,
           articleTitle: txData.articleTitle || null,
         };
       });
+
+      // Analytics (§12): 100% wallet payment — no Payment Sheet. order_paid
+      // follows the BUYER (payment_method=wallet), sale_paid mirrors on the
+      // SELLER. $insert_id shared with the webhook path so a tx can never be
+      // double-counted across rails.
+      {
+        const serviceFeeCents = Math.round((result.serviceFee ?? 0) * 100);
+        await captureServerEvent(buyerId, 'order_paid', {
+          transaction_id: transactionId,
+          article_id: result.articleId,
+          buyer_id: buyerId,
+          seller_id: result.sellerId ?? null,
+          item_amount_cents: Math.round((result.itemAmount ?? 0) * 100),
+          shipping_cents: Math.round((result.shippingCost ?? 0) * 100),
+          service_fee_cents: serviceFeeCents,
+          tax_cents: Math.round((result.taxTotal ?? 0) * 100),
+          buyer_total_cents: result.totalAmountCents,
+          application_fee_cents: serviceFeeCents,
+          wallet_amount_cents: result.totalAmountCents,
+          card_amount_cents: 0,
+          payment_method: 'wallet',
+          delivery_type: result.deliveryType ?? null,
+          $insert_id: transactionId,
+        });
+        if (result.sellerId) {
+          await captureServerEvent(result.sellerId, 'sale_paid', {
+            transaction_id: transactionId,
+            article_id: result.articleId,
+            seller_id: result.sellerId,
+            buyer_id: buyerId,
+            item_amount_cents: Math.round((result.itemAmount ?? 0) * 100),
+            seller_net_cents: Math.round((result.sellerPayout ?? 0) * 100),
+            delivery_type: result.deliveryType ?? null,
+            $insert_id: `sale_${transactionId}`,
+          });
+        }
+      }
 
       // =====================================================================
       // SHIPPING LABEL (for shipping transactions — mirrors webhook logic)
