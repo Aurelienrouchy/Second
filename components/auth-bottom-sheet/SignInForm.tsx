@@ -11,6 +11,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 
 import { styles } from './styles';
 
