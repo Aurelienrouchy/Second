@@ -31,6 +31,7 @@ import {
 
 import ProductCard, { SkeletonCard } from '@/components/ProductCard';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
+import type { FavoriteSource } from '@/hooks/useFavorites';
 import type { Article, ArticleWithLocation } from '@/types';
 
 // =============================================================================
