@@ -324,6 +324,13 @@ async function handleInitialNotification(userId: string | null): Promise<void> {
 
   const data = lastResponse.notification.request.content.data as PushNotificationData;
   if (data) {
+    if (data.type) {
+      track('push_opened', {
+        notification_type: data.type,
+        from_killed_state: true,
+        destination_route: pushDestinationRoute(data),
+      });
+    }
     InteractionManager.runAfterInteractions(() => {
       routeFromNotificationData(data, userId);
     });
