@@ -214,10 +214,22 @@ export function useSwapZoneFilters(items: SwapPartyItemExtended[]) {
 
   const handleColorsConfirm = useCallback((selected: string[]) => {
     setFilters((prev) => ({ ...prev, colors: selected }));
+    track('search_filter_applied', {
+      screen: 'swap_zone',
+      filter_type: 'colors',
+      values: selected,
+      values_count: selected.length,
+    });
   }, []);
 
   const handleBrandsConfirm = useCallback((brands: string[]) => {
     setFilters((prev) => ({ ...prev, brands }));
+    track('search_filter_applied', {
+      screen: 'swap_zone',
+      filter_type: 'brands',
+      values: brands,
+      values_count: brands.length,
+    });
   }, []);
 
   const handleMaterialSelect = useCallback((material: string) => {
