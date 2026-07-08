@@ -345,6 +345,10 @@ export const useAuthStore = create<AuthStore>()(
       queryClient.clear();
       await AuthService.signOut();
       await AsyncStorage.removeItem(USER_DATA_KEY);
+      // Fire BEFORE reset so the event stays attributed to the signed-out user.
+      track('user_signed_out', {
+        source: opts?.skipRemoteFcmCleanup ? 'account_deletion' : 'user_action',
+      });
       resetAnalytics();
       set({ ...initialState, isLoading: false });
     } catch (error) {
