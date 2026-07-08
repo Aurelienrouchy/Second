@@ -163,6 +163,20 @@ export default function MessagesScreen() {
     return acc;
   }, [chats, user, getConversationType, isChatBlocked]);
 
+  const handleTabSelect = useCallback(
+    (tab: ConversationType) => {
+      setPickedTab(tab);
+      const count = chats.filter((c) => getConversationType(c) === tab).length;
+      track('list_filtered', {
+        screen: 'messages',
+        filter: tab,
+        filtered_count: count,
+        unread_count: unreadByType[tab],
+      });
+    },
+    [chats, getConversationType, unreadByType],
+  );
+
   if (!user) {
     return (
       <View style={styles.container} testID="messages-guest">
