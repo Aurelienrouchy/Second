@@ -22,6 +22,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { COPY_USERNAME } from '@/constants/authMessages';
 import { colors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 
 import { styles } from './styles';
 
