@@ -59,6 +59,19 @@ const INITIAL_PROGRESS_STEPS: ProgressStep[] = [
   { label: 'Génération du titre et description', state: 'pending' },
 ];
 
+function countPrefilledFields(result: AIAnalysisResult): number {
+  return [
+    result.title,
+    result.description,
+    result.brand?.detected,
+    result.category?.categoryId,
+    result.condition?.conditionId,
+    result.size?.normalized || result.size?.detected,
+    (result.colors?.colorIds?.length ?? 0) > 0,
+    (result.materials?.materialIds?.length ?? 0) > 0,
+  ].filter(Boolean).length;
+}
+
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
