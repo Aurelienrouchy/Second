@@ -69,11 +69,23 @@ export default function PreferencesScreen() {
         favoriteBrands: selectedBrands,
       }),
     onSuccess: () => {
+      track('preferences_saved', {
+        sizes_count: selectedSizes.length,
+        shoe_sizes_count: selectedShoeSizes.length,
+        brands_count: selectedBrands.length,
+        success: true,
+      });
       Alert.alert('Succès', 'Vos préférences ont été enregistrées', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     },
     onError: () => {
+      track('preferences_saved', {
+        sizes_count: selectedSizes.length,
+        shoe_sizes_count: selectedShoeSizes.length,
+        brands_count: selectedBrands.length,
+        success: false,
+      });
       Alert.alert('Erreur', "Une erreur est survenue lors de l'enregistrement");
     },
   });
