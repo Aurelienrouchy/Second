@@ -156,6 +156,24 @@ export default function SwapZoneScreen() {
     [items, user?.id]
   );
 
+  // Fire swap_zone_viewed once, when the initial load resolves (loaded or error).
+  const viewedRef = useRef(false);
+  useEffect(() => {
+    if (isPartyLoading || viewedRef.current) return;
+    viewedRef.current = true;
+    if (isError || !party) {
+      track('swap_zone_viewed', { outcome: 'error', source: viewSource });
+      return;
+    }
+    track('swap_zone_viewed', {
+      outcome: 'loaded',
+      source: viewSource,
+      total_items_count: items.length,
+      my_items_count: userItems.length,
+      other_items_count: items.length - userItems.length,
+    });
+  }, [isPartyLoading, isError, party, items, userItems.length, viewSource]);
+
   // ── UI state ──
   const [depositOpened, setDepositOpened] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
