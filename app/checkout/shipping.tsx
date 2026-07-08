@@ -85,7 +85,19 @@ export default function ShippingCheckoutScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loadingEstimates, setLoadingEstimates] = useState(false);
-  const [addressForm, setAddressForm] = useState<AddressFormValues>(INITIAL_ADDRESS);
+  const [addressForm, setAddressForm] = useState<AddressFormValues>(() => {
+    // Pre-fill from the user profile at mount.
+    const user = useAuthStore.getState().user;
+    if (!user) return INITIAL_ADDRESS;
+    return {
+      ...INITIAL_ADDRESS,
+      fullName: user.displayName || '',
+      address: user.address?.street || '',
+      city: user.address?.city || '',
+      province: user.address?.province || '',
+      postalCode: user.address?.postalCode || '',
+    };
+  });
   const [estimates, setEstimates] = useState<ShippingEstimate[]>([]);
   const [selectedEstimate, setSelectedEstimate] = useState<ShippingEstimate | null>(null);
   const [showStripePayment, setShowStripePayment] = useState(false);
