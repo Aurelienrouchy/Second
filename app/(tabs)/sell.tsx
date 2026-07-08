@@ -1,10 +1,20 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import DraftResumeModal from '@/components/DraftResumeModal';
 import draftService, { ArticleDraft } from '@/services/draftService';
+import { track } from '@/lib/analytics';
 import { colors, radius } from '@/constants/theme';
 import { Skeleton } from '@/components/ui/Skeleton';
+
+const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+
+function draftStepLabel(step: number): '1' | '1b' | '2' | '3' | '4' {
+  if (step >= 4) return '4';
+  if (step >= 3) return '3';
+  if (step >= 2) return '2';
+  return '1';
+}
 
 /**
  * Sell Tab Entry Point
