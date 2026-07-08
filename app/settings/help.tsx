@@ -98,7 +98,9 @@ export default function HelpSettingsScreen() {
       const canOpen = await Linking.canOpenURL(mailtoUrl);
       if (canOpen) {
         await Linking.openURL(mailtoUrl);
+        track('support_contacted', { outcome: 'opened' });
       } else {
+        track('support_contacted', { outcome: 'mail_unavailable' });
         Alert.alert(
           'Email',
           'Vous pouvez nous contacter à contact@seconde.ca',
@@ -106,6 +108,7 @@ export default function HelpSettingsScreen() {
         );
       }
     } catch (error) {
+      track('support_contacted', { outcome: 'error' });
       Alert.alert(
         'Erreur',
         'Impossible d\'ouvrir l\'application email',
