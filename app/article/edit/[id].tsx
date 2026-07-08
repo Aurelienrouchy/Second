@@ -45,6 +45,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 import { Article, ArticleImage, MeetupNeighborhood } from '@/types';
 import { colors, fonts } from '@/constants/theme';
