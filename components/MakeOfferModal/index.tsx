@@ -264,8 +264,8 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
             {state.step === 'confirm' && (
               <ConfirmStep
                 context={context}
-                onSubmitMeetup={onMeetupOfferSubmit}
-                onSubmitShipping={onShippingOfferSubmit}
+                onSubmitMeetup={handleMeetupSubmit}
+                onSubmitShipping={handleShippingSubmit}
               />
             )}
           </View>
