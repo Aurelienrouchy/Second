@@ -360,7 +360,7 @@ export default function ShopDetailScreen() {
               </View>
               <Pressable
                 style={styles.viewArticlesButton}
-                onPress={() => router.push(`/search?shopId=${shop.id}`)}
+                onPress={() => router.push(`/search?shopId=${shop.id}&source=shop`)}
               >
                 <Text style={styles.viewArticlesButtonText}>Voir tous les articles</Text>
                 <Ionicons name="chevron-forward" size={20} color={colors.primary} />
