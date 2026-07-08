@@ -2645,7 +2645,16 @@ export const acceptMeetupOffer = onCall(
         const newTxRef = db.collection('transactions').doc();
         tx.set(newTxRef, transactionData);
 
-        return { transactionId: newTxRef.id, buyerId, sellerId, amount, reused: false };
+        const negotiated =
+          typeof articleData.price === 'number' && amount < articleData.price;
+        return {
+          transactionId: newTxRef.id,
+          buyerId,
+          sellerId,
+          amount,
+          reused: false,
+          negotiated,
+        };
       });
 
       logger.info('Meetup offer accepted (server-authoritative)', {
@@ -2656,6 +2665,24 @@ export const acceptMeetupOffer = onCall(
         sellerId: result.sellerId,
         reused: result.reused,
       });
+
+      // Analytics (§12): a NEW meetup tx created via the chat flow (source=
+      // offer_accept). The `reused` path was already created by createTransaction
+      // (direct checkout), so skip it to avoid a double order_created. $insert_id
+      // keyed by tx id is a second safety net. distinct_id = buyer.
+      if (!result.reused) {
+        await captureServerEvent(result.buyerId, 'order_created', {
+          transaction_id: result.transactionId,
+          article_id: chatArticleId,
+          buyer_id: result.buyerId,
+          seller_id: result.sellerId,
+          delivery_type: 'meetup',
+          amount_cents: Math.round((result.amount ?? 0) * 100),
+          negotiated: 'negotiated' in result ? result.negotiated : false,
+          source: 'offer_accept',
+          $insert_id: `order_created_${result.transactionId}`,
+        });
+      }
 
       return { success: true, transactionId: result.transactionId, reused: result.reused };
     } catch (error: unknown) {
