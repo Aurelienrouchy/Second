@@ -4,6 +4,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { formatPrice } from '@/utils/formatPrice';
 import type { ChatArticleBarProps } from '../types';
 
