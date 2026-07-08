@@ -662,7 +662,7 @@ export default function ShippingCheckoutScreen() {
         <ShippingEstimateList
           estimates={estimates}
           selectedEstimate={selectedEstimate}
-          onSelect={setSelectedEstimate}
+          onSelect={handleSelectEstimate}
           loading={loadingEstimates}
           postalCodeLength={addressForm.postalCode.length}
         />
