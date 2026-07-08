@@ -791,7 +791,7 @@ export function useSearchScreen() {
     isGuest: !user,
     setIsSearching,
     loadMore,
-    handleFilterRemove,
+    handleFilterRemove: handleFilterRemoveTracked,
 
     // recent searches
     recentSearches,
