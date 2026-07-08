@@ -163,6 +163,8 @@ export default function ShopUpgradeScreen() {
   // Purchase flow
   // ---------------------------------------------------------------------------
 
+  const currentTier = shop?.tier;
+
   const handlePurchase = useCallback(async () => {
     if (!shopId || isPurchasing) return;
     try {
