@@ -264,7 +264,7 @@ export default function OnboardingScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [hasAnything, isSaving, sex, sizesTop, sizesBottom, sizesShoes, user]);
+  }, [hasAnything, isSaving, sex, sizeSystem, sizesTop, sizesBottom, sizesShoes, user]);
 
   // Android hardware back on the form screen returns to the welcome step
   // (instead of leaving onboarding) and preserves the current selections.
