@@ -464,13 +464,11 @@ export function useSearchScreen() {
 
   // If a text term is committed while an incompatible sort is selected, snap
   // back to the only valid sort so the chip label never lies.
-  useEffect(() => {
-    if (isTextMode && selectedSort !== 'popular') {
-      setSelectedSort('popular');
-      setFilters({ ...filters, sortBy: 'popular' });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTextMode]);
+  // (state adjustment during render — https://react.dev/learn/you-might-not-need-an-effect)
+  if (isTextMode && selectedSort !== 'popular') {
+    setSelectedSort('popular');
+    setFilters({ ...filters, sortBy: 'popular' });
+  }
 
   // ─── Filter handlers (multi-select) ─────────────────────────────
   const handleCategorySelect = useCallback(
