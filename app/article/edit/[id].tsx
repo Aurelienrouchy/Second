@@ -134,6 +134,11 @@ export default function EditArticleScreen() {
       const articleData = await ArticlesService.getArticleById(articleId);
 
       if (!articleData) {
+        track('article_edit_opened', {
+          article_id: articleId,
+          outcome: 'not_found',
+          source: editSource,
+        });
         Alert.alert('Erreur', 'Article introuvable');
         router.back();
         return;
@@ -141,6 +146,11 @@ export default function EditArticleScreen() {
 
       // Check ownership
       if (user?.id !== articleData.sellerId) {
+        track('article_edit_opened', {
+          article_id: articleId,
+          outcome: 'not_owner',
+          source: editSource,
+        });
         Alert.alert('Erreur', 'Vous ne pouvez pas modifier cet article');
         router.back();
         return;
@@ -148,6 +158,11 @@ export default function EditArticleScreen() {
 
       // Block editing sold articles
       if (articleData.isSold) {
+        track('article_edit_opened', {
+          article_id: articleId,
+          outcome: 'sold_blocked',
+          source: editSource,
+        });
         Alert.alert(
           'Article vendu',
           'Cet article est vendu et ne peut plus être modifié.',
@@ -156,6 +171,11 @@ export default function EditArticleScreen() {
         return;
       }
 
+      track('article_edit_opened', {
+        article_id: articleId,
+        outcome: 'loaded',
+        source: editSource,
+      });
       setArticle(articleData);
       const loadedImages = articleData.images || [];
       setEditedImages(loadedImages);
