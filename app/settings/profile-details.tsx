@@ -23,6 +23,7 @@ import { Image } from 'expo-image';
 
 import { auth } from '@/config/firebaseConfig';
 import { useUser, useAuthActions } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
