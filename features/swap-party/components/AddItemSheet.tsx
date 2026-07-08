@@ -172,7 +172,7 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
         handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.sheetBackground}
         enableDynamicSizing={false}
-        onDismiss={onClose}
+        onDismiss={handleDismiss}
       >
         {/* ── Header ── */}
         <View style={styles.header}>
