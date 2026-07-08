@@ -1691,6 +1691,20 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
     paymentIntentId: paymentIntent.id,
     failureMessage,
   });
+
+  // Analytics (§12): order_cancelled — system-initiated on a terminal payment
+  // failure. distinct_id = buyer. $insert_id shared with the callable cancel
+  // paths so a tx yields at most one order_cancelled.
+  if (didCancel && cancelBuyerId) {
+    await captureServerEvent(cancelBuyerId, 'order_cancelled', {
+      transaction_id: transactionId,
+      cancelled_by: 'system_expiry',
+      stage: 'pending_payment',
+      refunded_cents: cancelRefundCents,
+      article_relisted: cancelRelisted,
+      $insert_id: `order_cancelled_${transactionId}`,
+    });
+  }
 }
 
 // =============================================================================
