@@ -314,12 +314,29 @@ export default function PaymentScreen() {
               setIsCancelling(true);
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               await httpsCallable(functions, 'cancelPendingTransaction')({ transactionId });
+              track('order_cancel_submitted', {
+                transaction_id: transactionId,
+                role: 'buyer',
+                source: 'payment_screen',
+                status_at_cancel: 'pending_payment',
+                total_cents: totalAmountCents,
+                success: true,
+              });
               queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
               queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               router.back();
             } catch (error: unknown) {
               if (__DEV__) console.error('Error cancelling transaction:', error);
+              track('order_cancel_submitted', {
+                transaction_id: transactionId,
+                role: 'buyer',
+                source: 'payment_screen',
+                status_at_cancel: 'pending_payment',
+                total_cents: totalAmountCents,
+                success: false,
+                error_code: getCallableErrorCode(error) ?? undefined,
+              });
               const { title, message } = mapCallableError(error, {
                 title: 'Annulation impossible',
                 message: 'Impossible d’annuler cette commande pour le moment.',
@@ -332,7 +349,7 @@ export default function PaymentScreen() {
         },
       ],
     );
-  }, [transactionId, isCancelling, queryClient, router]);
+  }, [transactionId, isCancelling, queryClient, router, totalAmountCents]);
 
   const handlePaymentResult = useCallback(
     async (result: StripePaymentResult) => {
