@@ -296,7 +296,9 @@ export default function AdminDisputesScreen() {
     // The 'swaps' tab is a manual resolver (no firestore list — rules restrict
     // swap reads to participants), so we only load for the dispute-doc tabs.
     if (isAdmin && selectedTab !== 'swaps') {
-      loadDisputes(selectedTab);
+      (async () => {
+        await loadDisputes(selectedTab);
+      })();
     }
   }, [isAdmin, selectedTab, loadDisputes]);
 
