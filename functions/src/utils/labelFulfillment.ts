@@ -402,6 +402,8 @@ export async function createLabelIdempotent(params: {
   }
 
   // ---- Phase 3: COMMIT (atomic) ----
+  let labelSellerId: string | null = null;
+  let labelService = '';
   try {
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(transactionRef);
@@ -416,6 +418,14 @@ export async function createLabelIdempotent(params: {
       ) {
         return;
       }
+
+      labelSellerId = typeof data.sellerId === 'string' ? data.sellerId : null;
+      labelService =
+        typeof data.shipEngineServiceCode === 'string'
+          ? data.shipEngineServiceCode
+          : typeof data.serviceCode === 'string'
+            ? data.serviceCode
+            : '';
 
       await creditSellerForSale(tx, transactionRef, data, transactionId);
 
