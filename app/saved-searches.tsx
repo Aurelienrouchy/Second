@@ -396,10 +396,10 @@ export default function SavedSearches() {
   // Toggle notifications for a saved search
   const handleToggleNotify = useCallback(
     async (item: SavedSearch) => {
-      if (!user?.id) return;
+      if (!userId) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       try {
-        const newValue = await SavedSearchService.toggleNotifications(user.id, item.id);
+        const newValue = await SavedSearchService.toggleNotifications(userId, item.id);
         setSearches((prev) =>
           prev.map((s) => (s.id === item.id ? { ...s, notifyNewItems: newValue } : s)),
         );
