@@ -132,28 +132,6 @@ export default function StripeOnboardingScreen() {
   const [frontUri, setFrontUri] = useState<string | null>(null);
   const [backUri, setBackUri] = useState<string | null>(null);
 
-  // -- Pre-fill from user profile --
-  useEffect(() => {
-    if (!user) return;
-
-    if (user.displayName) {
-      const parts = user.displayName.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        setFirstName(parts[0]);
-        setLastName(parts.slice(1).join(' '));
-      } else if (parts.length === 1) {
-        setFirstName(parts[0]);
-      }
-    }
-
-    if (user.address) {
-      if (user.address.street) setStreet(user.address.street);
-      if (user.address.city) setCity(user.address.city);
-      if (user.address.province) setProvince(user.address.province);
-      if (user.address.postalCode) setPostalCode(user.address.postalCode);
-    }
-  }, [user]);
-
   // -- seller_onboarding_viewed (once the account status resolves) --
   const ageGateShown = isLoggedIn && !canSell(user?.dateOfBirth);
   const onboardingViewedRef = useRef(false);
