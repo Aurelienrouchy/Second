@@ -24,6 +24,7 @@ import {
 import { SectionHeader } from '@/components/home/SectionHeader';
 import ProductCard from '@/components/ProductCard';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { useDiscoverArticles } from './useDiscoverArticles';
 
 // =============================================================================
