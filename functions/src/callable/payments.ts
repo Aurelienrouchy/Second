@@ -3758,6 +3758,10 @@ export const cancelPendingTransaction = onCall(
         }
       }
 
+      let cancelBuyerId: string | null = null;
+      let cancelRefundCents = 0;
+      let cancelRelisted = false;
+
       await db.runTransaction(async (tx) => {
         // ── ALL READS FIRST (Firestore requires reads before writes) ──
         const snap = await tx.get(txRef);
@@ -3765,6 +3769,7 @@ export const cancelPendingTransaction = onCall(
           throw new HttpsError('not-found', 'Transaction not found');
         }
         const data = snap.data()!;
+        cancelBuyerId = typeof data.buyerId === 'string' ? data.buyerId : null;
 
         // Re-check inside the transaction (idempotent across concurrent calls).
         if (data.buyerId !== callerUid && data.sellerId !== callerUid) {
