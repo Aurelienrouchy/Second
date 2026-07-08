@@ -43,6 +43,13 @@ const MAX_OFFER_AMOUNT = 50000;
 // for non-ISO inputs. Rejects out-of-range / overflowing components.
 const MEETUP_DATETIME_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/;
 
+// Extracts a low-cardinality error code (FirebaseError.code) for analytics —
+// never the raw FR message (cardinality/PII rule).
+function errCode(error: unknown): string | undefined {
+  const code = (error as { code?: string })?.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
 function parseMeetupDateTime(raw: string): Date | null {
   const match = MEETUP_DATETIME_RE.exec(raw);
   if (!match) return null;
