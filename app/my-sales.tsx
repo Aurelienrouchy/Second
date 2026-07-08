@@ -220,7 +220,9 @@ export default function MySalesScreen() {
   // confirmation (irreversible: full buyer refund + article re-listed), then
   // refetch so the cancelled row drops out of the cancellable state.
   const handleCancelSale = useCallback(
-    (transactionId: string) => {
+    (transaction: Transaction) => {
+      const transactionId = transaction.id;
+      const statusAtCancel = transaction.status as 'paid' | 'label_created';
       Alert.alert(
         'Annuler la commande',
         "L'acheteur sera intégralement remboursé et l'article sera remis en vente. Cette action est irréversible.",
@@ -232,6 +234,14 @@ export default function MySalesScreen() {
             onPress: async () => {
               try {
                 await TransactionService.sellerCancelTransaction(transactionId);
+                track('order_cancel_submitted', {
+                  transaction_id: transactionId,
+                  role: 'seller',
+                  source: 'sale_detail',
+                  status_at_cancel: statusAtCancel,
+                  total_cents: Math.round((transaction.totalAmount || 0) * 100),
+                  success: true,
+                });
                 Alert.alert(
                   'Commande annulée',
                   "L'acheteur a été remboursé et l'article est de nouveau en vente.",
@@ -239,6 +249,15 @@ export default function MySalesScreen() {
                 refetch();
               } catch (error) {
                 if (__DEV__) console.error('Error cancelling sale:', error);
+                track('order_cancel_submitted', {
+                  transaction_id: transactionId,
+                  role: 'seller',
+                  source: 'sale_detail',
+                  status_at_cancel: statusAtCancel,
+                  total_cents: Math.round((transaction.totalAmount || 0) * 100),
+                  success: false,
+                  error_code: getCallableErrorCode(error) ?? undefined,
+                });
                 Alert.alert(
                   'Erreur',
                   "Impossible d'annuler cette commande. Elle a peut-être déjà été expédiée.",
