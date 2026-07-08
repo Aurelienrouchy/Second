@@ -160,7 +160,7 @@ export default function ArticleDetailScreen() {
     if (!user?.id) {
       guestPreferencesService.trackView(toArticleMeta(article));
     }
-  }, [article, user]);
+  }, [article, user, source, isSwapContext]);
 
   // ─── Render states ───
   if (isLoading) return <LoadingState />;
