@@ -71,6 +71,8 @@ export default function VerifyEmailScreen() {
       const verified = AuthService.isEmailVerified();
       setIsVerified(verified);
 
+      track('email_verification_checked', { result: verified ? 'verified' : 'not_verified' });
+
       if (verified) {
         Alert.alert(
           'Email vérifié !',
@@ -84,6 +86,7 @@ export default function VerifyEmailScreen() {
         );
       }
     } catch (error: unknown) {
+      track('email_verification_checked', { result: 'error' });
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
       Alert.alert('Erreur', message);
     } finally {
