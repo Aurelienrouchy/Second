@@ -1904,6 +1904,17 @@ export const resolveSwapDispute = onCall(
         }
       }
 
+      // Analytics (§12): swap_dispute_resolved — distinct_id = initiator; admin
+      // action → automated=false. resolution mirrors the admin issue.
+      if (typeof result.swap.initiatorId === 'string') {
+        await captureServerEvent(result.swap.initiatorId, 'swap_dispute_resolved', {
+          swap_id: swapId,
+          resolution: issue,
+          automated: false,
+          $insert_id: `swap_dispute_resolved_${swapId}`,
+        });
+      }
+
       return { success: true, issue, movedCents: result.movedCents };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
