@@ -228,7 +228,7 @@ const DISPUTE_REASONS: readonly string[] = [
   'Autre problème',
 ];
 
-const DisputeButton = React.memo(function DisputeButton({ disabled }: DisputeButtonProps) {
+const DisputeButton = React.memo(function DisputeButton({ disabled, status }: DisputeButtonProps) {
   const { id: swapId } = useLocalSearchParams<{ id: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -238,18 +238,20 @@ const DisputeButton = React.memo(function DisputeButton({ disabled }: DisputeBut
       setIsSubmitting(true);
       try {
         await openSwapDispute(swapId, reason);
+        track('swap_dispute_opened', { swap_id: swapId, reason, status, outcome: 'success' });
         Alert.alert(
           'Litige ouvert',
           "L'échange est gelé. Notre équipe va l'examiner et tranchera (remboursement du complément ou libération au bénéficiaire)."
         );
       } catch (error) {
         if (__DEV__) console.error('Error opening swap dispute:', error);
+        track('swap_dispute_opened', { swap_id: swapId, reason, status, outcome: 'error' });
         Alert.alert('Erreur', "Impossible d'ouvrir le litige. Réessaie plus tard.");
       } finally {
         setIsSubmitting(false);
       }
     },
-    [swapId]
+    [swapId, status]
   );
 
   const handlePress = useCallback(() => {
