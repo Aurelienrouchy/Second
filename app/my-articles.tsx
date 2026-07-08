@@ -400,7 +400,17 @@ export default function MyArticlesScreen() {
               styles.ctaButton,
               pressed && styles.pressed,
             ]}
-            onPress={() => router.push('/sell')}
+            onPress={() => {
+              void draftService.hasDraft().then((hasExistingDraft) => {
+                track('sell_entry_tapped', {
+                  outcome: 'opened',
+                  platform: Platform.OS === 'ios' ? 'ios' : 'android',
+                  has_existing_draft: hasExistingDraft,
+                  source: 'my_articles_empty',
+                });
+              });
+              router.push('/sell');
+            }}
           >
             <Text style={styles.ctaButtonText}>Vendre un article</Text>
           </Pressable>
