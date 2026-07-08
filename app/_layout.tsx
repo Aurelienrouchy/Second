@@ -38,6 +38,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // in-app spinner ever flashes during startup.
 SplashScreen.preventAutoHideAsync();
 
+// Analytics singleton created once at startup (no-op without an API key).
+// Screen tracking / identify are wired via useScreenTracking + authStore.
+initAnalytics();
+
 
 
 /**
