@@ -517,6 +517,10 @@ export default function ShippingCheckoutScreen() {
 
   const retryStripePayment = useCallback(async () => {
     if (!pendingTransactionId) return;
+    track('payment_retried', {
+      transaction_id: pendingTransactionId,
+      uses_wallet: useWalletBalance,
+    });
     try {
       setSubmitting(true);
       const result = await httpsCallable(functions, 'createStripeCheckout')({ transactionId: pendingTransactionId });
@@ -526,11 +530,17 @@ export default function ShippingCheckoutScreen() {
         feeBreakdown?: { buyerTotal?: number };
       };
       if (!data.success || !data.clientSecret) throw new Error('Impossible de relancer le paiement');
-      setServerBuyerTotal(
-        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null,
-      );
+      const buyerTotal =
+        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null;
+      setServerBuyerTotal(buyerTotal);
       setClientSecret(data.clientSecret);
       setShowStripePayment(true);
+      track('payment_sheet_presented', {
+        source: 'checkout',
+        context_id: pendingTransactionId,
+        server_buyer_total_cents: Math.round((buyerTotal ?? totalAmount) * 100),
+        is_retry: true,
+      });
     } catch (error: unknown) {
       if (__DEV__) console.error('Error retrying payment:', error);
       if (isRateExpiredError(error)) {
