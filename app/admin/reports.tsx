@@ -162,7 +162,9 @@ export default function AdminReportsScreen() {
 
   useEffect(() => {
     if (isAdmin) {
-      loadReports();
+      (async () => {
+        await loadReports();
+      })();
     }
   }, [isAdmin, loadReports]);
 
