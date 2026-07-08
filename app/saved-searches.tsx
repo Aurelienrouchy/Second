@@ -27,10 +27,25 @@ import { getColorName } from '@/data/colors';
 import { getConditionLabel } from '@/data/conditions';
 import { getLeafCategoryLabel } from '@/data/categories-v2';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
+import { track } from '@/lib/analytics';
 import { SavedSearchService } from '@/services/savedSearchService';
 import type { SavedSearch } from '@/services/savedSearchService';
 import type { SearchFilters } from '@/types';
 import { formatPrice } from '@/utils/formatPrice';
+
+/** Active filter dimension names for a saved-search snapshot. */
+function filterKeysOf(f: Partial<SearchFilters> & { categoryIds?: string[] }): string[] {
+  const keys: string[] = [];
+  if ((f.categoryIds?.length ?? 0) > 0) keys.push('category');
+  if ((f.colors?.length ?? 0) > 0) keys.push('colors');
+  if ((f.sizes?.length ?? 0) > 0) keys.push('sizes');
+  if ((f.materials?.length ?? 0) > 0) keys.push('materials');
+  if ((f.brands?.length ?? 0) > 0) keys.push('brands');
+  if (f.condition) keys.push('condition');
+  if (f.minPrice !== undefined || f.maxPrice !== undefined) keys.push('price');
+  if (f.sortBy && f.sortBy !== 'recent') keys.push('sort');
+  return keys;
+}
 
 // =============================================================================
 // FILTER SUMMARY HELPERS
