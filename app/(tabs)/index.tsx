@@ -102,6 +102,7 @@ export default function HomeScreen() {
   // Pull-to-refresh: refetch every active home section in one pass.
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    track('list_refreshed', { screen: 'home', items_count: SECTIONS.length });
     try {
       await queryClient.invalidateQueries({ queryKey: homeKeys.all });
     } finally {
