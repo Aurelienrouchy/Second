@@ -215,7 +215,12 @@ export default function MySwapsScreen() {
             {filter === 'all' && (
               <Button
                 variant="primary"
-                onPress={() => router.push('/swap-zone')}
+                onPress={() =>
+                  router.push({
+                    pathname: '/swap-zone',
+                    params: { source: 'my_swaps_empty' },
+                  })
+                }
                 style={styles.ctaButton}
               >
                 Découvrir la Swap Zone
