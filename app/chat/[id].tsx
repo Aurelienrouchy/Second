@@ -143,6 +143,7 @@ export default function ChatScreen() {
   const handleSendMessage = useCallback(async () => {
     if (!messageText.trim() || !user) return;
     if (isOtherBlocked) {
+      track('blocked_action_attempted', { chat_id: chatId ?? '', attempted_action: 'message' });
       Alert.alert('Utilisateur bloqué', 'Débloquez cet utilisateur pour lui envoyer un message.');
       return;
     }
@@ -153,12 +154,28 @@ export default function ChatScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await sendMessage(trimmed);
+      track('message_sent', {
+        chat_id: chatId ?? '',
+        message_type: 'text',
+        message_length: trimmed.length,
+        has_article: !!chat?.articleId,
+        is_seller: user.id === chat?.sellerId,
+        outcome: 'success',
+      });
     } catch (err: unknown) {
       if (__DEV__) console.error('Error sending message:', err);
+      track('message_sent', {
+        chat_id: chatId ?? '',
+        message_type: 'text',
+        message_length: trimmed.length,
+        has_article: !!chat?.articleId,
+        is_seller: user.id === chat?.sellerId,
+        outcome: 'error',
+      });
       const msg = err instanceof Error ? err.message : '';
       Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer le message");
     }
-  }, [messageText, user, sendMessage, isOtherBlocked]);
+  }, [messageText, user, sendMessage, isOtherBlocked, chatId, chat?.articleId, chat?.sellerId]);
 
   const handlePickImage = useCallback(async () => {
     if (isOtherBlocked) {
