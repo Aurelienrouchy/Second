@@ -424,6 +424,11 @@ export function useSearchScreen() {
     (sortId: string) => {
       setSelectedSort(sortId as SortBy);
       setFilters({ ...filters, sortBy: sortId as SortBy });
+      track('search_filter_applied', {
+        screen: 'search',
+        filter_type: 'sort',
+        sort_value: sortId,
+      });
       // A sort-only selection (no text/filters) must still reveal results.
       if (!isSearching) setIsSearching(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
