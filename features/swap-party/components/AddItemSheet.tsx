@@ -70,10 +70,14 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
     const snapPoints = useMemo(() => ['75%'], []);
     const bottomSheetRef = React.useRef<BottomSheetModal>(null);
     const [selected, setSelected] = useState<Set<string>>(new Set());
+    // Distinguishes a dismissal that followed a confirmed deposit from a plain
+    // abandon, so swap_deposit_abandoned never fires on a successful deposit.
+    const confirmedRef = React.useRef(false);
 
     useImperativeHandle(ref, () => ({
       show: () => {
         setSelected(new Set());
+        confirmedRef.current = false;
         bottomSheetRef.current?.present();
       },
       hide: () => bottomSheetRef.current?.dismiss(),
