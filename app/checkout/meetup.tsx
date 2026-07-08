@@ -413,7 +413,7 @@ export default function MeetupCheckoutScreen() {
         <Pressable
           testID="checkout-meetup-messaging-option"
           style={[styles.spotCard, isViaChatSelected && styles.spotCardSelected]}
-          onPress={() => setSelectedOption(VIA_CHAT_OPTION)}
+          onPress={handleSelectViaChat}
         >
           <View style={[styles.spotIcon, styles.spotIconChat]}>
             <Ionicons name="chatbubble-outline" size={16} color={colors.rust} />
