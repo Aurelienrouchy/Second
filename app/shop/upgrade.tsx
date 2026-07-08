@@ -32,6 +32,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
 import { ShopService } from '@/services/shopService';
 import { Shop } from '@/types';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 import { useUser } from '@/hooks/useAuth';
 import { APP_LOCALE } from '@/constants/locale';
