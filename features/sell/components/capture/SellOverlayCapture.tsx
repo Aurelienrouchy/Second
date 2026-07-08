@@ -191,9 +191,24 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
       });
       if (!result.canceled && result.assets.length > 0) {
         const uris = result.assets.map((asset) => asset.uri);
+        const added = uris.slice(0, remainingSlots);
         setPhotos((prev) => {
           const remaining = MAX_PHOTOS - prev.length;
           return [...prev, ...uris.slice(0, remaining)];
+        });
+        track('sell_photo_added', {
+          screen: 'capture',
+          method: 'gallery',
+          count_added: added.length,
+          photo_count_after: photos.length + added.length,
+        });
+      } else if (result.canceled) {
+        track('sell_photo_added', {
+          screen: 'capture',
+          method: 'gallery',
+          count_added: 0,
+          photo_count_after: photos.length,
+          cancelled: true,
         });
       }
     } catch (error) {
@@ -203,7 +218,12 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   const handleRemovePhoto = useCallback((index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+    track('sell_photo_removed', {
+      screen: 'capture',
+      photo_index: index,
+      photo_count_after: Math.max(0, photos.length - 1),
+    });
+  }, [photos.length]);
 
   const handleClose = useCallback(() => {
     if (photos.length > 0) {
@@ -211,8 +231,27 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         'Quitter ?',
         'Vos photos sont sauvegardees en brouillon.',
         [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Quitter', onPress: onClose },
+          {
+            text: 'Annuler',
+            style: 'cancel',
+            onPress: () =>
+              track('sell_exit_prompted', {
+                flow_step: 'capture',
+                confirmed_leave: false,
+                photo_count: photos.length,
+              }),
+          },
+          {
+            text: 'Quitter',
+            onPress: () => {
+              track('sell_exit_prompted', {
+                flow_step: 'capture',
+                confirmed_leave: true,
+                photo_count: photos.length,
+              });
+              onClose();
+            },
+          },
         ],
       );
     } else {
@@ -225,6 +264,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
       Alert.alert('Aucune photo', 'Ajoutez au moins une photo pour continuer.');
       return;
     }
+    track('sell_step_completed', { step: 'capture', photo_count: photos.length });
     onContinue(photos);
   }, [photos, onContinue]);
 
