@@ -8,7 +8,7 @@
  * Navigates to /checkout/meetup or /checkout/shipping
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
