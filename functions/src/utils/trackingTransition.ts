@@ -165,11 +165,23 @@ export async function applyTrackingOutcome(
         articleTitle: data.articleTitle || 'votre commande',
         articleId: data.articleId || '',
       };
+      deliveredCarrier = typeof data.carrierCode === 'string' ? data.carrierCode : '';
+      deliveredTransitDays = daysSince(data.shippedAt);
       return true;
     });
 
     if (changed && notify) {
       await emitDeliveredSideEffects(transactionId, notify, source);
+      // Analytics (§12): order_delivered follows the BUYER.
+      const buyerId = (notify as { buyerId?: string }).buyerId;
+      if (buyerId) {
+        await captureServerEvent(buyerId, 'order_delivered', {
+          transaction_id: transactionId,
+          carrier: deliveredCarrier,
+          transit_days: deliveredTransitDays,
+          $insert_id: `order_delivered_${transactionId}`,
+        });
+      }
     }
     return { kind: 'delivered', changed };
   }
