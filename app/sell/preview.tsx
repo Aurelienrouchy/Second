@@ -129,27 +129,39 @@ export default function PreviewScreen() {
 
     // ── Pre-publication validation (C5) ──
     const validationErrors: string[] = [];
+    const missingKeys: string[] = [];
     if (!fields.title || fields.title.trim().length < 3) {
       validationErrors.push('Le titre doit contenir au moins 3 caractères');
+      missingKeys.push('title');
     }
     if (!pricing.price || pricing.price <= 0) {
       validationErrors.push('Entrez un prix valide');
+      missingKeys.push('price');
     }
     if (pricing.price > 10000) {
       validationErrors.push('Le prix maximum est de 10 000 $');
+      missingKeys.push('price_too_high');
     }
     const imageUrls = storageUrls.length > 0 ? storageUrls : photos;
     if (!imageUrls || imageUrls.length === 0) {
       validationErrors.push('Ajoutez au moins une photo');
+      missingKeys.push('photos');
     }
     if (!fields.categoryIds || fields.categoryIds.length === 0) {
       validationErrors.push('Sélectionnez une catégorie');
+      missingKeys.push('category');
     }
     if (validationErrors.length > 0) {
       publishingRef.current = false;
+      track('article_publish_failed', {
+        reason: 'client_validation',
+        missing_fields: missingKeys,
+      });
       Alert.alert('Informations manquantes', validationErrors.join('\n'));
       return;
     }
+
+    const aiUsed = !!(aiResult && (aiResult.title || aiResult.category?.categoryId));
 
     setIsPublishing(true);
     try {
