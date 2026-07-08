@@ -391,11 +391,22 @@ export default function SwapDetailScreen() {
       {
         text: 'Oui, reçu !',
         onPress: async () => {
+          const exchangeMode = swap?.exchangeMode ?? '';
           setIsProcessing(true);
           try {
             await confirmReception(id, user.id);
+            track('swap_reception_confirmed', {
+              swap_id: id,
+              exchange_mode: exchangeMode,
+              outcome: 'success',
+            });
           } catch (error) {
             if (__DEV__) console.error('Error confirming reception:', error);
+            track('swap_reception_confirmed', {
+              swap_id: id,
+              exchange_mode: exchangeMode,
+              outcome: 'error',
+            });
             Alert.alert('Erreur', 'Impossible de confirmer la réception');
           } finally {
             setIsProcessing(false);
@@ -403,7 +414,7 @@ export default function SwapDetailScreen() {
         },
       },
     ]);
-  }, [id, user]);
+  }, [id, user, swap?.exchangeMode]);
 
   const handleRate = useCallback(
     async (score: number) => {
