@@ -522,7 +522,13 @@ export default function ChatScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <ChatErrorState errorMessage={error} onRetry={retry} />
+        <ChatErrorState
+          errorMessage={error}
+          onRetry={() => {
+            track('error_retry_tapped', { screen: 'chat', error_context: 'chat_load' });
+            retry();
+          }}
+        />
       </SafeAreaView>
     );
   }
