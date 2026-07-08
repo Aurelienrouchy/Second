@@ -45,10 +45,12 @@ export default function SearchScreen() {
   const queryClient = useQueryClient();
 
   const handleRefresh = useCallback(() => {
+    track('list_refreshed', { screen: 'search', items_count: screen.articles.length });
     queryClient.invalidateQueries({ queryKey: ['articles', 'search'] });
-  }, [queryClient]);
+  }, [queryClient, screen.articles.length]);
 
   const handleRetry = useCallback(() => {
+    track('error_retry_tapped', { screen: 'search', error_context: 'search_results' });
     screen.refetch();
   }, [screen.refetch]);
 
