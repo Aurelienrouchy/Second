@@ -19,7 +19,7 @@ interface OfferStepProps {
 }
 
 const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
-  const { state, actions, articleTitle, currentPrice } = context;
+  const { state, actions, articleId, articleTitle, currentPrice } = context;
   const { offerAmount, message } = state;
 
   const calculateDiscount = () => {
@@ -32,12 +32,29 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
   const handleNext = () => {
     const amount = parseFloat(offerAmount);
 
+    const emitConfirmed = (
+      validation_result: 'ok' | 'invalid' | 'too_high' | 'low_warned_continued' | 'low_warned_cancelled',
+    ) => {
+      const safeAmount = Number.isFinite(amount) ? amount : 0;
+      track('offer_amount_confirmed', {
+        article_id: articleId,
+        offer_amount_cents: Math.round(safeAmount * 100),
+        list_price_cents: Math.round(currentPrice * 100),
+        discount_pct: currentPrice ? Math.round(((currentPrice - safeAmount) / currentPrice) * 100) : 0,
+        mode: state.mode,
+        validation_result,
+        message_length: message.length,
+      });
+    };
+
     if (!amount || amount < MIN_OFFER_AMOUNT) {
+      emitConfirmed('invalid');
       Alert.alert('Erreur', 'Veuillez entrer un montant valide');
       return;
     }
 
     if (amount > MAX_OFFER_AMOUNT) {
+      emitConfirmed('too_high');
       Alert.alert('Montant trop élevé', `Maximum ${MAX_OFFER_AMOUNT} $ CA`);
       return;
     }
@@ -52,16 +69,20 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
         'Offre trop basse',
         'Votre offre semble trop basse. Le vendeur sera plus enclin à accepter une offre raisonnable.',
         [
-          { text: 'Modifier', style: 'cancel' },
+          { text: 'Modifier', style: 'cancel', onPress: () => emitConfirmed('low_warned_cancelled') },
           {
             text: 'Continuer quand même',
-            onPress: goToNext,
+            onPress: () => {
+              emitConfirmed('low_warned_continued');
+              goToNext();
+            },
           },
         ]
       );
       return;
     }
 
+    emitConfirmed('ok');
     goToNext();
   };
 
