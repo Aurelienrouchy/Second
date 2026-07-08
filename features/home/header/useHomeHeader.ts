@@ -7,14 +7,17 @@ import { useCallback, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
+import { track } from '@/lib/analytics';
+
 export function useHomeHeader() {
   const [showVisualSearch, setShowVisualSearch] = useState(false);
 
   const handleSearchBarPress = useCallback(() => {
-    router.push('/search');
+    router.push({ pathname: '/search', params: { source: 'home_header' } });
   }, []);
 
   const handleCameraPress = useCallback(() => {
+    track('visual_search_opened', { source: 'home' });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowVisualSearch(true);
   }, []);
@@ -31,7 +34,7 @@ export function useHomeHeader() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: '/search',
-      params: { category: categoryId },
+      params: { category: categoryId, source: 'home_quick_category' },
     });
   }, []);
 
