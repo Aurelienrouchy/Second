@@ -724,6 +724,18 @@ export const requestReturn = onCall(
       reason,
     });
 
+    // Analytics (§12): dispute_opened(type=return) — distinct_id = declarant (buyer).
+    await captureServerEvent(buyerUid, 'dispute_opened', {
+      transaction_id: transactionId,
+      type: 'return',
+      reason_code: reason,
+      held_cents:
+        typeof preData.sellerCreditedCents === 'number'
+          ? preData.sellerCreditedCents
+          : Math.round(((preData.sellerPayout ?? preData.amount ?? 0) as number) * 100),
+      $insert_id: `dispute_opened_return_${transactionId}`,
+    });
+
     return {
       success: true,
       returnTrackingNumber: label.trackingNumber,
