@@ -124,7 +124,10 @@ export const SwapActions = React.memo(function SwapActions({
       {/* Accepted - Choose exchange mode */}
       {status === 'accepted' && !exchangeMode && (
         <ExchangeModeSelector
-          onSelect={handlers.onSetExchangeMode}
+          onSelect={(mode) => {
+            track('swap_exchange_mode_selected', { swap_id: swapId ?? '', mode });
+            handlers.onSetExchangeMode(mode);
+          }}
           isProcessing={isProcessing}
         />
       )}
