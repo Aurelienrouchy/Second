@@ -6,8 +6,14 @@
  * redirects there.
  */
 
+import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
 
+import { track } from '@/lib/analytics';
+
 export default function SwapPartiesRedirect() {
+  useEffect(() => {
+    track('legacy_route_redirected', { legacy_route: '/swap-parties' });
+  }, []);
   return <Redirect href="/swap-zone" />;
 }
