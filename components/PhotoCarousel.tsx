@@ -36,10 +36,6 @@ export default function PhotoCarousel({
     [],
   );
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
   const renderPhoto = useCallback(
     ({ item }: { item: string }) => (
       <Image
