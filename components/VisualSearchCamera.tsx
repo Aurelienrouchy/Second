@@ -111,10 +111,27 @@ function VisualSearchCameraComponent({
       });
 
       if (!result.canceled && result.assets.length > 0) {
+        fromGalleryRef.current = true;
         setCapturedUri(result.assets[0].uri);
+        track('visual_search_photo_picked', {
+          method: 'gallery',
+          outcome: 'success',
+          source,
+        });
+      } else {
+        track('visual_search_photo_picked', {
+          method: 'gallery',
+          outcome: 'cancelled',
+          source,
+        });
       }
     } catch (error) {
       if (__DEV__) console.error('[VisualSearchCamera] Error picking image:', error);
+      track('visual_search_photo_picked', {
+        method: 'gallery',
+        outcome: 'error',
+        source,
+      });
     }
   };
 
@@ -130,8 +147,21 @@ function VisualSearchCameraComponent({
     if (capturedUri && !hasConfirmed.current) {
       hasConfirmed.current = true;
       setIsConfirming(true);
+      track('visual_search_submitted', {
+        source,
+        from_gallery: fromGalleryRef.current,
+      });
       onPhotoCapture(capturedUri);
     }
+  };
+
+  // Explicit exit (cancel / close / permission cancel) → abandonment event.
+  const handleCancel = () => {
+    track('visual_search_abandoned', {
+      action: 'cancel',
+      stage: !permission?.granted ? 'permission_denied' : capturedUri ? 'preview' : 'camera',
+    });
+    onClose();
   };
 
   const toggleCameraFacing = () => {
