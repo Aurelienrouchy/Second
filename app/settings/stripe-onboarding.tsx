@@ -149,40 +149,42 @@ export default function StripeOnboardingScreen() {
   }, [user]);
 
   // ---- Validation ----
-  const validate = useCallback((): string | null => {
-    if (!firstName.trim()) return 'Le prenom est requis';
-    if (!lastName.trim()) return 'Le nom de famille est requis';
+  // Returns null when valid, else { message, field } — `field` is a stable key
+  // (never the value) surfaced to analytics as `failed_field`.
+  const validate = useCallback((): { message: string; field: string } | null => {
+    if (!firstName.trim()) return { message: 'Le prenom est requis', field: 'first_name' };
+    if (!lastName.trim()) return { message: 'Le nom de famille est requis', field: 'last_name' };
 
     const day = parseInt(dobDay, 10);
     const month = parseInt(dobMonth, 10);
     const year = parseInt(dobYear, 10);
 
     if (!dobDay || !dobMonth || !dobYear || isNaN(day) || isNaN(month) || isNaN(year)) {
-      return 'La date de naissance est requise';
+      return { message: 'La date de naissance est requise', field: 'dob' };
     }
     if (!isValidDate(day, month, year)) {
-      return 'La date de naissance est invalide';
+      return { message: 'La date de naissance est invalide', field: 'dob' };
     }
     if (!isAtLeast18(day, month, year)) {
-      return 'Vous devez avoir au moins 18 ans';
+      return { message: 'Vous devez avoir au moins 18 ans', field: 'dob' };
     }
 
-    if (!street.trim()) return "L'adresse est requise";
-    if (!city.trim()) return 'La ville est requise';
-    if (!province.trim()) return 'La province est requise';
-    if (!postalCode.trim()) return 'Le code postal est requis';
+    if (!street.trim()) return { message: "L'adresse est requise", field: 'street' };
+    if (!city.trim()) return { message: 'La ville est requise', field: 'city' };
+    if (!province.trim()) return { message: 'La province est requise', field: 'province' };
+    if (!postalCode.trim()) return { message: 'Le code postal est requis', field: 'postal_code' };
     if (!POSTAL_CODE_REGEX.test(postalCode.trim())) {
-      return 'Le code postal doit etre au format A1A 1A1';
+      return { message: 'Le code postal doit etre au format A1A 1A1', field: 'postal_code' };
     }
 
     if (transitNumber.length !== 5) {
-      return 'Le numero de transit doit contenir 5 chiffres';
+      return { message: 'Le numero de transit doit contenir 5 chiffres', field: 'transit_number' };
     }
     if (institutionNumber.length !== 3) {
-      return "Le numero d'institution doit contenir 3 chiffres";
+      return { message: "Le numero d'institution doit contenir 3 chiffres", field: 'institution_number' };
     }
     if (accountNumber.length < 7) {
-      return 'Le numero de compte doit contenir au moins 7 chiffres';
+      return { message: 'Le numero de compte doit contenir au moins 7 chiffres', field: 'account_number' };
     }
 
     return null;
