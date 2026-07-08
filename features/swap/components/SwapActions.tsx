@@ -217,6 +217,7 @@ export const SwapActions = React.memo(function SwapActions({
 
 interface DisputeButtonProps {
   disabled: boolean;
+  status: SwapStatus;
 }
 
 /** Predefined dispute reasons (the backend requires a non-empty reason). */
