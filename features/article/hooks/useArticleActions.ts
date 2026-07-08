@@ -263,18 +263,46 @@ export function useArticleActions({
       throw new Error('Vous ne pouvez pas faire une offre sur votre propre article.');
     }
 
+    const listPrice = article.price;
     try {
       const chat = await ChatService.createOrGetChat(user.id, article.sellerId, article.id);
-      await ChatService.sendOffer(
+      track('chat_started', {
+        chat_id: chat.id,
+        source: 'article',
+        article_id: article.id,
+        other_user_id: article.sellerId,
+        is_new_chat: !chat.lastMessage,
+        outcome: 'success',
+      });
+      const messageId = await ChatService.sendOffer(
         chat.id,
         user.id,
         article.sellerId,
         amount,
         message
       );
+      track('offer_sent', {
+        article_id: article.id,
+        seller_id: article.sellerId,
+        chat_id: chat.id,
+        message_id: messageId,
+        source: 'article',
+        mode: 'shipping',
+        offer_amount_cents: Math.round(amount * 100),
+        list_price_cents: Math.round(listPrice * 100),
+        discount_pct: listPrice ? Math.round(((listPrice - amount) / listPrice) * 100) : 0,
+        has_message: message.trim().length > 0,
+      });
       router.push(`/chat/${chat.id}`);
     } catch (error) {
       if (__DEV__) console.error('Error submitting shipping offer:', error);
+      track('offer_send_failed', {
+        article_id: article.id,
+        source: 'article',
+        mode: 'shipping',
+        offer_amount_cents: Math.round(amount * 100),
+        failure_type: 'server_error',
+      });
       throw error;
     }
   }, [article, user, router]);
