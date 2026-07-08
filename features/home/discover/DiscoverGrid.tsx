@@ -100,6 +100,7 @@ const DiscoverGridComponent: React.FC = () => {
   }, [fetchNextPage]);
 
   const handleRetry = useCallback(() => {
+    track('error_retry_tapped', { screen: 'home', error_context: 'home_discover' });
     refetch();
   }, [refetch]);
 
