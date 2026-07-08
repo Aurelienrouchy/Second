@@ -382,6 +382,11 @@ export function useSearchScreen() {
   );
 
   const handleClearAll = useCallback(() => {
+    track('search_filters_cleared', {
+      screen: 'search',
+      cleared_filter_keys: buildFilterKeys(filters, selectedCategoryPath, selectedSort),
+      query_length: activeSearchQuery.trim().length,
+    });
     setSearchQueryLocal('');
     setActiveSearchQuery('');
     clearAllFilters();
