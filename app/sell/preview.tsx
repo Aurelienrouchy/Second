@@ -253,6 +253,10 @@ export default function PreviewScreen() {
       // on lui offre un raccourci vers l'écran de vérification plutôt qu'un
       // refus générique en cul-de-sac.
       const isEmailGate = message.includes('verifier votre adresse e-mail');
+      track('article_publish_failed', {
+        reason: isEmailGate ? 'email_gate' : 'server_error',
+        error_code: isEmailGate ? 'email_not_verified' : 'create_article_failed',
+      });
       Alert.alert(
         'Erreur',
         message,
