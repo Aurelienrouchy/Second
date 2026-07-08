@@ -309,6 +309,12 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
 
         await setDoc(doc(firestore, 'brands', searchKey), brandDoc);
 
+        // Signal of a taxonomy gap: a brand the referential didn't contain.
+        track('custom_brand_added', {
+          brand_label: displayLabel.slice(0, 50),
+          source: 'search_filter',
+        });
+
         const newBrand: Brand = { value: searchKey, label: displayLabel };
         setBrands(prev => [...prev, newBrand].sort((a, b) => a.label.localeCompare(b.label)));
         setFilteredBrands(prev => [...prev, newBrand].sort((a, b) => a.label.localeCompare(b.label)));
