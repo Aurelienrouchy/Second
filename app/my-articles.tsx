@@ -207,7 +207,7 @@ export default function MyArticlesScreen() {
         <Animated.View style={[styles.deleteAction, { transform: [{ translateX }] }]}>
           <Pressable
             style={styles.deleteButton}
-            onPress={() => handleDeleteArticle(article)}
+            onPress={() => handleDeleteArticle(article, 'swipe')}
           >
             <Ionicons name="trash-outline" size={24} color={colors.white} />
             <Text style={styles.deleteText}>Supprimer</Text>
