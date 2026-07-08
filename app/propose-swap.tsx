@@ -23,6 +23,7 @@ import { ArticlesService } from '@/services/articlesService';
 import { proposeSwap, getPartyItemsExtended, GENERALIST_ZONE_ID } from '@/services/swapService';
 import { ModerationService } from '@/services/moderationService';
 import { queryKeys } from '@/lib/queryKeys';
+import { track } from '@/lib/analytics';
 import { SwapItemInfo } from '@/types';
 import { colors } from '@/constants/theme';
 import { SwapItemSelector, SwapSeparator } from '@/components/swap';
