@@ -261,30 +261,16 @@ export function useSearchScreen() {
   // Auto-hide results when everything is cleared. En mode "parcourir tout"
   // (Voir tout home), aucun terme/catégorie/filtre n'est requis : on garde la
   // grille visible (tout le catalogue trié récent).
-  useEffect(() => {
-    if (
-      !isBrowseAll &&
-      !searchQuery.trim() &&
-      selectedCategoryPath.length === 0 &&
-      !hasActiveFilters
-    ) {
-      setIsSearching(false);
-    }
-  }, [isBrowseAll, searchQuery, selectedCategoryPath, hasActiveFilters]);
-
-  // ─── Recent searches ────────────────────────────────────────────
-  const loadRecentSearches = async () => {
-    if (!user) return;
-    setIsLoadingHistory(true);
-    try {
-      const searches = await SearchHistoryService.getRecentSearches(user.id, 10);
-      setRecentSearches(searches);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading recent searches:', error);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
+  // (state adjustment during render — https://react.dev/learn/you-might-not-need-an-effect)
+  if (
+    isSearching &&
+    !isBrowseAll &&
+    !searchQuery.trim() &&
+    selectedCategoryPath.length === 0 &&
+    !hasActiveFilters
+  ) {
+    setIsSearching(false);
+  }
 
   // ─── Navigation handlers ────────────────────────────────────────
   const handleClose = useCallback(() => {
