@@ -488,6 +488,12 @@ export function useSearchScreen() {
   const handleColorsConfirm = useCallback(
     (selectedColors: string[]) => {
       setFilters({ ...filters, colors: selectedColors.length > 0 ? selectedColors : [] });
+      track('search_filter_applied', {
+        screen: 'search',
+        filter_type: 'colors',
+        values: selectedColors,
+        values_count: selectedColors.length,
+      });
       if (!isSearching && selectedColors.length > 0) setIsSearching(true);
     },
     [filters, setFilters, isSearching]
@@ -496,9 +502,17 @@ export function useSearchScreen() {
   const handleSizesConfirm = useCallback(
     (sizes: ArticleSize[]) => {
       setFilters({ ...filters, sizes });
+      track('search_filter_applied', {
+        screen: 'search',
+        filter_type: 'sizes',
+        values: sizes.map((s) => s.value),
+        values_count: sizes.length,
+        size_system: sizes[0]?.system,
+        category_path: selectedCategoryPath.length > 0 ? selectedCategoryPath : undefined,
+      });
       if (!isSearching && sizes.length > 0) setIsSearching(true);
     },
-    [filters, setFilters, isSearching]
+    [filters, setFilters, isSearching, selectedCategoryPath]
   );
 
   const handleMaterialSelect = useCallback(
