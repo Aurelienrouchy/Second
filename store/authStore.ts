@@ -345,6 +345,7 @@ export const useAuthStore = create<AuthStore>()(
       queryClient.clear();
       await AuthService.signOut();
       await AsyncStorage.removeItem(USER_DATA_KEY);
+      resetAnalytics();
       set({ ...initialState, isLoading: false });
     } catch (error) {
       if (__DEV__) console.log('[authStore] signOut error:', error);
