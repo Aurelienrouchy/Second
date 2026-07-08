@@ -61,6 +61,7 @@ export default function PhoneSettingsScreen() {
     // Validation pour un numéro canadien (10 chiffres)
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
+      track('phone_saved', { success: false, validation_error: 'invalid_ca_number' });
       Alert.alert('Erreur', 'Veuillez entrer un numéro de téléphone canadien valide (10 chiffres)');
       return;
     }
@@ -75,11 +76,14 @@ export default function PhoneSettingsScreen() {
       // Rafraîchir les données utilisateur depuis Firestore
       await refreshUser();
 
+      track('phone_saved', { success: true });
+
       Alert.alert('Succès', 'Votre numéro de téléphone a été mis à jour', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
       if (__DEV__) console.error('Error updating phone:', error);
+      track('phone_saved', { success: false });
       Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour du numéro');
     } finally {
       setIsSaving(false);
