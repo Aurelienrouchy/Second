@@ -2674,7 +2674,7 @@ export const acceptMeetupOffer = onCall(
       if (!result.reused) {
         await captureServerEvent(result.buyerId, 'order_created', {
           transaction_id: result.transactionId,
-          article_id: chatArticleId,
+          article_id: 'articleId' in result ? result.articleId : null,
           buyer_id: result.buyerId,
           seller_id: result.sellerId,
           delivery_type: 'meetup',
