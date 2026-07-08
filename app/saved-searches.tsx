@@ -272,6 +272,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 export default function SavedSearches() {
   const { user, isLoggedIn, showAuthSheet } = useAuthRequired();
+  const userId = user?.id;
 
   const [searches, setSearches] = useState<SavedSearch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
