@@ -37,6 +37,9 @@ export default function AddPasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const linkAuthProvider: 'google' | 'apple' =
+    AuthService.getAuthProvider() === 'apple.com' ? 'apple' : 'google';
+
   // Réexécute la liaison du mot de passe après une ré-authentification réussie.
   const performLink = async () => {
     await AuthService.linkPasswordCredential(email.trim(), password);
