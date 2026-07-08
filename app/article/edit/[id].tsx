@@ -396,6 +396,16 @@ export default function EditArticleScreen() {
 
       await httpsCallable(functions, 'updateArticle')({ articleId: id, updates: articleData });
 
+      track('article_updated', {
+        article_id: id,
+        outcome: 'saved',
+        price_cents: Math.round(fields.price * 100),
+        photo_count: finalImages.length,
+        local_photos_uploaded_count: uploadedCount,
+        is_hand_delivery: fields.isHandDelivery,
+        is_shipping: fields.isShipping,
+      });
+
       // Invalidate article caches so lists and detail reflect the update
       queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
       if (user?.id) {
@@ -409,6 +419,15 @@ export default function EditArticleScreen() {
       ]);
     } catch (error) {
       if (__DEV__) console.error('Error updating article:', error);
+      track('article_updated', {
+        article_id: id,
+        outcome: 'server_error',
+        price_cents: Math.round(fields.price * 100),
+        photo_count: editedImages.length,
+        local_photos_uploaded_count: uploadedCount,
+        is_hand_delivery: fields.isHandDelivery,
+        is_shipping: fields.isShipping,
+      });
       Alert.alert('Erreur', 'Impossible de modifier l\'article');
     } finally {
       setIsSaving(false);
