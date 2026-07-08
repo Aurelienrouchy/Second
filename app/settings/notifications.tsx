@@ -187,15 +187,17 @@ export default function NotificationsSettingsScreen() {
     async (key: NotificationType) => {
       if (key !== 'push' || settings.push) {
         // Désactivation ou autre préférence : pas de gate permission.
-        toggleSetting(key);
+        toggleSetting({ key, newValue: !settings[key], osPermissionMissing: false });
         return;
       }
 
       const current = await Notifications.getPermissionsAsync();
       let granted = current.granted;
+      let canAskAgain = current.canAskAgain;
       if (!granted && current.canAskAgain) {
         const requested = await Notifications.requestPermissionsAsync();
         granted = requested.granted;
+        canAskAgain = requested.canAskAgain;
       }
 
       if (!granted) {
@@ -203,16 +205,40 @@ export default function NotificationsSettingsScreen() {
           'Notifications désactivées',
           'Les notifications sont désactivées au niveau du système. Activez-les dans les réglages de votre appareil pour recevoir les notifications push.',
           [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Ouvrir les réglages', onPress: () => Linking.openSettings() },
+            {
+              text: 'Annuler',
+              style: 'cancel',
+              onPress: () =>
+                track('push_permission_requested', {
+                  granted: false,
+                  can_ask_again: canAskAgain,
+                  chose_open_settings: false,
+                }),
+            },
+            {
+              text: 'Ouvrir les réglages',
+              onPress: () => {
+                track('push_permission_requested', {
+                  granted: false,
+                  can_ask_again: canAskAgain,
+                  chose_open_settings: true,
+                });
+                Linking.openSettings();
+              },
+            },
           ]
         );
         return;
       }
 
-      toggleSetting('push');
+      track('push_permission_requested', {
+        granted: true,
+        can_ask_again: canAskAgain,
+        chose_open_settings: false,
+      });
+      toggleSetting({ key: 'push', newValue: true, osPermissionMissing: false });
     },
-    [settings.push, toggleSetting]
+    [settings, toggleSetting]
   );
 
   if (isLoading) {
