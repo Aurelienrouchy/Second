@@ -16,6 +16,7 @@ import { useChatListener } from '@/hooks/useChatListener';
 import { useConsentGuard } from '@/hooks/useConsentGuard';
 import { useNotificationSetup } from '@/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
+import { useScreenTracking } from '@/hooks/useScreenTracking';
 import { useSplashScreen } from '@/hooks/useSplashScreen';
 import { useAuthStore } from '@/store/authStore';
 import { prefetchHome } from '@/features/home';
