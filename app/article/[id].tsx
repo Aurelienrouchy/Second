@@ -25,6 +25,7 @@ import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
 import {
