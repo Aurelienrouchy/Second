@@ -6,6 +6,7 @@ import BrandSelectionSheet, {
   BrandSelectionSheetRef,
 } from '@/components/search/BrandSelectionSheet';
 import { useUser } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
