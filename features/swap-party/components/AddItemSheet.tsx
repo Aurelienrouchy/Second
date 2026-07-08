@@ -101,10 +101,22 @@ const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
       if (adding) return;
       const picked = availableArticles.filter((a) => selected.has(a.id));
       if (picked.length === 0) return;
+      confirmedRef.current = true;
       onAddItems(picked);
       setSelected(new Set());
       bottomSheetRef.current?.dismiss();
     }, [adding, availableArticles, selected, onAddItems]);
+
+    const handleDismiss = useCallback(() => {
+      if (!confirmedRef.current) {
+        track('swap_deposit_abandoned', {
+          selected_count_at_dismiss: selected.size,
+          had_inventory: articles.length > 0,
+        });
+      }
+      confirmedRef.current = false;
+      onClose?.();
+    }, [selected.size, articles.length, onClose]);
 
     const renderBackdrop = useCallback(
       (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
