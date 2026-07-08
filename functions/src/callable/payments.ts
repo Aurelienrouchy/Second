@@ -1026,7 +1026,7 @@ export const createTransaction = onCall(
         transactionId, articleId, deliveryType, buyerId,
       });
 
-      // Analytics (§12): order_created is the SEROVER source of truth for tx
+      // Analytics (§12): order_created is the SERVER source of truth for tx
       // creation. Only the shipping rail is created here (source=shipping_checkout);
       // meetup orders are created by acceptMeetupOffer. distinct_id = buyer.
       if (deliveryType === 'shipping') {
