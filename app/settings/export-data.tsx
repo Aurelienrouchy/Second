@@ -76,10 +76,12 @@ export default function ExportDataScreen() {
           UTI: 'public.json',
         });
         setExported(true);
+        track('data_export_requested', { outcome: 'shared' });
       } else {
         // Sans module de partage, le fichier reste dans le bac à sable de
         // l'app et n'est pas accessible à l'utilisateur : ne pas afficher de
         // chemin inutilisable.
+        track('data_export_requested', { outcome: 'sharing_unavailable' });
         Alert.alert(
           'Partage indisponible',
           'Le partage de fichiers n\'est pas disponible sur cet appareil. Réessayez depuis un appareil prenant en charge le partage.'
@@ -87,6 +89,7 @@ export default function ExportDataScreen() {
       }
     } catch (error: unknown) {
       if (__DEV__) console.error('Error exporting data:', error);
+      track('data_export_requested', { outcome: 'error' });
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'export';
       Alert.alert('Erreur', message);
     } finally {
