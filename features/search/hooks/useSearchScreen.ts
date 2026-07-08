@@ -463,6 +463,12 @@ export function useSearchScreen() {
   const handleCategorySelect = useCallback(
     (categoryPath: string[]) => {
       setSelectedCategoryPath(categoryPath);
+      track('search_filter_applied', {
+        screen: 'search',
+        filter_type: 'category',
+        category_path: categoryPath,
+        category_depth: categoryPath.length,
+      });
       setIsSearching(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
