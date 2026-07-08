@@ -312,7 +312,7 @@ export default function CheckoutScreen() {
               styles.deliveryOption,
               effectiveDelivery === 'shipping' && styles.deliveryOptionSelected,
             ]}
-            onPress={() => setSelectedDelivery('shipping')}
+            onPress={() => handleSelectDelivery('shipping')}
           >
             <View
               style={[
