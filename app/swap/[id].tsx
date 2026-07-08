@@ -307,7 +307,14 @@ export default function SwapDetailScreen() {
         preferredAssetRepresentationMode:
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
-      if (result.canceled) return;
+      if (result.canceled) {
+        track('swap_photos_uploaded', {
+          swap_id: id,
+          photos_count: 0,
+          outcome: 'picker_cancelled',
+        });
+        return;
+      }
 
       setIsProcessing(true);
 
