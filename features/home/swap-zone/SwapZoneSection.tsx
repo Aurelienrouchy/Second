@@ -40,7 +40,7 @@ const SwapZoneWrapperComponent: React.FC = () => {
   // non-interactive teaser instead of a dead CTA.
   const handlePress = useCallback(() => {
     if (zone) {
-      router.push('/swap-zone');
+      router.push({ pathname: '/swap-zone', params: { source: 'home' } });
     }
   }, [zone]);
 
