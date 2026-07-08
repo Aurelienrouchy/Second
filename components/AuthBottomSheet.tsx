@@ -424,7 +424,7 @@ const AuthBottomSheet: React.FC = () => {
               <View style={styles.dividerLine} />
             </View>
 
-            <AuthToggle active={authType} onSelect={setAuthType} />
+            <AuthToggle active={authType} onSelect={handleModeSelect} />
 
             <Animated.View
               key={`fields-${authType}`}
