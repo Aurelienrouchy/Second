@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
+import { track } from '@/lib/analytics';
 import { colors, fonts, radius } from '@/constants/theme';
 import { Skeleton } from '@/components/ui/Skeleton';
 import BlurOverlay from '@/components/sell/BlurOverlay';
