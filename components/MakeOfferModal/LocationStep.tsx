@@ -64,6 +64,12 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
 
   const handleNeighborhoodSelect = (neighborhood: MeetupNeighborhood) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    track('offer_location_selected', {
+      neighborhood_id: neighborhood.id,
+      is_custom_spot: false,
+      is_seller_neighborhood: sellerNeighborhood?.id === neighborhood.id,
+      search_used: searchQuery.trim().length > 0,
+    });
     actions.setSelectedNeighborhood(neighborhood);
     setSubStep('spot');
     setSearchQuery('');
@@ -71,6 +77,11 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
 
   const handleSpotSelect = (spot: MeetupSpot) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    track('offer_location_selected', {
+      neighborhood_id: state.selectedNeighborhood?.id,
+      spot_category: spot.category,
+      is_custom_spot: false,
+    });
     actions.setSelectedSpot(spot);
     actions.setStep(getNextStep(state.step, state.mode));
   };
@@ -87,6 +98,11 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
       isUserSuggested: true,
     };
 
+    track('offer_location_selected', {
+      neighborhood_id: state.selectedNeighborhood.id,
+      spot_category: customCategory,
+      is_custom_spot: true,
+    });
     actions.setSelectedSpot(customSpot);
     actions.setStep(getNextStep(state.step, state.mode));
   };
