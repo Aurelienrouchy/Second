@@ -296,6 +296,19 @@ export const expireOrphanedTransactions = onSchedule(
               });
             }
           }
+
+          // Analytics (§12): system-expiry cancellation of an abandoned meetup.
+          // distinct_id = buyer (the order cycle follows the buyer).
+          if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
+            await captureServerEvent(data.buyerId, 'order_cancelled', {
+              transaction_id: transactionId,
+              cancelled_by: 'system_expiry',
+              stage: 'pending_payment',
+              refunded_cents: 0,
+              article_relisted: true,
+              $insert_id: `order_cancelled_${transactionId}`,
+            });
+          }
         }
 
         logger.info(
