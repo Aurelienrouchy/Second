@@ -32,6 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
 import { colors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { useUser } from '@/hooks/useAuth';
 import { ONBOARDING_COMPLETED_KEY, ONBOARDING_PREFERENCES_KEY } from '@/constants/storageKeys';
 
