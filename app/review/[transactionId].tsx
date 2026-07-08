@@ -175,6 +175,23 @@ export default function ReviewScreen() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Gate: emit review_blocked once when the transaction isn't in a terminal
+  // (reviewable) status.
+  const reviewStatus = data?.transaction?.status;
+  const isTerminalStatus =
+    reviewStatus === 'delivered' ||
+    reviewStatus === 'completed' ||
+    reviewStatus === 'meetup_completed';
+  const blockedRef = useRef(false);
+  useEffect(() => {
+    if (!data?.transaction || isTerminalStatus || blockedRef.current) return;
+    blockedRef.current = true;
+    track('review_blocked', {
+      transaction_id: data.transaction.id,
+      transaction_status: data.transaction.status,
+    });
+  }, [data, isTerminalStatus]);
+
   // ── Handlers ──
 
   const handleBack = useCallback(() => {
