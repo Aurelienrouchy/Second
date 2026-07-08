@@ -83,33 +83,49 @@ export default function VisualSearchResultsScreen() {
     }
   }, [imageUri]);
 
-  const performSearch = async () => {
+  const performSearch = async (isRetry = false) => {
     if (!imageUri) return;
 
     setIsLoading(true);
     setError(null);
 
+    const startedAt = Date.now();
     try {
       const searchResults = await searchByImage(imageUri);
       setResults(searchResults);
+      track('visual_search_performed', {
+        outcome: searchResults.length === 0 ? 'empty' : 'success',
+        results_count: searchResults.length,
+        latency_ms: Date.now() - startedAt,
+        is_retry: isRetry,
+      });
     } catch (err: any) {
       if (__DEV__) console.error('[VisualSearchResults] Search failed:', err);
       setError(mapErrorToUserMessage(err));
+      track('visual_search_performed', {
+        outcome: 'error',
+        results_count: 0,
+        error_code: mapErrorToCode(err),
+        latency_ms: Date.now() - startedAt,
+        is_retry: isRetry,
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleRetry = () => {
-    performSearch();
+    performSearch(true);
   };
 
   const handleNewSearch = () => {
+    track('visual_search_abandoned', { action: 'new_search', stage: 'results_empty' });
     router.back();
   };
 
   const handleTextSearch = () => {
-    router.replace('/search');
+    track('visual_search_abandoned', { action: 'text_fallback', stage: 'results_empty' });
+    router.replace({ pathname: '/search', params: { source: 'visual_fallback' } });
   };
 
   const handleArticlePress = useCallback((articleId: string) => {
