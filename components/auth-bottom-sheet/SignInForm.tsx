@@ -41,7 +41,12 @@ function SignInFormComponent({
 
   const handleBlur = useCallback((field: 'email' | 'password') => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-  }, []);
+    const invalid =
+      field === 'email'
+        ? !email.includes('@') || !email.includes('.')
+        : password.length < 6;
+    if (invalid) track('auth_form_error_shown', { field, mode: 'signin' });
+  }, [email, password]);
 
   const emailInvalid =
     touched.email && (!email.includes('@') || !email.includes('.'));
