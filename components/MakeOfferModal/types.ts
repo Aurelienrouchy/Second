@@ -39,6 +39,7 @@ export interface MakeOfferActions {
 export interface MakeOfferContext {
   state: MakeOfferState;
   actions: MakeOfferActions;
+  articleId: string;
   articleTitle: string;
   currentPrice: number;
   sellerNeighborhood?: MeetupNeighborhood;
