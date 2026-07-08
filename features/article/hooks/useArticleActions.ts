@@ -80,7 +80,13 @@ export function useArticleActions({
             ? Haptics.NotificationFeedbackType.Warning
             : Haptics.NotificationFeedbackType.Success
         );
-        toggleFavorite(article.id, { source: 'article_detail', article, via: 'heart' });
+        toggleFavorite(article.id, {
+          source: 'article_detail',
+          sellerId: article.sellerId,
+          priceCents: Math.round(article.price * 100),
+          brand: article.brand,
+          via: 'heart',
+        });
       },
       AUTH_MESSAGES.like
     );

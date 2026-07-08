@@ -132,6 +132,14 @@ export function useArticleSearch({
     [filters]
   );
 
+  const enabled = Boolean(
+    activeSearchQuery.trim() ||
+    selectedCategoryPath.length > 0 ||
+    hasNonDefaultFilters ||
+    sellerId ||
+    browseAll
+  );
+
   const {
     data,
     isLoading,
@@ -162,13 +170,7 @@ export function useArticleSearch({
       lastPage.hasMore && lastPage.lastVisible ? lastPage.lastVisible : undefined,
     staleTime: SEARCH_STALE_TIME,
     retry: 3,
-    enabled: Boolean(
-      activeSearchQuery.trim() ||
-      selectedCategoryPath.length > 0 ||
-      hasNonDefaultFilters ||
-      sellerId ||
-      browseAll
-    ),
+    enabled,
   });
 
   const articles = useMemo<Article[]>(() => {
