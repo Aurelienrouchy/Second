@@ -2262,6 +2262,16 @@ async function handlePayoutCanceled(payout: any): Promise<void> {
     withdrawalRequestId,
     payoutId: payout.id,
   });
+
+  // Analytics (§12): a canceled payout never reached the bank — treat as failed.
+  if (typeof userId === 'string' && userId) {
+    await captureServerEvent(userId, 'withdrawal_failed', {
+      withdrawal_id: withdrawalRequestId,
+      amount_cents: typeof payout.amount === 'number' ? payout.amount : 0,
+      failure_code: 'payout_canceled',
+      $insert_id: `withdrawal_failed_${withdrawalRequestId}`,
+    });
+  }
 }
 
 // =============================================================================
