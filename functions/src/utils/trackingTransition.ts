@@ -97,6 +97,8 @@ export async function applyTrackingOutcome(
   if (mappedStatus === 'DELIVERED') {
     let notify: { buyerId?: string; sellerId?: string; chatId?: string; articleTitle?: string; articleId?: string } | null =
       null;
+    let deliveredCarrier = '';
+    let deliveredTransitDays = 0;
 
     const changed = await db.runTransaction(async (tx) => {
       const snap = await tx.get(txRef);
