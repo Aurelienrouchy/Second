@@ -563,14 +563,24 @@ export default function ShippingCheckoutScreen() {
 
   const cancelPendingTransaction = useCallback(async () => {
     if (pendingTransactionId) {
+      let success = true;
       try {
         await TransactionService.updateTransactionStatus(pendingTransactionId, 'cancelled');
       } catch (cancelError) {
+        success = false;
         if (__DEV__) console.error('Error cancelling transaction:', cancelError);
       }
+      track('order_cancel_submitted', {
+        transaction_id: pendingTransactionId,
+        role: 'buyer',
+        source: 'checkout_failure',
+        status_at_cancel: 'pending_payment',
+        total_cents: totalAmountCents,
+        success,
+      });
     }
     router.back();
-  }, [pendingTransactionId, router]);
+  }, [pendingTransactionId, router, totalAmountCents]);
 
   const navigateToSuccess = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: homeKeys.all });
