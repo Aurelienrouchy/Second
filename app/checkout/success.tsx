@@ -7,7 +7,7 @@
  * - Payment confirmed (shipping transaction paid)
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
 import { TransactionDeliveryType } from '@/types';
+import { track } from '@/lib/analytics';
 
 // =============================================================================
 // MAIN COMPONENT
