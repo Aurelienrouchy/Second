@@ -109,9 +109,18 @@ const AuthBottomSheet: React.FC = () => {
   }, []);
 
   const handleClose = useCallback(() => {
+    if (didAuthRef.current) {
+      didAuthRef.current = false;
+    } else {
+      track('auth_sheet_dismissed', {
+        auth_mode: ANALYTICS_MODE[authType],
+        had_pending_action: onSuccessCallback != null,
+        email_field_filled: email.trim().length > 0,
+      });
+    }
     resetForm();
     useAuthSheetStore.getState().hide();
-  }, [resetForm]);
+  }, [resetForm, authType, onSuccessCallback, email]);
 
   // Android hardware back: while the sheet is visible, route through the same
   // close path (so the store hide fires) and consume the event so it never
