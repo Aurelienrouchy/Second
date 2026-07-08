@@ -76,13 +76,6 @@ export default function VisualSearchResultsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Run visual search on mount
-  useEffect(() => {
-    if (imageUri) {
-      performSearch();
-    }
-  }, [imageUri]);
-
   const performSearch = async (isRetry = false) => {
     if (!imageUri) return;
 
