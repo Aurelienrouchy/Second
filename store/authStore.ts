@@ -5,7 +5,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { doc, updateDoc } from 'firebase/firestore';
 
 import { firestore } from '@/config/firebaseConfig';
-import { identifyUser, resetAnalytics } from '@/lib/analytics';
+import { identifyUser, resetAnalytics, track } from '@/lib/analytics';
 import { queryClient } from '@/lib/queryClient';
 import { AuthService, SignupConsent, SocialAuthResult } from '@/services/authService';
 import {
