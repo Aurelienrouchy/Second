@@ -1012,12 +1012,36 @@ export const createTransaction = onCall(
         const newTxRef = db.collection('transactions').doc();
         tx.set(newTxRef, transactionData);
 
-        return newTxRef.id;
+        return {
+          id: newTxRef.id,
+          sellerId: articleData.sellerId,
+          amount,
+          totalAmount,
+        };
       });
+
+      const transactionId = created.id;
 
       logger.info('Transaction created', {
         transactionId, articleId, deliveryType, buyerId,
       });
+
+      // Analytics (§12): order_created is the SEROVER source of truth for tx
+      // creation. Only the shipping rail is created here (source=shipping_checkout);
+      // meetup orders are created by acceptMeetupOffer. distinct_id = buyer.
+      if (deliveryType === 'shipping') {
+        await captureServerEvent(buyerId, 'order_created', {
+          transaction_id: transactionId,
+          article_id: articleId,
+          buyer_id: buyerId,
+          seller_id: created.sellerId,
+          delivery_type: 'shipping',
+          amount_cents: Math.round((created.amount ?? 0) * 100),
+          negotiated: negotiatedOfferVerified,
+          source: 'shipping_checkout',
+          $insert_id: `order_created_${transactionId}`,
+        });
+      }
 
       return { success: true, transactionId };
     } catch (error: unknown) {
