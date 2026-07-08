@@ -173,18 +173,34 @@ export default function ShopUpgradeScreen() {
       if (!result.success || !result.clientSecret) {
         throw new Error('Impossible de créer le paiement du forfait');
       }
+      track('shop_upgrade_submitted', {
+        shop_id: shopId,
+        tier: selectedTier,
+        period_months: periodMonths as 1 | 3 | 6 | 12,
+        estimated_total_cents: estimatedTotalCents,
+        current_tier: shop?.tier ?? 'basic',
+        success: true,
+      });
       // amountCents is server-authoritative; the native sheet displays the
       // PaymentIntent amount directly.
       setClientSecret(result.clientSecret);
       setShowStripePayment(true);
     } catch (error: unknown) {
       if (__DEV__) console.error('Error purchasing shop tier:', error);
+      track('shop_upgrade_submitted', {
+        shop_id: shopId,
+        tier: selectedTier,
+        period_months: periodMonths as 1 | 3 | 6 | 12,
+        estimated_total_cents: estimatedTotalCents,
+        current_tier: shop?.tier ?? 'basic',
+        success: false,
+      });
       const msg = error instanceof Error ? error.message : "Impossible d'initier le paiement.";
       Alert.alert('Erreur', msg);
     } finally {
       setIsPurchasing(false);
     }
-  }, [shopId, selectedTier, periodMonths, isPurchasing]);
+  }, [shopId, selectedTier, periodMonths, isPurchasing, estimatedTotalCents, shop?.tier]);
 
   const handlePaymentResult = useCallback(
     (result: StripePaymentResult) => {
