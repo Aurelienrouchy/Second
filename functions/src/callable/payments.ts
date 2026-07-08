@@ -3622,6 +3622,20 @@ export const sellerCancelTransaction = onCall(
         ).catch(() => undefined);
       }
 
+      // Analytics (§12): order_cancelled follows the BUYER. Seller-initiated,
+      // pre-ship. The refund itself is emitted separately (order_refunded) by
+      // the charge.refunded webhook.
+      if (typeof preData.buyerId === 'string') {
+        await captureServerEvent(preData.buyerId, 'order_cancelled', {
+          transaction_id: transactionId,
+          cancelled_by: 'seller',
+          stage: preData.status === 'label_created' ? 'label_created' : 'paid',
+          refunded_cents: Math.round(((preData.totalAmount ?? 0) as number) * 100),
+          article_relisted: true,
+          $insert_id: `order_cancelled_${transactionId}`,
+        });
+      }
+
       return result;
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
