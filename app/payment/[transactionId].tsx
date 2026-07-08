@@ -171,6 +171,20 @@ export default function PaymentScreen() {
   const handlePay = async () => {
     if (!transaction || isCreatingCheckout) return;
 
+    track('payment_submitted', {
+      screen: 'payment',
+      transaction_id: transaction.id,
+      article_id: transaction.articleId,
+      final_price_cents: Math.round((transaction.amount || 0) * 100),
+      shipping_cents: Math.round((transaction.shippingCost || 0) * 100),
+      service_fee_cents: Math.round(serviceFee * 100),
+      tax_cents: Math.round(taxTotal * 100),
+      total_cents: totalAmountCents,
+      uses_wallet: useWalletBalance,
+      wallet_covers_all: walletCoversAll,
+      card_amount_cents: Math.round(cardAmountDollars * 100),
+    });
+
     try {
       setIsCreatingCheckout(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -181,6 +195,11 @@ export default function PaymentScreen() {
       // my-orders (F120). Single navigation to success — no double back (F121).
       if (walletCoversAll) {
         await WalletService.payWithWallet(transaction.id);
+        track('wallet_payment_completed', {
+          screen: 'payment',
+          transaction_id: transaction.id,
+          total_cents: totalAmountCents,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
