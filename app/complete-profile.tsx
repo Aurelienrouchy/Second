@@ -190,6 +190,13 @@ export default function CompleteProfileScreen() {
         // Local format KO → inline error, NO network call.
         setUsernameStatus('invalid');
         setUsernameError(reasonToError(local.reason));
+        usernameCheckCountRef.current += 1;
+        track('username_checked', {
+          result: 'invalid_local',
+          invalid_reason: local.reason,
+          username_length: next.length,
+          attempt_index: usernameCheckCountRef.current,
+        });
         return;
       }
 
