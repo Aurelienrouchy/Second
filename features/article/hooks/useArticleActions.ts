@@ -79,7 +79,7 @@ export function useArticleActions({
             ? Haptics.NotificationFeedbackType.Warning
             : Haptics.NotificationFeedbackType.Success
         );
-        toggleFavorite(article.id);
+        toggleFavorite(article.id, { source: 'article_detail', article, via: 'heart' });
       },
       AUTH_MESSAGES.like
     );
