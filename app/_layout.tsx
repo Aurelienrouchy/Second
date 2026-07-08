@@ -21,6 +21,7 @@ import { useSplashScreen } from '@/hooks/useSplashScreen';
 import { useAuthStore } from '@/store/authStore';
 import { prefetchHome } from '@/features/home';
 import { colors } from '@/constants/theme';
+import { initAnalytics } from '@/lib/analytics';
 import { queryClient } from '@/lib/queryClient';
 import { draftService } from '@/services/draftService';
 import {
