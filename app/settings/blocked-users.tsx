@@ -96,14 +96,30 @@ export default function BlockedUsersScreen() {
       setUnblocking(blockedUserId);
     },
     onSuccess: (_data, blockedUserId) => {
+      const countBefore = (
+        queryClient.getQueryData<BlockedUser[]>(['blockedUsers', user?.id]) ?? []
+      ).length;
       queryClient.setQueryData(
         ['blockedUsers', user?.id],
         (old: BlockedUser[] | undefined) =>
           (old ?? []).filter((u) => u.blockedUserId !== blockedUserId)
       );
+      track('user_unblocked', {
+        blocked_user_id: blockedUserId,
+        outcome: 'success',
+        blocked_count_before: countBefore,
+      });
       setUnblocking(null);
     },
-    onError: (error: Error) => {
+    onError: (error: Error, blockedUserId) => {
+      const countBefore = (
+        queryClient.getQueryData<BlockedUser[]>(['blockedUsers', user?.id]) ?? []
+      ).length;
+      track('user_unblocked', {
+        blocked_user_id: blockedUserId,
+        outcome: 'error',
+        blocked_count_before: countBefore,
+      });
       Alert.alert('Erreur', error.message || 'Une erreur est survenue');
       setUnblocking(null);
     },
