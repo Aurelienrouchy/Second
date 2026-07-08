@@ -390,7 +390,7 @@ export default function SavedSearches() {
         ],
       );
     },
-    [user?.id],
+    [userId],
   );
 
   // Toggle notifications for a saved search
