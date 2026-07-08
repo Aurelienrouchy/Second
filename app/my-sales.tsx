@@ -334,7 +334,7 @@ export default function MySalesScreen() {
               item={item}
               onPress={() => handleSalePress(item)}
               onReview={() => handleReview(item.transaction.id)}
-              onCancel={() => handleCancelSale(item.transaction.id)}
+              onCancel={() => handleCancelSale(item.transaction)}
             />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
