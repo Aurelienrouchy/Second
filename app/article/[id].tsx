@@ -132,6 +132,18 @@ export default function ArticleDetailScreen() {
     if (user?.id === article.sellerId) return;
     viewTracked.current = true;
 
+    track('article_viewed', {
+      article_id: article.id,
+      seller_id: article.sellerId,
+      price_cents: Math.round(article.price * 100),
+      brand: article.brand,
+      category_ids: article.categoryIds ?? [],
+      condition: article.condition,
+      is_sold: article.isSold,
+      source: source ?? 'direct',
+      is_swap_context: isSwapContext,
+    });
+
     const trackView = async () => {
       try {
         const { httpsCallable } = await import('firebase/functions');
