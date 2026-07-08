@@ -345,10 +345,26 @@ export default function CompleteProfileScreen() {
     username,
   ]);
 
+  // Progress proxy for signup_back_blocked, mirrored to a ref so the one-shot
+  // BackHandler effect reads the latest value without re-subscribing.
+  const fieldsFilledCount = [
+    username.trim() !== '',
+    dobDay !== '',
+    dobMonth !== '',
+    dobYear !== '',
+    acceptedTerms,
+    acceptedPrivacy,
+  ].filter(Boolean).length;
+  const fieldsFilledRef = useRef(fieldsFilledCount);
+  fieldsFilledRef.current = fieldsFilledCount;
+
   // ── Mandatory step: lock the Android hardware back (no-op, consume it). The
   // iOS back-swipe is already blocked via gestureEnabled:false in the Stack. ──
   useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      track('signup_back_blocked', { fields_filled_count: fieldsFilledRef.current });
+      return true;
+    });
     return () => subscription.remove();
   }, []);
 
