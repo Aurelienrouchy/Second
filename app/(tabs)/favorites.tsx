@@ -259,6 +259,7 @@ export default function FavoritesScreen() {
           onProductLongPress={handleRemoveFavorite}
           onRefresh={handleRefresh}
           extraData={articleIds}
+          favoriteSource="favorites"
           emptyMessage="Aucun favori trouvé"
           emptyIcon="heart-outline"
           testID="favorites-grid"
