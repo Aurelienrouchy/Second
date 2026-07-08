@@ -355,9 +355,15 @@ export default function StripeOnboardingScreen() {
   const pickDocument = useCallback(
     async (side: 'front' | 'back') => {
       try {
-        const { status: perm } =
+        const { status: perm, canAskAgain } =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (perm !== 'granted') {
+          track('permission_denied', {
+            permission: 'photos',
+            context: 'kyc',
+            can_ask_again: canAskAgain,
+            action_taken: 'cancel',
+          });
           Alert.alert(
             'Permission requise',
             "Nous avons besoin d'acceder a vos photos pour envoyer votre document.",
