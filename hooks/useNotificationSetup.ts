@@ -478,7 +478,14 @@ export function useNotificationSetup(userId: string | null): void {
     setup();
 
     // 5. Listener: notification received (foreground)
-    const receivedSub = Notifications.addNotificationReceivedListener(() => {
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data as PushNotificationData | undefined;
+      if (data?.type) {
+        track('push_received', {
+          notification_type: data.type,
+          suppressed_in_active_chat: data.chatId != null && data.chatId === activeChatId,
+        });
+      }
       // Feedback immédiat : incrémente le compteur in-app, puis réconcilie avec
       // le compteur serveur (qui réaligne aussi le badge OS).
       useNotificationStore.getState().incrementUnreadCount();
@@ -489,6 +496,13 @@ export function useNotificationSetup(userId: string | null): void {
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as PushNotificationData;
       if (data) {
+        if (data.type) {
+          track('push_opened', {
+            notification_type: data.type,
+            from_killed_state: false,
+            destination_route: pushDestinationRoute(data),
+          });
+        }
         routeFromNotificationData(data, userIdRef.current);
       }
     });
