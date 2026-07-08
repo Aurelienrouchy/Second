@@ -2274,14 +2274,14 @@ async function handlePayoutPaid(payout: any): Promise<void> {
 
   const requestRef = db.collection('withdrawal_requests').doc(withdrawalRequestId);
 
-  await db.runTransaction(async (tx) => {
+  const completed = await db.runTransaction(async (tx) => {
     const requestSnap = await tx.get(requestRef);
     if (!requestSnap.exists) {
       logger.warn('Stripe webhook: payout.paid — withdrawal request not found', {
         withdrawalRequestId,
         payoutId: payout.id,
       });
-      return;
+      return null;
     }
 
     const request = requestSnap.data()!;
@@ -2292,7 +2292,7 @@ async function handlePayoutPaid(payout: any): Promise<void> {
         withdrawalRequestId,
         currentStatus: request.status,
       });
-      return;
+      return null;
     }
 
     tx.update(requestRef, {
@@ -2300,12 +2300,34 @@ async function handlePayoutPaid(payout: any): Promise<void> {
       completedAt: FieldValue.serverTimestamp(),
       stripePayoutId: payout.id,
     });
+
+    let daysToPayout = 0;
+    if (request.createdAt && typeof request.createdAt.toMillis === 'function') {
+      daysToPayout =
+        Math.round(((Date.now() - request.createdAt.toMillis()) / (24 * 60 * 60 * 1000)) * 100) /
+        100;
+    }
+    return {
+      userId: typeof request.userId === 'string' ? request.userId : null,
+      amount: typeof request.amount === 'number' ? request.amount : 0,
+      daysToPayout,
+    };
   });
 
   logger.info('Stripe webhook: payout.paid — withdrawal completed', {
     withdrawalRequestId,
     payoutId: payout.id,
   });
+
+  // Analytics (§12): distinct_id = seller. amount is stored in CENTS.
+  if (completed && completed.userId) {
+    await captureServerEvent(completed.userId, 'withdrawal_paid', {
+      withdrawal_id: withdrawalRequestId,
+      amount_cents: completed.amount,
+      days_to_payout: completed.daysToPayout,
+      $insert_id: `withdrawal_paid_${withdrawalRequestId}`,
+    });
+  }
 }
 
 // =============================================================================
