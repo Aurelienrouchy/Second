@@ -31,6 +31,9 @@ export function useConsentGuard(): void {
   const pendingConsent = useAuthStore((s) => s.pendingConsent);
   const segments = useSegments();
   const rootNavigationState = useRootNavigationState();
+  // Guards a single signup_resumed per pendingConsent episode (a cold-start
+  // redirect can re-run before navigation settles).
+  const resumedTrackedRef = useRef(false);
 
   useEffect(() => {
     // Bail until the root navigator is mounted (see doc above).
@@ -38,9 +41,21 @@ export function useConsentGuard(): void {
     if (pendingConsent) {
       // Legal docs must stay reachable during consent (Loi 25 art. 12).
       if (segments[0] === 'complete-profile' || segments[0] === 'legal') return;
+      // Reaching here means the user is NOT already on the consent route while
+      // pendingConsent is set — i.e. a cold resume of an abandoned signup (the
+      // in-session flow navigates to /complete-profile itself before this runs).
+      if (!resumedTrackedRef.current) {
+        resumedTrackedRef.current = true;
+        track('signup_resumed', {
+          signup_method:
+            useAuthStore.getState().pendingConsentUser?.authProvider ?? 'email',
+          cold_resume: true,
+        });
+      }
       router.replace('/complete-profile' as never);
       return;
     }
+    resumedTrackedRef.current = false;
     // Consent just completed (signIn cleared pendingConsent + set user) but the
     // user is still on /complete-profile — actively resume the normal flow
     // (index → preferences onboarding / tabs). Without this the account is
