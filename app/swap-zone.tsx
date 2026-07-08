@@ -413,6 +413,7 @@ export default function SwapZoneScreen() {
       // Long-press locks the multi-select to this seller. Medium impact marks
       // the deliberate mode switch (harmonized with FilterChipsRow's haptics).
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      track('swap_multi_select_started', { seller_id: item.sellerId, item_id: item.id });
       setIsMultiSelectMode(true);
       setSelectedSellerId(item.sellerId);
       setSelectedItemIds(new Set([item.id]));
