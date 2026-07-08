@@ -260,9 +260,21 @@ export default function CompleteProfileScreen() {
     !acceptedPrivacy ||
     isSubmitting;
 
-  const handleToggleTerms = useCallback(() => setAcceptedTerms((v) => !v), []);
-  const handleTogglePrivacy = useCallback(() => setAcceptedPrivacy((v) => !v), []);
-  const handleToggleMarketing = useCallback(() => setMarketingOptIn((v) => !v), []);
+  const handleToggleTerms = useCallback(() => {
+    const next = !acceptedTerms;
+    track('consent_toggled', { consent_type: 'terms', checked: next });
+    setAcceptedTerms(next);
+  }, [acceptedTerms]);
+  const handleTogglePrivacy = useCallback(() => {
+    const next = !acceptedPrivacy;
+    track('consent_toggled', { consent_type: 'privacy', checked: next });
+    setAcceptedPrivacy(next);
+  }, [acceptedPrivacy]);
+  const handleToggleMarketing = useCallback(() => {
+    const next = !marketingOptIn;
+    track('consent_toggled', { consent_type: 'marketing', checked: next });
+    setMarketingOptIn(next);
+  }, [marketingOptIn]);
   const handleBlurDob = useCallback(() => setDobTouched(true), []);
 
   const handleSubmit = useCallback(async () => {
