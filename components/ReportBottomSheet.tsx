@@ -196,7 +196,17 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
         keyboardBehavior="interactive"
         keyboardBlurBehavior="none"
         android_keyboardInputMode="adjustResize"
-        onChange={(index) => { if (index === -1) setIsOpen(false); }}
+        onChange={(index) => {
+          if (index === -1) {
+            if (!submittedRef.current) {
+              track('report_abandoned', {
+                target_type: targetType,
+                step_reached: stepRef.current,
+              });
+            }
+            setIsOpen(false);
+          }
+        }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.content}>
             <View style={styles.header}>
