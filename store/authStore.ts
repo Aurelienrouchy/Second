@@ -267,19 +267,21 @@ export const useAuthStore = create<AuthStore>()(
           if (cached) {
             const parsed = JSON.parse(cached) as User;
             if (parsed?.id && parsed.id === fbUser.uid && parsed.dateOfBirth) {
+              const rehydrated: User = {
+                ...parsed,
+                // createdAt est sérialisé en string ISO dans AsyncStorage :
+                // on le ré-hydrate en Date pour respecter le type User.
+                createdAt: parsed.createdAt ? new Date(parsed.createdAt) : new Date(),
+              };
               set({
-                user: {
-                  ...parsed,
-                  // createdAt est sérialisé en string ISO dans AsyncStorage :
-                  // on le ré-hydrate en Date pour respecter le type User.
-                  createdAt: parsed.createdAt ? new Date(parsed.createdAt) : new Date(),
-                },
+                user: rehydrated,
                 isLoading: false,
                 // Le cache n'est écrit que pour un compte consenté (cache porte
                 // dateOfBirth) → jamais pendingConsent ici.
                 pendingConsent: false,
                 pendingConsentUser: null,
               });
+              analyticsIdentify(rehydrated);
               return;
             }
           }
