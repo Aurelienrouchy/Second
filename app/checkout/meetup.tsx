@@ -385,7 +385,7 @@ export default function MeetupCheckoutScreen() {
                 <Pressable
                   key={`spot-${index}`}
                   style={[styles.spotCard, isSelected && styles.spotCardSelected]}
-                  onPress={() => setSelectedOption(spot)}
+                  onPress={() => handleSelectSpot(spot)}
                 >
                   <View style={styles.spotIcon}>
                     <Ionicons name="location-outline" size={16} color={colors.sage} />
