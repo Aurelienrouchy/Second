@@ -218,9 +218,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
           ? Haptics.NotificationFeedbackType.Warning
           : Haptics.NotificationFeedbackType.Success,
       );
-      toggleFavorite(product.id);
+      toggleFavorite(product.id, {
+        // Falls back to the discover rail when the host surface omits the prop.
+        source: favoriteSource ?? 'home_discover',
+        priceCents: Math.round(product.price * 100),
+        brand: product.brand,
+        via: 'heart',
+      });
     }, AUTH_MESSAGES.like);
-  }, [product?.id, isLiked, requireAuth, toggleFavorite]);
+  }, [product?.id, product?.price, product?.brand, isLiked, requireAuth, toggleFavorite, favoriteSource]);
 
   // Early return after all hooks
   if (!product || !product.id) {
