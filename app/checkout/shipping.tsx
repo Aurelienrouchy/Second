@@ -371,6 +371,7 @@ export default function ShippingCheckoutScreen() {
       // Check if users are blocked before proceeding
       const blocked = await ModerationService.areUsersBlocked(currentUser.uid, article.sellerId);
       if (blocked) {
+        track('payment_init_failed', { failure_type: 'blocked_users' });
         Alert.alert('Action impossible', 'Vous ne pouvez pas acheter cet article.');
         return;
       }
