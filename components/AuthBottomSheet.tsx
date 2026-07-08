@@ -225,6 +225,16 @@ const AuthBottomSheet: React.FC = () => {
       Alert.alert('Erreur', "Veuillez saisir un nom d'affichage");
       return;
     }
+    const mode = authType === 'signUp' ? 'signup' : 'signin';
+    const hadPendingAction = onSuccessCallback != null;
+    track('auth_submitted', {
+      method: 'email',
+      mode,
+      had_pending_action: hadPendingAction,
+      ...(authType === 'signUp'
+        ? { display_name_length: displayName.trim().length }
+        : {}),
+    });
     setIsLoading(true);
     try {
       if (authType === 'signUp') {
@@ -232,12 +242,27 @@ const AuthBottomSheet: React.FC = () => {
         // consent route collects them next and signs the user in.
         const user = await signUpWithEmail(email, password, displayName);
         setIsLoading(false);
+        track('auth_succeeded', {
+          method: 'email',
+          outcome: 'needs_consent',
+          had_pending_action: hadPendingAction,
+        });
         routeToConsent(user);
         return;
       }
       await signInWithEmail(email, password);
+      track('auth_succeeded', {
+        method: 'email',
+        outcome: 'signed_in',
+        had_pending_action: hadPendingAction,
+      });
       handleSuccess();
     } catch (error: any) {
+      track('auth_failed', {
+        method: 'email',
+        mode,
+        error_message_key: (error as { code?: string })?.code ?? 'unknown',
+      });
       Alert.alert('Erreur', error.message || "Erreur lors de l'authentification");
     } finally {
       setIsLoading(false);
