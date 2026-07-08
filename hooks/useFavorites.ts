@@ -284,17 +284,45 @@ export function useFavorites() {
   });
 
   const toggleFavorite = useCallback(
-    (articleId: string) => {
+    (articleId: string, opts?: ToggleFavoriteOptions) => {
       // Block adding beyond the cap so the Firestore write can't reject
       // silently and roll back the optimistic update without feedback.
       const isAdding = !favoriteIds.includes(articleId);
       if (isAdding && favoriteIds.length >= FAVORITES_CAP) {
+        track('favorite_limit_reached', {
+          article_id: articleId,
+          favorites_count: FAVORITES_CAP,
+        });
         Alert.alert(
           'Limite atteinte',
           `Vous avez atteint la limite de ${FAVORITES_CAP} favoris. Retirez-en quelques-uns pour en ajouter de nouveaux.`
         );
         return;
       }
+
+      const source: FavoriteSource = opts?.source ?? 'article_detail';
+      const meta = opts?.article;
+      if (isAdding) {
+        track('article_favorited', {
+          article_id: articleId,
+          seller_id: meta?.sellerId,
+          price_cents: meta ? Math.round(meta.price * 100) : undefined,
+          brand: meta?.brand,
+          source,
+          favorites_count_after: favoriteIds.length + 1,
+        });
+      } else {
+        track('article_unfavorited', {
+          article_id: articleId,
+          seller_id: meta?.sellerId,
+          price_cents: meta ? Math.round(meta.price * 100) : undefined,
+          brand: meta?.brand,
+          source,
+          favorites_count_after: favoriteIds.length - 1,
+          via: opts?.via ?? 'heart',
+        });
+      }
+
       mutation.mutate(articleId);
     },
     [mutation, favoriteIds]
