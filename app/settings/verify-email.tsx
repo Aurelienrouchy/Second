@@ -3,6 +3,7 @@
  */
 
 import { useUser } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { Text, Caption, ScreenHeader } from '@/components/ui';
