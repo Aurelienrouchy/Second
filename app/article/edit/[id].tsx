@@ -249,6 +249,11 @@ export default function EditArticleScreen() {
 
   const handleCategorySelect = (categoryIds: string[]) => {
     updateField('categoryIds', categoryIds);
+    track('sell_field_edited', {
+      screen: 'edit',
+      field: 'category',
+      value: categoryIds[categoryIds.length - 1],
+    });
     const categoryInfo = getCategoryInfoFromIds(categoryIds);
     if (categoryInfo) {
       updateField('categoryDisplay', {
