@@ -130,7 +130,20 @@ export default function PaymentScreen() {
         ? "Vous n'êtes pas autorisé pour cette transaction."
         : 'Transaction introuvable.';
     Alert.alert('Erreur', message, [{ text: 'OK', onPress: () => router.back() }]);
-  }, [notPayable, queryClient, router]);
+  }, [notPayable, queryClient, router, transactionId]);
+
+  // Emit payment_screen_viewed once the payable transaction resolves.
+  const viewedRef = React.useRef(false);
+  useEffect(() => {
+    if (!transaction || viewedRef.current) return;
+    viewedRef.current = true;
+    track('payment_screen_viewed', {
+      transaction_id: transaction.id,
+      total_cents: Math.round((transaction.totalAmount || 0) * 100),
+      delivery_type: transaction.deliveryType ?? 'shipping',
+      wallet_balance_cents: wallet?.hasWallet ? wallet.balance : 0,
+    });
+  }, [transaction, wallet]);
 
   // =============================================================================
   // DERIVED
