@@ -284,6 +284,14 @@ export default function StripeOnboardingScreen() {
     },
     onError: (error) => {
       if (__DEV__) console.error('Error creating Stripe account:', error);
+      track('seller_account_submitted', {
+        validation_result: 'ok',
+        success: false,
+        error_code:
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : undefined,
+      });
       Alert.alert(
         'Erreur',
         error.message || 'Impossible de configurer le compte de paiement.',
@@ -294,7 +302,12 @@ export default function StripeOnboardingScreen() {
   const handleSubmit = useCallback(() => {
     const validationError = validate();
     if (validationError) {
-      Alert.alert('Erreur', validationError);
+      track('seller_account_submitted', {
+        validation_result: 'field_error',
+        failed_field: validationError.field,
+        success: false,
+      });
+      Alert.alert('Erreur', validationError.message);
       return;
     }
     createAccountMutation.mutate();
