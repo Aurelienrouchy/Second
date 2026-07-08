@@ -84,6 +84,14 @@ const COPY_AI = {
     "Pour vous suggérer des articles adaptés à vos goûts, Second peut analyser les articles que vous consultez et aimez à l'aide d'une intelligence artificielle de Google (Gemini et Vertex AI), dont le traitement a lieu aux États-Unis. Cette fonctionnalité est désactivée par défaut. Vous pouvez l'activer ou la désactiver à tout moment, sans incidence sur le reste de l'application.",
 } as const;
 
+// Statistiques d'usage (analytics produit). Modèle opt-out (activé par défaut) :
+// données anonymisées, jamais de données personnelles, désactivable à tout moment.
+const COPY_ANALYTICS = {
+  title: "Données d'utilisation",
+  description:
+    "Nous aider à améliorer l'application grâce à des statistiques d'usage anonymisées. Aucune donnée personnelle n'est collectée. Vous pouvez désactiver cette option à tout moment.",
+} as const;
+
 // Retrait du consentement marketing (art. 14 / LCAP). Textes rédigés par le juriste.
 const COPY_MARKETING_REVOKE = {
   title: 'Communications marketing',
