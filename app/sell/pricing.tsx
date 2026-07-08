@@ -201,7 +201,29 @@ export default function PricingScreen() {
   };
 
   const handleContinue = () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      const missingKeys: string[] = [];
+      const priceValue = parseFloat(price);
+      if (!price || isNaN(priceValue) || priceValue < 0.01) missingKeys.push('price_invalid');
+      else if (priceValue > 10000) missingKeys.push('price_too_high');
+      if (!isHandDelivery && !isShipping) missingKeys.push('no_delivery');
+      if (isHandDelivery && selectedNeighborhoods.length === 0) missingKeys.push('neighborhoods_required');
+      if (isShipping && !packageSize) missingKeys.push('package_size_required');
+      track('sell_validation_failed', {
+        step: 'pricing',
+        missing_fields: missingKeys,
+        errors: missingKeys,
+      });
+      return;
+    }
+    track('sell_step_completed', {
+      step: 'pricing',
+      price_cents: Math.round(parseFloat(price) * 100),
+      is_hand_delivery: isHandDelivery,
+      is_shipping: isShipping,
+      neighborhoods_count: selectedNeighborhoods.length,
+      package_size: packageSize ?? undefined,
+    });
     router.push({
       pathname: '/sell/preview',
       params: {
