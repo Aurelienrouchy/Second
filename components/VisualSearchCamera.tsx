@@ -305,7 +305,7 @@ function VisualSearchCameraComponent({
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.cancelCameraButton} onPress={onClose}>
+            <TouchableOpacity style={styles.cancelCameraButton} onPress={handleCancel}>
               <Text style={styles.cancelCameraText}>Annuler</Text>
             </TouchableOpacity>
           </View>

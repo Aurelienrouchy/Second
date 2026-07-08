@@ -141,6 +141,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     const context: MakeOfferContext = {
       state,
       actions,
+      articleId,
       articleTitle,
       currentPrice,
       sellerNeighborhood,
