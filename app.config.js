@@ -65,6 +65,7 @@ export default {
         }
       ],
       "expo-image",
+      "expo-localization",
       [
         "react-native-maps",
         {
