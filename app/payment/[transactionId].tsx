@@ -237,6 +237,13 @@ export default function PaymentScreen() {
 
       setClientSecret(data.clientSecret);
       setShowStripePayment(true);
+      track('payment_sheet_presented', {
+        source: 'payment',
+        context_id: transaction.id,
+        server_buyer_total_cents: totalAmountCents,
+        wallet_amount_cents: walletAmountCents > 0 ? walletAmountCents : undefined,
+        is_retry: false,
+      });
     } catch (error: unknown) {
       if (__DEV__) console.error('Error creating checkout:', error);
       const msg = error instanceof Error ? error.message : "Impossible d'initier le paiement.";
