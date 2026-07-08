@@ -276,6 +276,25 @@ export default function PrivacySettingsScreen() {
             />
           </View>
 
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <Text variant="body" style={styles.settingTitle}>{COPY_ANALYTICS.title}</Text>
+              <Caption>{COPY_ANALYTICS.description}</Caption>
+            </View>
+            <Switch
+              value={privacySettings.analyticsConsent}
+              onValueChange={(value) => {
+                // Persiste la préférence (comme les autres toggles simples) et
+                // applique immédiatement l'opt-in/opt-out PostHog.
+                savePreferences({ analyticsConsent: value });
+                void setAnalyticsEnabled(value);
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
+              ios_backgroundColor={colors.border}
+            />
+          </View>
+
           <View style={[styles.settingItem, styles.settingItemLast]}>
             <View style={styles.settingInfo}>
               <Text variant="body" style={styles.settingTitle}>{COPY_MARKETING_REVOKE.title}</Text>
