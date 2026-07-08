@@ -35,18 +35,10 @@ export default function ProfileDetailsScreen() {
 
   const queryClient = useQueryClient();
 
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || '');
-      setBio(user.bio || '');
-      setProfileImage(user.profileImage || null);
-    }
-  }, [user]);
 
   const pickImage = async () => {
     try {
