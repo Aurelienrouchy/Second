@@ -351,7 +351,7 @@ export default function SavedSearches() {
         },
       });
     },
-    [user?.id],
+    [userId],
   );
 
   // Delete a saved search
