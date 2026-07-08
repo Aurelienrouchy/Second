@@ -116,6 +116,10 @@ export default function PaymentScreen() {
   // screen — without ever surfacing a misleading error on a successful payment.
   useEffect(() => {
     if (!notPayable) return;
+    track('payment_blocked', {
+      transaction_id: transactionId ?? '',
+      reason: notPayable,
+    });
     if (notPayable === 'already_processed') {
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       router.back();

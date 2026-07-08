@@ -2432,17 +2432,20 @@ async function handleChargeRefunded(charge: any): Promise<void> {
   const txDoc = txQuery.docs[0];
   const transactionId = txDoc.id;
 
-  await db.runTransaction(async (tx) => {
+  const refundResult = await db.runTransaction(async (tx) => {
     const txSnap = await tx.get(txDoc.ref);
     const txData = txSnap.data();
 
-    if (!txData) return;
+    if (!txData) return null;
 
     // Idempotence: if already refunded, skip
     if (txData.status === 'refunded') {
       logger.info('Stripe webhook: refund skipping — already refunded', { transactionId });
-      return;
+      return null;
     }
+
+    const emitBuyerId = typeof txData.buyerId === 'string' ? txData.buyerId : null;
+    const emitReason = mapRefundReason(txData.refundReason);
 
     // Mark transaction as refunded
     tx.update(txDoc.ref, {
