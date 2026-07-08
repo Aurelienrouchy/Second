@@ -238,7 +238,17 @@ export default function MyArticlesScreen() {
                 styles.articleItem,
                 pressed && styles.pressed,
               ]}
-              onPress={() => router.push(`/article/${item.id}`)}
+              onPress={() => {
+                track('article_card_tapped', {
+                  article_id: item.id,
+                  source: 'my_articles',
+                  price_cents: Math.round(item.price * 100),
+                  brand: item.brand,
+                  condition: item.condition,
+                  is_sold: !!item.isSold,
+                });
+                router.push(`/article/${item.id}`);
+              }}
             >
               <Image
                 source={firstImage?.url ? { uri: firstImage.url } : undefined}
