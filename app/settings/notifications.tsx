@@ -136,11 +136,11 @@ export default function NotificationsSettingsScreen() {
   });
 
   const { mutate: toggleSetting } = useMutation({
-    mutationFn: (key: NotificationType) => {
+    mutationFn: ({ key }: { key: NotificationType; newValue: boolean; osPermissionMissing: boolean }) => {
       const newSettings = { ...settings, [key]: !settings[key] };
       return UserService.updateNotificationPreferences(user!.id, newSettings);
     },
-    onMutate: async (key: NotificationType) => {
+    onMutate: async ({ key }) => {
       await queryClient.cancelQueries({ queryKey: ['userNotificationPreferences', user?.id] });
       const previousSettings = queryClient.getQueryData<Record<NotificationType, boolean>>(
         ['userNotificationPreferences', user?.id]
@@ -154,14 +154,28 @@ export default function NotificationsSettingsScreen() {
       );
       return { previousSettings };
     },
-    onError: (_error, _key, context) => {
+    onError: (_error, { key, newValue, osPermissionMissing }, context) => {
       if (context?.previousSettings) {
         queryClient.setQueryData(
           ['userNotificationPreferences', user?.id],
           context.previousSettings
         );
       }
+      track('notification_pref_toggled', {
+        pref_key: key as NotificationPrefKey,
+        new_value: newValue,
+        os_permission_missing: osPermissionMissing,
+        success: false,
+      });
       Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
+    },
+    onSuccess: (_data, { key, newValue, osPermissionMissing }) => {
+      track('notification_pref_toggled', {
+        pref_key: key as NotificationPrefKey,
+        new_value: newValue,
+        os_permission_missing: osPermissionMissing,
+        success: true,
+      });
     },
   });
 
