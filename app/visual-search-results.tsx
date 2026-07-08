@@ -107,6 +107,15 @@ export default function VisualSearchResultsScreen() {
     }
   };
 
+  // Run visual search on mount
+  useEffect(() => {
+    if (imageUri) {
+      (async () => {
+        await performSearch();
+      })();
+    }
+  }, [imageUri]);
+
   const handleRetry = () => {
     track('error_retry_tapped', { screen: 'visual_search', error_context: 'visual_search' });
     performSearch(true);
