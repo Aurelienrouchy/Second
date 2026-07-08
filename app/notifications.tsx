@@ -3,6 +3,7 @@ import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import { refreshNotificationBadge } from '@/hooks/useNotificationSetup';
+import { track } from '@/lib/analytics';
 import { NotificationService } from '@/services/notificationService';
 import { queryKeys } from '@/lib/queryKeys';
 import { Notification, NotificationType } from '@/types';
