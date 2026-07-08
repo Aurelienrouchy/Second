@@ -245,9 +245,23 @@ export default function UserProfileScreen() {
     setIsContactLoading(true);
     try {
       const chat = await ChatService.createOrGetChat(currentUser.id, id);
+      track('chat_started', {
+        chat_id: chat.id,
+        source: 'profile',
+        other_user_id: id,
+        is_new_chat: !chat.lastMessage,
+        outcome: 'success',
+      });
       router.push(`/chat/${chat.id}`);
     } catch (error) {
       if (__DEV__) console.error('Error creating chat:', error);
+      track('chat_started', {
+        chat_id: '',
+        source: 'profile',
+        other_user_id: id,
+        is_new_chat: false,
+        outcome: 'error',
+      });
       Alert.alert('Erreur', 'Impossible de démarrer la conversation.');
     } finally {
       setIsContactLoading(false);
