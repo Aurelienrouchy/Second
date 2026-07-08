@@ -345,6 +345,11 @@ export default function UserProfileScreen() {
                 id,
                 profileUser.displayName ?? '',
               );
+              track('user_blocked', {
+                blocked_user_id: id,
+                source: 'profile',
+                success: true,
+              });
               queryClient.invalidateQueries({
                 queryKey: ['blockedUsers', currentUser.id],
               });
@@ -352,6 +357,11 @@ export default function UserProfileScreen() {
                 { text: 'OK', onPress: () => router.back() },
               ]);
             } catch (error) {
+              track('user_blocked', {
+                blocked_user_id: id,
+                source: 'profile',
+                success: false,
+              });
               const message =
                 error instanceof Error ? error.message : 'Une erreur est survenue';
               Alert.alert('Erreur', message);
