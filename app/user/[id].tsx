@@ -440,7 +440,7 @@ export default function UserProfileScreen() {
       </View>
       <ProfileTabs
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         reviewCount={stats?.nombreAvis ?? 0}
       />
     </View>
