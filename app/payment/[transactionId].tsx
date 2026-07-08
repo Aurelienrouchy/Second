@@ -293,7 +293,7 @@ export default function PaymentScreen() {
     } finally {
       setIsCreatingCheckout(false);
     }
-  }, [transactionId, useWalletBalance, walletAmountCents]);
+  }, [transactionId, useWalletBalance, walletAmountCents, totalAmountCents]);
 
   // F122 — Cancel an abandoned pending_payment from this screen instead of
   // leaving the article locked (isSold) until the 1h expiry. cancelPendingTransaction
