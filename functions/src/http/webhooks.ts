@@ -1602,6 +1602,11 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
     return;
   }
 
+  let cancelBuyerId: string | null = null;
+  let cancelRefundCents = 0;
+  let cancelRelisted = false;
+  let didCancel = false;
+
   await db.runTransaction(async (tx) => {
     const txSnap = await tx.get(transactionRef);
     const txData = txSnap.data();
@@ -1620,6 +1625,8 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
       });
       return;
     }
+    cancelBuyerId = typeof txData.buyerId === 'string' ? txData.buyerId : null;
+    didCancel = true;
 
     // ALL reads BEFORE all writes (Admin SDK READ_AFTER_WRITE_ERROR, cf. F1):
     // read the article + buyer wallet now, write everything after.
