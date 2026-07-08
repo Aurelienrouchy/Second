@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text, Caption } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { openSwapDispute } from '@/services/swapService';
 import type { SwapActionHandlers, SwapParticipantContext } from '../types';
 import type { SwapStatus } from '@/types';
