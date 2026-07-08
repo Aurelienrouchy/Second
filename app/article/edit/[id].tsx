@@ -884,7 +884,11 @@ export default function EditArticleScreen() {
           {/* Hand delivery toggle */}
           <Pressable
             style={styles.deliveryToggle}
-            onPress={() => updateField('isHandDelivery', !fields.isHandDelivery)}
+            onPress={() => {
+              const enabled = !fields.isHandDelivery;
+              updateField('isHandDelivery', enabled);
+              track('sell_field_edited', { screen: 'edit', field: 'hand_delivery', enabled });
+            }}
           >
             <View style={styles.deliveryToggleLeft}>
               <Ionicons name="person-outline" size={20} color={colors.foreground} />
