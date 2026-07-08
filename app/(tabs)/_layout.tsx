@@ -120,6 +120,13 @@ export default function TabLayout() {
     const step = draft.currentStep;
     if (__DEV__) console.log('[TabLayout] Resuming draft at step:', step);
 
+    track('sell_draft_resumed', {
+      draft_step: draftStepLabel(step),
+      photo_count: draft.photos.length,
+      has_ai_result: !!draft.aiResult,
+      platform: 'ios',
+    });
+
     if (step >= 4) {
       router.push({ pathname: '/sell/preview', params: { resumeDraft: 'true' } });
     } else if (step >= 3) {
