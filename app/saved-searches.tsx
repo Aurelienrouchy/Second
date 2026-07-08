@@ -328,8 +328,8 @@ export default function SavedSearches() {
   const handlePress = useCallback(
     (item: SavedSearch) => {
       // Reset new items count when user taps the search
-      if (user?.id && (item.newItemsCount ?? 0) > 0) {
-        SavedSearchService.resetNewItemsCount(user.id, item.id).catch(() => {
+      if (userId && (item.newItemsCount ?? 0) > 0) {
+        SavedSearchService.resetNewItemsCount(userId, item.id).catch(() => {
           // Best-effort; ignore errors
         });
       }
