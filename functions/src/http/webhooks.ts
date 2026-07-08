@@ -2175,6 +2175,17 @@ async function handleDisputeClosed(dispute: any): Promise<void> {
       releasedCents: freezeCents,
     });
   });
+
+  // Analytics (§12): a LOST chargeback refunds the buyer (no charge.refunded
+  // fires for a dispute), so emit order_refunded(reason=dispute) here.
+  if (lostRefundBuyerId) {
+    await captureServerEvent(lostRefundBuyerId, 'order_refunded', {
+      transaction_id: transactionId,
+      refund_cents: typeof dispute.amount === 'number' ? dispute.amount : 0,
+      reason: 'dispute',
+      $insert_id: `order_refunded_${transactionId}`,
+    });
+  }
 }
 
 // =============================================================================
