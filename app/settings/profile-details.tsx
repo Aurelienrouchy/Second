@@ -140,6 +140,12 @@ export default function ProfileDetailsScreen() {
       queryClient.invalidateQueries({ queryKey: ['users', user.id] });
       queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] });
 
+      track('profile_updated', {
+        success: true,
+        photo_changed: photoChanged,
+        bio_length: bioLength,
+      });
+
       Alert.alert('Succès', 'Votre profil a été mis à jour', [
         { text: 'OK', onPress: () => router.back() }
       ]);
@@ -148,6 +154,12 @@ export default function ProfileDetailsScreen() {
       const code = error != null && typeof error === 'object' && 'code' in error
         ? (error as { code: string }).code
         : undefined;
+      track('profile_updated', {
+        success: false,
+        error_code: code,
+        photo_changed: photoChanged,
+        bio_length: bioLength,
+      });
       const message = code === 'permission-denied'
         ? 'Permission refusée. Veuillez vous reconnecter et réessayer.'
         : code === 'not-found'
