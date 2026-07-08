@@ -23,6 +23,7 @@ import { SellOverlayCapture } from '@/features/sell';
 import DraftResumeModal from '@/components/DraftResumeModal';
 import draftService, { ArticleDraft } from '@/services/draftService';
 import { AuthService } from '@/services/authService';
+import { track } from '@/lib/analytics';
 import { colors, fonts, radius } from '@/constants/theme';
 import { useUser } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
