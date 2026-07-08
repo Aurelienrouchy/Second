@@ -616,7 +616,16 @@ export default function StripeOnboardingScreen() {
               <Button
                 variant={fullyActive ? 'muted' : 'primary'}
                 fullWidth
-                onPress={() => refetch()}
+                onPress={async () => {
+                  const before = status?.status ?? 'none';
+                  const res = await refetch();
+                  track('seller_status_refreshed', {
+                    screen: 'stripe_onboarding',
+                    account_status_before: before,
+                    account_status_after: res.data?.status ?? 'none',
+                    payouts_enabled_after: res.data?.payoutsEnabled,
+                  });
+                }}
                 loading={isRefetching}
                 style={styles.statusAction}
               >
