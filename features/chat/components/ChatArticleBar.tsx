@@ -65,7 +65,19 @@ export const ChatArticleBar = React.memo(function ChatArticleBar({
         <Pressable
           testID="chat-article-banner-view"
           style={[styles.viewButton, isSold && styles.viewButtonDisabled]}
-          onPress={() => !isSold && router.push(`/article/${article.id}`)}
+          onPress={() => {
+            if (isSold) return;
+            track('article_card_tapped', {
+              article_id: article.id,
+              source: 'chat_banner',
+              price_cents: Math.round((displayPrice ?? 0) * 100),
+              brand: article.brand,
+              condition: article.condition,
+              is_sold: isSold,
+              price_changed: priceChanged,
+            });
+            router.push(`/article/${article.id}`);
+          }}
           disabled={isSold}
         >
           <Text style={[styles.viewButtonText, isSold && styles.viewButtonTextDisabled]}>VOIR</Text>
