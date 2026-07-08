@@ -80,8 +80,17 @@ export default function ProfileDetailsScreen() {
     if (isSaving) return;
     setIsSaving(true);
 
+    const photoChanged = profileImage !== (user.profileImage ?? null);
+    const bioLength = bio.trim().length;
+
     const trimmedName = displayName.trim();
     if (!trimmedName) {
+      track('profile_updated', {
+        success: false,
+        validation_error: 'empty_name',
+        photo_changed: photoChanged,
+        bio_length: bioLength,
+      });
       Alert.alert('Erreur', 'Le nom d\'affichage ne peut pas être vide');
       setIsSaving(false);
       return;
@@ -90,6 +99,12 @@ export default function ProfileDetailsScreen() {
     // Only allow letters (unicode), spaces, hyphens, apostrophes
     const nameRegex = /^[\p{L}\s\-']+$/u;
     if (!nameRegex.test(trimmedName)) {
+      track('profile_updated', {
+        success: false,
+        validation_error: 'invalid_name_chars',
+        photo_changed: photoChanged,
+        bio_length: bioLength,
+      });
       Alert.alert('Erreur', 'Le nom ne peut contenir que des lettres, espaces, tirets et apostrophes');
       setIsSaving(false);
       return;
