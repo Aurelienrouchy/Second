@@ -417,7 +417,7 @@ export default function SavedSearches() {
         });
       }
     },
-    [user?.id],
+    [userId],
   );
 
   return (
