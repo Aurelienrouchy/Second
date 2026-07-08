@@ -22,7 +22,7 @@ export function useSellerLike(sellerId: string) {
   const toggleLike = useCallback(
     (onConfirmed?: () => void) => {
       requireAuth(() => {
-        globalToggle(sellerId);
+        globalToggle(sellerId, 'home_featured');
         onConfirmed?.();
       }, AUTH_MESSAGES.follow);
     },
