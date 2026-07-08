@@ -24,20 +24,13 @@ export default function PhoneSettingsScreen() {
   const user = useUser();
   const { refreshUser } = useAuthActions();
 
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(() => {
+    // Si le numéro commence par +1, retirer le préfixe pour l'affichage
+    const stored = user?.phoneNumber;
+    if (!stored) return '';
+    return stored.startsWith('+1') ? stored.slice(2).trim() : stored;
+  });
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (user && user.phoneNumber) {
-      // Si le numéro commence par +1, retirer le préfixe pour l'affichage
-      const stored = user.phoneNumber;
-      if (stored.startsWith('+1')) {
-        setPhoneNumber(stored.slice(2).trim());
-      } else {
-        setPhoneNumber(stored);
-      }
-    }
-  }, [user]);
 
   const formatPhoneDisplay = (text: string) => {
     // Retirer tout sauf les chiffres
