@@ -50,8 +50,14 @@ export default function ProfileDetailsScreen() {
 
   const pickImage = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
+        track('permission_denied', {
+          permission: 'photos',
+          context: 'profile_photo',
+          can_ask_again: canAskAgain,
+          action_taken: 'cancel',
+        });
         Alert.alert('Permission requise', 'Nous avons besoin d\'accéder à vos photos pour modifier votre photo de profil');
         return;
       }
