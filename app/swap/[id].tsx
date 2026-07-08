@@ -416,6 +416,8 @@ export default function SwapDetailScreen() {
     ]);
   }, [id, user, swap?.exchangeMode]);
 
+  const swapInitiatorId = swap?.initiatorId;
+
   const handleRate = useCallback(
     async (score: number) => {
       if (!id || !user) return;
@@ -425,7 +427,7 @@ export default function SwapDetailScreen() {
         track('swap_rated', {
           swap_id: id,
           score,
-          is_initiator: swap?.initiatorId === user.id,
+          is_initiator: swapInitiatorId === user.id,
         });
         Alert.alert('Merci !', 'Ta note a été enregistrée.');
       } catch (error) {
@@ -435,7 +437,7 @@ export default function SwapDetailScreen() {
         setIsProcessing(false);
       }
     },
-    [id, user, swap?.initiatorId]
+    [id, user, swapInitiatorId]
   );
 
   const actionHandlers = useMemo<SwapActionHandlers>(
