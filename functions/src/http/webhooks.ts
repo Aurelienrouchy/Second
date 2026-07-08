@@ -2609,6 +2609,8 @@ async function handleChargeRefunded(charge: any): Promise<void> {
         tx.update(articleRef, { isSold: false });
       }
     }
+
+    return { buyerId: emitBuyerId, reason: emitReason };
   });
 
   logger.warn('Stripe webhook: charge refunded — transaction marked refunded, balances adjusted', {
@@ -2616,6 +2618,36 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     chargeId: charge.id,
     paymentIntentId,
   });
+
+  // Analytics (§12): order_refunded follows the BUYER. refund_cents from the
+  // Stripe charge (already cents). $insert_id keeps a re-delivered event unique.
+  if (refundResult && refundResult.buyerId) {
+    await captureServerEvent(refundResult.buyerId, 'order_refunded', {
+      transaction_id: transactionId,
+      refund_cents:
+        typeof charge.amount_refunded === 'number'
+          ? charge.amount_refunded
+          : typeof charge.amount === 'number'
+            ? charge.amount
+            : 0,
+      reason: refundResult.reason,
+      $insert_id: `order_refunded_${transactionId}`,
+    });
+  }
+}
+
+/**
+ * Map a free-text transaction `refundReason` to the order_refunded reason enum
+ * (delivery_failed | lost | dispute | seller_cancel | return). Best-effort:
+ * defaults to 'dispute' when nothing matches.
+ */
+function mapRefundReason(refundReason: unknown): string {
+  const r = typeof refundReason === 'string' ? refundReason.toLowerCase() : '';
+  if (r.includes('return')) return 'return';
+  if (r.includes('seller') || r.includes('cancel')) return 'seller_cancel';
+  if (r.includes('delivery_fail') || r.includes('delivery fail')) return 'delivery_failed';
+  if (r.includes('lost') || r.includes('not_received') || r.includes('not received')) return 'lost';
+  return 'dispute';
 }
 
 // =============================================================================
