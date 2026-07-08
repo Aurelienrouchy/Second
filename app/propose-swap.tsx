@@ -174,6 +174,26 @@ export default function ProposeSwapScreen() {
     }
   }, [initialReceiverItems, receiverSeeded]);
 
+  // Fire swap_propose_opened once the receiver side is known (params or the
+  // target-article query resolving). entry_source is derived from the nav shape.
+  const proposeOpenedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (proposeOpenedRef.current || initialReceiverItems.length === 0) return;
+    proposeOpenedRef.current = true;
+    track('swap_propose_opened', {
+      entry_source: targetArticleId
+        ? 'article_detail'
+        : initialReceiverItems.length > 1
+          ? 'zone_multi'
+          : 'zone_single',
+      receiver_id: receiverId || '',
+      initial_receiver_items_count: initialReceiverItems.length,
+      initial_total_value_cents: Math.round(
+        initialReceiverItems.reduce((sum, i) => sum + (i.price || 0), 0) * 100
+      ),
+    });
+  }, [initialReceiverItems, targetArticleId, receiverId]);
+
   const isLoading = isLoadingTarget && !receiverItemsJson;
 
   // Calculate total values
