@@ -11,6 +11,10 @@ import { colors } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+const VIEWABILITY_CONFIG = {
+  itemVisiblePercentThreshold: 50,
+};
+
 interface PhotoCarouselProps {
   photos: string[];
   height?: number;
