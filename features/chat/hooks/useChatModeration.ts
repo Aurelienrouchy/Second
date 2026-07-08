@@ -80,7 +80,7 @@ export function useChatModeration({
       Alert.alert('Options', undefined, [
         {
           text: 'Signaler cet utilisateur',
-          onPress: () => reportSheetRef.current?.open('user', otherParticipant.userId),
+          onPress: () => reportSheetRef.current?.open('user', otherParticipant.userId, 'chat'),
         },
         { text: 'Bloquer cet utilisateur', style: 'destructive', onPress: confirmBlock },
         { text: 'Annuler', style: 'cancel' },
