@@ -65,6 +65,8 @@ export interface ProductCardProps {
   compact?: boolean;
   /** When true the card stretches to fill its parent instead of using a fixed width */
   fillWidth?: boolean;
+  /** Surface that owns this card — attributes the favorite toggle in analytics. */
+  favoriteSource?: FavoriteSource;
   testID?: string;
 }
 
