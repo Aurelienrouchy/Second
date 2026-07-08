@@ -194,7 +194,7 @@ export default function ShopUpgradeScreen() {
         tier: selectedTier,
         period_months: periodMonths as 1 | 3 | 6 | 12,
         estimated_total_cents: estimatedTotalCents,
-        current_tier: shop?.tier ?? 'basic',
+        current_tier: currentTier ?? 'basic',
         success: false,
       });
       const msg = error instanceof Error ? error.message : "Impossible d'initier le paiement.";
