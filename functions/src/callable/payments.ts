@@ -3488,6 +3488,32 @@ export const resolveDispute = onCall(
         ).catch(() => undefined);
       }
 
+      // Analytics (§12): dispute_resolved — distinct_id = the dispute DECLARANT
+      // (reportedBy for a no-show, otherwise the buyer). This resolution dismisses
+      // in the seller's favour (release_seller); admin action → automated=false.
+      {
+        const firstDispute = openDisputesSnap.docs[0]?.data();
+        const declarantId =
+          (typeof firstDispute?.reportedBy === 'string' && firstDispute.reportedBy) ||
+          (typeof firstDispute?.buyerId === 'string' && firstDispute.buyerId) ||
+          (typeof result.buyerId === 'string' ? result.buyerId : null);
+        let daysOpen = 0;
+        const createdAt = firstDispute?.createdAt;
+        if (createdAt && typeof createdAt.toMillis === 'function') {
+          daysOpen =
+            Math.round(((Date.now() - createdAt.toMillis()) / (24 * 60 * 60 * 1000)) * 100) / 100;
+        }
+        if (declarantId) {
+          await captureServerEvent(declarantId, 'dispute_resolved', {
+            transaction_id: transactionId,
+            resolution: 'release_seller',
+            automated: false,
+            days_open: daysOpen,
+            $insert_id: `dispute_resolved_${transactionId}`,
+          });
+        }
+      }
+
       return {
         success: true,
         restored: result.restored,
