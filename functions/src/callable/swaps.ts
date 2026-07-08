@@ -40,6 +40,7 @@ import { getOrCreateSellerWallet } from './wallet';
 import { updateUserRating } from './reviews';
 import { sendPushNotification } from '../utils/notifications';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
+import { captureServerEvent } from '../lib/analytics';
 
 /** Rate-limit sliding window (1 min), aligned with payments.ts. */
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
