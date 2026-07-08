@@ -31,14 +31,18 @@ export const useChat = (chatId: string | null, userId: string | null) => {
     setReloadKey((k) => k + 1);
   }, []);
 
+  // Reset local state while inactive (no chat / signed out) — state adjustment
+  // during render (https://react.dev/learn/you-might-not-need-an-effect).
+  const isInactive = !chatId || !userId;
+  if (isInactive && (isLoading || chat || serverMessages.length > 0 || optimisticMessages.length > 0)) {
+    setIsLoading(false);
+    setServerMessages([]);
+    setOptimisticMessages([]);
+    setChat(null);
+  }
+
   useEffect(() => {
-    if (!chatId || !userId) {
-      setIsLoading(false);
-      setServerMessages([]);
-      setOptimisticMessages([]);
-      setChat(null);
-      return;
-    }
+    if (!chatId || !userId) return;
 
     let cancelled = false;
     let unsubMessages: (() => void) | undefined;
