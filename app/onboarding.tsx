@@ -309,7 +309,7 @@ export default function OnboardingScreen() {
             >
               CONTINUER
             </Button>
-            <Pressable onPress={handleSkip} style={styles.skipButton} testID="onboarding-skip">
+            <Pressable onPress={() => handleSkip('welcome')} style={styles.skipButton} testID="onboarding-skip">
               <Text style={styles.skipText}>Passer</Text>
             </Pressable>
           </Animated.View>
