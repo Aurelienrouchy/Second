@@ -49,13 +49,22 @@ export const useAuthSheetStore = create<AuthSheetState & AuthSheetActions>()(
   (set) => ({
     ...initialState,
 
-    show: (message, onSuccess) =>
+    show: (message, onSuccess, opts) => {
+      // Single point that captures 100% of auth-gate opens (catalogue §5). Until
+      // every caller threads source/gateKey, they fall back to 'unknown'.
+      track('auth_sheet_opened', {
+        source: opts?.source ?? 'unknown',
+        gate_key: opts?.gateKey ?? 'unknown',
+        gate_message: message,
+        has_pending_action: onSuccess != null,
+      });
       set((state) => ({
         isVisible: true,
         message: message ?? DEFAULT_MESSAGE,
         onSuccess: onSuccess ?? null,
         version: state.version + 1,
-      })),
+      }));
+    },
 
     hide: () =>
       set({

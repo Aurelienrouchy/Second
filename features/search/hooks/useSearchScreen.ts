@@ -15,12 +15,68 @@ import { getMaterialName } from '@/data/materials';
 import { useUser } from '@/hooks/useAuth';
 import { useArticleSearch } from '@/hooks/useArticleSearch';
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
+import { track } from '@/lib/analytics';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
 
-import type { Article, ArticleSize, ArticleWithLocation, SortBy } from '@/types';
+import type { Article, ArticleSize, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
 import { formatPrice } from '@/utils/formatPrice';
 
 import { CONDITION_ITEMS, SORT_ITEMS } from '../constants';
+
+type SearchFilterKey =
+  | 'sort'
+  | 'category'
+  | 'colors'
+  | 'sizes'
+  | 'materials'
+  | 'brands'
+  | 'condition'
+  | 'price';
+
+/** Active filter dimension names, aligned with the analytics catalogue. */
+function buildFilterKeys(
+  filters: SearchFilters,
+  categoryPath: string[],
+  sort: SortBy,
+): SearchFilterKey[] {
+  const keys: SearchFilterKey[] = [];
+  if (categoryPath.length > 0) keys.push('category');
+  if ((filters.colors?.length ?? 0) > 0) keys.push('colors');
+  if ((filters.sizes?.length ?? 0) > 0) keys.push('sizes');
+  if ((filters.materials?.length ?? 0) > 0) keys.push('materials');
+  if ((filters.brands?.length ?? 0) > 0) keys.push('brands');
+  if (filters.condition) keys.push('condition');
+  if (filters.minPrice !== undefined || filters.maxPrice !== undefined) keys.push('price');
+  if (sort && sort !== 'recent') keys.push('sort');
+  return keys;
+}
+
+/** Filter keys from a stored/partial filter set (recent + saved searches). */
+function buildFilterKeysFromPartial(
+  f: Partial<SearchFilters> & { categoryIds?: string[] },
+): SearchFilterKey[] {
+  const keys: SearchFilterKey[] = [];
+  if ((f.categoryIds?.length ?? 0) > 0) keys.push('category');
+  if ((f.colors?.length ?? 0) > 0) keys.push('colors');
+  if ((f.sizes?.length ?? 0) > 0) keys.push('sizes');
+  if ((f.materials?.length ?? 0) > 0) keys.push('materials');
+  if ((f.brands?.length ?? 0) > 0) keys.push('brands');
+  if (f.condition) keys.push('condition');
+  if (f.minPrice !== undefined || f.maxPrice !== undefined) keys.push('price');
+  if (f.sortBy && f.sortBy !== 'recent') keys.push('sort');
+  return keys;
+}
+
+type SearchOpenedSource =
+  | 'home_header'
+  | 'home_quick_category'
+  | 'home_see_all'
+  | 'home_brand'
+  | 'shop'
+  | 'saved_search'
+  | 'visual_fallback'
+  | 'deep_link'
+  | 'other';
 
 export function useSearchScreen() {
   // ─── Params (supports both old search & search-results params) ───
