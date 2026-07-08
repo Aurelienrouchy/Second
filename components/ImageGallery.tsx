@@ -25,6 +25,7 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 import { colors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -36,6 +37,8 @@ interface ArticleImage {
 interface ImageGalleryProps {
   images: ArticleImage[];
   onImageIndexChange?: (index: number) => void;
+  /** When provided, opening the full-screen zoom emits `article_image_zoomed`. */
+  articleId?: string;
 }
 
 // ─── Animated Dot ───
