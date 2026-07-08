@@ -306,6 +306,13 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       try {
         setIsReporting(true);
         await reportProblem(transaction.id, reason, details);
+        track('transaction_problem_reported', {
+          transaction_id: transaction.id,
+          status: transaction.status,
+          reason_code: reason,
+          details_length: details.trim().length,
+          success: true,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         reportSheetRef.current?.dismiss();
         onStatusUpdate?.();
@@ -316,6 +323,17 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         );
       } catch (error: unknown) {
         if (__DEV__) console.error('reportTransactionProblem failed:', error);
+        track('transaction_problem_reported', {
+          transaction_id: transaction.id,
+          status: transaction.status,
+          reason_code: reason,
+          details_length: details.trim().length,
+          success: false,
+          error_code:
+            error && typeof error === 'object' && 'code' in error
+              ? String((error as { code?: unknown }).code)
+              : undefined,
+        });
         Alert.alert('Signalement impossible', getRecourseErrorMessage(error), [
           { text: 'Compris' },
         ]);
@@ -323,7 +341,7 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         setIsReporting(false);
       }
     },
-    [isReporting, reportProblem, transaction.id, onStatusUpdate],
+    [isReporting, reportProblem, transaction.id, transaction.status, onStatusUpdate],
   );
 
   const submitRefund = useCallback(async () => {
