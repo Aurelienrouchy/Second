@@ -127,9 +127,16 @@ export default function SellTabScreen() {
   const handleDiscard = useCallback(async () => {
     showModalRef.current = false;
     setShowModal(false);
+    if (draft) {
+      track('sell_draft_discarded', {
+        draft_step: draftStepLabel(draft.currentStep),
+        photo_count: draft.photos.length,
+        platform,
+      });
+    }
     await draftService.deleteDraft();
     router.replace('/sell/capture');
-  }, [router]);
+  }, [draft, router]);
 
   return (
     <View style={styles.container} testID="sell-tab-screen">
