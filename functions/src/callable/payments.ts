@@ -859,7 +859,7 @@ export const createTransaction = onCall(
     }
 
     try {
-      const transactionId = await db.runTransaction(async (tx) => {
+      const created = await db.runTransaction(async (tx) => {
         const articleSnap = await tx.get(articleRef);
 
         if (!articleSnap.exists) {
