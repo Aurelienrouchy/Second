@@ -216,7 +216,7 @@ export default function MessagesScreen() {
                 styles.tabButton,
                 activeTab === tab && styles.tabButtonActive,
               ]}
-              onPress={() => setPickedTab(tab)}
+              onPress={() => handleTabSelect(tab)}
             >
               <View style={styles.tabLabelContainer}>
                 <Text
