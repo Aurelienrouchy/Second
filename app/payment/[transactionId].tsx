@@ -36,8 +36,9 @@ import { TransactionService } from '@/services/transactionService';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
 import { classifyStripePaymentError } from '@/utils/stripePaymentError';
-import { mapCallableError } from '@/utils/callableError';
+import { mapCallableError, getCallableErrorCode } from '@/utils/callableError';
 import { isPaidStatus } from '@/lib/transactionStatusMeta';
+import { track } from '@/lib/analytics';
 
 // =============================================================================
 // CONSTANTS
