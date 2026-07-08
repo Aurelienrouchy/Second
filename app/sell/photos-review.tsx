@@ -436,6 +436,12 @@ export default function PhotosReviewScreen() {
   const handleContinue = useCallback(() => {
     if (!aiResult || hasNavigated.current) return;
     hasNavigated.current = true;
+    track('sell_step_completed', {
+      step: 'photos_review',
+      photo_count: photos.length,
+      prefilled_count: prefilledCount,
+      ai_used: true,
+    });
     router.push({
       pathname: '/sell/details',
       params: {
@@ -444,13 +450,17 @@ export default function PhotosReviewScreen() {
         storageUrls: JSON.stringify(storageUrls),
       },
     });
-  }, [aiResult, photos, storageUrls, router]);
+  }, [aiResult, photos, storageUrls, prefilledCount, router]);
 
   // No auto-redirect — user reviews photos and clicks "Continuer" manually
 
   const handleManualEntry = () => {
     // Abandon any running analysis when the user opts for manual entry.
     abortControllerRef.current?.abort();
+    track('ai_analysis_skipped', {
+      photo_count: photos.length,
+      analysis_state_at_tap: analysisState === 'complete' ? 'idle' : analysisState,
+    });
     const mockResult = createMockAIResult();
     router.push({
       pathname: '/sell/details',
