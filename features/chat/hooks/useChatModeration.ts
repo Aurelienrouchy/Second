@@ -4,6 +4,7 @@ import { type RefObject, useCallback } from 'react';
 import { ActionSheetIOS, Alert, Platform } from 'react-native';
 
 import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
+import { track } from '@/lib/analytics';
 import { ModerationService } from '@/services/moderationService';
 import { formatDisplayName } from '@/utils/formatName';
 import type { ChatParticipantInfo } from '../types';
