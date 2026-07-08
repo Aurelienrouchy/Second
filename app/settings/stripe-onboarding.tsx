@@ -39,6 +39,7 @@ import { functions } from '@/config/firebaseConfig';
 import { COPY_SELL_GATE } from '@/constants/authMessages';
 import { colors, spacing, radius, typography } from '@/constants/theme';
 import { queryKeys } from '@/lib/queryKeys';
+import { track } from '@/lib/analytics';
 import { useStripeAccount } from '@/hooks/useStripeAccount';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { canSell } from '@/utils/age';
