@@ -3,6 +3,7 @@
  */
 
 import { useUser } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
 import { functions } from '@/config/firebaseConfig';
 import { useAuthStore } from '@/store/authStore';
