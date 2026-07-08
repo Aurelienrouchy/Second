@@ -15,6 +15,7 @@ import { GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from 'react-nat
 
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { useUser, useAuthActions } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 
