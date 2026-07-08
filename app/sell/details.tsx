@@ -387,7 +387,16 @@ export default function DetailsScreen() {
           />
           <ConditionSelector
             value={fields.condition}
-            onChange={(value) => updateField('condition', value)}
+            onChange={(value) => {
+              updateField('condition', value);
+              track('sell_field_edited', {
+                screen: 'sell',
+                field: 'condition',
+                value,
+                matched_ai_suggestion: value === getConditionDisplay(aiResult?.condition?.conditionId),
+                ai_confidence: aiResult?.condition?.confidence?.level,
+              });
+            }}
             confidenceLevel={aiResult?.condition?.confidence?.level}
           />
         </FormFieldGroup>
