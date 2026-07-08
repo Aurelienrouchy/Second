@@ -263,7 +263,7 @@ export default function UserProfileScreen() {
     setIsFollowLoading(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await toggleLike(id);
+      await toggleLike(id, 'public_profile');
     } finally {
       setIsFollowLoading(false);
     }
