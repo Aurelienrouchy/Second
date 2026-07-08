@@ -104,18 +104,24 @@ export default function StripeOnboardingScreen() {
     isUploadingDocument,
   } = useStripeAccount(user?.id);
 
-  // -- Personal info --
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  // -- Personal info (pre-filled from the user profile at mount) --
+  const [firstName, setFirstName] = useState(() => {
+    const parts = user?.displayName?.trim().split(/\s+/) ?? [];
+    return parts[0] || '';
+  });
+  const [lastName, setLastName] = useState(() => {
+    const parts = user?.displayName?.trim().split(/\s+/) ?? [];
+    return parts.length >= 2 ? parts.slice(1).join(' ') : '';
+  });
   const [dobDay, setDobDay] = useState('');
   const [dobMonth, setDobMonth] = useState('');
   const [dobYear, setDobYear] = useState('');
 
-  // -- Address --
-  const [street, setStreet] = useState('');
-  const [city, setCity] = useState('');
-  const [province, setProvince] = useState('QC');
-  const [postalCode, setPostalCode] = useState('');
+  // -- Address (pre-filled from the user profile at mount) --
+  const [street, setStreet] = useState(user?.address?.street || '');
+  const [city, setCity] = useState(user?.address?.city || '');
+  const [province, setProvince] = useState(user?.address?.province || 'QC');
+  const [postalCode, setPostalCode] = useState(user?.address?.postalCode || '');
 
   // -- Bank info --
   const [transitNumber, setTransitNumber] = useState('');
