@@ -63,6 +63,8 @@ export interface ProductGridProps {
   emptyIcon?: keyof typeof Ionicons.glyphMap;
   /** Number of skeleton cards to show */
   skeletonCount?: number;
+  /** Surface that owns this grid — attributes favorite toggles in analytics. */
+  favoriteSource?: FavoriteSource;
   testID?: string;
 }
 
