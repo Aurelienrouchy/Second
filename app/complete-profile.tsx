@@ -279,6 +279,14 @@ export default function CompleteProfileScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (submitDisabled || !isoDob) return;
+    const signupMethod =
+      useAuthStore.getState().pendingConsentUser?.authProvider ?? 'email';
+    const usernameLength = username.trim().length;
+    track('signup_profile_submitted', {
+      signup_method: signupMethod,
+      marketing_opt_in: marketingOptIn,
+      username_length: usernameLength,
+    });
     setIsSubmitting(true);
     setSubmitError(undefined);
     try {
