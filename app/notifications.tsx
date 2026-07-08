@@ -214,12 +214,19 @@ export default function NotificationsScreen() {
   };
 
   const handleDeleteNotification = async (notificationId: string) => {
+    const target = notifications.find((n) => n.id === notificationId);
     try {
       await NotificationService.deleteNotification(notificationId);
       queryClient.setQueryData<Notification[]>(
         queryKeys.notifications.list(user!.id),
         (old) => old?.filter((n) => n.id !== notificationId) ?? [],
       );
+      if (target) {
+        track('notification_deleted', {
+          notification_type: target.type,
+          was_unread: !target.isRead,
+        });
+      }
       refreshBadgeCount();
     } catch (error) {
       if (__DEV__) console.error('Error deleting notification:', error);
