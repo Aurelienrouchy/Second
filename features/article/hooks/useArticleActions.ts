@@ -312,16 +312,29 @@ export function useArticleActions({
     if (togglingArticles.current.has(article.id)) return;
     togglingArticles.current.add(article.id);
 
+    const nextState: 'sold' | 'relisted' = article.isSold ? 'relisted' : 'sold';
     try {
       const toggleSold = httpsCallable(functions, 'toggleArticleSold');
       await toggleSold({ articleId: article.id });
       // Optimistic update
       setArticle((prev) => prev ? { ...prev, isSold: !prev.isSold } : null);
+      track('article_sold_toggled', {
+        article_id: article.id,
+        new_state: nextState,
+        success: true,
+        source: 'article_detail',
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
       queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
     } catch (error: unknown) {
       if (__DEV__) console.error('Erreur mise à jour:', error);
+      track('article_sold_toggled', {
+        article_id: article.id,
+        new_state: nextState,
+        success: false,
+        source: 'article_detail',
+      });
       const message = error instanceof Error ? error.message : 'Impossible de mettre à jour l\'article';
       Alert.alert('Erreur', message);
     } finally {
