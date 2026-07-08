@@ -529,4 +529,6 @@ const styles = StyleSheet.create({
   },
 });
 
+SizeSelectionSheet.displayName = 'SizeSelectionSheet';
+
 export default SizeSelectionSheet;

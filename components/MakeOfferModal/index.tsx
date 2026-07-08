@@ -357,4 +357,6 @@ const styles = StyleSheet.create({
   },
 });
 
+MakeOfferModal.displayName = 'MakeOfferModal';
+
 export default MakeOfferModal;

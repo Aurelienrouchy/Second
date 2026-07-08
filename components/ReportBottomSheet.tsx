@@ -419,4 +419,6 @@ const styles = StyleSheet.create({
   },
 });
 
+ReportBottomSheet.displayName = 'ReportBottomSheet';
+
 export default ReportBottomSheet;

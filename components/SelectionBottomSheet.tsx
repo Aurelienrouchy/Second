@@ -439,4 +439,6 @@ const styles = StyleSheet.create({
   },
 });
 
+SelectionBottomSheet.displayName = 'SelectionBottomSheet';
+
 export default SelectionBottomSheet;

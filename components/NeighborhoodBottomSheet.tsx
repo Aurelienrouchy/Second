@@ -267,4 +267,6 @@ const styles = StyleSheet.create({
   },
 });
 
+NeighborhoodBottomSheet.displayName = 'NeighborhoodBottomSheet';
+
 export default NeighborhoodBottomSheet;

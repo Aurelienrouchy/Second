@@ -254,4 +254,6 @@ const styles = StyleSheet.create({
   },
 });
 
+CategoryBottomSheet.displayName = 'CategoryBottomSheet';
+
 export default CategoryBottomSheet;

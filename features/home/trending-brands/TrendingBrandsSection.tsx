@@ -133,6 +133,7 @@ const BrandCircle = React.memo<BrandCircleProps>(({ brand, index }) => {
     </Animated.View>
   );
 });
+BrandCircle.displayName = 'BrandCircle';
 
 // =============================================================================
 // SKELETON

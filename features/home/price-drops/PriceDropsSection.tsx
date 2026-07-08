@@ -185,6 +185,7 @@ const PriceDropCard = React.memo<PriceDropCardProps>(({ article, index }) => {
     </Animated.View>
   );
 });
+PriceDropCard.displayName = 'PriceDropCard';
 
 // =============================================================================
 // SKELETON

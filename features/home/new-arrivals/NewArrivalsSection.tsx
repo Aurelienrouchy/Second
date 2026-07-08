@@ -39,6 +39,7 @@ const NewArrivalItem = React.memo<{ article: HomeArticle }>(({ article }) => {
     </View>
   );
 });
+NewArrivalItem.displayName = 'NewArrivalItem';
 
 // =============================================================================
 // MAIN COMPONENT

@@ -56,6 +56,7 @@ const PourToiItem = React.memo<{ article: Article }>(({ article }) => {
     </View>
   );
 });
+PourToiItem.displayName = 'PourToiItem';
 
 // =============================================================================
 // MAIN COMPONENT

@@ -196,6 +196,7 @@ const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
     </Animated.View>
   );
 });
+SellerCard.displayName = 'SellerCard';
 
 // =============================================================================
 // SKELETON

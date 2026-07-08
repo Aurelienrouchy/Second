@@ -23,11 +23,15 @@ jest.mock('@gorhom/bottom-sheet', () => {
   const { View } = require('react-native');
   const passthrough = (props: Record<string, unknown>) =>
     React.createElement(View, props, props.children as React.ReactNode);
+  const MockBottomSheet = React.forwardRef(function MockBottomSheet(
+    props: Record<string, unknown>,
+    _ref: unknown,
+  ) {
+    return React.createElement(View, props, props.children as React.ReactNode);
+  });
   return {
     __esModule: true,
-    default: React.forwardRef((props: Record<string, unknown>, _ref: unknown) =>
-      React.createElement(View, props, props.children as React.ReactNode),
-    ),
+    default: MockBottomSheet,
     BottomSheetView: passthrough,
     BottomSheetBackdrop: passthrough,
   };
