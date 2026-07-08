@@ -252,20 +252,36 @@ export default function DetailsScreen() {
   };
 
   const handleColorToggle = useCallback((colorId: string) => {
+    let countAfter = 0;
     setFields((prev) => {
       const newColors = prev.colors.includes(colorId)
         ? prev.colors.filter((c) => c !== colorId)
         : [...prev.colors, colorId];
+      countAfter = newColors.length;
       return { ...prev, colors: newColors };
+    });
+    track('sell_field_edited', {
+      screen: 'sell',
+      field: 'colors',
+      value: colorId,
+      selected_count_after: countAfter,
     });
   }, []);
 
   const handleMaterialToggle = useCallback((matId: string) => {
+    let countAfter = 0;
     setFields((prev) => {
       const newMaterials = prev.materials.includes(matId)
         ? prev.materials.filter((m) => m !== matId)
         : [...prev.materials, matId];
+      countAfter = newMaterials.length;
       return { ...prev, materials: newMaterials };
+    });
+    track('sell_field_edited', {
+      screen: 'sell',
+      field: 'materials',
+      value: matId,
+      selected_count_after: countAfter,
     });
   }, []);
 
