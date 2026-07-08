@@ -43,8 +43,16 @@ interface DiscoverItemProps {
 
 const DiscoverItemComponent: React.FC<DiscoverItemProps> = (article) => {
   const onPress = useCallback(() => {
+    track('article_card_tapped', {
+      article_id: article.id,
+      source: 'home_discover',
+      price_cents: Math.round(article.price * 100),
+      brand: article.brand,
+      condition: article.condition,
+      is_sold: false,
+    });
     router.push(`/article/${article.id}`);
-  }, [article.id]);
+  }, [article.id, article.price, article.brand, article.condition]);
 
   return (
     <View style={styles.gridItem}>
