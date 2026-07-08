@@ -397,14 +397,18 @@ export function useSearchScreen() {
     setMinPriceText('');
     setMaxPriceText('');
     setShowPriceInputs(false);
-  }, [clearAllFilters, categoryNav, setSelectedCategoryPath, setActiveSearchQuery]);
+  }, [clearAllFilters, categoryNav, setSelectedCategoryPath, setActiveSearchQuery, filters, selectedCategoryPath, selectedSort, activeSearchQuery]);
 
   // ─── Visual search ──────────────────────────────────────────────
   const handleOpenVisualSearch = useCallback(() => {
+    track('visual_search_opened', {
+      source: 'search',
+      query_length: searchQuery.trim().length,
+    });
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowVisualSearch(true);
-  }, []);
+  }, [searchQuery]);
 
   const handleVisualSearchCapture = useCallback((imageUri: string) => {
     setShowVisualSearch(false);
