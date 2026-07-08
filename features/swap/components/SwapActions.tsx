@@ -199,7 +199,7 @@ export const SwapActions = React.memo(function SwapActions({
       {(status === 'accepted' ||
         status === 'photos_pending' ||
         status === 'shipping' ||
-        status === 'completed') && <DisputeButton disabled={isProcessing} />}
+        status === 'completed') && <DisputeButton disabled={isProcessing} status={status} />}
 
       {/* Completed - Rate */}
       {status === 'completed' && !hasRated && (
