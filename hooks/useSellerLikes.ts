@@ -9,15 +9,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { functions, auth, firestore } from '@/config/firebaseConfig';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
+export type SellerFollowSource = 'public_profile' | 'home_featured' | 'liked_sellers';
+
 export interface UseSellerLikesReturn {
   likedSellerIds: string[];
-  toggleLike: (sellerId: string) => void;
+  toggleLike: (sellerId: string, source?: SellerFollowSource) => void;
   isLoading: boolean;
   isToggling: boolean;
   error: Error | null;
