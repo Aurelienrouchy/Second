@@ -267,12 +267,28 @@ export function useArticleActions({
           onPress: async () => {
             try {
               await ArticlesService.deleteArticle(article.id);
+              track('article_deleted', {
+                article_id: article.id,
+                is_sold: article.isSold,
+                outcome: 'success',
+                source: 'article_detail',
+                entry: 'menu',
+                price_cents: Math.round(article.price * 100),
+              });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
               queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
               router.back();
             } catch (error) {
               if (__DEV__) console.error('Erreur suppression:', error);
+              track('article_deleted', {
+                article_id: article.id,
+                is_sold: article.isSold,
+                outcome: 'error',
+                source: 'article_detail',
+                entry: 'menu',
+                price_cents: Math.round(article.price * 100),
+              });
               Alert.alert('Erreur', 'Impossible de supprimer l\'article');
             }
           },

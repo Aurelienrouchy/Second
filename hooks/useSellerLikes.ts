@@ -150,7 +150,7 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
       }
       if (__DEV__) console.error('[useSellerLikes] Toggle failed:', _err);
     },
-    onSettled: (_data, _err, sellerId) => {
+    onSettled: (_data, _err, { sellerId }) => {
       // Refetch to ensure consistency with server
       queryClient.invalidateQueries({ queryKey });
       // Also invalidate the full liked sellers list (used by liked-sellers screen)
