@@ -30,17 +30,17 @@ function SexOptionComponent({ label, selected, onPress }: SexOptionProps) {
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.95, {
+    scale.set(withTiming(0.95, {
       duration: animations.duration.fast,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, {
+    scale.set(withTiming(1, {
       duration: animations.duration.normal,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   }, [scale]);
 
   const handlePress = useCallback(() => {

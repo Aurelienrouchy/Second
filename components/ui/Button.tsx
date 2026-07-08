@@ -147,17 +147,17 @@ export const Button: React.FC<ButtonProps> = ({
 
   // Press handlers
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(animations.scale.pressed, {
+    scale.set(withTiming(animations.scale.pressed, {
       duration: animations.duration.fast,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, {
+    scale.set(withTiming(1, {
       duration: animations.duration.normal,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   }, [scale]);
 
   const handlePress = useCallback(() => {

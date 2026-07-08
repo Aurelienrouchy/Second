@@ -68,20 +68,20 @@ export default function CaptureScreen() {
   }));
 
   const handleCameraReady = useCallback(() => {
-    cameraOpacity.value = withTiming(1, {
+    cameraOpacity.set(withTiming(1, {
       duration: 260,
       easing: Easing.out(Easing.cubic),
-    });
+    }));
   }, []);
 
   // ── Thumb container height animation ──
   const thumbContainerHeight = useSharedValue(0);
 
   useEffect(() => {
-    thumbContainerHeight.value = withTiming(showThumbStrip ? THUMB_CONTAINER_HEIGHT : 0, {
+    thumbContainerHeight.set(withTiming(showThumbStrip ? THUMB_CONTAINER_HEIGHT : 0, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
-    });
+    }));
   }, [showThumbStrip]);
 
   const thumbContainerStyle = useAnimatedStyle(() => ({

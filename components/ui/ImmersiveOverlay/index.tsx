@@ -121,12 +121,12 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
 
     // ── Breathing animation — runs while overlay is visible ──
     const startBreathing = useCallback(() => {
-      breathe.value = 0;
-      breathe.value = withRepeat(
+      breathe.set(0);
+      breathe.set(withRepeat(
         withTiming(1, { duration: 7500, easing: Easing.inOut(Easing.ease) }),
         -1, // infinite
         true // reverse
-      );
+      ));
     }, [breathe]);
 
     const stopBreathing = useCallback(() => {
@@ -147,25 +147,25 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
         startBreathing();
 
         // Overlay fades in
-        overlayProgress.value = withTiming(1, {
+        overlayProgress.set(withTiming(1, {
           duration: ENTERING_TIME,
           easing: EASE_IN_OUT,
-        });
+        }));
 
         // Children warp: quick fold then slow recovery
-        warpProgress.value = withSequence(
+        warpProgress.set(withSequence(
           withTiming(1, { duration: 300, easing: EASE_IN_OUT }),
           withTiming(0, { duration: 1500, easing: EASE_OUT_EXPO })
-        );
+        ));
 
         // Content (camera) waits for the entrance gradient + blurred circles to
         // finish (CONTENT_REVEAL_DELAY ≈ ENTERING_TIME) and only THEN fades in
         // cleanly — instead of appearing on top of the circle animation.
-        contentReveal.value = 0;
-        contentReveal.value = withDelay(
+        contentReveal.set(0);
+        contentReveal.set(withDelay(
           CONTENT_REVEAL_DELAY,
           withTiming(1, { duration: CONTENT_REVEAL_TIME, easing: EASE_OUT_EXPO })
-        );
+        ));
       },
       [overlayProgress, warpProgress, contentReveal, activate, startBreathing]
     );
@@ -182,7 +182,7 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
       (opts?: DismissOptions) => {
         const onDismissed = opts?.onDismissed;
 
-        overlayProgress.value = withTiming(
+        overlayProgress.set(withTiming(
           0,
           { duration: EXITING_TIME, easing: EASE_OUT_EXPO },
           (finished) => {
@@ -197,19 +197,19 @@ const ImmersiveOverlay: React.FC<ImmersiveOverlayProps> = React.memo(
               }
             }
           }
-        );
+        ));
 
-        warpProgress.value = withTiming(0, {
+        warpProgress.set(withTiming(0, {
           duration: EXITING_TIME,
           easing: EASE_OUT_EXPO,
-        });
+        }));
 
         // Fade the content out with the exit so it never lingers behind the
         // collapsing overlay (and is reset to 0 for the next immerse).
-        contentReveal.value = withTiming(0, {
+        contentReveal.set(withTiming(0, {
           duration: EXITING_TIME,
           easing: EASE_OUT_EXPO,
-        });
+        }));
       },
       [
         overlayProgress,

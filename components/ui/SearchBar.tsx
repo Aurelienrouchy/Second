@@ -71,11 +71,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.98, { duration: 150, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(0.98, { duration: 150, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePress = useCallback(() => {
@@ -89,11 +89,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }, [onCameraPress]);
 
   const handleFilterPressIn = useCallback(() => {
-    filterScale.value = withTiming(0.9, { duration: 150, easing: Easing.out(Easing.ease) });
+    filterScale.set(withTiming(0.9, { duration: 150, easing: Easing.out(Easing.ease) }));
   }, [filterScale]);
 
   const handleFilterPressOut = useCallback(() => {
-    filterScale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
+    filterScale.set(withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }));
   }, [filterScale]);
 
   const handleFilterPress = useCallback(() => {

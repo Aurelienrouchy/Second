@@ -85,32 +85,32 @@ const SellerCard = React.memo<SellerCardProps>(({ seller, index }) => {
   }));
 
   const handlePressIn = () => {
-    scale.value = withTiming(0.95, {
+    scale.set(withTiming(0.95, {
       duration: animations.duration.fast,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   };
   const handlePressOut = () => {
-    scale.value = withTiming(1, {
+    scale.set(withTiming(1, {
       duration: animations.duration.normal,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   };
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/user/${seller.id}`);
   };
   const animateHeart = () => {
-    heartScale.value = withTiming(
+    heartScale.set(withTiming(
       1.3,
       { duration: animations.duration.normal, easing: Easing.out(Easing.ease) },
       () => {
-        heartScale.value = withTiming(1, {
+        heartScale.set(withTiming(1, {
           duration: animations.duration.fast,
           easing: Easing.out(Easing.ease),
-        });
+        }));
       }
-    );
+    ));
   };
   const handleLikePress = () => {
     // Bounce the heart only when the like actually registers. When signed out

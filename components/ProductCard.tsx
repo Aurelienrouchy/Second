@@ -106,11 +106,11 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ compact = false, tes
   const pulse = useSharedValue(0);
 
   useEffect(() => {
-    pulse.value = withRepeat(
+    pulse.set(withRepeat(
       withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
       -1,
       true,
-    );
+    ));
   }, [pulse]);
 
   const animatedOpacity = useAnimatedStyle(() => ({
@@ -147,10 +147,10 @@ const SaveButton: React.FC<{
   }));
 
   const handlePress = useCallback(() => {
-    scale.value = withTiming(1.3, { duration: 200, easing: Easing.out(Easing.ease) }, () => {
-      scale.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(1.3, { duration: 200, easing: Easing.out(Easing.ease) }, () => {
+      scale.set(withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) }));
     });
-    onPress();
+ )   onPress();
   }, [onPress, scale]);
 
   return (
@@ -199,11 +199,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.97, { duration: 120, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(0.97, { duration: 120, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePress = useCallback(() => {

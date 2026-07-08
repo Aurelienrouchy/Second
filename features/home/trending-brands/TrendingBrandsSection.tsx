@@ -83,16 +83,16 @@ const BrandCircle = React.memo<BrandCircleProps>(({ brand, index }) => {
   }));
 
   const handlePressIn = () => {
-    scale.value = withTiming(0.92, {
+    scale.set(withTiming(0.92, {
       duration: animations.duration.fast,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   };
   const handlePressOut = () => {
-    scale.value = withTiming(1, {
+    scale.set(withTiming(1, {
       duration: animations.duration.normal,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   };
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

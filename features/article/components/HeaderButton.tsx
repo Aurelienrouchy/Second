@@ -44,11 +44,11 @@ function HeaderButtonComponent({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.9, { duration: 120, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(0.9, { duration: 120, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePress = useCallback(() => {

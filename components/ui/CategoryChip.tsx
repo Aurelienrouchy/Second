@@ -66,11 +66,11 @@ export const CategoryChip: React.FC<CategoryChipProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.95, { duration: 150, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(0.95, { duration: 150, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) }));
   }, [scale]);
 
   const handlePress = useCallback(() => {

@@ -60,10 +60,10 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   const cameraOpacity = useSharedValue(0);
 
   const handleCameraReady = useCallback(() => {
-    cameraOpacity.value = withTiming(1, {
+    cameraOpacity.set(withTiming(1, {
       duration: CAMERA_FADE_DURATION,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   }, [cameraOpacity]);
 
   const cameraStyle = useAnimatedStyle(() => ({
@@ -78,10 +78,10 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   const thumbContainerHeight = useSharedValue(0);
 
   useEffect(() => {
-    thumbContainerHeight.value = withTiming(showThumbStrip ? THUMB_CONTAINER_HEIGHT : 0, {
+    thumbContainerHeight.set(withTiming(showThumbStrip ? THUMB_CONTAINER_HEIGHT : 0, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
-    });
+    }));
   }, [showThumbStrip]);
 
   const blurBottomStyle = useAnimatedStyle(() => ({
@@ -283,7 +283,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   const toggleCameraFacing = useCallback(() => {
     // Re-fade on flip: the surface briefly goes black while the lens switches.
-    cameraOpacity.value = 0;
+    cameraOpacity.set(0);
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
   }, [cameraOpacity]);
 

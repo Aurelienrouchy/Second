@@ -54,11 +54,11 @@ const AnimatedDot: React.FC<AnimatedDotProps> = ({ index, currentIndex }) => {
   const opacity = useSharedValue(isActive ? 1 : 0.45);
 
   useEffect(() => {
-    width.value = withTiming(isActive ? 20 : 6, {
+    width.set(withTiming(isActive ? 20 : 6, {
       duration: 200,
       easing: Easing.out(Easing.ease),
-    });
-    opacity.value = withTiming(isActive ? 1 : 0.45, { duration: 200 });
+    }));
+    opacity.set(withTiming(isActive ? 1 : 0.45, { duration: 200 }));
   }, [isActive]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -105,19 +105,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onImageIndexChange,
   }, [articleId, images.length]);
 
   const handleCloseZoom = useCallback(() => {
-    scale.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.ease) });
+    scale.set(withTiming(1, { duration: 250, easing: Easing.out(Easing.ease) }));
     setIsZoomModalVisible(false);
   }, [scale]);
 
   const pinchGesture = Gesture.Pinch()
     .onUpdate((event) => {
-      scale.value = event.scale;
+      scale.set(event.scale);
     })
     .onEnd(() => {
       if (scale.value < 1) {
-        scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
+        scale.set(withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }));
       } else if (scale.value > 3) {
-        scale.value = withTiming(3, { duration: 200, easing: Easing.out(Easing.ease) });
+        scale.set(withTiming(3, { duration: 200, easing: Easing.out(Easing.ease) }));
       }
     });
 

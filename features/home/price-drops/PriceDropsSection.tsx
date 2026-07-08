@@ -75,16 +75,16 @@ const PriceDropCard = React.memo<PriceDropCardProps>(({ article, index }) => {
   }));
 
   const handlePressIn = () => {
-    scale.value = withTiming(0.95, {
+    scale.set(withTiming(0.95, {
       duration: animations.duration.fast,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   };
   const handlePressOut = () => {
-    scale.value = withTiming(1, {
+    scale.set(withTiming(1, {
       duration: animations.duration.normal,
       easing: Easing.out(Easing.ease),
-    });
+    }));
   };
   const handlePress = () => {
     track('article_card_tapped', {
@@ -102,10 +102,10 @@ const PriceDropCard = React.memo<PriceDropCardProps>(({ article, index }) => {
     router.push(`/article/${article.id}`);
   };
   const handleFavoritePress = () => {
-    heartScale.value = withTiming(1.2, {
+    heartScale.set(withTiming(1.2, {
       duration: animations.duration.normal,
       easing: Easing.out(Easing.ease),
-    });
+    }));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     requireAuth(() => toggleFavorite(article.id), AUTH_MESSAGES.like);
   };
