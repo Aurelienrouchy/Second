@@ -3,6 +3,7 @@
  */
 
 import { useUser } from '@/hooks/useAuth';
+import { setAnalyticsEnabled } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { UserPreferences } from '@/types';
 import { functions } from '@/config/firebaseConfig';
