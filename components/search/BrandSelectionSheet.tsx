@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { brandDisplay } from '@/utils/normalizeBrand';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
