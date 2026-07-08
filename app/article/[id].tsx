@@ -189,6 +189,7 @@ export default function ArticleDetailScreen() {
         <ArticleHero
           images={article.images}
           discount={discount}
+          articleId={article.id}
         />
 
         <ArticleDetails
