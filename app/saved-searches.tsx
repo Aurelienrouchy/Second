@@ -372,8 +372,18 @@ export default function SavedSearches() {
               try {
                 await SavedSearchService.deleteSavedSearch(user.id, item.id);
                 setSearches((prev) => prev.filter((s) => s.id !== item.id));
+                track('saved_search_deleted', {
+                  saved_search_id: item.id,
+                  outcome: 'confirmed',
+                  notify_enabled: !!item.notifyNewItems,
+                });
               } catch (error) {
                 if (__DEV__) console.error('Failed to delete saved search:', error);
+                track('saved_search_deleted', {
+                  saved_search_id: item.id,
+                  outcome: 'error',
+                  notify_enabled: !!item.notifyNewItems,
+                });
                 Alert.alert('Erreur', 'Impossible de supprimer cette recherche.');
               }
             },
