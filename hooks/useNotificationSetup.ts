@@ -394,6 +394,11 @@ export function useNotificationSetup(userId: string | null): void {
               `canAskAgain=${existing.canAskAgain})`
           );
         }
+        track('push_token_registered', {
+          permission_status: status,
+          is_fcm_token: false,
+          platform: Platform.OS as 'ios' | 'android',
+        });
         return;
       }
 
