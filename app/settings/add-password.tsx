@@ -59,8 +59,11 @@ export default function AddPasswordScreen() {
   // sur Android où reauthenticateWithApple lèvera proprement).
   const handleReauthAndRetry = async () => {
     setIsSaving(true);
+    const provider = AuthService.getAuthProvider();
+    const reauthProviderName: 'google' | 'apple' | 'password' =
+      provider === 'google.com' ? 'google' : provider === 'apple.com' ? 'apple' : 'password';
+    let reauthSucceeded = false;
     try {
-      const provider = AuthService.getAuthProvider();
       if (provider === 'google.com') {
         await AuthService.reauthenticateWithGoogle();
       } else if (provider === 'apple.com') {
@@ -68,10 +71,30 @@ export default function AddPasswordScreen() {
       } else {
         await AuthService.reauthenticate(password);
       }
+      reauthSucceeded = true;
+      track('reauth_performed', { context: 'add_password', provider: reauthProviderName, result: 'success' });
       await performLink();
+      track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'success', after_reauth: true });
     } catch (error: unknown) {
       const code = (error as { code?: string }).code;
-      if (code === 'ERR_REQUEST_CANCELED' || code === 'SIGN_IN_CANCELLED') {
+      const cancelled = code === 'ERR_REQUEST_CANCELED' || code === 'SIGN_IN_CANCELLED';
+      if (!reauthSucceeded) {
+        track('reauth_performed', { context: 'add_password', provider: reauthProviderName, result: cancelled ? 'cancelled' : 'error' });
+        track('password_link_submitted', {
+          auth_provider: linkAuthProvider,
+          result: cancelled ? 'reauth_cancelled' : 'error',
+          after_reauth: true,
+          error_code: code,
+        });
+      } else {
+        track('password_link_submitted', {
+          auth_provider: linkAuthProvider,
+          result: 'error',
+          after_reauth: true,
+          error_code: code,
+        });
+      }
+      if (cancelled) {
         return;
       }
       if (__DEV__) console.error('Error re-authenticating before link:', error);
