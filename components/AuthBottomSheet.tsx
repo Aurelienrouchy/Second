@@ -175,6 +175,10 @@ const AuthBottomSheet: React.FC = () => {
   const handleSocialAuth = async (provider: 'Google' | 'Apple') => {
     if (isLoading) return;
     setIsLoading(true);
+    const method = provider === 'Google' ? 'google' : 'apple';
+    const mode = authType === 'signUp' ? 'signup' : 'signin';
+    const hadPendingAction = onSuccessCallback != null;
+    track('auth_submitted', { method, mode, had_pending_action: hadPendingAction });
     try {
       const result =
         provider === 'Google'
@@ -185,12 +189,27 @@ const AuthBottomSheet: React.FC = () => {
         // New / not-yet-consented social account: DO NOT enter the app. The
         // Firebase user already exists → navigate to the mandatory consent route.
         setIsLoading(false);
+        track('auth_succeeded', {
+          method,
+          outcome: 'needs_consent',
+          had_pending_action: hadPendingAction,
+        });
         routeToConsent(result.user);
         return;
       }
 
+      track('auth_succeeded', {
+        method,
+        outcome: 'signed_in',
+        had_pending_action: hadPendingAction,
+      });
       handleSuccess();
     } catch (error: any) {
+      track('auth_failed', {
+        method,
+        mode,
+        error_message_key: (error as { code?: string })?.code ?? 'unknown',
+      });
       Alert.alert('Erreur', error.message || 'Erreur de connexion');
     } finally {
       setIsLoading(false);
