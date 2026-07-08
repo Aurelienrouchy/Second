@@ -551,6 +551,12 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
           decisionType,
           reason: composed,
         });
+        track('automated_decision_contested', {
+          transaction_id: transaction.id,
+          decision_type: decisionType,
+          reason_code: reason,
+          success: true,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         contestSheetRef.current?.dismiss();
         Alert.alert(
@@ -560,6 +566,12 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         );
       } catch (error: unknown) {
         if (__DEV__) console.error('contestAutomatedDecision failed:', error);
+        track('automated_decision_contested', {
+          transaction_id: transaction.id,
+          decision_type: decisionType,
+          reason_code: reason,
+          success: false,
+        });
         Alert.alert('Contestation impossible', getRecourseErrorMessage(error), [
           { text: 'Compris' },
         ]);
