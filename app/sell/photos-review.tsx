@@ -93,6 +93,9 @@ export default function PhotosReviewScreen() {
   // Track if analysis has already been triggered
   const analysisTriggered = useRef(false);
 
+  // Analysis attempt counter (auto + retries), threaded into ai_analysis_* events.
+  const analysisAttempt = useRef(0);
+
   // Guard against double navigation (timer + manual click)
   const hasNavigated = useRef(false);
 
