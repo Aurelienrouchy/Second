@@ -99,26 +99,55 @@ export default function OnboardingScreen() {
     setter: React.Dispatch<React.SetStateAction<string[]>>,
     current: string[],
     value: string,
+    category: 'top' | 'bottom' | 'shoes',
   ) => {
-    setter(current.includes(value) ? current.filter(x => x !== value) : [...current, value]);
+    const selected = !current.includes(value);
+    setter(selected ? [...current, value] : current.filter(x => x !== value));
+    track('onboarding_preference_changed', {
+      field: 'size',
+      value,
+      selected,
+      category,
+    });
   }, []);
 
   const handleSizeSystemChange = useCallback((newSystem: SizeSystem) => {
     if (newSystem === sizeSystem) return;
     const hasSelections = sizesTop.length > 0 || sizesBottom.length > 0 || sizesShoes.length > 0;
+    const fromSystem = sizeSystem;
     const doSwitch = () => {
       setSizeSystem(newSystem);
       setSizesTop([]);
       setSizesBottom([]);
       setSizesShoes([]);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      track('onboarding_preference_changed', {
+        field: 'size_system',
+        value: newSystem,
+        from_system: fromSystem,
+        to_system: newSystem,
+        system_change_confirmed: true,
+        sizes_reset: hasSelections,
+      });
     };
     if (hasSelections) {
       Alert.alert(
         'Changer de système',
         'Vos sélections de tailles seront réinitialisées. Continuer ?',
         [
-          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Annuler',
+            style: 'cancel',
+            onPress: () =>
+              track('onboarding_preference_changed', {
+                field: 'size_system',
+                value: newSystem,
+                from_system: fromSystem,
+                to_system: newSystem,
+                system_change_confirmed: false,
+                sizes_reset: false,
+              }),
+          },
           { text: 'Continuer', onPress: doSwitch },
         ]
       );
@@ -128,19 +157,33 @@ export default function OnboardingScreen() {
   }, [sizeSystem, sizesTop.length, sizesBottom.length, sizesShoes.length]);
 
   const handleSexChange = useCallback((newSex: OnboardingPreferences['sex']) => {
+    const willDeselect = sex === newSex;
+    const sizesReset =
+      (sex === 'enfant' && newSex !== 'enfant') || (sex !== 'enfant' && newSex === 'enfant');
     // Reset sizes when switching to/from enfant
-    if ((sex === 'enfant' && newSex !== 'enfant') || (sex !== 'enfant' && newSex === 'enfant')) {
+    if (sizesReset) {
       setSizesTop([]);
       setSizesBottom([]);
       setSizesShoes([]);
     }
     setSex(prev => prev === newSex ? null : newSex);
+    track('onboarding_preference_changed', {
+      field: 'sex',
+      value: newSex,
+      selected: !willDeselect,
+      sizes_reset: sizesReset,
+    });
   }, [sex]);
 
-  const handleSkip = useCallback(async () => {
+  const handleSkip = useCallback(async (step: 'welcome' | 'form') => {
+    track('onboarding_skipped', {
+      step,
+      sex_selected: !!sex,
+      sizes_selected_count: sizesTop.length + sizesBottom.length + sizesShoes.length,
+    });
     await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
     router.replace('/(tabs)');
-  }, []);
+  }, [sex, sizesTop.length, sizesBottom.length, sizesShoes.length]);
 
   const handleValidate = useCallback(async () => {
     // hasAnything guarantees a sex selection; the early return keeps the
