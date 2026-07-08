@@ -278,17 +278,52 @@ const AuthBottomSheet: React.FC = () => {
     try {
       await AuthService.sendPasswordResetEmail(email);
       setResetEmailSent(true);
+      track('password_reset_requested', { result: 'sent' });
     } catch (error: any) {
+      track('password_reset_requested', {
+        result: 'error',
+        error_message_key: (error as { code?: string })?.code ?? 'unknown',
+      });
       Alert.alert('Erreur', error.message || "Erreur lors de l'envoi de l'email");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Wraps AuthToggle's onSelect to record the signIn↔signUp switch.
+  const handleModeSelect = useCallback(
+    (next: AuthMode) => {
+      setAuthType((prev) => {
+        if (prev !== next) {
+          track('auth_mode_switched', {
+            from_mode: ANALYTICS_MODE[prev],
+            to_mode: ANALYTICS_MODE[next],
+          });
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleForgotPasswordOpen = useCallback(() => {
+    track('auth_mode_switched', {
+      from_mode: 'signin',
+      to_mode: 'forgot_password',
+      email_prefilled: email.trim().length > 0,
+    });
+    setAuthType('forgotPassword');
+  }, [email]);
+
   const handleBackToSignIn = useCallback(() => {
+    track('auth_mode_switched', {
+      from_mode: 'forgot_password',
+      to_mode: 'signin',
+      reset_email_sent: resetEmailSent,
+    });
     setAuthType('signIn');
     setResetEmailSent(false);
-  }, []);
+  }, [resetEmailSent]);
 
   // Per-mode title (signIn vs signUp). Rendered in AuthBottomSheet above the
   // shared chrome and animated on its own keyed region (FadeIn, ease-out).
