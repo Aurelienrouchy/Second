@@ -24,6 +24,7 @@ import {
 import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
 import draftService, { ArticleDraft, DraftPricing } from '@/services/draftService';
+import { track } from '@/lib/analytics';
 import { colors, spacing } from '@/constants/theme';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
