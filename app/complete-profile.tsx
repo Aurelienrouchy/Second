@@ -42,9 +42,19 @@ import {
   type UsernameRejectionReason,
 } from '@/constants/authMessages';
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { computeAgeFromIso, MIN_AGE_REGISTER, toIsoDate } from '@/utils/age';
+
+// Derives a coarse age band for analytics — the DOB itself is never sent (PII).
+function ageToBand(age: number): '16-17' | '18-24' | '25-34' | '35-44' | '45+' {
+  if (age <= 17) return '16-17';
+  if (age <= 24) return '18-24';
+  if (age <= 34) return '25-34';
+  if (age <= 44) return '35-44';
+  return '45+';
+}
 
 // Debounce before hitting the live availability callable. Only fires once the
 // local format is valid (no network call on a malformed handle).
