@@ -35,6 +35,12 @@ interface LikedSellerItem {
 interface ToggleContext {
   previous: string[] | undefined;
   previousList: LikedSellerItem[] | undefined;
+  willBeLiked: boolean;
+}
+
+interface ToggleVariables {
+  sellerId: string;
+  source: SellerFollowSource;
 }
 
 // =============================================================================
