@@ -148,6 +148,44 @@ export default function StripeOnboardingScreen() {
     }
   }, [user]);
 
+  // -- seller_onboarding_viewed (once the account status resolves) --
+  const ageGateShown = isLoggedIn && !canSell(user?.dateOfBirth);
+  const onboardingViewedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoggedIn || isLoading || onboardingViewedRef.current) return;
+    onboardingViewedRef.current = true;
+    const acctExists = status?.hasAccount === true;
+    const charges = status?.chargesEnabled === true;
+    const payouts = status?.payoutsEnabled === true;
+    const currentlyDue = status?.requirementsCurrentlyDue ?? [];
+    const pastDue = status?.requirementsPastDue ?? [];
+    const restricted = status?.status === 'restricted';
+    const accountStatusEnum: 'none' | 'pending' | 'active' | 'restricted' = !acctExists
+      ? 'none'
+      : charges && payouts
+        ? 'active'
+        : restricted
+          ? 'restricted'
+          : 'pending';
+    const kyc =
+      acctExists &&
+      needsIdentityDocument({
+        requirementsCurrentlyDue: currentlyDue,
+        requirementsPastDue: pastDue,
+        disabledReason: status?.disabledReason ?? null,
+      });
+    track('seller_onboarding_viewed', {
+      has_account: acctExists,
+      account_status: accountStatusEnum,
+      charges_enabled: charges,
+      payouts_enabled: payouts,
+      requirements_currently_due_count: currentlyDue.length,
+      requirements_past_due_count: pastDue.length,
+      shows_kyc_upload: !!kyc,
+      age_gate_shown: ageGateShown,
+    });
+  }, [isLoggedIn, isLoading, status, ageGateShown]);
+
   // ---- Validation ----
   // Returns null when valid, else { message, field } — `field` is a stable key
   // (never the value) surfaced to analytics as `failed_field`.
