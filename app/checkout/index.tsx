@@ -72,11 +72,59 @@ export default function CheckoutScreen() {
   const [selectedDelivery, setSelectedDelivery] = useState<TransactionDeliveryType | null>(null);
   const effectiveDelivery = selectedDelivery ?? autoDelivery;
 
+  const hasNegotiatedPrice = params.negotiatedPrice != null;
+
+  // Emit checkout_started once article loads, or checkout_blocked on a guard.
+  const lastEventRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    let key: string;
+    if (isError) key = 'blocked:network_error';
+    else if (!article) key = 'blocked:not_found';
+    else if (article.isSold) key = 'blocked:sold';
+    else if (user?.id === article.sellerId) key = 'blocked:own_article';
+    else key = 'started';
+    if (lastEventRef.current === key) return;
+    lastEventRef.current = key;
+
+    if (key === 'started' && article) {
+      track('checkout_started', {
+        article_id: article.id,
+        seller_id: article.sellerId,
+        price_cents: Math.round(article.price * 100),
+        has_meetup_option: article.isHandDelivery !== false,
+        has_shipping_option: SHIPPING_ENABLED && article.isShipping === true,
+        has_negotiated_price: hasNegotiatedPrice,
+        auto_selected_delivery: autoDelivery ?? undefined,
+      });
+    } else if (key.startsWith('blocked:')) {
+      track('checkout_blocked', {
+        article_id: article?.id ?? articleId,
+        guard_type: key.slice('blocked:'.length) as
+          | 'network_error'
+          | 'not_found'
+          | 'sold'
+          | 'own_article',
+      });
+    }
+  }, [loading, isError, article, user?.id, articleId, autoDelivery, hasNegotiatedPrice]);
+
   // =============================================================================
   // HANDLERS
   // =============================================================================
 
   const handleBack = () => router.back();
+
+  const handleSelectDelivery = (deliveryType: TransactionDeliveryType) => {
+    setSelectedDelivery(deliveryType);
+    if (!article) return;
+    track('checkout_delivery_selected', {
+      article_id: article.id,
+      delivery_type: deliveryType,
+      via: 'card',
+      price_cents: Math.round(article.price * 100),
+    });
+  };
 
   const handleContinue = () => {
     if (!effectiveDelivery || !article) return;
