@@ -176,12 +176,12 @@ function SaveSearchButtonComponent({
         visible={isModalVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setIsModalVisible(false)}
+        onRequestClose={handleCancel}
       >
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Pressable onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
+            <Pressable onPress={handleCancel} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={colors.foreground} />
             </Pressable>
             <Text style={styles.modalTitle}>Sauvegarder la recherche</Text>
