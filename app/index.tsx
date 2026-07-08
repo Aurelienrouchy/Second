@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
 import { ONBOARDING_COMPLETED_KEY } from '@/constants/storageKeys';
+import { track } from '@/lib/analytics';
 
 export default function IndexScreen() {
   const [isReady, setIsReady] = useState(false);
@@ -12,8 +13,10 @@ export default function IndexScreen() {
 
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY).then((value) => {
-      setNeedsOnboarding(value !== 'true');
+      const needs = value !== 'true';
+      setNeedsOnboarding(needs);
       setIsReady(true);
+      track('onboarding_gate_resolved', { needs_onboarding: needs });
     });
   }, []);
 
