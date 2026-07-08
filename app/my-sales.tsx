@@ -190,6 +190,14 @@ export default function MySalesScreen() {
   const handleSalePress = useCallback(
     (saleItem: SaleItem) => {
       const { transaction } = saleItem;
+      const destination: 'chat' | 'article' = transaction.chatId ? 'chat' : 'article';
+      track('order_card_tapped', {
+        role: 'seller',
+        transaction_id: transaction.id,
+        status: transaction.status,
+        delivery_type: transaction.deliveryType,
+        destination,
+      });
       if (transaction.chatId) {
         router.push(`/chat/${transaction.chatId}`);
         return;
