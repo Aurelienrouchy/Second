@@ -431,6 +431,11 @@ export default function PaymentScreen() {
           const trans = await TransactionService.getTransaction(transactionId);
           if (trans && isPaidStatus(trans.status)) {
             setConfirmingPayment(false);
+            track('payment_confirmation_polled', {
+              transaction_id: transactionId,
+              outcome: 'confirmed',
+              poll_duration_ms: Date.now() - startedAt,
+            });
             confirmAndExit();
             return;
           }
@@ -442,6 +447,11 @@ export default function PaymentScreen() {
 
       // Webhook lagging past the timeout — be honest (not a fake success).
       setConfirmingPayment(false);
+      track('payment_confirmation_polled', {
+        transaction_id: transactionId,
+        outcome: 'timeout',
+        poll_duration_ms: Date.now() - startedAt,
+      });
       pendingConfirmExit();
     },
     [router, transactionId, retryStripePayment, queryClient]
