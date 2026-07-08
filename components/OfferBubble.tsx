@@ -157,8 +157,23 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
       ? `Voulez-vous accepter cette offre de ${formatPrice(amount)} avec meetup ?`
       : `Voulez-vous accepter cette offre de ${formatPrice(amount)} ?`;
 
+    const role: 'buyer' | 'seller' = isSeller ? 'seller' : 'buyer';
     Alert.alert("Accepter l'offre", confirmMessage, [
-      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Annuler',
+        style: 'cancel',
+        onPress: () =>
+          track('offer_responded', {
+            chat_id: chatId,
+            message_id: message.id,
+            article_id: articleId ?? '',
+            action: 'accept',
+            dialog_outcome: 'cancelled',
+            offer_amount_cents: Math.round(amount * 100),
+            is_meetup_offer: isMeetupOffer,
+            role,
+          }),
+      },
       {
         text: 'Accepter',
         style: 'default',
@@ -167,11 +182,34 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             setIsAccepting(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await onAcceptOffer(message.id, message.id);
+            track('offer_responded', {
+              chat_id: chatId,
+              message_id: message.id,
+              article_id: articleId ?? '',
+              action: 'accept',
+              dialog_outcome: 'confirmed',
+              result: 'success',
+              offer_amount_cents: Math.round(amount * 100),
+              is_meetup_offer: isMeetupOffer,
+              role,
+            });
           } catch (error) {
             if (__DEV__) console.error('Error accepting offer:', error);
             // Surface the server reason (FirebaseError message) so a genuine
             // failure is actionable instead of an opaque generic alert.
             const msg = error instanceof Error ? error.message : "Impossible d'accepter l'offre";
+            track('offer_responded', {
+              chat_id: chatId,
+              message_id: message.id,
+              article_id: articleId ?? '',
+              action: 'accept',
+              dialog_outcome: 'confirmed',
+              result: 'error',
+              error_code: msg,
+              offer_amount_cents: Math.round(amount * 100),
+              is_meetup_offer: isMeetupOffer,
+              role,
+            });
             Alert.alert('Erreur', msg);
           } finally {
             setIsAccepting(false);
