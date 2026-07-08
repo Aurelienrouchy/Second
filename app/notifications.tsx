@@ -161,6 +161,7 @@ export default function NotificationsScreen() {
   });
 
   const handleNotificationPress = async (notification: Notification) => {
+    const wasUnread = !notification.isRead;
     // Mark as read
     if (!notification.isRead) {
       await NotificationService.markAsRead(notification.id);
@@ -177,6 +178,21 @@ export default function NotificationsScreen() {
     // yet, so read it via a narrow cast (no `any`).
     const data = notification.data;
     const deepLink = (data as { deepLink?: string } | undefined)?.deepLink;
+    const destination: 'deep_link' | 'chat' | 'article' | 'swap_party' | 'none' = deepLink
+      ? 'deep_link'
+      : data?.chatId
+        ? 'chat'
+        : data?.articleId
+          ? 'article'
+          : data?.partyId
+            ? 'swap_party'
+            : 'none';
+    track('notification_opened', {
+      notification_id: notification.id,
+      notification_type: notification.type,
+      was_unread: wasUnread,
+      destination,
+    });
     if (deepLink) {
       const path = Linking.parse(deepLink).path;
       if (path) {
