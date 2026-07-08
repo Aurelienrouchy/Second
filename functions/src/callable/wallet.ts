@@ -447,6 +447,16 @@ export const walletWithdraw = onCall(
         });
       });
 
+      // Analytics (§12): withdrawal_requested = ledger debited (the request is
+      // now committed). distinct_id = seller. amount/balance already in CENTS.
+      await captureServerEvent(userId, 'withdrawal_requested', {
+        withdrawal_id: withdrawalRequestRef.id,
+        seller_id: userId,
+        amount_cents: amount,
+        balance_after_cents: newBalance!,
+        $insert_id: `withdrawal_requested_${withdrawalRequestRef.id}`,
+      });
+
       // Step 2: Create Stripe transfer + payout
       let transfer: { id: string } | undefined;
       try {
