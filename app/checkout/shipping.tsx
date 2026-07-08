@@ -828,6 +828,9 @@ export default function ShippingCheckoutScreen() {
           clientSecret={clientSecret}
           visible={showStripePayment}
           onResult={handlePaymentResult}
+          analyticsSource="checkout"
+          analyticsContextId={pendingTransactionId ?? undefined}
+          analyticsAmountCents={Math.round(cardAmountDollars * 100)}
         />
       )}
       </KeyboardAvoidingView>
