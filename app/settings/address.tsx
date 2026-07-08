@@ -179,19 +179,28 @@ export default function AddressSettingsScreen() {
     const postalCode = manualPostalCode.trim();
 
     if (!street || !city || !province || !postalCode) {
+      track('address_saved', {
+        mode: 'manual',
+        province,
+        success: false,
+        validation_error: 'missing_fields',
+      });
       Alert.alert('Champs manquants', 'Veuillez remplir l\'adresse, la ville, la province et le code postal.');
       return;
     }
 
     setIsSaving(true);
     try {
-      await persistAddress({
-        street,
-        city,
-        province,
-        postalCode,
-        country: 'Canada',
-      });
+      await persistAddress(
+        {
+          street,
+          city,
+          province,
+          postalCode,
+          country: 'Canada',
+        },
+        { mode: 'manual', hasGeo: false },
+      );
     } finally {
       setIsSaving(false);
     }
