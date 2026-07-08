@@ -69,13 +69,31 @@ export default function ShippingOptionsScreen() {
       );
       return { previousCarriers };
     },
-    onError: (_error, _carrierId, context) => {
+    onSuccess: (_data, carrierId) => {
+      const current = queryClient.getQueryData<string[]>(
+        ['userShippingCarriers', user?.id]
+      ) ?? ALL_CARRIER_IDS;
+      track('carrier_preference_toggled', {
+        carrier_id: carrierId as CarrierId,
+        enabled: current.includes(carrierId),
+        enabled_carriers_count_after: current.length,
+        success: true,
+      });
+    },
+    onError: (_error, carrierId, context) => {
       if (context?.previousCarriers) {
         queryClient.setQueryData(
           ['userShippingCarriers', user?.id],
           context.previousCarriers
         );
       }
+      const restored = context?.previousCarriers ?? ALL_CARRIER_IDS;
+      track('carrier_preference_toggled', {
+        carrier_id: carrierId as CarrierId,
+        enabled: restored.includes(carrierId),
+        enabled_carriers_count_after: restored.length,
+        success: false,
+      });
       Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
     },
   });
