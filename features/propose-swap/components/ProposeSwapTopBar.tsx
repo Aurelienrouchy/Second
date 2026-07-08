@@ -10,12 +10,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
 
-export const ProposeSwapTopBar = React.memo(function ProposeSwapTopBar() {
+interface ProposeSwapTopBarProps {
+  onBack?: () => void;
+}
+
+export const ProposeSwapTopBar = React.memo(function ProposeSwapTopBar({
+  onBack,
+}: ProposeSwapTopBarProps) {
   return (
     <View style={styles.topBar}>
       <Pressable
         style={styles.backButton}
-        onPress={() => router.back()}
+        onPress={onBack ?? (() => router.back())}
         hitSlop={8}
       >
         <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
