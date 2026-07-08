@@ -136,6 +136,7 @@ const AuthBottomSheet: React.FC = () => {
 
   // Sign-in of an ALREADY-consented user: fire onSuccess immediately and close.
   const handleSuccess = useCallback(() => {
+    didAuthRef.current = true;
     onSuccessCallback?.();
     handleClose();
   }, [onSuccessCallback, handleClose]);
