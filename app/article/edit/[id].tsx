@@ -262,43 +262,64 @@ export default function EditArticleScreen() {
   const handleSave = async () => {
     if (!article || !id) return;
 
+    const trackValidationFailed = (validationError: string) => {
+      track('article_updated', {
+        article_id: id,
+        outcome: 'validation_failed',
+        validation_error: validationError,
+        price_cents: Math.round(fields.price * 100),
+        photo_count: editedImages.length,
+        local_photos_uploaded_count: 0,
+        is_hand_delivery: fields.isHandDelivery,
+        is_shipping: fields.isShipping,
+      });
+    };
+
     // Validate required fields
     if (fields.title.trim().length < 3) {
+      trackValidationFailed('title_too_short');
       Alert.alert('Erreur', 'Le titre doit faire au moins 3 caractères');
       return;
     }
 
     if (!fields.description.trim()) {
+      trackValidationFailed('description_required');
       Alert.alert('Erreur', 'La description est requise');
       return;
     }
 
     if (fields.price < 0.01) {
+      trackValidationFailed('price_too_low');
       Alert.alert('Erreur', 'Le prix doit être supérieur à 0');
       return;
     }
 
     if (fields.price > 10000) {
+      trackValidationFailed('price_too_high');
       Alert.alert('Erreur', 'Le prix maximum est de 10 000 $');
       return;
     }
 
     if (!fields.isHandDelivery && !fields.isShipping) {
+      trackValidationFailed('no_delivery');
       Alert.alert('Erreur', 'Sélectionnez au moins une option de livraison');
       return;
     }
 
     if (fields.isHandDelivery && fields.neighborhoods.length === 0) {
+      trackValidationFailed('neighborhoods_required');
       Alert.alert('Erreur', 'Sélectionnez au moins un quartier pour la remise en main propre');
       return;
     }
 
     if (fields.isShipping && !fields.packageSize) {
+      trackValidationFailed('package_size_required');
       Alert.alert('Erreur', 'Sélectionnez une taille de colis pour l\'expédition');
       return;
     }
 
     setIsSaving(true);
+    let uploadedCount = 0;
     try {
       // Upload any local images (file://) to Firebase Storage before saving
       let finalImages: ArticleImage[] = editedImages;
