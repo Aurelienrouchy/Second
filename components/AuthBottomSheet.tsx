@@ -367,7 +367,7 @@ const AuthBottomSheet: React.FC = () => {
         onChangeEmail={setEmail}
         onChangePassword={setPassword}
         onSubmit={handleEmailAuth}
-        onForgotPassword={() => setAuthType('forgotPassword')}
+        onForgotPassword={handleForgotPasswordOpen}
       />
     );
   };
