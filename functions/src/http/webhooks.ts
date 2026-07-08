@@ -1448,6 +1448,7 @@ async function handleShopTierSucceeded(paymentIntent: any): Promise<void> {
       applied: true as const,
       ownerId: typeof shop.ownerId === 'string' ? shop.ownerId : null,
       paidUntilIso: paidUntil.toISOString(),
+      isRenewal: currentUntilMs > now || typeof shop.tier === 'string',
     };
   });
 
