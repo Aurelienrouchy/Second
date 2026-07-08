@@ -227,8 +227,23 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   };
 
   const handleReject = async () => {
+    const role: 'buyer' | 'seller' = isSeller ? 'seller' : 'buyer';
     Alert.alert("Refuser l'offre", `Voulez-vous refuser cette offre de ${formatPrice(amount)} ?`, [
-      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Annuler',
+        style: 'cancel',
+        onPress: () =>
+          track('offer_responded', {
+            chat_id: chatId,
+            message_id: message.id,
+            article_id: articleId ?? '',
+            action: 'reject',
+            dialog_outcome: 'cancelled',
+            offer_amount_cents: Math.round(amount * 100),
+            is_meetup_offer: isMeetupOffer,
+            role,
+          }),
+      },
       {
         text: 'Refuser',
         style: 'destructive',
@@ -237,8 +252,31 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
             setIsRejecting(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             await onRejectOffer(message.id, message.id);
+            track('offer_responded', {
+              chat_id: chatId,
+              message_id: message.id,
+              article_id: articleId ?? '',
+              action: 'reject',
+              dialog_outcome: 'confirmed',
+              result: 'success',
+              offer_amount_cents: Math.round(amount * 100),
+              is_meetup_offer: isMeetupOffer,
+              role,
+            });
           } catch (error) {
             if (__DEV__) console.error('Error rejecting offer:', error);
+            track('offer_responded', {
+              chat_id: chatId,
+              message_id: message.id,
+              article_id: articleId ?? '',
+              action: 'reject',
+              dialog_outcome: 'confirmed',
+              result: 'error',
+              error_code: errCode(error),
+              offer_amount_cents: Math.round(amount * 100),
+              is_meetup_offer: isMeetupOffer,
+              role,
+            });
             Alert.alert('Erreur', 'Impossible de refuser l\'offre');
           } finally {
             setIsRejecting(false);
