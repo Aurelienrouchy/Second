@@ -334,6 +334,20 @@ export function useSearchScreen() {
       item.filters?.maxPrice !== undefined ? String(item.filters.maxPrice) : ''
     );
     setIsSearching(true);
+    const keys = buildFilterKeysFromPartial(item.filters);
+    track('search_performed', {
+      trigger: 'recent',
+      query: (item.query || '').slice(0, 100),
+      query_length: (item.query || '').length,
+      has_active_filters: keys.length > 0,
+      active_filter_keys: keys,
+      category_path:
+        (item.filters as { categoryIds?: string[] }).categoryIds ?? undefined,
+      sort_by: item.filters?.sortBy || 'recent',
+      history_item_age: item.timestamp
+        ? Math.round((Date.now() - item.timestamp.getTime()) / 1000)
+        : undefined,
+    });
     // Tapping a saved search is an explicit commit — bypass the debounce.
     commitSearchQuery(item.query || '');
   }, [commitSearchQuery, setFilters, setSelectedCategoryPath]);
@@ -341,9 +355,18 @@ export function useSearchScreen() {
   const handleTrendingTap = useCallback((query: string) => {
     setSearchQueryLocal(query);
     setIsSearching(true);
+    track('search_performed', {
+      trigger: 'trending',
+      query: query.slice(0, 100),
+      query_length: query.length,
+      has_active_filters: false,
+      active_filter_keys: [],
+      sort_by: selectedSort,
+      trending_term: query,
+    });
     // Tapping a trending term is an explicit commit — bypass the debounce.
     commitSearchQuery(query);
-  }, [commitSearchQuery]);
+  }, [commitSearchQuery, selectedSort]);
 
   const handleRecentSearchDelete = useCallback(
     async (item: SearchHistoryItem) => {
