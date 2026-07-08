@@ -264,24 +264,22 @@ export function useSwapZoneFilters(items: SwapPartyItemExtended[]) {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFilters((prev) => {
-      const clearedKeys: string[] = [];
-      if (selectedCategoryPath.length > 0) clearedKeys.push('category');
-      if ((prev.sizes?.length || 0) > 0) clearedKeys.push('sizes');
-      if ((prev.colors?.length || 0) > 0) clearedKeys.push('colors');
-      if ((prev.brands?.length || 0) > 0) clearedKeys.push('brands');
-      if ((prev.materials?.length || 0) > 0) clearedKeys.push('materials');
-      if (prev.condition) clearedKeys.push('condition');
-      if (selectedSort !== 'recent') clearedKeys.push('sort');
-      track('search_filters_cleared', {
-        screen: 'swap_zone',
-        cleared_filter_keys: clearedKeys,
-      });
-      return { ...DEFAULT_FILTERS };
+    const clearedKeys: string[] = [];
+    if (selectedCategoryPath.length > 0) clearedKeys.push('category');
+    if ((filters.sizes?.length || 0) > 0) clearedKeys.push('sizes');
+    if ((filters.colors?.length || 0) > 0) clearedKeys.push('colors');
+    if ((filters.brands?.length || 0) > 0) clearedKeys.push('brands');
+    if ((filters.materials?.length || 0) > 0) clearedKeys.push('materials');
+    if (filters.condition) clearedKeys.push('condition');
+    if (selectedSort !== 'recent') clearedKeys.push('sort');
+    track('search_filters_cleared', {
+      screen: 'swap_zone',
+      cleared_filter_keys: clearedKeys,
     });
+    setFilters({ ...DEFAULT_FILTERS });
     setSelectedCategoryPath([]);
     setSelectedSort('recent');
-  }, [selectedCategoryPath, selectedSort]);
+  }, [filters, selectedCategoryPath, selectedSort]);
 
   return {
     filters,
