@@ -180,7 +180,7 @@ export default function ShopUpgradeScreen() {
         tier: selectedTier,
         period_months: periodMonths as 1 | 3 | 6 | 12,
         estimated_total_cents: estimatedTotalCents,
-        current_tier: shop?.tier ?? 'basic',
+        current_tier: currentTier ?? 'basic',
         success: true,
       });
       // amountCents is server-authoritative; the native sheet displays the
