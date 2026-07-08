@@ -413,6 +413,8 @@ export const useAuthStore = create<AuthStore>()(
     //    pseudo est pris (already-exists) ou le format/âge KO, l'erreur remonte
     //    telle quelle (FirebaseError) ; on NE fait PAS entrer l'user dans l'app
     //    et on NE touche PAS pendingConsent (il re-soumet avec un autre pseudo).
+    // Captured before mergeGuestToUser clears the guest session.
+    const hadGuestSession = get().guestSession !== null;
     const fresh = await AuthService.recordConsentForCurrentUser(consent);
     // 2) signIn : flip authentifié (efface pendingConsent + persiste le cache).
     await get().signIn(fresh);
@@ -421,6 +423,13 @@ export const useAuthStore = create<AuthStore>()(
 
     // Rejoue le callback de reprise (action protégée) puis le nettoie.
     const onSuccess = get().pendingConsentOnSuccess;
+    // POINT DE CONVERSION — capte email + social + reprise à froid (catalogue §5).
+    track('signup_completed', {
+      signup_method: fresh.authProvider ?? 'email',
+      marketing_opt_in: consent.marketingOptIn,
+      had_guest_session: hadGuestSession,
+      had_pending_action: onSuccess != null,
+    });
     set({ pendingConsentOnSuccess: null });
     if (onSuccess) {
       try {
