@@ -595,6 +595,13 @@ export function useSearchScreen() {
       setMaxPriceText(String(maxPrice));
     }
     setFilters({ ...filters, minPrice, maxPrice });
+    track('search_filter_applied', {
+      screen: 'search',
+      filter_type: 'price',
+      min_price_cents: minPrice !== undefined ? Math.round(minPrice * 100) : undefined,
+      max_price_cents: maxPrice !== undefined ? Math.round(maxPrice * 100) : undefined,
+      price_was_swapped: wasSwapped,
+    });
     setShowPriceInputs(false);
     if (!isSearching && (minPrice || maxPrice)) setIsSearching(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -604,8 +611,17 @@ export function useSearchScreen() {
     setMinPriceText('');
     setMaxPriceText('');
     setFilters({ ...filters, minPrice: undefined, maxPrice: undefined });
+    track('search_filter_removed', {
+      screen: 'search',
+      filter_type: 'price',
+      remaining_active_filter_keys: buildFilterKeys(
+        { ...filters, minPrice: undefined, maxPrice: undefined },
+        selectedCategoryPath,
+        selectedSort,
+      ),
+    });
     setShowPriceInputs(false);
-  }, [filters, setFilters]);
+  }, [filters, setFilters, selectedCategoryPath, selectedSort]);
 
   // ─── Per-chip remove handlers (L3 — chip X buttons) ──────────────
   // Each clears exactly one filter dimension. Multi-value dimensions and
