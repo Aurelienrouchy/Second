@@ -223,6 +223,12 @@ export default function TabLayout() {
             const currentUser = useAuthStore.getState().user;
             if (!currentUser) {
               e.preventDefault();
+              track('sell_entry_tapped', {
+                outcome: 'auth_gated',
+                platform: sellPlatform,
+                has_existing_draft: false,
+                source: 'tab',
+              });
               useAuthSheetStore.getState().show(
                 AUTH_MESSAGES.sell,
                 () => navigation.navigate('sell')
@@ -230,6 +236,12 @@ export default function TabLayout() {
             } else if (!canSell(currentUser.dateOfBirth)) {
               // 16-17 ans : achat/navigation OK, mais vente bloquée (18+ Stripe).
               e.preventDefault();
+              track('sell_entry_tapped', {
+                outcome: 'age_gated',
+                platform: sellPlatform,
+                has_existing_draft: false,
+                source: 'tab',
+              });
               Alert.alert('Vente non disponible', COPY_SELL_GATE);
             } else if (AuthService.hasPasswordProvider() && !AuthService.isEmailVerified()) {
               // Gate email_verified appliqué côté serveur dans createArticle :
@@ -238,6 +250,12 @@ export default function TabLayout() {
               // concerne que les comptes email — Google/Apple sont toujours
               // email_verified. Redirige vers l'écran de vérification.
               e.preventDefault();
+              track('sell_entry_tapped', {
+                outcome: 'email_gate',
+                platform: sellPlatform,
+                has_existing_draft: false,
+                source: 'tab',
+              });
               router.push('/settings/verify-email');
             } else if (Platform.OS === 'ios') {
               e.preventDefault();
@@ -247,7 +265,14 @@ export default function TabLayout() {
               (async () => {
                 try {
                   const existingDraft = await draftService.loadDraft();
-                  if (existingDraft && existingDraft.photos.length > 0) {
+                  const hasDraft = !!existingDraft && existingDraft.photos.length > 0;
+                  track('sell_entry_tapped', {
+                    outcome: 'opened',
+                    platform: 'ios',
+                    has_existing_draft: hasDraft,
+                    source: 'tab',
+                  });
+                  if (hasDraft) {
                     setResumeDraft(existingDraft);
                     return;
                   }
@@ -256,8 +281,17 @@ export default function TabLayout() {
                 }
                 openCaptureOverlay();
               })();
+            } else {
+              // Android: default tab navigation (sell.tsx → /sell/capture).
+              void draftService.hasDraft().then((hasExistingDraft) => {
+                track('sell_entry_tapped', {
+                  outcome: 'opened',
+                  platform: 'android',
+                  has_existing_draft: hasExistingDraft,
+                  source: 'tab',
+                });
+              });
             }
-            // Android: default tab navigation (sell.tsx → /sell/capture)
           },
         })}
       />
