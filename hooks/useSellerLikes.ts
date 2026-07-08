@@ -126,9 +126,18 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
         );
       }
 
-      return { previous, previousList };
+      return { previous, previousList, willBeLiked };
     },
-    onError: (_err, _sellerId, context) => {
+    onSuccess: (_data, { sellerId, source }, context) => {
+      const nowFollowing = context?.willBeLiked ?? false;
+      const countAfter = queryClient.getQueryData<string[]>(queryKey)?.length ?? 0;
+      track(nowFollowing ? 'seller_followed' : 'seller_unfollowed', {
+        seller_id: sellerId,
+        source,
+        liked_sellers_count_after: countAfter,
+      });
+    },
+    onError: (_err, _variables, context) => {
       // Rollback to previous state on error
       if (context?.previous !== undefined) {
         queryClient.setQueryData(queryKey, context.previous);
