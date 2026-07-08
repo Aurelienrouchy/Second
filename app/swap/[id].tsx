@@ -578,7 +578,7 @@ export default function SwapDetailScreen() {
       {/* Sticky bottom -- proposed status only */}
       {swap.status === 'proposed' && !participant.isInitiator && (
         <SwapStickyActions
-          onAccept={handleAccept}
+          onAccept={() => handleAccept('sticky_bar')}
           onDecline={handleDecline}
           isProcessing={isProcessing}
         />
