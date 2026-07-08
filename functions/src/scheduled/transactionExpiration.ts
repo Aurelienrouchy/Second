@@ -26,6 +26,7 @@ import { getStripe } from '../config/stripe';
 import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
 import { logAutomatedDecision } from '../callable/automatedDecisions';
+import { captureServerEvent } from '../lib/analytics';
 
 /**
  * Cap how many docs each query pulls per scheduled run. Each paid-not-shipped
