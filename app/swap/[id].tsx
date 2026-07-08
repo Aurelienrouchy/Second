@@ -422,6 +422,11 @@ export default function SwapDetailScreen() {
       setIsProcessing(true);
       try {
         await rateSwap(id, user.id, score);
+        track('swap_rated', {
+          swap_id: id,
+          score,
+          is_initiator: swap?.initiatorId === user.id,
+        });
         Alert.alert('Merci !', 'Ta note a été enregistrée.');
       } catch (error) {
         if (__DEV__) console.error('Error rating swap:', error);
@@ -430,7 +435,7 @@ export default function SwapDetailScreen() {
         setIsProcessing(false);
       }
     },
-    [id, user]
+    [id, user, swap?.initiatorId]
   );
 
   const actionHandlers = useMemo<SwapActionHandlers>(
