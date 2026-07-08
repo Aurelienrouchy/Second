@@ -17,6 +17,7 @@ import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 
 import { httpsCallable } from 'firebase/functions';
