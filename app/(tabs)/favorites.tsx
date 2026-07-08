@@ -175,7 +175,13 @@ export default function FavoritesScreen() {
   const handleRemoveFavorite = useCallback(
     (article: Article | ArticleWithLocation) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      toggleFavorite(article.id);
+      toggleFavorite(article.id, {
+        source: 'favorites',
+        sellerId: article.sellerId,
+        priceCents: Math.round(article.price * 100),
+        brand: article.brand,
+        via: 'long_press',
+      });
     },
     [toggleFavorite]
   );
