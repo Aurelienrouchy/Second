@@ -169,7 +169,10 @@ export default function MySwapsScreen() {
           </Caption>
           <Button
             variant="primary"
-            onPress={() => refetch()}
+            onPress={() => {
+              track('error_retry_tapped', { screen: 'my_swaps', error_context: 'my_swaps_load' });
+              refetch();
+            }}
             style={styles.ctaButton}
           >
             Réessayer
