@@ -207,6 +207,18 @@ export default function UserProfileScreen() {
 
   const reviewsLoading = isOwnProfile ? ownReviewsLoading : publicProfileLoading;
 
+  const handleTabChange = useCallback(
+    (tab: ProfileTab) => {
+      setActiveTab(tab);
+      track('list_filtered', {
+        screen: 'public_profile',
+        filter: tab,
+        filtered_count: tab === 'articles' ? articles.length : reviews.length,
+      });
+    },
+    [articles.length, reviews.length],
+  );
+
   // ─── Analytics: profile_viewed (once per profile, after load resolves) ───────
   const profileViewedRef = useRef<string | null>(null);
   useEffect(() => {
