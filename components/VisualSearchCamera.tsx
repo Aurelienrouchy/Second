@@ -76,10 +76,23 @@ function VisualSearchCameraComponent({
         skipProcessing: false,
       });
       if (photo?.uri) {
+        fromGalleryRef.current = false;
         setCapturedUri(photo.uri);
+        track('visual_search_photo_picked', {
+          method: 'camera',
+          outcome: 'success',
+          facing,
+          source,
+        });
       }
     } catch (error) {
       if (__DEV__) console.error('[VisualSearchCamera] Error taking photo:', error);
+      track('visual_search_photo_picked', {
+        method: 'camera',
+        outcome: 'error',
+        facing,
+        source,
+      });
     } finally {
       setIsCapturing(false);
     }
