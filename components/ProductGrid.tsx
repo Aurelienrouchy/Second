@@ -163,7 +163,7 @@ function ProductGridComponent({
         </Pressable>
       );
     },
-    [onProductPress, onProductLongPress],
+    [onProductPress, onProductLongPress, favoriteSource],
   );
 
   const keyExtractor = useCallback(
