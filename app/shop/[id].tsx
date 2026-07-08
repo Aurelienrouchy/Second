@@ -51,20 +51,38 @@ export default function ShopDetailScreen() {
 
   const isOwner = !!shop && !!user && shop.ownerId === user.id;
 
+  const shopViewedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || !shop || shopViewedRef.current === shop.id) return;
+    shopViewedRef.current = shop.id;
+    track('shop_viewed', {
+      shop_id: shop.id,
+      shop_type: shop.type,
+      shop_status: shop.status,
+      articles_count: shop.articlesCount,
+      is_owner: isOwner,
+      has_website: !!shop.website,
+      has_social: !!(shop.socialMedia?.instagram || shop.socialMedia?.facebook),
+    });
+  }, [isLoading, shop, isOwner]);
+
   const handleCall = () => {
     if (shop?.phoneNumber) {
+      track('shop_contact_tapped', { shop_id: shop.id, channel: 'phone' });
       Linking.openURL(`tel:${shop.phoneNumber}`);
     }
   };
 
   const handleEmail = () => {
     if (shop?.email) {
+      track('shop_contact_tapped', { shop_id: shop.id, channel: 'email' });
       Linking.openURL(`mailto:${shop.email}`);
     }
   };
 
   const handleWebsite = () => {
     if (shop?.website) {
+      track('shop_contact_tapped', { shop_id: shop.id, channel: 'website' });
       const url = shop.website.startsWith('http') ? shop.website : `https://${shop.website}`;
       Linking.openURL(url);
     }
@@ -72,14 +90,16 @@ export default function ShopDetailScreen() {
 
   const handleSocialMedia = (platform: 'instagram' | 'facebook') => {
     if (!shop?.socialMedia) return;
-    
+
     const username = shop.socialMedia[platform];
     if (!username) return;
+
+    track('shop_contact_tapped', { shop_id: shop.id, channel: platform });
 
     const url = platform === 'instagram'
       ? `https://instagram.com/${username}`
       : `https://facebook.com/${username}`;
-    
+
     Linking.openURL(url);
   };
 
