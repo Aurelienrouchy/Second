@@ -426,6 +426,11 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       try {
         setIsReturning(true);
         await requestReturn(transaction.id, reason);
+        track('return_requested', {
+          transaction_id: transaction.id,
+          reason_code: reason,
+          success: true,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         returnSheetRef.current?.dismiss();
         onStatusUpdate?.();
@@ -436,6 +441,15 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
         );
       } catch (error: unknown) {
         if (__DEV__) console.error('requestReturn failed:', error);
+        track('return_requested', {
+          transaction_id: transaction.id,
+          reason_code: reason,
+          success: false,
+          error_code:
+            error && typeof error === 'object' && 'code' in error
+              ? String((error as { code?: unknown }).code)
+              : undefined,
+        });
         Alert.alert('Retour impossible', getRecourseErrorMessage(error), [
           { text: 'Compris' },
         ]);
@@ -449,9 +463,10 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
   const handleOpenReturnLabel = useCallback(() => {
     if (transaction.returnLabelUrl) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      track('return_label_opened', { transaction_id: transaction.id });
       Linking.openURL(transaction.returnLabelUrl);
     }
-  }, [transaction.returnLabelUrl]);
+  }, [transaction.returnLabelUrl, transaction.id]);
 
   // ---------------------------------------------------------------------------
   // AUTOMATED DECISIONS (Loi 25, art. 12.1)
