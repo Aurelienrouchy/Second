@@ -396,6 +396,11 @@ export default function ShippingCheckoutScreen() {
       // ── Full wallet payment ─────────────────────────────────────────────
       if (walletCoversAll) {
         await WalletService.payWithWallet(transactionId);
+        track('wallet_payment_completed', {
+          screen: 'checkout',
+          transaction_id: transactionId,
+          total_cents: totalAmountCents,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         queryClient.invalidateQueries({ queryKey: homeKeys.all });
         router.replace({
