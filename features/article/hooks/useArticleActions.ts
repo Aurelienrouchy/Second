@@ -25,6 +25,7 @@ import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
 import { GENERALIST_ZONE_ID } from '@/services/swapService';
 import { functions } from '@/config/firebaseConfig';
+import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { useAuthStore } from '@/store/authStore';
 import { formatPrice } from '@/utils/formatPrice';
 
