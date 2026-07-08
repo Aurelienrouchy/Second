@@ -368,8 +368,15 @@ export default function WalletScreen() {
   const handleWithdrawPress = useCallback(() => {
     if (!user) return;
 
+    const balanceCents = wallet?.balance ?? 0;
+
     // Seller debt blocks withdrawals — surface the dedicated copy upfront.
     if (hasDebt) {
+      track('withdrawal_cta_tapped', {
+        outcome: 'blocked',
+        balance_cents: balanceCents,
+        blocked_reason: 'debt',
+      });
       Alert.alert(
         WALLET_COPY.blockDebtAlertTitle,
         withMontant(WALLET_COPY.blockDebtAlertBody, sellerDebt),
@@ -384,10 +391,28 @@ export default function WalletScreen() {
         'Compte de paiement requis',
         'Configurez votre compte de paiement pour retirer vos fonds.',
         [
-          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Annuler',
+            style: 'cancel',
+            onPress: () =>
+              track('withdrawal_cta_tapped', {
+                outcome: 'blocked',
+                balance_cents: balanceCents,
+                blocked_reason: 'no_stripe_account',
+                cta_chosen: 'later',
+              }),
+          },
           {
             text: 'Configurer',
-            onPress: () => router.push('/settings/stripe-onboarding'),
+            onPress: () => {
+              track('withdrawal_cta_tapped', {
+                outcome: 'blocked',
+                balance_cents: balanceCents,
+                blocked_reason: 'no_stripe_account',
+                cta_chosen: 'configure',
+              });
+              router.push('/settings/stripe-onboarding');
+            },
           },
         ],
       );
@@ -402,15 +427,38 @@ export default function WalletScreen() {
         'Retraits indisponibles : action requise',
         'Vos retraits sont bloques tant que la verification de votre compte de paiement n\'est pas terminee. Completez les informations demandees pour les reactiver.',
         [
-          { text: 'Plus tard', style: 'cancel' },
+          {
+            text: 'Plus tard',
+            style: 'cancel',
+            onPress: () =>
+              track('withdrawal_cta_tapped', {
+                outcome: 'blocked',
+                balance_cents: balanceCents,
+                blocked_reason: 'payouts_disabled',
+                cta_chosen: 'later',
+              }),
+          },
           {
             text: 'Resoudre',
-            onPress: () => router.push('/settings/stripe-onboarding'),
+            onPress: () => {
+              track('withdrawal_cta_tapped', {
+                outcome: 'blocked',
+                balance_cents: balanceCents,
+                blocked_reason: 'payouts_disabled',
+                cta_chosen: 'resolve',
+              });
+              router.push('/settings/stripe-onboarding');
+            },
           },
         ],
       );
       return;
     }
+
+    track('withdrawal_cta_tapped', {
+      outcome: 'form_opened',
+      balance_cents: balanceCents,
+    });
 
     // Pre-fill with full balance in dollars
     if (wallet) {
