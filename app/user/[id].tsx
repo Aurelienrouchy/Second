@@ -243,12 +243,14 @@ export default function UserProfileScreen() {
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
+  const currentUserId = currentUser?.id;
+
   const handleBack = useCallback(() => {
     router.back();
   }, [router]);
 
   const handleContact = useCallback(async () => {
-    if (!currentUser?.id) {
+    if (!currentUserId) {
       showAuthSheet('Connectez-vous pour contacter ce vendeur');
       return;
     }
@@ -256,7 +258,7 @@ export default function UserProfileScreen() {
 
     setIsContactLoading(true);
     try {
-      const chat = await ChatService.createOrGetChat(currentUser.id, id);
+      const chat = await ChatService.createOrGetChat(currentUserId, id);
       track('chat_started', {
         chat_id: chat.id,
         source: 'profile',
