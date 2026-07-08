@@ -26,6 +26,7 @@ import {
 
 import { Button, ScreenHeader, Skeleton, Text } from '@/components/ui';
 import { colors, radius, spacing, typography } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { useStripeAccount } from '@/hooks/useStripeAccount';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { translateBankStatus } from '@/utils/stripeRequirements';
