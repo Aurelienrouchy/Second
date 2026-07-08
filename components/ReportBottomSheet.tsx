@@ -21,9 +21,17 @@ import {
   View,
 } from 'react-native';
 import { colors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
+
+export type ReportSourceScreen = 'chat' | 'public_profile' | 'article_detail';
 
 export interface ReportBottomSheetRef {
-  open: (type: ReportType, targetId: string, targetOwnerId?: string) => void;
+  open: (
+    type: ReportType,
+    targetId: string,
+    source: ReportSourceScreen,
+    targetOwnerId?: string,
+  ) => void;
   close: () => void;
 }
 
