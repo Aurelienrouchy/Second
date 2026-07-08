@@ -15,6 +15,7 @@ import { useUser } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { useChats } from '@/hooks/useChat';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { track } from '@/lib/analytics';
 import { ModerationService } from '@/services/moderationService';
 import { Chat } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
