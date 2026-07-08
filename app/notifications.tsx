@@ -294,7 +294,16 @@ export default function NotificationsScreen() {
             <Text style={styles.emptySubtitle}>
               Une erreur est survenue lors du chargement de vos notifications.
             </Text>
-            <Pressable onPress={() => refetch()} style={styles.retryButton}>
+            <Pressable
+              onPress={() => {
+                track('error_retry_tapped', {
+                  screen: 'notifications',
+                  error_context: 'notifications_load',
+                });
+                refetch();
+              }}
+              style={styles.retryButton}
+            >
               <Text style={styles.retryText}>Réessayer</Text>
             </Pressable>
           </View>
