@@ -109,21 +109,25 @@ export default function AddPasswordScreen() {
 
   const handleLink = async () => {
     if (!email.trim()) {
+      track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'validation_error', validation_error: 'empty_email', after_reauth: false });
       Alert.alert('Erreur', 'Veuillez saisir une adresse email.');
       return;
     }
 
     if (!password || !confirmPassword) {
+      track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'validation_error', validation_error: 'empty_fields', after_reauth: false });
       Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
       return;
     }
 
     if (password.length < 6) {
+      track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'validation_error', validation_error: 'too_short', after_reauth: false });
       Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 6 caractères.');
       return;
     }
 
     if (password !== confirmPassword) {
+      track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'validation_error', validation_error: 'mismatch', after_reauth: false });
       Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
       return;
     }
@@ -131,8 +135,10 @@ export default function AddPasswordScreen() {
     setIsSaving(true);
     try {
       await performLink();
+      track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'success', after_reauth: false });
     } catch (error: unknown) {
       if (__DEV__) console.error('Error linking password credential:', error);
+      const code = (error as { code?: string }).code;
       const message = error instanceof Error
         ? error.message
         : 'Une erreur est survenue lors de l\'ajout du mot de passe.';
@@ -141,6 +147,7 @@ export default function AddPasswordScreen() {
       // remappe auth/requires-recent-login via getAuthErrorMessage (le code brut est
       // perdu), on détecte donc le message remappé pour proposer une reconnexion.
       if (message.includes('connexion récente')) {
+        track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'reauth_required', after_reauth: false });
         Alert.alert(
           'Reconnexion récente requise',
           'Reconnexion récente requise pour lier un mot de passe.',
