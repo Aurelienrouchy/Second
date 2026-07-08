@@ -522,8 +522,16 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
 
   const toggleExplanation = useCallback(() => {
     Haptics.selectionAsync();
-    setIsExplanationOpen((prev) => !prev);
-  }, []);
+    setIsExplanationOpen((prev) => {
+      const next = !prev;
+      track('automated_decision_explained', {
+        transaction_id: transaction.id,
+        decision_type: decisionType ?? '',
+        opened: next,
+      });
+      return next;
+    });
+  }, [transaction.id, decisionType]);
 
   const openContestSheet = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
