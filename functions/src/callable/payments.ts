@@ -3126,6 +3126,16 @@ export const reportMeetupNoShow = onCall(
         reason: reportReason,
       });
 
+      // Analytics (§12): dispute_opened(type=no_show) — distinct_id = the
+      // signaler. Meetup is cash-in-hand → no funds held on the platform.
+      await captureServerEvent(callerUid, 'dispute_opened', {
+        transaction_id: transactionId,
+        type: 'no_show',
+        reason_code: reportReason,
+        held_cents: 0,
+        $insert_id: `dispute_opened_${result.disputeId}`,
+      });
+
       // Notify the reported party that a no-show was filed against them and that
       // they can contest it (recourse / human review). Best-effort, non-blocking.
       if (result.reportedAgainst) {
