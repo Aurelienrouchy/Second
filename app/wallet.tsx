@@ -319,13 +319,44 @@ export default function WalletScreen() {
     return !resolvedAfter && heldBalance > 0;
   }, [wallet?.ledger, heldBalance]);
 
+  // Emit wallet_viewed once the wallet resolves (activated or not).
+  const viewedRef = useRef(false);
+  useEffect(() => {
+    if (isLoading || viewedRef.current) return;
+    viewedRef.current = true;
+    track('wallet_viewed', {
+      has_wallet: !!wallet?.hasWallet,
+      balance_cents: wallet?.balance ?? 0,
+      pending_balance_cents: pendingBalance,
+      held_balance_cents: heldBalance,
+      seller_debt_cents: sellerDebt,
+      has_active_dispute_hold: hasActiveDisputeHold,
+      payouts_blocked: payoutsBlocked,
+      withdrawals_in_progress_count: withdrawals.filter((w) => w.status === 'processing').length,
+    });
+  }, [
+    isLoading,
+    wallet,
+    pendingBalance,
+    heldBalance,
+    sellerDebt,
+    hasActiveDisputeHold,
+    payoutsBlocked,
+    withdrawals,
+  ]);
+
   const handleActivate = useCallback(async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await activate();
+      track('wallet_activated', { success: true });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: unknown) {
       if (__DEV__) console.error('Wallet activation error:', error);
+      track('wallet_activated', {
+        success: false,
+        error_code: getCallableErrorCode(error) ?? undefined,
+      });
       const msg =
         error instanceof Error
           ? error.message
