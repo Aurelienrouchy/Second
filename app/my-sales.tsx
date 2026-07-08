@@ -342,7 +342,10 @@ export default function MySalesScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => refetch()}
+              onRefresh={() => {
+                track('list_refreshed', { screen: 'my_sales', items_count: sales.length });
+                refetch();
+              }}
               tintColor={colors.primary}
             />
           }
