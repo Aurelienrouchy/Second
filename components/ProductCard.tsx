@@ -183,6 +183,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isLoading = false,
   compact = false,
   fillWidth = false,
+  favoriteSource,
   testID,
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
