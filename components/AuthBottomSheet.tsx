@@ -79,6 +79,9 @@ const AuthBottomSheet: React.FC = () => {
   // appended as bottom inset so the focused field scrolls clear of the keyboard.
   const snapPoints = useMemo(() => ['82%', '98%'], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  // Set right before a programmatic close that follows a successful auth /
+  // consent route, so handleClose skips the "dismissed without auth" event.
+  const didAuthRef = useRef(false);
 
   const isVisible = useAuthSheetStore((s) => s.isVisible);
   const displayMessage = useAuthSheetStore((s) => s.message);
