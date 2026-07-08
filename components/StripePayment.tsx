@@ -65,9 +65,36 @@ function StripePaymentComponent({
   clientSecret,
   visible,
   onResult,
+  analyticsSource,
+  analyticsContextId,
+  analyticsAmountCents,
 }: StripePaymentProps) {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const isPresentingRef = useRef(false);
+
+  // Single instrumentation point for the Payment Sheet outcome (§8). Emits only
+  // when a source is provided so shared callers opt in explicitly.
+  const emitResult = useCallback(
+    (result: StripePaymentResult) => {
+      if (analyticsSource && analyticsContextId != null) {
+        track('payment_sheet_completed', {
+          source: analyticsSource,
+          result: result.success
+            ? 'success'
+            : result.error === 'cancelled'
+              ? 'cancelled'
+              : 'failed',
+          context_id: analyticsContextId,
+          amount_cents: analyticsAmountCents ?? 0,
+          error_code: result.errorCode,
+          decline_code: result.declineCode,
+          error_type: result.errorType,
+        });
+      }
+      onResult(result);
+    },
+    [analyticsSource, analyticsContextId, analyticsAmountCents, onResult],
+  );
 
   const handlePayment = useCallback(async () => {
     if (isPresentingRef.current) return;
