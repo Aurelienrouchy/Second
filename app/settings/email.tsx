@@ -81,36 +81,43 @@ export default function EmailSettingsScreen() {
 
   const handleSave = async () => {
     if (!newEmail.trim() || !confirmNewEmail.trim()) {
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'empty_fields' });
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
 
     if (isPasswordUser && !password) {
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'password_required' });
       Alert.alert('Erreur', 'Veuillez saisir votre mot de passe.');
       return;
     }
 
     if (isUnknownProvider) {
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'unknown_provider' });
       Alert.alert('Erreur', 'Impossible de déterminer votre méthode de connexion. Veuillez vous déconnecter et vous reconnecter.');
       return;
     }
 
     if (isAppleOnAndroid && !hasPasswordProvider) {
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'password_required' });
       Alert.alert('Erreur', 'Veuillez d\'abord ajouter un mot de passe à votre compte.');
       return;
     }
 
     if (isAppleOnAndroid && hasPasswordProvider && !password) {
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'password_required' });
       Alert.alert('Erreur', 'Veuillez saisir votre mot de passe.');
       return;
     }
 
     if (!isPasswordUser && !isAppleOnAndroid && !reauthDone) {
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'reauth_required' });
       Alert.alert('Erreur', 'Veuillez d\'abord vérifier votre identité');
       return;
     }
 
     if (newEmail !== confirmNewEmail) {
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'email_mismatch' });
       Alert.alert('Erreur', 'Les adresses email ne correspondent pas');
       return;
     }
@@ -126,6 +133,8 @@ export default function EmailSettingsScreen() {
 
       // 2. Envoyer un email de vérification pour le changement
       await AuthService.updateEmail(newEmail.trim());
+
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: true });
 
       Alert.alert(
         'Vérification envoyée',
