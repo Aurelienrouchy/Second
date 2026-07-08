@@ -300,6 +300,11 @@ export function useArticleActions({
   const handleEditArticle = useCallback(() => {
     if (!article) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    track('article_edit_opened', {
+      article_id: article.id,
+      outcome: 'loaded',
+      source: 'article_detail',
+    });
     router.push(`/article/edit/${article.id}`);
   }, [article, router]);
 
