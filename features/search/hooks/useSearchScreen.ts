@@ -192,6 +192,20 @@ export function useSearchScreen() {
     },
   });
 
+  // ─── Recent searches ────────────────────────────────────────────
+  const loadRecentSearches = async () => {
+    if (!user) return;
+    setIsLoadingHistory(true);
+    try {
+      const searches = await SearchHistoryService.getRecentSearches(user.id, 10);
+      setRecentSearches(searches);
+    } catch (error) {
+      if (__DEV__) console.error('Error loading recent searches:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   // ─── Init ────────────────────────────────────────────────────────
   useEffect(() => {
     let task: ReturnType<typeof InteractionManager.runAfterInteractions> | undefined;
@@ -199,7 +213,9 @@ export function useSearchScreen() {
       // Focus after the navigation/mount interactions settle (no magic timeout).
       task = InteractionManager.runAfterInteractions(() => inputRef.current?.focus());
     }
-    loadRecentSearches();
+    (async () => {
+      await loadRecentSearches();
+    })();
     return () => task?.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
