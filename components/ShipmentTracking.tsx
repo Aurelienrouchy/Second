@@ -346,9 +346,17 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
 
   const submitRefund = useCallback(async () => {
     if (isRefunding) return;
+    const refundStatus: 'delivery_failed' | 'lost' =
+      transaction.status === 'lost' ? 'lost' : 'delivery_failed';
     try {
       setIsRefunding(true);
       const result = await requestRefund(transaction.id);
+      track('refund_requested', {
+        transaction_id: transaction.id,
+        status: refundStatus,
+        success: true,
+        redirected_to_report: false,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onStatusUpdate?.();
       Alert.alert(
@@ -362,6 +370,16 @@ const ShipmentTracking: React.FC<ShipmentTrackingProps> = ({
       if (__DEV__) console.error('requestRefund failed:', error);
       // Refund refused on a delivered parcel → steer the buyer to the report flow.
       if (isFailedPrecondition(error)) {
+        track('refund_requested', {
+          transaction_id: transaction.id,
+          status: refundStatus,
+          success: false,
+          redirected_to_report: true,
+          error_code:
+            error && typeof error === 'object' && 'code' in error
+              ? String((error as { code?: unknown }).code)
+              : undefined,
+        });
         Alert.alert(
           'Remboursement automatique indisponible',
           'Le remboursement automatique est réservé aux colis confirmés perdus ou en échec de livraison. Pour un colis livré présentant un problème, signalez-le à notre équipe.',
