@@ -141,11 +141,12 @@ function NotificationItem({ notification, onPress, onDelete, testID }: Notificat
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const user = useUser();
+  const userId = user?.id;
   const queryClient = useQueryClient();
 
   const refreshBadgeCount = useCallback(() => {
-    if (user?.id) refreshNotificationBadge(user.id);
-  }, [user?.id]);
+    if (userId) refreshNotificationBadge(userId);
+  }, [userId]);
 
   const {
     data: notifications = [],
