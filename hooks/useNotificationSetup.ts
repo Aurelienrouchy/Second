@@ -355,7 +355,9 @@ export function useNotificationSetup(userId: string | null): void {
   // This also keeps them out of the setup effect deps below, so the 4 OS
   // listeners are no longer torn down + recreated on every notification.
   const userIdRef = useRef(userId);
-  userIdRef.current = userId;
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   const fcmTokenRef = useRef<string | null>(null);
 
