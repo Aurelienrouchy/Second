@@ -169,11 +169,25 @@ export default function PhotosReviewScreen() {
           draft.storageUrls.length > 0
         ) {
           if (__DEV__) console.log('[PhotosReview] Hydrating AI result from draft');
+          analysisAttempt.current += 1;
+          track('ai_analysis_started', {
+            photo_count: photos.length,
+            hydrated_from_draft: true,
+            attempt_number: analysisAttempt.current,
+          });
           setStorageUrls(draft.storageUrls);
           setAiResult(draft.aiResult);
           buildFinalPills(draft.aiResult);
           setProgressSteps((prev) => prev.map((s) => ({ ...s, state: 'done' as const })));
           setAnalysisState('complete');
+          track('ai_analysis_completed', {
+            photo_count: photos.length,
+            prefilled_count: countPrefilledFields(draft.aiResult),
+            detected_category: !!draft.aiResult.category?.categoryId,
+            detected_brand: !!draft.aiResult.brand?.detected,
+            detected_size: !!(draft.aiResult.size?.normalized || draft.aiResult.size?.detected),
+            duration_ms: 0,
+          });
           return;
         }
       } catch (e) {
