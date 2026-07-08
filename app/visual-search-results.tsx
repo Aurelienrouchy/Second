@@ -115,6 +115,7 @@ export default function VisualSearchResultsScreen() {
   };
 
   const handleRetry = () => {
+    track('error_retry_tapped', { screen: 'visual_search', error_context: 'visual_search' });
     performSearch(true);
   };
 
