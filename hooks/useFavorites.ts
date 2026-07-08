@@ -370,7 +370,10 @@ export function useIsFavorite(articleId: string): boolean {
  * Returns just the toggle function — stable reference, no re-render impact.
  * Pair with useIsFavorite for card-level usage.
  */
-export function useToggleFavorite(): (articleId: string) => void {
+export function useToggleFavorite(): (
+  articleId: string,
+  opts?: ToggleFavoriteOptions,
+) => void {
   const { toggleFavorite } = useFavorites();
   return toggleFavorite;
 }
