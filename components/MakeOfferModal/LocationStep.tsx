@@ -19,6 +19,7 @@ import { MeetupNeighborhood, MeetupSpot, MeetupSpotCategory, MeetupSpotCategoryL
 
 import { getNextStep, MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 
 interface LocationStepProps {
   context: MakeOfferContext;
