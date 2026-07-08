@@ -210,13 +210,17 @@ export default function PrivacySettingsScreen() {
         );
         return { previousSettings };
       },
-      onError: (_error, _enabled, context) => {
+      onSuccess: (_data, enabled) => {
+        track('marketing_consent_changed', { new_value: enabled, success: true });
+      },
+      onError: (_error, enabled, context) => {
         if (context?.previousSettings) {
           queryClient.setQueryData(
             ['userPrivacyPreferences', user?.id],
             context.previousSettings
           );
         }
+        track('marketing_consent_changed', { new_value: enabled, success: false });
         Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
       },
     });
