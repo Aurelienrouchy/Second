@@ -42,11 +42,15 @@ export default function EditableField({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<TextInput>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [fadeAnim] = useState(() => new Animated.Value(0));
 
-  useEffect(() => {
+  // Re-sync the draft when the source value changes — state adjustment during
+  // render (https://react.dev/learn/you-might-not-need-an-effect).
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setEditValue(value);
-  }, [value]);
+  }
 
   useEffect(() => {
     if (isEditing) {
