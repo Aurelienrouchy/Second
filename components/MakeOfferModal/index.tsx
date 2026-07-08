@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MeetupNeighborhood, MeetupSpot } from '@/types';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import ConfirmStep from './ConfirmStep';
 import LocationStep from './LocationStep';
 import OfferStep from './OfferStep';
