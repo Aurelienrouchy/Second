@@ -382,7 +382,13 @@ export default function MyArticlesScreen() {
               styles.ctaButton,
               pressed && styles.pressed,
             ]}
-            onPress={() => refetch()}
+            onPress={() => {
+              track('error_retry_tapped', {
+                screen: 'my_articles',
+                error_context: 'articles_load',
+              });
+              refetch();
+            }}
           >
             <Text style={styles.ctaButtonText}>Réessayer</Text>
           </Pressable>
