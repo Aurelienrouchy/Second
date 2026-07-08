@@ -919,7 +919,11 @@ export default function EditArticleScreen() {
           {SHIPPING_ENABLED && (
             <Pressable
               style={styles.deliveryToggle}
-              onPress={() => updateField('isShipping', !fields.isShipping)}
+              onPress={() => {
+                const enabled = !fields.isShipping;
+                updateField('isShipping', enabled);
+                track('sell_field_edited', { screen: 'edit', field: 'shipping', enabled });
+              }}
             >
               <View style={styles.deliveryToggleLeft}>
                 <Ionicons name="cube-outline" size={20} color={colors.foreground} />
