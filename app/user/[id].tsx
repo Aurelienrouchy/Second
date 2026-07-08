@@ -319,6 +319,9 @@ export default function UserProfileScreen() {
         message: `Découvre le profil de ${name} sur Seconde !`,
         url: `https://seconde.ca/user/${id}`,
       });
+      if (id) {
+        track('content_shared', { content_type: 'profile', content_id: id });
+      }
     } catch {
       // User cancelled share
     }
