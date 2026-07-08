@@ -202,7 +202,7 @@ export default function ShopUpgradeScreen() {
     } finally {
       setIsPurchasing(false);
     }
-  }, [shopId, selectedTier, periodMonths, isPurchasing, estimatedTotalCents, shop?.tier]);
+  }, [shopId, selectedTier, periodMonths, isPurchasing, estimatedTotalCents, currentTier]);
 
   const handlePaymentResult = useCallback(
     (result: StripePaymentResult) => {
