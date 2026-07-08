@@ -84,8 +84,8 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
   });
 
   // ── Toggle mutation with optimistic update ────────────────────────────────
-  const mutation = useMutation<void, Error, string, ToggleContext>({
-    mutationFn: async (sellerId: string) => {
+  const mutation = useMutation<void, Error, ToggleVariables, ToggleContext>({
+    mutationFn: async ({ sellerId }: ToggleVariables) => {
       const isCurrentlyLiked = likedSellerIds.includes(sellerId);
       const toggleSellerLike = httpsCallable(functions, 'toggleSellerLike');
       await toggleSellerLike({
@@ -93,7 +93,7 @@ export function useSellerLikes(userId?: string): UseSellerLikesReturn {
         isLiked: !isCurrentlyLiked,
       });
     },
-    onMutate: async (sellerId: string): Promise<ToggleContext> => {
+    onMutate: async ({ sellerId }: ToggleVariables): Promise<ToggleContext> => {
       const listKey = currentUserId
         ? queryKeys.sellers.liked(currentUserId)
         : undefined;
