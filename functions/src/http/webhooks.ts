@@ -1655,10 +1655,12 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
     // Release the article so it can be purchased again
     if (articleRef && articleSnap && articleSnap.exists) {
       tx.update(articleRef, { isSold: false });
+      cancelRelisted = true;
     }
 
     // F02: Refund wallet portion if this was a mixed wallet+card payment
     if (buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
+      cancelRefundCents = walletAmountUsed;
       const walletData = buyerWalletSnap.data()!;
       tx.update(buyerWalletRef, {
         balance: FieldValue.increment(walletAmountUsed),
