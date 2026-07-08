@@ -1026,7 +1026,10 @@ export default function EditArticleScreen() {
           label: s,
         }))}
         selectedValue={fields.size}
-        onSelect={(value) => updateField('size', value)}
+        onSelect={(value) => {
+          updateField('size', value);
+          track('sell_field_edited', { screen: 'edit', field: 'size', value });
+        }}
         type="size"
       />
 
