@@ -146,7 +146,18 @@ export default function VisualSearchResultsScreen() {
             size: item.size,
             condition: item.condition,
           }}
-          onPress={() => handleArticlePress(item.articleId)}
+          onPress={() => {
+            track('article_card_tapped', {
+              article_id: item.articleId,
+              source: 'visual_search',
+              price_cents: Math.round(item.price * 100),
+              brand: item.brand,
+              condition: item.condition,
+              is_sold: false,
+              similarity_pct: item.similarity,
+            });
+            handleArticlePress(item.articleId);
+          }}
         />
         {/* Similarity badge overlay */}
         <View style={styles.similarityBadge}>
