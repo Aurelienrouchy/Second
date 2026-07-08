@@ -96,7 +96,7 @@ const BrandCircle = React.memo<BrandCircleProps>(({ brand, index }) => {
   };
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({ pathname: '/search', params: { brands: brand.name } });
+    router.push({ pathname: '/search', params: { brands: brand.name, source: 'home_brand' } });
   }, [brand.name]);
 
   return (
