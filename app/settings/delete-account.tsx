@@ -110,6 +110,8 @@ export default function DeleteAccountScreen() {
       const deleteUserAccountFn = httpsCallable(functions, 'deleteUserAccount');
       await deleteUserAccountFn();
 
+      track('account_deletion_submitted', { auth_provider: deleteAuthProvider, outcome: 'success' });
+
       // signOut (not resetAllStores): full logout required, else the ghost session resurrects the user at cold start.
       // skipRemoteFcmCleanup: the user doc + Auth account are already deleted server-side, any FCM write would permission-deny.
       await useAuthStore.getState().signOut({ skipRemoteFcmCleanup: true });
