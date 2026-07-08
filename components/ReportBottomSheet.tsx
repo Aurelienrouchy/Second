@@ -112,6 +112,15 @@ const ReportBottomSheet = forwardRef<ReportBottomSheetRef, Props>(
           targetOwnerId
         );
 
+        submittedRef.current = true;
+        track('report_submitted', {
+          target_type: targetType,
+          target_id: targetId,
+          reason: selectedReason,
+          has_description: description.trim().length > 0,
+          success: true,
+        });
+
         Alert.alert(
           'Signalement envoyé',
           'Merci pour votre signalement. Notre équipe va l\'examiner dans les plus brefs délais.',
