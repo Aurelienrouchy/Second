@@ -528,6 +528,12 @@ export function useSearchScreen() {
   const handleMaterialsConfirm = useCallback(
     (selectedMaterials: string[]) => {
       setFilters({ ...filters, materials: selectedMaterials.length > 0 ? selectedMaterials : [] });
+      track('search_filter_applied', {
+        screen: 'search',
+        filter_type: 'materials',
+        values: selectedMaterials,
+        values_count: selectedMaterials.length,
+      });
       if (!isSearching && selectedMaterials.length > 0) setIsSearching(true);
     },
     [filters, setFilters, isSearching]
@@ -535,15 +541,40 @@ export function useSearchScreen() {
 
   const handleConditionSelect = useCallback(
     (condition: string) => {
-      setFilters({ ...filters, condition: filters.condition === condition ? undefined : condition });
+      const isDeselect = filters.condition === condition;
+      setFilters({ ...filters, condition: isDeselect ? undefined : condition });
+      if (isDeselect) {
+        track('search_filter_removed', {
+          screen: 'search',
+          filter_type: 'condition',
+          remaining_active_filter_keys: buildFilterKeys(
+            { ...filters, condition: undefined },
+            selectedCategoryPath,
+            selectedSort,
+          ),
+        });
+      } else {
+        track('search_filter_applied', {
+          screen: 'search',
+          filter_type: 'condition',
+          values: [condition],
+          values_count: 1,
+        });
+      }
       if (!isSearching) setIsSearching(true);
     },
-    [filters, setFilters, isSearching]
+    [filters, setFilters, isSearching, selectedCategoryPath, selectedSort]
   );
 
   const handleBrandsConfirm = useCallback(
     (brands: string[]) => {
       setFilters({ ...filters, brands: brands.length > 0 ? brands : undefined });
+      track('search_filter_applied', {
+        screen: 'search',
+        filter_type: 'brands',
+        values: brands,
+        values_count: brands.length,
+      });
       if (!isSearching && brands.length > 0) setIsSearching(true);
     },
     [filters, setFilters, isSearching]
