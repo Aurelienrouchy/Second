@@ -306,23 +306,33 @@ export default function CompleteProfileScreen() {
       const details = (error as { details?: { field?: string; reason?: string } } | null)?.details;
       const isUsernameField = details?.field === 'username';
 
+      let errorCode: 'username_taken' | 'username_invalid' | 'age_invalid' | 'consent_required' | 'network';
       if (code === 'functions/already-exists' && isUsernameField) {
         // Pseudo taken by someone else (race vs the live check). Inline error
         // under the field; NO account rollback — user re-submits another handle.
         setUsernameStatus('taken');
         setUsernameError(COPY_USERNAME.errTaken);
+        errorCode = 'username_taken';
       } else if (code === 'functions/invalid-argument' && isUsernameField && details?.reason) {
         setUsernameStatus('invalid');
         setUsernameError(reasonToError(details.reason as UsernameRejectionReason));
+        errorCode = 'username_invalid';
       } else if (code === 'functions/invalid-argument') {
         // DOB invalid / age < 16 (no field). Surface near the consent block.
         setSubmitError(COPY_CONSENT_AGE_ERROR);
+        errorCode = 'age_invalid';
       } else if (code === 'functions/failed-precondition') {
         setSubmitError(COPY_CONSENT_REQUIRED_ERROR);
+        errorCode = 'consent_required';
       } else {
         if (__DEV__) console.log('[complete-profile] completeConsent failed:', error);
         setSubmitError(COPY_USERNAME.errNetwork);
+        errorCode = 'network';
       }
+      track('signup_profile_failed', {
+        error_code: errorCode,
+        username_length: username.trim().length,
+      });
     } finally {
       setIsSubmitting(false);
     }
