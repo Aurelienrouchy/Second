@@ -143,18 +143,34 @@ export default function SwapDetailScreen() {
   // -----------------------------------------------------------------------
   // Action handlers
   // -----------------------------------------------------------------------
-  const handleAccept = useCallback(async () => {
-    if (!id) return;
-    setIsProcessing(true);
-    try {
-      await acceptSwap(id);
-    } catch (error) {
-      if (__DEV__) console.error('Error accepting swap:', error);
-      Alert.alert('Erreur', "Impossible d'accepter l'échange");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [id]);
+  const handleAccept = useCallback(
+    async (surface: 'sticky_bar' | 'inline' = 'inline') => {
+      if (!id) return;
+      const cashTopUpCents = swap?.cashTopUp?.amount ?? 0;
+      setIsProcessing(true);
+      try {
+        await acceptSwap(id);
+        track('swap_accepted', {
+          swap_id: id,
+          outcome: 'success',
+          surface,
+          cash_top_up_cents: cashTopUpCents,
+        });
+      } catch (error) {
+        if (__DEV__) console.error('Error accepting swap:', error);
+        track('swap_accepted', {
+          swap_id: id,
+          outcome: 'error',
+          surface,
+          cash_top_up_cents: cashTopUpCents,
+        });
+        Alert.alert('Erreur', "Impossible d'accepter l'échange");
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [id, swap?.cashTopUp?.amount]
+  );
 
   const handleDecline = useCallback(async () => {
     Alert.alert(
