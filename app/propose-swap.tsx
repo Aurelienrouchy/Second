@@ -222,7 +222,23 @@ export default function ProposeSwapScreen() {
 
   // Submit swap proposal
   const handleSubmit = useCallback(async () => {
+    // The UI captures the complement in DOLLARS; the backend expects CENTS.
+    const complementCents = Math.round(Number(complementAmount) * 100);
+    const hasCashTopUp = complementCents > 0;
+    const proposalBase = {
+      receiver_id: receiverId || '',
+      initiator_items_count: initiatorItems.length,
+      receiver_items_count: receiverItems.length,
+      initiator_total_cents: Math.round(initiatorTotal * 100),
+      receiver_total_cents: Math.round(receiverTotal * 100),
+      has_cash_top_up: hasCashTopUp,
+      cash_top_up_cents: hasCashTopUp ? complementCents : 0,
+      ...(hasCashTopUp ? { cash_payer: complementPayer } : {}),
+      has_message: message.trim().length > 0,
+    } as const;
+
     if (!user || initiatorItems.length === 0 || receiverItems.length === 0) {
+      track('swap_proposal_sent', { ...proposalBase, outcome: 'validation_failed' });
       Alert.alert('Erreur', "Sélectionne des articles de chaque côté");
       return;
     }
@@ -232,15 +248,12 @@ export default function ProposeSwapScreen() {
       // Check if users are blocked before proceeding
       const blocked = await ModerationService.areUsersBlocked(user.id, receiverId || '');
       if (blocked) {
+        track('swap_proposal_sent', { ...proposalBase, outcome: 'blocked_user' });
         Alert.alert('Action impossible', 'Tu ne peux pas proposer un échange avec cet utilisateur.');
         return;
       }
 
-      // The UI captures the complement in DOLLARS; the backend expects CENTS.
-      const complementDollars = Number(complementAmount);
-      const complementCents = Math.round(complementDollars * 100);
-
-      await proposeSwap({
+      const swapId = await proposeSwap({
         initiatorId: user.id,
         initiatorName: user.displayName || 'Utilisateur',
         initiatorImage: user.profileImage,
@@ -251,7 +264,7 @@ export default function ProposeSwapScreen() {
         receiverItems,
         message: message || undefined,
         cashTopUp:
-          complementCents > 0
+          hasCashTopUp
             ? {
                 amount: complementCents,
                 payerId: complementPayer === 'initiator' ? user.id : receiverId || '',
@@ -260,6 +273,7 @@ export default function ProposeSwapScreen() {
         partyId: effectivePartyId,
       });
 
+      track('swap_proposal_sent', { ...proposalBase, outcome: 'success', swap_id: swapId });
       Alert.alert(
         'Proposition envoyée !',
         "Ta proposition d'échange a été envoyée avec succès.",
@@ -267,11 +281,14 @@ export default function ProposeSwapScreen() {
       );
     } catch (error) {
       if (__DEV__) console.error('Error proposing swap:', error);
+      track('swap_proposal_sent', { ...proposalBase, outcome: 'error' });
       Alert.alert('Erreur', "Impossible d'envoyer la proposition");
     } finally {
       setIsSubmitting(false);
     }
   }, [
+    initiatorTotal,
+    receiverTotal,
     user,
     initiatorItems,
     receiverItems,
