@@ -509,6 +509,11 @@ export default function WalletScreen() {
 
     const dollars = parseFloat(withdrawalInput.replace(',', '.'));
     if (isNaN(dollars) || dollars <= 0) {
+      track('withdrawal_submitted', {
+        amount_cents: 0,
+        validation_result: 'invalid',
+        success: false,
+      });
       Alert.alert('Erreur', 'Veuillez entrer un montant valide.');
       return;
     }
@@ -516,11 +521,21 @@ export default function WalletScreen() {
     const cents = Math.round(dollars * 100);
 
     if (cents < 1000) {
+      track('withdrawal_submitted', {
+        amount_cents: cents,
+        validation_result: 'below_min',
+        success: false,
+      });
       Alert.alert('Erreur', 'Le montant minimum de retrait est de 10,00 $.');
       return;
     }
 
     if (cents > wallet.balance) {
+      track('withdrawal_submitted', {
+        amount_cents: cents,
+        validation_result: 'insufficient',
+        success: false,
+      });
       Alert.alert('Erreur', 'Solde insuffisant.');
       return;
     }
@@ -536,6 +551,11 @@ export default function WalletScreen() {
             try {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               await withdraw(cents);
+              track('withdrawal_submitted', {
+                amount_cents: cents,
+                validation_result: 'ok',
+                success: true,
+              });
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success,
               );
@@ -546,6 +566,22 @@ export default function WalletScreen() {
               setShowWithdrawal(false);
               setWithdrawalInput('');
             } catch (error: unknown) {
+              const code = getCallableErrorCode(error);
+              const lower = getCallableErrorMessage(error).toLowerCase();
+              const failureType: 'dispute' | 'debt' | 'other' =
+                code === 'functions/failed-precondition' && lower.includes('litige')
+                  ? 'dispute'
+                  : code === 'functions/failed-precondition' &&
+                      (lower.includes('dû') || lower.includes('régularis') || lower.includes('debt'))
+                    ? 'debt'
+                    : 'other';
+              track('withdrawal_submitted', {
+                amount_cents: cents,
+                validation_result: 'ok',
+                success: false,
+                failure_type: failureType,
+                error_code: code ?? undefined,
+              });
               presentWithdrawError(error);
             }
           },
