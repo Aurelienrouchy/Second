@@ -150,6 +150,8 @@ const AuthBottomSheet: React.FC = () => {
     (user: Parameters<typeof beginPendingConsent>[0]) => {
       const onSuccess = onSuccessCallback ?? null;
       beginPendingConsent(user, onSuccess);
+      // The upcoming programmatic close is a successful hand-off, not a dismiss.
+      didAuthRef.current = true;
       resetForm();
       useAuthSheetStore.getState().hide();
       router.replace('/complete-profile' as never);
