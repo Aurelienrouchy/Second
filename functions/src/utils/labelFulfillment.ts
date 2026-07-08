@@ -465,5 +465,20 @@ export async function createLabelIdempotent(params: {
     return 'failed';
   }
 
+  // Analytics (§12): shipping_label_purchased follows the SELLER. This is the
+  // single choke point for forward-label purchase (webhook + sweep both route
+  // here). $insert_id keeps it unique per transaction. is_return=false (returns
+  // use a separate path).
+  if (labelSellerId) {
+    await captureServerEvent(labelSellerId, 'shipping_label_purchased', {
+      transaction_id: transactionId,
+      carrier: label.carrierCode || '',
+      service: labelService,
+      label_cost_cents: Math.round(((label.shipmentCost || 0) + (label.insuranceCost || 0)) * 100),
+      is_return: false,
+      $insert_id: `label_${transactionId}`,
+    });
+  }
+
   return 'created';
 }
