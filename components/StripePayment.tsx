@@ -13,6 +13,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useStripe } from '@stripe/stripe-react-native';
 
+import { track } from '@/lib/analytics';
+
+type PaymentSheetSource = 'checkout' | 'payment' | 'shop_upgrade' | 'swap_topup';
+
 // =============================================================================
 // TYPES
 // =============================================================================
