@@ -191,6 +191,13 @@ export default function OnboardingScreen() {
     if (!hasAnything || !sex || isSaving) return;
 
     setIsSaving(true);
+    track('onboarding_completed', {
+      sex_value: sex,
+      sizes_top_count: sizesTop.length,
+      sizes_bottom_count: sizesBottom.length,
+      sizes_shoes_count: sizesShoes.length,
+      size_system: sizeSystem,
+    });
     try {
       const preferences: OnboardingPreferences = {
         sex,
