@@ -221,6 +221,7 @@ export function useSearchScreen() {
       is_browse_all: isBrowseAll,
       initial_category_path: initialCategoryPath,
       initial_brands: params.brands ? params.brands.split(',') : undefined,
+      section_id: params.sectionId,
       brand_name: params.brands ? params.brands.split(',')[0] : undefined,
     });
     // Restored search (saved search / deep link carrying a query or filters),
