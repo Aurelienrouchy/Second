@@ -322,6 +322,7 @@ export default function SavedSearches() {
   }, [user?.id, reloadKey]);
 
   const handleRetry = useCallback(() => {
+    track('error_retry_tapped', { screen: 'saved_searches', error_context: 'saved_searches_load' });
     setReloadKey((k) => k + 1);
   }, []);
 
