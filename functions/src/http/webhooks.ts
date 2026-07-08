@@ -2213,6 +2213,17 @@ async function handlePayoutFailed(payout: any): Promise<void> {
     withdrawalRequestId,
     payoutId: payout.id,
   });
+
+  // Analytics (§12): distinct_id = seller. $insert_id dedups a payout.failed +
+  // payout.canceled pair for the same request.
+  if (typeof userId === 'string' && userId) {
+    await captureServerEvent(userId, 'withdrawal_failed', {
+      withdrawal_id: withdrawalRequestId,
+      amount_cents: typeof payout.amount === 'number' ? payout.amount : 0,
+      failure_code: payout.failure_code || payout.failure_message || 'unknown',
+      $insert_id: `withdrawal_failed_${withdrawalRequestId}`,
+    });
+  }
 }
 
 // =============================================================================
