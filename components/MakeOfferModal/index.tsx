@@ -68,6 +68,13 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 
     const [isOpen, setIsOpen] = useState(false);
     const snapPoints = useMemo(() => ['85%', '95%'], []);
+    // Distinguishes a real dismissal (abandon) from the programmatic close that
+    // follows a successful submit — set by the wrapped submit handlers below.
+    const submittedRef = useRef(false);
+    // Latest sheet state for the abandon event fired from the (deps-free)
+    // onChange callback.
+    const stateRef = useRef(state);
+    stateRef.current = state;
 
     const resetState = useCallback(() => {
       setState({ ...initialState, mode: defaultMode });
@@ -76,11 +83,43 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     const handleSheetChanges = useCallback(
       (index: number) => {
         if (index === -1) {
+          if (!submittedRef.current) {
+            const s = stateRef.current;
+            track('offer_modal_abandoned', {
+              article_id: articleId,
+              step_at_close: s.step,
+              mode: s.mode,
+              offer_amount_entered: s.offerAmount.trim().length > 0,
+            });
+          }
+          submittedRef.current = false;
           Keyboard.dismiss();
           setIsOpen(false);
         }
       },
-      []
+      [articleId]
+    );
+
+    const handleMeetupSubmit = useMemo(
+      () =>
+        onMeetupOfferSubmit
+          ? async (amount: number, message: string, meetupSpot: MeetupSpot) => {
+              await onMeetupOfferSubmit(amount, message, meetupSpot);
+              submittedRef.current = true;
+            }
+          : undefined,
+      [onMeetupOfferSubmit]
+    );
+
+    const handleShippingSubmit = useMemo(
+      () =>
+        onShippingOfferSubmit
+          ? async (amount: number, message: string) => {
+              await onShippingOfferSubmit(amount, message);
+              submittedRef.current = true;
+            }
+          : undefined,
+      [onShippingOfferSubmit]
     );
 
     const renderBackdrop = useCallback(
