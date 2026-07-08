@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@/hooks/useAuth';
 import { getUserSwaps, getSwapItems } from '@/services/swapService';
 import { queryKeys } from '@/lib/queryKeys';
+import { track } from '@/lib/analytics';
 import { Swap, SwapStatus, SwapItemInfo } from '@/types';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
