@@ -172,6 +172,7 @@ export default function HomeScreen() {
         onRequestClose={closeVisualSearch}
       >
         <VisualSearchCamera
+          source="home"
           onClose={closeVisualSearch}
           onPhotoCapture={handleVisualSearchCapture}
         />
