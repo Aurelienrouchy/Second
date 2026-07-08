@@ -1,6 +1,7 @@
 import { router, useRootNavigationState, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
+import { track } from '@/lib/analytics';
 import { useAuthStore } from '@/store/authStore';
 
 /**
