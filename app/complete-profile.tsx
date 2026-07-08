@@ -93,6 +93,8 @@ export default function CompleteProfileScreen() {
   // keystroke wins). Bumped on every change + debounce kickoff.
   const requestIdRef = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic count of username_checked emissions this session (attempt_index).
+  const usernameCheckCountRef = useRef(0);
 
   // ── Consent (DOB + checkboxes) ──
   const [dobDay, setDobDay] = useState('');
