@@ -49,23 +49,31 @@ export default function BankAccountScreen() {
   const [institutionNumber, setInstitutionNumber] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
 
-  const validate = useCallback((): string | null => {
+  const validate = useCallback(():
+    | { message: string; result: 'transit_invalid' | 'institution_invalid' | 'account_invalid' }
+    | null => {
     if (transitNumber.length !== 5) {
-      return 'Le numero de transit doit contenir 5 chiffres';
+      return { message: 'Le numero de transit doit contenir 5 chiffres', result: 'transit_invalid' };
     }
     if (institutionNumber.length !== 3) {
-      return "Le numero d'institution doit contenir 3 chiffres";
+      return { message: "Le numero d'institution doit contenir 3 chiffres", result: 'institution_invalid' };
     }
     if (accountNumber.length < 7) {
-      return 'Le numero de compte doit contenir au moins 7 chiffres';
+      return { message: 'Le numero de compte doit contenir au moins 7 chiffres', result: 'account_invalid' };
     }
     return null;
   }, [transitNumber, institutionNumber, accountNumber]);
 
   const handleSubmit = useCallback(async () => {
+    const isReplacement = !!status?.bankAccountLast4;
     const validationError = validate();
     if (validationError) {
-      Alert.alert('Erreur', validationError);
+      track('bank_account_saved', {
+        is_replacement: isReplacement,
+        validation_result: validationError.result,
+        success: false,
+      });
+      Alert.alert('Erreur', validationError.message);
       return;
     }
 
@@ -75,6 +83,11 @@ export default function BankAccountScreen() {
         transitNumber,
         institutionNumber,
         accountNumber,
+      });
+      track('bank_account_saved', {
+        is_replacement: isReplacement,
+        validation_result: 'ok',
+        success: true,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowForm(false);
@@ -87,13 +100,22 @@ export default function BankAccountScreen() {
       );
     } catch (error: unknown) {
       if (__DEV__) console.error('Replace bank account error:', error);
+      track('bank_account_saved', {
+        is_replacement: isReplacement,
+        validation_result: 'ok',
+        success: false,
+        error_code:
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : undefined,
+      });
       const msg =
         error instanceof Error
           ? error.message
           : 'Impossible de mettre a jour le compte bancaire.';
       Alert.alert('Erreur', msg);
     }
-  }, [validate, replaceBankAccount, transitNumber, institutionNumber, accountNumber]);
+  }, [validate, replaceBankAccount, transitNumber, institutionNumber, accountNumber, status]);
 
   // ── Auth guard ──
   if (!isLoggedIn) {
