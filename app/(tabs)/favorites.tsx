@@ -37,6 +37,7 @@ import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
 import { useUser } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { FavoritesService } from '@/services/favoritesService';
+import { track } from '@/lib/analytics';
 import { Article, ArticleWithLocation } from '@/types';
 
 // =============================================================================
