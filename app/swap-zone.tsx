@@ -614,7 +614,10 @@ export default function SwapZoneScreen() {
           <Text style={styles.errorSubtitle}>Vérifiez votre connexion et réessayez.</Text>
           <Pressable
             style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
-            onPress={() => refetchParty()}
+            onPress={() => {
+              track('error_retry_tapped', { screen: 'swap_zone', error_context: 'swap_zone_load' });
+              refetchParty();
+            }}
           >
             <Text style={styles.retryButtonText}>Réessayer</Text>
           </Pressable>
