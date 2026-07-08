@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
 
 import { BlurView } from 'expo-blur';
+import { track } from '@/lib/analytics';
 import { colors, fonts } from '@/constants/theme';
 
 // CameraView wrapped for Reanimated so we can fade in the feed once it is ready.
