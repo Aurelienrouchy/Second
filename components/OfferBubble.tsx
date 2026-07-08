@@ -137,9 +137,20 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const [counterDateTime, setCounterDateTime] = useState('');
   const [counterMessage, setCounterMessage] = useState('');
 
-  if (!message.offer) return null;
+  const offer = message.offer as MessageOfferWithMeetup | undefined;
+  const isMeetupOffer = !!offer?.meetup;
 
-  const offer = message.offer as MessageOfferWithMeetup;
+  // Hook appelé inconditionnellement (rules of hooks) — inerte tant que
+  // l'offre est absente ou non acceptée ('pending' ne déclenche aucun fetch).
+  const { transactionId, isLoading: isLoadingTransaction } = useOfferTransaction({
+    status: offer?.status ?? 'pending',
+    isMeetupOffer,
+    chatId,
+    currentUserId,
+  });
+
+  if (!offer) return null;
+
   const {
     amount,
     status,
@@ -149,15 +160,6 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
     meetup,
     expiresAt,
   } = offer;
-
-  const isMeetupOffer = !!meetup;
-
-  const { transactionId, isLoading: isLoadingTransaction } = useOfferTransaction({
-    status,
-    isMeetupOffer,
-    chatId,
-    currentUserId,
-  });
 
   const handleAccept = async () => {
     const confirmMessage = isMeetupOffer
