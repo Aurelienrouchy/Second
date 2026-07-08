@@ -162,8 +162,8 @@ export default function ChatScreen() {
         chat_id: chatId ?? '',
         message_type: 'text',
         message_length: trimmed.length,
-        has_article: !!chat?.articleId,
-        is_seller: user.id === chat?.sellerId,
+        has_article: !!chatArticleId,
+        is_seller: user.id === chatSellerId,
         outcome: 'success',
       });
     } catch (err: unknown) {
@@ -172,14 +172,14 @@ export default function ChatScreen() {
         chat_id: chatId ?? '',
         message_type: 'text',
         message_length: trimmed.length,
-        has_article: !!chat?.articleId,
-        is_seller: user.id === chat?.sellerId,
+        has_article: !!chatArticleId,
+        is_seller: user.id === chatSellerId,
         outcome: 'error',
       });
       const msg = err instanceof Error ? err.message : '';
       Alert.alert('Erreur', msg.includes('Impossible') ? msg : "Impossible d'envoyer le message");
     }
-  }, [messageText, user, sendMessage, isOtherBlocked, chatId, chat?.articleId, chat?.sellerId]);
+  }, [messageText, user, sendMessage, isOtherBlocked, chatId, chatArticleId, chatSellerId]);
 
   const handlePickImage = useCallback(async () => {
     if (isOtherBlocked) {
