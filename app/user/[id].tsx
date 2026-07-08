@@ -369,7 +369,7 @@ export default function UserProfileScreen() {
           onPress: async () => {
             try {
               await ModerationService.blockUser(
-                currentUser.id,
+                currentUserId,
                 id,
                 profileUser.displayName ?? '',
               );
