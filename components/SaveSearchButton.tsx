@@ -229,7 +229,7 @@ function SaveSearchButtonComponent({
               {query ? (
                 <View style={styles.summaryRow}>
                   <Ionicons name="search" size={16} color={colors.muted} />
-                  <Text style={styles.summaryText}>"{query}"</Text>
+                  <Text style={styles.summaryText}>&quot;{query}&quot;</Text>
                 </View>
               ) : null}
               {filters.categoryIds && filters.categoryIds.length > 0 && (

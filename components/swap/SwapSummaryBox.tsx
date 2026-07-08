@@ -34,7 +34,7 @@ const SwapSummaryBox: React.FC<SwapSummaryBoxProps> = ({
   return (
     <View style={styles.container}>
       {/* Title */}
-      <Text style={styles.title}>Récapitulatif de l'échange</Text>
+      <Text style={styles.title}>Récapitulatif de l&apos;échange</Text>
 
       {/* Received Row */}
       <View style={styles.row}>

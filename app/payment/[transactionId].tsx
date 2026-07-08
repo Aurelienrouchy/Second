@@ -628,7 +628,7 @@ export default function PaymentScreen() {
           <View style={styles.securityTextContainer}>
             <Text style={styles.securityTitle}>Protection Seconde</Text>
             <Text style={styles.securityDesc}>
-              Paiement sécurisé par Stripe. Vos données bancaires ne transitent jamais par Seconde. Remboursement si l'article ne correspond pas.
+              Paiement sécurisé par Stripe. Vos données bancaires ne transitent jamais par Seconde. Remboursement si l&apos;article ne correspond pas.
             </Text>
           </View>
         </View>
@@ -698,7 +698,7 @@ export default function PaymentScreen() {
           <ActivityIndicator size="large" color={colors.rust} />
           <Text style={styles.confirmTitle}>Confirmation du paiement…</Text>
           <Text style={styles.confirmSubtitle}>
-            Ne fermez pas l'application, nous finalisons votre commande.
+            Ne fermez pas l&apos;application, nous finalisons votre commande.
           </Text>
         </View>
       )}

@@ -93,7 +93,7 @@ export const ShippingCard = React.memo(function ShippingCard({
                 <Text style={styles.aiBadgeText}>IA</Text>
               </View>
               <Text style={styles.aiSuggestText}>
-                Format suggéré selon l'article
+                Format suggéré selon l&apos;article
               </Text>
             </View>
           )}

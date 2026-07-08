@@ -549,7 +549,7 @@ const BrandSelectionSheet = forwardRef<BrandSelectionSheetRef, BrandSelectionShe
               <View style={styles.addBrandContent}>
                 <Ionicons name="add" size={18} color={colors.rust} />
                 <Text style={styles.addBrandText}>
-                  Ajouter "{searchQuery.trim()}"
+                  Ajouter &quot;{searchQuery.trim()}&quot;
                 </Text>
               </View>
               {isAddingBrand && <ActivityIndicator size="small" color={colors.rust} />}

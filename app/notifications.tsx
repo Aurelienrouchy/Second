@@ -335,7 +335,7 @@ export default function NotificationsScreen() {
             <Ionicons name="notifications-off-outline" size={64} color={colors.muted} />
             <Text style={styles.emptyTitle}>Aucune notification</Text>
             <Text style={styles.emptySubtitle}>
-              Vous recevrez des notifications pour les favoris, baisses de prix, et propositions d'achat.
+              Vous recevrez des notifications pour les favoris, baisses de prix, et propositions d&apos;achat.
             </Text>
           </View>
         ) : (

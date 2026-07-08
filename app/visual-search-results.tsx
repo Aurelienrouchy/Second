@@ -185,7 +185,7 @@ export default function VisualSearchResultsScreen() {
             <View style={styles.loadingOverlay} />
           </View>
         )}
-        <Text style={styles.loadingTitle}>Analyse de l'image...</Text>
+        <Text style={styles.loadingTitle}>Analyse de l&apos;image...</Text>
         <Text style={styles.loadingSubtitle}>Recherche de produits similaires</Text>
       </View>
       {/* Skeleton product grid */}
@@ -201,7 +201,7 @@ export default function VisualSearchResultsScreen() {
   const renderError = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="alert-circle-outline" size={56} color={colors.muted} />
-      <Text style={styles.emptyTitle}>Impossible d'analyser l'image</Text>
+      <Text style={styles.emptyTitle}>Impossible d&apos;analyser l&apos;image</Text>
       <Text style={styles.emptySubtitle}>{error}</Text>
       <Pressable style={styles.retryButton} onPress={handleRetry}>
         <Ionicons name="refresh-outline" size={20} color={colors.white} />

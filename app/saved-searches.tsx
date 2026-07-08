@@ -241,7 +241,7 @@ function EmptyState() {
       <Ionicons name="bookmark-outline" size={48} color={colors.muted} />
       <Text style={styles.emptyTitle}>Aucune recherche sauvegardée</Text>
       <Text style={styles.emptySubtitle}>
-        Sauvegardez une recherche depuis l'écran de recherche pour la retrouver ici
+        Sauvegardez une recherche depuis l&apos;écran de recherche pour la retrouver ici
       </Text>
     </Animated.View>
   );

@@ -183,7 +183,7 @@ export default function DeleteAccountScreen() {
         <View style={styles.infoItem}>
           <Ionicons name="information-circle" size={20} color={colors.foregroundSecondary} />
           <Text variant="bodySmall" style={styles.infoItemText}>
-            Les conversations seront anonymisées (l'autre participant les conserve)
+            Les conversations seront anonymisées (l&apos;autre participant les conserve)
           </Text>
         </View>
       </View>
@@ -192,7 +192,7 @@ export default function DeleteAccountScreen() {
       <View style={styles.rgpdBox}>
         <Ionicons name="shield-checkmark" size={20} color={colors.success} />
         <Text variant="bodySmall" style={styles.rgpdText}>
-          Conformément à la Loi 25 du Québec et à la LPRPDE (PIPEDA), vous avez le droit à l'effacement de vos données personnelles.
+          Conformément à la Loi 25 du Québec et à la LPRPDE (PIPEDA), vous avez le droit à l&apos;effacement de vos données personnelles.
         </Text>
       </View>
 
@@ -244,7 +244,7 @@ export default function DeleteAccountScreen() {
       {/* Re-authentication */}
       {isUnknownProvider ? (
         <View style={styles.inputSection}>
-          <Label style={styles.inputLabel}>Vérification d'identité</Label>
+          <Label style={styles.inputLabel}>Vérification d&apos;identité</Label>
           <View style={styles.unknownProviderBox}>
             <Ionicons name="alert-circle" size={20} color={colors.warning} />
             <Caption style={styles.unknownProviderText}>
@@ -267,7 +267,7 @@ export default function DeleteAccountScreen() {
         </View>
       ) : isAppleOnAndroid ? (
         <View style={styles.inputSection}>
-          <Label style={styles.inputLabel}>Vérification d'identité</Label>
+          <Label style={styles.inputLabel}>Vérification d&apos;identité</Label>
           {hasPasswordProvider ? (
             reauthDone ? (
               <View style={styles.reauthSuccess}>
@@ -277,7 +277,7 @@ export default function DeleteAccountScreen() {
             ) : (
               <View style={styles.applePasswordSection}>
                 <Caption style={styles.applePasswordHint}>
-                  La ré-authentification Apple n'est pas disponible sur Android. Utilisez votre mot de passe pour vérifier votre identité.
+                  La ré-authentification Apple n&apos;est pas disponible sur Android. Utilisez votre mot de passe pour vérifier votre identité.
                 </Caption>
                 <TextInput
                   style={styles.input}
@@ -307,7 +307,7 @@ export default function DeleteAccountScreen() {
               <View style={styles.unknownProviderBox}>
                 <Ionicons name="alert-circle" size={20} color={colors.warning} />
                 <Caption style={styles.unknownProviderText}>
-                  La ré-authentification Apple n'est pas disponible sur Android. Ajoutez d'abord un mot de passe à votre compte.
+                  La ré-authentification Apple n&apos;est pas disponible sur Android. Ajoutez d&apos;abord un mot de passe à votre compte.
                 </Caption>
               </View>
               <Button
@@ -325,7 +325,7 @@ export default function DeleteAccountScreen() {
         </View>
       ) : (
         <View style={styles.inputSection}>
-          <Label style={styles.inputLabel}>Vérification d'identité</Label>
+          <Label style={styles.inputLabel}>Vérification d&apos;identité</Label>
           {reauthDone ? (
             <View style={styles.reauthSuccess}>
               <Ionicons name="checkmark-circle" size={20} color={colors.success} />

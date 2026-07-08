@@ -17,7 +17,7 @@ export const PermissionDenied = React.memo(function PermissionDenied({
       </View>
       <Text style={styles.permissionTitle}>Accès caméra requis</Text>
       <Text style={styles.permissionText}>
-        Pour prendre des photos de vos articles, autorisez l'accès à la caméra
+        Pour prendre des photos de vos articles, autorisez l&apos;accès à la caméra
         dans les réglages.
       </Text>
 

@@ -17,7 +17,7 @@ export const ResultsSummary = React.memo(function ResultsSummary({
   return (
     <Animated.View entering={FadeInDown.delay(200).duration(300)}>
       <View style={styles.sectionTitle}>
-        <Text style={styles.sectionTitleText}>RÉSUMÉ DE L'ANALYSE</Text>
+        <Text style={styles.sectionTitleText}>RÉSUMÉ DE L&apos;ANALYSE</Text>
         <View style={styles.sectionTitleLine} />
       </View>
       <FormFieldGroup>

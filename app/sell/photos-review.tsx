@@ -692,7 +692,7 @@ export default function PhotosReviewScreen() {
                 photos.length === 0 && styles.analyzeButtonTextDisabled,
               ]}
             >
-              ANALYSER AVEC L'IA
+              ANALYSER AVEC L&apos;IA
             </Text>
           </Pressable>
 

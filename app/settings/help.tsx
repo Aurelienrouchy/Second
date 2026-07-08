@@ -149,7 +149,7 @@ export default function HelpSettingsScreen() {
         </View>
 
         {/* Contact Section */}
-        <Label style={styles.sectionHeader}>Besoin d'aide ?</Label>
+        <Label style={styles.sectionHeader}>Besoin d&apos;aide ?</Label>
         <View style={styles.contactSection}>
           <View style={styles.contactInfo}>
             <View style={styles.contactIconContainer}>
@@ -175,7 +175,7 @@ export default function HelpSettingsScreen() {
         <View style={styles.resourcesBox}>
           <Ionicons name="book-outline" size={20} color={colors.foregroundSecondary} />
           <Text variant="bodySmall" style={styles.resourcesText}>
-            Pour plus d'informations, consultez nos Conditions Générales et notre Politique de Confidentialité dans la section "À propos".
+            Pour plus d&apos;informations, consultez nos Conditions Générales et notre Politique de Confidentialité dans la section &quot;À propos&quot;.
           </Text>
         </View>
       </ScrollView>

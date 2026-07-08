@@ -227,7 +227,7 @@ export default function ProfileDetailsScreen() {
           {/* Form */}
           <View style={styles.formSection}>
             <View style={styles.inputContainer}>
-              <Label style={styles.label}>Nom d'affichage</Label>
+              <Label style={styles.label}>Nom d&apos;affichage</Label>
               <TextInput
                 style={styles.input}
                 value={displayName}
@@ -259,7 +259,7 @@ export default function ProfileDetailsScreen() {
           <View style={styles.tipsBox}>
             <Ionicons name="bulb-outline" size={20} color={colors.primary} />
             <Text variant="bodySmall" style={styles.tipsText}>
-              Un profil complet avec une photo et une bio attire plus d'acheteurs potentiels.
+              Un profil complet avec une photo et une bio attire plus d&apos;acheteurs potentiels.
             </Text>
           </View>
         </ScrollView>

@@ -16,10 +16,10 @@ export default function NotFoundScreen() {
           </View>
           <Text style={styles.title}>Page introuvable</Text>
           <Text style={styles.subtitle}>
-            Le lien que vous avez suivi est cassé ou cette page n'existe plus.
+            Le lien que vous avez suivi est cassé ou cette page n&apos;existe plus.
           </Text>
           <Link href="/" asChild style={styles.link}>
-            <Text style={styles.linkText}>Retourner à l'accueil</Text>
+            <Text style={styles.linkText}>Retourner à l&apos;accueil</Text>
           </Link>
         </View>
       </SafeAreaView>

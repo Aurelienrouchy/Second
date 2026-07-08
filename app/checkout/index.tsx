@@ -216,7 +216,7 @@ export default function CheckoutScreen() {
         <ScreenHeader title="Commander" onBack={handleBack} />
         <View style={styles.guardContainer}>
           <Ionicons name="bag-check-outline" size={40} color={colors.muted} />
-          <Text style={styles.guardTitle}>Cet article n'est plus disponible</Text>
+          <Text style={styles.guardTitle}>Cet article n&apos;est plus disponible</Text>
           <Text style={styles.guardSubtitle}>Il a déjà été vendu.</Text>
           <Pressable style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>Retour</Text>

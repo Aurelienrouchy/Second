@@ -106,7 +106,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
           <>
             <View style={styles.divider} />
             <View style={styles.messageSection}>
-              <Text style={styles.messageText}>"{message}"</Text>
+              <Text style={styles.messageText}>&quot;{message}&quot;</Text>
             </View>
           </>
         )}
@@ -194,7 +194,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
           ) : (
             <>
               <Ionicons name="arrow-forward" size={16} color={colors.cream} />
-              <Text style={styles.submitButtonText}>ENVOYER L'OFFRE</Text>
+              <Text style={styles.submitButtonText}>ENVOYER L&apos;OFFRE</Text>
             </>
           )}
         </Pressable>

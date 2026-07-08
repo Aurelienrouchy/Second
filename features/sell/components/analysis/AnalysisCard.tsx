@@ -78,7 +78,7 @@ export const AnalysisCard = React.memo(function AnalysisCard({
             />
           </View>
 
-          <Text style={styles.analysisTitle}>Erreur d'analyse</Text>
+          <Text style={styles.analysisTitle}>Erreur d&apos;analyse</Text>
           <Text style={styles.analysisSubtitle}>{errorMessage}</Text>
         </>
       )}

@@ -152,7 +152,7 @@ export default function BlockedUsersScreen() {
       </View>
       <Text variant="h3" style={styles.emptyTitle}>Aucun utilisateur bloqué</Text>
       <Caption style={styles.emptyText}>
-        Vous n'avez bloqué aucun utilisateur pour le moment.
+        Vous n&apos;avez bloqué aucun utilisateur pour le moment.
       </Caption>
     </View>
   );

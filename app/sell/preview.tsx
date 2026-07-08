@@ -407,7 +407,7 @@ export default function PreviewScreen() {
           ) : (
             <>
               <Ionicons name="send-outline" size={18} color={colors.cream} />
-              <Text style={styles.publishButtonText}>PUBLIER L'ANNONCE</Text>
+              <Text style={styles.publishButtonText}>PUBLIER L&apos;ANNONCE</Text>
             </>
           )}
         </Pressable>

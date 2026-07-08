@@ -120,7 +120,7 @@ export default function ShopDetailScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="time-outline" size={20} color={colors.foreground} />
-          <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
+          <Text style={styles.sectionTitle}>Horaires d&apos;ouverture</Text>
         </View>
         {days.map((day) => {
           const hours = shop.openingHours[day.key];

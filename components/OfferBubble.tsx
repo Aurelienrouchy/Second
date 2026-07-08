@@ -778,7 +778,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
 
         {/* Message */}
         {offerMessage && (
-          <Text style={styles.offerMessage}>"{offerMessage}"</Text>
+          <Text style={styles.offerMessage}>&quot;{offerMessage}&quot;</Text>
         )}
 
         {/* Status Badge + Expiry */}

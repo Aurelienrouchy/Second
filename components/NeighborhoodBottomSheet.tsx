@@ -131,7 +131,7 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
           </View>
 
           <Text style={styles.subtitle}>
-            Sélectionnez le quartier où vous pouvez rencontrer l'acheteur
+            Sélectionnez le quartier où vous pouvez rencontrer l&apos;acheteur
           </Text>
 
           <View style={styles.searchContainer}>

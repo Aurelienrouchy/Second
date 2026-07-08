@@ -63,7 +63,7 @@ function ArticleCTABarComponent({
       {isOwnArticle ? (
         <View style={styles.ownArticleBar}>
           <Ionicons name="checkmark-circle" size={18} color={colors.muted} />
-          <Text style={styles.ownArticleText}>C'est votre article</Text>
+          <Text style={styles.ownArticleText}>C&apos;est votre article</Text>
         </View>
       ) : isSwapContext ? (
         <Pressable

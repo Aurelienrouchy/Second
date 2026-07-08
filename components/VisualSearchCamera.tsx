@@ -198,7 +198,7 @@ function VisualSearchCameraComponent({
           <Ionicons name="camera-outline" size={64} color={colors.muted} />
           <Text style={styles.permissionTitle}>Accès caméra requis</Text>
           <Text style={styles.permissionText}>
-            Pour rechercher par photo, autorisez l'accès à la caméra.
+            Pour rechercher par photo, autorisez l&apos;accès à la caméra.
           </Text>
 
           <TouchableOpacity

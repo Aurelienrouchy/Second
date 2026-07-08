@@ -31,7 +31,7 @@ export default function LegalNoticeScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
 
-        <Text variant="h3" style={styles.sectionTitle}>1. Éditeur de l'application</Text>
+        <Text variant="h3" style={styles.sectionTitle}>1. Éditeur de l&apos;application</Text>
         <InfoCard title="Seconde Inc.">
           <Caption>Société par actions constituée au Québec</Caption>
           <Caption>NEQ : 1234567890</Caption>
@@ -67,28 +67,28 @@ export default function LegalNoticeScreen() {
 
         <Text variant="h3" style={styles.sectionTitle}>4. Propriété intellectuelle</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          L'ensemble du contenu de l'Application Seconde (textes, images, graphismes, logo,
+          L&apos;ensemble du contenu de l&apos;Application Seconde (textes, images, graphismes, logo,
           icônes, sons, logiciels, etc.) est protégé par les lois canadiennes et internationales
-          relatives à la propriété intellectuelle, notamment la Loi sur le droit d'auteur (L.R.C. (1985), ch. C-42).
+          relatives à la propriété intellectuelle, notamment la Loi sur le droit d&apos;auteur (L.R.C. (1985), ch. C-42).
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          La marque « Seconde », le logo et l'ensemble des éléments graphiques sont la propriété
+          La marque « Seconde », le logo et l&apos;ensemble des éléments graphiques sont la propriété
           exclusive de Seconde Inc. Toute reproduction, représentation, modification,
           publication ou adaptation totale ou partielle de ces éléments est strictement interdite
           sans autorisation écrite préalable.
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Les contenus publiés par les utilisateurs (photos, descriptions) restent leur
-          propriété. En les publiant sur l'Application, ils accordent à Seconde Inc. une licence
-          d'utilisation non exclusive pour les besoins du service.
+          propriété. En les publiant sur l&apos;Application, ils accordent à Seconde Inc. une licence
+          d&apos;utilisation non exclusive pour les besoins du service.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>5. Données personnelles</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Le traitement des données personnelles est régi par notre Politique de Confidentialité,
-          accessible depuis les paramètres de l'Application. Seconde Inc. se conforme à la Loi 25
+          accessible depuis les paramètres de l&apos;Application. Seconde Inc. se conforme à la Loi 25
           sur la protection des renseignements personnels dans le secteur privé (Québec) ainsi
-          qu'à la Loi sur la protection des renseignements personnels et les documents
+          qu&apos;à la Loi sur la protection des renseignements personnels et les documents
           électroniques (LPRPDE / PIPEDA) au niveau fédéral.
         </Text>
 
@@ -111,13 +111,13 @@ export default function LegalNoticeScreen() {
 
         <Text variant="h3" style={styles.sectionTitle}>6. Stockage local</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          L'Application utilise des technologies de stockage local pour son fonctionnement.
-          Pour plus d'informations, consultez notre Politique de Confidentialité.
+          L&apos;Application utilise des technologies de stockage local pour son fonctionnement.
+          Pour plus d&apos;informations, consultez notre Politique de Confidentialité.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>7. Limitation de responsabilité</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Seconde Inc. agit en tant qu'intermédiaire technique entre les utilisateurs. Elle ne
+          Seconde Inc. agit en tant qu&apos;intermédiaire technique entre les utilisateurs. Elle ne
           peut être tenue responsable :
         </Text>
         <View style={styles.warningBox}>
@@ -128,7 +128,7 @@ export default function LegalNoticeScreen() {
             {'•'} Des transactions effectuées entre utilisateurs
           </Text>
           <Text variant="bodySmall" style={styles.warningItem}>
-            {'•'} Des dommages directs ou indirects liés à l'utilisation de l'Application
+            {'•'} Des dommages directs ou indirects liés à l&apos;utilisation de l&apos;Application
           </Text>
           <Text variant="bodySmall" style={styles.warningItem}>
             {'•'} Des interruptions temporaires du service
@@ -138,15 +138,15 @@ export default function LegalNoticeScreen() {
         <Text variant="h3" style={styles.sectionTitle}>8. Droit applicable</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Les présentes mentions légales sont régies par les lois en vigueur dans la province de
-          Québec et les lois fédérales du Canada qui s'y appliquent. En cas de litige, et après
-          échec de toute tentative de recherche d'une solution amiable, les tribunaux du district
+          Québec et les lois fédérales du Canada qui s&apos;y appliquent. En cas de litige, et après
+          échec de toute tentative de recherche d&apos;une solution amiable, les tribunaux du district
           judiciaire de Montréal seront seuls compétents.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>9. Résolution des différends</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           En cas de litige, vous pouvez contacter notre service à la clientèle. Si aucune entente
-          n'est trouvée, vous pouvez déposer une plainte auprès de l'Office de la protection du
+          n&apos;est trouvée, vous pouvez déposer une plainte auprès de l&apos;Office de la protection du
           consommateur du Québec (OPC).
         </Text>
         <InfoCard title="Office de la protection du consommateur">
@@ -162,7 +162,7 @@ export default function LegalNoticeScreen() {
         <View style={styles.signalBox}>
           <View style={styles.signalItem}>
             <Ionicons name="flag" size={18} color={colors.warning} />
-            <Caption style={styles.signalText}>La fonction « Signaler » dans l'Application</Caption>
+            <Caption style={styles.signalText}>La fonction « Signaler » dans l&apos;Application</Caption>
           </View>
           <View style={styles.signalItem}>
             <Ionicons name="mail" size={18} color={colors.warning} />

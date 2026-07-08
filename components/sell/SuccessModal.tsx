@@ -98,7 +98,7 @@ export default function SuccessModal({
             onPress={onReturnHome}
           >
             <Text style={styles.secondaryButtonText}>
-              Retour à l'accueil
+              Retour à l&apos;accueil
             </Text>
           </Pressable>
         </Animated.View>

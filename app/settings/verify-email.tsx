@@ -156,7 +156,7 @@ export default function VerifyEmailScreen() {
                   onPress={handleCheckVerification}
                   style={styles.actionButton}
                 >
-                  J'ai vérifié mon email
+                  J&apos;ai vérifié mon email
                 </Button>
 
                 <Pressable
@@ -168,7 +168,7 @@ export default function VerifyEmailScreen() {
                     <ActivityIndicator color={colors.primary} />
                   ) : (
                     <Text variant="body" style={styles.resendButtonText}>
-                      Renvoyer l'email
+                      Renvoyer l&apos;email
                     </Text>
                   )}
                 </Pressable>
@@ -182,7 +182,7 @@ export default function VerifyEmailScreen() {
                 style={styles.actionButton}
                 leftIcon={<Ionicons name="mail" size={20} color={colors.white} />}
               >
-                Envoyer l'email de vérification
+                Envoyer l&apos;email de vérification
               </Button>
             )}
           </View>

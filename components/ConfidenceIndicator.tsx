@@ -248,7 +248,7 @@ export function LabelDetectedBanner({
       <View style={styles.labelBannerContent}>
         <Text style={styles.labelBannerTitle}>Etiquette detectee</Text>
         <Text style={styles.labelBannerSubtitle}>
-          Des informations ont ete extraites de l'etiquette du produit
+          Des informations ont ete extraites de l&apos;etiquette du produit
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color={themeColors.secondary} />

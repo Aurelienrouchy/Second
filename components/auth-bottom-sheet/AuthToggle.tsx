@@ -101,7 +101,7 @@ function AuthToggleComponent({ active, onSelect }: AuthToggleProps) {
         accessibilityLabel="S'inscrire"
       >
         <Animated.Text style={[styles.tabText, signUpTextStyle]}>
-          S'inscrire
+          S&apos;inscrire
         </Animated.Text>
       </Pressable>
     </View>

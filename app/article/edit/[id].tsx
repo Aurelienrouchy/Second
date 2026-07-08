@@ -643,7 +643,7 @@ export default function EditArticleScreen() {
           <Pressable onPress={handleBack} style={styles.backButton}>
             <Ionicons name="close" size={24} color={colors.foreground} />
           </Pressable>
-          <Text style={styles.headerTitle}>Modifier l'article</Text>
+          <Text style={styles.headerTitle}>Modifier l&apos;article</Text>
           <View style={styles.headerPlaceholder} />
         </View>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
@@ -706,7 +706,7 @@ export default function EditArticleScreen() {
         <Pressable onPress={handleBack} style={styles.backButton}>
           <Ionicons name="close" size={24} color={colors.foreground} />
         </Pressable>
-        <Text style={styles.headerTitle}>Modifier l'article</Text>
+        <Text style={styles.headerTitle}>Modifier l&apos;article</Text>
         <View style={styles.headerPlaceholder} />
       </View>
 

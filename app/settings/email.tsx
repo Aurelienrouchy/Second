@@ -234,7 +234,7 @@ export default function EmailSettingsScreen() {
             {/* Re-authentication section */}
             {isUnknownProvider ? (
               <View style={styles.inputContainer}>
-                <Label style={styles.label}>Vérification d'identité</Label>
+                <Label style={styles.label}>Vérification d&apos;identité</Label>
                 <View style={styles.unknownProviderBox}>
                   <Ionicons name="alert-circle" size={20} color={colors.warning} />
                   <Caption style={styles.unknownProviderText}>
@@ -304,11 +304,11 @@ export default function EmailSettingsScreen() {
               </View>
             ) : isAppleOnAndroid ? (
               <View style={styles.inputContainer}>
-                <Label style={styles.label}>Vérification d'identité</Label>
+                <Label style={styles.label}>Vérification d&apos;identité</Label>
                 <View style={styles.unknownProviderBox}>
                   <Ionicons name="alert-circle" size={20} color={colors.warning} />
                   <Caption style={styles.unknownProviderText}>
-                    La ré-authentification Apple n'est pas disponible sur Android. Ajoutez d'abord un mot de passe à votre compte, puis revenez modifier votre email.
+                    La ré-authentification Apple n&apos;est pas disponible sur Android. Ajoutez d&apos;abord un mot de passe à votre compte, puis revenez modifier votre email.
                   </Caption>
                 </View>
                 <Button
@@ -324,7 +324,7 @@ export default function EmailSettingsScreen() {
               </View>
             ) : (
               <View style={styles.inputContainer}>
-                <Label style={styles.label}>Vérification d'identité</Label>
+                <Label style={styles.label}>Vérification d&apos;identité</Label>
                 {reauthDone ? (
                   <View style={styles.reauthSuccess}>
                     <Ionicons name="checkmark-circle" size={20} color={colors.success} />
@@ -360,7 +360,7 @@ export default function EmailSettingsScreen() {
           <View style={styles.securityBox}>
             <Ionicons name="shield-checkmark-outline" size={20} color={colors.success} />
             <Text variant="bodySmall" style={styles.securityText}>
-              Un lien de vérification sera envoyé à votre nouvelle adresse. Le changement ne sera effectif qu'après avoir cliqué sur ce lien.
+              Un lien de vérification sera envoyé à votre nouvelle adresse. Le changement ne sera effectif qu&apos;après avoir cliqué sur ce lien.
             </Text>
           </View>
         </ScrollView>

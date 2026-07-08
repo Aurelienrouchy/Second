@@ -120,7 +120,7 @@ export default function ExportDataScreen() {
         </View>
 
         {/* Data Included Section */}
-        <Label style={styles.sectionHeader}>Données incluses dans l'export</Label>
+        <Label style={styles.sectionHeader}>Données incluses dans l&apos;export</Label>
         <View style={styles.dataList}>
           <DataItem
             icon="person"
@@ -182,9 +182,9 @@ export default function ExportDataScreen() {
 
         {/* Note */}
         <Caption style={styles.note}>
-          L'export peut prendre quelques secondes selon la quantité de données.
+          L&apos;export peut prendre quelques secondes selon la quantité de données.
           Vos données seront téléchargées dans un fichier JSON que vous pourrez
-          ouvrir avec n'importe quel éditeur de texte.
+          ouvrir avec n&apos;importe quel éditeur de texte.
         </Caption>
       </ScrollView>
     </View>

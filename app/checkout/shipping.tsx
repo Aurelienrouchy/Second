@@ -712,7 +712,7 @@ export default function ShippingCheckoutScreen() {
         <ScreenHeader title="Paiement" onBack={() => router.back()} />
         <View style={styles.guardContainer}>
           <Ionicons name="bag-check-outline" size={40} color={colors.muted} />
-          <Text style={styles.guardTitle}>Cet article n'est plus disponible</Text>
+          <Text style={styles.guardTitle}>Cet article n&apos;est plus disponible</Text>
           <Text style={styles.guardSubtitle}>Il a déjà été vendu.</Text>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Text style={styles.backBtnText}>Retour</Text>
@@ -840,7 +840,7 @@ export default function ShippingCheckoutScreen() {
           <ActivityIndicator size="large" color={colors.rust} />
           <Text style={styles.confirmTitle}>Confirmation du paiement…</Text>
           <Text style={styles.confirmSubtitle}>
-            Ne fermez pas l'application, nous finalisons votre commande.
+            Ne fermez pas l&apos;application, nous finalisons votre commande.
           </Text>
         </View>
       )}

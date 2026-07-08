@@ -55,7 +55,7 @@ function PrivacyPolicyContentComponent() {
       <Text variant="h3" style={styles.sectionTitle}>1. Responsable de la protection des renseignements personnels</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
         Seconde a désigné un responsable de la protection des renseignements personnels,
-        conformément à l'article 3.1 de la Loi 25. Pour toute question relative à vos
+        conformément à l&apos;article 3.1 de la Loi 25. Pour toute question relative à vos
         renseignements personnels ou pour exercer vos droits : contact@seconde.ca.
       </Text>
       <View style={styles.infoCard}>
@@ -71,17 +71,17 @@ function PrivacyPolicyContentComponent() {
 
       <Label style={styles.subTitle}>Identité et compte</Label>
       <View style={styles.listContainer}>
-        <Text variant="bodySmall" style={styles.listItem}>• Nom d'affichage, courriel, date de naissance, photo de profil</Text>
+        <Text variant="bodySmall" style={styles.listItem}>• Nom d&apos;affichage, courriel, date de naissance, photo de profil</Text>
       </View>
 
       <Label style={styles.subTitle}>Annonces et contenus</Label>
       <View style={styles.listContainer}>
-        <Text variant="bodySmall" style={styles.listItem}>• Photos d'articles, descriptions, tailles, marques</Text>
+        <Text variant="bodySmall" style={styles.listItem}>• Photos d&apos;articles, descriptions, tailles, marques</Text>
       </View>
 
       <Label style={styles.subTitle}>Transactions</Label>
       <View style={styles.listContainer}>
-        <Text variant="bodySmall" style={styles.listItem}>• Historique d'achats et de ventes, montants</Text>
+        <Text variant="bodySmall" style={styles.listItem}>• Historique d&apos;achats et de ventes, montants</Text>
       </View>
 
       <Label style={styles.subTitle}>Paiement et versement</Label>
@@ -99,7 +99,7 @@ function PrivacyPolicyContentComponent() {
         <Text variant="bodySmall" style={styles.listItem}>• Messages échangés dans la messagerie</Text>
       </View>
 
-      <Label style={styles.subTitle}>Données d'utilisation et préférences</Label>
+      <Label style={styles.subTitle}>Données d&apos;utilisation et préférences</Label>
       <View style={styles.listContainer}>
         <Text variant="bodySmall" style={styles.listItem}>• Recherches, articles consultés, favoris et préférences</Text>
       </View>
@@ -109,7 +109,7 @@ function PrivacyPolicyContentComponent() {
         <Text variant="bodySmall" style={styles.listItem}>• Données de localisation ou de quartier, si vous les fournissez</Text>
       </View>
 
-      <Text variant="h3" style={styles.sectionTitle}>3. Finalités de l'utilisation</Text>
+      <Text variant="h3" style={styles.sectionTitle}>3. Finalités de l&apos;utilisation</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
         Nous utilisons vos renseignements pour :
       </Text>
@@ -124,7 +124,7 @@ function PrivacyPolicyContentComponent() {
       <Text variant="h3" style={styles.sectionTitle}>4. Destinataires et communications hors Québec (art. 8 et 17)</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
         Pour fournir le service, nous communiquons certains renseignements à des prestataires
-        situés à l'extérieur du Québec et du Canada, principalement aux États-Unis. Nous avons
+        situés à l&apos;extérieur du Québec et du Canada, principalement aux États-Unis. Nous avons
         évalué les facteurs relatifs à la vie privée applicables et encadrons ces communications
         par des ententes écrites.
       </Text>
@@ -140,7 +140,7 @@ function PrivacyPolicyContentComponent() {
       </View>
       <View style={styles.infoCard}>
         <Text variant="body" style={styles.companyName}>Google Cloud — Vertex AI et Gemini (États-Unis)</Text>
-        <Caption>Analyse d'images et recommandations (uniquement si vous activez les recommandations IA) : photos d'articles, métadonnées</Caption>
+        <Caption>Analyse d&apos;images et recommandations (uniquement si vous activez les recommandations IA) : photos d&apos;articles, métadonnées</Caption>
         <Caption>https://policies.google.com/privacy</Caption>
       </View>
       <View style={styles.infoCard}>
@@ -158,27 +158,27 @@ function PrivacyPolicyContentComponent() {
 
       <Text variant="h3" style={styles.sectionTitle}>5. Profilage et technologies (art. 8.1)</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        Seconde peut utiliser une technologie d'analyse par intelligence artificielle pour vous
+        Seconde peut utiliser une technologie d&apos;analyse par intelligence artificielle pour vous
         proposer des recommandations personnalisées (profilage). Cette fonction est désactivée
-        par défaut. Vous pouvez l'activer ou la désactiver à tout moment dans Réglages {'>'} Confidentialité.
-        Nous n'utilisons pas votre localisation à des fins de profilage sans votre consentement.
+        par défaut. Vous pouvez l&apos;activer ou la désactiver à tout moment dans Réglages {'>'} Confidentialité.
+        Nous n&apos;utilisons pas votre localisation à des fins de profilage sans votre consentement.
       </Text>
 
       <Text variant="h3" style={styles.sectionTitle}>6. Durée de conservation et destruction (art. 23)</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
         Nous conservons vos renseignements seulement le temps nécessaire aux finalités décrites,
         puis les détruisons ou les anonymisons. Les renseignements liés aux transactions sont
-        conservés jusqu'à 7 ans pour respecter nos obligations comptables et fiscales. Les données
+        conservés jusqu&apos;à 7 ans pour respecter nos obligations comptables et fiscales. Les données
         de navigation et les préférences sont conservées au plus 12 mois. Les notifications sont
         conservées au plus 6 mois (180 jours). Les données des visiteurs non inscrits sont
-        supprimées après 90 jours d'inactivité.
+        supprimées après 90 jours d&apos;inactivité.
       </Text>
 
       <Text variant="h3" style={styles.sectionTitle}>7. Vos droits (art. 27, 28.1, 30)</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        Vous avez le droit d'accéder à vos renseignements, de les faire rectifier, d'en obtenir
+        Vous avez le droit d&apos;accéder à vos renseignements, de les faire rectifier, d&apos;en obtenir
         une copie dans un format technologique structuré et couramment utilisé (portabilité),
-        d'en demander la suppression, et de retirer votre consentement à tout moment. Vous pouvez
+        d&apos;en demander la suppression, et de retirer votre consentement à tout moment. Vous pouvez
         exporter vos données (Réglages {'>'} Exporter mes données) ou supprimer votre compte
         (Réglages {'>'} Supprimer mon compte). Nous répondons à toute demande dans un délai maximal
         de 30 jours.
@@ -207,30 +207,30 @@ function PrivacyPolicyContentComponent() {
 
       <Text variant="h3" style={styles.sectionTitle}>8. Consentement et retrait</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        En créant un compte, vous consentez à la collecte et à l'utilisation de vos
+        En créant un compte, vous consentez à la collecte et à l&apos;utilisation de vos
         renseignements aux fins décrites. Vous pouvez retirer votre consentement aux finalités
         facultatives (marketing, recommandations IA) à tout moment dans les Réglages.
       </Text>
 
       <Text variant="h3" style={styles.sectionTitle}>9. Incidents de confidentialité (art. 3.5-3.8)</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
-        En cas d'incident de confidentialité présentant un risque de préjudice sérieux, nous
-        prendrons les mesures nécessaires, tiendrons un registre de l'incident et aviserons les
-        personnes concernées ainsi que la Commission d'accès à l'information (CAI) comme l'exige
+        En cas d&apos;incident de confidentialité présentant un risque de préjudice sérieux, nous
+        prendrons les mesures nécessaires, tiendrons un registre de l&apos;incident et aviserons les
+        personnes concernées ainsi que la Commission d&apos;accès à l&apos;information (CAI) comme l&apos;exige
         la loi.
       </Text>
 
       <Text variant="h3" style={styles.sectionTitle}>10. Nous joindre et plainte</Text>
       <Text variant="bodySmall" style={styles.paragraph}>
         Pour exercer vos droits ou porter plainte : contact@seconde.ca. Vous pouvez aussi
-        déposer une plainte auprès de la Commission d'accès à l'information du Québec
+        déposer une plainte auprès de la Commission d&apos;accès à l&apos;information du Québec
         (www.cai.gouv.qc.ca).
       </Text>
       <View style={styles.infoCard}>
         <Caption>Email : contact@seconde.ca</Caption>
       </View>
       <View style={styles.infoCard}>
-        <Text variant="body" style={styles.companyName}>Commission d'accès à l'information du Québec (CAI)</Text>
+        <Text variant="body" style={styles.companyName}>Commission d&apos;accès à l&apos;information du Québec (CAI)</Text>
         <Caption>525, boul. René-Lévesque Est, bureau 2.36</Caption>
         <Caption>Québec (Québec) G1R 5S9</Caption>
         <Caption>www.cai.gouv.qc.ca</Caption>

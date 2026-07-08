@@ -187,7 +187,7 @@ export default function CheckoutSuccessScreen() {
           )}
         </Pressable>
         <Pressable style={styles.secondaryLink} onPress={handleGoHome}>
-          <Text style={styles.secondaryLinkText}>Retour à l'accueil</Text>
+          <Text style={styles.secondaryLinkText}>Retour à l&apos;accueil</Text>
         </Pressable>
       </View>
     </View>
