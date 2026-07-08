@@ -222,7 +222,7 @@ export default function MySwapsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={refetch}
+            onRefresh={handleRefresh}
             tintColor={colors.primary}
           />
         }
