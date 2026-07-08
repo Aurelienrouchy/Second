@@ -207,6 +207,28 @@ export default function UserProfileScreen() {
 
   const reviewsLoading = isOwnProfile ? ownReviewsLoading : publicProfileLoading;
 
+  // ─── Analytics: profile_viewed (once per profile, after load resolves) ───────
+  const profileViewedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || !id || profileViewedRef.current === id) return;
+    profileViewedRef.current = id;
+    const loaded = !!profileUser;
+    const allowedSources = ['home_featured', 'article', 'chat', 'review', 'liked_sellers', 'search'] as const;
+    const resolvedSource = allowedSources.includes(source as (typeof allowedSources)[number])
+      ? (source as (typeof allowedSources)[number])
+      : 'other';
+    track('profile_viewed', {
+      profile_user_id: id,
+      outcome: loaded ? 'loaded' : 'not_found',
+      is_own_profile: isOwnProfile,
+      articles_count: loaded ? stats?.articlesEnVente : undefined,
+      reviews_count: loaded ? stats?.nombreAvis : undefined,
+      followers_count: loaded ? profileUser?.sellerLikesCount : undefined,
+      rating: loaded ? profileUser?.rating : undefined,
+      source: resolvedSource,
+    });
+  }, [isLoading, id, profileUser, isOwnProfile, stats, source]);
+
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handleBack = useCallback(() => {
