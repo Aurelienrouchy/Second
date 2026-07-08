@@ -292,25 +292,48 @@ export default function ChatScreen() {
     meetupSpot: MeetupSpot,
   ) => {
     if (!chatId || !user || !chat) return;
+    const sellerId = chat.participantsInfo.find(p => p.userId !== user.id)?.userId || '';
+    const listPrice = article?.price ?? chat.articlePrice ?? 0;
     try {
-      await ChatService.sendMeetupOffer(
+      const messageId = await ChatService.sendMeetupOffer(
         chatId,
         user.id,
-        chat.participantsInfo.find(p => p.userId !== user.id)?.userId || '',
+        sellerId,
         amount,
         meetupSpot,
         message,
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      track('offer_sent', {
+        article_id: chat.articleId ?? '',
+        seller_id: sellerId,
+        chat_id: chatId,
+        message_id: messageId,
+        source: 'chat',
+        mode: 'meetup',
+        offer_amount_cents: Math.round(amount * 100),
+        list_price_cents: Math.round(listPrice * 100),
+        discount_pct: listPrice ? Math.round(((listPrice - amount) / listPrice) * 100) : 0,
+        has_message: message.trim().length > 0,
+        spot_category: meetupSpot.category,
+        neighborhood_id: meetupSpot.neighborhood?.id,
+      });
     } catch (err: unknown) {
       if (__DEV__) console.error('Error sending meetup offer:', err);
+      track('offer_send_failed', {
+        article_id: chat.articleId ?? '',
+        source: 'chat',
+        mode: 'meetup',
+        offer_amount_cents: Math.round(amount * 100),
+        failure_type: 'server_error',
+      });
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('Impossible')) {
         Alert.alert('Erreur', msg);
       }
       throw err;
     }
-  }, [chatId, user, chat]);
+  }, [chatId, user, chat, article?.price]);
 
   const handleShippingOfferSubmit = useCallback(async (
     amount: number,
