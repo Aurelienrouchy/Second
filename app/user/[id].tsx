@@ -280,7 +280,7 @@ export default function UserProfileScreen() {
     } finally {
       setIsContactLoading(false);
     }
-  }, [currentUser?.id, id, profileUser, router, showAuthSheet]);
+  }, [currentUserId, id, profileUser, router, showAuthSheet]);
 
   const handleFollow = useCallback(async () => {
     if (!currentUser) {
