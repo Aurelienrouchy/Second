@@ -408,6 +408,13 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
   const handleCounterTime = async () => {
     const raw = counterDateTime.trim();
     if (!raw) {
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'time',
+        validation_result: 'empty',
+        success: false,
+      });
       Alert.alert('Erreur', 'Veuillez entrer une date et heure');
       return;
     }
@@ -419,6 +426,13 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
     // misparse), so we validate the shape and build the Date from numeric parts.
     const parsed = parseMeetupDateTime(raw);
     if (!parsed) {
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'time',
+        validation_result: 'bad_format',
+        success: false,
+      });
       Alert.alert(
         'Format invalide',
         'Veuillez entrer une date au format "AAAA-MM-JJ HH:MM" (ex: 2026-06-01 14:30).',
@@ -427,19 +441,44 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
     }
 
     if (parsed <= new Date()) {
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'time',
+        validation_result: 'past_date',
+        success: false,
+      });
       Alert.alert('Date passée', 'La date proposée doit être dans le futur.');
       return;
     }
+
+    const hoursUntilMeetup = Math.round((parsed.getTime() - Date.now()) / 3600000);
 
     try {
       setIsCountering(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await onCounterTime(message.id, parsed, counterMessage || undefined);
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'time',
+        hours_until_meetup: hoursUntilMeetup,
+        validation_result: 'ok',
+        success: true,
+      });
       setActiveCounterPanel(null);
       setCounterDateTime('');
       setCounterMessage('');
     } catch (error) {
       if (__DEV__) console.error('Error counter-offering time:', error);
+      track('offer_countered', {
+        chat_id: chatId,
+        article_id: articleId ?? '',
+        counter_type: 'time',
+        hours_until_meetup: hoursUntilMeetup,
+        validation_result: 'ok',
+        success: false,
+      });
       Alert.alert('Erreur', "Impossible d'envoyer la contre-offre d'horaire");
     } finally {
       setIsCountering(false);
