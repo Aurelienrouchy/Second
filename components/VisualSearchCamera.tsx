@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, typography, radius } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 
 // ============================================================
 // Types
@@ -34,6 +35,8 @@ import { colors, spacing, typography, radius } from '@/constants/theme';
 interface VisualSearchCameraProps {
   onClose: () => void;
   onPhotoCapture: (uri: string) => void;
+  /** Entry surface — threaded onto the visual search analytics events. */
+  source: 'home' | 'search';
 }
 
 // ============================================================
@@ -43,6 +46,7 @@ interface VisualSearchCameraProps {
 function VisualSearchCameraComponent({
   onClose,
   onPhotoCapture,
+  source,
 }: VisualSearchCameraProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
@@ -51,6 +55,7 @@ function VisualSearchCameraComponent({
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const hasConfirmed = useRef(false);
+  const fromGalleryRef = useRef(false);
   const insets = useSafeAreaInsets();
 
   // Request permission on mount
