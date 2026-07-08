@@ -22,6 +22,24 @@ import { User } from '@/types';
 const USER_DATA_KEY = 'user_data';
 const HAS_LAUNCHED_KEY = 'has_launched_before';
 
+// PostHog identify — single hydration point (catalogue §2). Non-PII traits
+// only: username is a public @pseudo (allowed as a user property), never the
+// email/displayName. distinct_id = Firebase uid.
+function analyticsIdentify(user: User): void {
+  identifyUser(user.id, {
+    username: user.username,
+    signup_method: user.authProvider,
+    created_at: user.createdAt ? new Date(user.createdAt).toISOString() : undefined,
+    province: user.address?.province,
+    has_shop: user.accountType === 'shop',
+    seller_onboarded: !!(user.stripeChargesEnabled && user.stripePayoutsEnabled),
+    articles_count: user.articlesCount,
+    marketing_consent: user.preferences?.marketingConsent,
+    onboarding_completed: user.onboardingCompleted,
+    preferred_size_system: user.preferences?.sizes?.length ? undefined : undefined,
+  });
+}
+
 // ─── State shape ────────────────────────────────────────────────────────────
 
 interface AuthState {
