@@ -23,6 +23,7 @@ import VisualSearchCamera from '@/components/VisualSearchCamera';
 import { useBottomTabOverflow } from '@/components/ui/TabBarBackground';
 import { colors, spacing } from '@/constants/theme';
 import { homeKeys } from '@/features/home/query-keys';
+import { track } from '@/lib/analytics';
 
 import {
   DiscoverGrid,
