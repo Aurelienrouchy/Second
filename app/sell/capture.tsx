@@ -226,8 +226,27 @@ export default function CaptureScreen() {
         'Quitter ?',
         'Votre brouillon sera sauvegardé. Vous pourrez le reprendre plus tard.',
         [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Quitter', onPress: () => router.replace('/(tabs)') },
+          {
+            text: 'Annuler',
+            style: 'cancel',
+            onPress: () =>
+              track('sell_exit_prompted', {
+                flow_step: 'capture',
+                confirmed_leave: false,
+                photo_count: photos.length,
+              }),
+          },
+          {
+            text: 'Quitter',
+            onPress: () => {
+              track('sell_exit_prompted', {
+                flow_step: 'capture',
+                confirmed_leave: true,
+                photo_count: photos.length,
+              });
+              router.replace('/(tabs)');
+            },
+          },
         ],
       );
     } else {
@@ -241,6 +260,7 @@ export default function CaptureScreen() {
       Alert.alert('Aucune photo', 'Ajoutez au moins une photo pour continuer.');
       return;
     }
+    track('sell_step_completed', { step: 'capture', photo_count: photos.length });
     router.push({
       pathname: '/sell/photos-review',
       params: { photos: JSON.stringify(photos) },
