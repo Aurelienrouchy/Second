@@ -93,18 +93,24 @@ export default function MySwapsScreen() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const filteredSwaps = swaps.filter((swap) => {
-    switch (filter) {
-      case 'pending':
-        return swap.status === 'proposed';
-      case 'active':
-        return ['payment_pending', 'accepted', 'photos_pending', 'shipping', 'disputed'].includes(swap.status);
-      case 'completed':
-        return ['completed', 'declined', 'cancelled', 'expired'].includes(swap.status);
-      default:
-        return true;
-    }
-  });
+  const filteredSwaps = swaps.filter((swap) => matchesFilter(swap, filter));
+
+  const handleFilterSelect = useCallback(
+    (next: FilterType) => {
+      setFilter(next);
+      track('list_filtered', {
+        screen: 'my_swaps',
+        filter: next,
+        filtered_count: swaps.filter((s) => matchesFilter(s, next)).length,
+      });
+    },
+    [swaps],
+  );
+
+  const handleRefresh = useCallback(() => {
+    track('list_refreshed', { screen: 'my_swaps', items_count: filteredSwaps.length });
+    refetch();
+  }, [refetch, filteredSwaps.length]);
 
   const pendingCount = swaps.filter((s) => s.status === 'proposed').length;
   const activeCount = swaps.filter((s) =>
