@@ -25,18 +25,21 @@ import { HeaderButton } from './HeaderButton';
 export interface ArticleHeroProps {
   images: ArticleImage[];
   discount: number | null;
+  articleId?: string;
   onImageIndexChange?: (index: number) => void;
 }
 
 function ArticleHeroComponent({
   images,
   discount,
+  articleId,
   onImageIndexChange,
 }: ArticleHeroProps) {
   return (
     <>
       <ImageGallery
         images={images}
+        articleId={articleId}
         onImageIndexChange={onImageIndexChange}
       />
 
