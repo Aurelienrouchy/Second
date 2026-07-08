@@ -477,7 +477,16 @@ export default function MyArticlesScreen() {
             keyExtractor={keyExtractor}
             ListEmptyComponent={listEmptyComponent}
             refreshControl={
-              <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={() => {
+                  track('list_refreshed', {
+                    screen: 'my_articles',
+                    items_count: filteredArticles.length,
+                  });
+                  refetch();
+                }}
+              />
             }
             showsVerticalScrollIndicator={false}
           />
