@@ -89,6 +89,7 @@ export default function DeleteAccountScreen() {
     if (!user) return;
 
     if (confirmText !== 'SUPPRIMER') {
+      track('account_deletion_submitted', { auth_provider: deleteAuthProvider, outcome: 'validation_failed' });
       Alert.alert('Erreur', 'Veuillez saisir SUPPRIMER pour confirmer');
       return;
     }
