@@ -50,14 +50,13 @@ export default function PreferencesScreen() {
   // preferences.sizes; shoe sizes are persisted separately in
   // preferences.shoesSizes (written by the onboarding callable) and were
   // previously never read back here.
-  useEffect(() => {
-    if (preferences && !isFormInitialized) {
-      setSelectedSizes(preferences.sizes || []);
-      setSelectedShoeSizes(preferences.shoesSizes || []);
-      setSelectedBrands(preferences.favoriteBrands || []);
-      setIsFormInitialized(true);
-    }
-  }, [preferences, isFormInitialized]);
+  // (state adjustment during render — https://react.dev/learn/you-might-not-need-an-effect)
+  if (preferences && !isFormInitialized) {
+    setIsFormInitialized(true);
+    setSelectedSizes(preferences.sizes || []);
+    setSelectedShoeSizes(preferences.shoesSizes || []);
+    setSelectedBrands(preferences.favoriteBrands || []);
+  }
 
   const { mutate: handleSave, isPending: isSaving } = useMutation({
     mutationFn: () =>
