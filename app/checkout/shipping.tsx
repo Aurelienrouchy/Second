@@ -205,11 +205,25 @@ export default function ShippingCheckoutScreen() {
       if (data.success && data.rates?.length > 0) {
         setEstimates(data.rates);
         setSelectedEstimate(data.rates[0]);
+        track('shipping_estimates_loaded', {
+          article_id: article.id,
+          rates_count: data.rates.length,
+          is_fallback: false,
+          first_rate_cents: Math.round((data.rates[0]?.amount ?? 0) * 100),
+          postal_code_fsa: pc.slice(0, 3).toUpperCase(),
+        });
       }
     } catch (e) {
       if (__DEV__) console.error('Error fetching shipping estimates:', e);
       setEstimates(FALLBACK_ESTIMATES);
       setSelectedEstimate(FALLBACK_ESTIMATES[0]);
+      track('shipping_estimates_loaded', {
+        article_id: article.id,
+        rates_count: FALLBACK_ESTIMATES.length,
+        is_fallback: true,
+        first_rate_cents: Math.round((FALLBACK_ESTIMATES[0]?.amount ?? 0) * 100),
+        postal_code_fsa: pc.slice(0, 3).toUpperCase(),
+      });
     } finally {
       setLoadingEstimates(false);
     }
