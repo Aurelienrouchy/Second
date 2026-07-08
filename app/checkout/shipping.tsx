@@ -306,14 +306,56 @@ export default function ShippingCheckoutScreen() {
     if (!currentUser) { Alert.alert('Erreur', 'Vous devez être connecté pour acheter.'); return; }
     if (!canPay) { Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires.'); return; }
 
+    track('payment_submitted', {
+      screen: 'checkout',
+      article_id: article.id,
+      final_price_cents: Math.round(finalPrice * 100),
+      shipping_cents: Math.round((selectedEstimate.amount || 0) * 100),
+      service_fee_cents: Math.round(serviceFee * 100),
+      tax_cents: Math.round(taxTotal * 100),
+      total_cents: totalAmountCents,
+      uses_wallet: useWalletBalance,
+      wallet_covers_all: walletCoversAll,
+      card_amount_cents: Math.round(cardAmountDollars * 100),
+      is_fallback_rate: isFallbackRate(selectedEstimate.rateId),
+      has_negotiated_price: negotiatedPrice != null,
+    });
+
     // ── ShipEngine indisponible (rate fallback_*) ──────────────────────────
     // Un tarif de repli ne permet pas d'acheter une vraie étiquette : on
     // bloque le paiement carte et on oriente vers la remise en main propre.
     if (isFallbackRate(selectedEstimate.rateId)) {
+      const canMeetup = article.isHandDelivery !== false;
       const buttons = [
-        { text: CHECKOUT_COPY.shippingDownCtaPrimary, onPress: fetchShippingEstimates },
-        ...(article.isHandDelivery !== false
-          ? [{ text: CHECKOUT_COPY.shippingDownCtaSecondary, onPress: goToMeetup }]
+        {
+          text: CHECKOUT_COPY.shippingDownCtaPrimary,
+          onPress: () => {
+            track('checkout_blocked', {
+              article_id: article.id,
+              guard_type: 'fallback_rate',
+              cta_chosen: 'retry_rates',
+            });
+            fetchShippingEstimates();
+          },
+        },
+        ...(canMeetup
+          ? [{
+              text: CHECKOUT_COPY.shippingDownCtaSecondary,
+              onPress: () => {
+                track('checkout_blocked', {
+                  article_id: article.id,
+                  guard_type: 'fallback_rate',
+                  cta_chosen: 'switch_meetup',
+                });
+                track('checkout_delivery_selected', {
+                  article_id: article.id,
+                  delivery_type: 'meetup',
+                  via: 'shipping_unavailable',
+                  price_cents: Math.round(finalPrice * 100),
+                });
+                goToMeetup();
+              },
+            }]
           : []),
       ];
       Alert.alert(CHECKOUT_COPY.shippingDownTitle, CHECKOUT_COPY.shippingDownBody, buttons);
