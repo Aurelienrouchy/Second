@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 
 import { functions } from '@/config/firebaseConfig';
+import { track } from '@/lib/analytics';
 import {
   RecourseReasonSheet,
   RecourseReasonSheetRef,
