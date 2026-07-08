@@ -4,10 +4,59 @@ import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import { router, type Href } from 'expo-router';
 
+import { track } from '@/lib/analytics';
 import { NotificationService } from '@/services/notificationService';
 import { SavedSearchService } from '@/services/savedSearchService';
 import { UserService } from '@/services/userService';
 import { useNotificationStore, PushNotificationData } from '@/store/notificationStore';
+
+// Maps a push payload to the coarse destination bucket for `push_opened`
+// analytics (mirrors routeFromNotificationData without navigating).
+type PushDestination =
+  | 'chat'
+  | 'article'
+  | 'swap'
+  | 'my-orders'
+  | 'search'
+  | 'notifications'
+  | 'deep_link_fallback';
+
+function pushDestinationRoute(data: PushNotificationData): PushDestination {
+  switch (data.type) {
+    case 'article_favorited':
+    case 'price_drop':
+      return 'article';
+    case 'swap_zone_reminder':
+    case 'swap_update':
+      return 'swap';
+    case 'offer_received':
+    case 'offer_accepted':
+    case 'offer_rejected':
+    case 'offer_counter':
+    case 'offer':
+    case 'chat':
+    case 'message':
+    case 'new_message':
+      return 'chat';
+    case 'new_sale':
+    case 'order_shipped':
+    case 'order_delivered':
+    case 'order_cancelled':
+    case 'order_refunded':
+    case 'funds_released':
+      return 'my-orders';
+    case 'review_received':
+    case 'privacy_incident':
+    case 'shop_approved':
+    case 'shop_rejected':
+    case 'shop_created':
+      return 'notifications';
+    case 'saved_search':
+      return 'search';
+    default:
+      return 'deep_link_fallback';
+  }
+}
 
 // ─── Active chat tracking ───────────────────────────────────────────────────
 // The chat screen sets this on focus/blur so the foreground notification
