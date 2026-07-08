@@ -715,6 +715,47 @@ async function handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     paymentIntentId: paymentIntent.id,
   });
 
+  // Analytics (§12): order_paid follows the BUYER, sale_paid mirrors it on the
+  // SELLER so vendor funnels (F6) can be built. $insert_id keeps both idempotent
+  // against webhook replays (distinct ids for the two events, same fact).
+  {
+    const serviceFeeCents = Math.round((result.serviceFee ?? 0) * 100);
+    const orderProps = {
+      transaction_id: transactionId,
+      article_id: result.articleId ?? null,
+      buyer_id: result.buyerId ?? null,
+      seller_id: result.sellerId ?? null,
+      item_amount_cents: Math.round((result.itemAmount ?? 0) * 100),
+      shipping_cents: Math.round((result.shippingCost ?? 0) * 100),
+      service_fee_cents: serviceFeeCents,
+      tax_cents: Math.round((result.taxTotal ?? 0) * 100),
+      buyer_total_cents: Math.round((result.totalAmount ?? 0) * 100),
+      application_fee_cents: serviceFeeCents,
+      wallet_amount_cents: walletAmountUsedCents,
+      card_amount_cents: amountReceivedCents,
+      payment_method: isMixedPayment ? 'mixed' : 'card',
+      delivery_type: result.deliveryType ?? null,
+    };
+    if (result.buyerId) {
+      await captureServerEvent(result.buyerId, 'order_paid', {
+        ...orderProps,
+        $insert_id: transactionId,
+      });
+    }
+    if (result.sellerId) {
+      await captureServerEvent(result.sellerId, 'sale_paid', {
+        transaction_id: transactionId,
+        article_id: result.articleId ?? null,
+        seller_id: result.sellerId,
+        buyer_id: result.buyerId ?? null,
+        item_amount_cents: Math.round((result.itemAmount ?? 0) * 100),
+        seller_net_cents: Math.round((result.sellerPayout ?? 0) * 100),
+        delivery_type: result.deliveryType ?? null,
+        $insert_id: `sale_${transactionId}`,
+      });
+    }
+  }
+
   // =====================================================================
   // PLATFORM REVENUE LEDGER (E6 / F133c) — record gross revenue + tax once
   // =====================================================================

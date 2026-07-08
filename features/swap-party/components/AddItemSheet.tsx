@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, Caption } from '@/components/ui';
 import { colors, fonts, spacing, typography, sizing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { formatPrice } from '@/utils/formatPrice';
 import type { Article, SwapPartyItemExtended } from '@/types';
 
