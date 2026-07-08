@@ -164,10 +164,18 @@ export default function PricingScreen() {
   };
 
   const handleNeighborhoodToggle = (neighborhood: MeetupNeighborhood) => {
+    let countAfter = 0;
     setSelectedNeighborhoods((prev) => {
       const exists = prev.some((n) => n.id === neighborhood.id);
-      if (exists) return prev.filter((n) => n.id !== neighborhood.id);
-      return [...prev, neighborhood];
+      const next = exists ? prev.filter((n) => n.id !== neighborhood.id) : [...prev, neighborhood];
+      countAfter = next.length;
+      return next;
+    });
+    track('sell_field_edited', {
+      screen: 'sell',
+      field: 'neighborhoods',
+      value: neighborhood.id,
+      selected_count_after: countAfter,
     });
   };
 
