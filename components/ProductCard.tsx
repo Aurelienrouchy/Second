@@ -211,22 +211,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
     onPress();
   }, [onPress]);
 
+  const productId = product?.id;
+  const productPrice = product?.price;
+  const productBrand = product?.brand;
+
   const handleLikePress = useCallback(() => {
+    if (!productId) return;
     requireAuth(() => {
       Haptics.notificationAsync(
         isLiked
           ? Haptics.NotificationFeedbackType.Warning
           : Haptics.NotificationFeedbackType.Success,
       );
-      toggleFavorite(product.id, {
+      toggleFavorite(productId, {
         // Falls back to the discover rail when the host surface omits the prop.
         source: favoriteSource ?? 'home_discover',
-        priceCents: Math.round(product.price * 100),
-        brand: product.brand,
+        priceCents: Math.round((productPrice ?? 0) * 100),
+        brand: productBrand,
         via: 'heart',
       });
     }, AUTH_MESSAGES.like);
-  }, [product?.id, product?.price, product?.brand, isLiked, requireAuth, toggleFavorite, favoriteSource]);
+  }, [productId, productPrice, productBrand, isLiked, requireAuth, toggleFavorite, favoriteSource]);
 
   // Early return after all hooks
   if (!product || !product.id) {
