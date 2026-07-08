@@ -6,6 +6,7 @@ import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 import { getNextStep, MakeOfferContext } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { formatPrice } from '@/utils/formatPrice';
 
 // Offer amount bounds — the upper bound mirrors the server-side ceiling
