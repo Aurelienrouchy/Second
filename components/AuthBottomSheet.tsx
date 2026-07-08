@@ -195,7 +195,12 @@ const AuthBottomSheet: React.FC = () => {
     const method = provider === 'Google' ? 'google' : 'apple';
     const mode = authType === 'signUp' ? 'signup' : 'signin';
     const hadPendingAction = onSuccessCallback != null;
-    track('auth_submitted', { method, mode, had_pending_action: hadPendingAction });
+    track('auth_submitted', {
+      method,
+      mode,
+      had_pending_action: hadPendingAction,
+      apple_available: appleAvailable,
+    });
     try {
       const result =
         provider === 'Google'
