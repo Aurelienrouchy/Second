@@ -21,10 +21,17 @@ import { HomeArticle, useNewArrivals } from './useNewArrivals';
 
 const NewArrivalItem = React.memo<{ article: HomeArticle }>(({ article }) => {
   const router = useRouter();
-  const handlePress = useCallback(
-    () => router.push(`/article/${article.id}`),
-    [router, article.id]
-  );
+  const handlePress = useCallback(() => {
+    track('article_card_tapped', {
+      article_id: article.id,
+      source: 'home_new_arrivals',
+      price_cents: Math.round(article.price * 100),
+      brand: article.brand,
+      condition: article.condition,
+      is_sold: false,
+    });
+    router.push(`/article/${article.id}`);
+  }, [router, article.id, article.price, article.brand, article.condition]);
 
   return (
     <View style={styles.horizontalCardWrapper}>
