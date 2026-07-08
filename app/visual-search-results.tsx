@@ -273,7 +273,7 @@ export default function VisualSearchResultsScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={isLoading}
-                onRefresh={performSearch}
+                onRefresh={() => performSearch(true)}
                 tintColor={colors.primary}
                 colors={[colors.primary]}
               />
