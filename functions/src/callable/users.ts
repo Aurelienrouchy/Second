@@ -439,6 +439,38 @@ export const deleteUserAccount = onCall(
       }
     }
 
+    // Analytics (§12): account_deleted BEFORE the Auth user is torn down so the
+    // fact is captured while we still have the actor. distinct_id = deleted uid.
+    // signup_method from the Firebase sign-in provider (reliable, no Firestore
+    // field dependency). had_wallet_balance reflects whether a wallet existed
+    // (deletion is gated on a ZERO balance, so any funds are already withdrawn).
+    {
+      const signInProvider =
+        (request.auth.token as { firebase?: { sign_in_provider?: string } }).firebase
+          ?.sign_in_provider ?? 'password';
+      const signupMethod =
+        signInProvider === 'google.com'
+          ? 'google'
+          : signInProvider === 'apple.com'
+            ? 'apple'
+            : 'email';
+      let accountAgeDays = 0;
+      const createdAt = userData?.createdAt;
+      if (createdAt && typeof createdAt.toMillis === 'function') {
+        accountAgeDays = Math.max(
+          0,
+          Math.round((Date.now() - createdAt.toMillis()) / (24 * 60 * 60 * 1000))
+        );
+      }
+      await captureServerEvent(uid, 'account_deleted', {
+        signup_method: signupMethod,
+        account_age_days: accountAgeDays,
+        had_sales: !txAsSeller.empty,
+        had_wallet_balance: walletDoc.exists,
+        $insert_id: `account_deleted_${uid}`,
+      });
+    }
+
     // 17. Delete Firebase Auth user (last step — after all data is cleaned up)
     try {
       await auth.deleteUser(uid);
