@@ -233,13 +233,28 @@ export default function DetailsScreen() {
     // Same gate as isFormValid below — keep details/preview validation aligned
     // so the footer's disabled state and the action never diverge.
     const missing: string[] = [];
-    if (!fields.title.trim()) missing.push('Le titre');
-    if (!fields.description.trim()) missing.push('La description');
-    if (fields.categoryIds.length === 0) missing.push('La catégorie');
+    const missingKeys: string[] = [];
+    if (!fields.title.trim()) { missing.push('Le titre'); missingKeys.push('title'); }
+    if (!fields.description.trim()) { missing.push('La description'); missingKeys.push('description'); }
+    if (fields.categoryIds.length === 0) { missing.push('La catégorie'); missingKeys.push('category'); }
     if (missing.length > 0) {
+      track('sell_validation_failed', {
+        step: 'details',
+        missing_fields: missingKeys,
+        errors: missingKeys,
+      });
       Alert.alert('Informations manquantes', `${missing.join('\n')}`);
       return;
     }
+    track('sell_step_completed', {
+      step: 'details',
+      category_ids: fields.categoryIds,
+      has_brand: !!fields.brand,
+      has_size: !!fields.size,
+      colors_count: fields.colors.length,
+      materials_count: fields.materials.length,
+      ai_used: !!aiResult,
+    });
     router.push({
       pathname: '/sell/pricing',
       params: {
