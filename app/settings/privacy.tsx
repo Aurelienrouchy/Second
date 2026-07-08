@@ -140,6 +140,9 @@ export default function PrivacySettingsScreen() {
       if (updates.aiProfilingConsent !== undefined) {
         preferenceUpdates.aiProfilingConsent = updates.aiProfilingConsent;
       }
+      if (updates.analyticsConsent !== undefined) {
+        preferenceUpdates.analyticsConsent = updates.analyticsConsent;
+      }
       return UserService.updateUserPreferences(user!.id, preferenceUpdates);
     },
     onMutate: async (updates: Partial<PrivacySettings>) => {
