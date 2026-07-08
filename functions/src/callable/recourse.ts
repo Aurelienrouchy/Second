@@ -368,6 +368,15 @@ export const reportTransactionProblem = onCall(
       reason,
     });
 
+    // Analytics (§12): dispute_opened — distinct_id = declarant (buyer).
+    await captureServerEvent(buyerUid, 'dispute_opened', {
+      transaction_id: transactionId,
+      type: 'problem',
+      reason_code: reason,
+      held_cents: disputeHeldCents,
+      $insert_id: `dispute_opened_${disputeId}`,
+    });
+
     return { success: true, disputeId };
   }
 );
