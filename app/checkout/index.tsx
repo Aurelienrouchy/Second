@@ -31,6 +31,7 @@ import { formatPrice } from '@/utils/formatPrice';
 import { TransactionDeliveryType } from '@/types';
 import { useAuthStore, selectUser } from '@/store/authStore';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
+import { track } from '@/lib/analytics';
 
 // =============================================================================
 // MAIN COMPONENT
