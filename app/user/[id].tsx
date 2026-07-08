@@ -306,7 +306,7 @@ export default function UserProfileScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    reportSheetRef.current?.open('user', id);
+    reportSheetRef.current?.open('user', id, 'public_profile');
   }, [id, currentUser, showAuthSheet]);
 
   const handleBlock = useCallback(() => {
