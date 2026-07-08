@@ -303,22 +303,21 @@ export function useFavorites() {
       }
 
       const source: FavoriteSource = opts?.source ?? 'article_detail';
-      const meta = opts?.article;
       if (isAdding) {
         track('article_favorited', {
           article_id: articleId,
-          seller_id: meta?.sellerId,
-          price_cents: meta ? Math.round(meta.price * 100) : undefined,
-          brand: meta?.brand,
+          seller_id: opts?.sellerId,
+          price_cents: opts?.priceCents,
+          brand: opts?.brand,
           source,
           favorites_count_after: favoriteIds.length + 1,
         });
       } else {
         track('article_unfavorited', {
           article_id: articleId,
-          seller_id: meta?.sellerId,
-          price_cents: meta ? Math.round(meta.price * 100) : undefined,
-          brand: meta?.brand,
+          seller_id: opts?.sellerId,
+          price_cents: opts?.priceCents,
+          brand: opts?.brand,
           source,
           favorites_count_after: favoriteIds.length - 1,
           via: opts?.via ?? 'heart',
