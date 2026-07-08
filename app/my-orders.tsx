@@ -15,6 +15,7 @@ import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { Badge, ScreenHeader } from '@/components/ui';
 import { getStatusLabel, getStatusVariant } from '@/lib/transactionStatusMeta';
 import { queryKeys } from '@/lib/queryKeys';
+import { track } from '@/lib/analytics';
 import { formatPrice } from '@/utils/formatPrice';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
