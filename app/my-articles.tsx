@@ -445,7 +445,20 @@ export default function MyArticlesScreen() {
                   styles.filterTab,
                   filter === tab.key && styles.filterTabActive,
                 ]}
-                onPress={() => setFilter(tab.key)}
+                onPress={() => {
+                  setFilter(tab.key);
+                  const count =
+                    tab.key === 'all'
+                      ? articles.length
+                      : tab.key === 'active'
+                        ? articles.filter((a) => !a.isSold).length
+                        : articles.filter((a) => a.isSold).length;
+                  track('list_filtered', {
+                    screen: 'my_articles',
+                    filter: tab.key,
+                    filtered_count: count,
+                  });
+                }}
               >
                 <Text
                   style={[
