@@ -484,6 +484,7 @@ export const useAuthStore = create<AuthStore>()(
       let session = await guestPreferencesService.getGuestSession();
       if (!session) {
         session = await guestPreferencesService.createGuestSession();
+        track('guest_session_started', { is_first_launch: get().isFirstLaunch });
       }
       set({ guestSession: session });
     } catch (error) {
