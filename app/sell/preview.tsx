@@ -20,6 +20,7 @@ import { MeetupNeighborhood } from '@/types';
 import draftService, { ArticleDraft } from '@/services/draftService';
 import { ArticlesService } from '@/services/articlesService';
 import { auth } from '@/config/firebaseConfig';
+import { track } from '@/lib/analytics';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
