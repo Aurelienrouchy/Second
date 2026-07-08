@@ -47,6 +47,7 @@ import { ModerationService } from '@/services/moderationService';
 import { TransactionService } from '@/services/transactionService';
 
 // Import query keys
+import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 
 // Import types
