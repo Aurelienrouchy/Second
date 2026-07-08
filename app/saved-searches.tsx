@@ -275,7 +275,7 @@ export default function SavedSearches() {
   const userId = user?.id;
 
   const [searches, setSearches] = useState<SavedSearch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!userId);
   const [hasError, setHasError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
