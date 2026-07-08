@@ -216,6 +216,22 @@ export default function PreviewScreen() {
       if (pricing.isShipping && pricing.packageSize) articleData.packageSize = pricing.packageSize;
 
       const articleId = await ArticlesService.createArticle(articleData);
+      track('article_published', {
+        article_id: articleId,
+        price_cents: Math.round(pricing.price * 100),
+        category_ids: fields.categoryIds || [],
+        condition: fields.condition,
+        photo_count: imageUrls.length,
+        has_brand: !!fields.brand,
+        has_size: !!fields.size,
+        colors_count: fields.colors?.length ?? 0,
+        materials_count: fields.materials?.length ?? 0,
+        is_hand_delivery: pricing.isHandDelivery,
+        is_shipping: pricing.isShipping,
+        neighborhoods_count: pricing.neighborhoods?.length ?? 0,
+        package_size: pricing.isShipping ? pricing.packageSize ?? undefined : undefined,
+        ai_used: aiUsed,
+      });
       await draftService.deleteDraft(true);
       // Signale au guard beforeRemove (details) que le tear-down du stack vente
       // qui suit est dû à une publication, pas à un back-out à confirmer.
