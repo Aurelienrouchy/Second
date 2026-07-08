@@ -248,6 +248,15 @@ export default function PhotosReviewScreen() {
     progressWidth.value = 0;
     setProgressSteps(INITIAL_PROGRESS_STEPS.map((s) => ({ ...s })));
 
+    analysisAttempt.current += 1;
+    const attemptNumber = analysisAttempt.current;
+    const analysisStartedAt = Date.now();
+    track('ai_analysis_started', {
+      photo_count: photos.length,
+      hydrated_from_draft: false,
+      attempt_number: attemptNumber,
+    });
+
     try {
       // The draft can be missing if AsyncStorage was purged or the parse failed.
       // Rather than blocking the analysis, recover by recreating an empty draft
