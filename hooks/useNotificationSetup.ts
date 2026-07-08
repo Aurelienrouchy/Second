@@ -419,12 +419,22 @@ export function useNotificationSetup(userId: string | null): void {
               'le push iOS requiert un FCM registration token (étape native).'
           );
         }
+        track('push_token_registered', {
+          permission_status: status,
+          is_fcm_token: false,
+          platform: Platform.OS as 'ios' | 'android',
+        });
         return;
       }
 
       await UserService.saveFcmToken(userIdRef.current, deviceToken);
       fcmTokenRef.current = deviceToken;
       useNotificationStore.getState().setPushToken(deviceToken);
+      track('push_token_registered', {
+        permission_status: status,
+        is_fcm_token: true,
+        platform: Platform.OS as 'ios' | 'android',
+      });
       if (__DEV__) console.log('FCM token registered');
     } catch (error) {
       if (__DEV__) console.log('Error registering push token:', error);
