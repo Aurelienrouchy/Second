@@ -147,12 +147,30 @@ export function useArticleActions({
   const handleMakeOffer = useCallback(() => {
     if (!article) return;
 
+    const priceCents = Math.round(article.price * 100);
+    const defaultMode =
+      SHIPPING_ENABLED && article.isShipping && !article.isHandDelivery ? 'shipping' : 'meetup';
+
     if (article.isSold) {
+      track('offer_modal_opened', {
+        source: 'article',
+        article_id: article.id,
+        price_cents: priceCents,
+        default_mode: defaultMode,
+        blocked_reason: 'sold',
+      });
       Alert.alert('Article vendu', 'Cet article a déjà été vendu.');
       return;
     }
 
     if (user && user.id === article.sellerId) {
+      track('offer_modal_opened', {
+        source: 'article',
+        article_id: article.id,
+        price_cents: priceCents,
+        default_mode: defaultMode,
+        blocked_reason: 'own_article',
+      });
       Alert.alert('Erreur', 'Vous ne pouvez pas faire une offre sur votre propre article.');
       return;
     }
@@ -163,6 +181,13 @@ export function useArticleActions({
 
     requireAuth(
       () => {
+        track('offer_modal_opened', {
+          source: 'article',
+          article_id: article.id,
+          price_cents: priceCents,
+          default_mode: defaultMode,
+          blocked_reason: 'none',
+        });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         makeOfferModalRef.current?.present();
       },
