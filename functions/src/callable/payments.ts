@@ -3856,6 +3856,20 @@ export const cancelPendingTransaction = onCall(
         }
       });
 
+      // Analytics (§12): order_cancelled follows the BUYER. Cancelled while
+      // pending_payment (no card capture — only a wallet portion, if any, is
+      // refunded here). cancelled_by derived from who called.
+      if (cancelBuyerId) {
+        await captureServerEvent(cancelBuyerId, 'order_cancelled', {
+          transaction_id: transactionId,
+          cancelled_by: callerUid === cancelBuyerId ? 'buyer' : 'seller',
+          stage: 'pending_payment',
+          refunded_cents: cancelRefundCents,
+          article_relisted: cancelRelisted,
+          $insert_id: `order_cancelled_${transactionId}`,
+        });
+      }
+
       return { success: true };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
