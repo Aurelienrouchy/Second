@@ -333,9 +333,19 @@ export default function SwapDetailScreen() {
       );
 
       await uploadSwapPhotos(id, user.id, uploadedUrls);
+      track('swap_photos_uploaded', {
+        swap_id: id,
+        photos_count: uploadedUrls.length,
+        outcome: 'success',
+      });
       Alert.alert('Photos envoyées', 'Tes photos ont bien été ajoutées.');
     } catch (error) {
       if (__DEV__) console.error('Error uploading photos:', error);
+      track('swap_photos_uploaded', {
+        swap_id: id,
+        photos_count: 0,
+        outcome: 'error',
+      });
       Alert.alert('Erreur', "Impossible d'envoyer les photos");
     } finally {
       setIsProcessing(false);
