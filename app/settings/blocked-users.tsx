@@ -3,6 +3,7 @@
  */
 
 import { useUser } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics';
 import { BlockedUser, ModerationService } from '@/services/moderationService';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
