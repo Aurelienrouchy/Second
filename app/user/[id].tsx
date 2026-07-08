@@ -55,7 +55,7 @@ import { Article, User } from '@/types';
 import { formatDisplayName } from '@/utils/formatName';
 
 export default function UserProfileScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, source } = useLocalSearchParams<{ id: string; source?: string }>();
   const router = useRouter();
   const currentUser = useUser();
   const queryClient = useQueryClient();
