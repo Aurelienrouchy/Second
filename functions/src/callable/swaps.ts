@@ -1455,6 +1455,29 @@ export const confirmSwapReception = onCall(
         userId: request.auth.uid,
         completed: swapData.bothReceived,
       });
+
+      // Analytics (§12): swap_completed — distinct_id = initiator (§12; the
+      // receiver side is measured by joining on swap_id).
+      if (swapData.bothReceived) {
+        const itemsCount =
+          getSwapItems(swapData.swap, 'initiator').length +
+          getSwapItems(swapData.swap, 'receiver').length;
+        const hadCashTopUp = swapData.swap.cashTopUp != null;
+        let daysToComplete = 0;
+        const createdAt = swapData.swap.createdAt;
+        if (createdAt && typeof createdAt.toMillis === 'function') {
+          daysToComplete =
+            Math.round(((Date.now() - createdAt.toMillis()) / (24 * 60 * 60 * 1000)) * 100) / 100;
+        }
+        await captureServerEvent(swapData.initiatorId, 'swap_completed', {
+          swap_id: swapId,
+          items_count: itemsCount,
+          had_cash_top_up: hadCashTopUp,
+          days_to_complete: daysToComplete,
+          $insert_id: `swap_completed_${swapId}`,
+        });
+      }
+
       return { success: true, completed: swapData.bothReceived };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
