@@ -35,6 +35,16 @@ import { db, FieldValue } from '../config/firebase';
 import { applyDeliveredHeldFunds } from '../scheduled/releaseHeldFunds';
 import { getOrCreateSellerWallet } from '../callable/wallet';
 import { sendPushNotification } from '../utils/notifications';
+import { captureServerEvent } from '../lib/analytics';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function daysSince(value: unknown): number {
+  if (value && typeof (value as any).toMillis === 'function') {
+    return Math.round(((Date.now() - (value as any).toMillis()) / MS_PER_DAY) * 100) / 100;
+  }
+  return 0;
+}
 
 /**
  * Statuses from which a DELIVERED scan may legitimately move funds. A
