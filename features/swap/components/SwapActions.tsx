@@ -31,6 +31,7 @@ export const SwapActions = React.memo(function SwapActions({
   isProcessing,
   exchangeMode,
 }: SwapActionsProps) {
+  const { id: swapId } = useLocalSearchParams<{ id: string }>();
   const {
     isInitiator,
     isReceiver,
