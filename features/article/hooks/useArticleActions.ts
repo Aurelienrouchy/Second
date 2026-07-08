@@ -99,6 +99,12 @@ export function useArticleActions({
         message: shareMessage,
         url: webUrl,
       });
+      track('content_shared', {
+        content_type: 'article',
+        content_id: article.id,
+        price_cents: Math.round(article.price * 100),
+        brand: article.brand,
+      });
     } catch (error) {
       if (__DEV__) console.log('Error sharing:', error);
     }
