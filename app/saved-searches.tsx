@@ -335,11 +335,20 @@ export default function SavedSearches() {
         });
       }
 
+      track('saved_search_opened', {
+        saved_search_id: item.id,
+        new_items_count: item.newItemsCount ?? 0,
+        has_query: !!item.query,
+        filter_keys: filterKeysOf(item.filters),
+        notify_enabled: !!item.notifyNewItems,
+      });
+
       router.push({
         pathname: '/search',
         params: {
           query: item.query || '',
           filters: JSON.stringify(item.filters),
+          source: 'saved_search',
         },
       });
     },
