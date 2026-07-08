@@ -38,6 +38,7 @@ import { db, FieldValue } from '../config/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import { sendPushNotification } from '../utils/notifications';
 import { logAutomatedDecision } from '../callable/automatedDecisions';
+import { captureServerEvent } from '../lib/analytics';
 
 /** Buyer-dispute window after delivery before seller funds become withdrawable. */
 export const DISPUTE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
