@@ -39,9 +39,23 @@ export const SwapContactButton = React.memo(function SwapContactButton({
     setIsLoading(true);
     try {
       const chat = await ChatService.createOrGetChat(currentUser.id, otherUserId);
+      track('chat_started', {
+        chat_id: chat.id,
+        source: 'swap',
+        other_user_id: otherUserId,
+        is_new_chat: !chat.lastMessage,
+        outcome: 'success',
+      });
       router.push(`/chat/${chat.id}`);
     } catch (error) {
       if (__DEV__) console.error('Error creating chat:', error);
+      track('chat_started', {
+        chat_id: '',
+        source: 'swap',
+        other_user_id: otherUserId,
+        is_new_chat: false,
+        outcome: 'error',
+      });
       Alert.alert('Erreur', 'Impossible de démarrer la conversation.');
     } finally {
       setIsLoading(false);
