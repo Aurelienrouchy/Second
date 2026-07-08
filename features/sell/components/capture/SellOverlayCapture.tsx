@@ -154,17 +154,27 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         skipProcessing: false,
       });
       if (photo?.uri) {
+        let added = false;
         setPhotos((prev) => {
           if (prev.length >= MAX_PHOTOS) return prev;
+          added = true;
           return [...prev, photo.uri];
         });
+        if (added) {
+          track('sell_photo_added', {
+            screen: 'capture',
+            method: 'camera',
+            count_added: 1,
+            photo_count_after: Math.min(photos.length + 1, MAX_PHOTOS),
+          });
+        }
       }
     } catch (error) {
       if (__DEV__) console.error('Error taking photo:', error);
     } finally {
       setIsCapturing(false);
     }
-  }, [isCapturing, canTakeMore]);
+  }, [isCapturing, canTakeMore, photos.length]);
 
   const handleGalleryPress = useCallback(async () => {
     const remainingSlots = MAX_PHOTOS - photos.length;
