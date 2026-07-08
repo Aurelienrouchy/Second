@@ -158,6 +158,22 @@ export default function ShippingCheckoutScreen() {
     [],
   );
 
+  const handleSelectEstimate = useCallback(
+    (estimate: ShippingEstimate) => {
+      setSelectedEstimate(estimate);
+      const parsedDays = parseInt(estimate.deliveryDays, 10);
+      track('shipping_rate_selected', {
+        carrier: estimate.carrier,
+        service: estimate.serviceName,
+        amount_cents: Math.round(estimate.amount * 100),
+        delivery_days: Number.isFinite(parsedDays) ? parsedDays : undefined,
+        is_fallback_rate: isFallbackRate(estimate.rateId),
+        rate_index: estimates.findIndex((e) => e.rateId === estimate.rateId),
+      });
+    },
+    [estimates],
+  );
+
   // --- Navigate to hand-delivery (meetup) checkout ---------------------------
 
   const goToMeetup = useCallback(() => {
