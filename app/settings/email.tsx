@@ -150,6 +150,10 @@ export default function EmailSettingsScreen() {
       );
     } catch (error: unknown) {
       if (__DEV__) console.error('Error updating email:', error);
+      const code = error != null && typeof error === 'object' && 'code' in error
+        ? (error as { code: string }).code
+        : undefined;
+      track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, error_code: code });
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la mise à jour de l\'email';
       Alert.alert('Erreur', message);
     } finally {
