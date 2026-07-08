@@ -77,7 +77,9 @@ interface EditedFields {
 export default function EditArticleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, source } = useLocalSearchParams<{ id: string; source?: string }>();
+  const editSource: 'article_detail' | 'my_articles' =
+    source === 'my_articles' ? 'my_articles' : 'article_detail';
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
 
