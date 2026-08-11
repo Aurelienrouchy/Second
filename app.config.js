@@ -82,7 +82,7 @@ export default {
           },
           "android": {
             "compileSdkVersion": 36,
-            "targetSdkVersion": 34,
+            "targetSdkVersion": 35,
             "buildToolsVersion": "36.0.0",
             "kotlinVersion": "2.1.20"
           }
