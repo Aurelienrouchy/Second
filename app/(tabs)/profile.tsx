@@ -39,6 +39,7 @@ import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { useWallet } from '@/hooks/useWallet';
 import { UserStatsService } from '@/services/userStatsService';
 import { formatCents } from '@/utils/formatPrice';
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -56,7 +57,7 @@ export default function ProfileScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { wallet } = useWallet(!!user);
+  const { wallet } = useWallet(PAYMENTS_ENABLED && !!user);
 
   const handleSignOut = useCallback(() => {
     Alert.alert(
@@ -125,19 +126,21 @@ export default function ProfileScreen() {
         iconBg: colors.warningLight,
         action: () => router.push('/my-swaps'),
       },
-      {
-        id: 'wallet',
-        title: 'Porte-monnaie',
-        subtitle: wallet?.hasWallet
-          ? formatCents(wallet.balance)
-          : wallet?.hasWallet === false
-            ? 'Non activé'
-            : undefined,
-        icon: 'wallet-outline',
-        iconColor: colors.primary,
-        iconBg: colors.primaryLight,
-        action: () => router.push('/wallet'),
-      },
+      ...(PAYMENTS_ENABLED
+        ? [{
+            id: 'wallet',
+            title: 'Porte-monnaie',
+            subtitle: wallet?.hasWallet
+              ? formatCents(wallet.balance)
+              : wallet?.hasWallet === false
+                ? 'Non activé'
+                : undefined,
+            icon: 'wallet-outline' as const,
+            iconColor: colors.primary,
+            iconBg: colors.primaryLight,
+            action: () => router.push('/wallet'),
+          }]
+        : []),
       {
         id: 'my-articles',
         title: 'Mes articles',

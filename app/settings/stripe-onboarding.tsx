@@ -18,7 +18,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { httpsCallable } from 'firebase/functions';
-import { Stack, useRouter } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
@@ -42,6 +42,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { useStripeAccount } from '@/hooks/useStripeAccount';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
 import { canSell } from '@/utils/age';
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 import {
   needsIdentityDocument,
   translateDisabledReason,
@@ -90,6 +91,11 @@ function isValidDate(day: number, month: number, year: number): boolean {
 // ---------------------------------------------------------------------------
 
 export default function StripeOnboardingScreen() {
+  if (!PAYMENTS_ENABLED) return <Redirect href="/settings" />;
+  return <StripeOnboardingContent />;
+}
+
+function StripeOnboardingContent() {
   const router = useRouter();
   const { user, isLoggedIn } = useAuthRequired();
   const queryClient = useQueryClient();

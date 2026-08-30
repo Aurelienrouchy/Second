@@ -13,8 +13,9 @@ import {
   where,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { prepareImageForUpload } from '@/utils/imageUtils';
+import { fixStorageUrl } from '@/utils/fixStorageUrl';
 
 interface ExportedUserData {
   exportedAt: string;
@@ -245,12 +246,43 @@ export class UserService {
    */
   static async uploadProfileImage(userId: string, localUri: string): Promise<string> {
     try {
+      const currentUser = auth.currentUser;
+      if (!currentUser || currentUser.uid !== userId) {
+        throw new Error('User not authenticated');
+      }
+
       const compressedUri = await prepareImageForUpload(localUri, { maxDimension: 800 });
-      const response = await fetch(compressedUri);
-      const blob = await response.blob();
-      const imageRef = ref(storage, `users/${userId}/profile.jpg`);
-      await uploadBytes(imageRef, blob);
-      return await getDownloadURL(imageRef);
+      const bucket = storage.app.options.storageBucket;
+      if (!bucket) throw new Error('Storage bucket not configured');
+
+      // Le SDK Web Firebase Storage transforme les octets en Blob/ArrayBuffer,
+      // chemin incompatible avec React Native New Architecture. Le même bug
+      // bloquait déjà l'upload des photos d'article : streamer le fichier local
+      // vers l'endpoint REST Storage est fiable sur iOS et Android.
+      const storagePath = `users/${userId}/profile.jpg`;
+      const encodedPath = encodeURIComponent(storagePath);
+      const token = await currentUser.getIdToken();
+      const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+      const response = await FileSystem.uploadAsync(uploadUrl, compressedUri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: {
+          Authorization: `Firebase ${token}`,
+          'Content-Type': 'image/jpeg',
+        },
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`Storage upload failed: ${response.status}`);
+      }
+
+      const metadata = JSON.parse(response.body) as { downloadTokens?: string };
+      const downloadToken = metadata.downloadTokens?.split(',')[0];
+      if (!downloadToken) throw new Error('Storage download token missing');
+
+      return fixStorageUrl(
+        `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${downloadToken}`
+      );
     } catch (error) {
       if (__DEV__) console.error('Error uploading profile image:', error);
       throw new Error('Erreur lors de l\'upload de la photo de profil');

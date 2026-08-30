@@ -144,7 +144,12 @@ export interface AISize {
 // Condition Types
 // ============================================
 
-export type ConditionId = 'neuf' | 'tres-bon-etat' | 'bon-etat' | 'satisfaisant';
+export type ConditionId =
+  | 'neuf'
+  | 'neuf-sans-etiquette'
+  | 'tres-bon-etat'
+  | 'bon-etat'
+  | 'satisfaisant';
 
 export interface AICondition {
   conditionId: ConditionId;
@@ -154,6 +159,7 @@ export interface AICondition {
 // Mapping from conditionId to display value (for backward compatibility)
 export const CONDITION_DISPLAY: Record<ConditionId, string> = {
   'neuf': 'neuf',
+  'neuf-sans-etiquette': 'neuf sans étiquette',
   'tres-bon-etat': 'très bon état',
   'bon-etat': 'bon état',
   'satisfaisant': 'satisfaisant',

@@ -6,6 +6,8 @@ import ConfidenceDots from '@/components/sell/ConfidenceDots';
 import { AiBadge } from '../shared/AiBadge';
 import { AIAnalysisResult, CONDITION_DISPLAY } from '@/types/ai';
 import { colors, fonts } from '@/constants/theme';
+import { getColorName } from '@/data/colors';
+import { getMaterialName } from '@/data/materials';
 
 interface ResultsSummaryProps {
   aiResult: AIAnalysisResult;
@@ -76,16 +78,22 @@ export const ResultsSummary = React.memo(function ResultsSummary({
           <View style={styles.resultRow}>
             <Text style={styles.resultLabel}>COULEUR</Text>
             <Text style={styles.resultValue}>
-              {aiResult.colors.primaryColorId}
+              {getColorName(aiResult.colors.primaryColorId)}
             </Text>
             <AiBadge />
           </View>
         ) : null}
-        {aiResult.materials?.primaryMaterialId ? (
+        {aiResult.materials?.materialIds?.length || aiResult.materials?.primaryMaterialId ? (
           <View style={styles.resultRow}>
             <Text style={styles.resultLabel}>MATIÈRE</Text>
             <Text style={styles.resultValue}>
-              {aiResult.materials.primaryMaterialId}
+              {(aiResult.materials.materialIds?.length
+                ? aiResult.materials.materialIds
+                : [aiResult.materials.primaryMaterialId]
+              )
+                .filter((id): id is string => Boolean(id))
+                .map(getMaterialName)
+                .join(', ')}
             </Text>
             <AiBadge />
           </View>

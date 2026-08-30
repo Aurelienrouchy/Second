@@ -101,9 +101,9 @@ RÈGLES IMPORTANTES pour title et description:
   "category": "Label exact de la liste",
   "title": "Titre court factuel",
   "description": "Description courte et naturelle, 20-40 mots max",
-  "condition": "neuf|tres-bon-etat|bon-etat|satisfaisant",
+  "condition": "neuf|neuf-sans-etiquette|tres-bon-etat|bon-etat|satisfaisant",
   "color": "Couleur principale",
-  "material": "Matière principale",
+  "materials": ["Toutes les matières lisibles sur l'étiquette, principale d'abord (4 max)"],
   "size": "Taille lue sur étiquette ou null",
   "brand": "Marque avec sa casse officielle (ex: Nike, Zara, COS, Sézane) ou null",
   "packageSize": "small|medium|large",
@@ -230,30 +230,37 @@ export async function validateAndNormalizeResponse(
   }
 
   // ========================================
-  // 3. MATERIAL: Name string → Structured object
+  // 3. MATERIALS: list of names → Structured objects
   // ========================================
   let materialsResult: Record<string, unknown>[] = [];
-  if (response.material && typeof response.material === 'string') {
-    const materialMatch = findMaterialByNameOrAlias(response.material);
-    if (materialMatch) {
-      materialsResult = [
-        {
+  // `material` reste accepté pour les anciennes versions du prompt et pour
+  // les réponses LLM mises en cache. Les tableaux permettent de conserver la
+  // composition complète lue sur une étiquette (ex. coton + polyester).
+  const rawMaterials = Array.isArray(response.materials)
+    ? response.materials
+    : typeof response.material === 'string'
+      ? response.material.split(/[,;/+]|\bet\b/i)
+      : [];
+
+  for (const rawMaterial of rawMaterials.slice(0, 4)) {
+    if (typeof rawMaterial !== 'string' || !rawMaterial.trim()) continue;
+    const materialName = rawMaterial.trim();
+    const materialMatch = findMaterialByNameOrAlias(materialName);
+    materialsResult.push(
+      materialMatch
+        ? {
           id: materialMatch.id,
           name: materialMatch.name,
           confidence: globalConfidence,
           validated: true,
-        },
-      ];
-    } else {
-      materialsResult = [
-        {
+        }
+        : {
           id: '',
-          name: response.material,
+          name: materialName,
           confidence: globalConfidence * 0.5,
           validated: false,
-        },
-      ];
-    }
+        }
+    );
   }
 
   // ========================================
@@ -280,6 +287,9 @@ export async function validateAndNormalizeResponse(
   const conditionMap: Record<string, string> = {
     // français-kebab (canonical ConditionId — passthrough)
     neuf: 'neuf',
+    'neuf-sans-etiquette': 'neuf-sans-etiquette',
+    'neuf sans étiquette': 'neuf-sans-etiquette',
+    'neuf sans etiquette': 'neuf-sans-etiquette',
     'tres-bon-etat': 'tres-bon-etat',
     'bon-etat': 'bon-etat',
     satisfaisant: 'satisfaisant',
