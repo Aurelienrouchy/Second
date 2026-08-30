@@ -20,7 +20,7 @@ export type SizeSection = 'tops' | 'bottoms' | 'shoes';
 // ─── Adult sizes ─────────────────────────────────────────────────────
 
 // US
-export const SIZES_ADULT_TOPS_US = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+export const SIZES_ADULT_TOPS_US = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
 export const SIZES_ADULT_BOTTOMS_US = ['24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '36', '38', '40'];
 export const SIZES_ADULT_SHOES_US = [
   '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5',
@@ -28,7 +28,7 @@ export const SIZES_ADULT_SHOES_US = [
 ];
 
 // EU
-export const SIZES_ADULT_TOPS_EU = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+export const SIZES_ADULT_TOPS_EU = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
 export const SIZES_ADULT_BOTTOMS_EU = ['32', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52'];
 export const SIZES_ADULT_SHOES_EU = [
   '35', '35.5', '36', '36.5', '37', '37.5', '38', '38.5',
@@ -114,6 +114,17 @@ export const SIZE_SECTION_LABELS: Record<SizeSection, string> = {
  * Size sections in display order
  */
 export const SIZE_SECTIONS: SizeSection[] = ['tops', 'bottoms', 'shoes'];
+
+const EU_TOP_EQUIVALENCE: Record<string, string> = {
+  XXS: '32', XS: '34', S: '36', M: '38', L: '40', XL: '42',
+  XXL: '44', '3XL': '46', '4XL': '48', '5XL': '50',
+};
+
+/** Libellé lisible dans les préférences, sans changer la valeur stockée. */
+export const getPreferenceSizeLabel = (size: string, system: SizeSystem): string =>
+  system === 'EU' && EU_TOP_EQUIVALENCE[size]
+    ? `${size} / ${EU_TOP_EQUIVALENCE[size]}`
+    : size;
 
 // ─── Legacy helpers (backward compatibility) ─────────────────────────
 

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -18,6 +18,10 @@ import { useUser, useAuthActions } from '@/hooks/useAuth';
 import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import {
+  AddressSuggestion,
+  searchCanadianAddresses,
+} from '@/services/addressAutocompleteService';
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '';
 
@@ -88,6 +92,40 @@ export default function AddressSettingsScreen() {
   const [manualProvince, setManualProvince] = useState('QC');
   const [manualPostalCode, setManualPostalCode] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [fallbackSuggestions, setFallbackSuggestions] = useState<AddressSuggestion[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (GOOGLE_PLACES_API_KEY || searchText.trim().length < 3) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        setFallbackSuggestions(await searchCanadianAddresses(searchText, controller.signal));
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError' && __DEV__) {
+          console.warn('Address fallback autocomplete failed:', error);
+        }
+        setFallbackSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [searchText]);
+
+  const handleSearchTextChange = (value: string) => {
+    setSearchText(value);
+    if (value.trim().length < 3) setFallbackSuggestions([]);
+  };
 
   const persistAddress = async (
     address: AddressInput,
@@ -206,6 +244,34 @@ export default function AddressSettingsScreen() {
     }
   };
 
+  const handleFallbackSuggestion = (suggestion: AddressSuggestion) => {
+    setSearchText(suggestion.label);
+    setFallbackSuggestions([]);
+    Alert.alert(
+      "Mettre à jour l'adresse ?",
+      `Nouvelle adresse :\n${suggestion.label}`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          onPress: () => persistAddress(
+            {
+              street: suggestion.street,
+              city: suggestion.city,
+              province: suggestion.province,
+              postalCode: suggestion.postalCode,
+              country: suggestion.country,
+            },
+            {
+              mode: 'autocomplete',
+              hasGeo: suggestion.latitude != null && suggestion.longitude != null,
+            },
+          ),
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Adresse" onBack={() => router.back()} />
@@ -247,22 +313,53 @@ export default function AddressSettingsScreen() {
               <View style={styles.formSection}>
                 <Text style={styles.label}>Changer d&apos;adresse</Text>
                 <View style={[styles.inputContainer, styles.inputContainerElevated]}>
-                  <GooglePlacesAutocomplete
-                    ref={addressRef}
-                    placeholder="Rechercher une adresse..."
-                    onPress={(data, details = null) => {
-                      handleUpdateAddress(details as PlaceDetails | null);
-                    }}
-                    query={{
-                      key: GOOGLE_PLACES_API_KEY,
-                      language: 'fr',
-                      types: 'address',
-                      components: 'country:ca',
-                    }}
-                    fetchDetails={true}
-                    styles={PLACES_STYLES}
-                    enablePoweredByContainer={false}
-                  />
+                  {GOOGLE_PLACES_API_KEY ? (
+                    <GooglePlacesAutocomplete
+                      ref={addressRef}
+                      placeholder="Rechercher une adresse..."
+                      onPress={(_data, details = null) => {
+                        handleUpdateAddress(details as PlaceDetails | null);
+                      }}
+                      query={{
+                        key: GOOGLE_PLACES_API_KEY,
+                        language: 'fr',
+                        types: 'address',
+                        components: 'country:ca',
+                      }}
+                      fetchDetails
+                      debounce={300}
+                      minLength={3}
+                      styles={PLACES_STYLES}
+                      enablePoweredByContainer={false}
+                    />
+                  ) : (
+                    <View>
+                      <View style={styles.fallbackInputRow}>
+                        <Ionicons name="search-outline" size={20} color={colors.muted} />
+                        <TextInput
+                          testID="address-autocomplete-input"
+                          style={styles.fallbackInput}
+                          value={searchText}
+                          onChangeText={handleSearchTextChange}
+                          placeholder="Rechercher une adresse..."
+                          placeholderTextColor={colors.muted}
+                          autoCapitalize="words"
+                          autoCorrect={false}
+                        />
+                      </View>
+                      {isSearching && <Caption style={styles.searchStatus}>Recherche…</Caption>}
+                      {fallbackSuggestions.map((suggestion) => (
+                        <Pressable
+                          key={suggestion.id}
+                          style={styles.suggestionRow}
+                          onPress={() => handleFallbackSuggestion(suggestion)}
+                        >
+                          <Ionicons name="location-outline" size={18} color={colors.primary} />
+                          <Text style={styles.suggestionText}>{suggestion.label}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -432,6 +529,44 @@ const styles = StyleSheet.create({
   },
   inputContainerElevated: {
     zIndex: 1,
+  },
+  fallbackInputRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+  },
+  fallbackInput: {
+    flex: 1,
+    minHeight: 46,
+    fontSize: 16,
+    fontFamily: fonts.sans,
+    color: colors.foreground,
+  },
+  searchStatus: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.surface,
+  },
+  suggestionText: {
+    flex: 1,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.foreground,
   },
   label: {
     fontSize: 16,

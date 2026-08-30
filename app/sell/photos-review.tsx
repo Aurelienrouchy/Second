@@ -36,6 +36,8 @@ import {
 import { analyzeProductImage, createMockAIResult } from '@/services/aiService';
 import { AIAnalysisResult, AnalysisPhase, CONDITION_DISPLAY } from '@/types/ai';
 import draftService, { createEmptyDraft } from '@/services/draftService';
+import { getColorName } from '@/data/colors';
+import { getMaterialName } from '@/data/materials';
 
 // =============================================================================
 // CONSTANTS & TYPES
@@ -175,8 +177,13 @@ export default function PhotosReviewScreen() {
     const pills: string[] = [];
     if (result.category?.displayName) pills.push(result.category.displayName);
     if (result.brand?.detected) pills.push(result.brand.detected);
-    if (result.materials?.primaryMaterialId) pills.push(result.materials.primaryMaterialId);
-    if (result.colors?.primaryColorId) pills.push(result.colors.primaryColorId);
+    const detectedMaterials = result.materials?.materialIds?.length
+      ? result.materials.materialIds
+      : result.materials?.primaryMaterialId
+        ? [result.materials.primaryMaterialId]
+        : [];
+    detectedMaterials.forEach((id) => pills.push(getMaterialName(id)));
+    if (result.colors?.primaryColorId) pills.push(getColorName(result.colors.primaryColorId));
     const sizeValue = result.size?.normalized || result.size?.detected;
     if (sizeValue) pills.push('Taille ' + sizeValue);
     if (result.condition?.conditionId) {

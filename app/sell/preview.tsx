@@ -25,6 +25,8 @@ import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { getConditionLabel } from '@/data/conditions';
+import { getColorName } from '@/data/colors';
+import { getMaterialName } from '@/data/materials';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const HERO_HEIGHT = 340;
@@ -178,7 +180,7 @@ export default function PreviewScreen() {
         images: imageUrls.map((uri) => ({ url: uri })),
         category: fields.categoryDisplay?.name || '',
         categoryIds: fields.categoryIds || [],
-        condition: fields.condition as 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant',
+        condition: fields.condition as 'neuf' | 'neuf sans étiquette' | 'très bon état' | 'bon état' | 'satisfaisant',
         sellerId: currentUser.uid,
         sellerName: currentUser.displayName || 'Utilisateur',
         isHandDelivery: pricing.isHandDelivery,
@@ -277,15 +279,19 @@ export default function PreviewScreen() {
   if (fields.condition) tags.push(getConditionLabel(fields.condition));
   if (fields.size) tags.push(fields.size);
   if (fields.colors?.length > 0) {
-    fields.colors.forEach((c) => tags.push(c));
+    fields.colors.forEach((c) => tags.push(getColorName(c)));
   }
   if (fields.materials?.length > 0) {
-    fields.materials.forEach((m) => tags.push(m));
+    fields.materials.forEach((m) => tags.push(getMaterialName(m)));
   }
 
   // Specs grid
-  const colorsDisplay = fields.colors?.length > 0 ? fields.colors.join(', ') : null;
-  const materialsDisplay = fields.materials?.length > 0 ? fields.materials.join(', ') : null;
+  const colorsDisplay = fields.colors?.length > 0
+    ? fields.colors.map(getColorName).join(', ')
+    : null;
+  const materialsDisplay = fields.materials?.length > 0
+    ? fields.materials.map(getMaterialName).join(', ')
+    : null;
   const specs = [
     { label: 'Condition', value: getConditionLabel(fields.condition) },
     { label: 'Taille', value: fields.size },

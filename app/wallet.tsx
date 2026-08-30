@@ -19,7 +19,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -46,6 +46,7 @@ import { useWallet } from '@/hooks/useWallet';
 import type { WalletLedgerEntry, WithdrawalRequest } from '@/types';
 import { formatCents } from '@/utils/formatPrice';
 import { track } from '@/lib/analytics';
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 
 // =============================================================================
 // COPY (spec UX_PAIEMENT_LIVRAISON — telle quelle)
@@ -267,6 +268,11 @@ function getWithdrawalPresentation(status: WithdrawalRequest['status']): {
 // =============================================================================
 
 export default function WalletScreen() {
+  if (!PAYMENTS_ENABLED) return <Redirect href="/settings" />;
+  return <WalletContent />;
+}
+
+function WalletContent() {
   const router = useRouter();
   const { user } = useAuthRequired();
 

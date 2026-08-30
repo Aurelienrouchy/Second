@@ -7,7 +7,7 @@ import { AuthService } from '@/services/authService';
 import { UserService } from '@/services/userService';
 import { useUser } from '@/hooks/useAuth';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { SHIPPING_ENABLED } from '@/config/featureFlags';
+import { PAYMENTS_ENABLED, SHIPPING_ENABLED } from '@/config/featureFlags';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -168,20 +168,22 @@ export default function SettingsScreen() {
           />
         </SettingSection>
 
-        {/* Paiements */}
-        <SettingSection title="Paiements">
-          <SettingItem
-            icon="card-outline"
-            title="Compte de paiement"
-            subtitle="Configurer Stripe Connect"
-            onPress={() => router.push('/settings/stripe-onboarding')}
-          />
-          <SettingItem
-            icon="wallet-outline"
-            title="Mon porte-monnaie"
-            onPress={() => router.push('/wallet')}
-          />
-        </SettingSection>
+        {/* Paiements — cachés pendant la bêta via feature flag central. */}
+        {PAYMENTS_ENABLED && (
+          <SettingSection title="Paiements">
+            <SettingItem
+              icon="card-outline"
+              title="Compte de paiement"
+              subtitle="Configurer Stripe Connect"
+              onPress={() => router.push('/settings/stripe-onboarding')}
+            />
+            <SettingItem
+              icon="wallet-outline"
+              title="Mon porte-monnaie"
+              onPress={() => router.push('/wallet')}
+            />
+          </SettingSection>
+        )}
 
         {/* Notifications & Confidentialité */}
         <SettingSection title="Notifications & Confidentialité">

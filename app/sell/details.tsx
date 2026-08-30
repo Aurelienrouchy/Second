@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
 import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
-import ConditionSelector from '@/components/ConditionSelector';
+import ConditionSelector, { ConditionValue } from '@/components/ConditionSelector';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
 import FormFieldGroup from '@/components/sell/FormFieldGroup';
 import { ScreenHeader } from '@/components/ui';
@@ -37,8 +37,6 @@ import { colors, spacing } from '@/constants/theme';
 // Lift the sticky footer to sit spacing.md (16) above the keyboard when open;
 // keyboard.height is bottom-anchored, so blending against the safe-area inset
 // gives the closed-state inset and the open-state float without a jump.
-
-type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
 interface EditedFields {
   title: string;

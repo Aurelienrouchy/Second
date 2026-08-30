@@ -12,6 +12,7 @@ export interface ConditionItem {
 
 export const CONDITIONS: ConditionItem[] = [
   { value: 'neuf', label: 'Neuf avec étiquette' },
+  { value: 'neuf sans étiquette', label: 'Neuf sans étiquette' },
   { value: 'très bon état', label: 'Très bon état' },
   { value: 'bon état', label: 'Bon état' },
   { value: 'satisfaisant', label: 'Satisfaisant' },

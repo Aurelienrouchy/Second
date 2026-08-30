@@ -108,11 +108,13 @@ export default function ProfileDetailsScreen() {
       return;
     }
     try {
-      // Upload profile image to Firebase Storage if it is a new local file
+      // ImagePicker peut renvoyer file:// (iOS), content:// (Android) ou ph://
+      // selon la plateforme. Toute URI non distante différente de l'ancienne
+      // photo doit être uploadée avant d'être persistée.
       let imageUrl = profileImage;
       if (
         profileImage &&
-        profileImage.startsWith('file://') &&
+        !/^https?:\/\//i.test(profileImage) &&
         profileImage !== user.profileImage
       ) {
         imageUrl = await UserService.uploadProfileImage(user.id, profileImage);
@@ -129,7 +131,10 @@ export default function ProfileDetailsScreen() {
       await UserService.updateUserProfile(user.id, profileData as Partial<import('@/types').User>);
 
       if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+        await updateProfile(auth.currentUser, {
+          displayName: displayName.trim(),
+          photoURL: imageUrl || null,
+        });
       }
 
       await refreshUser();

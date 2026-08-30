@@ -267,6 +267,7 @@ export const createArticle = onCall(
     // Condition
     const validConditions = [
       'neuf',
+      'neuf sans étiquette',
       'très bon état',
       'bon état',
       'satisfaisant',
@@ -636,7 +637,13 @@ export const updateArticle = onCall(
     }
 
     // Condition
-    const validConditions = ['neuf', 'très bon état', 'bon état', 'satisfaisant'];
+    const validConditions = [
+      'neuf',
+      'neuf sans étiquette',
+      'très bon état',
+      'bon état',
+      'satisfaisant',
+    ];
     if ('condition' in updates) {
       if (!validConditions.includes(updates.condition)) {
         throw new HttpsError('invalid-argument', 'Condition invalide');

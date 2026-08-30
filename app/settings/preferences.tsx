@@ -9,8 +9,7 @@ import { useUser } from '@/hooks/useAuth';
 import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { Button } from '@/components/ui';
+import { Button, Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -24,11 +23,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useQuery, useMutation } from '@tanstack/react-query';
-
-// Tailles vêtements (lettres)
-const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-// Tailles chaussures (numériques)
-const SHOE_SIZES = ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'];
+import { getPreferenceSizeLabel, getSizes, SizeSystem } from '@/data/sizes';
 
 export default function PreferencesScreen() {
   const router = useRouter();
@@ -36,6 +31,7 @@ export default function PreferencesScreen() {
   const brandSelectionRef = useRef<BrandSelectionSheetRef>(null);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedShoeSizes, setSelectedShoeSizes] = useState<string[]>([]);
+  const [sizeSystem, setSizeSystem] = useState<SizeSystem>('EU');
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [isFormInitialized, setIsFormInitialized] = useState(false);
 
@@ -55,6 +51,7 @@ export default function PreferencesScreen() {
     setIsFormInitialized(true);
     setSelectedSizes(preferences.sizes || []);
     setSelectedShoeSizes(preferences.shoesSizes || []);
+    setSizeSystem(preferences.sizeSystem || 'EU');
     setSelectedBrands(preferences.favoriteBrands || []);
   }
 
@@ -65,6 +62,7 @@ export default function PreferencesScreen() {
         // shoesSizes is persisted alongside sizes (same shape as the onboarding
         // callable), now typed on UserPreferences.
         shoesSizes: selectedShoeSizes,
+        sizeSystem,
         favoriteBrands: selectedBrands,
       }),
     onSuccess: () => {
@@ -104,6 +102,9 @@ export default function PreferencesScreen() {
   const handleBrandConfirm = useCallback((brands: string[]) => {
     setSelectedBrands(brands);
   }, []);
+
+  const clothingSizes = getSizes('tops', sizeSystem, 'adult');
+  const shoeSizes = getSizes('shoes', sizeSystem, 'adult');
 
   if (isLoading) {
     return (
@@ -153,10 +154,31 @@ export default function PreferencesScreen() {
           <View style={styles.section}>
             <Label style={styles.sectionHeader}>Mes tailles — Vêtements</Label>
             <Caption style={styles.sectionSubtitle}>
-              Sélectionnez vos tailles de vêtements
+              Choisissez votre système puis vos tailles
             </Caption>
+            <View style={styles.systemSelector}>
+              {(['EU', 'US'] as SizeSystem[]).map((system) => {
+                const isSelected = sizeSystem === system;
+                return (
+                  <Pressable
+                    key={system}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    style={[styles.systemButton, isSelected && styles.systemButtonSelected]}
+                    onPress={() => {
+                      setSizeSystem(system);
+                      setSelectedShoeSizes([]);
+                    }}
+                  >
+                    <Text variant="body" style={[styles.systemButtonText, isSelected && styles.systemButtonTextSelected]}>
+                      {system}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <View style={styles.chipsContainer}>
-              {CLOTHING_SIZES.map((size) => {
+              {clothingSizes.map((size) => {
                 const isSelected = selectedSizes.includes(size);
                 return (
                   <Pressable
@@ -165,7 +187,7 @@ export default function PreferencesScreen() {
                     onPress={() => toggleSize(size)}
                   >
                     <Text variant="body" style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {size}
+                      {getPreferenceSizeLabel(size, sizeSystem)}
                     </Text>
                   </Pressable>
                 );
@@ -177,10 +199,10 @@ export default function PreferencesScreen() {
           <View style={styles.section}>
             <Label style={styles.sectionHeader}>Mes tailles — Chaussures</Label>
             <Caption style={styles.sectionSubtitle}>
-              Sélectionnez vos pointures
+              Pointures {sizeSystem}
             </Caption>
             <View style={styles.chipsContainer}>
-              {SHOE_SIZES.map((size) => {
+              {shoeSizes.map((size) => {
                 const isSelected = selectedShoeSizes.includes(size);
                 return (
                   <Pressable
@@ -316,6 +338,31 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     color: colors.foregroundSecondary,
     marginBottom: spacing.md,
+  },
+  systemSelector: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  systemButton: {
+    minWidth: 72,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.borderLight,
+    alignItems: 'center',
+  },
+  systemButtonSelected: {
+    backgroundColor: colors.foreground,
+    borderColor: colors.foreground,
+  },
+  systemButtonText: {
+    fontFamily: fonts.sansMedium,
+    color: colors.foreground,
+  },
+  systemButtonTextSelected: {
+    color: colors.background,
   },
   chipsContainer: {
     flexDirection: 'row',

@@ -25,7 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 // Components
 import EditableField from '@/components/EditableField';
 import CategoryDisplay from '@/components/CategoryDisplay';
-import ConditionSelector from '@/components/ConditionSelector';
+import ConditionSelector, { ConditionValue } from '@/components/ConditionSelector';
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
 import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
@@ -50,8 +50,6 @@ import { queryKeys } from '@/lib/queryKeys';
 import { Article, ArticleImage, MeetupNeighborhood } from '@/types';
 import { colors, fonts } from '@/constants/theme';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
-
-type ConditionValue = 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
 
 type PackageSize = 'small' | 'medium' | 'large';
 

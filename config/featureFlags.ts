@@ -15,3 +15,10 @@
  * main-à-main. Repasser à `true` pour tout réactiver.
  */
 export const SHIPPING_ENABLED = false;
+
+/**
+ * Paiements marketplace / Stripe Connect.
+ * Gardé désactivé pendant la bêta tant que le parcours financier complet
+ * n'est pas validé. Les écrans liés au paiement ne doivent pas être exposés.
+ */
+export const PAYMENTS_ENABLED = false;

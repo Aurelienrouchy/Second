@@ -6,6 +6,8 @@ export type Sex = 'femme' | 'homme' | 'les-deux' | 'enfant';
 
 export interface UserPreferences {
   sizes: string[];
+  /** Système utilisé pour afficher et interpréter les tailles. */
+  sizeSystem?: 'EU' | 'US';
   /**
    * Pointures (tailles de chaussures), écrites dans la map `preferences`
    * par la callable d'onboarding, séparément de `sizes` (tailles vêtements).
@@ -224,7 +226,7 @@ export interface Article {
   material?: string;
   materials?: string[];
   pattern?: string;
-  condition: 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
+  condition: 'neuf' | 'neuf sans étiquette' | 'très bon état' | 'bon état' | 'satisfaisant';
   sellerId: string;
   sellerName: string;
   sellerImage?: string;
@@ -863,7 +865,7 @@ export interface SwapPartyItemExtended extends SwapPartyItem {
   color?: string;
   material?: string;
   pattern?: string;
-  condition?: 'neuf' | 'très bon état' | 'bon état' | 'satisfaisant';
+  condition?: 'neuf' | 'neuf sans étiquette' | 'très bon état' | 'bon état' | 'satisfaisant';
 }
 
 // Swap status
