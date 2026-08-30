@@ -18,7 +18,7 @@
 // --- Firestore : observable finement (le mock global de jest.setup est nu) ---
 const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn((..._args: unknown[]) =>
-  Promise.resolve({ empty: true, docs: [], forEach: () => {}, size: 0 }),
+  Promise.resolve({ empty: true, docs: [] as { id: string }[], forEach: () => {}, size: 0 }),
 );
 const mockAddDoc = jest.fn((..._args: unknown[]) => Promise.resolve({ id: 'msg-new' }));
 const mockUpdateDoc = jest.fn((..._args: unknown[]) => Promise.resolve());
@@ -207,7 +207,7 @@ describe('ChatService.completeMeetup — ordre callable→message (B2)', () => {
     const order: string[] = [];
     mockCallable.mockImplementationOnce((..._a: unknown[]) => {
       order.push('callable');
-      return Promise.resolve({ data: { success: true } });
+      return Promise.resolve({ data: { success: true, transactionId: 'tx-confirmed' } });
     });
     mockUpdateDoc.mockImplementationOnce((..._a: unknown[]) => {
       order.push('updateDoc');
