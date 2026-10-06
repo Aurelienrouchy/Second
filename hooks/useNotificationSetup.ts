@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus, InteractionManager, Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import { router, type Href } from 'expo-router';
@@ -139,33 +140,6 @@ async function setupAndroidChannels(): Promise<void> {
       enableVibrate: true,
     }),
   ]);
-}
-
-// ─── Token classification ──────────────────────────────────────────────────
-
-/**
- * Détecte un FCM registration token (envoyable via `admin.messaging()`).
- *
- * `Notifications.getDevicePushTokenAsync()` renvoie le token NATIF :
- *  - Android → FCM registration token (contient un ':' — ex "xxxx:APA91b…").
- *  - iOS     → token APNs BRUT (64+ caractères hex, sans ':').
- *
- * Le backend envoie via `admin.messaging().sendEach()`, qui n'accepte QUE des
- * FCM registration tokens. Un token APNs brut n'est PAS envoyable tel quel et
- * est ignoré côté serveur (cf. functions/src/utils/notifications.ts
- * `partitionTokens`). Ce miroir client évite d'enregistrer un token APNs comme
- * s'il était un token FCM exploitable.
- *
- * Obtenir un VRAI FCM registration token sur iOS nécessite le module natif
- * `@react-native-firebase/messaging` (banni par les règles projet) ou une
- * étape native non configurable dans ce hook. Voir le TODO dans
- * `registerPushToken`.
- */
-function isFcmRegistrationToken(token: string): boolean {
-  // Les FCM registration tokens contiennent toujours ':'.
-  // Les tokens APNs bruts sont du hex pur (>= 64 chars).
-  if (token.includes(':')) return true;
-  return !/^[0-9a-fA-F]{64,}$/.test(token);
 }
 
 // ─── Routing logic ─────────────────────────────────────────────────────────
@@ -342,7 +316,7 @@ async function handleInitialNotification(userId: string | null): Promise<void> {
 /**
  * Hook principal pour le setup complet des notifications push.
  * Gère : channels Android, listeners, notification initiale (app killed),
- * enregistrement du token FCM, badge count.
+ * enregistrement du token Expo iOS / FCM Android, badge count.
  *
  * Doit être appelé UNE SEULE FOIS dans le root layout.
  */
@@ -359,7 +333,7 @@ export function useNotificationSetup(userId: string | null): void {
     userIdRef.current = userId;
   }, [userId]);
 
-  const fcmTokenRef = useRef<string | null>(null);
+  const pushTokenRef = useRef<string | null>(null);
 
   // ── Refresh badge count ──
   const refreshBadgeCount = useCallback(async () => {
@@ -375,9 +349,10 @@ export function useNotificationSetup(userId: string | null): void {
     }
   }, []);
 
-  // ── Register FCM token ──
+  // ── Register push token (Expo iOS / FCM Android) ──
   const registerPushToken = useCallback(async () => {
-    if (!userIdRef.current) return;
+    const registeringUserId = userIdRef.current;
+    if (!registeringUserId) return;
 
     try {
       // Don't re-prompt if the OS won't show the dialog again (canAskAgain
@@ -404,40 +379,35 @@ export function useNotificationSetup(userId: string | null): void {
         return;
       }
 
-      const pushToken = await Notifications.getDevicePushTokenAsync();
-      const deviceToken = pushToken.data as string;
-      if (!deviceToken) return;
-
-      // iOS renvoie un token APNs brut, non envoyable via FCM tel quel. Le
-      // backend l'ignore (partitionTokens) → l'enregistrer ne produit aucune
-      // notif. On évite de polluer la liste fcmTokens avec un token mort.
-      // TODO(push-ios): pour activer le push iOS, enregistrer un vrai FCM
-      // registration token. Nécessite une étape native (module messaging FCM)
-      // hors périmètre de ce hook — à traiter via app.config.js + prebuild.
-      if (!isFcmRegistrationToken(deviceToken)) {
-        if (__DEV__) {
-          console.log(
-            `[push] Token natif non-FCM (${pushToken.type}) ignoré — ` +
-              'le push iOS requiert un FCM registration token (étape native).'
-          );
-        }
-        track('push_token_registered', {
-          permission_status: status,
-          is_fcm_token: false,
-          platform: Platform.OS as 'ios' | 'android',
-        });
+      // iOS native tokens are APNs tokens, not FCM tokens. Expo's gateway
+      // provides an iOS transport without adding a forbidden native FCM module.
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      if (Platform.OS === 'ios' && !projectId) {
+        if (__DEV__) console.warn('[push] EAS projectId absent');
         return;
       }
-
-      await UserService.saveFcmToken(userIdRef.current, deviceToken);
-      fcmTokenRef.current = deviceToken;
+      const pushToken = Platform.OS === 'ios'
+        ? await Notifications.getExpoPushTokenAsync({ projectId })
+        : await Notifications.getDevicePushTokenAsync();
+      const deviceToken = pushToken.data as string;
+      if (!deviceToken || !registeringUserId || registeringUserId !== userIdRef.current) return;
+      const isExpoToken = Platform.OS === 'ios';
+      if (isExpoToken) await UserService.saveExpoPushToken(registeringUserId, deviceToken);
+      else await UserService.saveFcmToken(registeringUserId, deviceToken);
+      // A refreshed Expo token is removed from the same transport collection.
+      const previous = pushTokenRef.current;
+      if (previous && previous !== deviceToken) {
+        if (isExpoToken) await UserService.removeExpoPushToken(registeringUserId, previous);
+        else await UserService.removeFcmToken(registeringUserId, previous);
+      }
+      pushTokenRef.current = deviceToken;
       useNotificationStore.getState().setPushToken(deviceToken);
       track('push_token_registered', {
         permission_status: status,
-        is_fcm_token: true,
+        is_fcm_token: Platform.OS === 'android',
         platform: Platform.OS as 'ios' | 'android',
       });
-      if (__DEV__) console.log('FCM token registered');
+      if (__DEV__) console.log('Push token registered');
     } catch (error) {
       if (__DEV__) console.log('Error registering push token:', error);
     }
@@ -447,6 +417,7 @@ export function useNotificationSetup(userId: string | null): void {
   useEffect(() => {
     if (!userId) {
       // User logged out → cleanup
+      pushTokenRef.current = null;
       useNotificationStore.getState().reset();
       return;
     }
@@ -511,31 +482,25 @@ export function useNotificationSetup(userId: string | null): void {
 
     // 7. Listener: token refresh
     const tokenSub = Notifications.addPushTokenListener(async (newPushToken) => {
+      if (Platform.OS === 'ios') {
+        // This listener supplies a refreshed APNs token; obtain a new Expo token
+        // for the gateway instead of storing the raw APNs value.
+        await registerPushToken();
+        return;
+      }
       const newToken = newPushToken.data as string;
       const currentUserId = userIdRef.current;
       if (!currentUserId || !newToken) return;
-
-      // Même garde qu'à l'enregistrement : ne pas persister un token natif
-      // non-FCM (APNs brut iOS) que le backend ne peut pas envoyer.
-      if (!isFcmRegistrationToken(newToken)) {
-        if (__DEV__) {
-          console.log(
-            `[push] Token rafraîchi non-FCM (${newPushToken.type}) ignoré.`
-          );
+      try {
+        await UserService.saveFcmToken(currentUserId, newToken);
+        if (pushTokenRef.current && pushTokenRef.current !== newToken) {
+          await UserService.removeFcmToken(currentUserId, pushTokenRef.current);
         }
-        return;
+        pushTokenRef.current = newToken;
+        useNotificationStore.getState().setPushToken(newToken);
+      } catch (error) {
+        if (__DEV__) console.warn('[push] token refresh failed:', error);
       }
-
-      // Remove old token
-      if (fcmTokenRef.current && fcmTokenRef.current !== newToken) {
-        await UserService.removeFcmToken(currentUserId, fcmTokenRef.current);
-      }
-
-      // Save new token
-      await UserService.saveFcmToken(currentUserId, newToken);
-      fcmTokenRef.current = newToken;
-      useNotificationStore.getState().setPushToken(newToken);
-      if (__DEV__) console.log('FCM token refreshed');
     });
 
     // 8. Listener: app foregrounded → re-sync badge (notifications may have
@@ -561,8 +526,7 @@ export function useNotificationSetup(userId: string | null): void {
   }, [userId, refreshBadgeCount, registerPushToken]);
 
   // ── Expose unregister for logout (via store or callback) ──
-  // The AuthContext can call useNotificationStore.getState().reset()
-  // and UserService.removeFcmToken() directly on logout.
+  // authStore removes the registered token from its matching transport on logout.
 }
 
 // ─── Exported helpers ───────────────────────────────────────────────────────

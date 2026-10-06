@@ -15,8 +15,7 @@ import {
 } from 'react-native';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { track } from '@/lib/analytics';
-import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { Button } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader, Button } from '@/components/ui';
 
 const FAQ_ITEMS = [
   {
@@ -25,14 +24,14 @@ const FAQ_ITEMS = [
     answer: 'Appuyez sur le bouton "Vendre" au centre de la barre de navigation, ajoutez des photos et une description.',
   },
   {
-    icon: 'airplane-outline' as const,
-    question: 'Comment fonctionnent les frais de port ?',
-    answer: 'L\'acheteur paie les frais de port. Vous recevez un bordereau d\'envoi prépayé.',
+    icon: 'location-outline' as const,
+    question: 'Comment récupérer un article ?',
+    answer: 'La version actuelle propose la remise en main propre. Convenez d’un lieu et d’un moment avec l’autre personne dans la messagerie. La livraison et les bordereaux ne sont pas disponibles.',
   },
   {
     icon: 'cash-outline' as const,
-    question: 'Quand suis-je payé ?',
-    answer: 'L\'argent est disponible dans votre porte-monnaie une fois que l\'acheteur a validé la réception de l\'article.',
+    question: 'Comment fonctionne le paiement ?',
+    answer: 'Seconde est gratuite dans sa version locale actuelle. Les paiements intégrés et le porte-monnaie ne sont pas disponibles. Convenez directement du règlement lors de la remise en main propre.',
   },
   {
     icon: 'swap-horizontal-outline' as const,
@@ -107,7 +106,7 @@ export default function HelpSettingsScreen() {
           [{ text: 'OK' }]
         );
       }
-    } catch (error) {
+    } catch {
       track('support_contacted', { outcome: 'error' });
       Alert.alert(
         'Erreur',

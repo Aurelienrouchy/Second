@@ -27,6 +27,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
@@ -133,7 +134,7 @@ export default function ShopUpgradeScreen() {
   } = useQuery<Shop | null>({
     queryKey: queryKeys.shops.detail(shopId ?? ''),
     queryFn: () => ShopService.getShopById(shopId!),
-    enabled: !!shopId,
+    enabled: PAYMENTS_ENABLED && !!shopId,
     staleTime: 30 * 1000,
   });
 
@@ -166,7 +167,7 @@ export default function ShopUpgradeScreen() {
   const currentTier = shop?.tier;
 
   const handlePurchase = useCallback(async () => {
-    if (!shopId || isPurchasing) return;
+    if (!PAYMENTS_ENABLED || !shopId || isPurchasing) return;
     try {
       setIsPurchasing(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -231,6 +232,18 @@ export default function ShopUpgradeScreen() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  if (!PAYMENTS_ENABLED) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Forfait boutique" onBack={() => router.back()} />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Les forfaits payants ne sont pas disponibles</Text>
+          <Text style={styles.errorSubtitle}>La version locale actuelle de Seconde est gratuite.</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (

@@ -69,8 +69,7 @@ interface PrivacySettings {
 
 // Privacy-by-default (Loi 25 art. 9.1, LCAP) : tous les défauts sont OFF.
 // Source de vérité partagée : UserService.PRIVACY_DEFAULTS.
-// Exception : analyticsConsent suit un modèle OPT-OUT (activé par défaut,
-// statistiques anonymisées) — voir COPY_ANALYTICS.
+// analyticsConsent suit le modèle produit OPT-OUT — voir COPY_ANALYTICS.
 const DEFAULT_PRIVACY: PrivacySettings = {
   showProfilePhoto: UserService.PRIVACY_DEFAULTS.showProfilePhoto,
   aiProfilingConsent: UserService.PRIVACY_DEFAULTS.aiProfilingConsent,
@@ -85,11 +84,11 @@ const COPY_AI = {
 } as const;
 
 // Statistiques d'usage (analytics produit). Modèle opt-out (activé par défaut) :
-// données anonymisées, jamais de données personnelles, désactivable à tout moment.
+// identifiant de compte pseudonyme, désactivable à tout moment.
 const COPY_ANALYTICS = {
   title: "Données d'utilisation",
   description:
-    "Nous aider à améliorer l'application grâce à des statistiques d'usage anonymisées. Aucune donnée personnelle n'est collectée. Vous pouvez désactiver cette option à tout moment.",
+    "Nous aider à améliorer l'application grâce à des statistiques d'usage associées à un identifiant de compte pseudonyme et, si disponible, à votre pseudo public. Ces données sont traitées par PostHog aux États-Unis par défaut. Elles ne sont pas anonymes. Vous pouvez désactiver la collecte sur l'application et le serveur à tout moment.",
 } as const;
 
 // Retrait du consentement marketing (art. 14 / LCAP). Textes rédigés par le juriste.
@@ -129,7 +128,7 @@ export default function PrivacySettingsScreen() {
   // showProfilePhoto + aiProfilingConsent : écriture client directe (préférences
   // simples). marketingConsent est traité séparément par le callable serveur
   // (voir saveMarketingConsent) — il NE PASSE PLUS par cette mutation.
-  const { mutate: savePreferences } = useMutation({
+  const { mutate: savePreferences, isPending: isSavingPreferences } = useMutation({
     mutationFn: (updates: Partial<PrivacySettings>) => {
       const preferenceUpdates: Partial<UserPreferences> = {};
       if (updates.showProfilePhoto !== undefined) {
@@ -160,6 +159,7 @@ export default function PrivacySettingsScreen() {
       return { previousSettings };
     },
     onSuccess: (_data, updates) => {
+      if (updates.analyticsConsent !== undefined) void setAnalyticsEnabled(updates.analyticsConsent);
       if (updates.showProfilePhoto !== undefined) {
         track('privacy_setting_toggled', { setting_key: 'showProfilePhoto', new_value: updates.showProfilePhoto, success: true });
       }
@@ -301,11 +301,12 @@ export default function PrivacySettingsScreen() {
             </View>
             <Switch
               value={privacySettings.analyticsConsent}
+              disabled={isSavingPreferences}
               onValueChange={(value) => {
                 // Persiste la préférence (comme les autres toggles simples) et
                 // applique immédiatement l'opt-in/opt-out PostHog.
                 savePreferences({ analyticsConsent: value });
-                void setAnalyticsEnabled(value);
+                if (!value) void setAnalyticsEnabled(false);
               }}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.white}

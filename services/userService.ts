@@ -330,6 +330,26 @@ export class UserService {
     }
   }
 
+  /** Expo tokens are stored separately; APNs tokens never enter fcmTokens. */
+  static async saveExpoPushToken(userId: string, token: string): Promise<void> {
+    if (auth.currentUser?.uid !== userId) return;
+    if (!/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/.test(token)) {
+      throw new Error('Token de notification invalide');
+    }
+    await updateDoc(doc(firestore, this.COLLECTION, userId), {
+      expoPushTokens: arrayUnion(token),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  static async removeExpoPushToken(userId: string, token: string): Promise<void> {
+    if (auth.currentUser?.uid !== userId) return;
+    await updateDoc(doc(firestore, this.COLLECTION, userId), {
+      expoPushTokens: arrayRemove(token),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
   /**
    * Récupérer les tokens FCM d'un utilisateur
    */

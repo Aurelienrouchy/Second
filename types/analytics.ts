@@ -1014,7 +1014,7 @@ export interface AnalyticsEvents {
     province: string;
     has_geo?: boolean;
     success: boolean;
-    validation_error?: 'missing_fields';
+    validation_error?: 'missing_fields' | 'country' | 'province' | 'postal_code';
   };
   email_change_submitted: {
     auth_provider: 'password' | 'google' | 'apple';
@@ -1158,7 +1158,7 @@ export interface AnalyticsEvents {
   legacy_route_redirected: { legacy_route: string; legacy_party_id?: string };
 }
 
-// ── User properties (identify / $set) — non-PII traits ────────────────────────
+// ── User properties (identify / $set) — pseudonymous product traits ────────────────────────
 
 export interface UserTraits {
   username?: string;

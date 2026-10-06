@@ -62,11 +62,13 @@ jest.mock('@/services/guestPreferencesService', () => ({
   },
 }));
 
+const mockRemoveExpoPushToken = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockRemoveFcmToken = jest.fn((..._args: unknown[]) => Promise.resolve());
 jest.mock('@/services/userService', () => ({
   UserService: {
     getUserById: jest.fn((..._args: unknown[]) => Promise.resolve(null)),
     removeFcmToken: (...a: unknown[]) => mockRemoveFcmToken(...a),
+    removeExpoPushToken: (...a: unknown[]) => mockRemoveExpoPushToken(...a),
   },
 }));
 
@@ -352,6 +354,15 @@ describe('authStore.signOut — teardown complet et robuste', () => {
     expect(await AsyncStorage.getItem('user_data')).toBeNull();
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().isLoading).toBe(false);
+  });
+
+  it('removes an iOS Expo token from its matching transport on logout', async () => {
+    notificationPushToken.value = 'ExpoPushToken[ios-device]';
+    await useAuthStore.getState().signIn(CONSENTED_USER);
+    await useAuthStore.getState().signOut();
+    expect(mockRemoveExpoPushToken).toHaveBeenCalledWith('uid-1', 'ExpoPushToken[ios-device]');
+    expect(mockRemoveFcmToken).not.toHaveBeenCalled();
+    expect(mockAuthSignOut).toHaveBeenCalled();
   });
 
   it('un échec de removeFcmToken NE bloque PAS la suite du teardown', async () => {

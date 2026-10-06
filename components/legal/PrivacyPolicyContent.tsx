@@ -149,6 +149,12 @@ function PrivacyPolicyContentComponent() {
         <Caption>Nos fonctions infonuagiques sont hébergées dans la région de Montréal (northamerica-northeast1)</Caption>
       </View>
 
+      <View style={styles.infoCard}>
+        <Text variant="body" style={styles.companyName}>PostHog (analyse d&apos;utilisation)</Text>
+        <Caption>Statistiques d&apos;usage, identifiant de compte pseudonyme et pseudo public si disponible. Le traitement a lieu aux États-Unis par défaut. Ces données ne sont pas anonymes.</Caption>
+        <Caption>La collecte est activée par défaut après chargement de vos préférences. Vous pouvez la désactiver dans Réglages {'>'} Confidentialité ; le choix s&apos;applique à l&apos;application et aux événements serveur.</Caption>
+      </View>
+
       <View style={styles.highlightBox}>
         <Ionicons name="shield" size={20} color={colors.primary} />
         <Text variant="bodySmall" style={styles.highlightText}>
