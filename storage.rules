@@ -11,6 +11,25 @@ service firebase.storage {
     function isValidImageUpload() {
       return isImage() && isReasonableImageSize();
     }
+    function ownsArticle(articleId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/articles/$(articleId))
+        && firestore.get(/databases/(default)/documents/articles/$(articleId)).data.sellerId == request.auth.uid
+        && firestore.get(/databases/(default)/documents/articles/$(articleId)).data.isSold == false;
+    }
+    function participatesInChat(chatId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/chats/$(chatId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.participants;
+    }
+    function participatesInSwap(swapId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/swaps/$(swapId))
+        && request.auth.uid in [
+          firestore.get(/databases/(default)/documents/swaps/$(swapId)).data.initiatorId,
+          firestore.get(/databases/(default)/documents/swaps/$(swapId)).data.receiverId
+        ];
+    }
 
     // Allow authenticated users to upload images to their own folders
     match /users/{userId}/{allPaths=**} {
@@ -23,31 +42,23 @@ service firebase.storage {
     // Product images — uid-scoped path: products/{userId}/{productId}/...
     // This path is currently unused in the codebase but prepared for future use.
     match /products/{userId}/{productId}/{allPaths=**} {
-      allow read: if true; // Public read for product images
+      allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && (request.resource == null || isValidImageUpload());
     }
 
-    // Article images
-    // LIMITATION: Storage rules cannot verify Firestore document ownership.
-    // The path is articles/{articleId}/... without a uid segment.
-    // TODO(front): Scope by userId when front migrates upload paths to
-    // articles/{userId}/{articleId}/... — then add request.auth.uid == userId guard.
-    // Until then, any authenticated user can write to any articleId path.
-    // Mitigated by: MIME image/* validation + 10MB size limit.
+    // Publication creates the article server-side; local images first stage in
+    // products/{uid}/... . Existing article edits use the authoritative owner.
     match /articles/{articleId}/{allPaths=**} {
       allow read: if true; // Public read for article images
-      allow write: if request.auth != null
+      allow write: if ownsArticle(articleId)
                    && (request.resource == null || isValidImageUpload());
     }
 
     // Draft images (for AI analysis) — scoped by userId
-    // TODO(front): Update services/aiService.ts to upload to drafts/{uid}/{draftId}/...
-    // instead of drafts/{draftId}/... (current client path). Until the client is
-    // updated, draft uploads will be rejected by this rule.
     match /drafts/{userId}/{draftId}/{allPaths=**} {
-      allow read: if true; // Public read for preview during creation
+      allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && (request.resource == null || isValidImageUpload());
@@ -61,27 +72,26 @@ service firebase.storage {
                    && (request.resource == null || isValidImageUpload());
     }
 
-    // Chat images
-    // NOTE: Chat participation cannot be verified in Storage rules.
-    // Server-side validation via Cloud Functions would be needed for full security.
-    // Mitigated by: auth required + MIME image/* validation + 10MB size limit.
+    // Chat media is private to the authoritative participants and immutable.
     match /chat_images/{chatId}/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-                   && (request.resource == null || isValidImageUpload());
+      allow read: if participatesInChat(chatId);
+      allow create: if participatesInChat(chatId) && isValidImageUpload();
+      allow update, delete: if false;
     }
 
-    // Swap photo proofs — swaps/{swapId}/photos/{uid}_{i}_{ts}.jpg
-    // Both swap participants must be able to upload their proof photos; the
-    // catch-all deny below would otherwise block every accepted swap at the
-    // photos stage (F109). Swap participation cannot be verified in Storage
-    // rules (same limitation as chat_images/), so we mirror that posture:
-    // auth required + MIME image/* validation + 10MB size limit. The filename
-    // is uid-prefixed by the client for traceability.
+    // Legacy proofs remain readable by participants, never mutable.
     match /swaps/{swapId}/photos/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-                   && (request.resource == null || isValidImageUpload());
+      allow read: if participatesInSwap(swapId);
+      allow write: if false;
+    }
+    // New proofs bind the uploader via a UID segment and are create-only.
+    match /swaps/{swapId}/photos/{userId}/{fileName} {
+      allow read: if participatesInSwap(swapId);
+      allow create: if participatesInSwap(swapId)
+        && request.auth.uid == userId
+        && firestore.get(/databases/(default)/documents/swaps/$(swapId)).data.status == 'photos_pending'
+        && isValidImageUpload();
+      allow update, delete: if false;
     }
 
     // Deny all other access

@@ -32,10 +32,12 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
-import { db, FieldValue } from '../config/firebase';
+import { db, FieldValue, storage } from '../config/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getStripe } from '../config/stripe';
+import { assertNewPaymentsEnabled } from '../config/featureFlags';
 import { calculateFees } from '../utils/fees';
+import { storageObjectPath } from '../utils/articleMedia';
 import { getOrCreateSellerWallet } from './wallet';
 import { updateUserRating } from './reviews';
 import { sendPushNotification } from '../utils/notifications';
@@ -372,6 +374,7 @@ export const proposeMultiSwap = onCall(
     // --- Validate cashTopUp (optional) -------------------------------------
     let validatedTopUp: { amount: number; payerId: string } | null = null;
     if (cashTopUp != null) {
+      assertNewPaymentsEnabled();
       if (typeof cashTopUp !== 'object') {
         throw new HttpsError('invalid-argument', 'cashTopUp doit être un objet { amount, payerId }');
       }
@@ -566,6 +569,7 @@ export const acceptSwap = onCall(
         await validateArticlesAvailable(tx, receiverItems, 'Votre article', swap.receiverId);
 
         const hasTopUp = swap.cashTopUp != null && typeof swap.cashTopUp.amount === 'number';
+        if (hasTopUp) assertNewPaymentsEnabled();
         const newStatus = hasTopUp ? 'payment_pending' : 'accepted';
 
         tx.update(swapRef, {
@@ -615,6 +619,8 @@ export const createSwapTopUpCheckout = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
     }
+
+    assertNewPaymentsEnabled();
 
     const { swapId } = request.data ?? {};
     if (!swapId || typeof swapId !== 'string') {
@@ -1134,6 +1140,12 @@ export const uploadSwapPhotos = onCall(
     if (!Array.isArray(photoUrls) || photoUrls.length === 0) {
       throw new HttpsError('invalid-argument', 'photoUrls requis (tableau non vide)');
     }
+    if (photoUrls.length > 10 || photoUrls.some((url: unknown) => {
+      const path = typeof url === 'string' ? storageObjectPath(url, storage.bucket().name) : null;
+      return !path?.startsWith(`swaps/${swapId}/photos/${request.auth!.uid}/`);
+    })) {
+      throw new HttpsError('invalid-argument', 'Photos de preuve invalides');
+    }
 
     try {
       await db.runTransaction(async (tx) => {
@@ -1170,6 +1182,9 @@ export const uploadSwapPhotos = onCall(
         };
 
         const isInitiator = swap.initiatorId === uid;
+        if (isInitiator ? swap.initiatorPhotos : swap.receiverPhotos) {
+          throw new HttpsError('failed-precondition', 'Ces preuves sont déjà enregistrées et ne peuvent plus être remplacées');
+        }
         if (isInitiator) {
           updateData.initiatorPhotos = photoProof;
         } else {

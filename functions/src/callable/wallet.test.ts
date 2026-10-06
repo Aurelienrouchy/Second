@@ -231,6 +231,8 @@ const callRefundWalletPayment = refundWalletPayment as unknown as CallableHandle
 // Reset state before each test
 // ---------------------------------------------------------------------------
 beforeEach(() => {
+  vi.stubEnv('PAYMENTS_ENABLED', 'true');
+  vi.stubEnv('SHIPPING_ENABLED', 'true');
   // Clear mutable state
   writeOps.length = 0;
   for (const key of Object.keys(docSnapshots)) delete docSnapshots[key];
@@ -548,7 +550,7 @@ describe('walletWithdraw', () => {
       (w) =>
         w.path.startsWith('withdrawal_requests/') &&
         w.method === 'update' &&
-        (w.data as Record<string, unknown>).stripeTransferId !== undefined
+        (w.data as Record<string, unknown>).stripePayoutId !== undefined
     );
     expect(wrUpdate).toBeDefined();
     expect((wrUpdate!.data as Record<string, unknown>).stripeTransferId).toBe('tr_123');
@@ -617,7 +619,7 @@ describe('walletWithdraw', () => {
     });
   });
 
-  it('reverts wallet debit when Stripe transfer fails', async () => {
+  it('keeps wallet reserved when Stripe transfer outcome is unknown', async () => {
     setupWithdrawable(5000);
 
     // Track runTransaction call count
@@ -635,25 +637,22 @@ describe('walletWithdraw', () => {
 
     await expect(
       callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
-    ).rejects.toThrow('Stripe network error');
+    ).rejects.toMatchObject({ code: 'unavailable' });
 
-    // Three runTransaction calls: rate-limit check + debit + revert.
-    // (transfers.create throws BEFORE `transfer` is assigned, so no
-    // transfers.createReversal happens — that is a Stripe call, not a
-    // runTransaction, anyway.)
-    expect(txCallCount).toBe(3);
+    // Network failure is not a confirmed rejection: no compensation.
+    expect(txCallCount).toBe(2);
 
-    // Revert should update the wallet again
+    // The only wallet mutation is the original reservation.
     const walletUpdates = writeOps.filter(
       (w) => w.path === 'wallets/user1' && w.method === 'update'
     );
-    expect(walletUpdates.length).toBeGreaterThanOrEqual(2);
+    expect(walletUpdates.length).toBe(1);
 
     // Restore
     mockDb.runTransaction = origRunTransaction;
   });
 
-  it('reverts wallet debit when Stripe payout fails', async () => {
+  it('keeps wallet reserved when Stripe payout outcome is unknown', async () => {
     setupWithdrawable(5000);
 
     let txCallCount = 0;
@@ -669,12 +668,10 @@ describe('walletWithdraw', () => {
 
     await expect(
       callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
-    ).rejects.toThrow('Payout failed');
+    ).rejects.toMatchObject({ code: 'unavailable' });
 
-    // Three runTransaction calls: rate-limit check + debit + revert. The
-    // transfer succeeded so the code ALSO calls stripe.transfers.createReversal,
-    // but that is a Stripe call (mocked), not a runTransaction.
-    expect(txCallCount).toBe(3);
+    // Unknown payout is retained for reconciliation, never compensated blindly.
+    expect(txCallCount).toBe(2);
   });
 
   it('rejects string amounts', async () => {

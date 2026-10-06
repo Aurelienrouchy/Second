@@ -30,6 +30,7 @@
  *
  * All wallet/ledger amounts are CENTS. Transaction cost fields are DOLLARS.
  */
+import { sellerPendingCreditCents } from './sellerEscrow';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { applyDeliveredHeldFunds } from '../scheduled/releaseHeldFunds';
@@ -119,22 +120,26 @@ export async function applyTrackingOutcome(
       // deferred-credit model. If for any reason they were never credited
       // (sellerCreditedCents absent) we still mark delivered but cannot move
       // funds that are not there — log and skip the held-funds move.
-      const creditedCents =
-        typeof data.sellerCreditedCents === 'number' ? data.sellerCreditedCents : 0;
+      let creditedCents =
+        typeof data.sellerPendingCreditCents === 'number'
+          ? data.sellerPendingCreditCents
+          : typeof data.sellerCreditedCents === 'number' ? data.sellerCreditedCents : 0;
 
       // ALL reads first (Admin SDK forbids read-after-write in a transaction):
       // read the wallet BEFORE any tx.update, otherwise getOrCreateSellerWallet's
       // tx.get throws READ_AFTER_WRITE_ERROR and the delivery never commits (F1).
-      let wallet: { walletRef: FirebaseFirestore.DocumentReference; walletData: FirebaseFirestore.DocumentData } | null =
+      let wallet: { walletRef: FirebaseFirestore.DocumentReference; walletData: FirebaseFirestore.DocumentData; isNew: boolean } | null =
         null;
-      if (sellerId && creditedCents > 0) {
+      if (sellerId && typeof data.sellerCreditedCents === 'number') {
         wallet = await getOrCreateSellerWallet(tx, sellerId);
+        creditedCents = wallet.isNew ? 0 : await sellerPendingCreditCents(tx, wallet.walletRef, data, transactionId);
       }
 
       tx.update(txRef, {
         trackingStatus: 'DELIVERED',
         status: 'delivered',
         deliveredAt: FieldValue.serverTimestamp(),
+        ...(wallet ? { sellerPendingCreditCents: creditedCents } : {}),
       });
 
       if (wallet) {

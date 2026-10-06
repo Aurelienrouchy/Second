@@ -8,6 +8,7 @@ import { db, FieldValue } from '../config/firebase';
 import { matchBrand, BRAND_MATCHING } from '../services/brands';
 import { brandDisplay } from '../utils/normalizeBrand';
 import { sanitizeArticleSize } from '../shared/article';
+import { promoteArticleImages } from '../utils/articleMedia';
 
 /**
  * Normalise a raw brand string for storage.
@@ -80,6 +81,31 @@ function sanitizeNeighborhood(raw: unknown): MeetupNeighborhood | null {
     name: name.substring(0, 100),
     borough: borough.substring(0, 100),
   };
+}
+
+/** Check reservations within the same transaction that changes the article.
+ * Reading and writing the article serializes this guard with acceptance. Treat
+ * unknown/legacy nonterminal statuses as active instead of maintaining a stale
+ * allowlist of historical shipping names.
+ */
+async function assertNoLiveArticleTransaction(
+  tx: FirebaseFirestore.Transaction,
+  articleId: string,
+  article: FirebaseFirestore.DocumentData,
+): Promise<void> {
+  const terminal = new Set(['cancelled', 'refunded', 'completed', 'meetup_completed']);
+  const reservations = await tx.get(db.collection('transactions').where('articleId', '==', articleId));
+  if (reservations.docs.some((reservation) => !terminal.has(reservation.data().status))) {
+    throw new HttpsError('failed-precondition', 'Une transaction est en cours sur cet article. Annulez cet accord explicitement avant de modifier l’annonce.');
+  }
+  // A legacy link may have lost its articleId index data. Do not clear an
+  // unresolved link merely because the query above is empty.
+  if (typeof article.activeTransactionId === 'string') {
+    const linked = await tx.get(db.collection('transactions').doc(article.activeTransactionId));
+    if (!linked.exists || !terminal.has(linked.data()!.status)) {
+      throw new HttpsError('failed-precondition', 'Un accord est encore lié à cet article.');
+    }
+  }
 }
 
 /**
@@ -483,8 +509,11 @@ export const createArticle = onCall(
       article.packageSize = data.packageSize;
     }
 
-    // ── 7. Create in Firestore ──
-    const docRef = await db.collection('articles').add(article);
+    // Promote staged media before publishing: daily draft cleanup must never
+    // delete a live article's photos. Ownership is checked server-side.
+    const docRef = db.collection('articles').doc();
+    article.images = await promoteArticleImages(sanitizedImages, uid, docRef.id);
+    await docRef.set(article);
 
     logger.info('Article created via callable', {
       articleId: docRef.id,
@@ -519,28 +548,6 @@ export const toggleArticleSold = onCall(
     const uid = request.auth.uid;
     const articleRef = db.collection('articles').doc(articleId);
 
-    // Query for active transactions BEFORE the transaction (Firestore
-    // transactions only support doc gets via t.get(), not queries).
-    const activeTransactions = await db
-      .collection('transactions')
-      .where('articleId', '==', articleId)
-      .where('status', 'in', [
-        'pending',
-        'meetup_pending',
-        'meetup_confirmed',
-        'shipping_pending',
-        'shipping_in_transit',
-      ])
-      .limit(1)
-      .get();
-
-    if (!activeTransactions.empty) {
-      throw new HttpsError(
-        'failed-precondition',
-        'Une transaction est en cours sur cet article',
-      );
-    }
-
     await db.runTransaction(async (t) => {
       const doc = await t.get(articleRef);
       if (!doc.exists) {
@@ -551,6 +558,8 @@ export const toggleArticleSold = onCall(
       if (data.sellerId !== uid) {
         throw new HttpsError('permission-denied', 'Pas votre article');
       }
+
+      await assertNoLiveArticleTransaction(t, articleId, data);
 
       const newSoldState = !data.isSold;
       t.update(articleRef, {
@@ -697,7 +706,7 @@ export const updateArticle = onCall(
           );
         }
       }
-      sanitized.images = updates.images.map(
+      sanitized.images = await promoteArticleImages(updates.images.map(
         (img: { url: string; blurhash?: string }) => {
           const entry: { url: string; blurhash?: string } = {
             url: img.url.trim(),
@@ -707,7 +716,7 @@ export const updateArticle = onCall(
           }
           return entry;
         },
-      );
+      ), uid, articleId, true);
     }
 
     // Optional scalar fields
@@ -796,28 +805,6 @@ export const updateArticle = onCall(
       throw new HttpsError('invalid-argument', 'Aucun champ valide a mettre a jour');
     }
 
-    // ── 4. Transaction lock: reject if an active transaction exists (P-LOCK) ──
-    // Query BEFORE the Firestore transaction (queries not allowed inside tx).
-    const activeTransactions = await db
-      .collection('transactions')
-      .where('articleId', '==', articleId)
-      .where('status', 'in', [
-        'pending',
-        'meetup_pending',
-        'meetup_confirmed',
-        'shipping_pending',
-        'shipping_in_transit',
-      ])
-      .limit(1)
-      .get();
-
-    if (!activeTransactions.empty) {
-      throw new HttpsError(
-        'failed-precondition',
-        'Une transaction est en cours sur cet article. Modification impossible.',
-      );
-    }
-
     // ── 5. Transaction: ownership + sold/active check + price drop + write ──
     const articleRef = db.collection('articles').doc(articleId);
 
@@ -833,6 +820,8 @@ export const updateArticle = onCall(
       if (existing.sellerId !== uid) {
         throw new HttpsError('permission-denied', 'Pas votre article');
       }
+
+      await assertNoLiveArticleTransaction(tx, articleId, existing);
 
       // Block editing sold articles
       if (existing.isSold === true) {

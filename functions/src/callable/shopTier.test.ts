@@ -71,6 +71,7 @@ type CallableHandler = (request: {
 const callPurchase = purchaseShopTier as unknown as CallableHandler;
 
 beforeEach(() => {
+  vi.stubEnv('PAYMENTS_ENABLED', 'true');
   fs.reset();
   stripeMock.reset();
   process.env.STRIPE_SECRET_KEY = 'sk_test';

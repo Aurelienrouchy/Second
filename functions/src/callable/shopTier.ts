@@ -26,6 +26,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
 import { getStripe } from '../config/stripe';
+import { assertNewPaymentsEnabled } from '../config/featureFlags';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 
 const REGION = 'northamerica-northeast1';
@@ -71,6 +72,8 @@ export const purchaseShopTier = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');
     }
+
+    assertNewPaymentsEnabled();
 
     const { callerKey, isAuthenticated } = resolveCallerKey(request);
     await checkRateLimit(callerKey, isAuthenticated, {

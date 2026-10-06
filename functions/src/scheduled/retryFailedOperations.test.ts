@@ -14,6 +14,7 @@ import type { MockFirestore, StripeMock, WriteOp } from '../utils/testHelpers/fi
 const holder = vi.hoisted(() => ({
   fs: null as MockFirestore | null,
   stripe: null as StripeMock | null,
+  recoveryCalls: [] as string[],
   redriveResult: true,
   redriveCalls: [] as string[],
 }));
@@ -45,7 +46,7 @@ vi.mock('../http/webhooks', () => ({
 }));
 
 vi.mock('../utils/payoutRecovery', () => ({
-  revertFailedPayout: async () => ({ reCredited: true, transferId: null }),
+  revertFailedPayout: async (input: { withdrawalRequestId: string }) => { holder.recoveryCalls.push(input.withdrawalRequestId); return { reCredited: true, transferId: null }; },
 }));
 
 vi.mock('firebase-functions/logger', () => ({
@@ -65,6 +66,7 @@ type Scheduled = () => Promise<void>;
 const run = retryFailedOperations as unknown as Scheduled;
 
 beforeEach(() => {
+  holder.recoveryCalls.length = 0;
   fs.reset();
   stripeMock.reset();
   holder.redriveResult = true;
@@ -131,5 +133,23 @@ describe('retryFailedOperations — exhaustion alert (F85)', () => {
     );
     expect(alert).toBeDefined();
     expect(alert!.data.severity).toBe('critical');
+  });
+});
+
+
+describe('withdrawal recovery certifies the external outcome before compensation', () => {
+  it.each(['unknown', 'pending', 'paid', 'failed', 'canceled'])('handles %s without guessing failure', async status => {
+    fs.setDoc('wallets/seller1', { balance: 100, pendingBalance: 0, heldBalance: 0 });
+    fs.setDoc('withdrawal_requests/withdrawal1', { status: 'processing', userId: 'seller1', amount: 2500,
+      currency: 'cad', stripeAccountId: 'acct_seller1', stripeTransferId: 'tr1', createdAt: new Date(Date.now() - 7200000) });
+    fs.setDoc('failed_operations/op_withdrawal', { type: 'payout_reversal_failed', refId: 'withdrawal1',
+      payload: { kind: 'processing_no_payout_id' }, attempts: 0, status: 'pending', lastTriedAt: null });
+    stripeMock.impl.payoutsList = async () => ({ data: status === 'unknown' ? [] : [{ id: 'po_recovered', status,
+      amount: 2500, currency: 'cad', metadata: { withdrawalRequestId: 'withdrawal1', firebaseUserId: 'seller1' } }], has_more: false });
+    await run();
+    expect(holder.recoveryCalls).toEqual(status === 'failed' || status === 'canceled' ? ['withdrawal1'] : []);
+    expect(fs.getDoc('withdrawal_requests/withdrawal1')!.status).toBe(status === 'paid' ? 'completed' : 'processing');
+    expect(stripeMock.calls.payoutsCreate).toHaveLength(0);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(100);
   });
 });

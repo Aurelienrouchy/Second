@@ -32,6 +32,7 @@
  *
  * Ledger types introduced here: 'funds_released'.
  */
+import { sellerPendingCreditCents } from '../utils/sellerEscrow';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
@@ -84,6 +85,8 @@ export function applyDeliveredHeldFunds(
   sellerPayoutCents: number,
   deliveredAtMs: number
 ): void {
+  // Never manufacture escrow funds if the aggregate bucket is inconsistent.
+  sellerPayoutCents = Math.min(sellerPayoutCents, Math.max(0, sellerWalletData.pendingBalance || 0));
   // Move pending -> held (delivered, inside dispute window)
   tx.update(sellerWalletRef, {
     pendingBalance: FieldValue.increment(-sellerPayoutCents),
@@ -194,7 +197,10 @@ export const releaseHeldFunds = onSchedule(
             // Move from heldBalance to balance, capped so heldBalance never
             // goes negative (defensive — should equal sellerPayoutCents).
             const heldNow = walletData.heldBalance || 0;
-            const moveCents = Math.min(sellerPayoutCents, heldNow);
+            const escrowCents = typeof tdata.sellerCreditedCents === 'number'
+              ? await sellerPendingCreditCents(tx, sellerWalletRef, tdata, transactionId)
+              : sellerPayoutCents;
+            const moveCents = Math.min(escrowCents, heldNow);
 
             // F39: regularise any outstanding sellerDebt FIRST. The released
             // amount pays down the debt before the remainder lands in the

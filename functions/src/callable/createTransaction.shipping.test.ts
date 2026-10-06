@@ -148,6 +148,7 @@ function rate(rateId: string, amount: number) {
 }
 
 beforeEach(() => {
+  vi.stubEnv('PAYMENTS_ENABLED', 'true');
   fs.reset();
   shipEngineMock.getRatesImpl = null;
   shipEngineMock.getRatesCalls.length = 0;
@@ -245,7 +246,7 @@ describe('createTransaction — server-side shipping re-pricing', () => {
     expect(fs.getDoc('articles/art1')!.isSold).toBe(false);
   });
 
-  it('meetup transactions have no shipping cost and no service fee', async () => {
+  it('direct meetup construction cannot reserve an article before seller acceptance', async () => {
     fs.setDoc('articles/art2', {
       sellerId: 'seller1',
       price: 30,
@@ -254,7 +255,7 @@ describe('createTransaction — server-side shipping re-pricing', () => {
     });
     fs.setDoc('users/seller1', { displayName: 'Vendeur', stripeChargesEnabled: true });
 
-    const result = await callCreate({
+    await expect(callCreate({
       auth: { uid: 'buyer1' },
       data: {
         articleId: 'art2',
@@ -262,14 +263,10 @@ describe('createTransaction — server-side shipping re-pricing', () => {
         amount: 30,
         meetupSpot: { name: 'Cafe', category: 'public', neighborhood: 'Plateau' },
       },
-    });
+    })).rejects.toMatchObject({ code: 'failed-precondition' });
 
-    expect(result.success).toBe(true);
-    const tx = fs.getDoc(`transactions/${result.transactionId as string}`)!;
-    expect(tx.shippingCost).toBe(0);
-    expect(tx.serviceFee).toBe(0);
-    expect(tx.totalAmount).toBe(30);
-    expect(tx.status).toBe('meetup_pending');
+    expect(fs.getDoc('articles/art2')!.isSold).toBe(false);
+    expect(fs.writeOps.filter(op => op.path.startsWith('transactions/'))).toHaveLength(0);
     // No ShipEngine call for meetup.
     expect(shipEngineMock.getRatesCalls.length).toBe(0);
   });
@@ -400,7 +397,7 @@ describe('createTransaction — F137 server shipping flag', () => {
     expect(fs.getDoc('articles/art1')!.isSold).toBe(false);
   });
 
-  it('ALLOWS meetup even when SHIPPING_ENABLED is OFF', async () => {
+  it('closed shipping does not permit a legacy direct meetup reservation', async () => {
     fs.setDoc('articles/art2', {
       sellerId: 'seller1',
       price: 30,
@@ -410,7 +407,7 @@ describe('createTransaction — F137 server shipping flag', () => {
     fs.setDoc('users/seller1', { displayName: 'Vendeur', stripeChargesEnabled: true });
     process.env.SHIPPING_ENABLED = 'false';
 
-    const result = await callCreate({
+    await expect(callCreate({
       auth: { uid: 'buyer1' },
       data: {
         articleId: 'art2',
@@ -418,12 +415,9 @@ describe('createTransaction — F137 server shipping flag', () => {
         amount: 30,
         meetupSpot: { name: 'Cafe', category: 'public', neighborhood: 'Plateau' },
       },
-    });
-
-    expect(result.success).toBe(true);
-    const tx = fs.getDoc(`transactions/${result.transactionId as string}`)!;
-    expect(tx.status).toBe('meetup_pending');
-    expect(tx.shippingCost).toBe(0);
+    })).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(fs.getDoc('articles/art2')!.isSold).toBe(false);
+    expect(fs.writeOps.filter(op => op.path.startsWith('transactions/'))).toHaveLength(0);
   });
 
   it('ALLOWS a shipping transaction when SHIPPING_ENABLED is ON', async () => {

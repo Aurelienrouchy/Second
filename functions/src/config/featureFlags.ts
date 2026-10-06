@@ -1,3 +1,5 @@
+import { HttpsError } from 'firebase-functions/v2/https';
+
 /**
  * featureFlags (server) — SERVER-AUTHORITATIVE feature flags for the financial
  * rails. The client mirror (`config/featureFlags.ts` at the app root) only hides
@@ -29,4 +31,18 @@
  */
 export function isShippingEnabled(): boolean {
   return (process.env.SHIPPING_ENABLED ?? '').trim().toLowerCase() === 'true';
+}
+
+/** New financial operations remain closed during the free local MVP.
+ * Refunds, reconciliation and settlement of existing liabilities do not use
+ * this guard: disabling acquisition must not strand already collected funds.
+ */
+export function isPaymentsEnabled(): boolean {
+  return (process.env.PAYMENTS_ENABLED ?? '').trim().toLowerCase() === 'true';
+}
+
+export function assertNewPaymentsEnabled(): void {
+  if (!isPaymentsEnabled()) {
+    throw new HttpsError('failed-precondition', 'Les paiements ne sont pas disponibles pour le moment.');
+  }
 }

@@ -42,7 +42,7 @@ vi.mock('firebase-functions/v2/scheduler', () => ({
   onSchedule: (_opts: unknown, handler: unknown) => handler,
 }));
 
-import { expireStaleAcceptedOffers } from './offerExpiration';
+import { expireStaleAcceptedOffers, expireStaleOffers } from './offerExpiration';
 
 type Scheduled = () => Promise<void>;
 const run = expireStaleAcceptedOffers as unknown as Scheduled;
@@ -149,4 +149,22 @@ describe('expireStaleAcceptedOffers (F135)', () => {
   it('is a no-op when there are no accepted offers', async () => {
     await expect(run()).resolves.toBeUndefined();
   });
+});
+
+
+it('pending expiry cannot overwrite acceptance after the query snapshot', async () => {
+  const expired = new Date(Date.now() - 1000);
+  fs.setDoc('messages/racing', { type: 'offer', chatId: CHAT, senderId: BUYER, offer: { status: 'accepted', expiresAt: expired }, 'offer.status': 'accepted' });
+  fs.setQuery('messages', [{ id: 'racing', data: { type: 'offer', offer: { status: 'pending', expiresAt: expired }, 'offer.status': 'pending', 'offer.expiresAt': expired } }]);
+  await (expireStaleOffers as unknown as Scheduled)();
+  expect((fs.getDoc('messages/racing')?.offer as Record<string, unknown>).status).toBe('accepted');
+  expect(fs.writeOps).toEqual([]);
+});
+
+it('preserves an accepted seller counter-offer through its exact linked buyer transaction', async () => {
+  seedAcceptedOffer('counter', { senderId: 'seller', acceptedAt: OLD });
+  await fs.db.collection('messages').doc('counter').update({ 'offer.transactionId': 'linked' });
+  fs.setDoc('transactions/linked', { buyerId: BUYER, chatId: CHAT, status: 'meetup_confirmed', offerMessageId: 'counter', amount: 80 });
+  await run();
+  expect((fs.getDoc('messages/counter')?.offer as Record<string, unknown>).status).toBe('accepted');
 });

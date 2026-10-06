@@ -34,6 +34,8 @@ describe('server-only collections rules', () => {
         delta: 3,
       });
       await setDoc(doc(db, 'rate_limits', 'alice_fn'), { count: 1 });
+      await setDoc(doc(db, 'meetup_offer_threads', 'thread'), { buyerId: ALICE, activeOfferId: 'offer' });
+      await setDoc(doc(db, 'meetup_offer_requests', 'request'), { buyerId: ALICE, messageId: 'offer' });
     });
   });
 
@@ -77,4 +79,11 @@ describe('server-only collections rules', () => {
       setDoc(doc(db, 'rate_limits', 'alice_fn'), { count: 0 }),
     );
   });
+  for (const collection of ['meetup_offer_threads', 'meetup_offer_requests']) {
+    it(`denies client read/write of ${collection}`, async () => {
+      const db = (await getTestEnv()).authenticatedContext(ALICE).firestore();
+      await assertFails(getDoc(doc(db, collection, collection.endsWith('threads') ? 'thread' : 'request')));
+      await assertFails(setDoc(doc(db, collection, 'forged'), { buyerId: ALICE }));
+    });
+  }
 });

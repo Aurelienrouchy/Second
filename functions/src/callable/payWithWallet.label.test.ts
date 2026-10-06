@@ -123,6 +123,8 @@ function seedShippingPayable(opts?: { rateId?: string | null }) {
 }
 
 beforeEach(() => {
+  vi.stubEnv('PAYMENTS_ENABLED', 'true');
+  vi.stubEnv('SHIPPING_ENABLED', 'true');
   fs.reset();
   stripeMock.reset();
   holder.shipEngine = { createLabel: async () => okLabel };

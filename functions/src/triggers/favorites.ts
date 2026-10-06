@@ -1,9 +1,10 @@
 /**
  * Favorites Firestore triggers
- * Firebase Functions v7 - using onDocumentUpdated
+ * Firebase Functions v7 - using onDocumentWritten
  */
-import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { db, FieldValue } from '../config/firebase';
+import * as logger from 'firebase-functions/logger';
 import { sendPushNotification } from '../utils/notifications';
 
 /**
@@ -12,93 +13,60 @@ import { sendPushNotification } from '../utils/notifications';
  * The `favorites/{userId}.articleIds` array is the single source of truth for
  * likes. This trigger reacts to changes on that array and is the ONLY writer of
  * `articles.favoritesCount`, `articles.likes` and `search_index.likes`, applied
- * via `FieldValue.increment` so concurrent (un)favorites stay consistent. The
+ * via a transactional count of the live source, so retries and late events
+ * cannot replay a delta. The
  * `toggleProductLike` callable and the client `toggleFavorite` therefore mutate
  * ONLY the favorites doc — writing the counters there too would double-count.
  *
  * On top of counter maintenance, it notifies the seller of newly added
  * favorites.
  */
-export const onArticleFavorited = onDocumentUpdated(
-  { document: 'favorites/{userId}', region: 'northamerica-northeast1', memory: '512MiB' },
+export const onArticleFavorited = onDocumentWritten(
+  { document: 'favorites/{userId}', region: 'northamerica-northeast1', memory: '512MiB', retry: true },
   async (event) => {
     try {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
 
-      if (!beforeData || !afterData) return;
-
       const beforeIds: string[] = beforeData?.articleIds || [];
       const afterIds: string[] = afterData?.articleIds || [];
-
       const beforeSet = new Set(beforeIds);
       const afterSet = new Set(afterIds);
+      const touched = new Set([...beforeSet].filter((id) => !afterSet.has(id)).concat([...afterSet].filter((id) => !beforeSet.has(id))));
+      const buyerUserId = event.params.userId;
+      const newFavoriteIds: string[] = [];
 
-      // Find newly added / removed article IDs (the array is the source of truth)
-      const newFavoriteIds = afterIds.filter((id) => !beforeSet.has(id));
-      const removedFavoriteIds = beforeIds.filter((id) => !afterSet.has(id));
-
-      // ── Maintain engagement counters (canonical writer) ──
-      // Apply +1 / -1 increments per touched article on both the article doc
-      // (favoritesCount + likes) and its search_index mirror (likes). Using
-      // FieldValue.increment keeps counters correct under concurrent toggles.
-      // Each article is updated independently so one missing/deleted doc cannot
-      // break the others.
-      await Promise.all(
-        [
-          ...newFavoriteIds.map((id) => ({ id, delta: 1 })),
-          ...removedFavoriteIds.map((id) => ({ id, delta: -1 })),
-        ].map(async ({ id, delta }) => {
-          try {
-            // Increments are fine; decrements are clamped at 0 inside a
-            // transaction so a double-removal can never drive the counter
-            // negative.
-            if (delta >= 0) {
-              await db
-                .collection('articles')
-                .doc(id)
-                .update({
-                  favoritesCount: FieldValue.increment(delta),
-                  likes: FieldValue.increment(delta),
-                });
-            } else {
-              await db.runTransaction(async (tx) => {
-                const ref = db.collection('articles').doc(id);
-                const snap = await tx.get(ref);
-                if (!snap.exists) return;
-                const data = snap.data() || {};
-                const favoritesCount = Math.max(0, (data.favoritesCount || 0) + delta);
-                const likes = Math.max(0, (data.likes || 0) + delta);
-                tx.update(ref, { favoritesCount, likes });
-              });
-            }
-          } catch (err) {
-            // Article may have been hard-deleted; counter is moot then.
-            console.error(
-              `Failed to update favoritesCount for article ${id}:`,
-              err
-            );
-          }
-          try {
-            await db
-              .collection('search_index')
-              .doc(id)
-              .update({ likes: FieldValue.increment(delta) });
-          } catch (err) {
-            // No search_index entry (e.g. sold/deleted article) — non-fatal.
-            console.error(
-              `Failed to update search_index likes for article ${id}:`,
-              err
-            );
-          }
-        })
-      );
+      // Per-user projection is transactional and reads the LIVE source. Duplicate
+      // delivery and out-of-order events cannot count a like twice or resurrect
+      // an unlike. The first document creation and deletion are also handled.
+      for (const id of touched) {
+        const added = await db.runTransaction(async (tx) => {
+          const favoriteRef = db.collection('favorites').doc(buyerUserId);
+          const articleRef = db.collection('articles').doc(id);
+          const memberRef = db.collection('favorite_memberships').doc(id).collection('users').doc(buyerUserId);
+          const indexRef = db.collection('search_index').doc(id);
+          const countQuery = db.collection('favorites').where('articleIds', 'array-contains', id).count();
+          const [favorite, article, member, index, total] = await Promise.all([
+            tx.get(favoriteRef), tx.get(articleRef), tx.get(memberRef), tx.get(indexRef),
+            tx.get(countQuery),
+          ]);
+          const desired = (favorite.data()?.articleIds || []).includes(id);
+          const added = desired && !beforeSet.has(id) && member.data()?.counted !== true;
+          tx.set(memberRef, { counted: desired, updatedAt: FieldValue.serverTimestamp() });
+          if (!article.exists) return false;
+          // Aggregation repairs existing drift too (including the old missed
+          // first-like bug). Cost scales with index entries, not full docs.
+          const count = total.data().count;
+          tx.update(articleRef, { favoritesCount: count, likes: count });
+          if (index.exists) tx.update(indexRef, { likes: count });
+          return added;
+        });
+        if (added) newFavoriteIds.push(id);
+      }
 
       if (newFavoriteIds.length === 0) {
         return; // No new favorites to notify about
       }
-
-      const buyerUserId = event.params.userId;
 
       // Get buyer info
       const buyerDoc = await db.collection('users').doc(buyerUserId).get();
@@ -148,7 +116,8 @@ export const onArticleFavorited = onDocumentUpdated(
         );
       }
     } catch (error) {
-      console.error('Error in onArticleFavorited:', error);
+      logger.error('Error in onArticleFavorited', { error });
+      throw error; // Retry failed projections; transactional memberships dedupe.
     }
   }
 );

@@ -123,6 +123,8 @@ export async function creditSellerForSale(
   // this figure (and records any shortfall as sellerDebt rather than masking it).
   tx.update(transactionRef, {
     sellerCreditedCents: sellerPayoutCents,
+    sellerPendingCreditCents: toPending,
+    sellerDebtRepaidCents: debtRepayment,
   });
 
   return true;
@@ -227,9 +229,11 @@ export async function recordTransactionRevenue(params: {
   serviceFee: number;
   shippingCost: number;
   taxTotal: number;
+  actualShippingCost?: number;
   chargeId?: string | null;
 }): Promise<void> {
   const { transactionId, sellerId, serviceFee, shippingCost, taxTotal, chargeId } = params;
+  const carrierCost = params.actualShippingCost ?? shippingCost;
 
   // Best-effort processor fee from the Stripe balance_transaction (frais Stripe
   // payés par la plateforme). A failure here only omits the fee — gross revenue
@@ -265,6 +269,8 @@ export async function recordTransactionRevenue(params: {
       serviceFee: serviceFee || 0,
       taxCollected: taxTotal || 0,
       shippingCostCollected: shippingCost || 0,
+      carrierCost,
+      carrierCostEstimated: params.actualShippingCost == null,
       grossRevenue: Math.round(((serviceFee || 0) + (taxTotal || 0) + (shippingCost || 0)) * 100) / 100,
       currency: 'cad',
       createdAt: FieldValue.serverTimestamp(),
@@ -273,10 +279,20 @@ export async function recordTransactionRevenue(params: {
       revenue.processorFees = processorFees;
       // Net of processor fees + shipping cost the platform must pay the carrier.
       revenue.netMargin = Math.round(
-        ((serviceFee || 0) - processorFees - (shippingCost || 0)) * 100
+        ((serviceFee || 0) + (shippingCost || 0) - processorFees - carrierCost) * 100
       ) / 100;
     }
-    await revenueRef.set(revenue);
+    await db.runTransaction(async tx => {
+      const sale = (await tx.get(db.collection('transactions').doc(transactionId))).data();
+      if (typeof sale?.actualShippingCost === 'number') {
+        revenue.carrierCost = sale.actualShippingCost;
+        revenue.carrierCostEstimated = false;
+        if (processorFees !== null) revenue.netMargin = Math.round(
+          ((serviceFee || 0) + (shippingCost || 0) - processorFees - sale.actualShippingCost) * 100
+        ) / 100;
+      }
+      tx.set(revenueRef, revenue);
+    });
 
     // Tax remittance register (only when actually collected — TAX_ENABLED=true).
     if (taxTotal && taxTotal > 0) {
@@ -427,6 +443,8 @@ export async function createLabelIdempotent(params: {
             ? data.serviceCode
             : '';
 
+      const revenueRef = db.collection('platform_ledger').doc(`service_fee_revenue_${transactionId}`);
+      const revenue = (await tx.get(revenueRef)).data();
       await creditSellerForSale(tx, transactionRef, data, transactionId);
 
       const update: Record<string, any> = {
@@ -442,6 +460,16 @@ export async function createLabelIdempotent(params: {
         labelReservationAt: FieldValue.delete(),
       };
       reconcileShippingCost(label, estimatedShippingCost, transactionId, update);
+      if (revenue) {
+        const accounting: Record<string, unknown> = {
+          carrierCost: update.actualShippingCost, carrierCostEstimated: false,
+        };
+        if (typeof revenue.processorFees === 'number') {
+          accounting.netMargin = Math.round(((revenue.serviceFee || 0) +
+            (revenue.shippingCostCollected || 0) - revenue.processorFees - update.actualShippingCost) * 100) / 100;
+        }
+        tx.update(revenueRef, accounting);
+      }
       if (params.applyExtraUpdate) params.applyExtraUpdate(label, update);
       tx.update(transactionRef, update);
     });

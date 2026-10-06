@@ -10,8 +10,42 @@
  * focuses on the search_index collection.
  */
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { createHash } from 'node:crypto';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+
+
+/** A delayed trigger must not undo acceptance or a later reactivation. */
+async function expirePendingArticleProposals(articleId: string, reason: 'sold' | 'inactive', eventId: string) {
+  const articleRef = db.collection('articles').doc(articleId);
+  const chats = await db.collection('chats').where('articleId', '==', articleId).get();
+  let total = 0;
+  for (const chat of chats.docs) {
+    const candidates = await db.collection('messages').where('chatId', '==', chat.id)
+      .where('type', '==', 'offer').where('offer.status', '==', 'pending').get();
+    const noticeId = `article_status_${createHash('sha256').update(JSON.stringify([eventId, chat.id, reason])).digest('hex')}`;
+    const noticeRef = db.collection('messages').doc(noticeId);
+    for (const candidate of candidates.docs) {
+      const expired = await db.runTransaction(async (tx) => {
+        const liveArticle = (await tx.get(articleRef)).data();
+        const current = (await tx.get(candidate.ref)).data();
+        if (!liveArticle || (reason === 'sold' ? liveArticle.isSold !== true : liveArticle.isActive !== false) ||
+            current?.type !== 'offer' || current.chatId !== chat.id || current.offer?.status !== 'pending') return false;
+        const liveChat = (await tx.get(chat.ref)).data();
+        const notice = await tx.get(noticeRef);
+        tx.update(candidate.ref, { 'offer.status': 'expired', 'offer.expiredReason': `article_${reason}`, 'offer.expiredAt': FieldValue.serverTimestamp() });
+        if (!notice.exists && Array.isArray(liveChat?.participants)) {
+          tx.set(noticeRef, { chatId: chat.id, senderId: 'system', receiverId: 'system', type: 'system',
+            content: reason === 'sold' ? 'Cet article a été vendu. Les propositions en attente ont expiré.' : 'Cet article a été retiré de la vente. Les propositions en attente ont expiré.',
+            participants: liveChat.participants, timestamp: FieldValue.serverTimestamp(), status: 'sent', isRead: true });
+        }
+        return true;
+      });
+      if (expired) total++;
+    }
+  }
+  return total;
+}
 
 /**
  * When an article's isActive changes from true to false (soft-delete),
@@ -37,12 +71,11 @@ export const onArticleSoftDeleted = onDocumentUpdated(
       // 1. Remove search_index entry
       try {
         const siRef = db.collection('search_index').doc(articleId);
-        const siSnap = await siRef.get();
-
-        if (siSnap.exists) {
-          await siRef.delete();
-          logger.info('[onArticleSoftDeleted] Removed search_index entry', { articleId });
-        }
+        await db.runTransaction(async (tx) => {
+          const liveArticle = (await tx.get(db.collection('articles').doc(articleId))).data();
+          const siSnap = await tx.get(siRef);
+          if (liveArticle?.isActive === false && siSnap.exists) tx.delete(siRef);
+        });
       } catch (error) {
         logger.error('[onArticleSoftDeleted] Failed to remove search_index', {
           articleId,
@@ -52,53 +85,8 @@ export const onArticleSoftDeleted = onDocumentUpdated(
 
       // 2. Expire pending offers in related chats (same logic as onArticleSold)
       try {
-        const chatsSnap = await db.collection('chats')
-          .where('articleId', '==', articleId)
-          .get();
-
-        if (!chatsSnap.empty) {
-          const chatIds = chatsSnap.docs.map((d) => d.id);
-          let totalExpired = 0;
-
-          for (const chatId of chatIds) {
-            const pendingOffers = await db.collection('messages')
-              .where('chatId', '==', chatId)
-              .where('type', '==', 'offer')
-              .where('offer.status', '==', 'pending')
-              .get();
-
-            const batch = db.batch();
-            let count = 0;
-            for (const msgDoc of pendingOffers.docs) {
-              batch.update(msgDoc.ref, {
-                'offer.status': 'expired',
-              });
-              count++;
-            }
-
-            if (count > 0) {
-              await batch.commit();
-              totalExpired += count;
-
-              // Send system message to inform participants
-              const chatDoc = await db.collection('chats').doc(chatId).get();
-              const participants = chatDoc.exists ? (chatDoc.data()?.participants || []) : [];
-              await db.collection('messages').add({
-                chatId,
-                senderId: 'system',
-                receiverId: 'system',
-                type: 'system',
-                content: 'Cet article a ete retire de la vente. Les offres en attente ont ete annulees.',
-                participants,
-                timestamp: FieldValue.serverTimestamp(),
-                status: 'sent',
-                isRead: true,
-              });
-            }
-          }
-
-          logger.info(`[onArticleSoftDeleted] Expired ${totalExpired} pending offers across ${chatIds.length} chats`, { articleId });
-        }
+        const expired = await expirePendingArticleProposals(articleId, 'inactive', event.id ?? `inactive_${articleId}`);
+        logger.info('[onArticleSoftDeleted] Expired pending proposals', { articleId, expired });
       } catch (error) {
         logger.error('[onArticleSoftDeleted] Failed to expire pending offers', {
           articleId,
@@ -143,9 +131,14 @@ export const onArticleSold = onDocumentUpdated(
         await Promise.all(
           favSnap.docs.map(async (favDoc) => {
             try {
-              await favDoc.ref.update({
-                articleIds: FieldValue.arrayRemove(articleId),
-                updatedAt: FieldValue.serverTimestamp(),
+              await db.runTransaction(async (tx) => {
+                const liveArticle = (await tx.get(db.collection('articles').doc(articleId))).data();
+                const liveFavorite = (await tx.get(favDoc.ref)).data();
+                if (liveArticle?.isSold !== true || !Array.isArray(liveFavorite?.articleIds)) return;
+                tx.update(favDoc.ref, {
+                  articleIds: liveFavorite.articleIds.filter((id: unknown) => id !== articleId),
+                  updatedAt: FieldValue.serverTimestamp(),
+                });
               });
             } catch (error) {
               logger.error('[onArticleSold] Failed to remove sold article from favorites', {
@@ -165,58 +158,9 @@ export const onArticleSold = onDocumentUpdated(
       });
     }
 
-    // Find all chats related to this article
-    const chatsSnap = await db.collection('chats')
-      .where('articleId', '==', articleId)
-      .get();
+    const expired = await expirePendingArticleProposals(articleId, 'sold', event.id ?? `sold_${articleId}`);
+    logger.info('[onArticleSold] Expired pending proposals', { articleId, expired });
 
-    if (chatsSnap.empty) {
-      logger.info('[onArticleSold] No chats found for article', { articleId });
-      return;
-    }
-
-    const chatIds = chatsSnap.docs.map((d) => d.id);
-    let totalExpired = 0;
-
-    // For each chat, find pending offer messages and expire them
-    for (const chatId of chatIds) {
-      const pendingOffers = await db.collection('messages')
-        .where('chatId', '==', chatId)
-        .where('type', '==', 'offer')
-        .where('offer.status', '==', 'pending')
-        .get();
-
-      const batch = db.batch();
-      let count = 0;
-      for (const msgDoc of pendingOffers.docs) {
-        batch.update(msgDoc.ref, {
-          'offer.status': 'expired',
-        });
-        count++;
-      }
-
-      if (count > 0) {
-        await batch.commit();
-        totalExpired += count;
-
-        // Send system message to inform participants
-        const chatDoc = await db.collection('chats').doc(chatId).get();
-        const participants = chatDoc.exists ? (chatDoc.data()?.participants || []) : [];
-        await db.collection('messages').add({
-          chatId,
-          senderId: 'system',
-          receiverId: 'system',
-          type: 'system',
-          content: 'Cet article a été vendu. Les offres en attente ont été annulées.',
-          participants,
-          timestamp: FieldValue.serverTimestamp(),
-          status: 'sent',
-          isRead: true,
-        });
-      }
-    }
-
-    logger.info(`[onArticleSold] Expired ${totalExpired} pending offers across ${chatIds.length} chats for article ${articleId}`);
   }
 );
 

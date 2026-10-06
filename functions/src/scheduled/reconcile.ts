@@ -26,6 +26,7 @@ import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { writeFailedOperation, writeAdminAlert } from '../utils/failedOperations';
 import { revertFailedPayout } from '../utils/payoutRecovery';
+import { resolveWithdrawalPayout } from '../utils/payoutOutcome';
 
 /** Only inspect transactions older than this (let webhooks land first). */
 const PAYMENT_STALE_MS = 30 * 60 * 1000; // 30 min
@@ -69,6 +70,13 @@ async function reconcileOnePayment(
   const transactionId = doc.id;
   const data = doc.data();
   const paymentIntentId = data.stripePaymentIntentId;
+
+  if (!paymentIntentId && (data.walletCheckoutOutcome === 'unknown' || data.walletCheckoutOutcome === 'creating')) {
+    await writeAdminAlert({ kind: 'checkout_outcome_unknown', severity: 'critical', refId: transactionId,
+      message: 'Résultat du paiement à vérifier avant toute restitution du porte-monnaie.',
+      context: { transactionId, checkoutAttemptId: data.walletCheckoutAttemptId ?? null } });
+    return true;
+  }
 
   if (typeof paymentIntentId !== 'string' || !paymentIntentId || !stripe) {
     return false;
@@ -199,55 +207,38 @@ async function reconcileOneWithdrawal(
   const data = doc.data();
   const stripeAccountId =
     typeof data.stripeAccountId === 'string' ? data.stripeAccountId : undefined;
-  const payoutId = typeof data.stripePayoutId === 'string' ? data.stripePayoutId : null;
-
   if (!stripe) return false;
-
-  // If we never recorded a payoutId on the request, we cannot match it to a
-  // Stripe payout. That itself is suspicious for a 'processing' request — flag.
-  if (!payoutId) {
-    logger.error('CRITICAL [reconcileWithdrawals] processing withdrawal with no stripePayoutId', {
-      requestId,
-      userId: data.userId,
-      amount: data.amount,
-    });
-    await writeFailedOperation({
-      type: 'payout_reversal_failed',
-      refId: requestId,
-      payload: {
-        kind: 'processing_no_payout_id',
-        userId: data.userId ?? null,
-        amount: data.amount ?? null,
-        stripeAccountId: stripeAccountId ?? null,
-      },
-      error: 'withdrawal_requests stuck processing with no stripePayoutId',
-    });
-    return true;
-  }
-
-  let payoutStatus: string | undefined;
+  let payoutId: string;
+  let payoutStatus: string;
   try {
-    const payout = await stripe.payouts.retrieve(
-      payoutId,
-      undefined,
-      stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
-    );
+    const payout = await resolveWithdrawalPayout(requestId, data, stripe);
+    if (!payout) {
+      await writeFailedOperation({
+        type: 'payout_reversal_failed', refId: requestId,
+        payload: { kind: 'payout_outcome_unknown', userId: data.userId ?? null,
+          amount: data.amount ?? null, stripeAccountId: stripeAccountId ?? null },
+        error: 'Withdrawal outcome remains unknown; no compensation authorised',
+      });
+      return true;
+    }
+    payoutId = payout.id;
     payoutStatus = payout.status;
+    await doc.ref.update({ stripePayoutId: payoutId, payoutOutcome: payoutStatus,
+      updatedAt: FieldValue.serverTimestamp() });
   } catch (err) {
-    logger.warn('[reconcileWithdrawals] payout retrieve failed — skipping', {
-      requestId,
-      payoutId,
-      error: err instanceof Error ? err.message : err,
+    logger.warn('[reconcileWithdrawals] payout resolution failed — keeping reservation', {
+      requestId, error: err instanceof Error ? err.message : err,
     });
     return false;
   }
 
   if (payoutStatus === 'paid') {
     // Bookkeeping only — the wallet was already debited at walletWithdraw time.
-    await doc.ref.update({
-      status: 'completed',
-      completedAt: FieldValue.serverTimestamp(),
-      reconciledBy: 'reconcileWithdrawals',
+    await db.runTransaction(async (tx) => {
+      const current = (await tx.get(doc.ref)).data();
+      if (current?.status !== 'processing') return;
+      tx.update(doc.ref, { status: 'completed', completedAt: FieldValue.serverTimestamp(),
+        reconciledBy: 'reconcileWithdrawals' });
     });
     logger.info('[reconcileWithdrawals] processing withdrawal reconciled to completed', {
       requestId,

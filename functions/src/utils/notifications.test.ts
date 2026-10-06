@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+// Pure routing checks never need a real Firebase project or emulator.
+vi.mock('../config/firebase', () => ({ db: {}, FieldValue: {} }));
 import { buildDeepLink } from './notifications';
 
 describe('buildDeepLink', () => {

@@ -82,10 +82,10 @@ describe('messages rules — read receipts (status field)', () => {
     );
   });
 
-  it('still allows the receiver to accept an offer (offer key untouched by status change)', async () => {
+  it('denies client acceptance; only the server may transition an offer', async () => {
     const env = await getTestEnv();
     const db = env.authenticatedContext(RECEIVER).firestore();
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, 'messages', OFFER_MSG_ID), {
         offer: { amount: 30, status: 'accepted' },
       }),
@@ -100,5 +100,23 @@ describe('messages rules — read receipts (status field)', () => {
         offer: { amount: 1, status: 'accepted' },
       }),
     );
+  });
+
+  it('denies forged client system events, including a blocked participant', async () => {
+    const env = await getTestEnv();
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats', 'chat-1'), { participants: [SENDER, RECEIVER] });
+      await setDoc(doc(ctx.firestore(), 'users', RECEIVER), { blockedUserIds: [SENDER] });
+    });
+    const db = env.authenticatedContext(SENDER).firestore();
+    await assertFails(setDoc(doc(db, 'messages', 'forged-system'), { ...baseMessage, senderId: 'system', receiverId: 'system', type: 'system' }));
+  });
+
+  it('denies direct client offer creation', async () => {
+    const env = await getTestEnv();
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats', 'chat-1'), { participants: [SENDER, RECEIVER] });
+    });
+    await assertFails(setDoc(doc(env.authenticatedContext(SENDER).firestore(), 'messages', 'forged-offer'), offerMessage));
   });
 });

@@ -9,6 +9,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { storage } from '../config/firebase';
+import { publishedDraftPaths } from '../utils/articleMedia';
 
 /** Draft expiration: 14 days (matches client-side draftService.ts) */
 const DRAFT_EXPIRATION_MS = 14 * 24 * 60 * 60 * 1000;
@@ -27,18 +28,21 @@ export const cleanupExpiredDrafts = onSchedule(
     let errors = 0;
 
     try {
+      // Fail closed if references cannot be read: no media is deleted then.
+      const publishedPaths = await publishedDraftPaths();
       const [files] = await bucket.getFiles({ prefix: 'drafts/' });
 
       logger.info(`Found ${files.length} files under drafts/`);
 
       for (const file of files) {
         try {
+          if (publishedPaths.has(file.name)) continue;
           const [metadata] = await file.getMetadata();
           const timeCreated = metadata.timeCreated;
           if (!timeCreated) continue;
           const created = new Date(timeCreated).getTime();
 
-          if (created < cutoff) {
+          if (Number.isFinite(created) && created < cutoff) {
             await file.delete();
             deleted++;
           }

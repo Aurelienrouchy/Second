@@ -376,7 +376,9 @@ export const getUserPublicProfile = onCall(
           id: doc.id,
           title: data.title,
           price: data.price,
-          images: data.images?.slice(0, 1) || [], // Only first image
+          // Keep candidates until the canonical client resolver has normalized
+          // legacy strings/objects and discarded malformed entries.
+          images: Array.isArray(data.images) ? data.images : [],
           isSold: data.isSold || false,
           condition: data.condition,
           brand: data.brand,

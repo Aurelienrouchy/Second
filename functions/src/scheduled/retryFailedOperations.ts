@@ -27,6 +27,7 @@ import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { type FailedOperationType, writeAdminAlert } from '../utils/failedOperations';
 import { revertFailedPayout } from '../utils/payoutRecovery';
+import { resolveWithdrawalPayout } from '../utils/payoutOutcome';
 import { redrivePaymentIntentSucceeded } from '../http/webhooks';
 
 /** Max replay attempts before a dead-letter is marked 'exhausted' (manual). */
@@ -215,10 +216,28 @@ async function replayOp(
         return 'retry';
       }
       try {
+        const requestRef = db.collection('withdrawal_requests').doc(withdrawalRequestId);
+        const requestSnap = await requestRef.get();
+        const request = requestSnap.data();
+        if (!request || request.status !== 'processing') return 'resolved';
+        const payout = await resolveWithdrawalPayout(withdrawalRequestId, request, stripe);
+        if (!payout) return 'retry';
+        await requestRef.update({ stripePayoutId: payout.id, payoutOutcome: payout.status,
+          updatedAt: FieldValue.serverTimestamp() });
+        if (payout.status === 'paid') {
+          await db.runTransaction(async (tx) => {
+            const current = (await tx.get(requestRef)).data();
+            if (current?.status !== 'processing') return;
+            tx.update(requestRef, { status: 'completed', completedAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp() });
+          });
+          return 'resolved';
+        }
+        if (payout.status !== 'failed' && payout.status !== 'canceled') return 'retry';
         await revertFailedPayout(
           {
             withdrawalRequestId,
-            payoutId: typeof op.payload.payoutId === 'string' ? op.payload.payoutId : null,
+            payoutId: payout.id,
             failureReason: 'payout failed (replayed from dead-letter)',
             ownerIdFallback: typeof op.payload.userId === 'string' ? op.payload.userId : null,
           },

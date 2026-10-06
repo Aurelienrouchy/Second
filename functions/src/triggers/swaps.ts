@@ -6,10 +6,8 @@ import {
   onDocumentCreated,
   onDocumentUpdated,
 } from 'firebase-functions/v2/firestore';
-import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
-import { db } from '../config/firebase';
-import { partitionTokens, sendSwapNotification } from '../utils/notifications';
+import { sendSwapNotification } from '../utils/notifications';
 
 /** Resolve items arrays with backward compat for legacy single-item swaps */
 function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
@@ -37,35 +35,6 @@ export const onSwapCreated = onDocumentCreated(
         return;
       }
 
-      // Get receiver's FCM tokens
-      const receiverDoc = await db.collection('users').doc(swap.receiverId).get();
-      if (!receiverDoc.exists) {
-        logger.info('Receiver user not found', { receiverId: swap.receiverId });
-        return;
-      }
-
-      const receiverData = receiverDoc.data()!;
-      const storedTokens: string[] = receiverData.fcmTokens || [];
-
-      if (storedTokens.length === 0) {
-        logger.info('No FCM tokens for user', { userId: swap.receiverId });
-        return;
-      }
-
-      // Raw APNs tokens (iOS native tokens) are not sendable via FCM and must
-      // not be pruned on send failure — partition them out before sending.
-      const { fcmTokens, apnsTokens } = partitionTokens(storedTokens);
-      if (apnsTokens.length > 0) {
-        logger.warn('Skipping raw APNs tokens not sendable via FCM', {
-          userId: swap.receiverId,
-          skippedCount: apnsTokens.length,
-        });
-      }
-      if (fcmTokens.length === 0) {
-        logger.info('No FCM-routable tokens for user', { userId: swap.receiverId });
-        return;
-      }
-
       // Build notification
       const title = "Nouvelle proposition d'échange";
 
@@ -85,62 +54,8 @@ export const onSwapCreated = onDocumentCreated(
         body = `${initiatorCount} article(s) proposé(s) pour ${receiverCount} article(s)`;
       }
 
-      const messages = fcmTokens.map((token: string) => ({
-        token,
-        notification: {
-          title,
-          body,
-        },
-        data: {
-          type: 'swap_proposed',
-          swapId,
-          initiatorId: swap.initiatorId,
-          initiatorName: swap.initiatorName,
-        },
-        android: {
-          priority: 'high' as const,
-          notification: {
-            sound: 'default',
-            channelId: 'swaps',
-            priority: 'high' as const,
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: 'default',
-              badge: 1,
-            },
-          },
-        },
-      }));
-
-      const results = await admin.messaging().sendEach(messages);
-
-      let successCount = 0;
-      results.responses.forEach((response, index) => {
-        if (response.success) {
-          successCount++;
-        } else {
-          logger.error('Failed to send swap notification', { error: response.error });
-          // Remove invalid tokens
-          if (
-            response.error?.code === 'messaging/invalid-registration-token' ||
-            response.error?.code === 'messaging/registration-token-not-registered'
-          ) {
-            db.collection('users')
-              .doc(swap.receiverId)
-              .update({
-                fcmTokens: admin.firestore.FieldValue.arrayRemove(
-                  fcmTokens[index]
-                ),
-              })
-              .catch((err) => logger.error('Error removing invalid token', { error: err }));
-          }
-        }
-      });
-
-      logger.info('Swap proposal notification sent', { successCount });
+      await sendSwapNotification(swap.receiverId, swapId, title, body, swap);
+      logger.info('Swap proposal notification processed');
     } catch (error) {
       console.error('Error sending swap proposal notification:', error);
     }

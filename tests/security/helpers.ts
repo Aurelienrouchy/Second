@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 
-const PROJECT_ID = 'second-rules-test';
+const PROJECT_ID = 'demo-second';
 const ROOT = path.resolve(__dirname, '..', '..');
 
 let cachedEnv: RulesTestEnvironment | null = null;

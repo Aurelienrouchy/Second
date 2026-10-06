@@ -552,6 +552,11 @@ async function expirePendingPayment(
   const data = doc.data();
   const paymentIntentId = data.stripePaymentIntentId;
 
+  // A submitted checkout without a persisted PI id is not an unpaid order.
+  // Preserve the reservation until reconciliation certifies the outcome.
+  if ((data.walletCheckoutOutcome === 'unknown' || data.walletCheckoutOutcome === 'creating') && !paymentIntentId) return false;
+  if (paymentIntentId && !stripe) return false;
+
   try {
     if (paymentIntentId && stripe) {
       // 1. Is the payment in flight / already captured?
@@ -614,6 +619,10 @@ async function expirePendingPayment(
       if (!txData || txData.status !== 'pending_payment') {
         return false;
       }
+
+      if ((txData.walletCheckoutOutcome === 'unknown' || txData.walletCheckoutOutcome === 'creating') && !txData.stripePaymentIntentId) return false;
+      if (txData.stripePaymentIntentId !== data.stripePaymentIntentId ||
+          txData.walletCheckoutAttemptId !== data.walletCheckoutAttemptId) return false;
 
       let articleSnap: FirebaseFirestore.DocumentSnapshot | null = null;
       const articleRef = txData.articleId

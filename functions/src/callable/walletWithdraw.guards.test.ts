@@ -108,6 +108,7 @@ function seedSeller(opts?: {
 }
 
 beforeEach(() => {
+  vi.stubEnv('PAYMENTS_ENABLED', 'true');
   fs.reset();
   stripeMock.reset();
   process.env.STRIPE_SECRET_KEY = 'sk_test';
@@ -339,5 +340,58 @@ describe('walletWithdraw — idempotency keys present', () => {
     );
     expect(wrWrite).toBeDefined();
     expect(wrWrite!.data.amount).toBe(2000);
+  });
+});
+
+describe('withdrawal outcomes and phase gating', () => {
+  it('blocks a new withdrawal before any debit or Stripe call when payments are closed', async () => {
+    seedSeller();
+    vi.stubEnv('PAYMENTS_ENABLED', 'false');
+    await expect(callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2500 } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(5000);
+    expect(stripeMock.calls.transfersCreate).toHaveLength(0);
+    expect(stripeMock.calls.payoutsCreate).toHaveLength(0);
+  });
+  it.each(['transfer', 'payout'])('compensates a confirmed %s rejection once', async stage => {
+    seedSeller();
+    const fail = async () => { throw Object.assign(new Error('confirmed bank rejection'), {
+      type: 'StripeInvalidRequestError', statusCode: 400,
+    }); };
+    if (stage === 'transfer') stripeMock.impl.transfersCreate = fail;
+    else stripeMock.impl.payoutsCreate = fail;
+    await expect(callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2500 } })).rejects.toMatchObject({ code: 'internal' });
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(5000);
+    const wr = fs.writeOps.find(op => op.path.startsWith('withdrawal_requests/') && op.data.status === 'processing')!;
+    expect(fs.getDoc(wr.path)!.status).toBe('failed');
+    expect(stripeMock.calls.transfersCreateReversal).toHaveLength(stage === 'payout' ? 1 : 0);
+  });
+  it('does not compensate if Stripe created a payout then its Firestore persistence fails', async () => {
+    seedSeller();
+    let failures = 0;
+    const original = fs.db.collection.bind(fs.db);
+    const spy = vi.spyOn(fs.db, 'collection').mockImplementation(name => {
+      const collection = original(name);
+      if (name !== 'withdrawal_requests') return collection;
+      const doc = collection.doc;
+      collection.doc = (id?: string) => {
+        const ref = doc(id);
+        const update = ref.update;
+        ref.update = async data => {
+          if (data.stripePayoutId && failures++ === 0) throw new Error('Firestore unavailable');
+          return update(data);
+        };
+        return ref;
+      };
+      return collection;
+    });
+    try {
+      await expect(callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2500 } })).rejects.toMatchObject({ code: 'unavailable' });
+      expect(fs.getDoc('wallets/seller1')!.balance).toBe(2500);
+      expect(stripeMock.calls.transfersCreateReversal).toHaveLength(0);
+      expect(stripeMock.calls.payoutsCreate).toHaveLength(1);
+      const wr = fs.writeOps.find(op => op.path.startsWith('withdrawal_requests/') && op.data.status === 'processing')!;
+      expect(fs.getDoc(wr.path)!.payoutOutcome).toBe('unknown');
+      expect(fs.getDoc(wr.path)!.stripePayoutId).toBe('po_ok');
+    } finally { spy.mockRestore(); }
   });
 });

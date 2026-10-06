@@ -2,12 +2,13 @@
  * Notification utilities
  * Firebase Functions v7
  *
- * Handles FCM push notifications + in-app notifications.
+ * Handles Android FCM + iOS Expo gateway push and in-app notifications.
  * Each notification includes a `deepLink` field for client-side routing.
  */
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { sendExpoPushNotifications } from './expoPush';
 
 // ─── Token classification ─────────────────────────────────────────────────────
 
@@ -23,9 +24,8 @@ import { db, FieldValue } from '../config/firebase';
  * that is perfectly valid for APNs. We therefore detect and skip these here
  * instead of sending them or pruning them.
  *
- * The proper fix (registering a real FCM registration token on iOS) lives in
- * the client; this guard keeps the server from breaking iOS push and from
- * wiping good tokens in the meantime.
+ * iOS now stores Expo gateway tokens in expoPushTokens. This guard preserves
+ * legacy APNs values without accidentally routing them through FCM.
  */
 function isRawApnsToken(token: string): boolean {
   // FCM registration tokens always contain ':' (e.g. "xxxx:APA91b...").
@@ -304,6 +304,9 @@ function getAndroidChannel(notificationType: string): string {
     case 'funds_released':
       return 'orders';
 
+    case 'saved_search':
+      return 'saved_searches';
+
     case 'review_received':
       return 'notifications';
 
@@ -335,6 +338,7 @@ export async function sendPushNotification(
 
     const userData = userDoc.data()!;
     const storedTokens: string[] = userData.fcmTokens || [];
+    const expoTokens: string[] = userData.expoPushTokens || [];
 
     // Check notification preferences (preferences.notifications.*)
     const prefs = userData.preferences?.notifications as
@@ -365,7 +369,7 @@ export async function sendPushNotification(
     // Create in-app notification regardless of push
     await createInAppNotification(userId, notificationType, title, body, data);
 
-    if (storedTokens.length === 0) {
+    if (storedTokens.length === 0 && expoTokens.length === 0) {
       console.log(`No FCM tokens for user ${userId}`);
       return { success: true, sentCount: 0 };
     }
@@ -382,7 +386,7 @@ export async function sendPushNotification(
       });
     }
 
-    if (fcmTokens.length === 0) {
+    if (fcmTokens.length === 0 && expoTokens.length === 0) {
       console.log(`No FCM-routable tokens for user ${userId}`);
       return { success: true, sentCount: 0 };
     }
@@ -395,6 +399,11 @@ export async function sendPushNotification(
     // + unread chat messages. Computed after createInAppNotification so the
     // freshly-created notification is reflected in the count.
     const badge = await computeBadgeCount(userId);
+
+    const expoAccepted = await sendExpoPushNotifications(userId, expoTokens, {
+      title, body, data: { ...data, type: notificationType, deepLink }, badge, channelId,
+    });
+    if (fcmTokens.length === 0) return { success: true, sentCount: expoAccepted };
 
     // Build FCM messages
     const messages = fcmTokens.map((token: string) => ({
@@ -420,7 +429,15 @@ export async function sendPushNotification(
     }));
 
     // Send notifications
-    const results = await admin.messaging().sendEach(messages);
+    let results;
+    try {
+      results = await admin.messaging().sendEach(messages);
+    } catch {
+      // The in-app notice already exists and Expo may have accepted its copy.
+      // Do not make callers repeat the notice after an Android transport error.
+      logger.warn('FCM send failed; in-app notification retained');
+      return { success: true, sentCount: expoAccepted };
+    }
 
     let successCount = 0;
     results.responses.forEach((response, index) => {
@@ -443,7 +460,7 @@ export async function sendPushNotification(
       }
     });
 
-    return { success: true, sentCount: successCount };
+    return { success: true, sentCount: successCount + expoAccepted };
   } catch (error) {
     console.error('Error sending push notification:', error);
     return { success: false, sentCount: 0 };
@@ -462,63 +479,7 @@ export async function sendSwapNotification(
   body: string,
   swapData: Record<string, unknown>
 ): Promise<void> {
-  const userDoc = await db.collection('users').doc(userId).get();
-  if (!userDoc.exists) return;
-
-  const userData = userDoc.data()!;
-  const storedTokens: string[] = userData.fcmTokens || [];
-
-  if (storedTokens.length === 0) return;
-
-  // Skip raw APNs tokens (iOS native tokens) — not sendable via FCM.
-  const { fcmTokens, apnsTokens } = partitionTokens(storedTokens);
-  if (apnsTokens.length > 0) {
-    logger.warn('Skipping raw APNs tokens not sendable via FCM', {
-      userId,
-      notificationType: 'swap_update',
-      skippedCount: apnsTokens.length,
-    });
-  }
-  if (fcmTokens.length === 0) return;
-
-  const deepLink = `https://${DEEP_LINK_HOST}/swap/${swapId}`;
-
-  // Real APNs badge = unread notifications + unread chat messages.
-  const badge = await computeBadgeCount(userId);
-
-  const messages = fcmTokens.map((token: string) => ({
-    token,
-    notification: {
-      title,
-      body,
-    },
-    data: {
-      type: 'swap_update',
-      swapId,
-      status: String(swapData.status || ''),
-      deepLink,
-    },
-    android: {
-      priority: 'high' as const,
-      notification: {
-        sound: 'default',
-        channelId: 'swaps',
-        priority: 'high' as const,
-      },
-    },
-    apns: {
-      payload: {
-        aps: {
-          sound: 'default',
-          badge,
-        },
-      },
-    },
-  }));
-
-  try {
-    await admin.messaging().sendEach(messages);
-  } catch (error) {
-    console.error(`Failed to send swap notification to ${userId}:`, error);
-  }
+  await sendPushNotification(userId, title, body, {
+    swapId, status: String(swapData.status || ''),
+  }, 'swap_update');
 }
