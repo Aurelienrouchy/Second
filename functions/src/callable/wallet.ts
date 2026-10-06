@@ -33,15 +33,19 @@
  * sale is `disputed`, and create a withdrawal_requests/{id}='processing' doc
  * (closed out by payout.paid / payout.failed webhooks).
  */
+import { articleReleaseUpdate } from '../utils/articleReservation';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
+import { assertNewPaymentsEnabled, isShippingEnabled } from '../config/featureFlags';
 import { getShipEngine } from '../config/shipEngine';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { creditSellerForSale, createLabelIdempotent } from '../utils/labelFulfillment';
 import { writeFailedOperation } from '../utils/failedOperations';
 import { captureServerEvent } from '../lib/analytics';
+import { revertFailedPayout } from '../utils/payoutRecovery';
+import { isDefinitiveStripeFailure } from '../utils/payoutOutcome';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
@@ -294,6 +298,8 @@ export const walletWithdraw = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    assertNewPaymentsEnabled();
+
     const { callerKey, isAuthenticated } = resolveCallerKey(request);
     await checkRateLimit(callerKey, isAuthenticated, {
       functionName: 'walletWithdraw',
@@ -459,6 +465,7 @@ export const walletWithdraw = onCall(
 
       // Step 2: Create Stripe transfer + payout
       let transfer: { id: string } | undefined;
+      let payout: { id: string } | undefined;
       try {
         transfer = await stripe.transfers.create(
           {
@@ -476,7 +483,13 @@ export const walletWithdraw = onCall(
           { idempotencyKey: `tr_${ledgerEntryRef.id}` }
         );
 
-        const payout = await stripe.payouts.create(
+        // Record the transfer before submitting the payout. Recovery must not
+        // lose the funds already moved onto the connected account.
+        await withdrawalRequestRef.update({
+          stripeTransferId: transfer.id,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        payout = await stripe.payouts.create(
           {
             amount,
             currency: 'cad',
@@ -521,128 +534,36 @@ export const walletWithdraw = onCall(
           withdrawalRequestId: withdrawalRequestRef.id,
         };
       } catch (stripeError) {
-        // F41: a payouts.create that TIMED OUT may have actually created the
-        // payout on Stripe. Reverting + re-crediting blindly would then double-pay
-        // (the payout settles AND the wallet is restored). Before any revert,
-        // re-drive payouts.create with the SAME idempotency key: if the payout
-        // exists (or was just created), Stripe returns it instead of erroring, and
-        // we treat the withdrawal as VALID (persist ids, do NOT revert). Only a
-        // definitive failure (e.g. balance/account error reproduced) falls through
-        // to the revert. This confirmation is only meaningful once the transfer
-        // succeeded (a missing transfer means no payout could exist).
-        if (transfer) {
-          try {
-            const confirmedPayout = await stripe.payouts.create(
-              {
-                amount,
-                currency: 'cad',
-                metadata: {
-                  firebaseUserId: userId,
-                  walletWithdrawal: 'true',
-                  withdrawalRequestId: withdrawalRequestRef.id,
-                },
-              },
-              { stripeAccount: stripeAccountId, idempotencyKey: `po_${ledgerEntryRef.id}` }
-            );
-            // The payout DOES exist — the original error was a transient timeout.
-            // Persist the ids and complete the withdrawal normally (no revert).
-            await withdrawalRequestRef.update({
-              stripeTransferId: transfer.id,
-              stripePayoutId: confirmedPayout.id,
-              updatedAt: FieldValue.serverTimestamp(),
-            });
-            logger.warn('Wallet withdrawal: payouts.create error was transient — payout confirmed', {
-              userId,
-              amount,
-              transferId: transfer.id,
-              payoutId: confirmedPayout.id,
-              withdrawalRequestId: withdrawalRequestRef.id,
-              originalError: stripeError instanceof Error ? stripeError.message : stripeError,
-            });
-            return {
-              success: true,
-              newBalance: newBalance!,
-              transferId: transfer.id,
-              payoutId: confirmedPayout.id,
-              withdrawalRequestId: withdrawalRequestRef.id,
-            };
-          } catch (confirmErr) {
-            // The payout genuinely did not go through — fall through to the revert
-            // path below (the transfer reversal there cleans up the moved funds).
-            logger.error('Wallet withdrawal: payout confirmation failed — reverting', {
-              userId,
-              withdrawalRequestId: withdrawalRequestRef.id,
-              error: confirmErr instanceof Error ? confirmErr.message : confirmErr,
-            });
-          }
+        // A created payout, a persistence error, a timeout and a Stripe 5xx all
+        // mean "unknown" until reconciled. None authorises restoring the wallet.
+        if (payout || !isDefinitiveStripeFailure(stripeError)) {
+          await withdrawalRequestRef.update({
+            payoutOutcome: 'unknown',
+            ...(transfer ? { stripeTransferId: transfer.id } : {}),
+            ...(payout ? { stripePayoutId: payout.id } : {}),
+            updatedAt: FieldValue.serverTimestamp(),
+          }).catch(() => undefined);
+          await writeFailedOperation({
+            type: 'payout_reversal_failed',
+            refId: withdrawalRequestRef.id,
+            payload: { kind: 'payout_outcome_unknown', userId, amount, stripeAccountId },
+            error: stripeError,
+          });
+          logger.error('Wallet withdrawal outcome unknown — reconciliation required', {
+            withdrawalRequestId: withdrawalRequestRef.id,
+            transferId: transfer?.id ?? null,
+            payoutId: payout?.id ?? null,
+          });
+          throw new HttpsError('unavailable', 'Le retrait est en cours de vérification. Les fonds restent réservés.');
         }
 
-        // Stripe failed — revert wallet debit
-        logger.error('Stripe transfer/payout failed — reverting wallet debit', {
-          userId,
-          amount,
-          error: stripeError instanceof Error ? stripeError.message : stripeError,
-        });
-
-        // F09: If the transfer succeeded but payout failed, reverse the transfer
-        // to prevent the user having both wallet balance (restored) AND funds
-        // on their Connect account.
-        if (transfer) {
-          try {
-            await stripe.transfers.createReversal(transfer.id);
-            logger.info('Stripe transfer reversed after payout failure', {
-              userId,
-              transferId: transfer.id,
-            });
-          } catch (reversalError) {
-            // If reversal also fails, log for manual reconciliation but still
-            // re-credit the wallet (user experience takes priority).
-            logger.error('CRITICAL: Failed to reverse Stripe transfer — manual reconciliation needed', {
-              userId,
-              transferId: transfer.id,
-              error: reversalError instanceof Error ? reversalError.message : reversalError,
-            });
-            // P1: dead-letter so retryFailedOperations re-drives the reversal
-            // idempotently (key rev_${transferId}). Best-effort; never throws.
-            await writeFailedOperation({
-              type: 'transfer_reversal_failed',
-              refId: withdrawalRequestRef.id,
-              payload: {
-                transferId: transfer.id,
-                userId,
-                amount,
-                stripeAccountId,
-              },
-              error: reversalError,
-            });
-          }
-        }
-
-        await db.runTransaction(async (tx) => {
-          const walletSnap = await tx.get(walletRef);
-          if (!walletSnap.exists) return;
-
-          tx.update(walletRef, {
-            balance: FieldValue.increment(amount),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-
-          // Update ledger entry to mark as failed
-          tx.update(ledgerEntryRef, {
-            description: `Retrait echoue — fonds restitues`,
-            type: 'withdrawal_failed',
-          });
-
-          // Mark the withdrawal request as failed (synchronous failure — the
-          // async payout.failed handler will be a no-op since status != processing).
-          tx.update(withdrawalRequestRef, {
-            status: 'failed',
-            failedAt: FieldValue.serverTimestamp(),
-            failureReason: stripeError instanceof Error ? stripeError.message : 'stripe_error',
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-        });
-
+        // A confirmed rejection is the only synchronous compensation trigger.
+        // Reuse the same atomic guard as payout.failed and scheduled recovery.
+        await revertFailedPayout({
+          withdrawalRequestId: withdrawalRequestRef.id,
+          failureReason: stripeError instanceof Error ? stripeError.message : 'stripe_error',
+          ownerIdFallback: userId,
+        }, stripe);
         const message = stripeError instanceof Error ? stripeError.message : 'Unknown error';
         throw new HttpsError('internal', `Echec du retrait: ${message}`);
       }
@@ -678,6 +599,8 @@ export const payWithWallet = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
+
+    assertNewPaymentsEnabled();
 
     const { callerKey, isAuthenticated } = resolveCallerKey(request);
     await checkRateLimit(callerKey, isAuthenticated, {
@@ -750,6 +673,9 @@ export const payWithWallet = onCall(
 
         const sellerId = txData.sellerId;
         const isShipping = txData.deliveryType === 'shipping';
+        if (isShipping && !isShippingEnabled()) {
+          throw new HttpsError('failed-precondition', 'La livraison n’est pas disponible pour le moment.');
+        }
 
         // --- Read article to mark as sold ---
         let articleRef = null;
@@ -761,13 +687,7 @@ export const payWithWallet = onCall(
 
         // --- Writes ---
 
-        // 1. Debit buyer wallet
-        tx.update(buyerWalletRef, {
-          balance: FieldValue.increment(-totalAmountCents),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-
-        // 2. Credit seller wallet pendingBalance.
+        // Read the seller before staging any write; then credit seller wallet pendingBalance.
         // P1 (atomicity payment<->label): for SHIPPING transactions defer the
         // seller credit until the shipping label is created (label step /
         // sweepPendingLabels). Crediting then failing the label would pay the
@@ -777,6 +697,12 @@ export const payWithWallet = onCall(
         if (!isShipping) {
           await creditSellerForSale(tx, txRef, txData, transactionId);
         }
+
+        // 1. Debit buyer wallet
+        tx.update(buyerWalletRef, {
+          balance: FieldValue.increment(-totalAmountCents),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
 
         // 3. Mark transaction as paid
         tx.update(txRef, {
@@ -1113,6 +1039,9 @@ export const refundWalletPayment = onCall(
           articleSnap = await tx.get(articleRef);
         }
 
+        const articleUnlock = articleRef && articleSnap?.exists
+          ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
+
         // --- All writes ---
 
         // 1. Credit buyer's wallet
@@ -1222,8 +1151,8 @@ export const refundWalletPayment = onCall(
         });
 
         // 4. Release article
-        if (articleRef && articleSnap && articleSnap.exists) {
-          tx.update(articleRef, { isSold: false });
+        if (articleRef && articleUnlock) {
+          tx.update(articleRef, articleUnlock);
         }
       });
 

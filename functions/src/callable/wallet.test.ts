@@ -69,7 +69,7 @@ const {
 
   function mockDocRef(path: string): Record<string, unknown> {
     return {
-      path,
+      path, id: path.split('/').pop()!,
       get: async () => state.docSnapshots[path] ?? mockSnap(path, null),
       set: async (data: Record<string, unknown>) => {
         state.writeOps.push({ method: 'set', path, data });
@@ -114,8 +114,11 @@ const {
 
   function createMockTransaction() {
     return {
-      get: async (ref: { path: string }) =>
-        state.docSnapshots[ref.path] ?? mockSnap(ref.path, null),
+      get: async (ref: { path?: string; get?: () => Promise<unknown> }) => {
+        // Admin SDK transaction.get supports queries as well as document refs.
+        if (ref.path) return state.docSnapshots[ref.path] ?? mockSnap(ref.path, null);
+        return ref.get!();
+      },
       set: (ref: { path: string }, data: Record<string, unknown>) => {
         state.writeOps.push({ method: 'set', path: ref.path, data });
       },
@@ -135,6 +138,7 @@ const {
 
   const mockFieldValue = {
     serverTimestamp: () => ({ _type: 'serverTimestamp' }),
+    delete: () => ({ _type: 'delete' }),
     increment: (n: number) => ({ _type: 'increment', value: n }),
     arrayUnion: (...args: unknown[]) => ({ _type: 'arrayUnion', values: args }),
   };
@@ -231,6 +235,8 @@ const callRefundWalletPayment = refundWalletPayment as unknown as CallableHandle
 // Reset state before each test
 // ---------------------------------------------------------------------------
 beforeEach(() => {
+  vi.stubEnv('PAYMENTS_ENABLED', 'true');
+  vi.stubEnv('SHIPPING_ENABLED', 'true');
   // Clear mutable state
   writeOps.length = 0;
   for (const key of Object.keys(docSnapshots)) delete docSnapshots[key];
@@ -548,7 +554,7 @@ describe('walletWithdraw', () => {
       (w) =>
         w.path.startsWith('withdrawal_requests/') &&
         w.method === 'update' &&
-        (w.data as Record<string, unknown>).stripeTransferId !== undefined
+        (w.data as Record<string, unknown>).stripePayoutId !== undefined
     );
     expect(wrUpdate).toBeDefined();
     expect((wrUpdate!.data as Record<string, unknown>).stripeTransferId).toBe('tr_123');
@@ -588,6 +594,8 @@ describe('walletWithdraw', () => {
 
     expect(result.transferId).toBe('tr_456');
     expect(result.payoutId).toBe('po_456');
+    const requestWrite = writeOps.find(w => w.path.startsWith('withdrawal_requests/') && w.method === 'set');
+    const withdrawalRequestId = requestWrite!.path.split('/').pop()!;
 
     expect(transferArgs[0]).toEqual({
       amount: 2000,
@@ -596,6 +604,7 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
+        withdrawalRequestId,
       },
     });
     // Deterministic idempotency key derived from the ledger entry id
@@ -607,6 +616,7 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
+        withdrawalRequestId,
       },
     });
     // stripe-node v22: single RequestOptions object carries both the Connect
@@ -617,7 +627,7 @@ describe('walletWithdraw', () => {
     });
   });
 
-  it('reverts wallet debit when Stripe transfer fails', async () => {
+  it('keeps wallet reserved when Stripe transfer outcome is unknown', async () => {
     setupWithdrawable(5000);
 
     // Track runTransaction call count
@@ -635,25 +645,22 @@ describe('walletWithdraw', () => {
 
     await expect(
       callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
-    ).rejects.toThrow('Stripe network error');
+    ).rejects.toMatchObject({ code: 'unavailable' });
 
-    // Three runTransaction calls: rate-limit check + debit + revert.
-    // (transfers.create throws BEFORE `transfer` is assigned, so no
-    // transfers.createReversal happens — that is a Stripe call, not a
-    // runTransaction, anyway.)
-    expect(txCallCount).toBe(3);
+    // Network failure is not a confirmed rejection: no compensation.
+    expect(txCallCount).toBe(2);
 
-    // Revert should update the wallet again
+    // The only wallet mutation is the original reservation.
     const walletUpdates = writeOps.filter(
       (w) => w.path === 'wallets/user1' && w.method === 'update'
     );
-    expect(walletUpdates.length).toBeGreaterThanOrEqual(2);
+    expect(walletUpdates.length).toBe(1);
 
     // Restore
     mockDb.runTransaction = origRunTransaction;
   });
 
-  it('reverts wallet debit when Stripe payout fails', async () => {
+  it('keeps wallet reserved when Stripe payout outcome is unknown', async () => {
     setupWithdrawable(5000);
 
     let txCallCount = 0;
@@ -669,12 +676,10 @@ describe('walletWithdraw', () => {
 
     await expect(
       callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
-    ).rejects.toThrow('Payout failed');
+    ).rejects.toMatchObject({ code: 'unavailable' });
 
-    // Three runTransaction calls: rate-limit check + debit + revert. The
-    // transfer succeeded so the code ALSO calls stripe.transfers.createReversal,
-    // but that is a Stripe call (mocked), not a runTransaction.
-    expect(txCallCount).toBe(3);
+    // Unknown payout is retained for reconciliation, never compensated blindly.
+    expect(txCallCount).toBe(2);
   });
 
   it('rejects string amounts', async () => {

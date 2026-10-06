@@ -1,226 +1,74 @@
-/**
- * SwapProposalView
- * Detailed layout shown when a swap has status "proposed" and the current user
- * is the receiver. Includes sender profile, message, items from both sides, and summary.
- */
-
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-
 import { Text } from '@/components/ui';
 import SwapItemCard from '@/components/swap/SwapItemCard';
-import SwapSummaryBox from '@/components/swap/SwapSummaryBox';
-import { colors, fonts } from '@/constants/theme';
-import { formatPrice } from '@/utils/formatPrice';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPriceWithCurrency } from '@/utils/formatPrice';
+import { formatDisplayName } from '@/utils/formatName';
 import { SwapItemInfo } from '@/types';
 
 interface SwapProposalViewProps {
+  /** The other participant; senderItems are always the items you receive. */
   senderName: string;
   senderImage: string | undefined;
   message: string | undefined;
   senderItems: SwapItemInfo[];
   myItems: SwapItemInfo[];
   cashTopUp: { amount: number; payerId: string } | undefined;
+  isInitiator?: boolean;
+  currentUserId?: string;
+  otherUserId?: string;
 }
 
 export const SwapProposalView = React.memo(function SwapProposalView({
-  senderName,
-  senderImage,
-  message,
-  senderItems,
-  myItems,
-  cashTopUp,
+  senderName, senderImage, message, senderItems, myItems, cashTopUp,
+  isInitiator = false, currentUserId, otherUserId,
 }: SwapProposalViewProps) {
-  // cashTopUp.amount is stored in cents; convert to dollars for display.
-  const cashTopUpDollars = cashTopUp ? cashTopUp.amount / 100 : undefined;
+  const name = formatDisplayName(senderName);
+  const payer = cashTopUp?.payerId === currentUserId ? 'Vous' : cashTopUp?.payerId === otherUserId ? name : 'Payeur à confirmer';
   return (
-    <>
-      {/* Sender Profile Row */}
-      <View style={styles.senderProfile}>
-        <View style={styles.avatarWrapper}>
-          {senderImage ? (
-            <Image
-              source={{ uri: senderImage }}
-              style={styles.avatar}
-              contentFit="cover"
-            />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={styles.avatarLetter}>
-                {senderName?.charAt(0).toUpperCase() || '?'}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.senderInfoColumn}>
-          <Text style={styles.senderUsername}>{senderName}</Text>
+    <View style={styles.content}>
+      <View style={styles.member}>
+        {senderImage ? <Image source={{ uri: senderImage }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Ionicons name="person-outline" size={22} color={colors.foregroundSecondary} /></View>}
+        <View style={styles.memberInfo}>
+          <Text style={styles.eyebrow}>Échange avec</Text>
+          <Text style={styles.name}>{name}</Text>
         </View>
       </View>
-
-      {/* Message Bubble (if exists) */}
-      {message && (
-        <View style={styles.messageBubble}>
-          <Text style={styles.messageText}>{message}</Text>
-        </View>
-      )}
-
-      {/* Sender proposal section */}
-      <View style={styles.proposalSection}>
-        <Text style={styles.sectionLabel}>{`${senderName} propose`}</Text>
-        <View style={styles.itemsStack}>
-          {senderItems.map((item, index) => (
-            <SwapItemCard
-              key={`sender-${index}`}
-              item={item}
-              variant="their"
-            />
-          ))}
+      <View style={styles.status}>
+        <Ionicons name={isInitiator ? 'paper-plane-outline' : 'mail-outline'} size={20} color={colors.primary} />
+        <View style={styles.memberInfo}>
+          <Text style={styles.statusTitle}>{isInitiator ? 'Proposition envoyée' : 'Proposition reçue'}</Text>
+          <Text style={styles.body}>{isInitiator ? 'Vous attendez la réponse du membre.' : 'Découvrez les articles proposés, puis choisissez votre réponse.'}</Text>
         </View>
       </View>
-
-      {/* Supplement Badge (if cash top-up) */}
-      {cashTopUp && (
-        <View style={styles.supplementBadge}>
-          <Ionicons name="information-circle" size={18} color={colors.rust} />
-          <Text style={styles.supplementText}>
-            {`${senderName} ajoute un complément de `}
-            <Text style={styles.supplementAmount}>{formatPrice(cashTopUpDollars!)}</Text> en argent
-          </Text>
-        </View>
-      )}
-
-      {/* "Contre mon article" Section */}
-      <View style={styles.proposalSection}>
-        <Text style={styles.sectionLabel}>Contre mon article</Text>
-        <View style={styles.itemsStack}>
-          {myItems.map((item, index) => (
-            <SwapItemCard
-              key={`my-${index}`}
-              item={item}
-              variant="mine"
-            />
-          ))}
-        </View>
+      {!!message && <View style={styles.message}><Text style={styles.eyebrow}>{isInitiator ? 'Votre message' : `Message de ${name}`}</Text><Text style={styles.body}>{message}</Text></View>}
+      <View style={styles.section} testID="swap-given-items">
+        <Text style={styles.sectionTitle}>Vous donnez</Text>
+        {myItems.map((item, index) => <SwapItemCard key={`${item.articleId}-${index}`} item={item} variant="mine" />)}
       </View>
-
-      {/* Summary Box */}
-      <View style={styles.summaryContainer}>
-        <SwapSummaryBox
-          youReceive={senderItems.map((item) => item.title).join(', ')}
-          youGive={myItems.map((item) => item.title).join(', ')}
-          receivedItems={senderItems}
-          givenItems={myItems}
-          cashSupplement={cashTopUpDollars}
-        />
+      <View style={styles.section} testID="swap-received-items">
+        <Text style={styles.sectionTitle}>Vous recevez</Text>
+        {senderItems.map((item, index) => <SwapItemCard key={`${item.articleId}-${index}`} item={item} variant="their" />)}
       </View>
-    </>
+      {!!cashTopUp?.amount && <View style={styles.message}><Text style={styles.body}>Complément historique : {formatPriceWithCurrency(cashTopUp.amount / 100).replace(/ /g, '\u00A0')} · Payeur prévu : {payer.replace(/\.+$/, '')}.</Text></View>}
+    </View>
   );
 });
-
 const styles = StyleSheet.create({
-  senderProfile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    gap: 12,
-    backgroundColor: colors.surface,
-  },
-  avatarWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    backgroundColor: colors.sageLight,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.rust,
-  },
-  avatarLetter: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.surface,
-  },
-  senderInfoColumn: {
-    flex: 1,
-  },
-  senderUsername: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.charcoal,
-    lineHeight: 18,
-  },
-  messageBubble: {
-    marginHorizontal: 24,
-    marginVertical: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: colors.cream,
-    borderRadius: 4,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  messageText: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 21,
-    fontWeight: '300',
-    color: colors.charcoal,
-  },
-  proposalSection: {
-    paddingHorizontal: 24,
-    marginBottom: 20,
-  },
-  sectionLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    fontWeight: '400',
-    letterSpacing: 0.15,
-    textTransform: 'uppercase',
-    color: colors.muted,
-    marginBottom: 8,
-  },
-  itemsStack: {
-    gap: 12,
-  },
-  supplementBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 24,
-    marginVertical: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: 'rgba(196, 96, 58, 0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(196, 96, 58, 0.2)',
-    borderRadius: 10,
-  },
-  supplementText: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: colors.charcoal,
-    flex: 1,
-  },
-  supplementAmount: {
-    fontWeight: '700',
-  },
-  summaryContainer: {
-    marginHorizontal: 24,
-    marginVertical: 20,
-  },
+  content: { padding: spacing.md, gap: spacing.lg },
+  member: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: { width: 48, height: 48, borderRadius: radius.full, backgroundColor: colors.surfaceWarm },
+  avatarFallback: { width: 48, height: 48, borderRadius: radius.full, backgroundColor: colors.surfaceWarm, alignItems: 'center', justifyContent: 'center' },
+  memberInfo: { flex: 1, minWidth: 0, gap: spacing.xs },
+  eyebrow: { fontFamily: fonts.sansMedium, fontSize: 12, lineHeight: 17, color: colors.foregroundSecondary },
+  name: { fontFamily: fonts.sansMedium, fontSize: 16, lineHeight: 23, color: colors.foreground },
+  status: { flexDirection: 'row', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceWarm, borderRadius: radius.xl },
+  statusTitle: { fontFamily: fonts.sansMedium, fontSize: 14, lineHeight: 21, color: colors.foreground },
+  body: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 22, color: colors.foregroundSecondary },
+  message: { backgroundColor: colors.surfaceWarm, borderRadius: radius.xl, padding: spacing.md, gap: spacing.sm },
+  section: { gap: spacing.sm },
+  sectionTitle: { fontFamily: fonts.displayMedium, fontSize: 26, lineHeight: 31, color: colors.foreground },
 });

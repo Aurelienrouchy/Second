@@ -1,0 +1,41 @@
+# Read-only gallery checks. Use an emulator-configured app bundle and seeded
+# articles; this flow never creates an offer, transaction, or payment.
+# The multiple-photo branch requires at least two photos on the first article.
+appId: com.seconde.app
+---
+- runFlow: ../subflows/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "product-card-.*"
+    timeout: 20000
+- tapOn:
+    id: "product-card-.*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "article-photo-0"
+    timeout: 15000
+- tapOn:
+    id: "article-photo-0"
+- assertVisible:
+    id: "gallery-zoom-image"
+- doubleTapOn:
+    id: "gallery-zoom-image"
+- assertVisible: "Réinitialiser le zoom"
+- runFlow:
+    when:
+      notVisible: "1 / 1"
+    commands:
+      - tapOn:
+          id: "gallery-next"
+      - assertVisible: "2 / .*"
+      - assertVisible: "Pincez ou touchez deux fois pour zoomer"
+      - tapOn:
+          id: "gallery-close"
+      - tapOn:
+          id: "article-photo-1"
+      - assertVisible: "2 / .*"
+- tapOn:
+    id: "gallery-close"
+- assertVisible:
+    id: "article-gallery"

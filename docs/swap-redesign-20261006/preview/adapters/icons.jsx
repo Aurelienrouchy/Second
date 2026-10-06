@@ -1,0 +1,2 @@
+import React from 'react';import {Text} from 'react-native';import glyphs from '../../../../node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/Ionicons.json';
+export function Ionicons({name,size=20,color,style,...props}){return <Text {...props} style={[{fontFamily:'Ionicons',fontSize:size,lineHeight:size+3,color},style]}>{String.fromCodePoint(glyphs[name] || glyphs['ellipse-outline'])}</Text>;}

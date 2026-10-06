@@ -170,6 +170,7 @@ interface ArticleDocument {
   // Status
   isActive: boolean;             // Visible in listings
   isSold: boolean;               // Has been sold
+  activeTransactionId?: string;  // Server-owned accepted/reserved engagement
   isPromoted?: boolean;          // Sponsored listing
   // Auto-approved on creation (no moderation flow yet). ABSENT on legacy
   // articles created before this field existed; the search-index trigger and
@@ -296,7 +297,8 @@ interface UserDocument {
   // Social
   likedSellers?: string[];      // User IDs of liked sellers
   sellerLikesCount?: number;    // How many users liked this seller
-  fcmTokens?: string[];         // FCM push notification tokens
+  fcmTokens?: string[];         // Android FCM push notification tokens
+  expoPushTokens?: string[];    // iOS Expo gateway tokens (private owner document)
 
   // Stats
   rating?: number;              // Average review rating (0-5)
@@ -590,6 +592,48 @@ interface FavoritesDocument {
 }
 ```
 
+### `favorite_memberships/{articleId}/users/{userId}`
+
+Server-only projection acknowledgment (`counted: boolean`, `updatedAt: Timestamp`).
+The owner may read their own acknowledgment so the UI preserves an optimistic
+counter until the server has reconciled the live `favorites` source. Clients
+cannot write it. Article/search counters are transactionally counted from the
+canonical favorites query; this projection is not a second source of truth.
+
+### `meetup_offer_threads/{threadId}` and `meetup_offer_requests/{requestId}`
+
+Server-only proposal coordination; clients have no access under the default-deny
+rules. `threadId` is SHA-256 of the JSON pair `[articleId, buyerId]`, independent
+of the chat ID. `sendMeetupProposal` adopts legacy conversations on the first
+write, then atomically replaces the current pending proposal through this shared
+contention document. Different buyers have separate proposal threads; acceptance
+also reads/writes the article's single `activeTransactionId` commitment.
+
+```typescript
+interface MeetupOfferThreadDocument {
+  articleId: string;
+  buyerId: string;
+  chatId: string;
+  messageId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  transactionId?: string; // Exact agreement link when accepted.
+  updatedAt: Timestamp;
+}
+
+interface MeetupOfferRequestDocument {
+  chatId: string;
+  senderId: string;
+  messageId: string; // Existing proposal on an idempotent replay/deduplication.
+  createdAt: Timestamp;
+}
+```
+
+Request IDs are reused across a retry, scoped to the sender/chat by the callable,
+and currently retained without a TTL. Accepted cards link `offer.transactionId`
+to `transactions.offerMessageId`; stale rejects never mutate that transaction.
+Historical agreements with ambiguous or missing terms require explicit review
+rather than silent replacement.
+
 ### `chats/{chatId}`
 
 Chat thread between two users, optionally scoped to an article.
@@ -784,7 +828,13 @@ interface TransactionDocument {
   // Payment method
   paidVia?: 'wallet' | 'wallet_and_card';  // Set when wallet is used (absent = card-only destination charge)
   walletAmountUsed?: number;       // Wallet portion in cents (for mixed payments)
-  sellerCreditedCents?: number;    // EXACT amount credited to the seller's wallet (in cents).
+  walletCheckoutAttemptId?: string; // Server-generated reservation id; stable on retries.
+  walletCheckoutOutcome?: 'creating' | 'unknown'; // No refund/expiry without certified Stripe outcome.
+  sellerPendingCreditCents?: number; // Net sale amount entering escrow (gross minus debt repaid).
+  sellerDebtRepaidCents?: number;  // Debt paid down at original sale credit.
+  sellerHeldCreditCents?: number; // Actual cents moved pending -> held for this sale.
+  sellerReleasedCents?: number;   // Actual held cents consumed at release (including debt repayment).
+  sellerCreditedCents?: number;    // Gross refund exposure, including debt repaid (in cents).
                                    // ATOMICITY (P1): for SHIPPING transactions the seller is credited
                                    // ONLY after the shipping label is successfully created (label step
                                    // or sweepPendingLabels), so this field is ABSENT while a shipping
@@ -944,6 +994,7 @@ interface WithdrawalRequestDocument {
                                   // so a lost payout.failed can be reverted (revertFailedPayout)
   stripePayoutId?: string;        // Stripe Payout ID (po_xxx) — persisted at walletWithdraw + payout.* webhook
   status: 'processing' | 'completed' | 'failed';
+  payoutOutcome?: 'unknown' | 'pending' | 'in_transit' | 'paid' | 'failed' | 'canceled'; // Unknown keeps funds reserved.
   failureReason?: string;         // Set if status is 'failed'
   failedAt?: Timestamp;           // Set if status is 'failed'
   completedAt?: Timestamp;        // Set if status is 'completed'
@@ -1004,7 +1055,7 @@ type PlatformLedgerDocument =
     }
   | {
       // E6 / F133c — platform GROSS revenue for one successful purchase. Net
-      // margin = serviceFee − processorFees − shippingCost (computable here).
+      // margin = serviceFee + shippingCostCollected − processorFees − carrierCost (tax excluded).
       type: 'service_fee_revenue';
       transactionId: string;
       sellerId: string;
@@ -1013,7 +1064,9 @@ type PlatformLedgerDocument =
       shippingCostCollected: number;    // shipping billed to the buyer (dollars)
       grossRevenue: number;             // serviceFee + taxCollected + shippingCostCollected
       processorFees?: number;           // Stripe fee on the charge (balance_transaction.fee, dollars)
-      netMargin?: number;               // serviceFee − processorFees − shippingCostCollected
+      carrierCost: number;              // Carrier shipment + insurance cost (dollars).
+      carrierCostEstimated: boolean;    // True before actual label cost is known.
+      netMargin?: number;               // serviceFee + shippingCostCollected − processorFees − carrierCost
       currency: 'cad';
       createdAt: Timestamp;
     }
@@ -1368,6 +1421,21 @@ interface NotificationDocument {
 }
 ```
 
+### `expoPushReceipts/{ticketId}`
+
+Server-only delivery tickets for Expo iOS push. Clients have no access. A gateway
+acceptance is not proof of device delivery. The 15-minute receipt job removes a
+token only after a confirmed `DeviceNotRegistered`; unknown results retain the
+token and retry for up to 24 hours, after which the pending ticket is removed.
+
+```typescript
+interface ExpoPushReceiptDocument {
+  userId: string;
+  token: string;
+  createdAt: Timestamp;
+}
+```
+
 ### `drafts/{draftId}`
 
 Unsaved article drafts for the sell flow.
@@ -1551,9 +1619,11 @@ Virtual wallet for buyers and sellers. All amounts are in **cents** (not dollars
 
 **Single-rail money model (separate charges & transfers).** Every buyer charge — pure card, mixed wallet+card, and swap top-up — lands on the PLATFORM account (NO `transfer_data.destination`, NO `application_fee_amount` at capture). The platform keeps the funds (which include the `shippingCost` used to pay the ShipEngine label and the `serviceFee`). The seller is credited ONLY in the wallet ledger and paid out by the SINGLE platform→connected transfer in `walletWithdraw`. Consequently a refund is a plain `stripe.refunds.create` on the platform PaymentIntent — there is NO transfer to reverse and NO application fee to claw back.
 
+Only `sellerPendingCreditCents` (net after original debt repayment) may enter the sale escrow buckets. Delivery persists the actual, capped pending-to-held movement as `sellerHeldCreditCents`; release consumes at most that amount and persists `sellerReleasedCents`. For legacy documents, the exact transaction-linked `funds_held` ledger proves the actual held amount; absent movement proof keeps the funds reserved for reconciliation. Legacy net amounts are derived from the server-owned original debt-repayment ledger where necessary. `sellerCreditedCents` remains the gross exposure to undo on a full refund.
+
 Fund flow per sale: `pendingBalance` (paid) → `heldBalance` (delivered, `applyDeliveredHeldFunds`) → `balance` (`releaseHeldFunds` after 7d). On `charge.dispute.created` any released portion is moved `balance → heldBalance` and the exact amount is persisted as `transactions.disputeFreezeCents`; `charge.dispute.closed` releases the frozen hold back to `balance` (won / warning_closed, `dispute_hold_released`) or debits the seller (lost, cascading `pendingBalance → heldBalance → balance`, recording `sellerDebt` if insufficient, and releasing any frozen surplus the debit did not consume).
 
-Refund debit (any path: `charge.refunded` FULL only, `refundWalletPayment`, lost dispute): the seller is debited of EXACTLY `transactions.sellerCreditedCents` (the amount credited at payment), cascading `pendingBalance → heldBalance → balance` to drain wherever the funds currently sit. Any remainder the seller no longer holds (already withdrawn) is added to `sellerDebt` and recorded in a `refund_debit` ledger entry with `debtRecorded` — never masked with `min()`. On a mixed wallet+card refund, the buyer's wallet portion (`walletAmountUsed`) is re-credited to the buyer's wallet (internal movement) while the card portion is returned to the card by the upstream plain Stripe refund. A PARTIAL `charge.refunded` (`amount_refunded < amount`) does NOT unwind the sale — it is dead-lettered for human review.
+Refund debit (any path: `charge.refunded` FULL only, `refundWalletPayment`, lost dispute): the seller is debited of EXACTLY `transactions.sellerCreditedCents` (gross sale exposure including debt repaid at credit), cascading `pendingBalance → heldBalance → balance` to drain wherever the funds currently sit. Any remainder the seller no longer holds (already withdrawn) is added to `sellerDebt` and recorded in a `refund_debit` ledger entry with `debtRecorded` — never masked with `min()`. On a mixed wallet+card refund, the buyer's wallet portion (`walletAmountUsed`) is re-credited to the buyer's wallet (internal movement) while the card portion is returned to the card by the upstream plain Stripe refund. A PARTIAL `charge.refunded` (`amount_refunded < amount`) does NOT unwind the sale — it is dead-lettered for human review.
 
 ```typescript
 interface WalletDocument {

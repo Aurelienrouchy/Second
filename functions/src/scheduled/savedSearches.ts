@@ -4,9 +4,9 @@
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
-import * as admin from 'firebase-admin';
+import type { Query } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../config/firebase';
-import { partitionTokens } from '../utils/notifications';
+import { sendPushNotification } from '../utils/notifications';
 import { brandKey } from '../utils/normalizeBrand';
 import { sanitizeArticleSize } from '../shared/article';
 
@@ -24,52 +24,6 @@ interface SavedSearchFilters {
   condition?: string;
   minPrice?: number;
   maxPrice?: number;
-}
-
-/**
- * Compute the user's REAL unread badge count for the APNs payload:
- * unread in-app notifications + unread chat messages.
- *
- * Mirrors utils/notifications.computeBadgeCount (kept local because this
- * scheduled job builds FCM messages inline rather than going through
- * sendPushNotification). The previous implementation hardcoded the badge to
- * the per-search new-items count, which clobbered the device badge with a
- * value unrelated to the user's true unread total. Best-effort: on any read
- * error we fall back to 1 so the push still surfaces a badge.
- */
-async function computeBadgeCount(userId: string): Promise<number> {
-  try {
-    const [notifSnap, chatsSnap] = await Promise.all([
-      db
-        .collection('notifications')
-        .where('userId', '==', userId)
-        .where('isRead', '==', false)
-        .count()
-        .get(),
-      db
-        .collection('chats')
-        .where('participants', 'array-contains', userId)
-        .get(),
-    ]);
-
-    const unreadNotifications = notifSnap.data().count;
-
-    let unreadMessages = 0;
-    chatsSnap.forEach((doc) => {
-      const raw = doc.data()?.unreadCount?.[userId];
-      if (typeof raw === 'number' && raw > 0) {
-        unreadMessages += raw;
-      }
-    });
-
-    return unreadNotifications + unreadMessages;
-  } catch (error) {
-    logger.warn('Failed to compute badge count, falling back to 1', {
-      userId,
-      error: error instanceof Error ? error.message : error,
-    });
-    return 1;
-  }
 }
 
 /**
@@ -100,34 +54,6 @@ export const checkSavedSearchNotifications = onSchedule(
 
       logger.info('Found active saved searches', { count: activeSavedSearches.docs.length });
 
-      // Pre-fetch user data for all unique userIds (to check fcmTokens)
-      const userIds = new Set<string>();
-      for (const doc of activeSavedSearches.docs) {
-        // Path: users/{userId}/savedSearches/{searchId}
-        const pathSegments = doc.ref.path.split('/');
-        const userId = pathSegments[1]; // users/{userId}/...
-        if (userId) userIds.add(userId);
-      }
-
-      // Batch-fetch user docs for FCM tokens
-      const userDataMap = new Map<string, { fcmTokens: string[] }>();
-      const userIdArray = Array.from(userIds);
-      for (let i = 0; i < userIdArray.length; i += 30) {
-        const batch = userIdArray.slice(i, i + 30);
-        const userDocs = await Promise.all(
-          batch.map((uid) => db.collection('users').doc(uid).get())
-        );
-        for (const userDoc of userDocs) {
-          if (userDoc.exists) {
-            const data = userDoc.data()!;
-            const fcmTokens = data.fcmTokens || [];
-            if (fcmTokens.length > 0) {
-              userDataMap.set(userDoc.id, { fcmTokens });
-            }
-          }
-        }
-      }
-
       let notificationsSent = 0;
       let searchesChecked = 0;
 
@@ -137,15 +63,6 @@ export const checkSavedSearchNotifications = onSchedule(
         const userId = pathSegments[1];
         if (!userId) continue;
 
-        // Skip users without FCM tokens
-        const userData = userDataMap.get(userId);
-        if (!userData) continue;
-        // Raw APNs tokens (iOS native tokens) are not sendable via FCM and must
-        // not be pruned on send failure — partition them out.
-        const { fcmTokens } = partitionTokens(userData.fcmTokens);
-        // No FCM-routable tokens (e.g. iOS-only with raw APNs token): skip.
-        if (fcmTokens.length === 0) continue;
-
         searchesChecked++;
         const search = searchDoc.data();
         const searchId = searchDoc.id;
@@ -154,7 +71,7 @@ export const checkSavedSearchNotifications = onSchedule(
         const searchQuery = search.query || '';
 
         // Build query for matching articles
-        let articlesQuery: admin.firestore.Query = db
+        let articlesQuery: Query = db
           .collection('articles')
           .where('isActive', '==', true)
           .where('isSold', '==', false)
@@ -288,79 +205,18 @@ export const checkSavedSearchNotifications = onSchedule(
               ? `Résultats pour "${searchQuery}"`
               : 'De nouveaux articles correspondent à votre recherche';
 
-          // Real APNs badge = unread notifications + unread chat messages
-          // (NOT the per-search new-items count, which would clobber the badge
-          // with an unrelated value).
-          const badge = await computeBadgeCount(userId);
-
-          // Send notification to all user's devices
-          const messages = fcmTokens.map((token: string) => ({
-            token,
-            notification: {
-              title,
-              body,
-            },
-            data: {
-              type: 'saved_search',
-              // Client reads `savedSearchId` (hooks/useNotificationSetup.ts +
-              // buildDeepLink). Emitting `searchId` here broke tap routing.
+          try {
+            const result = await sendPushNotification(userId, title, body, {
               savedSearchId: searchId,
               searchName: search.name || '',
               newItemsCount: matchingArticles.length.toString(),
               filters: JSON.stringify(filters),
               query: searchQuery,
-            },
-            android: {
-              priority: 'high' as const,
-              notification: {
-                sound: 'default',
-                channelId: 'saved_searches',
-                priority: 'high' as const,
-              },
-            },
-            apns: {
-              payload: {
-                aps: {
-                  sound: 'default',
-                  badge,
-                },
-              },
-            },
-          }));
+            }, 'saved_search');
+            const successCount = result.sentCount;
 
-          try {
-            const results = await admin.messaging().sendEach(messages);
-
-            let successCount = 0;
-            results.responses.forEach((response, index) => {
-              if (response.success) {
-                successCount++;
-              } else {
-                logger.error('Failed to send notification', { error: response.error });
-
-                // Remove invalid tokens
-                if (
-                  response.error?.code ===
-                    'messaging/invalid-registration-token' ||
-                  response.error?.code ===
-                    'messaging/registration-token-not-registered'
-                ) {
-                  db.collection('users')
-                    .doc(userId)
-                    .update({
-                      fcmTokens: admin.firestore.FieldValue.arrayRemove(
-                        fcmTokens[index]
-                      ),
-                    })
-                    .catch((err) =>
-                      logger.error('Error removing invalid token', { error: err })
-                    );
-                }
-              }
-            });
-
-            if (successCount > 0) {
-              notificationsSent++;
+            if (result.success) {
+              if (successCount > 0) notificationsSent++;
 
               // Update lastNotifiedAt and newItemsCount
               await db

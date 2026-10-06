@@ -96,3 +96,13 @@ appId: com.seconde.app
       # sont des issues valides.
       - assertVisible:
           id: "profile-tab-avis"
+      - assertVisible:
+          id: "profile-reviews-content"
+      - tapOn:
+          id: "profile-tab-articles"
+      - assertVisible:
+          id: "profile-content-list"
+      - tapOn:
+          id: "profile-tab-avis"
+      - assertVisible:
+          id: "profile-reviews-content"

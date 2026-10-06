@@ -103,3 +103,14 @@ export const getPreviousStep = (currentStep: Step, mode?: OfferMode): Step | nul
       return null;
   }
 };
+
+export const MEETUP_TO_ARRANGE_SPOT: MeetupSpot = {
+  name: 'À convenir par messagerie', category: 'other_public', toArrange: true,
+  neighborhood: { id: 'to-arrange', name: 'À convenir', borough: 'À convenir' },
+};
+
+/** FR/CA decimal keyboards may enter a comma; never truncate trailing text. */
+export function parseOfferAmount(value: string): number {
+  const trimmed = value.trim();
+  return /^\d+(?:[.,]\d{1,2})?$/.test(trimmed) ? Number(trimmed.replace(',', '.')) : Number.NaN;
+}

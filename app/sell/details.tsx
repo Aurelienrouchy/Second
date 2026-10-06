@@ -9,7 +9,7 @@ import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
@@ -32,6 +32,7 @@ import { getSizesForCategory } from '@/data/sizes';
 import { getCategoryInfoFromIds } from '@/data/categories-v2';
 import draftService, { ArticleDraft, DraftFields } from '@/services/draftService';
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, spacing } from '@/constants/theme';
 
 // Lift the sticky footer to sit spacing.md (16) above the keyboard when open;
@@ -52,7 +53,10 @@ interface EditedFields {
 
 export default function DetailsScreen() {
   const router = useRouter();
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
   const navigation = useNavigation();
+  const advancingRef = useRef(false);
+  useFocusEffect(useCallback(() => { advancingRef.current = false; }, []));
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
@@ -101,7 +105,9 @@ export default function DetailsScreen() {
   // Load draft on mount
   useEffect(() => {
     const loadDraft = async () => {
+      draftService.assertCurrentOwner(photoOwnerUid);
       const existingDraft = await draftService.loadDraft();
+      draftService.assertCurrentOwner(photoOwnerUid);
       if (existingDraft) {
         setDraft(existingDraft);
         if (isResuming && existingDraft.fields) {
@@ -128,35 +134,37 @@ export default function DetailsScreen() {
         setIsInitialized(true);
       }
     };
-    loadDraft();
-  }, [isResuming]);
+    void loadDraft().catch(() => {
+      if (__DEV__) console.warn('Draft initialization interrupted');
+    });
+  }, [isResuming, photoOwnerUid]);
 
-  // Auto-save fields
-  useEffect(() => {
-    if (!draft || !isInitialized) return;
-    const saveToDraft = async () => {
-      try {
-        const draftFields: DraftFields = {
-          title: fields.title,
-          description: fields.description,
-          categoryIds: fields.categoryIds,
-          categoryDisplay: fields.categoryDisplay,
-          condition: fields.condition,
-          colors: fields.colors,
-          materials: fields.materials,
-          brands: fields.brand ? [fields.brand] : [],
-          size: fields.size,
-          brand: fields.brand,
-        };
-        const updated = await draftService.updateDraftFields(draft, draftFields);
-        setDraft(updated);
-      } catch (error) {
-        if (__DEV__) console.error('Failed to save draft fields:', error);
-      }
+  const draftId = draft?.id;
+  const persistFields = useCallback(async () => {
+    draftService.assertCurrentOwner(photoOwnerUid);
+    const latest = await draftService.loadDraft();
+    draftService.assertCurrentOwner(photoOwnerUid);
+    if (!latest) throw new Error('Draft unavailable');
+    const draftFields: DraftFields = {
+      title: fields.title, description: fields.description,
+      categoryIds: fields.categoryIds, categoryDisplay: fields.categoryDisplay,
+      condition: fields.condition, colors: fields.colors, materials: fields.materials,
+      brands: fields.brand ? [fields.brand] : [], size: fields.size, brand: fields.brand,
     };
-    const timeoutId = setTimeout(saveToDraft, 500);
+    const updated = await draftService.updateDraftFields(latest, draftFields);
+    setDraft(updated);
+  }, [fields, photoOwnerUid]);
+
+  // Auto-save while editing; navigation also waits for a final save.
+  useEffect(() => {
+    if (!draftId || !isInitialized) return;
+    const timeoutId = setTimeout(() => {
+      void persistFields().catch(() => {
+        if (__DEV__) console.error('Failed to save draft fields');
+      });
+    }, 500);
     return () => clearTimeout(timeoutId);
-  }, [fields, draft?.id, isInitialized]);
+  }, [draftId, isInitialized, persistFields]);
 
   // Bottom sheet refs
   const categorySheetRef = useRef<CategoryBottomSheetRef>(null);
@@ -221,7 +229,11 @@ export default function DetailsScreen() {
           },
           {
             text: 'Quitter',
-            onPress: () => {
+            onPress: async () => {
+              try { await persistFields(); } catch {
+                Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter.');
+                return;
+              }
               track('sell_exit_prompted', {
                 flow_step: 'details',
                 confirmed_leave: true,
@@ -235,13 +247,14 @@ export default function DetailsScreen() {
       );
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, persistFields, photos.length]);
 
   const handleBack = () => {
     router.back();
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    if (advancingRef.current) return;
     // Same gate as isFormValid below — keep details/preview validation aligned
     // so the footer's disabled state and the action never diverge.
     const missing: string[] = [];
@@ -256,6 +269,12 @@ export default function DetailsScreen() {
         errors: missingKeys,
       });
       Alert.alert('Informations manquantes', `${missing.join('\n')}`);
+      return;
+    }
+    advancingRef.current = true;
+    try { await persistFields(); } catch {
+      advancingRef.current = false;
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de continuer.');
       return;
     }
     track('sell_step_completed', {
@@ -349,7 +368,7 @@ export default function DetailsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PhotoStripPreview photos={photos} />
+        <PhotoStripPreview ownerUid={draft?.ownerUid ?? photoOwnerUid} photos={storageUrls.length === photos.length && storageUrls.length > 0 ? storageUrls : photos} />
 
         <FormSectionTitle title="Essentiel" />
 

@@ -283,15 +283,6 @@ export default function ChatScreen() {
       return;
     }
 
-    // H4: Prevent multiple simultaneous offers
-    const hasPendingOffer = messages.some(
-      (msg) => msg.type === 'offer' && msg.offer?.status === 'pending' && msg.senderId === user?.id
-    );
-    if (hasPendingOffer) {
-      emitOfferModal('pending_offer_exists');
-      Alert.alert('Offre en cours', 'Vous avez déjà une offre en attente pour cet article.');
-      return;
-    }
     emitOfferModal('none');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     makeOfferModalRef.current?.present();
@@ -490,8 +481,7 @@ export default function ChatScreen() {
             currentUserId={user?.id || ''}
             sellerId={chat?.sellerId}
             articleId={chat?.articleId}
-            articlePrice={article?.price ?? chat?.articlePrice}
-            onAcceptOffer={handleAcceptOffer}
+                onAcceptOffer={handleAcceptOffer}
             onRejectOffer={handleRejectOffer}
             onCounterPrice={handleCounterPrice}
             onCounterLocation={handleCounterLocation}
@@ -552,7 +542,6 @@ export default function ChatScreen() {
       <ChatHeader
         otherParticipant={otherParticipant}
         otherAvatar={otherAvatar}
-        articlePrice={article?.price ?? chat?.articlePrice}
         onMoreOptions={handleMoreOptions}
       />
 
@@ -620,6 +609,7 @@ export default function ChatScreen() {
           ref={makeOfferModalRef}
           articleId={chat?.articleId || ''}
           articleTitle={chat?.articleTitle || ''}
+          articleImage={article?.images?.[0]?.url ?? chat?.articleImage}
           currentPrice={article?.price ?? chat?.articlePrice ?? 0}
           defaultMode={SHIPPING_ENABLED && article?.isShipping && !article?.isHandDelivery ? 'shipping' : 'meetup'}
           sellerNeighborhood={article?.neighborhood}

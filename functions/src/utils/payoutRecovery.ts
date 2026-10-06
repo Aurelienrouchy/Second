@@ -56,6 +56,7 @@ export async function revertFailedPayout(
 
   let reCredited = false;
   let transferId: string | null = null;
+  let shouldReverseTransfer = false;
   // F43: when the wallet to re-credit is gone, we cannot self-heal — record the
   // owed amount so the post-tx admin_alert makes the loss visible (never silent).
   let walletMissingOwedCents = 0;
@@ -77,7 +78,9 @@ export async function revertFailedPayout(
 
     // Idempotence: only act on a request still in flight. A request already
     // 'failed'/'completed'/'reverted' has already been reconciled.
+    if (input.payoutId && request.stripePayoutId && input.payoutId !== request.stripePayoutId) return;
     if (request.status !== 'processing') {
+      shouldReverseTransfer = request.status === 'failed';
       logger.info('[revertFailedPayout] request not processing — skipping re-credit', {
         withdrawalRequestId,
         currentStatus: request.status,
@@ -85,6 +88,7 @@ export async function revertFailedPayout(
       return;
     }
 
+    shouldReverseTransfer = true;
     const amount = request.amount; // CENTS
     const ownerId = request.userId || input.ownerIdFallback || null;
 
@@ -153,7 +157,7 @@ export async function revertFailedPayout(
   // on the Custom account (which would double-finance the next withdrawal). This
   // runs OUTSIDE the runTransaction (Stripe network) and is idempotent via the
   // deterministic key. Best-effort: a failure is dead-lettered, never thrown.
-  if (transferId && stripe) {
+  if (shouldReverseTransfer && transferId && stripe) {
     try {
       await stripe.transfers.createReversal(
         transferId,

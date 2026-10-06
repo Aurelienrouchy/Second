@@ -17,18 +17,20 @@ import {
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, Easing } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, fonts, radius } from '@/constants/theme';
 import { Skeleton } from '@/components/ui/Skeleton';
 import BlurOverlay from '@/components/sell/BlurOverlay';
 import CameraGuides from '@/components/sell/CameraGuides';
 import draftService, { ArticleDraft, createEmptyDraft } from '@/services/draftService';
 import {
+  useSellCamera,
   PermissionDenied,
   TopControls,
   ThumbnailStrip,
@@ -40,9 +42,11 @@ const THUMB_CONTAINER_HEIGHT = 92;
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const cameraRef = useRef<CameraView>(null);
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
 
   const isResuming = params.resumeDraft === 'true';
   const resumedPhotos: string[] = params.photos
@@ -51,10 +55,37 @@ export default function CaptureScreen() {
 
   const [photos, setPhotos] = useState<string[]>(isResuming ? resumedPhotos : []);
   const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>('back');
-  const [torchActive, setTorchActive] = useState(false);
+  const camera = useSellCamera(permission?.granted ?? false);
+  const { facing, torchActive, onReady: markCameraReady } = camera;
   const [isCapturing, setIsCapturing] = useState(false);
   const draftRef = useRef<ArticleDraft | null>(null);
+  const draftReadyRef = useRef<Promise<void>>(Promise.resolve());
+  const photoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leavingRef = useRef(false);
+
+  const persistPhotos = useCallback(async () => {
+    if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current);
+    draftService.assertCurrentOwner(photoOwnerUid);
+    await draftReadyRef.current;
+    draftService.assertCurrentOwner(photoOwnerUid);
+    const draft = draftRef.current ?? await draftService.loadDraft() ?? createEmptyDraft();
+    draftService.assertCurrentOwner(photoOwnerUid);
+    draftRef.current = await draftService.updateDraftPhotos(draft, photos);
+    draftService.assertCurrentOwner(photoOwnerUid);
+  }, [photos, photoOwnerUid]);
+
+  const saveBeforeLeaving = useCallback(async (leave: () => void) => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    try {
+      await persistPhotos();
+      leave();
+    } catch {
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+    } finally {
+      leavingRef.current = false;
+    }
+  }, [persistPhotos]);
 
   const canTakeMore = photos.length < MAX_PHOTOS;
   const hasPhotos = photos.length > 0;
@@ -68,11 +99,14 @@ export default function CaptureScreen() {
   }));
 
   const handleCameraReady = useCallback(() => {
+    if (!markCameraReady()) return;
     cameraOpacity.set(withTiming(1, {
       duration: 260,
       easing: Easing.out(Easing.cubic),
     }));
-  }, []);
+  }, [cameraOpacity, markCameraReady]);
+
+  useEffect(() => { cameraOpacity.set(0); }, [camera.mountKey, cameraOpacity]);
 
   // ── Thumb container height animation ──
   const thumbContainerHeight = useSharedValue(0);
@@ -82,7 +116,7 @@ export default function CaptureScreen() {
       duration: 300,
       easing: Easing.out(Easing.cubic),
     }));
-  }, [showThumbStrip]);
+  }, [showThumbStrip, thumbContainerHeight]);
 
   const thumbContainerStyle = useAnimatedStyle(() => ({
     height: thumbContainerHeight.value,
@@ -94,7 +128,7 @@ export default function CaptureScreen() {
     if (!permission?.granted && permission?.canAskAgain) {
       requestPermission();
     }
-  }, [permission]);
+  }, [permission, requestPermission]);
 
   // Fire once when the OS resolves the camera permission to denied.
   const cameraDeniedTracked = useRef(false);
@@ -112,8 +146,11 @@ export default function CaptureScreen() {
   // Initialize or load draft on mount
   useEffect(() => {
     const initDraft = async () => {
+      draftService.assertCurrentOwner(photoOwnerUid);
       if (isResuming) {
+        draftService.assertCurrentOwner(photoOwnerUid);
         const existingDraft = await draftService.loadDraft();
+        draftService.assertCurrentOwner(photoOwnerUid);
         if (existingDraft) draftRef.current = existingDraft;
       } else {
         const newDraft = createEmptyDraft();
@@ -121,32 +158,37 @@ export default function CaptureScreen() {
         draftRef.current = newDraft;
       }
     };
-    initDraft();
-  }, [isResuming]);
+    const ready = initDraft();
+    draftReadyRef.current = ready;
+    // Preserve failure for Continue/close, while handling an early logout before
+    // the debounced save begins awaiting initialization.
+    void ready.catch(() => {
+      if (__DEV__) console.warn('Draft initialization interrupted');
+    });
+  }, [isResuming, photoOwnerUid]);
 
-  // Save photos to draft when they change
+  // Persist edits while staying on the screen; Continue/close flush immediately.
   useEffect(() => {
-    if (!draftRef.current) return;
-    const currentDraft = draftRef.current;
-    const savePhotos = async () => {
-      try {
-        const updatedDraft = await draftService.updateDraftPhotos(currentDraft, photos);
-        draftRef.current = updatedDraft;
-      } catch (error) {
-        if (__DEV__) console.error('Failed to save photos:', error);
-      }
-    };
-    const timeoutId = setTimeout(() => {
-      if (photos.length > 0 || currentDraft.photos.length > 0) {
-        savePhotos();
-      }
+    photoSaveTimer.current = setTimeout(() => {
+      persistPhotos().catch(() => {
+        if (__DEV__) console.error('Failed to save draft photos');
+      });
     }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [photos]);
+    return () => { if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current); };
+  }, [persistPhotos]);
+
+  useEffect(() => navigation.addListener('beforeRemove', (event) => {
+    if (leavingRef.current || draftService.wasPublished) return;
+    event.preventDefault();
+    Alert.alert('Quitter ?', 'Vos photos seront sauvegardées en brouillon.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Quitter', onPress: () => { void saveBeforeLeaving(() => navigation.dispatch(event.data.action)); } },
+    ]);
+  }), [navigation, saveBeforeLeaving]);
 
   // Handlers
   const handleCapture = async () => {
-    if (!cameraRef.current || isCapturing || !canTakeMore) return;
+    if (!cameraRef.current || !camera.ready || isCapturing || !canTakeMore) return;
     setIsCapturing(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -257,14 +299,13 @@ export default function CaptureScreen() {
                 confirmed_leave: true,
                 photo_count: photos.length,
               });
-              router.replace('/(tabs)');
+              void saveBeforeLeaving(() => router.replace('/(tabs)'));
             },
           },
         ],
       );
     } else {
-      draftService.deleteDraft();
-      router.replace('/(tabs)');
+      void draftService.deleteDraft().then(() => router.replace('/(tabs)'));
     }
   };
 
@@ -274,19 +315,14 @@ export default function CaptureScreen() {
       return;
     }
     track('sell_step_completed', { step: 'capture', photo_count: photos.length });
-    router.push({
+    void saveBeforeLeaving(() => router.push({
       pathname: '/sell/photos-review',
       params: { photos: JSON.stringify(photos) },
-    });
+    }));
   };
 
-  const toggleCameraFacing = () => {
-    setFacing((current) => (current === 'back' ? 'front' : 'back'));
-  };
-
-  const toggleTorch = () => {
-    setTorchActive((current) => !current);
-  };
+  const toggleCameraFacing = camera.flip;
+  const toggleTorch = camera.toggleTorch;
 
   // Overlay heights
   const topOverlayHeight = insets.top + 56;
@@ -308,10 +344,16 @@ export default function CaptureScreen() {
     );
   }
 
-  if (!permission.granted) {
+  if (!permission.granted || camera.error) {
     return (
       <View style={styles.container}>
-        <PermissionDenied onGalleryPress={handleGalleryPress} />
+        <PermissionDenied
+          onGalleryPress={handleGalleryPress}
+          photoCount={photos.length}
+          onContinue={handleContinue}
+          onClose={handleClose}
+          onRetry={camera.error && permission.granted ? camera.retry : undefined}
+        />
       </View>
     );
   }
@@ -341,11 +383,13 @@ export default function CaptureScreen() {
 
       <Animated.View style={[StyleSheet.absoluteFill, cameraFadeStyle]}>
         <CameraView
+          key={camera.mountKey}
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing={facing}
-          enableTorch={torchActive}
+          enableTorch={facing === 'back' && torchActive}
           onCameraReady={handleCameraReady}
+          onMountError={camera.onMountError}
         />
       </Animated.View>
 
@@ -362,6 +406,7 @@ export default function CaptureScreen() {
         <Animated.View style={[styles.thumbOverlay, thumbContainerStyle]}>
           {showThumbStrip && (
             <ThumbnailStrip
+              ownerUid={photoOwnerUid}
               photos={photos}
               onRemovePhoto={handleRemovePhoto}
               onGalleryPress={handleGalleryPress}
@@ -378,6 +423,7 @@ export default function CaptureScreen() {
         photoCount={photos.length}
         maxPhotos={MAX_PHOTOS}
         torchActive={torchActive}
+          torchAvailable={facing === 'back' && camera.ready}
         onClose={handleClose}
         onFlipCamera={toggleCameraFacing}
         onToggleTorch={toggleTorch}
@@ -391,7 +437,7 @@ export default function CaptureScreen() {
 
       <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
         <CameraControlsRow
-          canTakeMore={canTakeMore}
+          canTakeMore={canTakeMore && camera.ready}
           isCapturing={isCapturing}
           hasPhotos={photos.length > 0}
           onCapture={handleCapture}

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Linking from 'expo-linking';
 import { router, useRootNavigationState } from 'expo-router';
-import { handleURLCallback } from '@stripe/stripe-react-native';
+import { handleURLCallback } from '@/lib/stripe';
 
 /**
  * Maps deep link URLs to app routes.

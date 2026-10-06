@@ -1,0 +1,5 @@
+import React from 'react';import {ScrollView,View} from 'react-native';
+export const FlashList=React.forwardRef(function ReviewList({data=[],renderItem,numColumns=1,ListHeaderComponent,ListEmptyComponent,ListFooterComponent,ItemSeparatorComponent,style,contentContainerStyle,keyExtractor,onRefresh,refreshing,refreshControl,estimatedItemSize},ref){
+ const render=component=>typeof component==='function'?React.createElement(component):component;
+ return <ScrollView ref={ref} style={style} contentContainerStyle={contentContainerStyle}>{render(ListHeaderComponent)}{data.length?<View style={{flexDirection:numColumns>1?'row':'column',flexWrap:numColumns>1?'wrap':'nowrap'}}>{data.map((item,index)=><View key={keyExtractor?.(item,index) || item.id || index} style={{width:numColumns>1?`${100/numColumns}%`:'100%'}}>{renderItem({item,index})}{numColumns===1&&index<data.length-1?render(ItemSeparatorComponent):null}</View>)}</View>:render(ListEmptyComponent)}{render(ListFooterComponent)}</ScrollView>;
+});

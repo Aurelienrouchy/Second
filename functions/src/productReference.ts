@@ -1,3 +1,5 @@
+import sizeCatalog from './shared/sizeCatalog.json';
+
 /**
  * Product Reference Data for Gemini AI Analysis
  *
@@ -153,14 +155,14 @@ export interface SizeReference {
 }
 
 export const SIZE_REFERENCE: SizeReference[] = [
-  { categoryType: 'women_clothing', sizes: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '34', '36', '38', '40', '42', '44', '46', '48', '50'] },
-  { categoryType: 'women_shoes', sizes: ['35', '35.5', '36', '36.5', '37', '37.5', '38', '38.5', '39', '39.5', '40', '40.5', '41', '42'] },
-  { categoryType: 'men_clothing', sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '38', '40', '42', '44', '46', '48', '50', '52', '54'] },
-  { categoryType: 'men_shoes', sizes: ['39', '40', '41', '42', '43', '44', '45', '46', '47', '48'] },
-  { categoryType: 'kids_clothing', sizes: ['2 ans', '3 ans', '4 ans', '5 ans', '6 ans', '8 ans', '10 ans', '12 ans', '14 ans', '16 ans', '50', '56', '62', '68', '74', '80', '86', '92', '98'] },
-  { categoryType: 'kids_shoes', sizes: ['16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'] },
-  { categoryType: 'accessories', sizes: ['Unique', 'S', 'M', 'L', 'XL'] },
-];
+  { categoryType: 'women_clothing', sizes: [...sizeCatalog.SIZES_ADULT_TOPS_EU, ...sizeCatalog.SIZES_ADULT_BOTTOMS_EU] },
+  { categoryType: 'women_shoes', sizes: sizeCatalog.SIZES_ADULT_SHOES_EU },
+  { categoryType: 'men_clothing', sizes: [...sizeCatalog.SIZES_ADULT_TOPS_EU, ...sizeCatalog.SIZES_ADULT_BOTTOMS_EU] },
+  { categoryType: 'men_shoes', sizes: sizeCatalog.SIZES_ADULT_SHOES_EU },
+  { categoryType: 'kids_clothing', sizes: sizeCatalog.SIZES_KIDS_TOPS_EU },
+  { categoryType: 'kids_shoes', sizes: sizeCatalog.SIZES_KIDS_SHOES_EU },
+  { categoryType: 'accessories', sizes: sizeCatalog.SIZES_ACCESSORIES },
+].map((reference) => ({ ...reference, sizes: [...new Set(reference.sizes)] })) as SizeReference[];
 
 // ============================================
 // HELPER: Find color by ID or alias

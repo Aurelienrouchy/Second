@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -18,7 +18,7 @@ import { colors } from '@/constants/theme';
 
 import type { ArticleImage } from '@/types';
 
-import { HERO_HEIGHT, articleStyles as styles } from '../styles';
+import { articleStyles as styles } from '../styles';
 
 import { HeaderButton } from './HeaderButton';
 
@@ -35,6 +35,7 @@ function ArticleHeroComponent({
   articleId,
   onImageIndexChange,
 }: ArticleHeroProps) {
+  const { width } = useWindowDimensions();
   return (
     <>
       <ImageGallery
@@ -44,7 +45,7 @@ function ArticleHeroComponent({
       />
 
       {discount !== null && (
-        <View style={styles.discountBadge}>
+        <View style={[styles.discountBadge, { top: width * 1.2 - 32 }]}>
           <Text style={styles.discountText}>–{discount}%</Text>
         </View>
       )}
@@ -79,9 +80,10 @@ function ArticleFloatingHeaderComponent({
   onShare,
   onMoreOptions,
 }: ArticleFloatingHeaderProps) {
+  const { width } = useWindowDimensions();
   // Header background: transparent over hero, cream when scrolled past
   const headerAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(scrollY.value, [0, HERO_HEIGHT - 100], [0, 1], 'clamp');
+    const opacity = interpolate(scrollY.value, [0, width * 1.2 - 100], [0, 1], 'clamp');
     return { backgroundColor: `rgba(245, 240, 232, ${opacity})` };
   });
 

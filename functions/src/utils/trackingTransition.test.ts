@@ -26,6 +26,7 @@ function ref(path: string) {
   return {
     path,
     collection: (sub: string) => ({
+      where: (_field: string, _operator: string, transactionId: string) => ({ path: `${path}/${sub}`, transactionId }),
       doc: (id?: string) => ref(`${path}/${sub}/${id ?? `auto_${holder.ops.length}`}`),
     }),
   };
@@ -33,13 +34,18 @@ function ref(path: string) {
 
 class StrictTx {
   private wroteSomething = false;
-  async get(r: { path: string }) {
+  async get(r: { path: string; transactionId?: string }) {
     if (this.wroteSomething) {
       throw new Error(
         'Firestore transactions require all reads to be executed before all writes. (READ_AFTER_WRITE_ERROR)'
       );
     }
     holder.ops.push({ kind: 'get', path: r.path });
+    if (r.transactionId) {
+      const docs = [...holder.store.entries()].filter(([path, d]) => path.startsWith(`${r.path}/`) && d.transactionId === r.transactionId)
+        .map(([, d]) => ({ data: () => ({ ...d }) }));
+      return { exists: true, data: () => undefined, docs };
+    }
     const exists = holder.store.has(r.path);
     return {
       exists,

@@ -8,35 +8,49 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 
 type SubmitFooterProps = {
   isSubmitting: boolean;
   isDisabled: boolean;
   onSubmit: () => void;
+  isSent?: boolean;
+  onViewSwaps?: () => void;
+  disabledReason?: string;
 };
 
 export const SubmitFooter = React.memo(function SubmitFooter({
   isSubmitting,
   isDisabled,
   onSubmit,
+  isSent = false,
+  onViewSwaps,
+  disabledReason,
 }: SubmitFooterProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+      {isDisabled && !isSent && (
+        <Text style={styles.prerequisite}>{disabledReason || 'Choisissez au moins un article de chaque côté.'}</Text>
+      )}
       <Pressable
         testID="propose-swap-submit"
         style={({ pressed }) => [
           styles.submitButton,
-          (isDisabled || isSubmitting) && styles.submitButtonDisabled,
+          ((!isSent && isDisabled) || isSubmitting) && styles.submitButtonDisabled,
           pressed && styles.pressed,
         ]}
-        onPress={onSubmit}
-        disabled={isDisabled || isSubmitting}
+        onPress={isSent ? onViewSwaps : onSubmit}
+        disabled={(!isSent && isDisabled) || isSubmitting}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: (!isSent && isDisabled) || isSubmitting, busy: isSubmitting }}
       >
         {isSubmitting ? (
-          <ActivityIndicator size="small" color={colors.cream} />
+          <>
+            <ActivityIndicator size="small" color={colors.cream} />
+            <Text style={styles.submitButtonText}>Envoi…</Text>
+          </>
         ) : (
           <>
             <Ionicons
@@ -45,7 +59,7 @@ export const SubmitFooter = React.memo(function SubmitFooter({
               color={colors.cream}
               style={styles.submitButtonIcon}
             />
-            <Text style={styles.submitButtonText}>Envoyer la proposition</Text>
+            <Text style={styles.submitButtonText}>{isSent ? 'Voir mes échanges' : 'Envoyer la proposition'}</Text>
           </>
         )}
       </Pressable>
@@ -55,20 +69,29 @@ export const SubmitFooter = React.memo(function SubmitFooter({
 
 const styles = StyleSheet.create({
   footer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    backgroundColor: colors.cream,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+  prerequisite: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.foregroundSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
   submitButton: {
+    minHeight: sizing.buttonHeight,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.xl,
     backgroundColor: colors.charcoal,
   },
   submitButtonIcon: {
@@ -80,11 +103,10 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 14,
-    letterSpacing: 2.16,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    lineHeight: 20,
+    flexShrink: 1,
+    textAlign: 'center',
     color: colors.cream,
   },
   pressed: {

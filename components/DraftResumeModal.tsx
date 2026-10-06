@@ -6,7 +6,9 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { Image } from 'expo-image';
+import { PrivateStorageImage } from '@/components/PrivateStorageImage';
+import { useFirebaseUserId } from '@/hooks/useFirebaseUserId';
+import { auth } from '@/config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { ArticleDraft, getDaysUntilExpiration } from '@/services/draftService';
 import { APP_LOCALE } from '@/constants/locale';
@@ -32,7 +34,12 @@ export default function DraftResumeModal({
   onResume,
   onDiscard,
 }: DraftResumeModalProps) {
-  if (!draft) return null;
+  const currentUid = useFirebaseUserId();
+  if (!draft || draft.ownerUid !== currentUid) return null;
+  // Native modal/button callbacks can arrive before React has committed the
+  // auth-triggered clear. Never resume/delete using a previous owner's data.
+  const resumeOwned = () => { if (auth.currentUser?.uid === draft.ownerUid) onResume(); };
+  const discardOwned = () => { if (auth.currentUser?.uid === draft.ownerUid) onDiscard(); };
 
   const daysLeft = getDaysUntilExpiration(draft);
   // Prefer the uploaded Storage URL: it survives local cache purges, whereas
@@ -56,7 +63,7 @@ export default function DraftResumeModal({
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onResume}
+      onRequestClose={resumeOwned}
     >
       <View style={styles.overlay}>
         <View style={styles.modal}>
@@ -75,8 +82,11 @@ export default function DraftResumeModal({
           <View style={styles.previewCard}>
             {/* Photo preview */}
             {previewPhoto ? (
-              <Image
-                source={{ uri: previewPhoto }}
+              <PrivateStorageImage
+                testID="draft-private-preview"
+                uri={previewPhoto}
+                allowLocalSource
+                localSourceOwnerUid={draft.ownerUid}
                 style={styles.previewImage}
                 contentFit="cover"
               />
@@ -134,7 +144,7 @@ export default function DraftResumeModal({
             <Pressable
               testID="draft-resume-button"
               style={({ pressed }) => [styles.resumeButton, pressed && { opacity: 0.8 }]}
-              onPress={onResume}
+              onPress={resumeOwned}
             >
               <Ionicons name="play" size={18} color={colors.white} />
               <Text style={styles.resumeButtonText}>Reprendre</Text>
@@ -143,7 +153,7 @@ export default function DraftResumeModal({
             <Pressable
               testID="draft-discard-button"
               style={({ pressed }) => [styles.discardButton, pressed && { opacity: 0.7 }]}
-              onPress={onDiscard}
+              onPress={discardOwned}
             >
               <Text style={styles.discardButtonText}>Recommencer</Text>
             </Pressable>

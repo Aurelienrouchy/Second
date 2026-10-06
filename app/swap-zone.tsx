@@ -24,7 +24,8 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -47,7 +48,7 @@ import {
 } from '@/services/swapService';
 import { ArticlesService } from '@/services/articlesService';
 import { SwapPartyItemExtended, Article, SwapItemInfo } from '@/types';
-import { colors, spacing, typography } from '@/constants/theme';
+import { colors, spacing, typography, sizing, radius } from '@/constants/theme';
 import { Text } from '@/components/ui';
 
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
@@ -177,6 +178,14 @@ export default function SwapZoneScreen() {
   // ── UI state ──
   const [depositOpened, setDepositOpened] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const addingRef = useRef(false);
+  const removalRef = useRef<Set<string>>(new Set());
+  const depositRef = useRef(false);
+  const navigatingRef = useRef(false);
+  const currentUserRef = useRef(user);
+  useEffect(() => { currentUserRef.current = user; }, [user]);
+  const [multiSelectHeight, setMultiSelectHeight] = useState(0);
+  useFocusEffect(useCallback(() => { navigatingRef.current = false; }, []));
   // Count of articles currently being deposited — drives the skeleton rows in
   // MyArticlesSection until invalidatePartyData refetch surfaces the real items.
   const [pendingAddCount, setPendingAddCount] = useState(0);
@@ -201,7 +210,7 @@ export default function SwapZoneScreen() {
   const closeFilterSheet = useCallback(() => setOpenSheet(null), []);
 
   // ── React Query: user's available articles (for the deposit modal) ──
-  const { data: myArticles = [], isLoading: isLoadingMyArticles } = useQuery({
+  const { data: myArticles = [], isLoading: isLoadingMyArticles, isError: myArticlesError, refetch: refetchMyArticles } = useQuery({
     queryKey: queryKeys.articles.userList(user?.id || ''),
     queryFn: async () => {
       if (!user) return [];
@@ -257,7 +266,8 @@ export default function SwapZoneScreen() {
 
   const handleAddItems = useCallback(
     async (articles: Article[]) => {
-      if (!user || !party || isAddingItem || articles.length === 0) return;
+      if (!user || !party || addingRef.current || articles.length === 0) return;
+      addingRef.current = true;
       setIsAddingItem(true);
       setPendingAddCount(articles.length);
       const articleIds = articles.map((a) => a.id);
@@ -295,23 +305,25 @@ export default function SwapZoneScreen() {
           total_value_cents: totalValueCents,
           outcome: 'error',
         });
-        Alert.alert('Erreur', "Impossible d'ajouter les articles");
+        Alert.alert('Ajout impossible', 'Les articles n’ont pas pu être ajoutés. Réessayez dans quelques instants.');
       } finally {
+        addingRef.current = false;
         setIsAddingItem(false);
         setPendingAddCount(0);
       }
     },
-    [user, party, isAddingItem, invalidatePartyData, queryClient]
+    [user, party, invalidatePartyData, queryClient]
   );
 
   const handleRemoveItem = useCallback(
     (articleId: string) => {
-      if (!user || !party) return;
+      if (!user || !party || removalRef.current.has(articleId)) return;
+      removalRef.current.add(articleId);
       Alert.alert(
         "Retirer l'article",
-        'Es-tu sûr de vouloir retirer cet article de la Swap Zone ?',
+        'Voulez-vous retirer cet article de l’Espace échanges ? Il restera dans votre garde-robe.',
         [
-          { text: 'Annuler', style: 'cancel' },
+          { text: 'Annuler', style: 'cancel', onPress: () => { removalRef.current.delete(articleId); } },
           {
             text: 'Retirer',
             style: 'destructive',
@@ -344,7 +356,9 @@ export default function SwapZoneScreen() {
                 // Rollback: restore the snapshot, then surface the error.
                 queryClient.setQueryData<PartyDetailData>(detailKey, prev);
                 track('swap_item_removed', { article_id: articleId, outcome: 'error' });
-                Alert.alert('Erreur', "Impossible de retirer l'article");
+                Alert.alert('Retrait impossible', 'L’article est toujours dans l’Espace échanges. Réessayez dans quelques instants.');
+              } finally {
+                removalRef.current.delete(articleId);
               }
             },
           },
@@ -374,7 +388,9 @@ export default function SwapZoneScreen() {
   const handleItemPress = useCallback(
     (item: SwapPartyItemExtended) => {
       // Single tap on someone else's item → start a scoped swap proposal.
-      const proposeSwap = () =>
+      const proposeSwap = () => {
+        if (navigatingRef.current || item.sellerId === currentUserRef.current?.id) return;
+        navigatingRef.current = true;
         router.push({
           pathname: '/propose-swap',
           params: {
@@ -385,6 +401,7 @@ export default function SwapZoneScreen() {
             receiverItems: JSON.stringify([toSwapItemInfo(item)]),
           },
         });
+      };
 
       if (!user) {
         // Logged-out tap routes through the auth gate, then completes the swap
@@ -407,28 +424,33 @@ export default function SwapZoneScreen() {
 
   const handleItemLongPress = useCallback(
     (item: SwapPartyItemExtended) => {
+      const beginSelection = () => {
+        if (item.sellerId === currentUserRef.current?.id) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        track('swap_multi_select_started', { seller_id: item.sellerId, item_id: item.id });
+        setIsMultiSelectMode(true);
+        setSelectedSellerId(item.sellerId);
+        setSelectedItemIds(new Set([item.id]));
+      };
       if (!user) {
-        requireAuth(() => {}, AUTH_MESSAGES.swapParty);
+        requireAuth(beginSelection, AUTH_MESSAGES.swapParty);
         return;
       }
       // Long-press locks the multi-select to this seller. Medium impact marks
       // the deliberate mode switch (harmonized with FilterChipsRow's haptics).
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      track('swap_multi_select_started', { seller_id: item.sellerId, item_id: item.id });
-      setIsMultiSelectMode(true);
-      setSelectedSellerId(item.sellerId);
-      setSelectedItemIds(new Set([item.id]));
+      beginSelection();
     },
     [user, requireAuth]
   );
 
   const handleProposeMultipleSwaps = useCallback(() => {
-    if (selectedItemIds.size === 0 || !selectedSellerId) return;
+    if (navigatingRef.current || selectedItemIds.size === 0 || !selectedSellerId) return;
 
-    const picked = otherItems.filter((item) => selectedItemIds.has(item.id));
+    const picked = otherItems.filter((item) => selectedItemIds.has(item.id) && item.sellerId === selectedSellerId);
     if (picked.length === 0) return;
 
     const receiver = picked[0];
+    navigatingRef.current = true;
     router.push({
       pathname: '/propose-swap',
       params: {
@@ -462,9 +484,23 @@ export default function SwapZoneScreen() {
   }, [isMultiSelectMode, handleCancelMultiSelect]);
 
   const handleBack = useCallback(() => {
-    handleCancelMultiSelect();
-    router.back();
-  }, [handleCancelMultiSelect]);
+    if (isMultiSelectMode) {
+      handleCancelMultiSelect();
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  }, [isMultiSelectMode, handleCancelMultiSelect]);
+
+  const handleMySwaps = useCallback(() => {
+    const openMySwaps = () => {
+      if (navigatingRef.current) return;
+      navigatingRef.current = true;
+      router.push('/my-swaps');
+    };
+    if (!user) requireAuth(openMySwaps, AUTH_MESSAGES.swapParty);
+    else openMySwaps();
+  }, [user, requireAuth]);
 
   // Open the deposit sheet by mounting it (depositOpened). The actual present()
   // happens in the effect below once the modal is mounted — this guarantees the
@@ -476,6 +512,8 @@ export default function SwapZoneScreen() {
     // articles" affordance can never disappear. A logged-out tap routes through
     // the canonical auth gate, mirroring handleItemPress.
     const openDeposit = () => {
+      if (depositRef.current) return;
+      depositRef.current = true;
       // Empty inventory renders as the drop zone; otherwise it's the add button.
       track('swap_deposit_opened', {
         entry_variant: userItems.length === 0 ? 'drop_zone' : 'add_button',
@@ -499,6 +537,7 @@ export default function SwapZoneScreen() {
 
   // Unmount the sheet once it is fully dismissed → removes the portal host.
   const handleDepositClose = useCallback(() => {
+    depositRef.current = false;
     setDepositOpened(false);
   }, []);
 
@@ -532,7 +571,7 @@ export default function SwapZoneScreen() {
   }, [openSheet]);
 
   // ── Filter chips (order: Trier, Catégorie, Taille, Couleur, Marque, Matière, État) ──
-  const filterChips: FilterChip[] = [
+  const filterChips = useMemo<FilterChip[]>(() => [
     { key: 'sort', label: f.getSortLabel(), active: f.isSortActive, onPress: () => openFilterSheet('sort') },
     { key: 'category', label: f.getCategoryLabel(), active: f.isCategoryActive, onPress: () => openFilterSheet('category') },
     { key: 'sizes', label: f.getSizeLabel(), active: f.isSizeActive, onPress: () => openFilterSheet('sizes') },
@@ -540,7 +579,7 @@ export default function SwapZoneScreen() {
     { key: 'brands', label: f.getBrandLabel(), active: f.isBrandActive, onPress: () => openFilterSheet('brands') },
     { key: 'materials', label: f.getMaterialLabel(), active: f.isMaterialActive, onPress: () => openFilterSheet('materials') },
     { key: 'condition', label: f.getConditionLabelText(), active: f.isConditionActive, onPress: () => openFilterSheet('condition') },
-  ];
+  ], [f, openFilterSheet]);
 
   // ── FlashList helpers ──
   const renderItem = useCallback(
@@ -566,6 +605,14 @@ export default function SwapZoneScreen() {
   const listHeader = useMemo(
     () => (
       <View>
+        <View style={styles.introduction}>
+          <Text style={styles.introText}>Choisissez un article, puis proposez les vôtres en échange.</Text>
+          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.mySwapsButton, pressed && styles.pressed]} onPress={handleMySwaps}>
+            <Ionicons name="swap-horizontal" size={sizing.iconSM} color={colors.sand} />
+            <Text style={styles.mySwapsText}>Mes échanges</Text>
+            <Ionicons name="arrow-forward" size={sizing.iconSM} color={colors.sand} />
+          </Pressable>
+        </View>
         {/* Always rendered (even logged-out) so the deposit affordance can never
             disappear; onAddPress routes through requireAuth when no user. */}
         <MyArticlesSection
@@ -573,18 +620,20 @@ export default function SwapZoneScreen() {
           onAddPress={handleShowMyArticles}
           onRemoveItem={handleRemoveItem}
           pendingCount={pendingAddCount}
+          isGuest={!user}
         />
 
-        {/* Filter chips (dark tone) */}
-        <FilterChipsRow chips={filterChips} tone="dark" />
-
-        {/* Grid label */}
         <View style={styles.gridLabelSection}>
-          <Text style={styles.gridLabel}>Articles disponibles · {otherItems.length}</Text>
+          <View style={styles.gridLabelRow}>
+            <Text style={styles.gridLabel} accessibilityRole="header">Les articles à découvrir</Text>
+            <Text style={styles.gridCount}>{otherItems.length} article{otherItems.length > 1 ? 's' : ''}{f.hasActiveFilters ? ' après filtres' : ''}</Text>
+          </View>
+          {otherItems.length > 1 && <Text style={styles.selectionHint}>Appui long pour choisir plusieurs articles.</Text>}
         </View>
+        <FilterChipsRow chips={filterChips} tone="dark" />
       </View>
     ),
-    [userItems, handleShowMyArticles, handleRemoveItem, filterChips, otherItems.length]
+    [userItems, user, handleShowMyArticles, handleRemoveItem, handleMySwaps, pendingAddCount, filterChips, otherItems.length, f.hasActiveFilters]
   );
 
   const listEmpty = useMemo(
@@ -598,6 +647,7 @@ export default function SwapZoneScreen() {
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar style="light" />
+        <PartyHeader onBack={handleBack} />
         <SwapPartyDetailSkeleton />
       </SafeAreaView>
     );
@@ -609,17 +659,20 @@ export default function SwapZoneScreen() {
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar style="light" />
+        <PartyHeader onBack={handleBack} />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Swap Zone indisponible</Text>
-          <Text style={styles.errorSubtitle}>Vérifiez votre connexion et réessayez.</Text>
+          <Ionicons name={isError ? 'cloud-offline-outline' : 'swap-horizontal'} size={sizing.iconLG} color={colors.sand} />
+          <Text style={styles.errorTitle}>{isError ? 'Le catalogue n’a pas pu être chargé' : 'Aucun espace disponible pour le moment'}</Text>
+          <Text style={styles.errorSubtitle}>{isError ? 'Vérifiez votre connexion, puis réessayez.' : 'Revenez plus tard pour découvrir les articles à échanger.'}</Text>
           <Pressable
+            accessibilityRole="button"
             style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
             onPress={() => {
               track('error_retry_tapped', { screen: 'swap_zone', error_context: 'swap_zone_load' });
               refetchParty();
             }}
           >
-            <Text style={styles.retryButtonText}>Réessayer</Text>
+            <Text style={styles.retryButtonText}>{isError ? 'Réessayer' : 'Actualiser'}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -650,9 +703,9 @@ export default function SwapZoneScreen() {
           // Extra bottom clearance only while the MultiSelectBar overlays the
           // list, so its absolute bar never covers the last grid row (and no
           // dead space is reserved when the bar is absent).
-          contentContainerStyle={
-            isMultiSelectMode ? styles.gridContainerMultiSelect : styles.gridContainer
-          }
+          contentContainerStyle={[styles.gridContainer, {
+            paddingBottom: spacing.lg + insets.bottom + (isMultiSelectMode ? (multiSelectHeight || spacing['4xl'] + spacing['2xl']) : 0),
+          }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -669,6 +722,7 @@ export default function SwapZoneScreen() {
       {isMultiSelectMode && (
         <View
           style={[styles.multiSelectOverlay, { paddingBottom: insets.bottom }]}
+          onLayout={(event) => setMultiSelectHeight(event.nativeEvent.layout.height)}
           pointerEvents="box-none"
         >
           <MultiSelectBar
@@ -689,6 +743,9 @@ export default function SwapZoneScreen() {
           articles={myArticles}
           userItems={userItems}
           loading={isLoadingMyArticles}
+          error={myArticlesError}
+          onRetry={() => { void refetchMyArticles(); }}
+          onPublish={() => { handleDepositClose(); router.push('/sell/capture'); }}
           adding={isAddingItem}
           onAddItems={handleAddItems}
           onClose={handleDepositClose}
@@ -831,11 +888,13 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     lineHeight: typography.bodySmall.lineHeight,
     letterSpacing: typography.bodySmall.letterSpacing,
-    color: colors.whiteTranslucent,
+    color: colors.creamTranslucent60,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: spacing.md,
+    minHeight: sizing.minTouchTarget,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
@@ -858,39 +917,28 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: colors.darkSurface2,
   },
+  introduction: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
+  introText: { ...typography.bodySmall, color: colors.creamTranslucent60 },
+  mySwapsButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', minHeight: sizing.minTouchTarget, gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.darkSurface1, borderRadius: radius.md },
+  mySwapsText: { ...typography.label, color: colors.sand, flexShrink: 1 },
+  gridCount: { ...typography.caption, color: colors.sand },
+  selectionHint: { ...typography.caption, color: colors.creamTranslucent60 },
   gridLabelSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.darkSurface1,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.darkBorder,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
+  gridLabelRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   gridLabel: {
-    fontFamily: typography.labelUppercase.fontFamily,
-    fontSize: typography.labelUppercase.fontSize,
-    lineHeight: typography.labelUppercase.lineHeight,
-    letterSpacing: typography.labelUppercase.letterSpacing,
-    textTransform: 'uppercase',
-    color: colors.sand,
+    ...typography.h2,
+    color: colors.cream,
   },
   gridContainer: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-    paddingBottom: spacing['4xl'] + spacing['2xl'],
-    backgroundColor: colors.deep,
-  },
-  // Multi-select adds the bar's footprint (≈ spacing['3xl']) on top of the base
-  // padding so the last grid row clears the absolute MultiSelectBar overlay.
-  gridContainerMultiSelect: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-    paddingBottom: spacing['4xl'] + spacing['2xl'] + spacing['3xl'],
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
     backgroundColor: colors.deep,
   },
 });

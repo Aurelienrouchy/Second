@@ -197,6 +197,10 @@ jest.mock('firebase/auth', () => ({
   createUserWithEmailAndPassword: jest.fn(),
   signOut: jest.fn(),
   onAuthStateChanged: jest.fn(() => jest.fn()),
+  onIdTokenChanged: jest.fn((auth, callback) => {
+    callback(auth.currentUser || null);
+    return jest.fn();
+  }),
   updateProfile: jest.fn(),
   sendPasswordResetEmail: jest.fn(),
   EmailAuthProvider: { credential: jest.fn() },
@@ -214,6 +218,7 @@ jest.mock('firebase/storage', () => ({
   uploadBytesResumable: jest.fn(),
   uploadString: jest.fn(),
   getDownloadURL: jest.fn(),
+  getBytes: jest.fn(() => Promise.reject(new Error('Private media bytes must be explicitly mocked'))),
   deleteObject: jest.fn(),
   listAll: jest.fn(() => Promise.resolve({ items: [] })),
 }));

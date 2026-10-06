@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
+import React, { useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
 
-import { MakeOfferContext } from './types';
+import { MakeOfferContext, parseOfferAmount } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 
@@ -33,9 +33,15 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
   } = state;
 
   const isShipping = mode === 'shipping';
+  const submittingRef = useRef(false);
 
   const handleSubmit = async () => {
-    const amount = parseFloat(offerAmount);
+    if (submittingRef.current) return;
+    const amount = parseOfferAmount(offerAmount);
+    if (!Number.isFinite(amount) || amount < Math.min(1, context.currentPrice) || amount <= 0 || amount > context.currentPrice) {
+      Alert.alert('Erreur', 'Montant de proposition invalide');
+      return;
+    }
 
     if (isShipping) {
       if (!onSubmitShipping) {
@@ -44,6 +50,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
       }
 
       try {
+        submittingRef.current = true;
         actions.setIsSubmitting(true);
         await onSubmitShipping(amount, message);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -57,6 +64,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert('Erreur', "Impossible d'envoyer votre offre. Veuillez réessayer.");
       } finally {
+        submittingRef.current = false;
         actions.setIsSubmitting(false);
       }
       return;
@@ -69,12 +77,13 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
     }
 
     try {
+      submittingRef.current = true;
       actions.setIsSubmitting(true);
       await onSubmitMeetup(amount, message, selectedSpot);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         'Offre envoyée',
-        'Votre offre avec proposition de meetup a été envoyée. Le vendeur peut accepter, refuser ou proposer une contre-offre.'
+        'Votre proposition est en attente de réponse. Le vendeur peut accepter, refuser ou proposer une contre-proposition.'
       );
       onClose();
     } catch (error) {
@@ -82,6 +91,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erreur', "Impossible d'envoyer votre offre. Veuillez réessayer.");
     } finally {
+      submittingRef.current = false;
       actions.setIsSubmitting(false);
     }
   };
@@ -98,7 +108,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
             </View>
             <Text style={styles.sectionTitle}>VOTRE OFFRE</Text>
           </View>
-          <Text style={styles.offerAmount}>{formatPrice(Number(offerAmount))}</Text>
+          <Text style={styles.offerAmount}>{formatPrice(parseOfferAmount(offerAmount))}</Text>
           <Text style={styles.articleTitle}>{articleTitle}</Text>
         </View>
 
@@ -124,10 +134,10 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
                 <Text style={styles.sectionTitle}>LIEU DE RENCONTRE</Text>
               </View>
               <Text style={styles.spotName}>{selectedSpot.name}</Text>
-              <Text style={styles.spotDetails}>
+              {!selectedSpot.toArrange && <Text style={styles.spotDetails}>
                 {selectedSpot.category && MeetupSpotCategoryLabels[selectedSpot.category]} •{' '}
                 {selectedSpot.neighborhood.name}
-              </Text>
+              </Text>}
               {selectedSpot.address && (
                 <Text style={styles.spotAddress}>{selectedSpot.address}</Text>
               )}
@@ -160,7 +170,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
           <Text style={styles.totalLabel}>
             {isShipping ? 'MONTANT DE L\'OFFRE' : 'MONTANT A PAYER'}
           </Text>
-          <Text style={styles.totalValue}>{formatPrice(Number(offerAmount))}</Text>
+          <Text style={styles.totalValue}>{formatPrice(parseOfferAmount(offerAmount))}</Text>
         </View>
 
         <Text style={styles.paymentNote}>
@@ -182,6 +192,8 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
         </View>
       </View>
 
+      <Text style={styles.infoText}>Une seule proposition en attente par acheteur et par article. Une nouvelle proposition remplace la précédente. Un accord accepté doit être annulé explicitement avant une nouvelle proposition.</Text>
+
       <View style={styles.footer}>
         <Pressable
           testID="offer-confirm-submit"
@@ -194,7 +206,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
           ) : (
             <>
               <Ionicons name="arrow-forward" size={16} color={colors.cream} />
-              <Text style={styles.submitButtonText}>ENVOYER L&apos;OFFRE</Text>
+              <Text style={styles.submitButtonText}>ENVOYER LA PROPOSITION</Text>
             </>
           )}
         </Pressable>

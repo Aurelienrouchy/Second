@@ -143,50 +143,11 @@ service cloud.firestore {
       // Public read (browse / discovery uses unauthenticated reads).
       allow read: if true;
 
-      allow create: if isAuthenticated() &&
-                       request.auth.uid == request.resource.data.sellerId &&
-                       isValidArticleData(request.resource.data);
-
-      allow update: if isAuthenticated() &&
-                       request.auth.uid == resource.data.sellerId &&
-                       isValidArticleUpdate(resource.data, request.resource.data);
-
-      // Soft delete only — owner sets isActive: false. Hard delete still
-      // allowed so the existing UI flow that calls delete() keeps
-      // working until it's migrated.
-      allow delete: if isAuthenticated() &&
-                       request.auth.uid == resource.data.sellerId;
-
-      function isValidArticleData(data) {
-        return data.keys().hasAll(['title', 'price', 'sellerId', 'isActive', 'isSold']) &&
-               isValidString(data.title, 3, 200) &&
-               isValidPrice(data.price) &&
-               data.sellerId == request.auth.uid &&
-               data.isActive is bool &&
-               data.isSold is bool &&
-               (!('description' in data) || isValidString(data.description, 0, 5000)) &&
-               // moderationStatus must be 'approved' if provided (auto-approved for now)
-               (!('moderationStatus' in data) || data.moderationStatus == 'approved') &&
-               // Server-managed counters must start at zero
-               (!('views' in data) || data.views == 0) &&
-               (!('likes' in data) || data.likes == 0) &&
-               (!('likedBy' in data) || data.likedBy.size() == 0) &&
-               (!('favoritesCount' in data) || data.favoritesCount == 0);
-      }
-
-      function isValidArticleUpdate(oldData, newData) {
-        return newData.sellerId == oldData.sellerId &&
-               isValidString(newData.title, 3, 200) &&
-               isValidPrice(newData.price) &&
-               (!('description' in newData) || isValidString(newData.description, 0, 5000)) &&
-               // Protect server-managed fields from client mutation
-               (!('views' in newData) || newData.views == oldData.views) &&
-               (!('likes' in newData) || newData.likes == oldData.likes) &&
-               (!('likedBy' in newData) || newData.likedBy == oldData.likedBy) &&
-               (!('favoritesCount' in newData) || newData.favoritesCount == oldData.favoritesCount) &&
-               (!('moderationStatus' in newData) || newData.moderationStatus == oldData.moderationStatus) &&
-               (!('isSold' in newData) || newData.isSold == oldData.isSold);
-      }
+      // All current client edits and soft deletes already use updateArticle.
+      // Only the server can atomically check legacy transactions (including
+      // missing article locks), validate fields and promote staged images.
+      // A direct image update would otherwise bypass that promotion entirely.
+      allow create, update, delete: if false;
     }
 
     // Products Collection Rules
@@ -378,8 +339,26 @@ service cloud.firestore {
       function isValidFavoritesData(data) {
         return data.userId == request.auth.uid &&
                data.articleIds is list &&
-               data.articleIds.size() <= 500; // Cap at 500 favorites
+               data.articleIds.size() <= 500 &&
+               validArticleIds(data.articleIds);
       }
+
+      function validArticleIds(ids) {
+        // Rules cannot loop over a list. Round-tripping the joined string
+        // rejects non-string elements and embedded path separators. Keep each
+        // ID below 375 characters (<= 1500 UTF-8 bytes) and reject reserved IDs.
+        let joined = ids.join('/');
+        return ids.size() == 0 ||
+               (joined.split('/') == ids &&
+                joined.matches('[^/]{1,375}(/[^/]{1,375})*') &&
+                !joined.matches('([^/]+/)*[.]{1,2}(/[^/]+)*') &&
+                !joined.matches('([^/]+/)*__[^/]*__(/[^/]+)*'));
+      }
+    }
+    // Server projection acknowledgment for the owner's optimistic like count.
+    match /favorite_memberships/{articleId}/users/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
     }
     
     // Messages Collection Rules
@@ -398,17 +377,13 @@ service cloud.firestore {
                           get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants)
                      );
 
-      // Allow create if user is the sender with valid data OR it's a system message
+      // Offers and system events are exclusively created by server transitions.
       allow create: if isAuthenticated() &&
-                       (isValidMessageCreate(request.resource.data) ||
-                        isValidSystemMessage(request.resource.data));
+                       isValidMessageCreate(request.resource.data);
 
-      // Allow update for marking as read (isRead + status read receipt) or
-      // updating offer status ONLY.
-      // SECURITY: restrict to isRead, status and offer fields. When status is
-      // modified, it must be a valid MessageStatus. When offer is modified, the
-      // offer.amount must stay the same (prevent amount tampering).
+      // A receipt belongs to the receiver. Offer terms/status remain server-only.
       allow update: if isAuthenticated() &&
+                       resource.data.receiverId == request.auth.uid &&
                        (
                          ('participants' in resource.data &&
                           request.auth.uid in resource.data.participants) ||
@@ -418,38 +393,24 @@ service cloud.firestore {
                             get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants)
                        ) &&
                        request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['isRead', 'offer', 'status']) &&
-                       // If status is being modified: must be a valid MessageStatus.
+                         .hasOnly(['isRead', 'status']) &&
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isRead']) ||
+                        request.resource.data.isRead == true) &&
+                       // Clients can acknowledge delivery/read, never reset it.
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) ||
-                        request.resource.data.status in ['sending', 'sent', 'delivered', 'read']) &&
-                       // If offer is being modified: amount must stay the same.
-                       // SECURITY: only the receiver of the offer message can
-                       // accept or reject it. The sender may still transition
-                       // to 'completed' (post-acceptance meetup flow). For
-                       // legacy messages without receiverId we fall back to the
-                       // weaker "sender cannot self-accept" check.
-                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['offer']) ||
-                        (request.resource.data.offer.amount == resource.data.offer.amount &&
-                         (
-                           // Strong check: if receiverId exists, only receiver
-                           // can accept/reject the offer.
-                           ('receiverId' in resource.data &&
-                            (!(request.resource.data.offer.status in ['accepted', 'rejected']) ||
-                             request.auth.uid == resource.data.receiverId)) ||
-                           // Fallback for legacy messages without receiverId:
-                           // at minimum, sender cannot accept their own offer.
-                           (!('receiverId' in resource.data) &&
-                            !(request.auth.uid == resource.data.senderId &&
-                              request.resource.data.offer.status == 'accepted'))
-                         )));
+                        request.resource.data.status in ['delivered', 'read']);
 
       // No delete allowed
       allow delete: if false;
 
       function isValidMessageCreate(data) {
         return data.senderId == request.auth.uid &&
+               data.keys().hasOnly(['chatId', 'senderId', 'receiverId', 'participants', 'type', 'content', 'text', 'timestamp', 'status', 'isRead', 'image']) &&
+               (!('content' in data) || isValidString(data.content, 0, 5000)) &&
+               (!('text' in data) || isValidString(data.text, 0, 5000)) &&
                data.senderId != data.receiverId &&
-               data.type in ['text', 'image', 'offer'] &&
+               data.type in ['text', 'image'] &&
+               !data.keys().hasAny(['offer']) &&
                data.chatId is string &&
                data.participants is list &&
                data.participants.size() == 2 &&
@@ -459,6 +420,8 @@ service cloud.firestore {
                get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants is list &&
                get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants.size() == 2 &&
                request.auth.uid in get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants &&
+               data.receiverId == chatCounterparty(data.chatId, data.senderId) &&
+               data.participants.toSet() == get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants.toSet() &&
                // SECURITY (M2): a blocked user cannot message someone who has
                // blocked them — IN A PRE-EXISTING CHAT TOO. The block check is
                // based on the AUTHORITATIVE counterparty derived from the server
@@ -469,19 +432,9 @@ service cloud.firestore {
                // (sendMessageNotification) is the authoritative belt-and-braces
                // guard that also covers any client/rule mismatch.
                neitherBlocks(data.senderId,
-                             chatCounterparty(data.chatId, data.senderId)) &&
-               // Offer messages must have a valid amount
-               (data.type != 'offer' || (data.offer.amount is number && data.offer.amount > 0 && data.offer.amount <= 50000));
+                             chatCounterparty(data.chatId, data.senderId));
       }
 
-      function isValidSystemMessage(data) {
-        return data.senderId == 'system' &&
-               data.type == 'system' &&
-               data.chatId is string &&
-               // Verify the referenced chat exists and the caller is a participant
-               exists(/databases/$(database)/documents/chats/$(data.chatId)) &&
-               request.auth.uid in get(/databases/$(database)/documents/chats/$(data.chatId)).data.participants;
-      }
     }
     
     // Stats Collection Rules (Read-only for clients, write via Cloud Functions)
@@ -967,6 +920,3 @@ service cloud.firestore {
     }
   }
 }
-
-
-

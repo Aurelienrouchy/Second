@@ -15,7 +15,7 @@
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { cleanup, renderHook, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 // auth.currentUser est piloté par test pour simuler connecté / invité.
@@ -37,14 +37,25 @@ jest.mock('@/services/userService', () => ({
 
 import { useUserProfile } from '@/hooks/useUserProfile';
 
+const clients: QueryClient[] = [];
+
 function wrapper() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
+  clients.push(client);
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   };
 }
+
+afterEach(() => {
+  // The hook's explicit 24h gcTime overrides the wrapper default. Unmount
+  // first, then clear those timers instead of forcing the Jest process exit.
+  cleanup();
+  for (const client of clients) client.clear();
+  clients.length = 0;
+});
 
 beforeEach(() => {
   jest.clearAllMocks();

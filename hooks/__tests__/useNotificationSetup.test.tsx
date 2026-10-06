@@ -17,9 +17,9 @@
  *   - notif du chat ACTIF → pas de banner/son (bruit), mais on garde la liste/badge
  *   - notif d'un AUTRE chat → banner + son
  *
- *  TOKEN FCM (isFcmRegistrationToken, via le flux de setup) :
+ *  TRANSPORT PUSH (via le flux de setup) :
  *   - token Android FCM (contient ':') → persisté
- *   - token APNs brut iOS (hex 64) → IGNORÉ (backend ne peut pas l'envoyer)
+ *   - iOS → token Expo persisté séparément (APNs natif jamais envoyé via FCM)
  *
  *  CYCLE DE VIE :
  *   - réception foreground → incrément optimiste du badge
@@ -51,6 +51,12 @@ const mockRequestPermissions = jest.fn((..._args: unknown[]) =>
 const mockGetDevicePushToken = jest.fn((..._args: unknown[]) =>
   Promise.resolve({ type: 'android', data: 'fcmtoken:APA91bXYZ' }),
 );
+const mockGetExpoPushToken = jest.fn((..._args: unknown[]) =>
+  Promise.resolve({ type: 'expo', data: 'ExpoPushToken[ios-device]' }),
+);
+jest.mock('expo-constants', () => ({
+  __esModule: true, default: { expoConfig: { extra: { eas: { projectId: 'test-project' } } } },
+}));
 const mockSetChannel = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockSetBadge = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockGetLastResponse = jest.fn((..._args: unknown[]) => Promise.resolve(null));
@@ -61,6 +67,7 @@ jest.mock('expo-notifications', () => ({
   },
   getPermissionsAsync: (...a: unknown[]) => mockGetPermissions(...a),
   requestPermissionsAsync: (...a: unknown[]) => mockRequestPermissions(...a),
+  getExpoPushTokenAsync: (...a: unknown[]) => mockGetExpoPushToken(...a),
   getDevicePushTokenAsync: (...a: unknown[]) => mockGetDevicePushToken(...a),
   setNotificationChannelAsync: (...a: unknown[]) => mockSetChannel(...a),
   setBadgeCountAsync: (...a: unknown[]) => mockSetBadge(...a),
@@ -117,9 +124,13 @@ jest.mock('@/services/notificationService', () => ({
 }));
 
 const mockSaveFcmToken = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockSaveExpoPushToken = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockRemoveExpoPushToken = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockRemoveFcmToken = jest.fn((..._args: unknown[]) => Promise.resolve());
 jest.mock('@/services/userService', () => ({
   UserService: {
+    saveExpoPushToken: (...a: unknown[]) => mockSaveExpoPushToken(...a),
+    removeExpoPushToken: (...a: unknown[]) => mockRemoveExpoPushToken(...a),
     saveFcmToken: (...a: unknown[]) => mockSaveFcmToken(...a),
     removeFcmToken: (...a: unknown[]) => mockRemoveFcmToken(...a),
   },
@@ -173,6 +184,8 @@ beforeEach(() => {
   mockGetPermissions.mockResolvedValue({ status: 'granted', granted: true, canAskAgain: true });
   mockGetDevicePushToken.mockResolvedValue({ type: 'android', data: 'fcmtoken:APA91bXYZ' });
   mockGetLastResponse.mockResolvedValue(null);
+  mockGetExpoPushToken.mockResolvedValue({ type: 'expo', data: 'ExpoPushToken[ios-device]' });
+  require('react-native').Platform.OS = 'ios';
   act(() => useNotificationStore.getState().reset());
 });
 
@@ -291,22 +304,43 @@ describe('handler foreground — suppression du banner dans le chat actif', () =
   });
 });
 
-describe('token FCM — classification natif vs APNs brut', () => {
-  it('token Android FCM (contient ":") → persisté via UserService', async () => {
+describe('push transport — Expo iOS / FCM Android', () => {
+  it('persists Android FCM in the existing transport', async () => {
+    require('react-native').Platform.OS = 'android';
     mockGetDevicePushToken.mockResolvedValue({ type: 'android', data: 'abc:APA91bDEF' });
     await mountSetup('u1');
-
     expect(mockSaveFcmToken).toHaveBeenCalledWith('u1', 'abc:APA91bDEF');
+    expect(mockGetExpoPushToken).not.toHaveBeenCalled();
     expect(useNotificationStore.getState().pushToken).toBe('abc:APA91bDEF');
   });
 
-  it('token APNs brut iOS (hex 64) → IGNORÉ (backend ne peut pas l’envoyer)', async () => {
-    const apns = 'a'.repeat(64); // hex pur, pas de ':'
-    mockGetDevicePushToken.mockResolvedValue({ type: 'ios', data: apns });
+  it('obtains and stores an Expo token on iOS instead of an APNs token', async () => {
     await mountSetup('u1');
-
+    expect(mockGetExpoPushToken).toHaveBeenCalledWith({ projectId: 'test-project' });
+    expect(mockGetDevicePushToken).not.toHaveBeenCalled();
     expect(mockSaveFcmToken).not.toHaveBeenCalled();
-    expect(useNotificationStore.getState().pushToken).toBeNull();
+    expect(mockSaveExpoPushToken).toHaveBeenCalledWith('u1', 'ExpoPushToken[ios-device]');
+    expect(useNotificationStore.getState().pushToken).toBe('ExpoPushToken[ios-device]');
+  });
+
+  it('APNs refresh obtains a fresh Expo token and removes the old Expo token', async () => {
+    await mountSetup('u1');
+    mockGetExpoPushToken.mockResolvedValue({ type: 'expo', data: 'ExpoPushToken[new-device]' });
+    await act(async () => {
+      captured.token?.({ type: 'ios', data: 'a'.repeat(64) });
+      await Promise.resolve();
+    });
+    expect(mockSaveExpoPushToken).toHaveBeenLastCalledWith('u1', 'ExpoPushToken[new-device]');
+    expect(mockRemoveExpoPushToken).toHaveBeenCalledWith('u1', 'ExpoPushToken[ios-device]');
+    expect(mockSaveFcmToken).not.toHaveBeenCalled();
+  });
+
+  it('denied permission never requests or persists a push token', async () => {
+    mockGetPermissions.mockResolvedValue({ status: 'denied', granted: false, canAskAgain: false });
+    await mountSetup('u1');
+    expect(mockGetExpoPushToken).not.toHaveBeenCalled();
+    expect(mockGetDevicePushToken).not.toHaveBeenCalled();
+    expect(mockSaveExpoPushToken).not.toHaveBeenCalled();
   });
 });
 
@@ -317,7 +351,7 @@ describe('cycle de vie — réception & déconnexion', () => {
     expect(useNotificationStore.getState().unreadCount).toBe(3);
 
     // Nouvelle notif reçue : +1 optimiste immédiat.
-    act(() => captured.received?.({}));
+    act(() => captured.received?.({ request: { content: { data: { type: 'new_message', chatId: 'c2' } } } }));
     expect(useNotificationStore.getState().unreadCount).toBe(4);
   });
 

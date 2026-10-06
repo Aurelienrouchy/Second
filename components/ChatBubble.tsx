@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { PrivateStorageImage } from '@/components/PrivateStorageImage';
 import { Message } from '@/types';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
@@ -85,8 +86,8 @@ const ChatBubble = React.memo(function ChatBubble({
           />
         )}
         <Pressable onPress={() => setIsImageModalVisible(true)}>
-          <Image
-            source={{ uri: message.image.thumbnail || message.image.url }}
+          <PrivateStorageImage
+            uri={message.image.thumbnail || message.image.url}
             style={styles.imageMessage}
             contentFit="cover"
           />
@@ -125,8 +126,8 @@ const ChatBubble = React.memo(function ChatBubble({
                   <Ionicons name="close" size={28} color={colors.white} />
                 </Pressable>
               </View>
-              <Image
-                source={{ uri: message.image.url }}
+              <PrivateStorageImage
+                uri={isImageModalVisible ? message.image.url : undefined}
                 style={styles.fullImage}
                 contentFit="contain"
               />

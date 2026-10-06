@@ -395,3 +395,16 @@ describe('expireOrphanedTransactions — F22 mixed wallet portion restitution', 
     expect(stripeMock.calls.paymentIntentsCancel.length).toBe(0);
   });
 });
+
+describe('pending checkout with unconfirmed external outcome', () => {
+  it.each(['creating', 'unknown'])('retains wallet reservation for outcome %s without a PI id', async walletCheckoutOutcome => {
+    fs.setDoc('transactions/unknown_pi', { buyerId: 'buyer1', sellerId: 'seller1', status: 'pending_payment',
+      createdAt: new Date(Date.now() - TWO_HOURS_MS), walletAmountUsed: 600, paidVia: 'wallet_and_card', walletCheckoutOutcome });
+    fs.setDoc('wallets/buyer1', { balance: 9400, status: 'active' });
+    await runScheduler();
+    expect(fs.getDoc('transactions/unknown_pi')!.status).toBe('pending_payment');
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(9400);
+    expect(stripeMock.calls.paymentIntentsCancel).toHaveLength(0);
+    expect(fs.writeOps.filter(op => op.data.type === 'refund_credit')).toHaveLength(0);
+  });
+});

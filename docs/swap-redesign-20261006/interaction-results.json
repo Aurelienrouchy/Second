@@ -1,0 +1,176 @@
+{
+  "passed": 11,
+  "nativeE2E": false,
+  "pageErrors": [],
+  "remoteRequestsAttempted": [],
+  "cases": [
+    {
+      "case": "home-to-catalogue",
+      "passed": true,
+      "activity": [
+        {
+          "type": "push",
+          "data": {
+            "pathname": "/swap-zone",
+            "params": {
+              "source": "home"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "catalogue-proposal-single-navigation",
+      "passed": true,
+      "activity": [
+        {
+          "type": "push",
+          "data": {
+            "pathname": "/propose-swap",
+            "params": {
+              "partyId": "generalist",
+              "receiverId": "preview-other",
+              "receiverName": "Lou Martin",
+              "receiverImage": "",
+              "receiverItems": "[{\"articleId\":\"their-1\",\"title\":\"Veste en denim\",\"price\":45,\"imageUrl\":\"/garments/jacket.svg\",\"brand\":\"Atelier Bleu\",\"size\":{\"value\":\"M\",\"system\":\"letter\",\"category\":\"clothing\"}}]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "guest-deposit-auth-gate",
+      "passed": true,
+      "activity": [
+        {
+          "type": "auth-required",
+          "data": null
+        }
+      ]
+    },
+    {
+      "case": "proposal-selection-preserved-and-prerequisites",
+      "passed": true,
+      "activity": []
+    },
+    {
+      "case": "proposal-repeat-and-payment-disabled-payload",
+      "passed": true,
+      "activity": [
+        {
+          "type": "mutation",
+          "data": [
+            {
+              "initiatorId": "preview-me",
+              "initiatorName": "Camille",
+              "initiatorImage": null,
+              "initiatorItems": [
+                {
+                  "articleId": "mine-1",
+                  "title": "Chemise en lin",
+                  "price": 35,
+                  "imageUrl": "/garments/shirt.svg",
+                  "brand": "Maison Lune",
+                  "size": {
+                    "value": "M",
+                    "system": "letter",
+                    "category": "clothing"
+                  }
+                }
+              ],
+              "receiverId": "preview-other",
+              "receiverName": "Lou Martin",
+              "receiverImage": "",
+              "receiverItems": [
+                {
+                  "articleId": "their-1",
+                  "title": "Veste en denim",
+                  "price": 45,
+                  "imageUrl": "/garments/jacket.svg",
+                  "brand": "Atelier Bleu",
+                  "size": {
+                    "value": "M",
+                    "system": "letter",
+                    "category": "clothing"
+                  }
+                }
+              ],
+              "message": null,
+              "cashTopUp": null,
+              "partyId": "generalist"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "my-swaps-filters-and-detail-destination",
+      "passed": true,
+      "activity": [
+        {
+          "type": "push",
+          "data": {
+            "pathname": "/swap/[id]",
+            "params": {
+              "id": "preview-completed",
+              "source": "my_swaps"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "received-proposal-repeat-accept",
+      "passed": true,
+      "activity": [
+        {
+          "type": "mutation",
+          "data": [
+            "preview-swap"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "manual-meetup-mode-repeat",
+      "passed": true,
+      "activity": [
+        {
+          "type": "mutation",
+          "data": [
+            "preview-swap",
+            "hand_delivery"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "existing-manual-postal-mode-preserved",
+      "passed": true,
+      "activity": [
+        {
+          "type": "mutation",
+          "data": [
+            "preview-swap",
+            "shipping"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "legacy-payment-no-enabled-checkout",
+      "passed": true,
+      "activity": []
+    },
+    {
+      "case": "unavailable-detail-back",
+      "passed": true,
+      "activity": [
+        {
+          "type": "back",
+          "data": null
+        }
+      ]
+    }
+  ]
+}

@@ -2,8 +2,9 @@
  * ArticleGridItem — Single article thumbnail in the profile grid.
  */
 
-import React, { useCallback } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -15,11 +16,10 @@ import { Image } from 'expo-image';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { Article } from '@/types';
 import { formatPrice } from '@/utils/formatPrice';
+import { normalizeArticleImages } from '@/utils/articleImages';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_GAP = 2;
 const NUM_COLUMNS = 3;
-export const ITEM_SIZE = (SCREEN_WIDTH - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -32,6 +32,11 @@ export const ArticleGridItem = React.memo(function ArticleGridItem({
   article,
   onPress,
 }: ArticleGridItemProps) {
+  const { width } = useWindowDimensions();
+  const itemSize = (width - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+  const image = normalizeArticleImages(article.images)[0];
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [image?.url]);
   const handlePress = useCallback(() => {
     onPress(article.id);
   }, [onPress, article.id]);
@@ -51,18 +56,23 @@ export const ArticleGridItem = React.memo(function ArticleGridItem({
 
   return (
     <AnimatedPressable
-      style={[styles.gridItem, animatedStyle]}
+      style={[styles.gridItem, { width: itemSize, height: itemSize * 1.3 }, animatedStyle]}
+      accessibilityRole="button"
+      accessibilityLabel={article.title}
+      testID={`profile-article-${article.id}`}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >
-      <Image
-        source={{ uri: article.images?.[0]?.url }}
-        style={styles.gridImage}
-        contentFit="cover"
-        transition={200}
-        cachePolicy="memory-disk"
-      />
+      {image && !failed ? (
+        <Image source={{ uri: image.url }} style={styles.gridImage} contentFit="cover" transition={200}
+          cachePolicy="memory-disk" placeholder={image.blurhash ? { blurhash: image.blurhash } : undefined}
+          onError={() => setFailed(true)} testID={`profile-article-image-${article.id}`} />
+      ) : (
+        <View style={[styles.gridImage, styles.placeholder]} accessibilityLabel="Photo indisponible">
+          <Ionicons name="image-outline" size={24} color={colors.muted} />
+        </View>
+      )}
       {article.isSold ? (
         <View style={styles.gridSoldBadge}>
           <Text style={styles.gridSoldText}>VENDU</Text>
@@ -78,8 +88,6 @@ export const ArticleGridItem = React.memo(function ArticleGridItem({
 
 const styles = StyleSheet.create({
   gridItem: {
-    width: ITEM_SIZE,
-    height: ITEM_SIZE * 1.3,
     position: 'relative',
   },
   gridImage: {
@@ -87,6 +95,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.borderLight,
   },
+  placeholder: { justifyContent: 'center', alignItems: 'center' },
   gridPriceBadge: {
     position: 'absolute',
     bottom: spacing.sm,

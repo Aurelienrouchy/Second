@@ -30,6 +30,7 @@ const PAGE_SIZE = 20;
 const SEARCH_STALE_TIME = 5 * 60 * 1000;
 
 interface UseArticleSearchArgs {
+  enabled?: boolean;
   initialFilters?: Partial<SearchFilters>;
   initialQuery?: string;
   initialCategoryPath?: string[];
@@ -65,6 +66,7 @@ const DEFAULT_FILTERS: SearchFilters = {
 };
 
 export function useArticleSearch({
+  enabled: isEnabled = true,
   initialFilters,
   initialQuery,
   initialCategoryPath,
@@ -132,7 +134,7 @@ export function useArticleSearch({
     [filters]
   );
 
-  const enabled = Boolean(
+  const enabled = isEnabled && Boolean(
     activeSearchQuery.trim() ||
     selectedCategoryPath.length > 0 ||
     hasNonDefaultFilters ||

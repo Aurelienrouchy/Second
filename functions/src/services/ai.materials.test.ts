@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// These pure normalizer cases do not read Firestore. Fail if a DB read is added.
+vi.mock('../config/firebase', () => ({
+  db: { collection: vi.fn(() => { throw new Error('Unexpected Firestore read in AI normalizer test'); }) },
+}));
 import {
   generateSingleStepAnalysisPrompt,
   validateAndNormalizeResponse,

@@ -17,7 +17,7 @@ import {
 } from '@/data/neighborhoods';
 import { MeetupNeighborhood, MeetupSpot, MeetupSpotCategory, MeetupSpotCategoryLabels } from '@/types';
 
-import { getNextStep, MakeOfferContext } from './types';
+import { getNextStep, MakeOfferContext, MEETUP_TO_ARRANGE_SPOT } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 
@@ -29,7 +29,7 @@ type LocationSubStep = 'neighborhood' | 'spot';
 
 const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
   const { state, actions, sellerNeighborhood, sellerPreferredSpots } = context;
-  const [subStep, setSubStep] = useState<LocationSubStep>('neighborhood');
+  const [subStep, setSubStep] = useState<LocationSubStep>(state.selectedNeighborhood ? 'spot' : 'neighborhood');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCustomSpot, setShowCustomSpot] = useState(false);
   const [customCategory, setCustomCategory] = useState<MeetupSpotCategory>('cafe');
@@ -70,6 +70,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
       is_seller_neighborhood: sellerNeighborhood?.id === neighborhood.id,
       search_used: searchQuery.trim().length > 0,
     });
+    actions.setSelectedSpot(null);
     actions.setSelectedNeighborhood(neighborhood);
     setSubStep('spot');
     setSearchQuery('');
@@ -83,7 +84,6 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
       is_custom_spot: false,
     });
     actions.setSelectedSpot(spot);
-    actions.setStep(getNextStep(state.step, state.mode));
   };
 
   const handleCustomSpotSubmit = () => {
@@ -114,6 +114,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
     } else if (subStep === 'spot') {
       setSubStep('neighborhood');
       actions.setSelectedNeighborhood(null);
+      actions.setSelectedSpot(null);
     }
   };
 
@@ -146,7 +147,9 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
     return (
       <Pressable
         testID={`offer-location-item-${item.id ?? item.name}`}
-        style={[styles.listItem, isSellerSpot && styles.sellerRecommended]}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: state.selectedSpot?.name === item.name }}
+        style={[styles.listItem, isSellerSpot && styles.sellerRecommended, state.selectedSpot?.name === item.name && styles.selectedSpot]}
         onPress={() => handleSpotSelect(item)}
       >
         <View style={[styles.spotIcon, { backgroundColor: categoryColor }]}>
@@ -165,6 +168,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
             <Text style={styles.addressText}>{item.address}</Text>
           )}
         </View>
+        {state.selectedSpot?.name === item.name && <Ionicons name="checkmark-circle" size={20} color={colors.sage} />}
         {isSellerSpot && (
           <View style={styles.suggestedBadge}>
             <Text style={styles.suggestedText}>SUGGÉRÉ</Text>
@@ -193,10 +197,29 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
     }
   };
 
+  const continueButton = (
+    <Pressable testID="offer-location-continue" accessibilityRole="button"
+      style={[styles.submitButton, !state.selectedSpot && styles.submitButtonDisabled]}
+      disabled={!state.selectedSpot} onPress={() => actions.setStep(getNextStep(state.step, state.mode))}>
+      <Text style={styles.submitButtonText}>Continuer</Text>
+    </Pressable>
+  );
+  const arrangeOption = (
+    <Pressable testID="offer-location-to-arrange" accessibilityRole="radio"
+      accessibilityState={{ checked: state.selectedSpot?.toArrange === true }}
+      style={[styles.listItem, state.selectedSpot?.toArrange && styles.selectedSpot]}
+      onPress={() => actions.setSelectedSpot(MEETUP_TO_ARRANGE_SPOT)}>
+      <Ionicons name="chatbubble-outline" size={20} color={colors.sage} />
+      <Text style={styles.listItemTitle}>À convenir par messagerie</Text>
+      {state.selectedSpot?.toArrange && <Ionicons name="checkmark-circle" size={20} color={colors.sage} />}
+    </Pressable>
+  );
+
   if (subStep === 'neighborhood') {
     return (
       <View style={styles.container}>
         <Text style={styles.stepTitle}>Où voulez-vous vous rencontrer?</Text>
+        {arrangeOption}
 
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={18} color={colors.muted} />
@@ -239,7 +262,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
         </Text>
 
         <FlashList
-          data={filteredNeighborhoods}
+          data={sellerNeighborhood && !searchQuery ? filteredNeighborhoods.filter((neighborhood) => neighborhood.id !== sellerNeighborhood.id) : filteredNeighborhoods}
           renderItem={renderNeighborhoodItem}
           keyExtractor={(item) => item.id}
           // @ts-expect-error estimatedItemSize valid at runtime
@@ -249,6 +272,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
             <Text style={styles.emptyText}>Aucun quartier trouvé</Text>
           }
         />
+        {continueButton}
       </View>
     );
   }
@@ -348,13 +372,15 @@ const LocationStep: React.FC<LocationStepProps> = ({ context }) => {
         </Text>
       )}
 
+      {arrangeOption}
       <Pressable
         style={styles.customSpotButton}
-        onPress={() => setShowCustomSpot(true)}
+        onPress={() => { actions.setSelectedSpot(null); setShowCustomSpot(true); }}
       >
         <Ionicons name="add" size={20} color={colors.rust} />
         <Text style={styles.customSpotText}>Proposer un autre lieu</Text>
       </Pressable>
+      {continueButton}
     </View>
   );
 };
@@ -363,6 +389,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  selectedSpot: { borderColor: colors.sage, backgroundColor: colors.sageLight },
   stepTitle: {
     fontSize: 18,
     fontFamily: fonts.displayMedium,

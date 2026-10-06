@@ -1,405 +1,154 @@
-/**
- * AddItemSheet — bottom sheet to deposit the user's own articles into the Swap Zone.
- *
- * Multi-select: tap rows to toggle (selected rows change background + show a
- * check), then a fixed footer button deposits all selected articles at once.
- *
- * Ref-based (show/hide), same @gorhom/bottom-sheet pattern as the app's other
- * sheets. Light editorial surface (sheets stay light even though the Swap Zone
- * screen is dark).
- */
-
-import {
-  BottomSheetModal,
-  BottomSheetBackdrop,
-  BottomSheetScrollView,
-  BottomSheetFooter,
-  TouchableOpacity,
-} from '@gorhom/bottom-sheet';
+/** Select existing articles to add to the exchange catalogue. The parent mounts
+ * this modal only while open, so its portal never covers the catalogue at rest. */
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetFooter, TouchableOpacity, type BottomSheetBackdropProps, type BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
-import React, {
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useMemo,
-  useState,
-} from 'react';
+import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Text, Caption } from '@/components/ui';
-import { colors, fonts, spacing, typography, sizing } from '@/constants/theme';
+import { Text } from '@/components/ui';
+import { colors, spacing, typography, sizing, radius } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import { formatPrice } from '@/utils/formatPrice';
 import type { Article, SwapPartyItemExtended } from '@/types';
 
-// Portrait 4/5 thumbnail footprint (48 / 60 = 0.8), echoing MyArticlesSection's
-// compact list-row thumbnail. Fixed named consts (not aspectRatio) because the
-// thumbnail is not flex-driven and needs a deterministic footprint.
-const THUMB_W = 48;
-const THUMB_H = 60;
-
 export interface AddItemSheetProps {
   articles: Article[];
   userItems: SwapPartyItemExtended[];
-  /** True while the user's articles are being fetched. */
   loading?: boolean;
-  /** True while a deposit is in flight — disables the footer button and shows a
-   *  spinner so the user can't double-tap (the parent guards the data path too). */
+  error?: boolean;
   adding?: boolean;
-  /** Deposit the selected articles in one batch. */
   onAddItems: (articles: Article[]) => void;
-  /**
-   * Called when the modal is fully dismissed. Lets the parent unmount this
-   * sheet so the @gorhom portal hosting container (StyleSheet.absoluteFill) is
-   * removed and never lingers as a full-screen touch-capturing layer (Android).
-   */
+  onRetry?: () => void;
+  onPublish?: () => void;
   onClose?: () => void;
 }
-
-export interface AddItemSheetRef {
-  show: () => void;
-  hide: () => void;
-}
+export interface AddItemSheetRef { show: () => void; hide: () => void }
 
 const AddItemSheet = forwardRef<AddItemSheetRef, AddItemSheetProps>(
-  ({ articles, userItems, loading = false, adding = false, onAddItems, onClose }, ref) => {
+  ({ articles, userItems, loading = false, error = false, adding = false, onAddItems, onRetry, onPublish, onClose }, ref) => {
     const insets = useSafeAreaInsets();
-    const snapPoints = useMemo(() => ['75%'], []);
-    const bottomSheetRef = React.useRef<BottomSheetModal>(null);
+    const snapPoints = useMemo(() => ['80%'], []);
+    const bottomSheetRef = useRef<BottomSheetModal>(null);
     const [selected, setSelected] = useState<Set<string>>(new Set());
-    // Distinguishes a dismissal that followed a confirmed deposit from a plain
-    // abandon, so swap_deposit_abandoned never fires on a successful deposit.
-    const confirmedRef = React.useRef(false);
-
+    const [footerHeight, setFooterHeight] = useState(spacing['4xl'] + spacing['2xl']);
+    const confirmedRef = useRef(false);
+    const submittingRef = useRef(false);
     useImperativeHandle(ref, () => ({
-      show: () => {
-        setSelected(new Set());
-        confirmedRef.current = false;
-        bottomSheetRef.current?.present();
-      },
+      show: () => { setSelected(new Set()); confirmedRef.current = false; submittingRef.current = false; bottomSheetRef.current?.present(); },
       hide: () => bottomSheetRef.current?.dismiss(),
     }));
-
-    const availableArticles = useMemo(
-      () => articles.filter((a) => !userItems.some((ui) => ui.articleId === a.id)),
-      [articles, userItems],
-    );
-
+    const availableArticles = useMemo(() => articles.filter((a) => !userItems.some((ui) => ui.articleId === a.id)), [articles, userItems]);
+    const picked = useMemo(() => availableArticles.filter((a) => selected.has(a.id)), [availableArticles, selected]);
     const toggle = useCallback((id: string) => {
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return next;
-      });
-    }, []);
-
+      if (adding || submittingRef.current) return;
+      setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+    }, [adding]);
     const handleConfirm = useCallback(() => {
-      if (adding) return;
-      const picked = availableArticles.filter((a) => selected.has(a.id));
-      if (picked.length === 0) return;
+      if (adding || submittingRef.current || picked.length === 0) return;
+      submittingRef.current = true;
       confirmedRef.current = true;
       onAddItems(picked);
       setSelected(new Set());
       bottomSheetRef.current?.dismiss();
-    }, [adding, availableArticles, selected, onAddItems]);
-
+    }, [adding, picked, onAddItems]);
     const handleDismiss = useCallback(() => {
-      if (!confirmedRef.current) {
-        track('swap_deposit_abandoned', {
-          selected_count_at_dismiss: selected.size,
-          had_inventory: articles.length > 0,
-        });
-      }
-      confirmedRef.current = false;
+      if (!confirmedRef.current) track('swap_deposit_abandoned', { selected_count_at_dismiss: selected.size, had_inventory: articles.length > 0 });
       onClose?.();
     }, [selected.size, articles.length, onClose]);
-
-    const renderBackdrop = useCallback(
-      (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
-      [],
-    );
-
-    const hasList = !loading && availableArticles.length > 0;
-
-    const renderFooter = useCallback(
-      (props: any) => {
-        if (!hasList) return null;
-        const count = selected.size;
-        const isDisabled = adding || count === 0;
-        return (
-          <BottomSheetFooter {...props}>
-            <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-              <TouchableOpacity
-                style={[styles.addButton, isDisabled && styles.addButtonDisabled]}
-                onPress={handleConfirm}
-                disabled={isDisabled}
-              >
-                {adding ? (
-                  <ActivityIndicator color={colors.cream} />
-                ) : (
-                  <Text style={styles.addButtonText}>
-                    {count > 0 ? `Ajouter (${count})` : 'Ajouter'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </BottomSheetFooter>
-        );
-      },
-      [hasList, selected.size, adding, insets.bottom, handleConfirm],
-    );
-
-    const hasInventory = articles.length > 0;
-    const emptyText = !hasInventory
-      ? "Tu n'as aucun article à déposer.\nMets d'abord un article en vente."
-      : 'Tous tes articles sont déjà dans la Swap Zone.';
-
-    // Leave room for the fixed footer above the scroll content.
-    const scrollPaddingBottom = (hasList ? spacing['4xl'] : spacing.lg) + insets.bottom;
-
+    const renderBackdrop = useCallback((props: BottomSheetBackdropProps) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />, []);
+    const hasList = !loading && !error && availableArticles.length > 0;
+    const renderFooter = useCallback((props: BottomSheetFooterProps) => {
+      if (!hasList) return null;
+      const isDisabled = adding || picked.length === 0;
+      return (
+        <BottomSheetFooter {...props}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]} onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}>
+            <Text style={styles.footerHint}>{picked.length > 0 ? `${picked.length} article${picked.length > 1 ? 's' : ''} sélectionné${picked.length > 1 ? 's' : ''}` : 'Sélectionnez les articles à ajouter.'}</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: isDisabled, busy: adding }} style={[styles.addButton, isDisabled && styles.addButtonDisabled]} onPress={handleConfirm} disabled={isDisabled}>
+              {adding ? <ActivityIndicator color={colors.cream} /> : <Text style={styles.addButtonText}>Ajouter à l’espace échanges</Text>}
+            </TouchableOpacity>
+          </View>
+        </BottomSheetFooter>
+      );
+    }, [hasList, picked.length, adding, insets.bottom, handleConfirm]);
     return (
-      <BottomSheetModal
-        ref={bottomSheetRef}
-        snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        footerComponent={renderFooter}
-        enablePanDownToClose
-        topInset={insets.top}
-        handleIndicatorStyle={styles.handleIndicator}
-        backgroundStyle={styles.sheetBackground}
-        enableDynamicSizing={false}
-        onDismiss={handleDismiss}
-      >
-        {/* ── Header ── */}
+      <BottomSheetModal ref={bottomSheetRef} snapPoints={snapPoints} backdropComponent={renderBackdrop} footerComponent={renderFooter} enablePanDownToClose topInset={insets.top} handleIndicatorStyle={styles.handleIndicator} backgroundStyle={styles.sheetBackground} enableDynamicSizing={false} onDismiss={handleDismiss}>
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={styles.title}>Ajouter à la Swap Zone</Text>
-            <Caption style={styles.subtitle}>
-              Sélectionne les articles à proposer à l’échange
-            </Caption>
+            <Text style={styles.title}>Vos articles à échanger</Text>
+            <Text style={styles.subtitle}>Sélectionnez les articles de votre garde-robe à proposer.</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => bottomSheetRef.current?.dismiss()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={styles.closeButton}
-          >
-            <Ionicons name="close" size={22} color={colors.charcoal} />
-          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer l’ajout d’articles" onPress={() => bottomSheetRef.current?.dismiss()} style={styles.closeButton}><Ionicons name="close" size={sizing.iconMD} color={colors.charcoal} /></TouchableOpacity>
         </View>
-
-        <View style={styles.divider} />
-
-        {/* ── Content ── */}
-        {loading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color={colors.sage} />
-            <Caption style={styles.stateText}>Chargement de tes articles…</Caption>
-          </View>
-        ) : availableArticles.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Ionicons name="shirt-outline" size={sizing.iconLG} color={colors.muted} />
-            <Caption style={styles.stateText}>{emptyText}</Caption>
-          </View>
-        ) : (
-          <BottomSheetScrollView
-            contentContainerStyle={[styles.listContent, { paddingBottom: scrollPaddingBottom }]}
-            showsVerticalScrollIndicator={false}
-          >
-            {availableArticles.map((item) => {
-              const isSelected = selected.has(item.id);
-              return (
-                <Animated.View
-                  key={item.id}
-                  entering={FadeIn.duration(180)}
-                  layout={LinearTransition.duration(200)}
-                >
-                <TouchableOpacity
-                  style={[styles.row, isSelected && styles.rowSelected]}
-                  onPress={() => toggle(item.id)}
-                >
-                  <View style={styles.rowImageWrap}>
-                    <Image
-                      source={{ uri: item.images?.[0]?.url }}
-                      style={styles.rowImage}
-                      recyclingKey={item.id}
-                      contentFit="cover"
-                    />
-                  </View>
-
-                  <View style={styles.rowInfo}>
-                    {/* Line 1: price + brand on one editorial line. */}
-                    <Text style={styles.rowPriceBrand} numberOfLines={1}>
-                      {formatPrice(item.price)} - {item.brand || 'MARQUE'}
-                    </Text>
-                    {/* Line 2: product title + size. */}
-                    <View style={styles.rowTitleLine}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      {item.size?.value ? (
-                        <Text style={styles.rowSize}>{item.size.value}</Text>
-                      ) : null}
-                    </View>
-                  </View>
-
-                  <Ionicons
-                    name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={24}
-                    color={isSelected ? colors.sage : colors.borderStrong}
-                    style={styles.checkIcon}
-                  />
-                </TouchableOpacity>
-                </Animated.View>
-              );
-            })}
-          </BottomSheetScrollView>
-        )}
+        <BottomSheetScrollView contentContainerStyle={[styles.listContent, { paddingBottom: (hasList ? footerHeight : spacing.lg) + spacing.md + insets.bottom }]} showsVerticalScrollIndicator={false}>
+          {loading ? (
+            <View style={styles.stateBox} accessibilityLabel="Chargement de vos articles" accessibilityState={{ busy: true }}>
+              {[0, 1, 2].map((index) => <View key={index} style={styles.skeletonRow}><View style={styles.skeletonThumb} /><View style={styles.skeletonText} /></View>)}
+              <Text style={styles.stateText}>Chargement de vos articles…</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.stateBox}>
+              <Ionicons name="cloud-offline-outline" size={sizing.iconLG} color={colors.primaryDark} />
+              <Text style={styles.stateTitle}>Vos articles n’ont pas pu être chargés</Text>
+              <Text style={styles.stateText}>Vérifiez votre connexion, puis réessayez.</Text>
+              {onRetry && <TouchableOpacity accessibilityRole="button" onPress={onRetry} style={styles.addButton}><Text style={styles.addButtonText}>Réessayer</Text></TouchableOpacity>}
+            </View>
+          ) : availableArticles.length === 0 ? (
+            <View style={styles.stateBox}>
+              <Ionicons name="shirt-outline" size={sizing.iconLG} color={colors.sandDeep} />
+              <Text style={styles.stateTitle}>{articles.length > 0 ? 'Vos articles sont déjà dans l’espace' : 'Votre garde-robe est encore vide'}</Text>
+              <Text style={styles.stateText}>{articles.length > 0 ? 'Vous pouvez découvrir les articles proposés par les autres membres.' : 'Publiez un article, puis ajoutez-le ici pour commencer à échanger.'}</Text>
+              {articles.length === 0 && onPublish && <TouchableOpacity accessibilityRole="button" onPress={() => { bottomSheetRef.current?.dismiss(); onPublish(); }} style={styles.addButton}><Text style={styles.addButtonText}>Publier un article</Text></TouchableOpacity>}
+            </View>
+          ) : availableArticles.map((item) => {
+            const isSelected = selected.has(item.id);
+            return (
+              <TouchableOpacity key={item.id} accessibilityRole="checkbox" accessibilityLabel={item.title} accessibilityState={{ checked: isSelected, disabled: adding }} disabled={adding} style={[styles.row, isSelected && styles.rowSelected]} onPress={() => toggle(item.id)}>
+                <View style={styles.rowImageWrap}><Image source={{ uri: item.images?.[0]?.url }} style={styles.rowImage} recyclingKey={item.id} contentFit="cover" /></View>
+                <View style={styles.rowInfo}>
+                  <Text style={styles.rowTitle}>{item.title}</Text>
+                  {!!item.brand?.trim() && <Text style={styles.rowMeta}>{item.brand}</Text>}
+                  <Text style={styles.rowMeta}>Valeur {formatPrice(item.price)}{item.size?.value ? ` · ${item.size.value}` : ''}</Text>
+                </View>
+                <Ionicons name={isSelected ? 'checkmark-circle' : 'ellipse-outline'} size={sizing.iconMD} color={isSelected ? colors.primaryDark : colors.muted} />
+              </TouchableOpacity>
+            );
+          })}
+        </BottomSheetScrollView>
       </BottomSheetModal>
     );
   },
 );
-
 AddItemSheet.displayName = 'AddItemSheet';
-
 export default AddItemSheet;
 
 const styles = StyleSheet.create({
-  sheetBackground: {
-    backgroundColor: colors.surface,
-  },
-  handleIndicator: {
-    backgroundColor: colors.borderStrong,
-    width: 40,
-    height: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  headerText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  title: {
-    fontFamily: fonts.displaySemiBold,
-    fontSize: typography.h2.fontSize,
-    lineHeight: typography.h2.lineHeight,
-    letterSpacing: typography.h2.letterSpacing,
-    color: colors.charcoal,
-  },
-  subtitle: {
-    color: colors.muted,
-  },
-  closeButton: {
-    width: sizing.avatarSM,
-    height: sizing.avatarSM,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.lg,
-  },
-  stateBox: {
-    paddingVertical: spacing['2xl'],
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  stateText: {
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  listContent: {
-    paddingTop: spacing.xs,
-  },
-  // Fine, hairline-separated selection row mirroring MyArticlesSection's row
-  // gabarit (48x60 thumb + two text lines), adapted to the sheet's LIGHT palette.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: spacing.sm,
-  },
-  rowSelected: {
-    backgroundColor: colors.surfaceWarm,
-  },
-  rowImageWrap: {
-    width: THUMB_W,
-    height: THUMB_H,
-    backgroundColor: colors.background,
-    overflow: 'hidden',
-  },
-  rowImage: {
-    width: '100%',
-    height: '100%',
-  },
-  rowInfo: {
-    flex: 1,
-  },
-  // Price + brand on one line — the prominent editorial price line.
-  rowPriceBrand: {
-    fontFamily: typography.price.fontFamily,
-    fontSize: typography.price.fontSize,
-    lineHeight: typography.price.lineHeight,
-    letterSpacing: typography.price.letterSpacing,
-    color: colors.charcoal,
-    marginBottom: spacing.md,
-  },
-  // Title line — title truncates, size trails right beside it.
-  rowTitleLine: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.sm,
-  },
-  rowTitle: {
-    flexShrink: 1,
-    fontFamily: fonts.display,
-    fontSize: 14,
-    lineHeight: 17,
-    color: colors.charcoal,
-  },
-  rowSize: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    color: colors.muted,
-  },
-  checkIcon: {
-    marginLeft: spacing.xs,
-  },
-  // ── Footer ──
-  footer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  addButton: {
-    backgroundColor: colors.rust,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  addButtonDisabled: {
-    backgroundColor: colors.borderStrong,
-  },
-  addButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: typography.button.fontSize,
-    letterSpacing: typography.button.letterSpacing,
-    textTransform: 'uppercase',
-    color: colors.cream,
-  },
+  sheetBackground: { backgroundColor: colors.background },
+  handleIndicator: { backgroundColor: colors.borderStrong },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerText: { flex: 1, gap: spacing.xs },
+  title: { ...typography.h2, color: colors.charcoal },
+  subtitle: { ...typography.bodySmall, color: colors.foregroundSecondary },
+  closeButton: { width: sizing.minTouchTarget, height: sizing.minTouchTarget, justifyContent: 'center', alignItems: 'center' },
+  listContent: { paddingTop: spacing.sm },
+  stateBox: { padding: spacing.lg, alignItems: 'stretch', gap: spacing.md },
+  stateTitle: { ...typography.h3, color: colors.charcoal },
+  stateText: { ...typography.bodySmall, color: colors.foregroundSecondary },
+  row: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.sm },
+  rowSelected: { backgroundColor: colors.surfaceWarm },
+  rowImageWrap: { width: sizing.buttonHeight, aspectRatio: 4 / 5, backgroundColor: colors.surfaceWarm, borderRadius: radius.sm, overflow: 'hidden' },
+  rowImage: { width: '100%', height: '100%' },
+  rowInfo: { flex: 1, gap: spacing.xs },
+  rowTitle: { ...typography.body, color: colors.charcoal },
+  rowMeta: { ...typography.caption, color: colors.foregroundSecondary },
+  footer: { backgroundColor: colors.background, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, gap: spacing.sm },
+  footerHint: { ...typography.caption, color: colors.foregroundSecondary },
+  addButton: { backgroundColor: colors.primaryDark, padding: spacing.md, minHeight: sizing.minTouchTarget, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  addButtonDisabled: { backgroundColor: colors.muted },
+  addButtonText: { ...typography.label, color: colors.cream, textAlign: 'center' },
+  skeletonRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+  skeletonThumb: { width: sizing.buttonHeight, aspectRatio: 4 / 5, backgroundColor: colors.surfaceWarm, borderRadius: radius.sm },
+  skeletonText: { flex: 1, height: typography.body.lineHeight * 2, backgroundColor: colors.surfaceWarm, borderRadius: radius.sm },
 });

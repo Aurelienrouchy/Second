@@ -5,7 +5,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { doc, updateDoc } from 'firebase/firestore';
 
 import { firestore } from '@/config/firebaseConfig';
-import { identifyUser, resetAnalytics, track } from '@/lib/analytics';
+import { identifyUser, resetAnalytics, setAnalyticsUserConsent, suspendAnalytics, track } from '@/lib/analytics';
 import { queryClient } from '@/lib/queryClient';
 import { AuthService, SignupConsent, SocialAuthResult } from '@/services/authService';
 import {
@@ -22,10 +22,13 @@ import { User } from '@/types';
 const USER_DATA_KEY = 'user_data';
 const HAS_LAUNCHED_KEY = 'has_launched_before';
 
-// PostHog identify — single hydration point (catalogue §2). Non-PII traits
-// only: username is a public @pseudo (allowed as a user property), never the
+// PostHog identify — hydration point (catalogue §2). Pseudonymous product
+// traits: username is a public @pseudo (allowed as a user property), never the
 // email/displayName. distinct_id = Firebase uid.
-function analyticsIdentify(user: User): void {
+async function analyticsIdentify(user: User, fromCache = false): Promise<void> {
+  suspendAnalytics();
+  // Keep the new identity pending while consent is unknown, so an account
+  // switch can never capture against the previous person's identity.
   identifyUser(user.id, {
     username: user.username,
     signup_method: user.authProvider,
@@ -37,6 +40,10 @@ function analyticsIdentify(user: User): void {
     marketing_consent: user.preferences?.marketingConsent,
     onboarding_completed: user.onboardingCompleted,
   });
+  // Offline account cache can predate a refusal saved on this device.
+  await setAnalyticsUserConsent(fromCache
+    ? (user.preferences?.analyticsConsent === false ? false : undefined)
+    : (user.preferences?.analyticsConsent ?? true));
 }
 
 // ─── State shape ────────────────────────────────────────────────────────────
@@ -182,6 +189,7 @@ export const useAuthStore = create<AuthStore>()(
   },
 
   hydrateFromFirebase: async (firebaseUser) => {
+    suspendAnalytics();
     try {
       if (firebaseUser) {
         const fresh = await AuthService.getCurrentUser();
@@ -231,7 +239,7 @@ export const useAuthStore = create<AuthStore>()(
             pendingConsentUser: null,
           });
           await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
-          analyticsIdentify(fresh);
+          await analyticsIdentify(fresh);
 
           // ── Filet de sécurité username ──
           // Le username persistant/immuable est assigné serveur à la création
@@ -281,7 +289,7 @@ export const useAuthStore = create<AuthStore>()(
                 pendingConsent: false,
                 pendingConsentUser: null,
               });
-              analyticsIdentify(rehydrated);
+              await analyticsIdentify(rehydrated, true);
               return;
             }
           }
@@ -289,6 +297,7 @@ export const useAuthStore = create<AuthStore>()(
           if (__DEV__) console.log('[authStore] offline cache hydrate skipped:', cacheError);
         }
       }
+      if (!firebaseUser) await setAnalyticsUserConsent();
       // Aucun compte Firebase → ni connecté ni pendingConsent (vrai invité).
       set({
         user: null,
@@ -311,6 +320,7 @@ export const useAuthStore = create<AuthStore>()(
     try {
       await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
       await AsyncStorage.setItem(HAS_LAUNCHED_KEY, 'true');
+      await analyticsIdentify(userData);
       // Flip authenticated + clear any pendingConsent residue (the consent
       // completion path calls signIn once dateOfBirth is written).
       set({
@@ -331,7 +341,11 @@ export const useAuthStore = create<AuthStore>()(
       // Skip the remote FCM write when the token is already revoked (delete/disable) — it can only permission-deny.
       if (!opts?.skipRemoteFcmCleanup && user?.id && pushToken) {
         try {
-          await UserService.removeFcmToken(user.id, pushToken);
+          if (/^(Exponent|Expo)PushToken\[/.test(pushToken)) {
+            await UserService.removeExpoPushToken(user.id, pushToken);
+          } else {
+            await UserService.removeFcmToken(user.id, pushToken);
+          }
         } catch (fcmError) {
           if (__DEV__) console.log('[authStore] removeFcmToken non-critical error:', fcmError);
         }
@@ -373,6 +387,7 @@ export const useAuthStore = create<AuthStore>()(
       if (fresh) {
         set({ user: fresh });
         await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
+        await analyticsIdentify(fresh);
       }
     } catch (error) {
       if (__DEV__) console.error('[authStore] refreshUser error:', error);

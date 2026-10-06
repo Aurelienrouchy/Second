@@ -1,6 +1,7 @@
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { getBytes, ref, uploadBytes } from 'firebase/storage';
-import { afterAll, beforeAll, describe, it } from 'vitest';
+import { getBytes, ref, uploadBytes, deleteObject } from 'firebase/storage';
+import { doc, setDoc } from 'firebase/firestore';
+import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 
 import { getTestEnv, teardownTestEnv } from './helpers';
 
@@ -18,6 +19,16 @@ describe('storage rules', () => {
 
   afterAll(async () => {
     await teardownTestEnv();
+  });
+  beforeEach(async () => {
+    const env = await getTestEnv();
+    await env.clearFirestore();
+    await env.clearStorage();
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'articles', 'article-1'), { sellerId: ALICE, isSold: false });
+      await setDoc(doc(ctx.firestore(), 'chats', 'chat-1'), { participants: [ALICE, 'bob'] });
+      await setDoc(doc(ctx.firestore(), 'swaps', 'swap-1'), { initiatorId: ALICE, receiverId: 'bob', status: 'photos_pending' });
+    });
   });
 
   it('allows authenticated user to upload image/jpeg 1MB to /articles/...', async () => {
@@ -63,7 +74,7 @@ describe('storage rules', () => {
   it('allows authenticated user to upload an image to /swaps/{id}/photos/...', async () => {
     const env = await getTestEnv();
     const storage = env.authenticatedContext(ALICE).storage();
-    const r = ref(storage, `swaps/swap-1/photos/${ALICE}_0_123.jpg`);
+    const r = ref(storage, `swaps/swap-1/photos/${ALICE}/0_123.jpg`);
     await assertSucceeds(
       uploadBytes(r, makeBytes(1024 * 1024), { contentType: 'image/jpeg' }),
     );
@@ -81,9 +92,86 @@ describe('storage rules', () => {
   it('denies authenticated user uploading a non-image to /swaps/{id}/photos/...', async () => {
     const env = await getTestEnv();
     const storage = env.authenticatedContext(ALICE).storage();
-    const r = ref(storage, `swaps/swap-1/photos/${ALICE}_0_123.pdf`);
+    const r = ref(storage, `swaps/swap-1/photos/${ALICE}/0_123.pdf`);
     await assertFails(
       uploadBytes(r, makeBytes(1024), { contentType: 'application/pdf' }),
     );
+  });
+
+  it('denies another account overwriting or deleting article media', async () => {
+    const env = await getTestEnv();
+    const owner = ref(env.authenticatedContext(ALICE).storage(), 'articles/article-1/cover.jpg');
+    await assertSucceeds(uploadBytes(owner, makeBytes(10), { contentType: 'image/jpeg' }));
+    const outsider = ref(env.authenticatedContext('mallory').storage(), owner.fullPath);
+    await assertFails(uploadBytes(outsider, makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(deleteObject(outsider));
+  });
+
+  it('denies article media edits while reserved/sold, even to the owner', async () => {
+    const env = await getTestEnv();
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'articles', 'article-1'), { sellerId: ALICE, isSold: true });
+    });
+    await assertFails(uploadBytes(ref(env.authenticatedContext(ALICE).storage(), 'articles/article-1/new.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
+  });
+
+  it.each(['meetup_disputed', 'meetup_pending', 'processing', 'missing'])
+    ('denies owner media changes when an unsold article still has a %s transaction link', async (status) => {
+      const env = await getTestEnv();
+      const path = 'articles/article-1/locked.jpg';
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await uploadBytes(ref(ctx.storage(), path), makeBytes(10), { contentType: 'image/jpeg' });
+        await setDoc(doc(ctx.firestore(), 'articles', 'article-1'), { sellerId: ALICE, isSold: false, activeTransactionId: 'agreement' });
+        if (status !== 'missing') await setDoc(doc(ctx.firestore(), 'transactions', 'agreement'), { status, articleId: 'article-1' });
+      });
+      const owner = ref(env.authenticatedContext(ALICE).storage(), path);
+      await assertFails(uploadBytes(owner, makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertFails(deleteObject(owner));
+    });
+
+  it.each(['cancelled', 'refunded', 'completed', 'meetup_completed'])
+    ('allows owner media edits once its linked transaction is explicitly %s and isSold is false', async (status) => {
+      const env = await getTestEnv();
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'articles', 'article-1'), { sellerId: ALICE, isSold: false, activeTransactionId: 'agreement' });
+        await setDoc(doc(ctx.firestore(), 'transactions', 'agreement'), { status, articleId: 'article-1' });
+      });
+      const owner = ref(env.authenticatedContext(ALICE).storage(), 'articles/article-1/new.jpg');
+      await assertSucceeds(uploadBytes(owner, makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertSucceeds(deleteObject(owner));
+    });
+
+  it('scopes prepublication staging and draft reads to the owner', async () => {
+    const env = await getTestEnv();
+    const owner = env.authenticatedContext(ALICE).storage();
+    const path = 'drafts/alice/draft-1/photo.jpg';
+    await assertSucceeds(uploadBytes(ref(owner, path), makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(getBytes(ref(env.authenticatedContext('mallory').storage(), path)));
+    await assertFails(uploadBytes(ref(env.authenticatedContext('mallory').storage(), 'products/alice/temp_1/photo.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
+  });
+
+  it('binds chat reads/creates to participants and forbids overwrite/delete', async () => {
+    const env = await getTestEnv();
+    const path = 'chat_images/chat-1/photo.jpg';
+    const image = ref(env.authenticatedContext(ALICE).storage(), path);
+    await assertSucceeds(uploadBytes(image, makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertSucceeds(getBytes(ref(env.authenticatedContext('bob').storage(), path)));
+    const outsider = ref(env.authenticatedContext('mallory').storage(), path);
+    await assertFails(getBytes(outsider));
+    await assertFails(uploadBytes(outsider, makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(uploadBytes(image, makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(deleteObject(image));
+  });
+
+  it('keeps swap proofs immutable, private, and bound to the uploading participant', async () => {
+    const env = await getTestEnv();
+    const path = 'swaps/swap-1/photos/alice/proof.jpg';
+    const image = ref(env.authenticatedContext(ALICE).storage(), path);
+    await assertSucceeds(uploadBytes(image, makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertSucceeds(getBytes(ref(env.authenticatedContext('bob').storage(), path)));
+    await assertFails(getBytes(ref(env.authenticatedContext('mallory').storage(), path)));
+    await assertFails(uploadBytes(ref(env.authenticatedContext('bob').storage(), 'swaps/swap-1/photos/alice/forged.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(uploadBytes(image, makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(deleteObject(image));
   });
 });

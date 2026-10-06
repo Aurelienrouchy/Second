@@ -149,13 +149,14 @@ export default function SearchScreen() {
                 <Ionicons name="cloud-offline-outline" size={48} color={colors.muted} />
                 <Text style={styles.errorTitle}>Une erreur est survenue</Text>
                 <Text style={styles.errorSubtitle}>
-                  Vérifiez votre connexion et réessayez
+                  {screen.searchError || 'Vérifiez votre connexion et réessayez'}
                 </Text>
                 <Pressable style={styles.retryButton} onPress={handleRetry}>
                   <Text style={styles.retryButtonText}>Réessayer</Text>
                 </Pressable>
               </View>
             ) : (
+              <>
               <ProductGrid
                 articles={screen.articles || []}
                 isLoading={screen.isLoading}
@@ -164,12 +165,20 @@ export default function SearchScreen() {
                 onProductPress={screen.handleProductPress}
                 onRefresh={handleRefresh}
                 emptyMessage={
-                  screen.activeSearchQuery
+                  screen.hasNextPage
+                    ? 'D’autres annonces restent à examiner.'
+                    : screen.activeSearchQuery
                     ? `Aucun résultat pour "${screen.activeSearchQuery}"`
                     : 'Aucun article trouvé avec ces filtres'
                 }
                 testID="search-results-grid"
               />
+              {!screen.isLoading && !screen.isPaginating && screen.hasNextPage && screen.articles.length === 0 && (
+                <Pressable style={styles.retryButton} onPress={screen.loadMore} accessibilityRole="button" testID="search-continue">
+                  <Text style={styles.retryButtonText}>Continuer la recherche</Text>
+                </Pressable>
+              )}
+              </>
             )}
           </>
         )}

@@ -5,7 +5,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 
 const SwapSeparator: React.FC = () => {
   return (
@@ -18,7 +18,7 @@ const SwapSeparator: React.FC = () => {
         <Ionicons
           name="swap-horizontal"
           size={18}
-          color={colors.surface}
+          color={colors.primary}
         />
       </View>
 
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginVertical: spacing.md,
     gap: 10,
   },
   line: {
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.surfaceWarm,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -7,7 +7,8 @@ import { View, Pressable, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 import { formatPrice } from '@/utils/formatPrice';
 
 type ValueComparisonBoxProps = {
@@ -18,6 +19,7 @@ type ValueComparisonBoxProps = {
   receiverName: string | undefined;
   onComplementAmountChange: (value: string) => void;
   onComplementPayerChange: (payer: 'initiator' | 'receiver') => void;
+  disabled?: boolean;
 };
 
 export const ValueComparisonBox = React.memo(function ValueComparisonBox({
@@ -28,6 +30,7 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
   receiverName,
   onComplementAmountChange,
   onComplementPayerChange,
+  disabled = false,
 }: ValueComparisonBoxProps) {
   const valueDifference = Math.abs(receiverTotal - initiatorTotal);
   const receiverHasMore = receiverTotal > initiatorTotal;
@@ -35,15 +38,16 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
   return (
     <View style={styles.container}>
       <View style={styles.box}>
+        <Text style={styles.contextLabel}>Valeur affichée · à titre indicatif</Text>
         {/* Price summary row */}
         <View style={styles.priceSummaryRow}>
           <View style={styles.priceSummaryItem}>
-            <Text style={styles.priceSummaryLabel}>Tes articles</Text>
+            <Text style={styles.priceSummaryLabel}>Vos articles</Text>
             <Text style={styles.priceSummaryValue}>{formatPrice(initiatorTotal)}</Text>
           </View>
           <View style={styles.priceSummaryDivider} />
           <View style={styles.priceSummaryItem}>
-            <Text style={styles.priceSummaryLabel}>Ses articles</Text>
+            <Text style={styles.priceSummaryLabel}>{receiverName ? `Articles de ${receiverName}` : 'Articles à recevoir'}</Text>
             <Text style={styles.priceSummaryValue}>{formatPrice(receiverTotal)}</Text>
           </View>
         </View>
@@ -55,21 +59,22 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
             <Text style={styles.diffIndicatorText}>
               {receiverHasMore
                 ? `Différence de ${formatPrice(valueDifference)} en sa faveur`
-                : `Différence de ${formatPrice(valueDifference)} en ta faveur`}
+                : `Différence de ${formatPrice(valueDifference)} en votre faveur`}
             </Text>
           </View>
         ) : (
           <View style={[styles.diffIndicator, styles.diffIndicatorEven]}>
             <Ionicons name="checkmark-circle-outline" size={14} color={colors.sage} />
             <Text style={[styles.diffIndicatorText, styles.diffIndicatorTextEven]}>
-              Valeurs equivalentes
+              Valeurs équivalentes
             </Text>
           </View>
         )}
+        <Text style={styles.indicativeNote}>Un écart de valeur n’empêche pas l’échange.</Text>
 
         {/* Cash top-up section */}
-        <View style={styles.cashTopUpSection}>
-          <Text style={styles.cashTopUpTitle}>Ajouter un complement en argent</Text>
+        {PAYMENTS_ENABLED && <View style={styles.cashTopUpSection}>
+          <Text style={styles.cashTopUpTitle}>Ajouter un complément en argent</Text>
 
           {/* Payer toggle */}
           <View style={styles.payerToggleRow}>
@@ -80,6 +85,9 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
                 pressed && styles.pressed,
               ]}
               onPress={() => onComplementPayerChange('initiator')}
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityState={{ selected: complementPayer === 'initiator', disabled }}
             >
               <Text
                 style={[
@@ -97,6 +105,9 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
                 pressed && styles.pressed,
               ]}
               onPress={() => onComplementPayerChange('receiver')}
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityState={{ selected: complementPayer === 'receiver', disabled }}
             >
               <Text
                 style={[
@@ -119,20 +130,25 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
               onChangeText={(text) => onComplementAmountChange(text.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
               maxLength={4}
+              accessibilityLabel="Montant du complément en dollars"
+              editable={!disabled}
             />
             <Text style={styles.cashAmountDollar}>$</Text>
             {valueDifference > 0 && (
               <Pressable
                 style={({ pressed }) => [styles.suggestAmountButton, pressed && styles.pressed]}
                 onPress={() => onComplementAmountChange(String(valueDifference))}
+                disabled={disabled}
+                accessibilityRole="button"
+                accessibilityState={{ disabled }}
               >
                 <Text style={styles.suggestAmountText}>
-                  Suggéré: {formatPrice(valueDifference)}
+                  Suggéré : {formatPrice(valueDifference)}
                 </Text>
               </Pressable>
             )}
           </View>
-        </View>
+        </View>}
       </View>
     </View>
   );
@@ -140,14 +156,27 @@ export const ValueComparisonBox = React.memo(function ValueComparisonBox({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   box: {
-    backgroundColor: 'rgba(196, 96, 58, 0.07)',
+    backgroundColor: colors.surfaceWarm,
     borderWidth: 1,
-    borderColor: 'rgba(196, 96, 58, 0.2)',
-    borderRadius: 4,
-    padding: 16,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+  },
+  contextLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.foregroundSecondary,
+    marginBottom: spacing.md,
+  },
+  indicativeNote: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.foregroundSecondary,
   },
   priceSummaryRow: {
     flexDirection: 'row',
@@ -160,24 +189,22 @@ const styles = StyleSheet.create({
   },
   priceSummaryLabel: {
     fontFamily: fonts.sans,
-    fontSize: 10,
-    fontWeight: '400',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: colors.foregroundSecondary,
     marginBottom: 4,
   },
   priceSummaryValue: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    fontWeight: '300',
-    lineHeight: 24,
+    fontFamily: fonts.displayMedium,
+    fontSize: 26,
+    lineHeight: 30,
     color: colors.charcoal,
   },
   priceSummaryDivider: {
     width: 1,
     height: 32,
-    backgroundColor: 'rgba(196, 96, 58, 0.25)',
+    backgroundColor: colors.borderStrong,
   },
   diffIndicator: {
     flexDirection: 'row',
@@ -185,17 +212,18 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(196, 96, 58, 0.08)',
-    borderRadius: 6,
-    marginBottom: 14,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
   },
   diffIndicatorEven: {
-    backgroundColor: 'rgba(94, 118, 89, 0.08)',
+    backgroundColor: colors.sageLight,
   },
   diffIndicatorText: {
     fontFamily: fonts.sans,
     fontSize: 12,
-    fontWeight: '400',
+    lineHeight: 18,
+    flex: 1,
     color: colors.rust,
   },
   diffIndicatorTextEven: {
@@ -203,15 +231,14 @@ const styles = StyleSheet.create({
   },
   cashTopUpSection: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(196, 96, 58, 0.15)',
+    borderTopColor: colors.border,
     paddingTop: 14,
+    marginTop: spacing.md,
   },
   cashTopUpTitle: {
     fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    fontWeight: '500',
-    letterSpacing: 0.88,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.charcoal,
     marginBottom: 10,
   },
@@ -221,12 +248,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   payerToggleButton: {
+    minHeight: sizing.minTouchTarget,
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    borderRadius: 8,
+    borderRadius: radius.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -248,6 +276,7 @@ const styles = StyleSheet.create({
   cashAmountRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
   cashAmountDollar: {
@@ -257,10 +286,12 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   cashAmountInput: {
-    flex: 1,
+    flexGrow: 1,
+    minWidth: 80,
+    minHeight: sizing.minTouchTarget,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    borderRadius: 6,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontFamily: fonts.sans,
@@ -270,10 +301,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   suggestAmountButton: {
+    minHeight: sizing.minTouchTarget,
+    justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(196, 96, 58, 0.12)',
-    borderRadius: 6,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
   },
   suggestAmountText: {
     fontFamily: fonts.sansMedium,

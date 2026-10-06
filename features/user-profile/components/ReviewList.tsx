@@ -29,7 +29,7 @@ export const ReviewList = React.memo(function ReviewList({
   onReviewerPress,
 }: ReviewListProps) {
   return (
-    <View style={styles.reviewsContainer}>
+    <View style={styles.reviewsContainer} testID="profile-reviews-content">
       {/* Rating Summary */}
       {stats && stats.nombreAvis > 0 && (
         <Animated.View

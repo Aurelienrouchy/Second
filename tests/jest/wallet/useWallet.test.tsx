@@ -23,7 +23,7 @@
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 // --- Mock du service data : on contrôle les retours pour exercer le hook. ----
@@ -55,6 +55,8 @@ const ACTIVE_WALLET: WalletInfo = {
   ledger: [],
 };
 
+const clients: QueryClient[] = [];
+
 function createWrapper() {
   const client = new QueryClient({
     defaultOptions: {
@@ -63,10 +65,21 @@ function createWrapper() {
       mutations: { retry: false },
     },
   });
+  clients.push(client);
   const Wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client }, children);
   return Wrapper;
 }
+
+afterEach(() => {
+  cleanup();
+  // Mutation caches otherwise retain five-minute GC timers after unmount.
+  for (const client of clients) {
+    for (const mutation of client.getMutationCache().getAll()) mutation.destroy();
+    client.clear();
+  }
+  clients.length = 0;
+});
 
 beforeEach(() => {
   mockGetWalletInfo.mockReset();
@@ -156,6 +169,7 @@ describe('useWallet — payWithWallet', () => {
         mutations: { retry: false },
       },
     });
+    clients.push(client);
     const invalidateSpy = jest.spyOn(client, 'invalidateQueries');
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(QueryClientProvider, { client }, children);

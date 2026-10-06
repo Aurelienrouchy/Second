@@ -1,16 +1,5 @@
-/**
- * My Swaps Screen
- * Design System: Seconde UI Kit — Editorial Luxe
- * Supports multi-article swaps with stacked image previews
- */
-
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  RefreshControl,
-} from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, StyleSheet, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,652 +7,180 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
-import { useUser } from '@/hooks/useAuth';
+import { useUser, useIsLoading } from '@/hooks/useAuth';
+import { useAuthSheetStore } from '@/store/authSheetStore';
 import { getUserSwaps, getSwapItems } from '@/services/swapService';
+import { getSwapStatusLabel, getSwapNextStep } from '@/features/swap';
 import { queryKeys } from '@/lib/queryKeys';
 import { track } from '@/lib/analytics';
-import { Swap, SwapStatus, SwapItemInfo } from '@/types';
+import { Swap, SwapItemInfo } from '@/types';
 import { APP_LOCALE } from '@/constants/locale';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Caption, Button, ScreenHeader } from '@/components/ui';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
+import { Text, Button, ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDisplayName } from '@/utils/formatName';
 import { formatPriceWithCurrency } from '@/utils/formatPrice';
 
-const STATUS_LABELS: Record<SwapStatus, string> = {
-  proposed: 'En attente',
-  payment_pending: 'Paiement',
-  accepted: 'Accepté',
-  declined: 'Refusé',
-  cancelled: 'Annulé',
-  photos_pending: 'Photos',
-  shipping: 'Envoi',
-  completed: 'Terminé',
-  disputed: 'Litige',
-  expired: 'Expiré',
-};
-
-const STATUS_COLORS: Record<SwapStatus, string> = {
-  proposed: colors.warning,
-  payment_pending: colors.primary,
-  accepted: colors.sage,
-  declined: colors.danger,
-  cancelled: colors.muted,
-  photos_pending: colors.primary,
-  shipping: colors.secondary,
-  completed: colors.sage,
-  disputed: colors.danger,
-  expired: colors.muted,
-};
-
-
-const getTotalValue = (items: SwapItemInfo[], cashDollars = 0): number => {
-  return items.reduce((sum, item) => sum + (item.price || 0), 0) + cashDollars;
-};
-
 type FilterType = 'all' | 'pending' | 'active' | 'completed';
-
+const FILTERS: { value: FilterType; label: string }[] = [
+  { value: 'all', label: 'Tous' }, { value: 'pending', label: 'En attente' },
+  { value: 'active', label: 'En cours' }, { value: 'completed', label: 'Historique' },
+];
 function matchesFilter(swap: Swap, filter: FilterType): boolean {
-  switch (filter) {
-    case 'pending':
-      return swap.status === 'proposed';
-    case 'active':
-      return ['payment_pending', 'accepted', 'photos_pending', 'shipping', 'disputed'].includes(swap.status);
-    case 'completed':
-      return ['completed', 'declined', 'cancelled', 'expired'].includes(swap.status);
-    default:
-      return true;
-  }
+  if (filter === 'pending') return swap.status === 'proposed';
+  if (filter === 'active') return ['payment_pending', 'accepted', 'photos_pending', 'shipping', 'disputed'].includes(swap.status);
+  if (filter === 'completed') return ['completed', 'declined', 'cancelled', 'expired'].includes(swap.status);
+  return true;
 }
+const backToExchanges = () => router.canGoBack() ? router.back() : router.replace('/swap-zone');
+const browseExchanges = () => router.push({ pathname: '/swap-zone', params: { source: 'my_swaps_empty' } });
 
 export default function MySwapsScreen() {
   const user = useUser();
+  const isAuthLoading = useIsLoading();
+  const showAuth = useAuthSheetStore(state => state.show);
   const [filter, setFilter] = useState<FilterType>('all');
-
-  const {
-    data: swaps = [],
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
-  } = useQuery({
+  const { data: swaps = [], isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: queryKeys.swaps.userList(user?.id || ''),
     queryFn: () => getUserSwaps(user!.id),
     enabled: !!user,
     staleTime: 10 * 60 * 1000,
   });
-
-  const filteredSwaps = swaps.filter((swap) => matchesFilter(swap, filter));
-
-  const handleFilterSelect = useCallback(
-    (next: FilterType) => {
-      setFilter(next);
-      track('list_filtered', {
-        screen: 'my_swaps',
-        filter: next,
-        filtered_count: swaps.filter((s) => matchesFilter(s, next)).length,
-      });
-    },
-    [swaps],
-  );
-
-  const handleRefresh = useCallback(() => {
+  const filteredSwaps = useMemo(() => swaps.filter(swap => matchesFilter(swap, filter)), [swaps, filter]);
+  const selectFilter = useCallback((next: FilterType) => {
+    setFilter(next);
+    track('list_filtered', { screen: 'my_swaps', filter: next, filtered_count: swaps.filter(swap => matchesFilter(swap, next)).length });
+  }, [swaps]);
+  const refresh = useCallback(() => {
     track('list_refreshed', { screen: 'my_swaps', items_count: filteredSwaps.length });
-    refetch();
+    void refetch();
   }, [refetch, filteredSwaps.length]);
+  const renderSwap = useCallback(({ item }: { item: Swap }) => <SwapCard swap={item} currentUserId={user?.id || ''} />, [user?.id]);
 
-  const pendingCount = swaps.filter((s) => s.status === 'proposed').length;
-  const activeCount = swaps.filter((s) =>
-    ['payment_pending', 'accepted', 'photos_pending', 'shipping', 'disputed'].includes(s.status)
-  ).length;
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScreenHeader title="Mes échanges" onBack={() => router.back()} />
-        {/* Filter tabs skeleton */}
-        <View style={styles.filterContainer}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} width="22%" height={28} borderRadius={radius.full} />
-          ))}
-        </View>
-        {/* Swap cards skeleton */}
-        <View style={styles.skeletonList}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <View key={i} style={styles.skeletonSwapCard}>
-              {/* Header: avatar + name + status */}
-              <View style={styles.skeletonSwapHeader}>
-                <View style={styles.skeletonSwapUser}>
-                  <Skeleton width={32} height={32} borderRadius={16} />
-                  <Skeleton width={90} height={14} />
-                </View>
-                <Skeleton width={64} height={22} borderRadius={radius.full} />
-              </View>
-              {/* Two images + swap icon */}
-              <View style={styles.skeletonSwapImages}>
-                <Skeleton width={80} height={80} borderRadius={0} />
-                <Skeleton width={36} height={36} borderRadius={18} />
-                <Skeleton width={80} height={80} borderRadius={0} />
-              </View>
-              {/* Footer: prices + date */}
-              <View style={styles.skeletonSwapFooter}>
-                <Skeleton width="50%" height={13} />
-                <Skeleton width={50} height={11} />
-              </View>
-            </View>
-          ))}
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (isError) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScreenHeader title="Mes échanges" onBack={() => router.back()} />
-        <View style={styles.emptyContainer}>
-          <Ionicons name="cloud-offline-outline" size={60} color={colors.muted} />
-          <Text variant="h3" style={styles.emptyTitle}>Impossible de charger tes échanges</Text>
-          <Caption style={styles.emptyText}>
-            Vérifie ta connexion et réessaie.
-          </Caption>
-          <Button
-            variant="primary"
-            onPress={() => {
-              track('error_retry_tapped', { screen: 'my_swaps', error_context: 'my_swaps_load' });
-              refetch();
-            }}
-            style={styles.ctaButton}
-          >
-            Réessayer
-          </Button>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
+  const header = <ScreenHeader title="Mes échanges" onBack={backToExchanges} backgroundColor={colors.background} topContent={<Text style={styles.eyebrow}>Espace échanges</Text>} />;
+  if (!user && !isAuthLoading) return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      {header}
+      <ScrollView contentContainerStyle={styles.stateContainer}>
+        <Ionicons name="swap-horizontal-outline" size={44} color={colors.primary} />
+        <Text style={styles.stateTitle}>Vos échanges, au même endroit</Text>
+        <Text style={styles.stateBody}>Connectez-vous pour retrouver vos propositions et suivre la remise de vos articles.</Text>
+        <Button style={styles.cta} onPress={() => showAuth('Connectez-vous pour retrouver vos échanges', undefined, { source: 'my_swaps', gateKey: 'my_swaps' })}>Se connecter</Button>
+        <Button variant="ghost" style={styles.cta} onPress={browseExchanges}>Découvrir les articles</Button>
+      </ScrollView>
+    </SafeAreaView>
+  );
+  if (isAuthLoading || isLoading) return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      {header}
+      <ScrollView contentContainerStyle={styles.listContent} accessibilityLabel="Chargement des échanges">
+        {[0, 1, 2].map(index => <View key={index} style={styles.skeletonCard}><Skeleton width="65%" height={22} /><Skeleton width="85%" height={17} /><View style={styles.previewRow}><Skeleton width="45%" height={120} borderRadius={radius.lg} /><Skeleton width="45%" height={120} borderRadius={radius.lg} /></View></View>)}
+      </ScrollView>
+    </SafeAreaView>
+  );
+  if (isError) return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      {header}
+      <ScrollView contentContainerStyle={styles.stateContainer}>
+        <Ionicons name="cloud-offline-outline" size={44} color={colors.primary} />
+        <Text style={styles.stateTitle}>Vos échanges n’ont pas pu être chargés</Text>
+        <Text style={styles.stateBody}>Vérifiez votre connexion, puis réessayez.</Text>
+        <Button style={styles.cta} loading={isRefetching} onPress={() => { track('error_retry_tapped', { screen: 'my_swaps', error_context: 'my_swaps_load' }); void refetch(); }}>Réessayer</Button>
+      </ScrollView>
+    </SafeAreaView>
+  );
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="Mes échanges" onBack={() => router.back()} />
-
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        <FilterTab
-          label="Tous"
-          isActive={filter === 'all'}
-          onPress={() => handleFilterSelect('all')}
-        />
-        <FilterTab
-          label="En attente"
-          isActive={filter === 'pending'}
-          onPress={() => handleFilterSelect('pending')}
-          badge={pendingCount > 0 ? pendingCount : undefined}
-        />
-        <FilterTab
-          label="En cours"
-          isActive={filter === 'active'}
-          onPress={() => handleFilterSelect('active')}
-          badge={activeCount > 0 ? activeCount : undefined}
-        />
-        <FilterTab
-          label="Historique"
-          isActive={filter === 'completed'}
-          onPress={() => handleFilterSelect('completed')}
-        />
-      </View>
-
+      {header}
+      <ScrollView testID="swap-filters" horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
+        {FILTERS.map(({ value, label }) => {
+          const count = swaps.filter(swap => matchesFilter(swap, value)).length;
+          return <Pressable key={value} style={({ pressed }) => [styles.filter, filter === value && styles.filterActive, pressed && styles.pressed]} onPress={() => selectFilter(value)} accessibilityRole="button" accessibilityLabel={`${label}, ${count} échange${count > 1 ? 's' : ''}`} accessibilityState={{ selected: filter === value }}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{label}</Text></Pressable>;
+        })}
+      </ScrollView>
       <FlashList
         data={filteredSwaps}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <SwapCard swap={item} currentUserId={user?.id || ''} />
-        )}
+        keyExtractor={item => item.id}
+        renderItem={renderSwap}
         contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="swap-horizontal-outline" size={60} color={colors.muted} />
-            <Text variant="h3" style={styles.emptyTitle}>Aucun échange pour le moment</Text>
-            <Caption style={styles.emptyText}>
-              {filter === 'all'
-                ? 'Déposez un article dans la Swap Zone et trouvez la pièce parfaite à troquer, sans frais.'
-                : 'Aucun échange dans cette catégorie.'}
-            </Caption>
-            {filter === 'all' && (
-              <Button
-                variant="primary"
-                onPress={() =>
-                  router.push({
-                    pathname: '/swap-zone',
-                    params: { source: 'my_swaps_empty' },
-                  })
-                }
-                style={styles.ctaButton}
-              >
-                Découvrir la Swap Zone
-              </Button>
-            )}
-          </View>
-        }
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refresh} tintColor={colors.primary} />}
+        ListEmptyComponent={<View style={styles.emptyContainer}>
+          <Ionicons name="swap-horizontal-outline" size={44} color={colors.primary} />
+          <Text style={styles.stateTitle}>{filter === 'all' ? 'Votre premier échange commence ici' : 'Aucun échange dans cette catégorie'}</Text>
+          <Text style={styles.stateBody}>{filter === 'all' ? 'Découvrez les articles disponibles et proposez un échange avec un membre.' : 'Vos autres échanges restent disponibles dans Tous.'}</Text>
+          <Button style={styles.cta} onPress={filter === 'all' ? browseExchanges : () => selectFilter('all')}>{filter === 'all' ? 'Découvrir les articles' : 'Voir tous mes échanges'}</Button>
+        </View>}
       />
     </SafeAreaView>
   );
 }
 
-/**
- * Filter Tab Component
- */
-function FilterTab({
-  label,
-  isActive,
-  onPress,
-  badge,
-}: {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-  badge?: number;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.filterTab, isActive && styles.filterTabActive, pressed && { opacity: 0.7 }]}
-      onPress={onPress}
-    >
-      <Text
-        variant="caption"
-        style={[styles.filterTabText, isActive && styles.filterTabTextActive]}
-      >
-        {label}
-      </Text>
-      {badge !== undefined && (
-        <View style={styles.badge}>
-          <Text variant="caption" style={styles.badgeText}>{badge}</Text>
-        </View>
-      )}
-    </Pressable>
-  );
+function ItemPreview({ items, label }: { items: SwapItemInfo[]; label: string }) {
+  const first = items[0];
+  return <View style={styles.preview}>
+    <Text style={styles.previewLabel}>{label}</Text>
+    <View style={styles.imageFrame}>{first?.imageUrl ? <Image source={{ uri: first.imageUrl }} style={styles.itemImage} contentFit="cover" accessibilityLabel={first.title} /> : <Ionicons name="image-outline" size={28} color={colors.muted} />}</View>
+    <Text style={styles.itemTitle} numberOfLines={2}>{first?.title || 'Article indisponible'}</Text>
+    {items.length > 1 && <Text style={styles.caption}>+ {items.length - 1} autre{items.length > 2 ? 's' : ''} article{items.length > 2 ? 's' : ''}</Text>}
+    {!!items.length && <Text style={styles.caption}>{formatPriceWithCurrency(items.reduce((sum, item) => sum + (item.price || 0), 0)).replace(/ /g, '\u00A0')}</Text>}
+  </View>;
 }
 
-/**
- * Stacked Images Component for Multi-Article Display
- */
-function StackedImages({ items, maxDisplay = 3 }: { items: SwapItemInfo[]; maxDisplay?: number }) {
-  const displayCount = Math.min(items.length, maxDisplay);
-  const overflowCount = items.length - displayCount;
-
-  return (
-    <View style={styles.stackedImagesContainer}>
-      {items.slice(0, displayCount).map((item, index) => (
-        <View
-          key={`${item.articleId}-${index}`}
-          style={[
-            styles.stackedImage,
-            {
-              transform: [
-                { translateX: index * 20 },
-              ],
-              zIndex: displayCount - index,
-              marginRight: index === displayCount - 1 ? 0 : -20,
-            },
-          ]}
-        >
-          <Image
-            source={{ uri: item.imageUrl || '' }}
-            style={styles.itemImage}
-          />
-        </View>
-      ))}
-      {overflowCount > 0 && (
-        <View style={[styles.stackedImage, styles.overflowBadge]}>
-          <Text variant="caption" style={styles.overflowText}>
-            +{overflowCount}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-/**
- * Swap Card Component
- * Supports both single and multi-article swaps
- */
-function SwapCard({
-  swap,
-  currentUserId,
-}: {
-  swap: Swap;
-  currentUserId: string;
-}) {
+const SwapCard = React.memo(function SwapCard({ swap, currentUserId }: { swap: Swap; currentUserId: string }) {
   const isInitiator = swap.initiatorId === currentUserId;
-  const otherUser = isInitiator
-    ? { name: swap.receiverName, image: swap.receiverImage }
-    : { name: swap.initiatorName, image: swap.initiatorImage };
-
-  // Support both multi-article and legacy single-article format
-  const myItems = isInitiator ? getSwapItems(swap, 'initiator') : getSwapItems(swap, 'receiver');
-  const theirItems = isInitiator ? getSwapItems(swap, 'receiver') : getSwapItems(swap, 'initiator');
-
-  // Attribute the cash top-up (stored in cents) to whichever side pays it.
-  const cashDollars = swap.cashTopUp ? swap.cashTopUp.amount / 100 : 0;
-  const myCash = swap.cashTopUp?.payerId === currentUserId ? cashDollars : 0;
-  const theirCash = swap.cashTopUp && swap.cashTopUp.payerId !== currentUserId ? cashDollars : 0;
-
-  const myTotal = getTotalValue(myItems, myCash);
-  const theirTotal = getTotalValue(theirItems, theirCash);
-
-  const isMultiArticle = myItems.length > 1 || theirItems.length > 1;
-
-  const handlePress = () => {
-    router.push({ pathname: '/swap/[id]', params: { id: swap.id, source: 'my_swaps' } });
-  };
-
-  const formatDate = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return "Aujourd'hui";
-    } else if (days === 1) {
-      return 'Hier';
-    } else if (days < 7) {
-      return `Il y a ${days} jours`;
-    } else {
-      return date.toLocaleDateString(APP_LOCALE, {
-        day: 'numeric',
-        month: 'short',
-      });
-    }
-  };
-
+  const name = formatDisplayName(isInitiator ? swap.receiverName : swap.initiatorName);
+  const image = isInitiator ? swap.receiverImage : swap.initiatorImage;
+  const myItems = getSwapItems(swap, isInitiator ? 'initiator' : 'receiver');
+  const theirItems = getSwapItems(swap, isInitiator ? 'receiver' : 'initiator');
+  const label = getSwapStatusLabel(swap.status, isInitiator);
+  const nextStep = getSwapNextStep(swap, currentUserId);
+  const otherId = isInitiator ? swap.receiverId : swap.initiatorId;
+  const payer = swap.cashTopUp?.payerId === currentUserId ? 'Vous' : swap.cashTopUp?.payerId === otherId ? name : 'Payeur à confirmer';
+  const date = swap.createdAt instanceof Date && Number.isFinite(swap.createdAt.getTime()) ? swap.createdAt.toLocaleDateString(APP_LOCALE, { day: 'numeric', month: 'short' }) : '';
   return (
-    <Pressable style={({ pressed }) => [styles.swapCard, pressed && { opacity: 0.7 }]} onPress={handlePress}>
-      <View style={styles.swapHeader}>
-        <View style={styles.userInfo}>
-          {otherUser.image ? (
-            <Image source={{ uri: otherUser.image }} style={styles.userAvatar} />
-          ) : (
-            <View style={styles.userAvatarPlaceholder}>
-              <Ionicons name="person" size={16} color={colors.muted} />
-            </View>
-          )}
-          <Text variant="body" style={styles.userName}>{formatDisplayName(otherUser.name)}</Text>
-        </View>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: STATUS_COLORS[swap.status] + '20' },
-          ]}
-        >
-          <Text
-            variant="caption"
-            style={[styles.statusBadgeText, { color: STATUS_COLORS[swap.status] }]}
-          >
-            {STATUS_LABELS[swap.status]}
-          </Text>
-        </View>
+    <Pressable style={({ pressed }) => [styles.swapCard, pressed && styles.pressed]} onPress={() => router.push({ pathname: '/swap/[id]', params: { id: swap.id, source: 'my_swaps' } })} accessibilityRole="button" accessibilityLabel={`Échange avec ${name.replace(/\.+$/, '')}. ${label}. ${nextStep}`}>
+      <View style={styles.memberRow}>
+        {image ? <Image source={{ uri: image }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatar}><Ionicons name="person-outline" size={20} color={colors.foregroundSecondary} /></View>}
+        <View style={styles.memberInfo}><Text style={styles.memberName}>{name}</Text>{!!date && <Text style={styles.caption}>Proposé le {date}</Text>}</View>
+        <Ionicons name="chevron-forward" size={20} color={colors.foregroundSecondary} />
       </View>
-
-      <View style={styles.itemsRow}>
-        {isMultiArticle ? (
-          <>
-            <StackedImages items={myItems} />
-            <View style={styles.swapIconSmall}>
-              <Ionicons name="swap-horizontal" size={14} color={colors.cream} />
-            </View>
-            <StackedImages items={theirItems} />
-          </>
-        ) : (
-          <>
-            <Image
-              source={{ uri: myItems[0]?.imageUrl || '' }}
-              style={styles.itemImage}
-            />
-            <View style={styles.swapIconSmall}>
-              <Ionicons name="swap-horizontal" size={14} color={colors.cream} />
-            </View>
-            <Image
-              source={{ uri: theirItems[0]?.imageUrl || '' }}
-              style={styles.itemImage}
-            />
-          </>
-        )}
-      </View>
-
-      <View style={styles.swapFooter}>
-        <Text variant="body" style={styles.itemPrices}>
-          {isMultiArticle
-            ? `${myItems.length} article${myItems.length > 1 ? 's' : ''} · ${formatPriceWithCurrency(myTotal)} ↔ ${theirItems.length} article${theirItems.length > 1 ? 's' : ''} · ${formatPriceWithCurrency(theirTotal)}`
-            : `${formatPriceWithCurrency(myTotal)} ↔ ${formatPriceWithCurrency(theirTotal)}`}
-        </Text>
-        <Caption style={styles.swapDate}>{formatDate(swap.createdAt)}</Caption>
-      </View>
+      <View style={styles.status}><Text style={styles.statusText}>{label}</Text></View>
+      <Text style={styles.nextStep}>{nextStep}</Text>
+      <View style={styles.previewRow}><ItemPreview items={myItems} label="Vous donnez" /><ItemPreview items={theirItems} label="Vous recevez" /></View>
+      {!!swap.cashTopUp?.amount && <Text style={styles.caption}>Complément historique : {formatPriceWithCurrency(swap.cashTopUp.amount / 100).replace(/ /g, '\u00A0')} · Payeur prévu : {payer.replace(/\.+$/, '')}.</Text>}
     </Pressable>
   );
-}
-
+});
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  skeletonList: {
-    padding: spacing.md,
-  },
-  skeletonSwapCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  skeletonSwapHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  skeletonSwapUser: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  skeletonSwapImages: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  skeletonSwapFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  filterTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-  },
-  filterTabActive: {
-    backgroundColor: colors.secondaryLight,
-  },
-  filterTabText: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foregroundSecondary,
-    fontSize: 13,
-  },
-  filterTabTextActive: {
-    color: colors.secondary,
-  },
-  badge: {
-    backgroundColor: colors.danger,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  badgeText: {
-    fontFamily: fonts.sansMedium,
-    color: colors.white,
-    fontSize: 10,
-  },
-  listContent: {
-    padding: spacing.md,
-    paddingBottom: spacing['2xl'],
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    paddingTop: spacing['3xl'],
-    paddingHorizontal: spacing['2xl'],
-  },
-  emptyTitle: {
-    fontFamily: fonts.displayMedium,
-    color: colors.foreground,
-    marginTop: spacing.md,
-  },
-  emptyText: {
-    fontFamily: fonts.sans,
-    color: colors.foregroundSecondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-    lineHeight: 20,
-  },
-  ctaButton: {
-    marginTop: spacing.lg,
-  },
-  swapCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.none,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  swapHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
-  },
-  userAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceWarm,
-  },
-  userAvatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceWarm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userName: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foreground,
-    fontSize: 14,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-  },
-  statusBadgeText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-  },
-  itemsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  stackedImagesContainer: {
-    position: 'relative',
-    width: 100,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stackedImage: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
-  itemImage: {
-    width: 80,
-    height: 80,
-    borderRadius: radius.none,
-    backgroundColor: colors.surfaceWarm,
-  },
-  overflowBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: radius.none,
-    backgroundColor: colors.surfaceWarm,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overflowText: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foregroundSecondary,
-    fontSize: 12,
-  },
-  swapIconSmall: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.charcoal,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  swapFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itemPrices: {
-    fontFamily: fonts.sansMedium,
-    color: colors.foreground,
-    fontSize: 13,
-    flex: 1,
-  },
-  swapDate: {
-    fontFamily: fonts.sans,
-    color: colors.foregroundSecondary,
-    fontSize: 11,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  eyebrow: { fontFamily: fonts.sansMedium, fontSize: 11, lineHeight: 17, color: colors.foregroundSecondary, marginHorizontal: spacing.md },
+  filterScroll: { flexGrow: 0, flexShrink: 0 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  filter: { minHeight: sizing.minTouchTarget, paddingHorizontal: spacing.md - spacing.xs, paddingVertical: spacing.sm, justifyContent: 'center', borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceWarm },
+  filterActive: { backgroundColor: colors.foreground, borderColor: colors.foreground },
+  filterText: { fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 20, color: colors.foregroundSecondary },
+  filterTextActive: { color: colors.cream },
+  listContent: { padding: spacing.md, paddingBottom: spacing.xl },
+  swapCard: { backgroundColor: colors.surfaceWarm, borderRadius: radius.xl, padding: spacing.md, marginBottom: spacing.md, gap: spacing.sm, borderWidth: 1, borderColor: colors.border },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  avatar: { width: 44, height: 44, borderRadius: radius.full, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+  memberInfo: { flex: 1, minWidth: 0 },
+  memberName: { fontFamily: fonts.sansMedium, fontSize: 15, lineHeight: 23, color: colors.foreground },
+  status: { alignSelf: 'flex-start', borderRadius: radius.full, backgroundColor: colors.background, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
+  statusText: { fontFamily: fonts.sansMedium, fontSize: 12, lineHeight: 18, color: colors.primaryDark },
+  nextStep: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 20, color: colors.foregroundSecondary },
+  previewRow: { flexDirection: 'row', gap: spacing.md },
+  preview: { flex: 1, minWidth: 0, gap: spacing.xs },
+  previewLabel: { fontFamily: fonts.sansMedium, fontSize: 12, lineHeight: 18, color: colors.foreground },
+  imageFrame: { width: '100%', height: 120, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+  itemImage: { width: '100%', height: '100%' },
+  itemTitle: { fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 19, color: colors.foreground },
+  caption: { fontFamily: fonts.sans, fontSize: 12, lineHeight: 18, color: colors.foregroundSecondary },
+  skeletonCard: { padding: spacing.md, gap: spacing.md, marginBottom: spacing.md, backgroundColor: colors.surfaceWarm, borderRadius: radius.xl },
+  stateContainer: { flexGrow: 1, alignItems: 'center', padding: spacing.lg, justifyContent: 'center', gap: spacing.md },
+  emptyContainer: { alignItems: 'center', padding: spacing.md, paddingTop: spacing.xl, gap: spacing.md },
+  stateTitle: { fontFamily: fonts.displayMedium, fontSize: 29, lineHeight: 34, color: colors.foreground, textAlign: 'center' },
+  stateBody: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 22, color: colors.foregroundSecondary, textAlign: 'center' },
+  cta: { height: 'auto', minHeight: sizing.buttonHeight, paddingVertical: spacing.md, maxWidth: '100%', borderRadius: radius.xl },
+  pressed: { opacity: 0.7 },
 });

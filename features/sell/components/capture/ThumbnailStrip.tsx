@@ -1,12 +1,13 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInRight, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { Image } from 'expo-image';
+import { PrivateStorageImage } from '@/components/PrivateStorageImage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '@/constants/theme';
 
 interface ThumbnailStripProps {
   photos: string[];
+  ownerUid: string | undefined;
   onRemovePhoto: (index: number) => void;
   onGalleryPress: () => void;
   canAddMore: boolean;
@@ -18,6 +19,7 @@ const THUMB_LAYOUT = LinearTransition.duration(250);
 
 export const ThumbnailStrip = React.memo(function ThumbnailStrip({
   photos,
+  ownerUid,
   onRemovePhoto,
   onGalleryPress,
   canAddMore,
@@ -43,8 +45,10 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
           exiting={THUMB_EXITING}
           layout={THUMB_LAYOUT}
         >
-          <Image
-            source={{ uri }}
+          <PrivateStorageImage
+            uri={uri}
+            allowLocalSource
+            localSourceOwnerUid={ownerUid}
             style={[
               styles.thumbnail,
               index === 0 && styles.thumbnailPrimary,

@@ -138,25 +138,13 @@ describe('SwapActions — statut proposed', () => {
 });
 
 describe('SwapActions — statut payment_pending (complément)', () => {
-  it('le payeur du complément peut régler', () => {
-    const handlers = renderActions({
-      status: 'payment_pending',
-      participant: { isTopUpPayer: true },
-    });
-
-    fireEvent.press(screen.getByText('Régler le complément'));
-    expect(handlers.onPayTopUp).toHaveBeenCalledTimes(1);
-  });
-
-  it('le non-payeur voit l’attente du paiement et n’a aucun bouton de règlement', () => {
-    renderActions({
-      status: 'payment_pending',
-      participant: { isTopUpPayer: false, topUpPayerName: 'Alice' },
-    });
-
-    expect(screen.getByText('En attente du paiement de Alice')).toBeOnTheScreen();
+  it.each([true, false])('aucun règlement lorsque les paiements sont désactivés (payeur=%s)', isTopUpPayer => {
+    const handlers = renderActions({ status: 'payment_pending', participant: { isTopUpPayer } });
+    expect(screen.getByText('Ce complément appartient à un ancien échange. Les paiements sont indisponibles actuellement.')).toBeOnTheScreen();
     expect(screen.queryByText('Régler le complément')).toBeNull();
+    expect(handlers.onPayTopUp).not.toHaveBeenCalled();
   });
+
 });
 
 describe('SwapActions — statut accepted', () => {
@@ -197,7 +185,7 @@ describe('SwapActions — statut photos_pending', () => {
   it('affiche l’attente de l’autre participant une fois ses photos envoyées', () => {
     renderActions({ status: 'photos_pending', participant: { hasUploadedPhotos: true } });
 
-    expect(screen.getByText("En attente des photos de l'autre participant")).toBeOnTheScreen();
+    expect(screen.getByText("Vos photos sont ajoutées. Vous attendez celles de l’autre membre.")).toBeOnTheScreen();
     expect(screen.queryByText('Ajouter des photos')).toBeNull();
   });
 
@@ -219,10 +207,11 @@ describe('SwapActions — statut shipping', () => {
       participant: { hasConfirmedShipping: false },
     });
 
-    fireEvent.press(screen.getByText("J'ai envoyé mon article"));
+    fireEvent.press(screen.getByText("J'ai envoyé mes articles"));
     expect(handlers.onConfirmShipping).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('icon-send')).toBeOnTheScreen();
     // Pas encore la réception.
-    expect(screen.queryByText("J'ai reçu l'article")).toBeNull();
+    expect(screen.queryByText("J'ai reçu les articles")).toBeNull();
   });
 
   it('demande la réception une fois l’envoi confirmé', () => {
@@ -231,8 +220,23 @@ describe('SwapActions — statut shipping', () => {
       participant: { hasConfirmedShipping: true, hasConfirmedReception: false },
     });
 
-    fireEvent.press(screen.getByText("J'ai reçu l'article"));
+    fireEvent.press(screen.getByText("J'ai reçu les articles"));
     expect(handlers.onConfirmReception).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirme une remise en main propre avec le même handler serveur', () => {
+    const handlers = renderActions({ status: 'shipping', exchangeMode: 'hand_delivery' });
+    fireEvent.press(screen.getByText("J'ai remis mes articles"));
+    expect(handlers.onConfirmShipping).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("J'ai envoyé mes articles")).toBeNull();
+    expect(screen.getByTestId('icon-hand-left-outline')).toBeOnTheScreen();
+    expect(screen.queryByTestId('icon-send')).toBeNull();
+  });
+
+  it('explique l’attente après sa confirmation de réception', () => {
+    renderActions({ status: 'shipping', participant: { hasConfirmedShipping: true, hasConfirmedReception: true } });
+    expect(screen.getByText('Réception confirmée. Vous attendez la confirmation de l’autre membre.')).toBeOnTheScreen();
+    expect(screen.queryByText("J'ai reçu les articles")).toBeNull();
   });
 
   it('expose toujours l’ouverture de litige pendant l’envoi', () => {

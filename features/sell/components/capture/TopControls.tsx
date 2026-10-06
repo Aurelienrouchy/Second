@@ -8,6 +8,7 @@ interface TopControlsProps {
   photoCount: number;
   maxPhotos: number;
   torchActive: boolean;
+  torchAvailable?: boolean;
   onClose: () => void;
   onFlipCamera: () => void;
   onToggleTorch: () => void;
@@ -18,6 +19,7 @@ export const TopControls = React.memo(function TopControls({
   photoCount,
   maxPhotos,
   torchActive,
+  torchAvailable = true,
   onClose,
   onFlipCamera,
   onToggleTorch,
@@ -42,6 +44,10 @@ export const TopControls = React.memo(function TopControls({
       <View style={styles.rightControls}>
         <Pressable
           style={[styles.circleButton, torchActive && styles.circleButtonActive]}
+          testID="sell-torch-button"
+          accessibilityLabel="Activer ou désactiver le flash"
+          accessibilityState={{ disabled: !torchAvailable }}
+          disabled={!torchAvailable}
           onPress={onToggleTorch}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -54,6 +60,8 @@ export const TopControls = React.memo(function TopControls({
 
         <Pressable
           style={styles.circleButton}
+          testID="sell-flip-camera-button"
+          accessibilityLabel="Changer de caméra"
           onPress={onFlipCamera}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

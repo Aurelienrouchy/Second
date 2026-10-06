@@ -147,11 +147,11 @@ describe('SearchHistoryService.getRecentSearches', () => {
     expect(items[0].timestamp).toBeInstanceOf(Date);
   });
 
-  it('remonte une erreur métier explicite quand Firestore échoue', async () => {
+  it('laisse la recherche disponible sans historique quand Firestore échoue', async () => {
     mockGetDocs.mockRejectedValueOnce(new Error('perm denied'));
     await expect(
       SearchHistoryService.getRecentSearches('user-1')
-    ).rejects.toThrow(/historique/i);
+    ).resolves.toEqual([]);
   });
 });
 

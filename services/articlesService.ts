@@ -8,8 +8,8 @@ import {
     orderBy,
     query,
     QueryDocumentSnapshot,
+    type Query,
     startAfter,
-    updateDoc,
     where
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -23,6 +23,7 @@ import {
 } from '../utils/fixStorageUrl';
 import { brandKey } from '../utils/normalizeBrand';
 import { processImageWithBlurhash } from '../utils/imageUtils';
+import { normalizeArticleImages } from '../utils/articleImages';
 
 /**
  * Normalize free text for search query matching.
@@ -56,7 +57,7 @@ function normalizeSearchText(input: string): string {
  * at most MAX_REFILL_BATCHES times. The bounded worst case is therefore
  * `limitCount * 5 * MAX_REFILL_BATCHES` document reads per page; if the page
  * still isn't full after the cap, `hasMore` lets the UI keep paging from the
- * last fetched cursor. A future server-side index (B2) could push these
+ * last consumed cursor. A future server-side index (B2) could push these
  * predicates into Firestore and remove the over-fetch entirely.
  */
 const MAX_REFILL_BATCHES = 5;
@@ -83,13 +84,7 @@ export class ArticlesService {
    * Fix all image URLs in an article
    */
   static fixArticleImageUrls(images: ArticleImage[] | undefined): ArticleImage[] {
-    if (!images || !Array.isArray(images)) {
-      return [];
-    }
-    return images.map(img => ({
-      ...img,
-      url: this.fixStorageUrl(img.url),
-    }));
+    return normalizeArticleImages(images);
   }
 
   /**
@@ -130,7 +125,7 @@ export class ArticlesService {
           // We use a temp ID for the storage path; the Cloud Function will
           // create the article with a different Firestore doc ID, but the
           // images remain accessible in Storage at this path.
-          const tempId = `draft_${Date.now()}`;
+          const tempId = `temp_${Date.now()}`;
 
           if (__DEV__) console.log('[ArticlesService] Uploading local images (legacy path)...');
           finalImages = await this.uploadImagesReactNative(imageUris, tempId);
@@ -227,7 +222,9 @@ export class ArticlesService {
           });
 
           // Create Firebase Storage reference
-          const storagePath = `articles/${articleId}/image_${index}_${Date.now()}.jpg`;
+          const storagePath = articleId.startsWith('temp_')
+            ? `products/${currentUser.uid}/${articleId}/image_${index}_${Date.now()}.jpg`
+            : `articles/${articleId}/image_${index}_${Date.now()}.jpg`;
 
           // Verify local file exists
           const fileInfo = await FileSystem.getInfoAsync(compressedUri);
@@ -550,10 +547,11 @@ export class ArticlesService {
       (filters?.materials && filters.materials.length > 0) ||
       (filters?.brands && filters.brands.length > 0) ||
       filters?.sellerId ||
+      filters?.excludeUserId ||
       filters?.minPrice !== undefined ||
       filters?.maxPrice !== undefined
     );
-    const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount;
+    const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount + 1;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const matchDoc = (data: Record<string, any>): boolean => {
@@ -590,52 +588,16 @@ export class ArticlesService {
       return this.matchesClientSideFilters(data, filters);
     };
 
-    const matches: Article[] = [];
-    let cursor = lastVisible;
-    let lastFetchedDoc: QueryDocumentSnapshot | null = null;
-    let lastBatchFull = false;
-
-    for (let batch = 0; batch < MAX_REFILL_BATCHES; batch++) {
-      const q = query(searchIndexRef, ...buildConstraints(cursor, fetchLimit));
-      const snap = await getDocs(q);
-
-      if (__DEV__) {
-        console.log('search_index docs fetched:', snap.docs.length, 'batch', batch);
-      }
-
-      // A batch that returns fewer docs than requested means the collection is
-      // exhausted under this query (no more pages).
-      lastBatchFull = snap.docs.length === fetchLimit;
-      if (snap.docs.length > 0) {
-        lastFetchedDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot;
-        cursor = lastFetchedDoc;
-      }
-
-      snap.forEach((docSnap: QueryDocumentSnapshot) => {
+    return this.scanSearchPage(
+      (cursor) => query(searchIndexRef, ...buildConstraints(cursor, fetchLimit)),
+      (docSnap) => {
         const data = docSnap.data();
-        if (matchDoc(data)) {
-          matches.push(this.mapSearchIndexToArticle(docSnap.id, data));
-        }
-      });
-
-      // Stop refilling once the collection is exhausted or the page is full.
-      if (!lastBatchFull || matches.length >= limitCount) break;
-    }
-
-    const limitedArticles = matches.slice(0, limitCount);
-
-    // hasMore: page is full AND the last Firestore batch was full (more docs may
-    // exist). If the cap (MAX_REFILL_BATCHES) was hit on a full batch we still
-    // report true so the UI can keep paging from lastFetchedDoc.
-    const hasMore = matches.length >= limitCount && lastBatchFull;
-
-    if (__DEV__) {
-      console.log('search_index results:', limitedArticles.length, 'articles, hasMore', hasMore);
-    }
-
-    // Cursor is the last document FETCHED from Firestore (server order), never
-    // the last retained article, so pagination resumes correctly.
-    return { articles: limitedArticles, lastVisible: lastFetchedDoc, hasMore };
+        return matchDoc(data) ? this.mapSearchIndexToArticle(docSnap.id, data) : null;
+      },
+      fetchLimit,
+      limitCount,
+      lastVisible,
+    );
   }
 
   /**
@@ -753,9 +715,10 @@ export class ArticlesService {
       (filters?.sizes && filters.sizes.length > 0) ||
       (filters?.materials && filters.materials.length > 0) ||
       (filters?.brands && filters.brands.length > 0) ||
-      hasShopAttributeFilter
+      hasShopAttributeFilter ||
+      filters?.excludeUserId
     );
-    const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount;
+    const fetchLimit = hasClientSideFilter ? limitCount * 5 : limitCount + 1;
 
     // Shop-scoped category / condition / price predicates, applied per doc.
     const matchesShopAttributes = (
@@ -780,52 +743,55 @@ export class ArticlesService {
       return true;
     };
 
-    const matches: Article[] = [];
-    let cursor = lastVisible;
-    let lastFetchedDoc: QueryDocumentSnapshot | null = null;
-    let lastBatchFull = false;
-
-    for (let batch = 0; batch < MAX_REFILL_BATCHES; batch++) {
-      const q = query(articlesRef, ...buildConstraints(cursor, fetchLimit));
-      const snap = await getDocs(q);
-
-      if (__DEV__) {
-        console.log('articles docs fetched:', snap.docs.length, 'batch', batch);
-      }
-
-      lastBatchFull = snap.docs.length === fetchLimit;
-      if (snap.docs.length > 0) {
-        lastFetchedDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot;
-        cursor = lastFetchedDoc;
-      }
-
-      snap.forEach((docSnap: QueryDocumentSnapshot) => {
+    return this.scanSearchPage(
+      (cursor) => query(articlesRef, ...buildConstraints(cursor, fetchLimit)),
+      (docSnap) => {
         const data = docSnap.data();
-        if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return;
-        if (!matchesShopAttributes(data)) return;
-        if (!this.matchesClientSideFilters(data, filters)) return;
-
-        matches.push({
+        if (filters?.excludeUserId && data.sellerId === filters.excludeUserId) return null;
+        if (!matchesShopAttributes(data) || !this.matchesClientSideFilters(data, filters)) return null;
+        return {
           id: docSnap.id,
           ...data,
           createdAt: data.createdAt.toDate(),
           images: this.fixArticleImageUrls(data.images),
-        } as Article);
-      });
+        } as Article;
+      },
+      fetchLimit,
+      limitCount,
+      lastVisible,
+    );
+  }
 
-      if (!lastBatchFull || matches.length >= limitCount) break;
+  /**
+   * Consume documents in query order. The extra matching document is lookahead:
+   * it belongs to the next page, so the cursor must stay BEFORE it. Rejected
+   * documents can be consumed safely. A capped full scan still exposes a
+   * continuation, even when this page contains no matches.
+   */
+  private static async scanSearchPage(
+    buildQuery: (cursor: QueryDocumentSnapshot | undefined) => Query,
+    matchArticle: (doc: QueryDocumentSnapshot) => Article | null,
+    fetchLimit: number,
+    limitCount: number,
+    lastVisible?: QueryDocumentSnapshot,
+  ): Promise<SearchPage> {
+    const articles: Article[] = [];
+    let lastConsumed = lastVisible ?? null;
+    for (let batch = 0; batch < MAX_REFILL_BATCHES; batch++) {
+      const snap = await getDocs(buildQuery(lastConsumed ?? undefined));
+      for (const doc of snap.docs) {
+        const article = matchArticle(doc);
+        if (article && articles.length === limitCount) {
+          return { articles, lastVisible: lastConsumed, hasMore: true };
+        }
+        lastConsumed = doc;
+        if (article) articles.push(article);
+      }
+      if (snap.docs.length < fetchLimit) {
+        return { articles, lastVisible: lastConsumed, hasMore: false };
+      }
     }
-
-    const limitedArticles = matches.slice(0, limitCount);
-    const hasMore = matches.length >= limitCount && lastBatchFull;
-
-    if (__DEV__) {
-      console.log('articles results:', limitedArticles.length, 'articles, hasMore', hasMore);
-    }
-
-    // Cursor is the last document FETCHED from Firestore, never the last retained
-    // article, so pagination resumes correctly even when a full batch is filtered out.
-    return { articles: limitedArticles, lastVisible: lastFetchedDoc, hasMore };
+    return { articles, lastVisible: lastConsumed, hasMore: true };
   }
 
   /**
@@ -931,8 +897,10 @@ export class ArticlesService {
 
   static async updateArticle(articleId: string, updates: Partial<Article>): Promise<void> {
     try {
-      const docRef = doc(firestore, 'articles', articleId);
-      await updateDoc(docRef, updates);
+      const updateArticleFn = httpsCallable<
+        { articleId: string; updates: Partial<Article> }, { success: boolean }
+      >(functions, 'updateArticle');
+      await updateArticleFn({ articleId, updates });
     } catch (error: any) {
       throw new Error(`Erreur lors de la mise a jour de l'article: ${error.message}`);
     }
@@ -954,8 +922,12 @@ export class ArticlesService {
 
   static async uploadImages(files: File[], articleId: string): Promise<string[]> {
     try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Utilisateur non authentifie');
       const uploadPromises = files.map(async (file, index) => {
-        const storagePath = `articles/${articleId}/image_${index}_${Date.now()}`;
+        const storagePath = articleId.startsWith('temp_')
+          ? `products/${currentUser.uid}/${articleId}/image_${index}_${Date.now()}`
+          : `articles/${articleId}/image_${index}_${Date.now()}`;
         const storageRef = ref(storage, storagePath);
         await uploadBytes(storageRef, file);
         return getDownloadURL(storageRef);

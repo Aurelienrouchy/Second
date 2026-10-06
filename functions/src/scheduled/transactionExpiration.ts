@@ -19,6 +19,7 @@
  *
  * Runs every hour.
  */
+import { articleReleaseUpdate } from '../utils/articleReservation';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
@@ -128,14 +129,16 @@ export const expireOrphanedTransactions = onSchedule(
                 ? db.collection('articles').doc(data.articleId)
                 : null;
               const articleSnap = articleRef ? await tx.get(articleRef) : null;
+              const articleUnlock = articleRef && articleSnap?.exists
+                ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, doc.id) : null;
 
               tx.update(doc.ref, {
                 status: 'cancelled',
                 cancelledAt: FieldValue.serverTimestamp(),
                 cancelReason: 'meetup_expired_48h',
               });
-              if (articleRef && articleSnap && articleSnap.exists) {
-                tx.update(articleRef, { isSold: false });
+              if (articleRef && articleUnlock) {
+                tx.update(articleRef, articleUnlock);
               }
               return true;
             });
@@ -241,14 +244,17 @@ export const expireOrphanedTransactions = onSchedule(
               articleSnap = await tx.get(articleRef);
             }
 
+            const articleUnlock = articleRef && articleSnap?.exists
+              ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, doc.id) : null;
+
             tx.update(doc.ref, {
               status: 'cancelled',
               cancelledAt: FieldValue.serverTimestamp(),
               cancelReason: 'meetup_confirmed_expired_7d',
             });
 
-            if (articleRef && articleSnap && articleSnap.exists) {
-              tx.update(articleRef, { isSold: false });
+            if (articleRef && articleUnlock) {
+              tx.update(articleRef, articleUnlock);
             }
             return true;
           }).catch((err) => {
@@ -552,6 +558,11 @@ async function expirePendingPayment(
   const data = doc.data();
   const paymentIntentId = data.stripePaymentIntentId;
 
+  // A submitted checkout without a persisted PI id is not an unpaid order.
+  // Preserve the reservation until reconciliation certifies the outcome.
+  if ((data.walletCheckoutOutcome === 'unknown' || data.walletCheckoutOutcome === 'creating') && !paymentIntentId) return false;
+  if (paymentIntentId && !stripe) return false;
+
   try {
     if (paymentIntentId && stripe) {
       // 1. Is the payment in flight / already captured?
@@ -615,6 +626,10 @@ async function expirePendingPayment(
         return false;
       }
 
+      if ((txData.walletCheckoutOutcome === 'unknown' || txData.walletCheckoutOutcome === 'creating') && !txData.stripePaymentIntentId) return false;
+      if (txData.stripePaymentIntentId !== data.stripePaymentIntentId ||
+          txData.walletCheckoutAttemptId !== data.walletCheckoutAttemptId) return false;
+
       let articleSnap: FirebaseFirestore.DocumentSnapshot | null = null;
       const articleRef = txData.articleId
         ? db.collection('articles').doc(txData.articleId)
@@ -640,6 +655,9 @@ async function expirePendingPayment(
         buyerWalletSnap = await tx.get(buyerWalletRef);
       }
 
+      const articleUnlock = articleRef && articleSnap?.exists
+        ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
+
       // ── ALL WRITES AFTER ALL READS ──
       const txUpdate: Record<string, any> = {
         status: 'cancelled',
@@ -654,8 +672,8 @@ async function expirePendingPayment(
       }
       tx.update(doc.ref, txUpdate);
 
-      if (articleRef && articleSnap && articleSnap.exists) {
-        tx.update(articleRef, { isSold: false });
+      if (articleRef && articleUnlock) {
+        tx.update(articleRef, articleUnlock);
       }
 
       if (hasWalletDebit && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {

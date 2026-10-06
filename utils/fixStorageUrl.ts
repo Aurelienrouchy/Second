@@ -8,8 +8,29 @@
  *
  * Pure function, deterministic — safe to memoise at any level.
  */
+import { resolveFirebaseEnvironment } from '@/config/firebaseEnvironment';
+
+/** REST uploads must use the same endpoint policy as the Firebase SDK. */
+export function storageApiOrigin(): string {
+  const environment = resolveFirebaseEnvironment({
+    test: process.env.NODE_ENV === 'test',
+    useEmulators: process.env.EXPO_PUBLIC_FIREBASE_EMULATORS,
+    emulatorHost: process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST,
+  });
+  return environment.useEmulators
+    ? `http://${environment.emulatorHost}:9199`
+    : 'https://firebasestorage.googleapis.com';
+}
+
 export function isStorageUrl(url: string): boolean {
-  return !!url && url.includes('firebasestorage.googleapis.com');
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === 'https://firebasestorage.googleapis.com'
+      || (storageApiOrigin().startsWith('http:') && parsed.origin === storageApiOrigin());
+  } catch {
+    return false;
+  }
 }
 
 export function fixStorageUrl(url: string): string {

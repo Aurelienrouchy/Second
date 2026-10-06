@@ -8,7 +8,7 @@
 import { SwapParty, SwapPartyItemExtended } from '@/types';
 
 export interface PartyHeaderProps {
-  party: SwapParty;
+  party?: SwapParty;
   onBack: () => void;
 }
 
@@ -19,6 +19,7 @@ export interface MyArticlesSectionProps {
   /** Number of articles currently being added (deposit in flight). Renders that
    *  many skeleton rows at the head of the list until the refetch resolves. */
   pendingCount?: number;
+  isGuest?: boolean;
 }
 
 export interface PartyItemCardProps {

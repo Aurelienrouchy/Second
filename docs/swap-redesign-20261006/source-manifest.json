@@ -1,0 +1,212 @@
+{
+  "baseline": "581d08f2f9dfdf65f7cfd1a501b7fa295705614c",
+  "sourceCommit": "102f57410cd1433f6b4b102272c0fe77a9a238f2",
+  "filesChanged": 41,
+  "files": [
+    {
+      "path": "app/my-swaps.tsx",
+      "bytes": 13962,
+      "sha256": "30d2155de99512a237e1f56a1260183714a28874f82329533f82842c2bf1b99e"
+    },
+    {
+      "path": "app/propose-swap.tsx",
+      "bytes": 21227,
+      "sha256": "02de532e064c850dfd9f9bb1a0a823e656e0f672a3318e338036c61f5d15bff1"
+    },
+    {
+      "path": "app/swap-zone.tsx",
+      "bytes": 36795,
+      "sha256": "1295702e8c352b6f95bc56b6f5f9f36228b004467f287ef2280caaa1fc33782e"
+    },
+    {
+      "path": "app/swap/[id].tsx",
+      "bytes": 22818,
+      "sha256": "2172ccc34c8547e1015c2e1534667ba5682e7c8948fc1822e27dd095f0e3fed2"
+    },
+    {
+      "path": "components/home/SwapZoneSection.tsx",
+      "bytes": 7020,
+      "sha256": "faafdc4b9233ffd67262fd4837c7621c999c5bfdfbaeee61ef22fdef708f164c"
+    },
+    {
+      "path": "components/swap/SwapItemCard.tsx",
+      "bytes": 3159,
+      "sha256": "7e0d93bc72c9a553bbaaec088ec318892a98e43990e7a022687337f42b2ad9bf"
+    },
+    {
+      "path": "components/swap/SwapItemSelector.tsx",
+      "bytes": 11712,
+      "sha256": "70b82129e82b1049efbb8e9d485f10c11e8f3d600e9a5f3098446c18d431a63e"
+    },
+    {
+      "path": "components/swap/SwapSeparator.tsx",
+      "bytes": 1112,
+      "sha256": "e0e0e0de52cc396cb5c8100896c440bf78a04067cfeb2ab94a91394d58e4ef61"
+    },
+    {
+      "path": "components/swap/SwapSummaryBox.tsx",
+      "bytes": 2653,
+      "sha256": "a8489e40bf8d06d0f2454107978804872dd9a567393004ce180cd5f6fae65acd"
+    },
+    {
+      "path": "features/home/swap-zone/SwapZoneSection.tsx",
+      "bytes": 3324,
+      "sha256": "5460733d06e8ad86bd83672dd3fcae0cec52c972c5ab5819c105e0b734c7b103"
+    },
+    {
+      "path": "features/propose-swap/components/ArticleSelectionSection.tsx",
+      "bytes": 3392,
+      "sha256": "75ed06a4ef0ca12c14537805f89ee0c07b915af22a4c6ec082a4ebe06e488d85"
+    },
+    {
+      "path": "features/propose-swap/components/ProposeSwapSkeleton.tsx",
+      "bytes": 2467,
+      "sha256": "e57b2dcdb5ae78c44dbe0a1b9a956716adca3d34a8f2dd1376c71aa231cc2c30"
+    },
+    {
+      "path": "features/propose-swap/components/ProposeSwapTopBar.tsx",
+      "bytes": 2045,
+      "sha256": "6a96f58767ea14a681054d8a581b2d9540fdf4c7dcaf7aac6e65a1948da3f701"
+    },
+    {
+      "path": "features/propose-swap/components/SubmitFooter.tsx",
+      "bytes": 3195,
+      "sha256": "8e4e60f01a989a3a7f8c578a103d0db5575bebb0ed7d7a83b22de6d7b752e120"
+    },
+    {
+      "path": "features/propose-swap/components/SwapMessageInput.tsx",
+      "bytes": 1945,
+      "sha256": "f98f2b42406ae6a2654e1192789fd996ca20860682812ae75a99557fe92d646d"
+    },
+    {
+      "path": "features/propose-swap/components/ValueComparisonBox.tsx",
+      "bytes": 9691,
+      "sha256": "ac0e588054d951b32bca4254e3b03290afe51b88219dc7599986ffd14acd0683"
+    },
+    {
+      "path": "features/swap-party/components/AddItemSheet.tsx",
+      "bytes": 11235,
+      "sha256": "43f70d00fcc9c0cebe257e76bea53b16dbe577866393ef8727f7601aae6ca224"
+    },
+    {
+      "path": "features/swap-party/components/MultiSelectBar.tsx",
+      "bytes": 2596,
+      "sha256": "592bca015bdee4ec270901f842c32007bc3186babb284bc4f3d3e1326f3030ae"
+    },
+    {
+      "path": "features/swap-party/components/MyArticlesSection.tsx",
+      "bytes": 6835,
+      "sha256": "32b49712b213e973ab278067f075f04a74068e710a458b41e7f394cc02d0c662"
+    },
+    {
+      "path": "features/swap-party/components/PartyEmptyGrid.tsx",
+      "bytes": 3028,
+      "sha256": "fb3b9ef8d66edfadaa50ea00aac76114c3278045547d1062ac70de356db08f6a"
+    },
+    {
+      "path": "features/swap-party/components/PartyHeader.tsx",
+      "bytes": 1497,
+      "sha256": "d0cf3924126eb1aa046a9808ab483c4d550fe053da0dbfdacc3ec38573d50ee1"
+    },
+    {
+      "path": "features/swap-party/components/PartyItemCard.tsx",
+      "bytes": 5378,
+      "sha256": "04f65d28b928781829681758cf8487e4856472e41fb079a91f5bc23adb2308ca"
+    },
+    {
+      "path": "features/swap-party/components/SwapPartyDetailSkeleton.tsx",
+      "bytes": 2799,
+      "sha256": "3b7fa1fb511c5fe177a04d75bb20a9b1e4735cdd960e8bd67532accf57d7bcde"
+    },
+    {
+      "path": "features/swap-party/types.ts",
+      "bytes": 1208,
+      "sha256": "32a68c4b7bc1bfbe1489d094b020d6c8f991a131c3337faf9a80700318121aaf"
+    },
+    {
+      "path": "features/swap/components/SwapActions.tsx",
+      "bytes": 20146,
+      "sha256": "05d9867510eed4b64721e62eca0596a1c85b52d26e6f87f64aa28bbf7e442c08"
+    },
+    {
+      "path": "features/swap/components/SwapContactButton.tsx",
+      "bytes": 3470,
+      "sha256": "486e564ca3e248f0b17c40192faaa52cd99ee9ac4e74e02b4fcea647c213b32f"
+    },
+    {
+      "path": "features/swap/components/SwapDetailSkeleton.tsx",
+      "bytes": 3335,
+      "sha256": "65a9281cb40a69852a0f375f87b9a78eb311a78b61b0bff9c6591502a25798e3"
+    },
+    {
+      "path": "features/swap/components/SwapProposalView.tsx",
+      "bytes": 4539,
+      "sha256": "a3b88f2295b98f1ba2aa9d1ae138fd61eb5992cc86b06ec4016e3657fd1b453e"
+    },
+    {
+      "path": "features/swap/components/SwapStatusView.tsx",
+      "bytes": 4426,
+      "sha256": "33ab6106fd5c595219bd49f1d2dd3a35baf254eeb476a83ad809d7f62d129071"
+    },
+    {
+      "path": "features/swap/components/SwapStickyActions.tsx",
+      "bytes": 2215,
+      "sha256": "68fd35c250a450ceb6115f2efa51f98de15bf7b40e69d27e6c4f287dc9665f20"
+    },
+    {
+      "path": "features/swap/components/SwapTopBar.tsx",
+      "bytes": 1834,
+      "sha256": "9cf11df109546efb24cdeae4c8a8bb610dd4a18c2baf301ebc2374a6a441a3fa"
+    },
+    {
+      "path": "features/swap/index.ts",
+      "bytes": 635,
+      "sha256": "e2966a61355396a934c419ac8f2323c8492c8e40c0bad7d4b884c9576fb978bd"
+    },
+    {
+      "path": "features/swap/presentation.ts",
+      "bytes": 2536,
+      "sha256": "fa26900e363c2ae6c2f77096abb59a85d5f7e57051597dbf59d89246852b1f1d"
+    },
+    {
+      "path": "tests/jest/homeSections.test.tsx",
+      "bytes": 10503,
+      "sha256": "85861c52e922906333c8a54b5490020f58766f12e8008b344cdb5b226f0cf148"
+    },
+    {
+      "path": "tests/jest/swap/MySwaps.test.tsx",
+      "bytes": 5962,
+      "sha256": "269a44512927c2afbc774cdf36023d3aa9841fc466741e2c726097f26c55f3ec"
+    },
+    {
+      "path": "tests/jest/swap/SwapActions.test.tsx",
+      "bytes": 10694,
+      "sha256": "a97803b6b283b9ee15ac83d8c9f1a568cfa803a65bb4027fc3f92ee10bcdbabf"
+    },
+    {
+      "path": "tests/jest/swap/SwapDetail.test.tsx",
+      "bytes": 5384,
+      "sha256": "61309e7051113c29a0f76e8b8381df5e47beea47c7310c9ec647c57b14057893"
+    },
+    {
+      "path": "tests/jest/swap/SwapPartyUI.test.tsx",
+      "bytes": 21782,
+      "sha256": "f20d45cd43f3d3da2ddb9b13837db426a953a0ba6aaff11d7481ba09e29b4bb8"
+    },
+    {
+      "path": "tests/jest/swap/SwapPresentation.test.tsx",
+      "bytes": 5194,
+      "sha256": "b48305c304d3dee1cb83a464df09a7af4fdf734646b25236d935bce0ffb136ed"
+    },
+    {
+      "path": "tests/jest/swap/ValueComparisonBox.test.tsx",
+      "bytes": 6181,
+      "sha256": "641ce744198a690b3ada797867ee92cd250f24f28664c3dbafb3d8d2dbe37efb"
+    },
+    {
+      "path": "tests/jest/swap/proposeSwapUX.test.tsx",
+      "bytes": 18468,
+      "sha256": "c50551b3f0eeed5348f19838beb2040756b0818d76943fdabc3a0965121884a9"
+    }
+  ]
+}

@@ -14,6 +14,8 @@
  * All amounts in the wallet/ledger are CENTS. The transaction `shippingCost` /
  * `actualShippingCost` fields are in DOLLARS (consistent with createTransaction).
  */
+import { articleReservationOwnedBy } from './articleReservation';
+import { writeAdminAlert } from './failedOperations';
 import * as logger from 'firebase-functions/logger';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../config/firebase';
@@ -123,6 +125,8 @@ export async function creditSellerForSale(
   // this figure (and records any shortfall as sellerDebt rather than masking it).
   tx.update(transactionRef, {
     sellerCreditedCents: sellerPayoutCents,
+    sellerPendingCreditCents: toPending,
+    sellerDebtRepaidCents: debtRepayment,
   });
 
   return true;
@@ -137,7 +141,7 @@ export async function creditSellerForSale(
  * the transaction itself).
  *
  * On a delta above SHIPPING_COST_MISMATCH_THRESHOLD it writes a
- * `platform_ledger` entry (best-effort, outside any transaction) and logs at
+ * deterministic `platform_ledger` entry inside the caller transaction and logs at
  * error level. Small deltas are absorbed by the buyer-protection fee.
  *
  * @param update mutable object the caller will pass to tx.update / .update()
@@ -147,7 +151,8 @@ export function reconcileShippingCost(
   label: ShipEngineLabel,
   estimatedShippingCost: number,
   transactionId: string,
-  update: Record<string, any>
+  update: Record<string, any>,
+  varianceLedger: { tx: FirebaseFirestore.Transaction; reference: FirebaseFirestore.DocumentReference; alreadyRecorded: boolean }
 ): number {
   const actual = (label.shipmentCost || 0) + (label.insuranceCost || 0);
   const estimated = typeof estimatedShippingCost === 'number' ? estimatedShippingCost : 0;
@@ -174,24 +179,13 @@ export function reconcileShippingCost(
       threshold: SHIPPING_COST_MISMATCH_THRESHOLD,
     });
 
-    // Best-effort platform ledger entry for accounting follow-up. Fire-and-forget:
-    // a failure here must never block label fulfillment.
-    db.collection('platform_ledger')
-      .add({
-        type: 'shipping_cost_variance',
-        transactionId,
-        estimatedShippingCost: estimated,
-        actualShippingCost: actual,
-        delta,
-        currency: 'cad',
-        createdAt: FieldValue.serverTimestamp(),
-      })
-      .catch((err) => {
-        logger.error('[reconcileShippingCost] failed to write platform_ledger entry', {
-          transactionId,
-          error: err instanceof Error ? err.message : err,
-        });
-      });
+    // The caller pre-reads this deterministic entry before any write. An SDK
+    // transaction retry cannot create an out-of-band duplicate accounting entry.
+    if (!varianceLedger.alreadyRecorded) varianceLedger.tx.create(varianceLedger.reference, {
+      type: 'shipping_cost_variance', transactionId,
+      estimatedShippingCost: estimated, actualShippingCost: actual, delta,
+      currency: 'cad', createdAt: FieldValue.serverTimestamp(),
+    });
   }
 
   return delta;
@@ -227,9 +221,11 @@ export async function recordTransactionRevenue(params: {
   serviceFee: number;
   shippingCost: number;
   taxTotal: number;
+  actualShippingCost?: number;
   chargeId?: string | null;
 }): Promise<void> {
   const { transactionId, sellerId, serviceFee, shippingCost, taxTotal, chargeId } = params;
+  const carrierCost = params.actualShippingCost ?? shippingCost;
 
   // Best-effort processor fee from the Stripe balance_transaction (frais Stripe
   // payés par la plateforme). A failure here only omits the fee — gross revenue
@@ -265,6 +261,8 @@ export async function recordTransactionRevenue(params: {
       serviceFee: serviceFee || 0,
       taxCollected: taxTotal || 0,
       shippingCostCollected: shippingCost || 0,
+      carrierCost,
+      carrierCostEstimated: params.actualShippingCost == null,
       grossRevenue: Math.round(((serviceFee || 0) + (taxTotal || 0) + (shippingCost || 0)) * 100) / 100,
       currency: 'cad',
       createdAt: FieldValue.serverTimestamp(),
@@ -273,10 +271,20 @@ export async function recordTransactionRevenue(params: {
       revenue.processorFees = processorFees;
       // Net of processor fees + shipping cost the platform must pay the carrier.
       revenue.netMargin = Math.round(
-        ((serviceFee || 0) - processorFees - (shippingCost || 0)) * 100
+        ((serviceFee || 0) + (shippingCost || 0) - processorFees - carrierCost) * 100
       ) / 100;
     }
-    await revenueRef.set(revenue);
+    await db.runTransaction(async tx => {
+      const sale = (await tx.get(db.collection('transactions').doc(transactionId))).data();
+      if (typeof sale?.actualShippingCost === 'number') {
+        revenue.carrierCost = sale.actualShippingCost;
+        revenue.carrierCostEstimated = false;
+        if (processorFees !== null) revenue.netMargin = Math.round(
+          ((serviceFee || 0) + (shippingCost || 0) - processorFees - sale.actualShippingCost) * 100
+        ) / 100;
+      }
+      tx.set(revenueRef, revenue);
+    });
 
     // Tax remittance register (only when actually collected — TAX_ENABLED=true).
     if (taxTotal && taxTotal > 0) {
@@ -305,6 +313,19 @@ export async function recordTransactionRevenue(params: {
   }
 }
 
+async function labelReservationStillOwned(
+  tx: FirebaseFirestore.Transaction,
+  data: FirebaseFirestore.DocumentData,
+  transactionId: string
+): Promise<boolean> {
+  if (data.status !== 'paid' || (data.deliveryType && data.deliveryType !== 'shipping')) return false;
+  if (!data.articleId) return true;
+  const articleRef = db.collection('articles').doc(data.articleId);
+  const article = (await tx.get(articleRef)).data();
+  if (article?.isSold === false) return false;
+  return articleReservationOwnedBy(tx, articleRef, article ?? {}, transactionId);
+}
+
 /**
  * F5/F82 — Idempotent, double-spend-safe shipping label creation.
  *
@@ -325,12 +346,13 @@ export async function recordTransactionRevenue(params: {
  *   3. COMMIT (atomic): re-read under the lock; if a label was somehow already
  *      persisted, no-op (idempotent). Otherwise credit the seller, persist the
  *      label fields, clear the reservation, mark 'label_created'. On any failure
- *      after RESERVE, the reservation is cleared so a later run can retry.
+ *      before paid creation, clear the reservation; after creation, preserve
+ *      the label evidence and surface any orphan for operator reconciliation.
  *
  * @param applyExtraUpdate optional hook to merge extra fields into the commit
  *        update (e.g. shipEngineRateId on the sweep retry). Receives the label.
  * @returns 'created' (label made + committed), 'skip' (already labelled / locked),
- *          or 'failed' (external/commit error — reservation cleared, retry later).
+ *          or 'failed' (provider error or reconciliation required after creation).
  */
 export async function createLabelIdempotent(params: {
   transactionRef: FirebaseFirestore.DocumentReference;
@@ -365,6 +387,8 @@ export async function createLabelIdempotent(params: {
     ) {
       return false;
     }
+
+    if (!await labelReservationStillOwned(tx, data, transactionId)) return false;
 
     // Another runner holds a FRESH reservation — back off (it is creating the
     // label right now). An expired reservation (crashed run) is reclaimable.
@@ -404,11 +428,12 @@ export async function createLabelIdempotent(params: {
   // ---- Phase 3: COMMIT (atomic) ----
   let labelSellerId: string | null = null;
   let labelService = '';
+  let orphanReason: string | null = null;
   try {
-    await db.runTransaction(async (tx) => {
+    const committed = await db.runTransaction(async (tx) => {
       const snap = await tx.get(transactionRef);
       const data = snap.data();
-      if (!data) return;
+      if (!data) { orphanReason = 'transaction_missing'; return false; }
       // Idempotence: a concurrent path persisted the label first — no-op.
       if (
         data.shipEngineLabelId ||
@@ -416,7 +441,13 @@ export async function createLabelIdempotent(params: {
         data.status === 'shipped' ||
         data.status === 'delivered'
       ) {
-        return;
+        if (data.shipEngineLabelId !== label.labelId) orphanReason = 'transaction_advanced';
+        return false;
+      }
+
+      if (!await labelReservationStillOwned(tx, data, transactionId)) {
+        orphanReason = 'terminal_or_different_agreement';
+        return false;
       }
 
       labelSellerId = typeof data.sellerId === 'string' ? data.sellerId : null;
@@ -427,6 +458,10 @@ export async function createLabelIdempotent(params: {
             ? data.serviceCode
             : '';
 
+      const revenueRef = db.collection('platform_ledger').doc(`service_fee_revenue_${transactionId}`);
+      const revenue = (await tx.get(revenueRef)).data();
+      const varianceRef = db.collection('platform_ledger').doc(`shipping_cost_variance_${transactionId}`);
+      const varianceSnapshot = await tx.get(varianceRef);
       await creditSellerForSale(tx, transactionRef, data, transactionId);
 
       const update: Record<string, any> = {
@@ -441,10 +476,31 @@ export async function createLabelIdempotent(params: {
         labelCreationPending: false,
         labelReservationAt: FieldValue.delete(),
       };
-      reconcileShippingCost(label, estimatedShippingCost, transactionId, update);
+      reconcileShippingCost(label, estimatedShippingCost, transactionId, update, {
+        tx, reference: varianceRef, alreadyRecorded: varianceSnapshot.exists,
+      });
+      if (revenue) {
+        const accounting: Record<string, unknown> = {
+          carrierCost: update.actualShippingCost, carrierCostEstimated: false,
+        };
+        if (typeof revenue.processorFees === 'number') {
+          accounting.netMargin = Math.round(((revenue.serviceFee || 0) +
+            (revenue.shippingCostCollected || 0) - revenue.processorFees - update.actualShippingCost) * 100) / 100;
+        }
+        tx.update(revenueRef, accounting);
+      }
       if (params.applyExtraUpdate) params.applyExtraUpdate(label, update);
       tx.update(transactionRef, update);
+      return true;
     });
+    if (!committed) {
+      if (orphanReason) await writeAdminAlert({
+        kind: 'orphan_shipping_label', severity: 'critical', refId: transactionId,
+        message: 'Bordereau acheté après fin ou changement de réservation : rapprochement requis, aucun crédit vendeur.',
+        context: { transactionId, labelId: label.labelId, reason: orphanReason },
+      });
+      return orphanReason ? 'failed' : 'skip';
+    }
   } catch (commitErr) {
     // The label EXISTS on ShipEngine but we failed to persist it. Do NOT clear
     // the reservation blindly — clearing it would let a later run create a SECOND

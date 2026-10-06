@@ -15,22 +15,25 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
 
 import { BlurView } from 'expo-blur';
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, fonts } from '@/constants/theme';
 
-// CameraView wrapped for Reanimated so we can fade in the feed once it is ready.
-const AnimatedCameraView = Animated.createAnimatedComponent(CameraView);
 import draftService, { createEmptyDraft, ArticleDraft } from '@/services/draftService';
 import CameraGuides from '@/components/sell/CameraGuides';
 import { PermissionDenied } from './PermissionDenied';
 import { TopControls } from './TopControls';
 import { ThumbnailStrip } from './ThumbnailStrip';
 import { CameraControlsRow } from './CameraControlsRow';
+import { useSellCamera } from '../../hooks/useSellCamera';
+
+// CameraView is remounted for each native camera session.
+const AnimatedCameraView = Animated.createAnimatedComponent(CameraView);
 
 const MAX_PHOTOS = 5;
 const THUMB_CONTAINER_HEIGHT = 92;
@@ -44,13 +47,41 @@ interface SellOverlayCaptureProps {
 function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProps) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>('back');
-  const [torchActive, setTorchActive] = useState(false);
+  const camera = useSellCamera(permission?.granted ?? false);
+  const { facing, torchActive, onReady: markCameraReady } = camera;
   const [isCapturing, setIsCapturing] = useState(false);
   const draftRef = useRef<ArticleDraft | null>(null);
+  const draftReadyRef = useRef<Promise<void>>(Promise.resolve());
+  const photoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leavingRef = useRef(false);
+
+  const persistPhotos = useCallback(async () => {
+    if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current);
+    draftService.assertCurrentOwner(photoOwnerUid);
+    await draftReadyRef.current;
+    draftService.assertCurrentOwner(photoOwnerUid);
+    const draft = draftRef.current ?? await draftService.loadDraft() ?? createEmptyDraft();
+    draftService.assertCurrentOwner(photoOwnerUid);
+    draftRef.current = await draftService.updateDraftPhotos(draft, photos);
+    draftService.assertCurrentOwner(photoOwnerUid);
+  }, [photos, photoOwnerUid]);
+
+  const saveBeforeLeaving = useCallback(async (leave: () => void) => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    try {
+      await persistPhotos();
+      leave();
+    } catch {
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+    } finally {
+      leavingRef.current = false;
+    }
+  }, [persistPhotos]);
 
   // ── Camera fade-in ──
   // The native camera surface renders as a black rectangle until it is ready.
@@ -60,11 +91,12 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   const cameraOpacity = useSharedValue(0);
 
   const handleCameraReady = useCallback(() => {
+    if (!markCameraReady()) return;
     cameraOpacity.set(withTiming(1, {
       duration: CAMERA_FADE_DURATION,
       easing: Easing.out(Easing.ease),
     }));
-  }, [cameraOpacity]);
+  }, [cameraOpacity, markCameraReady]);
 
   const cameraStyle = useAnimatedStyle(() => ({
     opacity: cameraOpacity.value,
@@ -74,6 +106,8 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   const hasPhotos = photos.length > 0;
   const showThumbStrip = hasPhotos || canTakeMore;
 
+  useEffect(() => { cameraOpacity.set(0); }, [camera.mountKey, cameraOpacity]);
+
   // ── Thumb container height animation ──
   const thumbContainerHeight = useSharedValue(0);
 
@@ -82,7 +116,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
       duration: 300,
       easing: Easing.out(Easing.cubic),
     }));
-  }, [showThumbStrip]);
+  }, [showThumbStrip, thumbContainerHeight]);
 
   const blurBottomStyle = useAnimatedStyle(() => ({
     height: bottomControlsHeight + thumbContainerHeight.value,
@@ -101,7 +135,9 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   useEffect(() => {
     const initDraft = async () => {
       try {
+        draftService.assertCurrentOwner(photoOwnerUid);
         const existingDraft = await draftService.loadDraft();
+        draftService.assertCurrentOwner(photoOwnerUid);
         if (existingDraft) {
           draftRef.current = existingDraft;
           if (existingDraft.photos.length > 0) {
@@ -116,32 +152,25 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         if (__DEV__) console.error('[SellOverlayCapture] Failed to init draft:', e);
       }
     };
-    initDraft();
-  }, []);
+    draftReadyRef.current = initDraft();
+  }, [photoOwnerUid]);
 
-  // ── Persist photos to draft when they change ──
+  // Persist edits while staying on the screen; Continue/close flush immediately.
   useEffect(() => {
-    if (!draftRef.current) return;
-    const persistPhotos = async () => {
-      try {
-        if (photos.length > 0 || draftRef.current!.photos.length > 0) {
-          const updated = await draftService.updateDraftPhotos(draftRef.current!, photos);
-          draftRef.current = updated;
-        }
-      } catch (e) {
-        if (__DEV__) console.error('[SellOverlayCapture] Failed to save draft photos:', e);
-      }
-    };
-    const timeoutId = setTimeout(persistPhotos, 300);
-    return () => clearTimeout(timeoutId);
-  }, [photos]);
+    photoSaveTimer.current = setTimeout(() => {
+      persistPhotos().catch(() => {
+        if (__DEV__) console.error('Failed to save draft photos');
+      });
+    }, 300);
+    return () => { if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current); };
+  }, [persistPhotos]);
 
   // Request permission on mount
   useEffect(() => {
     if (!permission?.granted && permission?.canAskAgain) {
       requestPermission();
     }
-  }, [permission]);
+  }, [permission, requestPermission]);
 
   // Fire once when the OS resolves the camera permission to denied.
   const cameraDeniedTracked = useRef(false);
@@ -159,7 +188,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   // ── Handlers ──
 
   const handleCapture = useCallback(async () => {
-    if (!cameraRef.current || isCapturing || !canTakeMore) return;
+    if (!cameraRef.current || !camera.ready || isCapturing || !canTakeMore) return;
     setIsCapturing(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -187,7 +216,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
     } finally {
       setIsCapturing(false);
     }
-  }, [isCapturing, canTakeMore, photos.length]);
+  }, [isCapturing, canTakeMore, photos.length, camera.ready]);
 
   const handleGalleryPress = useCallback(async () => {
     const remainingSlots = MAX_PHOTOS - photos.length;
@@ -262,15 +291,15 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
                 confirmed_leave: true,
                 photo_count: photos.length,
               });
-              onClose();
+              void saveBeforeLeaving(onClose);
             },
           },
         ],
       );
     } else {
-      onClose();
+      void saveBeforeLeaving(onClose);
     }
-  }, [photos.length, onClose]);
+  }, [photos.length, onClose, saveBeforeLeaving]);
 
   const handleContinue = useCallback(() => {
     if (photos.length === 0) {
@@ -278,18 +307,11 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
       return;
     }
     track('sell_step_completed', { step: 'capture', photo_count: photos.length });
-    onContinue(photos);
-  }, [photos, onContinue]);
+    void saveBeforeLeaving(() => onContinue(photos));
+  }, [photos, onContinue, saveBeforeLeaving]);
 
-  const toggleCameraFacing = useCallback(() => {
-    // Re-fade on flip: the surface briefly goes black while the lens switches.
-    cameraOpacity.set(0);
-    setFacing((current) => (current === 'back' ? 'front' : 'back'));
-  }, [cameraOpacity]);
-
-  const toggleTorch = useCallback(() => {
-    setTorchActive((current) => !current);
-  }, []);
+  const toggleCameraFacing = camera.flip;
+  const toggleTorch = camera.toggleTorch;
 
   // ── Overlay heights ──
 
@@ -304,10 +326,16 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   // ── Permission denied ──
 
-  if (!permission.granted) {
+  if (!permission.granted || camera.error) {
     return (
       <View style={styles.container}>
-        <PermissionDenied onGalleryPress={handleGalleryPress} />
+        <PermissionDenied
+          onGalleryPress={handleGalleryPress}
+          photoCount={photos.length}
+          onContinue={handleContinue}
+          onClose={handleClose}
+          onRetry={camera.error && permission.granted ? camera.retry : undefined}
+        />
       </View>
     );
   }
@@ -339,11 +367,13 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           Starts at opacity 0 over the DS backdrop, fades in on onCameraReady
           so the native black surface never animates in with the overlay. */}
       <AnimatedCameraView
+        key={camera.mountKey}
         ref={cameraRef}
         style={[StyleSheet.absoluteFill, cameraStyle]}
         facing={facing}
-        enableTorch={torchActive}
+        enableTorch={facing === 'back' && torchActive}
         onCameraReady={handleCameraReady}
+        onMountError={camera.onMountError}
       />
 
       {/* Top blur overlay */}
@@ -357,6 +387,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           photoCount={photos.length}
           maxPhotos={MAX_PHOTOS}
           torchActive={torchActive}
+          torchAvailable={facing === 'back' && camera.ready}
           onClose={handleClose}
           onFlipCamera={toggleCameraFacing}
           onToggleTorch={toggleTorch}
@@ -387,6 +418,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           <Animated.View style={[styles.thumbContainer, thumbContainerStyle]}>
             {showThumbStrip && (
               <ThumbnailStrip
+              ownerUid={photoOwnerUid}
                 photos={photos}
                 onRemovePhoto={handleRemovePhoto}
                 onGalleryPress={handleGalleryPress}
@@ -397,7 +429,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
           <View style={{ paddingBottom: insets.bottom + 16 }}>
             <CameraControlsRow
-              canTakeMore={canTakeMore}
+              canTakeMore={canTakeMore && camera.ready}
               isCapturing={isCapturing}
               hasPhotos={photos.length > 0}
               onCapture={handleCapture}

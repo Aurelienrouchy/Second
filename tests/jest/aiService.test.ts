@@ -20,10 +20,10 @@
 // --- Mocks de modules natifs spécifiques à ce test ---------------------------
 
 // expo-file-system/legacy : image lisible (existe + taille + base64) + upload REST
-// observable. uploadAsync renvoie un downloadToken comme l'endpoint Storage media.
+// observable. Firebase may return downloadTokens; the client must never persist them.
 const FAKE_BASE64 = 'ZmFrZS1pbWFnZS1ieXRlcw=='; // "fake-image-bytes"
 const mockUploadAsync = jest.fn((..._args: unknown[]) =>
-  Promise.resolve({ status: 200, body: JSON.stringify({ downloadTokens: 'tok123' }) }),
+  Promise.resolve({ status: 200, body: JSON.stringify({ downloadTokens: 'synthetic-test-capability' }) }),
 );
 jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn((..._args: unknown[]) => Promise.resolve({ exists: true, size: 1024 })),
@@ -46,6 +46,7 @@ jest.mock('expo-image-manipulator', () => ({
 jest.mock('firebase/storage', () => ({
   ref: jest.fn((_storage: unknown, path: string) => ({ path })),
   getDownloadURL: jest.fn((..._args: unknown[]) => Promise.resolve('https://storage/x')),
+  updateMetadata: jest.fn((..._args: unknown[]) => Promise.resolve({})),
   listAll: jest.fn((..._args: unknown[]) => Promise.resolve({ items: [] })),
   deleteObject: jest.fn((..._args: unknown[]) => Promise.resolve()),
 }));
@@ -61,6 +62,8 @@ jest.mock('firebase/functions', () => ({
 // les références importées plutôt que de re-déclarer un jest.mock local.
 import { auth, storage } from '@/config/firebaseConfig';
 import { analyzeProductImage } from '@/services/aiService';
+import { updateMetadata, listAll } from 'firebase/storage';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const mockAuth = auth as unknown as {
   currentUser: { uid: string; getIdToken: () => Promise<string> } | null;
@@ -114,7 +117,7 @@ describe('analyzeProductImage — upload RN-safe (REST, pas le Web SDK)', () => 
     ];
     // Endpoint REST media + bucket configuré + chemin drafts/<uid>/ encodé (%2F).
     expect(url).toContain(
-      'https://firebasestorage.googleapis.com/v0/b/test-bucket.firebasestorage.app/o?uploadType=media&name=',
+      'http://127.0.0.1:9199/v0/b/test-bucket.firebasestorage.app/o?uploadType=media&name=',
     );
     expect(url).toContain('drafts%2Fuid%2F');
     // Le fichier local NORMALISÉ (resize + JPEG) est streamé (pas de base64/blob côté JS).
@@ -122,14 +125,20 @@ describe('analyzeProductImage — upload RN-safe (REST, pas le Web SDK)', () => 
     expect(opts.uploadType).toBe('binary');
     expect(opts.headers.Authorization).toBe('Firebase test-token');
     expect(opts.headers['Content-Type']).toBe('image/jpeg');
+    expect(mockCallable).toHaveBeenCalledWith({ images: [{ base64: FAKE_BASE64, mimeType: 'image/jpeg' }] });
+    expect(updateMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ path: expect.stringContaining('drafts/uid/') }),
+      { cacheControl: 'private, no-store, max-age=0' },
+    );
   });
 
-  it('renvoie une storageUrl construite depuis le downloadToken de la réponse', async () => {
+  it('persiste une référence canonique privée sans downloadToken', async () => {
     const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
     expect(res.storageUrls).toHaveLength(1);
     expect(res.storageUrls![0]).toContain('test-bucket.firebasestorage.app');
     expect(res.storageUrls![0]).toContain('alt=media');
-    expect(res.storageUrls![0]).toContain('token=tok123');
+    expect(new URL(res.storageUrls![0]).search).toBe('?alt=media');
+    expect(res.storageUrls![0]).toContain('https://firebasestorage.googleapis.com');
   });
 
   it('upload chaque image (multi-photos)', async () => {
@@ -143,6 +152,72 @@ describe('analyzeProductImage — upload RN-safe (REST, pas le Web SDK)', () => 
 });
 
 describe('analyzeProductImage — gating & erreurs', () => {
+  it('does not adopt photos into a new account when auth changes during image processing', async () => {
+    (ImageManipulator.manipulateAsync as jest.Mock).mockImplementationOnce(async (uri: string) => {
+      mockAuth.currentUser = { uid: 'different-user', getIdToken: async () => 'synthetic-id-token' };
+      return { uri: `processed-${uri}` };
+    });
+    const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
+    expect(res.success).toBe(false);
+    expect(mockUploadAsync).not.toHaveBeenCalled();
+    expect(mockCallable).not.toHaveBeenCalled();
+  });
+
+  it('never uploads remaining photos under a second account after a multi-photo switch', async () => {
+    const res = await analyzeProductImage(['file:///tmp/a.jpg', 'file:///tmp/b.jpg'], {
+      onProgress: (progress) => {
+        if (progress === 15) mockAuth.currentUser = { uid: 'different-user', getIdToken: async () => 'synthetic-id-token' };
+      },
+    });
+    expect(res.success).toBe(false);
+    expect(mockUploadAsync).toHaveBeenCalledTimes(1);
+    expect(mockUploadAsync.mock.calls[0][0]).toContain('drafts%2Fuid%2F');
+    expect(mockCallable).not.toHaveBeenCalled();
+    expect(res.storageUrls).toBeUndefined();
+  });
+
+  it('drops another account’s late AI result without cleaning that new account storage', async () => {
+    mockCallable.mockImplementationOnce(async () => {
+      mockAuth.currentUser = { uid: 'different-user', getIdToken: async () => 'synthetic-id-token' };
+      return { data: serverResponse() };
+    });
+    const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
+    expect(res.success).toBe(false);
+    expect(res.storageUrls).toBeUndefined();
+    expect(listAll).not.toHaveBeenCalled();
+  });
+
+  it('does not upload or persist another account’s draft if auth changes during token retrieval', async () => {
+    mockAuth.currentUser!.getIdToken = async () => {
+      mockAuth.currentUser = { uid: 'different-user', getIdToken: async () => 'synthetic-id-token' };
+      return 'synthetic-old-token';
+    };
+    const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
+    expect(res.success).toBe(false);
+    expect(res.storageUrls).toBeUndefined();
+    expect(mockUploadAsync).not.toHaveBeenCalled();
+    expect(mockCallable).not.toHaveBeenCalled();
+  });
+
+  it('does not expose an upload failure body containing a download capability', async () => {
+    mockUploadAsync.mockResolvedValueOnce({ status: 403, body: JSON.stringify({ downloadTokens: 'synthetic-test-capability' }) });
+    const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
+    expect(res.success).toBe(false);
+    expect(JSON.stringify(res)).not.toContain('synthetic-test-capability');
+    expect(res.storageUrls).toBeUndefined();
+    expect(mockCallable).not.toHaveBeenCalled();
+  });
+
+  it('ignores automatically generated download capabilities and keeps analysis working', async () => {
+    mockUploadAsync.mockResolvedValueOnce({ status: 200, body: JSON.stringify({ downloadTokens: 'synthetic-test-capability' }) });
+    const res = await analyzeProductImage(['file:///tmp/photo.jpg']);
+    expect(res.success).toBe(true);
+    expect(res.storageUrls).toHaveLength(1);
+    expect(new URL(res.storageUrls![0]).search).toBe('?alt=media');
+    expect(JSON.stringify(res)).not.toContain('synthetic-test-capability');
+    expect(mockCallable).toHaveBeenCalledTimes(1);
+  });
+
   it('refuse l’analyse si l’utilisateur n’est pas authentifié', async () => {
     mockAuth.currentUser = null;
     const res = await analyzeProductImage(['file:///tmp/photo.jpg']);

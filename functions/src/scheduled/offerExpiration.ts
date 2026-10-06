@@ -14,9 +14,6 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 
-/** Firestore batch limit is 500; use 450 for safety margin */
-const BATCH_SIZE = 450;
-
 /**
  * F80: bound the stale-offer query per run. An unbounded .get() loads every
  * stale offer into memory (OOM/timeout at scale). The next hourly run picks up
@@ -105,25 +102,17 @@ export const expireStaleOffers = onSchedule(
         return;
       }
 
-      // Batch update in chunks to respect Firestore 500-op limit
-      let batch = db.batch();
-      let count = 0;
       let totalExpired = 0;
-
-      for (const doc of pendingOffersSnap.docs) {
-        batch.update(doc.ref, { 'offer.status': 'expired' });
-        count++;
-        totalExpired++;
-
-        if (count >= BATCH_SIZE) {
-          await batch.commit();
-          batch = db.batch();
-          count = 0;
-        }
-      }
-
-      if (count > 0) {
-        await batch.commit();
+      for (const candidate of pendingOffersSnap.docs) {
+        const expired = await db.runTransaction(async (tx) => {
+          const current = (await tx.get(candidate.ref)).data();
+          const expiresAt = toMillis(current?.offer?.expiresAt);
+          // A query snapshot can be stale after acceptance or replacement.
+          if (current?.offer?.status !== 'pending' || expiresAt == null || expiresAt >= now.getTime()) return false;
+          tx.update(candidate.ref, { 'offer.status': 'expired', 'offer.expiredAt': FieldValue.serverTimestamp() });
+          return true;
+        });
+        if (expired) totalExpired++;
       }
 
       logger.info(`[expireStaleOffers] Expired ${totalExpired} stale offers`);
@@ -204,43 +193,28 @@ export const expireStaleAcceptedOffers = onSchedule(
           continue;
         }
 
-        // Consumption check: any live transaction for this buyer + chat?
-        // The buyer is the offer SENDER (the buyer proposes, the seller accepts).
-        const buyerId: unknown = data.senderId;
-        const chatId: unknown = data.chatId;
-        if (typeof buyerId !== 'string' || typeof chatId !== 'string') {
-          continue;
-        }
-
-        // Index: transactions(buyerId ASC, chatId ASC, status ASC) — preflight
-        // read OUTSIDE the runTransaction (the in-tx re-read of the offer is the
-        // authoritative guard against a pay-between-query-and-write race).
-        const txSnap = await db
-          .collection('transactions')
-          .where('buyerId', '==', buyerId)
-          .where('chatId', '==', chatId)
-          .get();
-        const consumed = txSnap.docs.some((t) =>
-          LIVE_TRANSACTION_STATUSES.has(t.data()?.status)
-        );
-        if (consumed) {
-          totalConsumed++;
-          continue;
-        }
-
-        // Atomic flip: re-read the offer, re-confirm it is still 'accepted', and
-        // expire it. If a concurrent checkout consumed it (status moved on) we
-        // skip. We do NOT re-query transactions inside the tx (cross-collection
-        // query is not transactional); the live-tx preflight above plus the
-        // offer status re-read are the guard — once a transaction is created the
-        // offer is never re-flipped here because a NEW run's preflight will see
-        // the live transaction.
         try {
           const flipped = await db.runTransaction(async (tx) => {
             const fresh = await tx.get(offerDoc.ref);
             if (!fresh.exists) return false;
             const freshOffer = fresh.data()?.offer ?? {};
             if (freshOffer.status !== 'accepted') return false;
+            const freshData = fresh.data()!;
+            const chatId = freshData.chatId;
+            if (typeof chatId !== 'string') return false;
+            // Transactional reads prevent checkout/acceptance from racing the
+            // expiry write. Modern agreements use an exact message link.
+            const agreements = await tx.get(db.collection('transactions').where('chatId', '==', chatId));
+            const consumed = agreements.docs.some((d) => {
+              const agreement = d.data();
+              if (!LIVE_TRANSACTION_STATUSES.has(agreement.status)) return false;
+              if (freshOffer.transactionId) return d.id === freshOffer.transactionId;
+              if (agreement.offerMessageId) return agreement.offerMessageId === offerDoc.id;
+              // Conservative legacy fallback when no link was ever persisted.
+              return agreement.buyerId === (freshOffer.buyerId ?? freshData.senderId) &&
+                (agreement.amount == null || agreement.amount === freshOffer.amount);
+            });
+            if (consumed) { totalConsumed++; return false; }
             tx.update(offerDoc.ref, {
               'offer.status': 'expired',
               'offer.expiredReason': 'accepted_unconsumed',

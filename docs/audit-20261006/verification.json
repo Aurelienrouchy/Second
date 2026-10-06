@@ -1,0 +1,538 @@
+{
+  "testedCodeHead": "617ec865d8414a39abd9ba25fa58900eb13150c8",
+  "generatedAtUtc": "2026-10-06T03:00:07.775638+00:00",
+  "node": "24.19.0",
+  "runtimeNode20Validated": true,
+  "checks": [
+    {
+      "check": "jest",
+      "command": "./node_modules/.bin/jest --runInBand --detectOpenHandles",
+      "status": "passed",
+      "exitCode": 0,
+      "suites": 91,
+      "passed": 735,
+      "forceExit": false,
+      "log": "/tmp/second-final-jest.log",
+      "logAvailable": true,
+      "logSha256": "7c1c866ee3a4a8ddc48e60608ee029f522ab8e7cb89c2f269cceb5c7bcac842b"
+    },
+    {
+      "check": "vitest-app",
+      "command": "./node_modules/.bin/vitest run --maxWorkers=2",
+      "status": "passed",
+      "exitCode": 0,
+      "files": 15,
+      "passed": 118,
+      "log": "/tmp/second-final-vitest.log",
+      "logAvailable": true,
+      "logSha256": "0cdd39be185689cf46bfb27d378e0bba9742ebd3d4594b37529c25c96031922c"
+    },
+    {
+      "check": "vitest-functions",
+      "command": "cd functions && METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 ./node_modules/.bin/vitest run --maxWorkers=2",
+      "status": "passed",
+      "exitCode": 0,
+      "filesPassed": 51,
+      "filesSkipped": 0,
+      "passed": 608,
+      "skipped": 0,
+      "actualSdkContentionTests": 2,
+      "transport": "Firestore emulator only; other gateways mocked, Auth/Storage host flags are safeguards and do not assert those servers run",
+      "log": "/tmp/second-final-functions.log",
+      "logAvailable": true,
+      "logSha256": "b1f59ad2d446258a6e173179becc94c67837f3c0af01d2c07c438e5ef1f94766"
+    },
+    {
+      "check": "app-types",
+      "command": "./node_modules/.bin/tsc --noEmit",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "/tmp/second-final-app-types.log",
+      "logAvailable": true,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "check": "tests-types",
+      "command": "npm run typecheck:tests",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "/tmp/second-final-test-types.log",
+      "logAvailable": true,
+      "logSha256": "91071c1e48cbb81727997a30fea70d52565577635c1c4fa9183290de9305eaf1"
+    },
+    {
+      "check": "functions-types",
+      "command": "cd functions && ./node_modules/.bin/tsc --noEmit",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "/tmp/second-final-functions-types.log",
+      "logAvailable": true,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "check": "lint",
+      "command": "CI=1 EXPO_NO_TELEMETRY=1 EXPO_NO_CACHE=1 npm run lint",
+      "status": "passed-with-warnings",
+      "exitCode": 0,
+      "errors": 0,
+      "warnings": 93,
+      "log": "/tmp/second-final-lint.log",
+      "logAvailable": true,
+      "logSha256": "0a233309c3bf9a89eda463bd288945295177194ccdfaadcf4eb0878efbdd0c96"
+    },
+    {
+      "check": "boundaries",
+      "command": "npm run lint:boundaries",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "/tmp/second-final-boundaries.log",
+      "logAvailable": true,
+      "logSha256": "9d33fc83472790913f39623bce7369347121bab4c732e0982ff3352e5354e1c9"
+    },
+    {
+      "check": "firestore-rules",
+      "command": "METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run test:security:firestore:run",
+      "status": "passed-partial-scope",
+      "exitCode": 0,
+      "files": 12,
+      "passed": 185,
+      "storageExcluded": true,
+      "project": "demo-second",
+      "log": "/tmp/second-final-firestore-rules.log",
+      "logAvailable": true,
+      "logSha256": "084d385cbcfefc06d77d31d20092c13ba58b3ab8494295613f5d55645f1ae713"
+    },
+    {
+      "check": "storage-rules-and-http",
+      "command": "npm run test:security",
+      "status": "blocked-before-storage-test-execution",
+      "exitCode": null,
+      "reason": "Official Storage rules runtime download host storage.googleapis.com is refused at network CONNECT HTTP403; no available official Google Cloud Storage runtime component. Partial Firestore pass does not cover Storage."
+    },
+    {
+      "check": "official-canonical-emulator-download",
+      "command": "curl -I --max-time 15 https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar",
+      "status": "blocked-transport",
+      "exitCode": 56,
+      "http": 403,
+      "failureLayer": "CONNECT tunnel before HTTPS object access; not project ACL or approval denial",
+      "log": "/tmp/second-review-emulator-download.log",
+      "logAvailable": true,
+      "logSha256": "35bcbb10e58fe43dcb7817999fc6f2c1eb14fc72cc0ce7346361071ceb837877"
+    },
+    {
+      "check": "official-alternate-firestore-source",
+      "status": "verified-and-used",
+      "source": "https://dl.google.com/dl/cloudsdk/channels/rapid/components/google-cloud-sdk-cloud-firestore-emulator-20260717053915.tar.gz",
+      "version": "1.22.0",
+      "distribution": "Google Cloud CLI 587.0.0 component",
+      "packageSha256": "e962450b637827664094959571fd92c3680de863936bd481bd0a050f76ca91ba",
+      "jarSha256": "6262939c48d3d6b08495931706b8920399e57d5f5918e6af133a3d30cb3ae369",
+      "log": "/tmp/second-gcloud-firestore-download.log",
+      "logAvailable": true,
+      "logSha256": "c10defa7c18ef828c19886b18db413ac05d081d332444bc0f3cc1d2fba7918cf"
+    },
+    {
+      "check": "mobile-bundles",
+      "command": "CI=1 EXPO_OFFLINE=1 EXPO_NO_TELEMETRY=1 EXPO_NO_CACHE=1 EXPO_PUBLIC_FIREBASE_EMULATORS=1 EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=127.0.0.1 ./node_modules/.bin/expo export --platform ios --platform android --output-dir /tmp/second-mobile-audit --max-workers 2",
+      "status": "passed",
+      "exitCode": 0,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "output": "/tmp/second-mobile-audit",
+      "deviceRun": false,
+      "log": "/tmp/second-final-mobile-export.log",
+      "logAvailable": true,
+      "logSha256": "1431926c5e0e71c7446391f5d4fa3922f02b415e76bc7b68f48271817d61e2f9"
+    },
+    {
+      "check": "web-bundle",
+      "command": "CI=1 EXPO_OFFLINE=1 EXPO_NO_TELEMETRY=1 EXPO_NO_CACHE=1 EXPO_PUBLIC_FIREBASE_EMULATORS=1 EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=127.0.0.1 ./node_modules/.bin/expo export --platform web --output-dir /tmp/second-web-audit --max-workers 2",
+      "status": "passed",
+      "exitCode": 0,
+      "scope": "Intentional static native-app deep-link landing; no marketplace mounted",
+      "log": "/tmp/second-final-web-export.log",
+      "logAvailable": true,
+      "logSha256": "1f9eefc2b3b6c4efa5afa755735a5b69987b57f42d513844eead8e8bfe56a86d"
+    },
+    {
+      "check": "web-chromium-smoke",
+      "command": "python docs/audit-20261006/check-web-landing.py /tmp/second-web-audit",
+      "status": "passed",
+      "exitCode": 0,
+      "passed": 3,
+      "pageErrors": 0,
+      "externalRequestsAttempted": 0,
+      "nativeAppValidated": false,
+      "log": "/tmp/second-final-web-smoke.log",
+      "result": "web-smoke.json",
+      "logAvailable": true,
+      "logSha256": "33c8c3c9ca637be288055c1f85a6ae669443917106f7c83ad5c49836869ceddc"
+    },
+    {
+      "check": "maestro",
+      "command": "maestro test .maestro/flows",
+      "status": "not-run",
+      "exitCode": null,
+      "reason": "Maestro/ADB/Xcode/app/device unavailable; only YAML parsing performed"
+    },
+    {
+      "check": "maestro-yaml",
+      "status": "passed-syntax-only",
+      "parsed": 19,
+      "errors": 0,
+      "report": "maestro-syntax.json",
+      "flowsAndSubflows": 18,
+      "configs": 1
+    },
+    {
+      "check": "diff-check",
+      "command": "git diff --check",
+      "status": "passed",
+      "exitCode": 0
+    }
+  ],
+  "runtimeNode20Scope": "Local official Node 20.20.2 tests and TypeScript; no deployed cloud Function execution",
+  "cloudFunctionsDeploymentValidated": false,
+  "node20Validation": {
+    "generatedAtUtc": "2026-10-06T03:08:52.978092+00:00",
+    "testedBranchHeadAtStart": "69b47f5d997e162f160428e670ae6bc22898fd73",
+    "unchangedApplicationCodeHead": "617ec865d8414a39abd9ba25fa58900eb13150c8",
+    "node": "20.20.2",
+    "bundledNpm": "10.8.2",
+    "platform": "linux-x64",
+    "installationPath": "/tmp/second-node20",
+    "source": "https://nodejs.org/dist/v20.20.2/node-v20.20.2-linux-x64.tar.xz",
+    "checksumSource": "https://nodejs.org/dist/latest-v20.x/SHASUMS256.txt",
+    "archiveSha256": "df770b2a6f130ed8627c9782c988fda9669fa23898329a61a871e32f965e007d",
+    "checksumVerified": true,
+    "systemRuntimeChanged": false,
+    "dependenciesOrLockfilesChanged": false,
+    "applicationOrTestsChanged": false,
+    "storageRuntimeAttempted": false,
+    "checks": [
+      {
+        "check": "vitest-functions",
+        "command": "cd functions && PATH=/tmp/second-node20/bin:$PATH METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 /tmp/second-node20/bin/node node_modules/vitest/vitest.mjs run --maxWorkers=2",
+        "status": "passed",
+        "exitCode": 0,
+        "files": 51,
+        "passed": 608,
+        "skipped": 0,
+        "actualSdkContentionTests": 2,
+        "log": "/tmp/second-node20-functions.log",
+        "logAvailable": true,
+        "logSha256": "1963c918411c0662c7147a4e75b5797436ab46086d67e3c7efaf849ba28ba9d1"
+      },
+      {
+        "check": "jest",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
+        "status": "passed",
+        "exitCode": 0,
+        "suites": 91,
+        "passed": 735,
+        "forceExit": false,
+        "log": "/tmp/second-node20-jest.log",
+        "logAvailable": true,
+        "logSha256": "f6323ea78e77fb8b0949d5edfe6b51f82b6cd4473b97665381c644ed28521548"
+      },
+      {
+        "check": "vitest-app",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/vitest/vitest.mjs run --maxWorkers=2",
+        "status": "passed",
+        "exitCode": 0,
+        "files": 15,
+        "passed": 118,
+        "log": "/tmp/second-node20-vitest-app.log",
+        "logAvailable": true,
+        "logSha256": "0357768c9bd39c3ff60b61354ff3c60b17983216eeb618066d3834c2d32796f2"
+      },
+      {
+        "check": "firestore-rules",
+        "command": "PATH=/tmp/second-node20/bin:$PATH METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_RULES_FIRESTORE_ONLY=1 /tmp/second-node20/bin/node node_modules/vitest/vitest.mjs run --config tests/security/vitest.config.ts",
+        "status": "passed-partial-scope",
+        "exitCode": 0,
+        "files": 12,
+        "passed": 185,
+        "storageExcluded": true,
+        "log": "/tmp/second-node20-firestore-rules.log",
+        "logAvailable": true,
+        "logSha256": "5d1ea6b35b1de176596464ca9b04d1947e825607e5becfb3bc705d70f251c003"
+      },
+      {
+        "check": "functions-types",
+        "command": "cd functions && PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/typescript/bin/tsc --noEmit",
+        "status": "passed",
+        "exitCode": 0,
+        "log": "/tmp/second-node20-functions-types.log",
+        "logAvailable": true,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "app-types",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/typescript/bin/tsc --noEmit",
+        "status": "passed",
+        "exitCode": 0,
+        "log": "/tmp/second-node20-app-types.log",
+        "logAvailable": true,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "tests-types",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/typescript/bin/tsc --noEmit -p tsconfig.test.json",
+        "status": "passed",
+        "exitCode": 0,
+        "log": "/tmp/second-node20-test-types.log",
+        "logAvailable": true,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "remoteCi": {
+    "headSha": "419ab1835be894ec9d5f6d4e8347b36c171db690",
+    "runId": 37408695175,
+    "runUrl": "https://github.com/Aurelienrouchy/Second/actions/runs/37408695175",
+    "status": "completed",
+    "conclusion": "success",
+    "runtime": "Node 20.20.2; JDK 21; official Firebase CLI emulators",
+    "jest": {
+      "passed": 735,
+      "suites": 91
+    },
+    "functions": {
+      "passed": 606,
+      "skipped": 2,
+      "skipReason": "Actual SDK Firestore contention suite requires an emulator in the Functions job; passed locally under Node 20 and 24"
+    },
+    "securityRules": {
+      "passed": 205,
+      "files": 13,
+      "firestore": 185,
+      "storage": 20,
+      "skipped": 0,
+      "project": "demo-second",
+      "log": "/tmp/second-ci-deps-security.log",
+      "logSha256": "c2367fb4bd306bf2afb20f3bd4f3065b26fbf2d35be8f44aaac845ecdbb6dd5c"
+    },
+    "typechecks": {
+      "app": "passed",
+      "tests": "passed",
+      "functions": "passed"
+    },
+    "e2e": "skipped by existing if:false; no build/device",
+    "firstRun": {
+      "headSha": "1cbe3db1fa32380b44937533776ffc5cbac15e56",
+      "runId": 37407926239,
+      "rulesPassed": 203,
+      "rulesFailed": 2,
+      "failure": "Immutable chat/swap replacement uploads incorrectly permitted; fixed by resource == null without test changes"
+    },
+    "finalDocumentationHeadChecks": "Track last published SHA and completion in PR; no code change after this passed head",
+    "observedAtUtc": "2026-10-06T03:30:14.327188+00:00"
+  },
+  "remoteCiHistory": [
+    {
+      "headSha": "545a9fd6f9d295cf90de25917a1e06cba86949c9",
+      "runId": 37408183916,
+      "runUrl": "https://github.com/Aurelienrouchy/Second/actions/runs/37408183916",
+      "status": "completed",
+      "conclusion": "success",
+      "runtime": "Node 20.20.2; JDK 21; official Firebase CLI emulators",
+      "jest": {
+        "passed": 735,
+        "suites": 91
+      },
+      "functions": {
+        "passed": 606,
+        "skipped": 2,
+        "skipReason": "Actual SDK Firestore contention suite requires an emulator in the Functions job; passed locally under Node 20 and 24"
+      },
+      "securityRules": {
+        "passed": 205,
+        "files": 13,
+        "firestore": 185,
+        "storage": 20,
+        "skipped": 0,
+        "project": "demo-second",
+        "log": "/tmp/second-ci-storage-fix-security.log",
+        "logSha256": "ea458f0cba8b611c0402d8b165286548052965dba5a57cf43caf4bc318c19c0d"
+      },
+      "typechecks": {
+        "app": "passed",
+        "tests": "passed",
+        "functions": "passed"
+      },
+      "e2e": "skipped by existing if:false; no build/device",
+      "firstRun": {
+        "headSha": "1cbe3db1fa32380b44937533776ffc5cbac15e56",
+        "runId": 37407926239,
+        "rulesPassed": 203,
+        "rulesFailed": 2,
+        "failure": "Immutable chat/swap replacement uploads incorrectly permitted; fixed by resource == null without test changes"
+      },
+      "finalDocumentationHeadChecks": "Track last published SHA and completion in PR; no code change after this passed head",
+      "observedAtUtc": "2026-10-06T03:19:54.532910+00:00"
+    }
+  ],
+  "postDependencyValidation": {
+    "headSha": "419ab1835be894ec9d5f6d4e8347b36c171db690",
+    "node": "20.20.2",
+    "lockfilesReinstalledFromOfficialRegistry": true,
+    "allChecksPassed": true,
+    "checks": [
+      {
+        "check": "jest",
+        "command": [
+          "./node_modules/.bin/jest",
+          "--runInBand",
+          "--detectOpenHandles"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 19.98,
+        "log": "/tmp/second-deps-jest.log",
+        "logSha256": "34c5904aa819d6f84e56e32a976e585297562eca67ae39e252ddee77b6c99293"
+      },
+      {
+        "check": "vitest-app",
+        "command": [
+          "./node_modules/.bin/vitest",
+          "run",
+          "--maxWorkers=2"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 2.53,
+        "log": "/tmp/second-deps-vitest-app.log",
+        "logSha256": "6c3e85ace1e6cb17c1c11e561a903e12bf1bf00aa0fda29167aef27f536174eb"
+      },
+      {
+        "check": "app-types",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "--noEmit"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 11.93,
+        "log": "/tmp/second-deps-app-types.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "tests-types",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "--noEmit",
+          "-p",
+          "tsconfig.test.json"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 6.83,
+        "log": "/tmp/second-deps-tests-types.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "functions-types",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "--noEmit"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 6.51,
+        "log": "/tmp/second-deps-functions-types.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "lint",
+        "command": [
+          "./node_modules/.bin/expo",
+          "lint"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 22.13,
+        "log": "/tmp/second-deps-lint.log",
+        "logSha256": "80e73250872101cf278378a220e805f0f75c4474cc003c4151e784eed687af8f"
+      },
+      {
+        "check": "boundaries",
+        "command": [
+          "npm",
+          "run",
+          "lint:boundaries"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 26.49,
+        "log": "/tmp/second-deps-boundaries.log",
+        "logSha256": "695508a90b5df29fabb719e1faa5757be253746c3ac71011dfc5c7edf7804105"
+      },
+      {
+        "check": "mobile-export",
+        "command": [
+          "./node_modules/.bin/expo",
+          "export",
+          "--platform",
+          "ios",
+          "--platform",
+          "android",
+          "--output-dir",
+          "/tmp/second-deps-mobile-audit",
+          "--max-workers",
+          "2"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 60.34,
+        "log": "/tmp/second-deps-mobile-export.log",
+        "logSha256": "f02d2efad75319f627966296f85d23a810cd1e6173fdd653f68b6143a8d01470"
+      },
+      {
+        "check": "web-export",
+        "command": [
+          "./node_modules/.bin/expo",
+          "export",
+          "--platform",
+          "web",
+          "--output-dir",
+          "/tmp/second-deps-web-audit",
+          "--max-workers",
+          "2"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 1.38,
+        "log": "/tmp/second-deps-web-export.log",
+        "logSha256": "78450943494ca33943b8e357f875695eee4237efa4c0a7454feb4ab6e3732b82"
+      },
+      {
+        "check": "functions",
+        "exitCode": 0,
+        "passed": 608,
+        "skipped": 0,
+        "actualSdkContentionTests": 2,
+        "log": "/tmp/second-deps-functions.log",
+        "logSha256": "5462aeb0835f7d5b24e4ec1512783d1e73f92e3bf6be8f76bd234b86899fe1cc"
+      },
+      {
+        "check": "firestore-rules",
+        "exitCode": 0,
+        "passed": 185,
+        "files": 12,
+        "storageExcluded": true,
+        "log": "/tmp/second-deps-firestore-rules.log",
+        "logSha256": "b68b6300148ceb4021a16c4eca02baca80aa56aadd21d6440badb19e78737286"
+      },
+      {
+        "check": "chromium-static-landing",
+        "exitCode": 0,
+        "passed": 3,
+        "log": "/tmp/second-deps-web-smoke.log",
+        "result": "docs/audit-20261006/web-smoke.json",
+        "logSha256": "33c8c3c9ca637be288055c1f85a6ae669443917106f7c83ad5c49836869ceddc"
+      }
+    ],
+    "lintWarnings": 93,
+    "lintErrors": 0,
+    "storage": "passed on GitHub; local runtime download still blocked",
+    "nativeE2E": "not run; device/build unavailable",
+    "dependenciesReport": "dependency-audit.json",
+    "emulatorStopped": true,
+    "finalDocumentationOnlyChecks": "follow final pushed documentation SHA in PR; no manual workflow rerun"
+  }
+}

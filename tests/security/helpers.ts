@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 
-const PROJECT_ID = 'second-rules-test';
+const PROJECT_ID = 'demo-second';
 const ROOT = path.resolve(__dirname, '..', '..');
 
 let cachedEnv: RulesTestEnvironment | null = null;
@@ -20,11 +20,11 @@ export async function getTestEnv(): Promise<RulesTestEnvironment> {
       host: '127.0.0.1',
       port: 8080,
     },
-    storage: {
+    ...(process.env.FIREBASE_RULES_FIRESTORE_ONLY === '1' ? {} : { storage: {
       rules: fs.readFileSync(path.join(ROOT, 'storage.rules'), 'utf8'),
       host: '127.0.0.1',
       port: 9199,
-    },
+    } }),
   });
   return cachedEnv;
 }

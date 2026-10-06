@@ -17,6 +17,7 @@ import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { useUser, useAuthActions } from '@/hooks/useAuth';
 import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
+import { validateCanadianAddress, CanadianAddressInput } from '@/utils/addressValidation';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import {
   AddressSuggestion,
@@ -71,13 +72,6 @@ const PLACES_STYLES = {
   },
 };
 
-interface AddressInput {
-  street: string;
-  city: string;
-  province: string;
-  postalCode: string;
-  country: string;
-}
 
 export default function AddressSettingsScreen() {
   const router = useRouter();
@@ -128,10 +122,28 @@ export default function AddressSettingsScreen() {
   };
 
   const persistAddress = async (
-    address: AddressInput,
+    input: CanadianAddressInput,
     meta: { mode: 'autocomplete' | 'manual'; hasGeo: boolean },
   ) => {
-    if (!user) return;
+    if (!user || isSaving) return;
+    const validation = validateCanadianAddress(input);
+    if (!validation.valid) {
+      setManualStreet(input.street);
+      setManualCity(input.city);
+      setManualProvince(input.province || 'QC');
+      setManualPostalCode(input.postalCode);
+      setManualMode(true);
+      track('address_saved', {
+        mode: meta.mode,
+        province: input.province,
+        success: false,
+        validation_error: validation.error,
+      });
+      Alert.alert('Adresse à compléter', 'Vérifiez la rue, la ville, une province canadienne et le code postal avant de sauvegarder.');
+      return;
+    }
+    const { address } = validation;
+    setIsSaving(true);
     try {
       await UserService.updateUserProfile(user.id, {
         address: {
@@ -165,6 +177,8 @@ export default function AddressSettingsScreen() {
         success: false,
       });
       Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour de l\'adresse');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -227,21 +241,10 @@ export default function AddressSettingsScreen() {
       return;
     }
 
-    setIsSaving(true);
-    try {
-      await persistAddress(
-        {
-          street,
-          city,
-          province,
-          postalCode,
-          country: 'Canada',
-        },
-        { mode: 'manual', hasGeo: false },
-      );
-    } finally {
-      setIsSaving(false);
-    }
+    await persistAddress(
+      { street, city, province, postalCode, country: 'Canada' },
+      { mode: 'manual', hasGeo: false },
+    );
   };
 
   const handleFallbackSuggestion = (suggestion: AddressSuggestion) => {

@@ -4,7 +4,6 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { Skeleton } from '@/components/ui/Skeleton';
 import { colors, spacing, radius } from '@/constants/theme';
@@ -12,38 +11,31 @@ import { colors, spacing, radius } from '@/constants/theme';
 export const ProposeSwapSkeleton = React.memo(function ProposeSwapSkeleton() {
   return (
     <>
-      {/* Top bar skeleton */}
-      <View style={styles.topBar}>
-        <View style={styles.backButton}>
-          <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
-        </View>
-        <Skeleton width={160} height={20} />
-      </View>
-      <View style={styles.content}>
+      <View style={styles.content} accessibilityLabel="Chargement de la proposition" accessibilityState={{ busy: true }}>
         {/* Target article section skeleton */}
-        <Skeleton width={80} height={10} style={{ marginBottom: spacing.sm }} />
+        <Skeleton width={180} height={24} style={styles.heading} />
         <View style={styles.itemCard}>
           <Skeleton width={56} height={56} borderRadius={radius.sm} />
           <View style={styles.itemCardTextArea}>
             <Skeleton width="60%" height={14} />
-            <Skeleton width="30%" height={16} style={{ marginTop: spacing.sm }} />
+            <Skeleton width="30%" height={16} style={styles.price} />
           </View>
         </View>
         {/* Separator skeleton */}
         <View style={styles.separator}>
           <Skeleton width="40%" height={1} />
-          <Skeleton width={32} height={32} borderRadius={16} />
+          <Skeleton width={32} height={32} borderRadius={radius.xl} />
           <Skeleton width="40%" height={1} />
         </View>
         {/* My articles grid skeleton */}
-        <Skeleton width={120} height={10} style={{ marginBottom: spacing.sm }} />
+        <Skeleton width={140} height={24} style={styles.heading} />
         <View style={styles.grid}>
           {Array.from({ length: 4 }).map((_, i) => (
             <View key={i} style={styles.itemCard}>
               <Skeleton width={56} height={56} borderRadius={radius.sm} />
               <View style={styles.itemCardTextArea}>
                 <Skeleton width="50%" height={14} />
-                <Skeleton width="25%" height={16} style={{ marginTop: spacing.sm }} />
+                <Skeleton width="25%" height={16} style={styles.price} />
               </View>
             </View>
           ))}
@@ -54,28 +46,11 @@ export const ProposeSwapSkeleton = React.memo(function ProposeSwapSkeleton() {
 });
 
 const styles = StyleSheet.create({
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(245, 240, 232, 0.95)',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  heading: { marginBottom: spacing.md },
+  price: { marginTop: spacing.sm },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
   },
   itemCard: {
     flexDirection: 'row',
@@ -84,8 +59,8 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.sm,
-    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surfaceWarm,
     marginBottom: spacing.sm,
   },
   itemCardTextArea: {

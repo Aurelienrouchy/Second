@@ -1,332 +1,86 @@
-/**
- * MyArticlesSection Component — Swap Zone (DARK identity)
- * Shows the user's deposited articles with add/remove actions. Always available
- * to an authenticated user (the zone is open to all — no join gate).
- *
- * EMPTY state: a full-width tappable drop zone (the only CTA).
- * POPULATED state: a vertical list of full-width rows (deterministic thumbnail
- * on the left, info block on the right) so the user recognizes their garments
- * instantly, led by a full-width "+" deposit row. Rendered inside a scrollable
- * parent (the Swap Zone): no nested scroll view — a plain column View only.
- */
-
-import React, { useMemo } from 'react';
+/** Your deposited articles, clearly separated from the discovery catalogue. */
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui';
-import { colors, fonts, spacing, radius, sizing, typography } from '@/constants/theme';
+import { colors, spacing, radius, sizing, typography, animations } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import type { MyArticlesSectionProps } from '../types';
 
-// Portrait 4/5 thumbnail footprint (48 / 60 = 0.8), echoing the previous tile
-// ratio in a compact list-row form. Fixed named consts rather than aspectRatio
-// because the thumbnail is not flex-driven and needs a deterministic footprint.
-const THUMB_W = 48;
-const THUMB_H = 60;
-
-export const MyArticlesSection = React.memo(function MyArticlesSection({
-  userItems,
-  onAddPress,
-  onRemoveItem,
-  pendingCount = 0,
-}: MyArticlesSectionProps) {
-  const hasItems = userItems.length > 0;
-  const isAdding = pendingCount > 0;
-  // While a deposit is in flight we surface the populated list layout (deposit
-  // button + skeleton placeholders) even if the user has no items yet, so the
-  // loading state is always visible — never the empty drop zone mid-add.
-  const showList = hasItems || isAdding;
-  // Count badge reflects items already deposited plus the ones landing.
-  const countLabel = userItems.length + pendingCount;
-  const skeletonRows = useMemo(
-    () => Array.from({ length: pendingCount }, (_, i) => i),
-    [pendingCount]
-  );
-
+export const MyArticlesSection = React.memo(function MyArticlesSection({ userItems, onAddPress, onRemoveItem, pendingCount = 0, isGuest = false }: MyArticlesSectionProps) {
+  const [expanded, setExpanded] = useState(false);
+  const showList = userItems.length > 0 || pendingCount > 0;
+  const skeletonRows = useMemo(() => Array.from({ length: pendingCount }, (_, i) => i), [pendingCount]);
   return (
     <View style={styles.section}>
       <View style={styles.labelRow}>
-        <Text style={styles.label}>
-          {showList ? `Mes pièces · ${countLabel}` : 'Mes pièces'}
-        </Text>
+        <Text style={styles.label} accessibilityRole="header">Vos articles</Text>
+        {showList && <Text style={styles.count}>{userItems.length + pendingCount}</Text>}
       </View>
-
-      {showList ? (
+      {isGuest && <Text style={styles.helper}>Connectez-vous pour proposer vos articles à l’échange.</Text>}
+      <Pressable style={({ pressed }) => [styles.addButton, pressed && styles.pressed]} onPress={onAddPress} accessibilityRole="button" accessibilityLabel="Ajouter des articles" accessibilityHint={isGuest ? 'Connectez-vous pour choisir les articles de votre garde-robe.' : 'Choisissez les articles de votre garde-robe à proposer.'}>
+        <Ionicons name="add" size={sizing.iconMD} color={colors.cream} />
+        <Text style={styles.addButtonLabel}>Ajouter des articles</Text>
+      </Pressable>
+      {userItems.length > 0 && (
+        <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Masquer' : 'Afficher'} ${userItems.length} article${userItems.length > 1 ? 's' : ''}`} accessibilityState={{ expanded }} style={({ pressed }) => [styles.toggleButton, pressed && styles.pressed]} onPress={() => setExpanded((value) => !value)}>
+          <Text style={styles.toggleLabel}>{expanded ? 'Masquer' : 'Afficher'} {userItems.length} article{userItems.length > 1 ? 's' : ''}</Text>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={sizing.iconSM} color={colors.sand} />
+        </Pressable>
+      )}
+      {pendingCount > 0 && <Text style={styles.pendingLabel} accessibilityLiveRegion="polite">Ajout de {pendingCount} article{pendingCount > 1 ? 's' : ''} en cours…</Text>}
+      {(pendingCount > 0 || (expanded && userItems.length > 0)) && (
         <View style={styles.list}>
-          {/* Deposit BUTTON leads the list so the deposit action is always the
-              first thing in view. Real compact button (content-width) sharing
-              the home Swap Zone CtaRow language: square darkSurface2 + hairline,
-              rust square "+" tile inside, cream uppercase button label. */}
-          <Pressable
-            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-            onPress={onAddPress}
-            accessibilityRole="button"
-            accessibilityLabel="Déposer un article"
-          >
-            <Ionicons name="add" size={sizing.iconMD} color={colors.cream} />
-            <Text style={styles.addButtonLabel}>Déposer un article</Text>
-          </Pressable>
-
-          {/* Skeleton placeholders for articles being deposited — same row
-              gabarit (48x60 thumb + two text lines), dark surfaces, hairline
-              separated, non-interactive (no remove). Lead the real items. */}
           {skeletonRows.map((i) => (
-            <View key={`skeleton-${i}`} style={[styles.row, i === 0 && styles.rowFirst]}>
+            <View key={`skeleton-${i}`} style={styles.row} accessibilityLabel="Ajout de votre article en cours" accessibilityState={{ busy: true }}>
               <View style={styles.skeletonThumb} />
-              <View style={styles.rowInfo}>
-                <View style={[styles.skeletonLine, styles.skeletonLinePrice]} />
-                <View style={[styles.skeletonLine, styles.skeletonLineTitle]} />
-              </View>
+              <View style={styles.rowInfo}><View style={[styles.skeletonLine, styles.skeletonLineTitle]} /><View style={[styles.skeletonLine, styles.skeletonLinePrice]} /></View>
             </View>
           ))}
-
-          {userItems.map((item, index) => (
-            <Animated.View
-              key={item.id}
-              // The leading row (no skeletons ahead of it) drops its top hairline
-              // so it doesn't read as a stray line right under the deposit button.
-              style={[styles.row, index === 0 && !isAdding && styles.rowFirst]}
-              entering={FadeIn.duration(200)}
-              exiting={FadeOut.duration(160)}
-              layout={LinearTransition.duration(220)}
-            >
-              <View style={styles.rowImageWrap}>
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.rowImage}
-                  recyclingKey={item.id}
-                  contentFit="cover"
-                />
-              </View>
-
+          {expanded && userItems.map((item) => (
+            <Animated.View key={item.id} style={styles.row} entering={FadeIn.duration(animations.duration.normal)} exiting={FadeOut.duration(animations.duration.fast)} layout={LinearTransition.duration(animations.duration.normal)}>
+              <View style={styles.rowImageWrap}><Image source={{ uri: item.imageUrl }} style={styles.rowImage} recyclingKey={item.id} contentFit="cover" /></View>
               <View style={styles.rowInfo}>
-                {/* Line 1: brand with the price right beside it (left-aligned,
-                    not pushed to the far edge). */}
-                <Text style={styles.rowPriceBrand} numberOfLines={1}>
-                  {formatPrice(item.price)} - {item.brand || 'MARQUE'}
-                </Text>
-                {/* Line 2: product title + size. */}
-                <View style={styles.rowTitleLine}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  {item.size?.value ? (
-                    <Text style={styles.rowSize}>{item.size.value}</Text>
-                  ) : null}
-                </View>
+                <Text style={styles.rowTitle}>{item.title}</Text>
+                {!!item.brand?.trim() && <Text style={styles.rowMeta}>{item.brand}</Text>}
+                <Text style={styles.rowMeta}>Valeur {formatPrice(item.price)}{item.size?.value ? ` · ${item.size.value}` : ''}</Text>
               </View>
-
-              <Pressable
-                style={({ pressed }) => [styles.removeRow, pressed && styles.pressed]}
-                onPress={() => onRemoveItem(item.articleId)}
-                hitSlop={8}
-              >
+              <Pressable style={({ pressed }) => [styles.removeRow, pressed && styles.pressed]} onPress={() => onRemoveItem(item.articleId)} accessibilityRole="button" accessibilityLabel={`Retirer ${item.title} de l’Espace échanges`}>
                 <Ionicons name="close" size={sizing.iconSM} color={colors.cream} />
               </Pressable>
             </Animated.View>
           ))}
         </View>
-      ) : (
-        <Pressable
-          style={({ pressed }) => [styles.dropZone, pressed && styles.pressed]}
-          onPress={onAddPress}
-        >
-          <Text style={styles.dropZoneTitle}>Échangez vos pièces, sans frais.</Text>
-          <View style={styles.dropZonePlus}>
-            <Ionicons name="add" size={sizing.iconMD} color={colors.sand} />
-          </View>
-          <Text style={styles.dropZoneLabel}>Déposer un article</Text>
-          <Text style={styles.dropZoneHint}>Ajoutez vos pièces à échanger</Text>
-        </Pressable>
       )}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  section: {
-    backgroundColor: colors.darkSurface1,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.darkBorderStrong,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  label: {
-    fontFamily: typography.labelUppercase.fontFamily,
-    fontSize: typography.labelUppercase.fontSize,
-    lineHeight: typography.labelUppercase.lineHeight,
-    letterSpacing: typography.labelUppercase.letterSpacing,
-    textTransform: 'uppercase',
-    color: colors.sand,
-  },
-  // ── EMPTY drop zone ──
-  dropZone: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.darkSurface2,
-    borderWidth: 1,
-    borderColor: colors.darkBorderStrong,
-    borderRadius: radius.none,
-  },
-  dropZoneTitle: {
-    fontFamily: typography.h3.fontFamily,
-    fontSize: typography.h3.fontSize,
-    lineHeight: typography.h3.lineHeight,
-    letterSpacing: typography.h3.letterSpacing,
-    color: colors.cream,
-    textAlign: 'center',
-  },
-  dropZonePlus: {
-    width: sizing.avatarMD,
-    height: sizing.avatarMD,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.darkSurface1,
-    borderWidth: 1,
-    borderColor: colors.darkBorder,
-    borderRadius: radius.none,
-  },
-  dropZoneLabel: {
-    fontFamily: typography.button.fontFamily,
-    fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
-    letterSpacing: typography.button.letterSpacing,
-    textTransform: 'uppercase',
-    color: colors.cream,
-  },
-  dropZoneHint: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    lineHeight: typography.caption.lineHeight,
-    letterSpacing: typography.caption.letterSpacing,
-    color: colors.whiteTranslucent,
-  },
-  // ── POPULATED list (editorial, hairline-separated rows) ──
-  // No gap: rows touch and are split by a single top hairline each (the addRow
-  // leads with no border, so there is no leading/trailing line).
-  list: {
-    paddingVertical: spacing.xs,
-  },
-  // Full-width deposit BUTTON leading the list — square, darkSurface2 fill +
-  // darkBorderStrong hairline, inline "+" icon and cream label, centered. A real,
-  // discreet button (not a list row) that opens the deposit flow.
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.darkSurface2,
-    borderWidth: 1,
-    borderColor: colors.darkBorderStrong,
-    borderRadius: radius.none,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  addButtonLabel: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: typography.label.fontSize,
-    lineHeight: typography.label.lineHeight,
-    letterSpacing: typography.label.letterSpacing,
-    color: colors.cream,
-  },
-  // Full-width article row — frameless, fine, split from the row above by a
-  // single top hairline.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.darkBorder,
-  },
-  // Leading row: no top hairline (avoids a stray line under the deposit button).
-  rowFirst: {
-    borderTopWidth: 0,
-  },
-  rowImageWrap: {
-    width: THUMB_W,
-    height: THUMB_H,
-    backgroundColor: colors.darkSurface2,
-    overflow: 'hidden',
-  },
-  rowImage: {
-    width: '100%',
-    height: '100%',
-  },
-  // Left-aligned info block, mirroring PartyItemCard productInfo (compacted to
-  // two lines: brand+price, then title+size).
-  rowInfo: {
-    flex: 1,
-  },
-  // Price + brand on one line — the prominent editorial price line.
-  rowPriceBrand: {
-    fontFamily: typography.price.fontFamily,
-    fontSize: typography.price.fontSize,
-    lineHeight: typography.price.lineHeight,
-    letterSpacing: typography.price.letterSpacing,
-    color: colors.sand,
-    marginBottom: spacing.md,
-  },
-  // Title line — title truncates, size trails right beside it.
-  rowTitleLine: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.sm,
-  },
-  rowTitle: {
-    flexShrink: 1,
-    fontFamily: fonts.display,
-    fontSize: 14,
-    lineHeight: 17,
-    color: colors.cream,
-  },
-  rowSize: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    color: colors.whiteTranslucent,
-  },
-  removeRow: {
-    width: sizing.iconMD,
-    height: sizing.iconMD,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.overlay,
-    borderRadius: radius.full,
-  },
-  // ── Skeleton row placeholders (deposit in flight) ──
-  // Same darkSurface2 language as SwapPartyDetailSkeleton; static (no spring).
-  skeletonThumb: {
-    width: THUMB_W,
-    height: THUMB_H,
-    backgroundColor: colors.darkSurface2,
-  },
-  skeletonLine: {
-    backgroundColor: colors.darkSurface2,
-    borderRadius: radius.xs,
-  },
-  // Mirrors rowPriceBrand geometry: price-height bar, spaced from the line below.
-  skeletonLinePrice: {
-    width: '55%',
-    height: typography.price.lineHeight,
-    marginBottom: spacing.md,
-  },
-  // Mirrors the title line geometry.
-  skeletonLineTitle: {
-    width: '40%',
-    height: 17,
-  },
+  section: { backgroundColor: colors.darkSurface1, padding: spacing.md, marginVertical: spacing.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.darkBorder, gap: spacing.sm },
+  pressed: { opacity: 0.7 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  label: { ...typography.h3, color: colors.cream, flexShrink: 1 },
+  count: { ...typography.caption, color: colors.sand, backgroundColor: colors.darkSurface2, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  helper: { ...typography.bodySmall, color: colors.creamTranslucent60 },
+  addButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: sizing.minTouchTarget, backgroundColor: colors.primaryDark, borderRadius: radius.md, padding: spacing.sm },
+  addButtonLabel: { ...typography.label, color: colors.cream, flex: 1 },
+  toggleButton: { minHeight: sizing.minTouchTarget, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.sm },
+  toggleLabel: { ...typography.bodySmall, color: colors.sand, flex: 1 },
+  pendingLabel: { ...typography.caption, color: colors.creamTranslucent60 },
+  list: { gap: spacing.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.darkBorder },
+  rowImageWrap: { width: sizing.buttonHeight, aspectRatio: 4 / 5, backgroundColor: colors.darkSurface2, overflow: 'hidden', borderRadius: radius.sm },
+  rowImage: { width: '100%', height: '100%' },
+  rowInfo: { flex: 1, gap: spacing.xs },
+  rowTitle: { ...typography.body, color: colors.cream },
+  rowMeta: { ...typography.caption, color: colors.sand },
+  removeRow: { width: sizing.minTouchTarget, height: sizing.minTouchTarget, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.darkSurface2, borderRadius: radius.full },
+  skeletonThumb: { width: sizing.buttonHeight, aspectRatio: 4 / 5, backgroundColor: colors.darkSurface2, borderRadius: radius.sm },
+  skeletonLine: { backgroundColor: colors.darkSurface2, borderRadius: radius.xs },
+  skeletonLineTitle: { width: '80%', height: typography.body.lineHeight },
+  skeletonLinePrice: { width: '55%', height: typography.caption.lineHeight },
 });

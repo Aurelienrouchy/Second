@@ -12,7 +12,6 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import PhotoCarousel from '@/components/PhotoCarousel';
 import SuccessModal from '@/components/sell/SuccessModal';
 import { AIAnalysisResult } from '@/types/ai';
@@ -60,6 +59,7 @@ interface PricingData {
 
 export default function PreviewScreen() {
   const router = useRouter();
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
@@ -99,7 +99,9 @@ export default function PreviewScreen() {
   // Load draft on resume
   useEffect(() => {
     const loadDraft = async () => {
+      draftService.assertCurrentOwner(photoOwnerUid);
       const existingDraft = await draftService.loadDraft();
+      draftService.assertCurrentOwner(photoOwnerUid);
       if (existingDraft) {
         if (isResuming) {
           if (existingDraft.photos.length > 0) setPhotos(existingDraft.photos);
@@ -112,8 +114,10 @@ export default function PreviewScreen() {
         }
       }
     };
-    loadDraft();
-  }, [isResuming]);
+    void loadDraft().catch(() => {
+      if (__DEV__) console.warn('Draft initialization interrupted');
+    });
+  }, [isResuming, photoOwnerUid]);
 
   const handleBack = () => {
     // Block navigation while a publish request is in flight so the user
@@ -123,6 +127,10 @@ export default function PreviewScreen() {
   };
 
   const handlePublish = async () => {
+    try { draftService.assertCurrentOwner(photoOwnerUid); } catch {
+      Alert.alert('Session changée', 'Rouvrez la création d’article avec votre compte actuel.');
+      return;
+    }
     // Synchronous guard: prevents double-tap before React state update
     if (publishingRef.current) return;
     publishingRef.current = true;
@@ -217,7 +225,9 @@ export default function PreviewScreen() {
 
       if (pricing.isShipping && pricing.packageSize) articleData.packageSize = pricing.packageSize;
 
+      draftService.assertCurrentOwner(photoOwnerUid);
       const articleId = await ArticlesService.createArticle(articleData);
+      draftService.assertCurrentOwner(photoOwnerUid);
       track('article_published', {
         article_id: articleId,
         price_cents: Math.round(pricing.price * 100),
@@ -309,7 +319,7 @@ export default function PreviewScreen() {
       >
         {/* Hero image */}
         <View style={styles.heroContainer}>
-          <PhotoCarousel photos={photos} height={HERO_HEIGHT} />
+          <PhotoCarousel ownerUid={photoOwnerUid} photos={storageUrls.length === photos.length && storageUrls.length > 0 ? storageUrls : photos} height={HERO_HEIGHT} />
 
           {/* Back button overlay */}
           <Pressable

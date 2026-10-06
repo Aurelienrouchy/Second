@@ -77,7 +77,7 @@ vi.mock('firebase-functions/v2/https', () => {
 import { deleteUserAccount } from './users';
 
 type CallableHandler = (request: {
-  auth?: { uid: string } | null;
+  auth?: { uid: string; token: { firebase: { sign_in_provider: string } } } | null;
   data?: Record<string, unknown>;
 }) => Promise<Record<string, unknown>>;
 const callDelete = deleteUserAccount as unknown as CallableHandler;
@@ -115,7 +115,7 @@ describe('deleteUserAccount — F87 meetup_completed terminal', () => {
       status: 'meetup_completed',
     });
 
-    const res = await callDelete({ auth: { uid: UID } });
+    const res = await callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } });
     expect(res.success).toBe(true);
     // Reached the final Auth-delete step → gates passed.
     expect(holder.authDeleted).toContain(UID);
@@ -129,7 +129,7 @@ describe('deleteUserAccount — F87 meetup_completed terminal', () => {
       status: 'meetup_pending',
     });
 
-    await expect(callDelete({ auth: { uid: UID } })).rejects.toMatchObject({
+    await expect(callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } })).rejects.toMatchObject({
       code: 'failed-precondition',
     });
     expect(holder.authDeleted).not.toContain(UID);
@@ -149,7 +149,7 @@ describe('deleteUserAccount — F89 processing withdrawal gate', () => {
       amount: 2000,
     });
 
-    await expect(callDelete({ auth: { uid: UID } })).rejects.toMatchObject({
+    await expect(callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } })).rejects.toMatchObject({
       code: 'failed-precondition',
     });
     expect(holder.authDeleted).not.toContain(UID);
@@ -163,7 +163,7 @@ describe('deleteUserAccount — F89 processing withdrawal gate', () => {
       amount: 2000,
     });
 
-    const res = await callDelete({ auth: { uid: UID } });
+    const res = await callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } });
     expect(res.success).toBe(true);
     expect(holder.authDeleted).toContain(UID);
   });
@@ -182,7 +182,7 @@ describe('deleteUserAccount — F90 swap gate', () => {
       status: 'accepted',
     });
 
-    await expect(callDelete({ auth: { uid: UID } })).rejects.toMatchObject({
+    await expect(callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } })).rejects.toMatchObject({
       code: 'failed-precondition',
     });
     expect(holder.authDeleted).not.toContain(UID);
@@ -198,7 +198,7 @@ describe('deleteUserAccount — F90 swap gate', () => {
       // never released nor refunded → still escrowed
     });
 
-    await expect(callDelete({ auth: { uid: UID } })).rejects.toMatchObject({
+    await expect(callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } })).rejects.toMatchObject({
       code: 'failed-precondition',
     });
     expect(holder.authDeleted).not.toContain(UID);
@@ -214,7 +214,7 @@ describe('deleteUserAccount — F90 swap gate', () => {
       topUpReleasedAt: { __ts: true },
     });
 
-    const res = await callDelete({ auth: { uid: UID } });
+    const res = await callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } });
     expect(res.success).toBe(true);
     expect(holder.authDeleted).toContain(UID);
   });
@@ -229,7 +229,7 @@ describe('deleteUserAccount — F90 swap gate', () => {
       topUpRefundedAt: { __ts: true },
     });
 
-    const res = await callDelete({ auth: { uid: UID } });
+    const res = await callDelete({ auth: { uid: UID, token: { firebase: { sign_in_provider: 'password' } } } });
     expect(res.success).toBe(true);
     expect(holder.authDeleted).toContain(UID);
   });

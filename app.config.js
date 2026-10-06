@@ -287,9 +287,10 @@ export default {
       ],
       "package": "com.seconde.app"
     },
-    // Decision mobile-only: no web target (no `expo export -p web`, no EAS web profile).
-    // The legacy `web.favicon` block is removed. `react-native-web` stays in deps as a
-    // potential transitive requirement (e.g. some RN libs reference it at resolve time).
+    // The marketplace is mobile-only. Hosting serves public/index.html as a
+    // static native-app deep-link landing, without a React root. index.web.ts
+    // preserves that scope if a local web export is requested; it never mounts
+    // the marketplace. react-native-web remains a transitive dependency.
     "extra": {
       "eas": {
         "projectId": "5f72091d-3473-467c-a4fd-96fe18cda4d2"

@@ -4,13 +4,14 @@ import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
-import { getNextStep, MakeOfferContext } from './types';
+import { getNextStep, MakeOfferContext, parseOfferAmount } from './types';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import { formatPrice } from '@/utils/formatPrice';
 
 // Offer amount bounds — the upper bound mirrors the server-side ceiling
-// enforced in firestore.rules (offer.amount <= 50000). Kept in sync manually.
+// enforced by the callable (offer.amount <= 50000). Cheap listings can still
+// be proposed at full price, preserving the existing negotiated-offer floor.
 const MIN_OFFER_AMOUNT = 1;
 const MAX_OFFER_AMOUNT = 50000;
 
@@ -23,14 +24,14 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
   const { offerAmount, message } = state;
 
   const calculateDiscount = () => {
-    const amount = parseFloat(offerAmount);
+    const amount = parseOfferAmount(offerAmount);
     if (!amount || amount <= 0) return null;
     const discount = ((currentPrice - amount) / currentPrice) * 100;
     return Math.round(discount);
   };
 
   const handleNext = () => {
-    const amount = parseFloat(offerAmount);
+    const amount = parseOfferAmount(offerAmount);
 
     const emitConfirmed = (
       validation_result: 'ok' | 'invalid' | 'too_high' | 'low_warned_continued' | 'low_warned_cancelled',
@@ -47,7 +48,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       });
     };
 
-    if (!amount || amount < MIN_OFFER_AMOUNT) {
+    if (!amount || amount < Math.min(MIN_OFFER_AMOUNT, currentPrice)) {
       emitConfirmed('invalid');
       Alert.alert('Erreur', 'Veuillez entrer un montant valide');
       return;
@@ -63,6 +64,12 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       actions.setStep(getNextStep('offer', state.mode));
     };
+
+    if (amount > currentPrice) {
+      emitConfirmed('too_high');
+      Alert.alert('Montant trop élevé', 'Votre proposition ne peut pas dépasser le prix affiché.');
+      return;
+    }
 
     if (amount < currentPrice * 0.3) {
       Alert.alert(

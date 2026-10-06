@@ -7,7 +7,7 @@
 | Fichier | Rôle |
 |---|---|
 | `config/posthogConfig.ts` | Clé projet (`EXPO_PUBLIC_POSTHOG_API_KEY`) + host (`EXPO_PUBLIC_POSTHOG_HOST`, défaut PostHog Cloud US). Clé absente ⇒ analytics désactivés silencieusement (aucun fallback). |
-| `types/analytics.ts` | `AnalyticsEvents` — map exhaustive typée de TOUS les événements client. `ServerAnalyticsEvents` — événements serveur (documentaire, émis par `posthog-node` dans les Cloud Functions). `UserTraits` — user properties non-PII. |
+| `types/analytics.ts` | `AnalyticsEvents` — map exhaustive typée de TOUS les événements client. `ServerAnalyticsEvents` — événements serveur (documentaire, émis par `posthog-node` dans les Cloud Functions). `UserTraits` — user properties pseudonymes. |
 | `lib/analytics.ts` | Singleton PostHog (couche *shared* : n'importe que depuis `config/` et `types/`). API : `initAnalytics`, `track`, `trackScreen`, `identifyUser`, `resetAnalytics`, `setAnalyticsEnabled`. Tout est fire-and-forget, jamais de throw. |
 | `hooks/useScreenTracking.ts` | Hook global (couche *core*) monté une fois dans le root layout : envoie une vue d'écran PostHog avec le **pattern** de route Expo Router à chaque changement de route. |
 | `app/_layout.tsx` | `initAnalytics()` au démarrage + `useScreenTracking()` dans `GlobalListeners`. |
@@ -58,8 +58,9 @@ Modèle **opt-out** (activé par défaut). Le toggle « Données d'utilisation �
   - Permission OS notifications → **chat-notifications** exclusivement (`push_permission_requested`) ; le helper transverse `permission_denied` ne couvre QUE caméra et photos (un seul propriétaire par permission).
 
 ### Identité
-- `distinct_id` = **uid Firebase**. Jamais le @pseudo, jamais l'email.
-- Invité : `distinct_id` anonyme PostHog + `guest_session_started`.
+- `distinct_id` = **uid Firebase** : identifiant pseudonyme stable, pas une anonymisation. Jamais le @pseudo, jamais l'email.
+- Collecte client uniquement après hydratation du choix local et du compte ; collecte serveur vérifie `preferences.analyticsConsent` à chaque événement. Refus explicite = aucune collecte. Modèle produit opt-out conservé, sans conclusion de conformité juridique.
+- Invité : `distinct_id` pseudonyme généré par PostHog + `guest_session_started`.
 - Au `signup_completed` : `posthog.alias(uid)` pour merger l'historique invité → user (miroir de l'authMergeService).
 - Au `user_signed_out` : `posthog.reset()`.
 
@@ -83,7 +84,7 @@ Jamais en propriété d'événement : email, displayName, @pseudo (→ `username
 | Mécanisme | Détail |
 |---|---|
 | `$screen` | Hook global dans `app/_layout.tsx` (usePathname → `posthog.screen(routePattern)`). Pattern de route Expo Router (`/article/[id]`, `/settings/privacy`…), **pas** les ids réels. Couvre toutes les vues d'écran sans propriétés métier — les vues « riches » (article_viewed, profile_viewed, wallet_viewed…) sont des événements dédiés. |
-| Lifecycle PostHog | `Application Opened`, `Application Backgrounded`, `Application Installed`, `Application Updated` — autocapture SDK, à mentionner dans les dashboards, pas à réimplémenter. |
+| Lifecycle PostHog | `Application Opened`, `Application Backgrounded` — capture centralisée après hydratation des préférences. Autocapture SDK désactivée pour bloquer immédiatement un refus ; Installed/Updated ne sont pas émis. |
 | `identify` | Dans `authStore.hydrateFromFirebase` (point unique d'hydratation auth) : `identify(uid, userProperties)` — voir §4. |
 
 ### Événements transverses (helpers `lib/analytics.ts`, appelés par tous les écrans)
@@ -112,7 +113,7 @@ Posées au démarrage et à chaque changement d'état auth — présentes sur **
 
 ## 4. User properties (`identify` / `$set`)
 
-Traits non-PII, posés via `identify(uid, {...})` à l'hydratation + `$set` aux points de mutation. Aucune user property ne porte le même nom qu'un événement.
+Traits produit pseudonymes, posés via `identify(uid, {...})` à l'hydratation + `$set` aux points de mutation. Aucune user property ne porte le même nom qu'un événement.
 
 | Propriété | Type | Exemple | Point de mise à jour |
 |---|---|---|---|
@@ -403,7 +404,7 @@ Source de vérité financière et transitions d'état : le client peut être abs
 | `swap_expired` | Scheduled function expire un swap — distinct_id = initiateur | `swap_id` · `status_before` · `days_open num` | server | backend |
 | `swap_dispute_resolved` | Résolution d'un litige swap — distinct_id = initiateur | `swap_id` · `resolution` · `automated bool` | server | backend |
 | `shop_tier_activated` | Webhook Stripe pose le forfait boutique (le tier réel est serveur, jamais client) — distinct_id = propriétaire | `shop_id` · `tier enum(pro\|premium)` · `period_months` · `amount_cents` · `is_renewal bool` — pose `shop_tier` ($set) | server | backend |
-| `account_deleted` | deleteUserAccount résolu — distinct_id = uid supprimé | `signup_method` · `account_age_days num` · `had_sales bool` · `had_wallet_balance bool` — suivi d'une suppression/anonymisation PostHog du profil (Loi 25) | server | backend |
+| `account_deleted` | deleteUserAccount résolu — distinct_id = uid supprimé | `signup_method` · `account_age_days num` · `had_sales bool` · `had_wallet_balance bool` — émission supprimée si le document utilisateur a déjà été retiré ; suppression du profil PostHog à traiter séparément par le propriétaire | server | backend |
 
 ---
 

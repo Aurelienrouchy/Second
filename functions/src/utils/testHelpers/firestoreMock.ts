@@ -126,6 +126,11 @@ interface MockQuery {
   limit(...a: unknown[]): MockQuery;
   startAfter(...a: unknown[]): MockQuery;
   get(): Promise<MockQuerySnap>;
+  count(): MockAggregateQuery;
+}
+
+interface MockAggregateQuery {
+  get(): Promise<{ data(): { count: number } }>;
 }
 
 interface MockSnap {
@@ -143,6 +148,8 @@ interface MockQuerySnap {
 
 interface MockTransaction {
   get(ref: MockDocRef): Promise<MockSnap>;
+  get(ref: MockQuery): Promise<MockQuerySnap>;
+  get(ref: MockAggregateQuery): Promise<{ data(): { count: number } }>;
   set(ref: MockDocRef, data: DocData, opts?: { merge?: boolean }): void;
   update(ref: MockDocRef, data: DocData): void;
   create(ref: MockDocRef, data: DocData): void;
@@ -193,16 +200,30 @@ function applyWrite(
     } else {
       target[k] = v;
     }
+    // Preserve flat operation keys for existing assertions and expose real
+    // nested Firestore state for replay/transition tests.
+    if (k.includes('.')) {
+      const parts = k.split('.');
+      let nested = target;
+      for (const part of parts.slice(0, -1)) {
+        nested[part] = { ...((nested[part] as DocData | undefined) ?? {}) };
+        nested = nested[part] as DocData;
+      }
+      const leaf = parts[parts.length - 1];
+      if (isSentinel(v) && v.__sentinel === 'delete') delete nested[leaf];
+      else nested[leaf] = target[k];
+    }
   }
 }
 
-export function createFirestoreMock(): MockFirestore {
+export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean } = {}): MockFirestore {
   // Committed document store. Absence of a key => doc does not exist.
   const store = new Map<string, DocData>();
   // Explicit "non-existent" markers (setDoc(path, null)).
   const tombstones = new Set<string>();
   const queries = new Map<string, Array<{ id: string; data: DocData }>>();
   const writeOps: WriteOp[] = [];
+  let transactionQueue: Promise<unknown> = Promise.resolve();
   let autoId = 0;
 
   function snapFor(path: string): MockSnap {
@@ -299,11 +320,14 @@ export function createFirestoreMock(): MockFirestore {
 
   function matchesWhere(data: DocData, clauses: WhereClause[]): boolean {
     return clauses.every((c) => {
-      if (c.op === '==') return data[c.field] === c.value;
-      if (c.op === '<') return ord(data[c.field]) < ord(c.value);
-      if (c.op === '<=') return ord(data[c.field]) <= ord(c.value);
-      if (c.op === '>') return ord(data[c.field]) > ord(c.value);
-      if (c.op === '>=') return ord(data[c.field]) >= ord(c.value);
+      const value = Object.prototype.hasOwnProperty.call(data, c.field) ? data[c.field] :
+        c.field.split('.').reduce<unknown>((current, key) => (current as DocData | undefined)?.[key], data);
+      if (c.op === '==') return value === c.value;
+      if (c.op === 'array-contains') return Array.isArray(value) && value.includes(c.value);
+      if (c.op === '<') return ord(value) < ord(c.value);
+      if (c.op === '<=') return ord(value) <= ord(c.value);
+      if (c.op === '>') return ord(value) > ord(c.value);
+      if (c.op === '>=') return ord(value) >= ord(c.value);
       // Unknown op: don't filter it out.
       return true;
     });
@@ -320,6 +344,7 @@ export function createFirestoreMock(): MockFirestore {
       orderBy: () => makeQuery(collPath, clauses, lim),
       limit: (...a: unknown[]) => makeQuery(collPath, clauses, a[0] as number),
       startAfter: () => makeQuery(collPath, clauses, lim),
+      count: () => ({ get: async () => ({ data: () => ({ count: candidateDocs(collPath).filter((d) => matchesWhere(d.data, clauses)).length }) }) }),
       get: async () => {
         let docs = candidateDocs(collPath).filter((d) => matchesWhere(d.data, clauses));
         if (lim != null) docs = docs.slice(0, lim);
@@ -356,7 +381,12 @@ export function createFirestoreMock(): MockFirestore {
     // the same tx see pre-tx state (Firestore semantics).
     const staged: WriteOp[] = [];
     const tx: MockTransaction = {
-      get: async (ref) => snapFor(ref.path),
+      get: (async (ref: MockDocRef | MockQuery | MockAggregateQuery) => {
+        if (options.enforceReadBeforeWrite && staged.length > 0) {
+          throw new Error('READ_AFTER_WRITE_ERROR: Firestore requires all reads before writes');
+        }
+        return 'path' in ref ? snapFor(ref.path) : ref.get();
+      }) as MockTransaction['get'],
       set: (ref, data, opts) =>
         void staged.push({ method: 'set', path: ref.path, data, merge: opts?.merge }),
       update: (ref, data) => void staged.push({ method: 'update', path: ref.path, data }),
@@ -368,11 +398,17 @@ export function createFirestoreMock(): MockFirestore {
 
   const db: MockDb = {
     collection: (name) => makeCollectionRef(name),
-    runTransaction: async (fn) => {
-      const { tx, flush } = makeTransaction();
-      const result = await fn(tx);
-      flush();
-      return result;
+    runTransaction: (fn) => {
+      // Firestore serializes competing document writes (with retries). This
+      // harness uses serialization, not a production contention simulator.
+      const run = transactionQueue.then(async () => {
+        const { tx, flush } = makeTransaction();
+        const result = await fn(tx);
+        flush();
+        return result;
+      });
+      transactionQueue = run.catch(() => {});
+      return run;
     },
     batch: () => {
       const staged: WriteOp[] = [];
@@ -473,6 +509,7 @@ export interface StripeMockImpl {
   transfersCreateReversal: (...a: unknown[]) => unknown;
   payoutsCreate: (...a: unknown[]) => unknown;
   payoutsRetrieve: (...a: unknown[]) => unknown;
+  payoutsList: (...a: unknown[]) => unknown;
   accountsRetrieve: (...a: unknown[]) => unknown;
   accountsUpdate: (...a: unknown[]) => unknown;
   accountsCreateExternalAccount: (...a: unknown[]) => unknown;
@@ -492,6 +529,7 @@ export interface StripeMock {
     transfersCreateReversal: unknown[][];
     payoutsCreate: unknown[][];
     payoutsRetrieve: unknown[][];
+    payoutsList: unknown[][];
     paymentIntentsCreate: unknown[][];
     paymentIntentsRetrieve: unknown[][];
     paymentIntentsCancel: unknown[][];
@@ -513,6 +551,7 @@ export function createStripeMock(): StripeMock {
     transfersCreateReversal: [],
     payoutsCreate: [],
     payoutsRetrieve: [],
+    payoutsList: [],
     paymentIntentsCreate: [],
     paymentIntentsRetrieve: [],
     paymentIntentsCancel: [],
@@ -537,7 +576,8 @@ export function createStripeMock(): StripeMock {
     transfersCreate: async () => ({ id: 'tr_default' }),
     transfersCreateReversal: async () => ({ id: 'trr_default' }),
     payoutsCreate: async () => ({ id: 'po_default' }),
-    payoutsRetrieve: async () => ({ status: 'pending' }),
+    payoutsRetrieve: async () => ({ id: 'po_default', status: 'pending' }),
+    payoutsList: async () => ({ data: [], has_more: false }),
     accountsRetrieve: async () => ({ id: 'acct_default', charges_enabled: true, payouts_enabled: true, details_submitted: true }),
     accountsUpdate: async () => ({ id: 'acct_default' }),
     accountsCreateExternalAccount: async () => ({ id: 'ba_default', last4: '0000', status: 'new' }),
@@ -587,6 +627,10 @@ export function createStripeMock(): StripeMock {
       },
     },
     payouts: {
+      list: (...a: unknown[]) => {
+        calls.payoutsList.push(a);
+        return impl.payoutsList(...a);
+      },
       create: (...a: unknown[]) => {
         calls.payoutsCreate.push(a);
         return impl.payoutsCreate(...a);
@@ -642,7 +686,8 @@ export function createStripeMock(): StripeMock {
       impl.transfersCreate = async () => ({ id: 'tr_default' });
       impl.transfersCreateReversal = async () => ({ id: 'trr_default' });
       impl.payoutsCreate = async () => ({ id: 'po_default' });
-      impl.payoutsRetrieve = async () => ({ status: 'pending' });
+      impl.payoutsRetrieve = async () => ({ id: 'po_default', status: 'pending' });
+      impl.payoutsList = async () => ({ data: [], has_more: false });
       impl.accountsRetrieve = async () => ({ id: 'acct_default', charges_enabled: true, payouts_enabled: true, details_submitted: true });
       impl.accountsUpdate = async () => ({ id: 'acct_default' });
       impl.accountsCreateExternalAccount = async () => ({ id: 'ba_default', last4: '0000', status: 'new' });
@@ -654,6 +699,7 @@ export function createStripeMock(): StripeMock {
       calls.transfersCreateReversal.length = 0;
       calls.payoutsCreate.length = 0;
       calls.payoutsRetrieve.length = 0;
+      calls.payoutsList.length = 0;
       calls.paymentIntentsCreate.length = 0;
       calls.paymentIntentsRetrieve.length = 0;
       calls.paymentIntentsCancel.length = 0;

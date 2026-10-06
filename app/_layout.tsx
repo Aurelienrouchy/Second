@@ -28,7 +28,7 @@ import {
   STRIPE_PUBLISHABLE_KEY,
   STRIPE_URL_SCHEME,
 } from '@/config/stripeConfig';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { StripeProvider } from '@/lib/stripe';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

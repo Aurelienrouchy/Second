@@ -16,25 +16,22 @@ import {
 } from 'firebase/firestore';
 import type { DocumentData, FieldValue } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { ref, uploadBytes } from 'firebase/storage';
+import { randomUUID } from 'expo-crypto';
+import { privateMediaUrl, PRIVATE_IMAGE_UPLOAD_METADATA } from '@/utils/privateMedia';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, firestore, functions, storage } from '../config/firebaseConfig';
-import { APP_LOCALE } from '../constants/locale';
 import {
   Chat,
   ChatParticipant,
   Message,
   MessageStatus,
   MessageType,
-  MeetupDetails,
   MeetupSpot,
-  OfferHistoryEntry,
-  OfferStatus,
   ShippingAddress,
   ShippingEstimate,
 } from '../types';
 import { ModerationService } from './moderationService';
-import { TransactionService } from './transactionService';
 
 /** Shape of a new chat document before it is written to Firestore. */
 interface NewChatData {
@@ -48,21 +45,6 @@ interface NewChatData {
   articleTitle?: string;
   articleImage?: string;
   articlePrice?: number;
-}
-
-/** Shape of the offer metadata attached to an offer message. */
-interface OfferData {
-  amount: number;
-  status: OfferStatus;
-  totalAmount?: number;
-  message?: string;
-  shippingAddress?: ShippingAddress;
-  shippingEstimate?: ShippingEstimate;
-  meetup?: MeetupDetails;
-  history?: OfferHistoryEntry[];
-  expiresAt?: Date;
-  offerId?: string;
-  originalOfferId?: string;
 }
 
 /**
@@ -418,6 +400,9 @@ export class ChatService {
     imageUri: string
   ): Promise<string> {
     try {
+      if (!auth.currentUser || auth.currentUser.uid !== senderId) {
+        throw new Error('Session invalide pour envoyer une photo');
+      }
       // Compress and resize image
       const manipulatedImage = await ImageManipulator.manipulateAsync(
         imageUri,
@@ -433,7 +418,7 @@ export class ChatService {
       );
 
       // Upload to Firebase Storage using web SDK
-      const timestamp = Date.now();
+      const timestamp = randomUUID();
       const imageName = `chat_images/${chatId}/${timestamp}.jpg`;
       const thumbnailName = `chat_images/${chatId}/${timestamp}_thumb.jpg`;
 
@@ -450,15 +435,13 @@ export class ChatService {
         thumbnailResponse.blob(),
       ]);
       await Promise.all([
-        uploadBytes(imageRef, imageBlob),
-        uploadBytes(thumbnailRef, thumbnailBlob),
+        uploadBytes(imageRef, imageBlob, PRIVATE_IMAGE_UPLOAD_METADATA),
+        uploadBytes(thumbnailRef, thumbnailBlob, PRIVATE_IMAGE_UPLOAD_METADATA),
       ]);
 
-      // Get download URLs
-      const [imageUrl, thumbnailUrl] = await Promise.all([
-        getDownloadURL(imageRef),
-        getDownloadURL(thumbnailRef),
-      ]);
+      // Persist only tokenless references; reads require participant auth.
+      const imageUrl = privateMediaUrl(imageRef.bucket, imageRef.fullPath);
+      const thumbnailUrl = privateMediaUrl(thumbnailRef.bucket, thumbnailRef.fullPath);
 
       // Send message with image metadata
       return await this.sendMessageWithType(
@@ -483,621 +466,52 @@ export class ChatService {
   }
 
   static async sendOffer(
-    chatId: string,
-    senderId: string,
-    receiverId: string,
-    amount: number,
-    message?: string,
-    shippingAddress?: ShippingAddress,
-    shippingEstimate?: ShippingEstimate
+    _chatId: string, _senderId: string, _receiverId: string, _amount: number,
+    _message?: string, _shippingAddress?: ShippingAddress, _shippingEstimate?: ShippingEstimate
   ): Promise<string> {
-    try {
-      const totalAmount = shippingEstimate
-        ? amount + shippingEstimate.amount
-        : amount;
-
-      let content = `Offre de ${amount} $`;
-      if (shippingEstimate) {
-        content += ` + ${shippingEstimate.amount} $ de livraison (${shippingEstimate.carrier})`;
-      }
-      if (message) {
-        content += '\n' + message;
-      }
-
-      const offerData: OfferData = {
-        amount,
-        status: 'pending',
-        totalAmount,
-      };
-
-      // Only add optional fields if they exist
-      if (message) {
-        offerData.message = message;
-      }
-      if (shippingAddress) {
-        offerData.shippingAddress = shippingAddress;
-      }
-      if (shippingEstimate) {
-        offerData.shippingEstimate = shippingEstimate;
-      }
-
-      return await this.sendMessageWithType(
-        chatId,
-        senderId,
-        receiverId,
-        'offer',
-        content,
-        {
-          offer: offerData,
-        }
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de l'envoi de l'offre: ${msg}`);
-    }
+    throw new Error('Les offres avec livraison ne sont pas disponibles dans cette phase.');
   }
 
-  static async sendShippingLabel(
-    chatId: string,
-    labelUrl: string,
-    trackingNumber: string,
-    trackingUrl?: string
-  ): Promise<string> {
-    try {
-      let content = `📦 Étiquette d'expédition générée\n\n`;
-      content += `Numéro de suivi: ${trackingNumber}\n`;
-      if (trackingUrl) {
-        content += `Lien de suivi: ${trackingUrl}`;
-      }
-
-      // Fetch participants from the chat for proper rule/listener inclusion.
-      let participants: string[] = [];
-      try {
-        const chatDoc = await getDoc(doc(firestore, 'chats', chatId));
-        if (chatDoc.exists()) {
-          participants = (chatDoc.data().participants as string[]) || [];
-        }
-      } catch (lookupError) {
-        if (__DEV__) console.warn('[ChatService] Could not load chat participants for shipping label:', lookupError);
-      }
-
-      const messageData = {
-        chatId,
-        senderId: 'system',
-        receiverId: 'system',
-        type: 'system' as const,
-        content,
-        participants,
-        timestamp: serverTimestamp(),
-        status: 'sent' as const,
-        isRead: true,
-        shippingLabel: {
-          labelUrl,
-          trackingNumber,
-          trackingUrl: trackingUrl || '',
-        },
-      };
-
-      const messagesRef = collection(firestore, 'messages');
-      const docRef = await addDoc(messagesRef, messageData);
-
-      return docRef.id;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de l'envoi de l'étiquette: ${message}`);
-    }
+  static async acceptOffer(chatId: string, messageId: string, _offerId: string, _userId: string): Promise<void> {
+    const accept = httpsCallable<{ chatId: string; messageId: string }, { success: boolean; transactionId: string }>(functions, 'acceptMeetupOffer');
+    await accept({ chatId, messageId });
   }
 
-  static async acceptOffer(
-    chatId: string,
-    messageId: string,
-    offerId: string,
-    userId: string
-  ): Promise<void> {
-    try {
-      const messageRef = doc(firestore, 'messages', messageId);
-      const messageDoc = await getDoc(messageRef);
-
-      if (!messageDoc.exists()) {
-        throw new Error('Message non trouvé');
-      }
-
-      const offerData = messageDoc.data();
-
-      if (offerData?.offer?.meetup) {
-        // Server-authoritative meetup acceptance. The callable
-        // `acceptMeetupOffer` runs a single runTransaction that (1) flips the
-        // offer to 'accepted', (2) locks the article (isSold), and (3) creates
-        // the meetup transaction — deriving buyer/seller from the ARTICLE
-        // (article.sellerId = seller, the other chat participant = buyer), so
-        // acceptance works for the party that did NOT emit the offer, incl.
-        // a seller counter-offer accepted by the buyer (audit F9).
-        //
-        // `reused:true` is returned when a non-terminal meetup transaction
-        // already existed for this chat+article — it is accepted and returned
-        // rather than failing, so this is a success (audit F8).
-        const acceptMeetupOfferFn = httpsCallable<
-          { chatId: string; messageId: string },
-          { success: boolean; transactionId: string; reused?: boolean }
-        >(functions, 'acceptMeetupOffer');
-        await acceptMeetupOfferFn({ chatId, messageId });
-      } else {
-        // Non-meetup (legacy shipping) offer: no transaction / article lock is
-        // created on accept — the buyer pays separately via the checkout flow.
-        // H9: enforce offer expiry before flipping the status.
-        if (offerData?.offer?.expiresAt) {
-          const expiresAt = offerData.offer.expiresAt.toDate
-            ? offerData.offer.expiresAt.toDate()
-            : new Date(offerData.offer.expiresAt);
-          if (expiresAt < new Date()) {
-            await updateDoc(messageRef, { 'offer.status': 'expired' });
-            throw new Error('Cette offre a expiré');
-          }
-        }
-        // Stamp acceptedAt so the server-side expiry job (F135) can measure the
-        // post-acceptance grace window precisely. amount stays untouched, so the
-        // message update rule (offer.amount immutable) still permits this write.
-        await updateDoc(messageRef, {
-          'offer.status': 'accepted',
-          'offer.acceptedAt': serverTimestamp(),
-        });
-      }
-
-      // System confirmation message (informational only; for meetup offers the
-      // financial/status mutation is already committed atomically above).
-      if (offerData?.offer) {
-        await this.sendSystemMessage(
-          chatId,
-          `Offre de ${offerData.offer.amount} $ acceptée`
-        );
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de l'acceptation de l'offre: ${message}`);
-    }
+  static async rejectOffer(chatId: string, messageId: string, _offerId: string, _userId: string): Promise<void> {
+    const reject = httpsCallable(functions, 'rejectMeetupProposal');
+    await reject({ chatId, messageId });
   }
 
-  static async rejectOffer(
-    chatId: string,
-    messageId: string,
-    offerId: string,
-    userId: string
-  ): Promise<void> {
-    try {
-      const messageRef = doc(firestore, 'messages', messageId);
-      await updateDoc(messageRef, {
-        'offer.status': 'rejected',
-      });
-
-      // Send system message
-      const messageDoc = await getDoc(messageRef);
-      if (messageDoc.exists()) {
-        const msgData = messageDoc.data();
-        if (msgData?.offer) {
-          await this.sendSystemMessage(
-            chatId,
-            `Offre de ${msgData.offer.amount} $ refusée`
-          );
-        }
-      }
-
-      // Cancel the transaction if one exists for this chat (e.g. created via
-      // checkout/meetup.tsx before the offer was sent). This ensures the article
-      // is unmarked as sold when the seller rejects.
-      const existingTx = await TransactionService.getTransactionByChat(chatId, userId);
-      if (existingTx && (existingTx.status === 'meetup_pending' || existingTx.status === 'meetup_confirmed')) {
-        await TransactionService.updateTransactionStatus(existingTx.id, 'cancelled');
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors du refus de l'offre: ${message}`);
-    }
-  }
-
-  // ============================================
-  // MEETUP OFFER METHODS
-  // ============================================
-
-  /**
-   * Envoie une offre avec détails de meetup
-   */
+  /** All entry points share the same atomic buyer/article replacement policy. */
   static async sendMeetupOffer(
-    chatId: string,
-    senderId: string,
-    receiverId: string,
-    amount: number,
-    meetupLocation: MeetupSpot,
-    message?: string
+    chatId: string, senderId: string, receiverId: string, amount: number,
+    meetupLocation: MeetupSpot, message?: string
   ): Promise<string> {
-    try {
-      // Validate authentication - ensure Firebase user matches senderId
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.');
-      }
-      if (currentUser.uid !== senderId) {
-        if (__DEV__) console.error('[ChatService] Auth mismatch - Firebase UID:', currentUser.uid, 'senderId:', senderId);
-        throw new Error('Session expirée. Veuillez vous reconnecter.');
-      }
-      if (!receiverId || receiverId === senderId) {
-        if (__DEV__) console.error('[ChatService] Invalid receiverId:', receiverId, 'senderId:', senderId);
-        throw new Error('Destinataire invalide.');
-      }
-
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48h
-
-      // Strip undefined values from meetupLocation to avoid Firestore rejection
-      const cleanLocation = stripUndefined(meetupLocation);
-
-      const meetupDetails: MeetupDetails = {
-        location: cleanLocation,
-        proposedBy: 'buyer',
-      };
-
-      const historyEntry: OfferHistoryEntry = {
-        action: 'created',
-        by: senderId,
-        timestamp: now,
-        newValue: { amount, meetup: meetupDetails },
-      };
-
-      // Format readable content for chat display
-      let content = `Offre de ${amount} $\n`;
-      content += meetupLocation.name;
-      if (message) {
-        content += `\n${message}`;
-      }
-
-      // Build offerData without undefined fields (Firestore rejects undefined)
-      const offerData: OfferData = {
-        amount,
-        status: 'pending' as OfferStatus,
-        meetup: stripUndefined(meetupDetails),
-        history: [stripUndefined(historyEntry)],
-        expiresAt,
-        offerId: `offer_${Date.now()}_${senderId}`,
-      };
-      if (message) {
-        offerData.message = message;
-      }
-
-      return await this.sendMessageWithType(
-        chatId,
-        senderId,
-        receiverId,
-        'offer',
-        content,
-        { offer: offerData }
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de l'envoi de l'offre meetup: ${msg}`);
+    if (!auth.currentUser || auth.currentUser.uid !== senderId || !receiverId || receiverId === senderId) {
+      throw new Error('Session invalide. Veuillez vous reconnecter.');
     }
+    return this.sendMeetupProposal({ chatId, amount, location: stripUndefined(meetupLocation), ...(message ? { message } : {}) });
   }
 
-  /**
-   * Contre-offre sur le prix
-   */
-  static async counterOfferPrice(
-    chatId: string,
-    originalMessageId: string,
-    userId: string,
-    receiverId: string,
-    newAmount: number,
-    message?: string
-  ): Promise<string> {
-    try {
-      // Get original offer
-      const messageRef = doc(firestore, 'messages', originalMessageId);
-      const messageDoc = await getDoc(messageRef);
-
-      if (!messageDoc.exists()) {
-        throw new Error('Message original non trouvé');
-      }
-
-      const originalData = messageDoc.data();
-      const originalOffer = originalData?.offer;
-
-      if (!originalOffer) {
-        throw new Error('Offre originale non trouvée');
-      }
-
-      // H9: Enforce offer expiry — reject if past expiresAt
-      if (originalOffer.expiresAt) {
-        const expiresAt = originalOffer.expiresAt.toDate
-          ? originalOffer.expiresAt.toDate()
-          : new Date(originalOffer.expiresAt);
-        if (expiresAt < new Date()) {
-          await updateDoc(messageRef, {
-            'offer.status': 'expired',
-          });
-          throw new Error('Cette offre a expiré');
-        }
-      }
-
-      // Update original offer status
-      await updateDoc(messageRef, {
-        'offer.status': 'counter_price',
-      });
-
-      // Create new counter-offer with same meetup details
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-      const historyEntry: OfferHistoryEntry = {
-        action: 'counter_price',
-        by: userId,
-        timestamp: now,
-        previousValue: originalOffer.amount,
-        newValue: newAmount,
-        message,
-      };
-
-      const newHistory = [...(originalOffer.history || []), historyEntry];
-
-      const meetupDetails = originalOffer.meetup;
-      const dateTimeInfo = meetupDetails.dateTime
-        ? `le ${new Date(meetupDetails.dateTime).toLocaleDateString(APP_LOCALE)} à ${new Date(meetupDetails.dateTime).toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })}`
-        : 'à une date à convenir';
-
-      let content = `Contre-offre: ${newAmount} $\n`;
-      content += `${meetupDetails.location.name}\n`;
-      content += dateTimeInfo;
-      if (message) {
-        content += `\n${message}`;
-      }
-
-      const counterOfferData: OfferData = {
-        amount: newAmount,
-        status: 'pending' as OfferStatus,
-        meetup: stripUndefined(meetupDetails),
-        history: stripUndefined(newHistory),
-        expiresAt,
-        offerId: `offer_${Date.now()}_${userId}`,
-        originalOfferId: originalOffer.offerId,
-      };
-      if (message) {
-        counterOfferData.message = message;
-      }
-
-      // Send system message about counter-offer
-      await this.sendSystemMessage(
-        chatId,
-        `Contre-offre: ${originalOffer.amount} $ → ${newAmount} $`
-      );
-
-      return await this.sendMessageWithType(
-        chatId,
-        userId,
-        receiverId,
-        'offer',
-        content,
-        { offer: counterOfferData }
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de la contre-offre prix: ${msg}`);
-    }
+  private static async sendMeetupProposal(input: Record<string, unknown>): Promise<string> {
+    const send = httpsCallable<Record<string, unknown>, { success: boolean; messageId: string }>(functions, 'sendMeetupProposal');
+    // A stable id is included in the request so callable retries replay the
+    // original result. The server also deduplicates simultaneous equal terms.
+    const requestId = doc(collection(firestore, 'messages')).id;
+    const result = await send({ ...input, requestId });
+    return result.data.messageId;
   }
 
-  /**
-   * Contre-offre sur le lieu de rencontre
-   */
-  static async counterOfferLocation(
-    chatId: string,
-    originalMessageId: string,
-    userId: string,
-    receiverId: string,
-    newLocation: MeetupSpot,
-    message?: string
-  ): Promise<string> {
-    try {
-      const messageRef = doc(firestore, 'messages', originalMessageId);
-      const messageDoc = await getDoc(messageRef);
-
-      if (!messageDoc.exists()) {
-        throw new Error('Message original non trouvé');
-      }
-
-      const originalData = messageDoc.data();
-      const originalOffer = originalData?.offer;
-
-      if (!originalOffer) {
-        throw new Error('Offre originale non trouvée');
-      }
-
-      // H9: Enforce offer expiry — reject if past expiresAt
-      if (originalOffer.expiresAt) {
-        const expiresAt = originalOffer.expiresAt.toDate
-          ? originalOffer.expiresAt.toDate()
-          : new Date(originalOffer.expiresAt);
-        if (expiresAt < new Date()) {
-          await updateDoc(messageRef, {
-            'offer.status': 'expired',
-          });
-          throw new Error('Cette offre a expiré');
-        }
-      }
-
-      // Update original offer status
-      await updateDoc(messageRef, {
-        'offer.status': 'counter_location',
-      });
-
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-      const historyEntry: OfferHistoryEntry = {
-        action: 'counter_location',
-        by: userId,
-        timestamp: now,
-        previousValue: originalOffer.meetup.location,
-        newValue: newLocation,
-        message,
-      };
-
-      const newHistory = [...(originalOffer.history || []), historyEntry];
-
-      const newMeetupDetails: MeetupDetails = {
-        ...originalOffer.meetup,
-        location: newLocation,
-        proposedBy: userId === originalData.senderId ? 'buyer' : 'seller',
-      };
-
-      const dateTimeInfo = originalOffer.meetup.dateTime
-        ? `le ${new Date(originalOffer.meetup.dateTime).toLocaleDateString(APP_LOCALE)} à ${new Date(originalOffer.meetup.dateTime).toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })}`
-        : 'à une date à convenir';
-
-      let content = `Nouveau lieu proposé\n`;
-      content += `${originalOffer.amount} $\n`;
-      content += `${newLocation.name}\n`;
-      content += dateTimeInfo;
-      if (message) {
-        content += `\n${message}`;
-      }
-
-      const counterOfferData: OfferData = {
-        amount: originalOffer.amount,
-        status: 'pending' as OfferStatus,
-        meetup: stripUndefined(newMeetupDetails),
-        history: stripUndefined(newHistory),
-        expiresAt,
-        offerId: `offer_${Date.now()}_${userId}`,
-        originalOfferId: originalOffer.offerId,
-      };
-      if (message) {
-        counterOfferData.message = message;
-      }
-
-      await this.sendSystemMessage(
-        chatId,
-        `Nouveau lieu proposé: ${newLocation.name}`
-      );
-
-      return await this.sendMessageWithType(
-        chatId,
-        userId,
-        receiverId,
-        'offer',
-        content,
-        { offer: counterOfferData }
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de la contre-offre lieu: ${msg}`);
-    }
+  static async counterOfferPrice(chatId: string, originalMessageId: string, _userId: string, _receiverId: string, newAmount: number, message?: string): Promise<string> {
+    return this.sendMeetupProposal({ chatId, originalMessageId, counterKind: 'price', amount: newAmount, ...(message ? { message } : {}) });
   }
 
-  /**
-   * Contre-offre sur l'horaire
-   */
-  static async counterOfferTime(
-    chatId: string,
-    originalMessageId: string,
-    userId: string,
-    receiverId: string,
-    newDateTime: Date,
-    message?: string
-  ): Promise<string> {
-    try {
-      const messageRef = doc(firestore, 'messages', originalMessageId);
-      const messageDoc = await getDoc(messageRef);
+  static async counterOfferLocation(chatId: string, originalMessageId: string, _userId: string, _receiverId: string, newLocation: MeetupSpot, message?: string): Promise<string> {
+    return this.sendMeetupProposal({ chatId, originalMessageId, counterKind: 'location', location: stripUndefined(newLocation), ...(message ? { message } : {}) });
+  }
 
-      if (!messageDoc.exists()) {
-        throw new Error('Message original non trouvé');
-      }
-
-      const originalData = messageDoc.data();
-      const originalOffer = originalData?.offer;
-
-      if (!originalOffer) {
-        throw new Error('Offre originale non trouvée');
-      }
-
-      if (originalOffer.expiresAt) {
-        const expiresAt = originalOffer.expiresAt.toDate
-          ? originalOffer.expiresAt.toDate()
-          : new Date(originalOffer.expiresAt);
-        if (expiresAt < new Date()) {
-          await updateDoc(messageRef, { 'offer.status': 'expired' });
-          throw new Error('Cette offre a expiré');
-        }
-      }
-
-      // Update original offer status
-      await updateDoc(messageRef, {
-        'offer.status': 'counter_time',
-      });
-
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-      const historyEntry: OfferHistoryEntry = {
-        action: 'counter_time',
-        by: userId,
-        timestamp: now,
-        previousValue: originalOffer.meetup.dateTime,
-        newValue: newDateTime,
-        message,
-      };
-
-      const newHistory = [...(originalOffer.history || []), historyEntry];
-
-      const newMeetupDetails: MeetupDetails = {
-        ...originalOffer.meetup,
-        dateTime: newDateTime,
-        proposedBy: userId === originalData.senderId ? 'buyer' : 'seller',
-      };
-
-      const formattedDate = newDateTime.toLocaleDateString(APP_LOCALE, {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      });
-      const formattedTime = newDateTime.toLocaleTimeString(APP_LOCALE, {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
-      let content = `Nouvel horaire proposé\n`;
-      content += `${originalOffer.amount} $\n`;
-      content += `${originalOffer.meetup.location.name}\n`;
-      content += `${formattedDate} à ${formattedTime}`;
-      if (message) {
-        content += `\n${message}`;
-      }
-
-      const counterOfferData: OfferData = {
-        amount: originalOffer.amount,
-        status: 'pending' as OfferStatus,
-        meetup: stripUndefined(newMeetupDetails),
-        history: stripUndefined(newHistory),
-        expiresAt,
-        offerId: `offer_${Date.now()}_${userId}`,
-        originalOfferId: originalOffer.offerId,
-      };
-      if (message) {
-        counterOfferData.message = message;
-      }
-
-      await this.sendSystemMessage(
-        chatId,
-        `Nouvel horaire proposé: ${formattedDate} à ${formattedTime}`
-      );
-
-      return await this.sendMessageWithType(
-        chatId,
-        userId,
-        receiverId,
-        'offer',
-        content,
-        { offer: counterOfferData }
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de la contre-offre horaire: ${msg}`);
-    }
+  static async counterOfferTime(chatId: string, originalMessageId: string, _userId: string, _receiverId: string, newDateTime: Date, message?: string): Promise<string> {
+    return this.sendMeetupProposal({ chatId, originalMessageId, counterKind: 'time', dateTime: newDateTime.toISOString(), ...(message ? { message } : {}) });
   }
 
   /**
@@ -1135,8 +549,8 @@ export class ChatService {
       // Résout la transaction meetup_pending pour ce chat (en tant que vendeur :
       // seul le vendeur peut confirmer, et la callable revérifie ce rôle).
       const transactionId = await this.findMeetupTransactionId(chatId, userId, [
-        'meetup_pending',
-      ]);
+        'meetup_pending', 'meetup_confirmed',
+      ], messageId);
 
       if (!transactionId) {
         if (__DEV__) console.warn('[ChatService] confirmMeetup: no meetup_pending transaction found for chatId', chatId);
@@ -1149,15 +563,6 @@ export class ChatService {
         { success: boolean; chatId: string | null }
       >(functions, 'confirmMeetupTransaction');
       await confirmMeetupTransactionFn({ transactionId, messageId });
-
-      const dateTimeInfo = offer.meetup.dateTime
-        ? `le ${new Date(offer.meetup.dateTime).toLocaleDateString(APP_LOCALE)} à ${new Date(offer.meetup.dateTime).toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })}`
-        : 'à une date à convenir';
-
-      await this.sendSystemMessage(
-        chatId,
-        `Meetup confirmé!\n${offer.meetup.location.name}\n${dateTimeInfo}`
-      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Erreur lors de la confirmation du meetup: ${message}`);
@@ -1169,13 +574,23 @@ export class ChatService {
    * vendeur). Les règles Firestore exigent que chaque doc retourné satisfasse
    * `auth.uid == buyerId || auth.uid == sellerId`, donc on interroge selon le
    * rôle du caller : d'abord en tant qu'acheteur, puis en tant que vendeur.
-   * Renvoie l'ID de la première transaction trouvée dans un des statuts donnés.
+   * Utilise d'abord le lien exact du message ; le fallback historique vérifie
+   * le montant, le lieu et l'éventuel lien avant de proposer un ID au serveur.
    */
   private static async findMeetupTransactionId(
     chatId: string,
     userId: string,
-    statuses: string[]
+    statuses: string[],
+    messageId: string
   ): Promise<string | null> {
+    const messageSnap = await getDoc(doc(firestore, 'messages', messageId));
+    const message = messageSnap.data();
+    if (!message || message.chatId !== chatId || !message.offer?.meetup || message.offer.status !== 'accepted') {
+      throw new Error('Cette proposition ne correspond pas à un accord accepté.');
+    }
+    if (message.offer.transactionId) return message.offer.transactionId;
+    const matches = (data: DocumentData) => data.deliveryType === 'meetup' && data.amount === message.offer.amount &&
+      data.meetupSpot?.name === message.offer.meetup.location?.name && (!data.offerMessageId || data.offerMessageId === messageId);
     const txCol = collection(firestore, 'transactions');
     // En tant qu'acheteur
     const asBuyer = await getDocs(
@@ -1186,9 +601,8 @@ export class ChatService {
         where('status', 'in', statuses)
       )
     );
-    if (!asBuyer.empty) {
-      return asBuyer.docs[0].id;
-    }
+    const buyerTransaction = asBuyer.docs.find((snapshot) => matches(snapshot.data()));
+    if (buyerTransaction) return buyerTransaction.id;
     // En tant que vendeur
     const asSeller = await getDocs(
       query(
@@ -1198,9 +612,8 @@ export class ChatService {
         where('status', 'in', statuses)
       )
     );
-    if (!asSeller.empty) {
-      return asSeller.docs[0].id;
-    }
+    const sellerTransaction = asSeller.docs.find((snapshot) => matches(snapshot.data()));
+    if (sellerTransaction) return sellerTransaction.id;
     return null;
   }
 
@@ -1220,7 +633,7 @@ export class ChatService {
       const transactionId = await this.findMeetupTransactionId(chatId, reporterId, [
         'meetup_pending',
         'meetup_confirmed',
-      ]);
+      ], messageId);
 
       if (!transactionId) {
         if (__DEV__) {
@@ -1236,29 +649,13 @@ export class ChatService {
         ...(reason ? { reason } : {}),
         ...(details && details.trim().length > 0 ? { details: details.trim() } : {}),
       });
-
-      await this.sendSystemMessage(
-        chatId,
-        `Absence signalée. Notre équipe va examiner la situation.`
-      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Erreur lors du signalement no-show: ${message}`);
     }
   }
 
-  /**
-   * Marquer un meetup comme complété et déclencher la finalisation via CF.
-   *
-   * B2 FIX : l'ordre est désormais callable d'abord → message ensuite, calqué
-   * sur `confirmMeetup`. L'ancienne version écrivait `offer.status='completed'`
-   * INCONDITIONNELLEMENT avant de résoudre/appeler la callable. Si la
-   * transaction réelle était entre-temps annulée (auto-annulation 7j) ou
-   * disputée, la callable échouait mais le message restait marqué « terminée »,
-   * faisant disparaître à tort les recours no-show. On exige maintenant une
-   * transaction `meetup_confirmed` et on n'écrit le message qu'après le succès
-   * de la callable.
-   */
+  /** Le serveur complète l'accord et son message dans une seule transaction. */
   static async completeMeetup(
     chatId: string,
     messageId: string,
@@ -1271,7 +668,7 @@ export class ChatService {
       // (`completeMeetupTransaction`) exige le statut `meetup_confirmed`.
       const transactionId = await this.findMeetupTransactionId(chatId, userId, [
         'meetup_confirmed',
-      ]);
+      ], messageId);
 
       if (!transactionId) {
         if (__DEV__) console.warn('[ChatService] completeMeetup: no meetup_confirmed transaction found for chatId', chatId);
@@ -1282,58 +679,10 @@ export class ChatService {
       // disputée, statut incompatible…), on propage l'erreur sans toucher au
       // message — le badge « terminée » ne doit jamais précéder le backend.
       const completeMeetupFn = httpsCallable(functions, 'completeMeetupTransaction');
-      await completeMeetupFn({ transactionId });
-
-      // Succès confirmé : on peut marquer le message comme complété.
-      const messageRef = doc(firestore, 'messages', messageId);
-      await updateDoc(messageRef, {
-        'offer.meetup.completedAt': new Date(),
-        'offer.status': 'completed',
-      });
-
-      await this.sendSystemMessage(
-        chatId,
-        `Transaction complétée avec succès! Merci d'utiliser Second.`
-      );
+      await completeMeetupFn({ transactionId, messageId });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Erreur lors de la completion du meetup: ${message}`);
-    }
-  }
-
-  static async sendSystemMessage(chatId: string, content: string): Promise<string> {
-    try {
-      // Fetch participants from the chat so the message is included in
-      // listeners/rules that filter by `participants`.
-      let participants: string[] = [];
-      try {
-        const chatDoc = await getDoc(doc(firestore, 'chats', chatId));
-        if (chatDoc.exists()) {
-          participants = (chatDoc.data().participants as string[]) || [];
-        }
-      } catch (lookupError) {
-        if (__DEV__) console.warn('[ChatService] Could not load chat participants for system message:', lookupError);
-      }
-
-      const messageData = {
-        chatId,
-        senderId: 'system',
-        receiverId: 'system',
-        type: 'system' as MessageType,
-        content,
-        participants,
-        timestamp: serverTimestamp(),
-        status: 'sent' as MessageStatus,
-        isRead: true,
-      };
-
-      const messagesRef = collection(firestore, 'messages');
-      const docRef = await addDoc(messagesRef, messageData);
-
-      return docRef.id;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Erreur lors de l'envoi du message systeme: ${message}`);
     }
   }
 

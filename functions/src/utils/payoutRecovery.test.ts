@@ -152,3 +152,29 @@ describe('revertFailedPayout', () => {
     expect(stripeMock.calls.transfersCreateReversal.length).toBe(0);
   });
 });
+
+describe('stale and concurrent payout failure replies', () => {
+  it('does not reverse or credit a completed payout', async () => {
+    fs.setDoc('withdrawal_requests/complete', { status: 'completed', amount: 2500, userId: 'seller1', stripeTransferId: 'tr_paid', stripePayoutId: 'po_paid' });
+    fs.setDoc('wallets/seller1', { balance: 100 });
+    await revertFailedPayout({ withdrawalRequestId: 'complete', payoutId: 'po_paid' }, stripeMock.client as never);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(100);
+    expect(stripeMock.calls.transfersCreateReversal).toHaveLength(0);
+  });
+  it('does not touch a request bound to a different payout', async () => {
+    fs.setDoc('withdrawal_requests/current', { status: 'processing', amount: 2500, userId: 'seller1', stripeTransferId: 'tr_current', stripePayoutId: 'po_current' });
+    fs.setDoc('wallets/seller1', { balance: 100 });
+    await revertFailedPayout({ withdrawalRequestId: 'current', payoutId: 'po_old' }, stripeMock.client as never);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(100);
+    expect(stripeMock.calls.transfersCreateReversal).toHaveLength(0);
+  });
+  it('webhook and recovery racing re-credit exactly once', async () => {
+    fs.setDoc('withdrawal_requests/concurrent', { status: 'processing', amount: 2500, userId: 'seller1', stripeTransferId: 'tr_same', stripePayoutId: 'po_same' });
+    fs.setDoc('wallets/seller1', { balance: 100 });
+    await Promise.all([1, 2].map(() => revertFailedPayout({ withdrawalRequestId: 'concurrent', payoutId: 'po_same' }, stripeMock.client as never)));
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(2600);
+    expect(fs.sumIncrements('wallets/seller1', 'balance')).toBe(2500);
+    // Stripe deduplicates the identical reversal key across the two replays.
+    expect(stripeMock.calls.transfersCreateReversal.every(args => (args[2] as { idempotencyKey: string }).idempotencyKey === 'rev_tr_same')).toBe(true);
+  });
+});

@@ -18,6 +18,7 @@
  */
 import * as logger from 'firebase-functions/logger';
 import { PostHog } from 'posthog-node';
+import { db } from '../config/firebase';
 
 /**
  * Server event catalogue (§12). Exhaustive — captureServerEvent only accepts
@@ -90,6 +91,11 @@ export async function captureServerEvent(
       logger.warn('[analytics] skipping event with empty distinctId', { event });
       return;
     }
+    // Read each time: a warm function must not cache a withdrawn preference.
+    // Missing/deleted users and failed reads are fail-closed. Absent preference
+    // on an existing account preserves the product's opt-out default.
+    const user = await db.collection('users').doc(distinctId).get();
+    if (!user.exists || user.data()?.preferences?.analyticsConsent === false) return;
     await ph.captureImmediate({
       distinctId,
       event,

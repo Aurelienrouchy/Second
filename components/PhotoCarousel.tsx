@@ -6,7 +6,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import { Image } from 'expo-image';
+import { PrivateStorageImage } from '@/components/PrivateStorageImage';
 import { colors } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -17,11 +17,13 @@ const VIEWABILITY_CONFIG = {
 
 interface PhotoCarouselProps {
   photos: string[];
+  ownerUid: string | undefined;
   height?: number;
 }
 
 export default function PhotoCarousel({
   photos,
+  ownerUid,
   height = 400,
 }: PhotoCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -38,13 +40,15 @@ export default function PhotoCarousel({
 
   const renderPhoto = useCallback(
     ({ item }: { item: string }) => (
-      <Image
-        source={{ uri: item }}
+      <PrivateStorageImage
+        uri={item}
+        allowLocalSource
+            localSourceOwnerUid={ownerUid}
         style={[styles.photo, { height }]}
         contentFit="cover"
       />
     ),
-    [height],
+    [height, ownerUid],
   );
 
   return (

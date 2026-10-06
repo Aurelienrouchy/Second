@@ -80,6 +80,18 @@ describe('useArticleSearch', () => {
     expect(result.current.isLoading).toBe(false);
   });
 
+  it('attend la résolution du périmètre boutique avant de rechercher, même avec des filtres', async () => {
+    const { rerender } = renderHook(({ enabled, sellerId }: { enabled: boolean; sellerId?: string }) =>
+      useArticleSearch({ enabled, sellerId, initialQuery: 'robe' }), {
+      wrapper: createWrapper(), initialProps: { enabled: false, sellerId: undefined },
+    });
+    await act(async () => { await Promise.resolve(); });
+    expect(mockSearchArticles).not.toHaveBeenCalled();
+    rerender({ enabled: true, sellerId: 'shop-owner' });
+    await waitFor(() => expect(mockSearchArticles).toHaveBeenCalled());
+    expect(mockSearchArticles.mock.calls[0][1].sellerId).toBe('shop-owner');
+  });
+
   it('lance la requête immédiatement quand commitSearchQuery est appelé (bypass debounce)', async () => {
     const { result } = renderHook(() => useArticleSearch(), {
       wrapper: createWrapper(),

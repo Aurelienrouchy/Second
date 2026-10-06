@@ -62,6 +62,7 @@ function buildContext(overrides: Partial<MakeOfferContext> = {}): MakeOfferConte
       setIsSubmitting: jest.fn(),
       ...actionsOverride,
     },
+    articleId: 'article-1',
     articleTitle: 'Veste en cuir',
     currentPrice: 100,
     onClose: jest.fn(),
@@ -85,7 +86,7 @@ describe('<ConfirmStep /> — envoi de l’offre', () => {
     const context = buildContext({ state: { message: 'Dispo ce soir' } as never });
 
     render(<ConfirmStep context={context} onSubmitMeetup={onSubmitMeetup} />);
-    fireEvent.press(screen.getByText("ENVOYER L'OFFRE"));
+    fireEvent.press(screen.getByText("ENVOYER LA PROPOSITION"));
 
     await waitFor(() =>
       expect(onSubmitMeetup).toHaveBeenCalledWith(80, 'Dispo ce soir', spot),
@@ -101,7 +102,7 @@ describe('<ConfirmStep /> — envoi de l’offre', () => {
     const context = buildContext({ state: { selectedSpot: null } as never });
 
     render(<ConfirmStep context={context} onSubmitMeetup={onSubmitMeetup} />);
-    fireEvent.press(screen.getByText("ENVOYER L'OFFRE"));
+    fireEvent.press(screen.getByText("ENVOYER LA PROPOSITION"));
 
     expect(onSubmitMeetup).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith('Erreur', 'Informations manquantes');
@@ -112,7 +113,7 @@ describe('<ConfirmStep /> — envoi de l’offre', () => {
     const context = buildContext();
 
     render(<ConfirmStep context={context} onSubmitMeetup={onSubmitMeetup} />);
-    fireEvent.press(screen.getByText("ENVOYER L'OFFRE"));
+    fireEvent.press(screen.getByText("ENVOYER LA PROPOSITION"));
 
     await waitFor(() =>
       expect(alertSpy).toHaveBeenCalledWith(
@@ -128,11 +129,12 @@ describe('<ConfirmStep /> — envoi de l’offre', () => {
   it('shipping : envoie montant + message (sans spot) puis ferme la modale', async () => {
     const onSubmitShipping = jest.fn().mockResolvedValue(undefined);
     const context = buildContext({
+      currentPrice: 150,
       state: { mode: 'shipping', offerAmount: '120', message: 'Merci' } as never,
     });
 
     render(<ConfirmStep context={context} onSubmitShipping={onSubmitShipping} />);
-    fireEvent.press(screen.getByText("ENVOYER L'OFFRE"));
+    fireEvent.press(screen.getByText("ENVOYER LA PROPOSITION"));
 
     await waitFor(() => expect(onSubmitShipping).toHaveBeenCalledWith(120, 'Merci'));
     await waitFor(() => expect(context.onClose).toHaveBeenCalledTimes(1));
@@ -142,7 +144,7 @@ describe('<ConfirmStep /> — envoi de l’offre', () => {
     const context = buildContext({ state: { mode: 'shipping' } as never });
 
     render(<ConfirmStep context={context} />);
-    fireEvent.press(screen.getByText("ENVOYER L'OFFRE"));
+    fireEvent.press(screen.getByText("ENVOYER LA PROPOSITION"));
 
     expect(alertSpy).toHaveBeenCalledWith('Erreur', 'Informations manquantes');
   });
@@ -170,7 +172,46 @@ describe('<ConfirmStep /> — envoi de l’offre', () => {
     const context = buildContext({ state: { isSubmitting: true } as never });
     render(<ConfirmStep context={context} onSubmitMeetup={jest.fn()} />);
 
-    // Spinner affiché → le libellé ENVOYER L'OFFRE n'est plus rendu.
-    expect(screen.queryByText("ENVOYER L'OFFRE")).toBeNull();
+    // Spinner affiché → le libellé ENVOYER LA PROPOSITION n'est plus rendu.
+    expect(screen.queryByText("ENVOYER LA PROPOSITION")).toBeNull();
   });
+});
+
+
+describe('<ConfirmStep /> — contrôle explicite de proposition', () => {
+  it('envoie le prix intégral d’un article à moins de 1 $ sans le tronquer', async () => {
+    const context = buildContext({ currentPrice: 0.5, state: { offerAmount: '0,50' } as never });
+    const onSubmitMeetup = jest.fn().mockResolvedValue(undefined);
+    render(<ConfirmStep context={context} onSubmitMeetup={onSubmitMeetup} />);
+    fireEvent.press(screen.getByTestId('offer-confirm-submit'));
+    await waitFor(() => expect(onSubmitMeetup).toHaveBeenCalledWith(0.5, '', spot));
+  });
+  it('un double clic en cours d’envoi ne crée qu’une requête', async () => {
+    let resolve!: () => void;
+    const onSubmitMeetup = jest.fn(() => new Promise<void>((done) => { resolve = done; }));
+    const context = buildContext();
+    render(<ConfirmStep context={context} onSubmitMeetup={onSubmitMeetup} />);
+    fireEvent.press(screen.getByTestId('offer-confirm-submit'));
+    fireEvent.press(screen.getByTestId('offer-confirm-submit'));
+    expect(onSubmitMeetup).toHaveBeenCalledTimes(1);
+    resolve();
+    await waitFor(() => expect(context.onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('annonce le remplacement des propositions et protège les accords acceptés', () => {
+    render(<ConfirmStep context={buildContext()} onSubmitMeetup={jest.fn()} />);
+    expect(screen.getByText(/Une nouvelle proposition remplace la précédente/)).toBeOnTheScreen();
+    expect(screen.getByText(/Un accord accepté doit être annulé explicitement/)).toBeOnTheScreen();
+  });
+});
+
+
+it('une proposition saisie avec virgule est envoyée au centime exact', async () => {
+  const onSubmitMeetup = jest.fn().mockResolvedValue(undefined);
+  const context = buildContext({ state: { offerAmount: '80,50' } as never });
+  const spy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  render(<ConfirmStep context={context} onSubmitMeetup={onSubmitMeetup} />);
+  fireEvent.press(screen.getByTestId('offer-confirm-submit'));
+  await waitFor(() => expect(onSubmitMeetup).toHaveBeenCalledWith(80.5, '', spot));
+  spy.mockRestore();
 });

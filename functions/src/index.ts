@@ -230,6 +230,7 @@ export {
 
 // Saved Searches
 export { checkSavedSearchNotifications } from './scheduled/savedSearches';
+export { checkExpoPushReceipts } from './scheduled/expoPushReceipts';
 
 // Draft image cleanup
 export { cleanupExpiredDrafts } from './scheduled/cleanupDrafts';
@@ -276,3 +277,6 @@ export { stripeWebhook } from './http/webhooks';
 // de-facto path and remains the safety net for missed webhooks). Requires the
 // SHIPENGINE_WEBHOOK_SECRET secret and manual endpoint registration in ShipEngine.
 export { shipEngineWebhook } from './http/shipEngineWebhook';
+
+// Server-authoritative, atomic meetup negotiation.
+export { sendMeetupProposal, rejectMeetupProposal } from './callable/offers';

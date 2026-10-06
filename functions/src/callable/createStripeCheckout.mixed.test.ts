@@ -129,6 +129,7 @@ function seedPending(opts?: { walletBalance?: number }) {
 }
 
 beforeEach(() => {
+  vi.stubEnv('PAYMENTS_ENABLED', 'true');
   fs.reset();
   stripeMock.reset();
   feeHolder.buyerTotal = 10; // $10 = 1000 cents
@@ -171,7 +172,7 @@ describe('createStripeCheckout — F23 atomic revert on Stripe failure', () => {
     seedPending();
     // PI creation fails → the F05/F23 revert path runs.
     stripeMock.impl.paymentIntentsCreate = async () => {
-      throw new Error('card_declined');
+      throw Object.assign(new Error('card_declined'), { type: 'StripeCardError', statusCode: 402 });
     };
 
     await expect(
@@ -289,7 +290,7 @@ describe('createStripeCheckout — single-rail platform charge (no transfer_data
     expect(piParams.transfer_data).toBeUndefined();
     expect(piParams.application_fee_amount).toBeUndefined();
     expect(piParams.on_behalf_of).toBeUndefined();
-    expect(reqOpts.idempotencyKey).toBe('pi_tx1');
+    expect(reqOpts.idempotencyKey).toBe(`pi_tx1_${fs.getDoc('transactions/tx1')!.walletCheckoutAttemptId}`);
   });
 });
 
@@ -334,5 +335,65 @@ describe('createStripeCheckout — F137 server shipping flag', () => {
     const res = await call({ auth: { uid: 'buyer1' }, data: { transactionId: 'txShip' } });
     expect(res.success).toBe(true);
     expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
+  });
+});
+
+describe('mixed checkout compensation under contention', () => {
+  it('two concurrent Stripe failures compensate the shared reservation once', async () => {
+    seedPending();
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    stripeMock.impl.paymentIntentsCreate = async () => {
+      if (++calls === 2) release();
+      await gate;
+      throw Object.assign(new Error('confirmed rejection'), { type: 'StripeInvalidRequestError', statusCode: 400 });
+    };
+    const results = await Promise.allSettled([1, 2].map(() => call({ auth: { uid: 'buyer1' },
+      data: { transactionId: 'tx1', walletAmount: 600 } })));
+    expect(results.every(result => result.status === 'rejected')).toBe(true);
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
+    expect(fs.writeOps.filter(op => op.path.startsWith('wallets/buyer1/ledger/') && op.data.type === 'refund_credit')).toHaveLength(1);
+    expect(fs.getDoc('transactions/tx1')!.walletAmountUsed).toBeUndefined();
+  });
+
+  it('an old failed attempt cannot compensate a newer checkout', async () => {
+    seedPending();
+    let rejectOld!: (error: Error) => void;
+    let entered!: () => void;
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const oldPI = new Promise<never>((_, reject) => { rejectOld = reject; });
+    let calls = 0;
+    stripeMock.impl.paymentIntentsCreate = async () => {
+      if (++calls === 1) { entered(); return oldPI; }
+      throw Object.assign(new Error('confirmed rejection'), { type: 'StripeInvalidRequestError', statusCode: 400 });
+    };
+    const old = call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } });
+    const observedOld = old.catch(() => undefined);
+    await started;
+    await expect(call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })).rejects.toThrow();
+    stripeMock.impl.paymentIntentsCreate = async () => ({ id: 'pi_new', client_secret: 'test_only' });
+    await call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } });
+    rejectOld(Object.assign(new Error('late old rejection'), { type: 'StripeInvalidRequestError', statusCode: 400 }));
+    await observedOld;
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(99400);
+    expect(fs.getDoc('transactions/tx1')!.stripePaymentIntentId).toBe('pi_new');
+    expect(fs.writeOps.filter(op => op.path.startsWith('wallets/buyer1/ledger/') && op.data.type === 'refund_credit')).toHaveLength(1);
+    const keys = stripeMock.calls.paymentIntentsCreate.map(args => (args[1] as { idempotencyKey: string }).idempotencyKey);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+});
+
+
+describe('mixed checkout outcome uncertainty', () => {
+  it('keeps funds reserved and refuses a second checkout when PI creation times out', async () => {
+    seedPending();
+    stripeMock.impl.paymentIntentsCreate = async () => { throw new Error('network timeout'); };
+    await expect(call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })).rejects.toMatchObject({ code: 'unavailable' });
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(99400);
+    expect(fs.getDoc('transactions/tx1')!.walletCheckoutOutcome).toBe('unknown');
+    await expect(call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })).rejects.toMatchObject({ code: 'unavailable' });
+    expect(stripeMock.calls.paymentIntentsCreate).toHaveLength(1);
   });
 });

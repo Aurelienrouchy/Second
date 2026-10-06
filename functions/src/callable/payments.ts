@@ -6,6 +6,10 @@
  * Payment via Stripe Connect Standard (destination charges)
  * Commission via service fee calculation (application_fee_amount)
  */
+import { articleReleaseUpdate } from '../utils/articleReservation';
+import { randomUUID } from 'node:crypto';
+import { isDefinitiveStripeFailure } from '../utils/payoutOutcome';
+import { hasBlockedUser, meetupLocationsEqual, meetupThreadId, normalizeMeetupLocation, offerExpired } from '../utils/meetupOffers';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
@@ -18,7 +22,7 @@ import { issueTransactionRefund } from '../utils/refund';
 import { sendPushNotification } from '../utils/notifications';
 import { captureServerEvent } from '../lib/analytics';
 import { deriveStripeAccountState, stripeAccountFirestoreFields } from '../utils/stripeAccount';
-import { isShippingEnabled } from '../config/featureFlags';
+import { isShippingEnabled, assertNewPaymentsEnabled } from '../config/featureFlags';
 
 // Rate limiting: financial callables share a 1-minute sliding window.
 // maxCallsUnauthenticated is 0 everywhere — these endpoints require auth.
@@ -604,8 +608,15 @@ export const getServiceFee = onCall({ region: 'northamerica-northeast1', memory:
  * - Using `runTransaction` with the Admin SDK guarantees exactly one
  *   buyer wins.
  *
- * Supports both delivery types: 'shipping' and 'meetup'.
+ * New local agreements must use sendMeetupProposal -> acceptMeetupOffer.
+ * This legacy constructor cannot reserve an article before seller acceptance.
  */
+function assertNoDirectMeetupCreation(deliveryType: string): void {
+  if (deliveryType === 'meetup') {
+    throw new HttpsError('failed-precondition', 'Proposez une rencontre dans la conversation. Le vendeur doit accepter la proposition avant de réserver cet article.');
+  }
+}
+
 export const createTransaction = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB', secrets: ['STRIPE_SECRET_KEY', 'SHIPENGINE_API_KEY'] },
   async (request) => {
@@ -646,6 +657,10 @@ export const createTransaction = onCall(
       throw new HttpsError('invalid-argument', 'amount must be a positive number');
     }
 
+    // The accepted offer callable owns local agreement creation atomically.
+    // A full-price legacy checkout must not bypass the seller's acceptance.
+    assertNoDirectMeetupCreation(deliveryType);
+
     // Holds the strictly-validated buyer shipping address (shipping mode only).
     let validatedShippingAddress: {
       street: string;
@@ -659,6 +674,7 @@ export const createTransaction = onCall(
       // but the callable stays invocable by a direct call — so we gate the
       // financial shipping rail HERE. Meetup is never gated by this flag (handled
       // below, no early return). Default OFF; enable with SHIPPING_ENABLED=true.
+      assertNewPaymentsEnabled();
       if (!isShippingEnabled()) {
         throw new HttpsError(
           'failed-precondition',
@@ -1085,6 +1101,8 @@ export const createStripeCheckout = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    assertNewPaymentsEnabled();
+
     const { callerKey, isAuthenticated } = resolveCallerKey(request);
     await checkRateLimit(callerKey, isAuthenticated, {
       functionName: 'createStripeCheckout',
@@ -1108,6 +1126,8 @@ export const createStripeCheckout = onCall(
     if (!stripe) {
       throw new HttpsError('failed-precondition', 'Stripe API not configured');
     }
+
+    const checkoutAttemptId = randomUUID();
 
     try {
       const txRef = db.collection('transactions').doc(transactionId);
@@ -1136,6 +1156,10 @@ export const createStripeCheckout = onCall(
             'failed-precondition',
             `Cannot create checkout for transaction in status ${transaction.status}`
           );
+        }
+
+        if (transaction.walletCheckoutOutcome === 'unknown' && !transaction.stripePaymentIntentId) {
+          throw new HttpsError('unavailable', 'Le paiement est en cours de vérification. Les fonds restent réservés.');
         }
 
         // F137: gate the shipping financial rail server-side. A SHIPPING
@@ -1308,6 +1332,8 @@ export const createStripeCheckout = onCall(
         if (walletDebited && alreadyDebitedAmount === 0) {
           updateData.walletAmountUsed = effectiveWalletAmount;
           updateData.paidVia = 'wallet_and_card';
+          updateData.walletCheckoutAttemptId = checkoutAttemptId;
+          updateData.walletCheckoutOutcome = 'creating';
         }
 
         tx.update(txRef, updateData);
@@ -1320,6 +1346,8 @@ export const createStripeCheckout = onCall(
           sellerStripeAccountId: sellerStripeAccountId as string,
           walletDebited,
           effectiveWalletAmount,
+          walletCheckoutAttemptId: alreadyDebitedAmount > 0
+            ? transaction.walletCheckoutAttemptId ?? 'legacy' : checkoutAttemptId,
         };
       });
 
@@ -1386,13 +1414,24 @@ export const createStripeCheckout = onCall(
                 buyerId: request.auth!.uid,
                 walletAmountUsed: String(effectiveWalletAmount),
                 paymentType: 'wallet_and_card',
+                walletCheckoutAttemptId: txResult.walletCheckoutAttemptId,
               },
             },
             // Deterministic key so a retry (same transaction) never creates a
             // second PaymentIntent — Stripe returns the original PI instead.
-            { idempotencyKey: `pi_${transactionId}` }
+            { idempotencyKey: `pi_${transactionId}_${txResult.walletCheckoutAttemptId}` }
           );
         } catch (stripeError) {
+          if (!isDefinitiveStripeFailure(stripeError)) {
+            await db.runTransaction(async tx => {
+              const current = (await tx.get(txRef)).data();
+              if (current?.status !== 'pending_payment' || current.stripePaymentIntentId ||
+                  (current.walletCheckoutAttemptId ?? 'legacy') !== txResult.walletCheckoutAttemptId) return;
+              tx.update(txRef, { walletCheckoutOutcome: 'unknown', updatedAt: FieldValue.serverTimestamp() });
+            });
+            throw new HttpsError('unavailable', 'Le paiement est en cours de vérification. Les fonds restent réservés.');
+          }
+
           // F05: Stripe PI creation failed — revert the wallet debit
           logger.error('Stripe PaymentIntent creation failed (mixed) — reverting wallet debit', {
             transactionId,
@@ -1408,6 +1447,13 @@ export const createStripeCheckout = onCall(
           // a second time. Fusing them removes that window entirely.
           const buyerWalletRef = db.collection('wallets').doc(request.auth!.uid);
           await db.runTransaction(async (revertTx) => {
+            const currentSnap = await revertTx.get(txRef);
+            const current = currentSnap.data();
+            // Two failures may race, or an older failure may arrive after a new
+            // checkout. Only the still-active reservation can be compensated.
+            if (!current || current.status !== 'pending_payment' || current.stripePaymentIntentId ||
+                current.walletAmountUsed !== effectiveWalletAmount ||
+                (current.walletCheckoutAttemptId ?? 'legacy') !== txResult.walletCheckoutAttemptId) return;
             const walletSnap = await revertTx.get(buyerWalletRef);
 
             // Always clear the wallet markers on the tx — even if the wallet doc
@@ -1415,6 +1461,8 @@ export const createStripeCheckout = onCall(
             revertTx.update(txRef, {
               walletAmountUsed: FieldValue.delete(),
               paidVia: FieldValue.delete(),
+              walletCheckoutAttemptId: FieldValue.delete(),
+              walletCheckoutOutcome: FieldValue.delete(),
             });
 
             if (!walletSnap.exists) return;
@@ -1442,6 +1490,7 @@ export const createStripeCheckout = onCall(
         // Store PaymentIntent ID in the transaction doc
         await txRef.update({
           stripePaymentIntentId: paymentIntent.id,
+          walletCheckoutOutcome: FieldValue.delete(),
           stripeCheckoutCreatedAt: FieldValue.serverTimestamp(),
         });
 
@@ -2445,253 +2494,114 @@ export const checkTrackingStatus = onCall({ region: 'northamerica-northeast1', m
 export const acceptMeetupOffer = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'User must be authenticated');
-    }
-
+    if (!request.auth) throw new HttpsError('unauthenticated', 'User must be authenticated');
     const { callerKey, isAuthenticated } = resolveCallerKey(request);
-    await checkRateLimit(callerKey, isAuthenticated, {
-      functionName: 'acceptMeetupOffer',
-      maxCallsAuthenticated: 20,
-      maxCallsUnauthenticated: 0,
-      windowMs: RATE_LIMIT_WINDOW_MS,
-    });
-
+    await checkRateLimit(callerKey, isAuthenticated, { functionName: 'acceptMeetupOffer', maxCallsAuthenticated: 20, maxCallsUnauthenticated: 0, windowMs: RATE_LIMIT_WINDOW_MS });
     const { chatId, messageId } = request.data ?? {};
-    if (typeof chatId !== 'string' || chatId.length === 0) {
-      throw new HttpsError('invalid-argument', 'chatId is required');
+    if (typeof chatId !== 'string' || !chatId || chatId.includes('/') || typeof messageId !== 'string' || !messageId || messageId.includes('/')) {
+      throw new HttpsError('invalid-argument', 'chatId et messageId sont requis');
     }
-    if (typeof messageId !== 'string' || messageId.length === 0) {
-      throw new HttpsError('invalid-argument', 'messageId is required');
-    }
-
     const callerUid = request.auth.uid;
     const messageRef = db.collection('messages').doc(messageId);
     const chatRef = db.collection('chats').doc(chatId);
-
     try {
       const result = await db.runTransaction(async (tx) => {
-        // ── ALL READS FIRST ──
         const messageSnap = await tx.get(messageRef);
-        if (!messageSnap.exists) {
-          throw new HttpsError('not-found', 'Offre introuvable');
+        const message = messageSnap.data();
+        if (!message || message.type !== 'offer' || !message.offer?.meetup || message.chatId !== chatId) {
+          throw new HttpsError('failed-precondition', 'Proposition de rencontre introuvable dans cette conversation');
         }
-        const message = messageSnap.data()!;
-
-        if (message.type !== 'offer' || !message.offer || !message.offer.meetup) {
-          throw new HttpsError('failed-precondition', 'Ce message n\'est pas une offre de rencontre');
-        }
-        if (message.chatId !== chatId) {
-          throw new HttpsError('failed-precondition', 'L\'offre n\'appartient pas à cette conversation');
-        }
-
-        const offer = message.offer;
-        // Only a pending offer can be accepted (idempotency / no re-accept).
-        if (offer.status !== 'pending') {
-          throw new HttpsError(
-            'failed-precondition',
-            `Cette offre ne peut plus être acceptée (statut ${offer.status})`
-          );
-        }
-
-        // Enforce offer expiry server-side.
-        if (offer.expiresAt) {
-          const expiresAt = offer.expiresAt.toDate
-            ? offer.expiresAt.toDate()
-            : new Date(offer.expiresAt);
-          if (expiresAt instanceof Date && !isNaN(expiresAt.getTime()) && expiresAt < new Date()) {
-            tx.update(messageRef, { 'offer.status': 'expired' });
-            throw new HttpsError('failed-precondition', 'Cette offre a expiré');
-          }
-        }
-
         const chatSnap = await tx.get(chatRef);
-        if (!chatSnap.exists) {
-          throw new HttpsError('not-found', 'Conversation introuvable');
-        }
-        const chat = chatSnap.data()!;
-        const participants: unknown = chat.participants;
-        if (!Array.isArray(participants) || participants.length < 2) {
-          throw new HttpsError('failed-precondition', 'Conversation invalide');
-        }
-
-        const articleId = chat.articleId;
-        if (typeof articleId !== 'string' || articleId.length === 0) {
-          throw new HttpsError('failed-precondition', 'Article introuvable pour cette conversation');
-        }
-        const articleRef = db.collection('articles').doc(articleId);
-        const articleSnap = await tx.get(articleRef);
-        if (!articleSnap.exists) {
-          throw new HttpsError('not-found', 'Cet article n\'existe plus');
-        }
-        const articleData = articleSnap.data()!;
-
-        // F9: derive seller from the ARTICLE (owner = seller) and buyer from the
-        // OTHER chat participant — NEVER from the offer sender (a seller
-        // counter-offer would mislabel the seller as buyer).
-        const sellerId = articleData.sellerId;
-        if (typeof sellerId !== 'string' || !participants.includes(sellerId)) {
-          throw new HttpsError('failed-precondition', 'Vendeur introuvable pour cette offre');
-        }
-        const buyerId = participants.find((p) => p !== sellerId);
-        if (typeof buyerId !== 'string' || buyerId.length === 0) {
-          throw new HttpsError('failed-precondition', 'Acheteur introuvable pour cette offre');
-        }
-        if (buyerId === sellerId) {
-          throw new HttpsError('invalid-argument', 'Le vendeur ne peut pas acheter son propre article');
-        }
-
-        // The caller must be the party who did NOT emit the offer (the accepter):
-        // either side can accept the other side's offer or counter-offer.
-        if (typeof message.senderId !== 'string' || !participants.includes(message.senderId)) {
-          throw new HttpsError('failed-precondition', 'Émetteur de l\'offre invalide');
-        }
-        if (callerUid === message.senderId) {
-          throw new HttpsError('permission-denied', 'Vous ne pouvez pas accepter votre propre offre');
-        }
-        if (callerUid !== buyerId && callerUid !== sellerId) {
+        const chat = chatSnap.data();
+        const participants = chat?.participants;
+        if (!Array.isArray(participants) || participants.length !== 2 || !participants.includes(callerUid)) {
           throw new HttpsError('permission-denied', 'Vous ne participez pas à cette conversation');
         }
-
+        if (!participants.includes(message.senderId) || callerUid === message.senderId) {
+          throw new HttpsError('permission-denied', 'Vous ne pouvez pas accepter votre propre proposition');
+        }
+        const articleId = chat?.articleId;
+        if (typeof articleId !== 'string' || !articleId || articleId.includes('/')) throw new HttpsError('failed-precondition', 'Article introuvable');
+        const articleRef = db.collection('articles').doc(articleId);
+        const articleSnap = await tx.get(articleRef);
+        const article = articleSnap.data();
+        if (!article) throw new HttpsError('not-found', 'Cet article n\'existe plus');
+        const sellerId = article.sellerId;
+        const buyerId = participants.find((p) => p !== sellerId);
+        if (typeof sellerId !== 'string' || !participants.includes(sellerId) || typeof buyerId !== 'string' || buyerId === sellerId) {
+          throw new HttpsError('failed-precondition', 'Participants invalides');
+        }
+        const offer = message.offer;
         const amount = offer.amount;
-        if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
-          throw new HttpsError('failed-precondition', 'Montant de l\'offre invalide');
+        if (typeof article.price !== 'number' || !Number.isFinite(article.price) || article.price < 0.01 ||
+            typeof amount !== 'number' || !Number.isFinite(amount) || amount < Math.min(1, article.price) || amount > 50000 ||
+            Math.abs(Math.round(amount * 100) - amount * 100) > 0.0000001 ||
+            amount > article.price) throw new HttpsError('failed-precondition', 'Montant de proposition invalide');
+        const offerLocation = normalizeMeetupLocation(offer.meetup.location);
+        const threadRef = db.collection('meetup_offer_threads').doc(meetupThreadId(articleId, buyerId));
+        const thread = (await tx.get(threadRef)).data();
+        // Read queries INSIDE the transaction: an old offer cannot attach to an
+        // unrelated agreement, and two buyers cannot reserve the same article.
+        const existingTxSnap = await tx.get(db.collection('transactions').where('articleId', '==', articleId));
+        const live = existingTxSnap.docs.filter((d) => !['cancelled', 'refunded', 'completed', 'meetup_completed'].includes(d.data().status));
+        const exactTransaction = (data: FirebaseFirestore.DocumentData) => data.chatId === chatId && data.buyerId === buyerId && data.sellerId === sellerId &&
+          data.deliveryType === 'meetup' && data.amount === amount && meetupLocationsEqual(data.meetupSpot, offerLocation);
+
+        if (offer.status === 'accepted' && typeof offer.transactionId === 'string') {
+          const linked = live.find((d) => d.id === offer.transactionId);
+          if (linked && linked.data().offerMessageId === messageId && exactTransaction(linked.data())) {
+            return { transactionId: linked.id, buyerId, sellerId, amount, articleId, reused: true, negotiated: amount < article.price };
+          }
+          throw new HttpsError('failed-precondition', 'Cet accord ne peut plus être accepté');
         }
-        if (typeof articleData.price === 'number' && amount > articleData.price) {
-          throw new HttpsError('failed-precondition', 'Le montant de l\'offre dépasse le prix de l\'article');
+        if (offer.status !== 'pending' || offerExpired(offer) || (thread?.messageId && thread.messageId !== messageId)) {
+          throw new HttpsError('failed-precondition', 'Cette proposition a déjà reçu une réponse, a expiré ou a été remplacée');
         }
-        if (articleData.isActive === false) {
-          throw new HttpsError('failed-precondition', 'Cet article n\'est plus disponible');
+        if (!thread?.messageId) {
+          const articleChats = await tx.get(db.collection('chats').where('articleId', '==', articleId));
+          let pendingLegacy = 0;
+          for (const candidateChat of articleChats.docs.filter((d) => d.data().participants?.includes(buyerId) && d.data().participants?.includes(sellerId))) {
+            const legacyOffers = await tx.get(db.collection('messages').where('chatId', '==', candidateChat.id).where('type', '==', 'offer'));
+            pendingLegacy += legacyOffers.docs.filter((d) => d.data().offer?.meetup && d.data().offer.status === 'pending' && !offerExpired(d.data().offer)).length;
+          }
+          if (pendingLegacy > 1) throw new HttpsError('failed-precondition', 'Plusieurs anciennes propositions sont en attente. Envoyez une nouvelle proposition pour les remplacer.');
         }
-
-        // F8: idempotency for the direct-checkout meetup flow. The checkout
-        // pre-creates the meetup_pending tx (locking the article) THEN sends the
-        // offer; without this an `isSold === true` would dead-end acceptance. If
-        // a non-cancelled meetup transaction already exists for this
-        // chat+buyer+article, accept the offer and return that tx instead of
-        // creating a duplicate or re-locking the article.
-        // Single-field equality query (chatId) — no composite index needed; the
-        // remaining filters are applied in memory (a chat has few transactions).
-        const existingTxSnap = await db
-          .collection('transactions')
-          .where('chatId', '==', chatId)
-          .get();
-        const liveExisting = existingTxSnap.docs.find((d) => {
-          const t = d.data();
-          const s = t.status;
-          return (
-            t.buyerId === buyerId &&
-            t.articleId === articleId &&
-            t.deliveryType === 'meetup' &&
-            s !== 'cancelled' &&
-            s !== 'refunded'
-          );
-        });
-
-        if (liveExisting) {
-          // ── WRITES: accept the offer, return the pre-existing tx. The article
-          //    is already locked by that tx; do NOT touch it.
-          tx.update(messageRef, { 'offer.status': 'accepted' });
-          return {
-            transactionId: liveExisting.id,
-            buyerId,
-            sellerId,
-            amount,
-            reused: true,
-          };
+        if (article.isActive === false) throw new HttpsError('failed-precondition', 'Cet article n\'est plus disponible');
+        const userSnaps = await Promise.all(participants.map((uid) => tx.get(db.collection('users').doc(uid))));
+        if (hasBlockedUser(userSnaps[0].data(), participants[1]) || hasBlockedUser(userSnaps[1].data(), participants[0])) {
+          throw new HttpsError('permission-denied', 'Cette conversation est bloquée');
         }
-
-        // No pre-existing tx: this is the chat-flow path. The article must be
-        // free to lock.
-        if (articleData.isSold === true) {
-          throw new HttpsError('failed-precondition', 'Cet article a déjà été vendu');
+        // Adopt only an unlinked legacy reservation with the SAME negotiated
+        // amount and location. An already accepted transaction is immutable.
+        const legacy = live.find((d) => d.data().status === 'meetup_pending' && !d.data().offerMessageId && exactTransaction(d.data()));
+        if (live.some((d) => d.id !== legacy?.id) || (!legacy && article.isSold === true)) {
+          throw new HttpsError('failed-precondition', 'Un accord existe déjà pour cet article');
         }
-
-        // ── ALL WRITES AFTER ALL READS ──
-        // 1. Accept the offer.
-        tx.update(messageRef, { 'offer.status': 'accepted' });
-
-        // 2. Lock the article.
-        tx.update(articleRef, { isSold: true });
-
-        // 3. Create the linked meetup transaction (NO platform fee, no shipping).
-        const transactionData: Record<string, any> = {
-          articleId,
-          buyerId,
-          sellerId,
-          amount,
-          shippingCost: 0,
-          serviceFee: 0,
-          totalAmount: amount,
-          sellerPayout: amount,
-          deliveryType: 'meetup',
-          status: 'meetup_pending',
-          chatId,
-          createdAt: FieldValue.serverTimestamp(),
-        };
-
-        const meetupSpot = offer.meetup?.location;
-        if (meetupSpot && typeof meetupSpot === 'object') {
-          const cleanSpot: Record<string, any> = {
-            name: meetupSpot.name ?? null,
-            category: meetupSpot.category ?? null,
-            neighborhood: meetupSpot.neighborhood ?? null,
-          };
-          if (meetupSpot.id) cleanSpot.id = meetupSpot.id;
-          if (meetupSpot.address) cleanSpot.address = meetupSpot.address;
-          if (meetupSpot.coordinates) cleanSpot.coordinates = meetupSpot.coordinates;
-          transactionData.meetupSpot = cleanSpot;
+        const transactionRef = legacy?.ref ?? db.collection('transactions').doc(`meetup_${messageId}`);
+        if (!legacy) {
+          tx.set(transactionRef, { articleId, buyerId, sellerId, amount, shippingCost: 0, serviceFee: 0,
+            totalAmount: amount, sellerPayout: amount, deliveryType: 'meetup', status: 'meetup_pending', chatId,
+            offerMessageId: messageId, meetupSpot: offerLocation, createdAt: FieldValue.serverTimestamp() });
+          tx.update(articleRef, { isSold: true, activeTransactionId: transactionRef.id });
+        } else {
+          tx.update(transactionRef, { offerMessageId: messageId });
+          tx.update(articleRef, { activeTransactionId: transactionRef.id });
         }
-
-        const newTxRef = db.collection('transactions').doc();
-        tx.set(newTxRef, transactionData);
-
-        const negotiated =
-          typeof articleData.price === 'number' && amount < articleData.price;
-        return {
-          transactionId: newTxRef.id,
-          buyerId,
-          sellerId,
-          amount,
-          reused: false,
-          negotiated,
-          articleId,
-        };
+        tx.update(messageRef, { 'offer.status': 'accepted', 'offer.acceptedAt': FieldValue.serverTimestamp(), 'offer.transactionId': transactionRef.id });
+        tx.set(threadRef, { articleId, buyerId, chatId, messageId, status: 'accepted', transactionId: transactionRef.id, updatedAt: FieldValue.serverTimestamp() });
+        return { transactionId: transactionRef.id, buyerId, sellerId, amount, articleId, reused: !!legacy, negotiated: amount < article.price };
       });
-
-      logger.info('Meetup offer accepted (server-authoritative)', {
-        chatId,
-        messageId,
-        transactionId: result.transactionId,
-        buyerId: result.buyerId,
-        sellerId: result.sellerId,
-        reused: result.reused,
-      });
-
-      // Analytics (§12): a NEW meetup tx created via the chat flow (source=
-      // offer_accept). The `reused` path was already created by createTransaction
-      // (direct checkout), so skip it to avoid a double order_created. $insert_id
-      // keyed by tx id is a second safety net. distinct_id = buyer.
+      logger.info('Meetup offer accepted (server-authoritative)', { chatId, messageId, transactionId: result.transactionId, reused: result.reused });
       if (!result.reused) {
-        await captureServerEvent(result.buyerId, 'order_created', {
-          transaction_id: result.transactionId,
-          article_id: 'articleId' in result ? result.articleId : null,
-          buyer_id: result.buyerId,
-          seller_id: result.sellerId,
-          delivery_type: 'meetup',
-          amount_cents: Math.round((result.amount ?? 0) * 100),
-          negotiated: 'negotiated' in result ? result.negotiated : false,
-          source: 'offer_accept',
-          $insert_id: `order_created_${result.transactionId}`,
-        });
+        await captureServerEvent(result.buyerId, 'order_created', { transaction_id: result.transactionId, article_id: result.articleId,
+          buyer_id: result.buyerId, seller_id: result.sellerId, delivery_type: 'meetup', amount_cents: Math.round(result.amount * 100),
+          negotiated: result.negotiated, source: 'offer_accept', $insert_id: `order_created_${result.transactionId}` });
       }
-
       return { success: true, transactionId: result.transactionId, reused: result.reused };
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
-      const message = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error accepting meetup offer:', error);
-      throw new HttpsError('internal', `Failed to accept meetup offer: ${message}`);
+      throw new HttpsError('internal', 'Impossible d\'accepter cette proposition');
     }
   }
 );
@@ -2761,7 +2671,7 @@ export const confirmMeetupTransaction = onCall(
         }
 
         // Gate on the TRANSACTION status, not a message field.
-        if (data.status !== 'meetup_pending') {
+        if (!['meetup_pending', 'meetup_confirmed'].includes(data.status)) {
           throw new HttpsError(
             'failed-precondition',
             `Impossible de confirmer la rencontre depuis le statut ${data.status}`
@@ -2774,17 +2684,27 @@ export const confirmMeetupTransaction = onCall(
           messageSnap = await tx.get(messageRef);
           if (messageSnap.exists) {
             const msg = messageSnap.data()!;
-            if (data.chatId && msg.chatId && msg.chatId !== data.chatId) {
-              throw new HttpsError('failed-precondition', 'Le message ne correspond pas à cette transaction');
+            if (msg.chatId !== data.chatId || msg.type !== 'offer' || msg.offer?.status !== 'accepted' ||
+                !msg.offer.meetup || msg.offer.amount !== data.amount ||
+                !meetupLocationsEqual(msg.offer.meetup.location, data.meetupSpot) ||
+                (data.offerMessageId && data.offerMessageId !== messageRef.id) ||
+                (msg.offer.transactionId && msg.offer.transactionId !== transactionId)) {
+              throw new HttpsError('failed-precondition', 'Le message ne correspond pas à cet accord accepté');
             }
+          } else {
+            throw new HttpsError('not-found', 'Proposition introuvable');
           }
+        } else if (data.offerMessageId) {
+          throw new HttpsError('invalid-argument', 'La proposition liée est requise');
         }
+        if (data.status === 'meetup_confirmed') return { chatId: data.chatId ?? null };
 
         // ── ALL WRITES AFTER ALL READS ──
         tx.update(txRef, {
           status: 'meetup_confirmed',
           meetupConfirmedAt: FieldValue.serverTimestamp(),
           meetupConfirmedBy: callerUid,
+          ...(messageRef ? { offerMessageId: messageRef.id } : {}),
         });
 
         if (messageRef && messageSnap && messageSnap.exists) {
@@ -2812,7 +2732,7 @@ export const confirmMeetupTransaction = onCall(
 );
 
 // =============================================================================
-// COMPLETE MEETUP TRANSACTION — Buyer confirms receipt, credits seller
+// COMPLETE MEETUP TRANSACTION — Either party confirms the cash exchange
 // =============================================================================
 
 /**
@@ -2846,7 +2766,7 @@ export const completeMeetupTransaction = onCall(
       windowMs: RATE_LIMIT_WINDOW_MS,
     });
 
-    const { transactionId } = request.data ?? {};
+    const { transactionId, messageId } = request.data ?? {};
     if (typeof transactionId !== 'string' || transactionId.length === 0) {
       throw new HttpsError('invalid-argument', 'Transaction ID is required');
     }
@@ -2872,12 +2792,32 @@ export const completeMeetupTransaction = onCall(
         }
 
         // Must be in meetup_confirmed status
-        if (data.status !== 'meetup_confirmed') {
+        if (!['meetup_confirmed', 'meetup_completed'].includes(data.status)) {
           throw new HttpsError(
             'failed-precondition',
             `Cannot complete meetup from status ${data.status}`
           );
         }
+
+        const linkedMessageId = data.offerMessageId ?? messageId;
+        const linkedMessageRef = typeof linkedMessageId === 'string' && linkedMessageId.length > 0
+          ? db.collection('messages').doc(linkedMessageId) : null;
+        if (messageId && data.offerMessageId && messageId !== data.offerMessageId) {
+          throw new HttpsError('failed-precondition', 'Cette proposition ne correspond pas à cet accord');
+        }
+        if (linkedMessageRef) {
+          const linked = (await tx.get(linkedMessageRef)).data();
+          if (!linked || linked.chatId !== data.chatId || linked.type !== 'offer' ||
+              !['accepted', 'completed'].includes(linked.offer?.status) || linked.offer.amount !== data.amount ||
+              !meetupLocationsEqual(linked.offer.meetup?.location, data.meetupSpot) ||
+              (linked.offer.transactionId && linked.offer.transactionId !== transactionId)) {
+            throw new HttpsError('failed-precondition', 'La proposition liée ne correspond pas à cet accord');
+          }
+        }
+        if (data.status === 'meetup_completed') return { ...data, reused: true };
+        if (linkedMessageRef) tx.update(linkedMessageRef, {
+          'offer.status': 'completed', 'offer.meetup.completedAt': FieldValue.serverTimestamp(),
+        });
 
         const sellerId = data.sellerId;
 
@@ -2895,6 +2835,7 @@ export const completeMeetupTransaction = onCall(
         });
 
         return {
+          reused: false,
           chatId: data.chatId,
           sellerId,
           buyerId: data.buyerId,
@@ -2902,6 +2843,8 @@ export const completeMeetupTransaction = onCall(
           createdAt: data.createdAt,
         };
       });
+
+      if (transactionData.reused) return { success: true, reused: true };
 
       // Analytics (§12): order_completed follows the BUYER. Meetup is cash-in-
       // hand — seller_net_cents reflects the sale value (no platform ledger move).
@@ -3065,6 +3008,9 @@ export const reportMeetupNoShow = onCall(
           articleSnap = await tx.get(articleRef);
         }
 
+        const articleUnlock = articleRef && articleSnap?.exists
+          ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
+
         const reportedAgainst = isBuyer ? data.sellerId : data.buyerId;
 
         // 1. Freeze the transaction in `disputed`. No money moves (meetup =
@@ -3084,8 +3030,8 @@ export const reportMeetupNoShow = onCall(
         });
 
         // 2. Unlock the article so the seller can re-list / re-sell it.
-        if (articleRef && articleSnap && articleSnap.exists) {
-          tx.update(articleRef, { isSold: false });
+        if (articleRef && articleUnlock) {
+          tx.update(articleRef, articleUnlock);
         }
 
         // 3. Open a dispute doc for admin (human-review) — the recourse for both
@@ -3785,6 +3731,15 @@ export const cancelPendingTransaction = onCall(
           );
         }
 
+        if ((data.walletCheckoutOutcome === 'unknown' || data.walletCheckoutOutcome === 'creating') && !data.stripePaymentIntentId) {
+          throw new HttpsError('unavailable', 'Le paiement doit être vérifié avant de restituer les fonds.');
+        }
+
+        if (data.stripePaymentIntentId !== preData.stripePaymentIntentId ||
+            data.walletCheckoutAttemptId !== preData.walletCheckoutAttemptId) {
+          throw new HttpsError('unavailable', 'Le paiement a changé pendant l’annulation. Réessayez après vérification.');
+        }
+
         // Read the article doc BEFORE any writes (Firestore transaction rule)
         // D2: Guard against deleted article — only update if it still exists
         let articleSnap = null;
@@ -3793,6 +3748,9 @@ export const cancelPendingTransaction = onCall(
           articleRef = db.collection('articles').doc(data.articleId);
           articleSnap = await tx.get(articleRef);
         }
+
+        const articleUnlock = articleRef && articleSnap?.exists
+          ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
 
         // F03: Read buyer wallet if wallet was used (all reads before writes)
         const walletAmountUsed = data.walletAmountUsed || 0; // in cents
@@ -3822,8 +3780,8 @@ export const cancelPendingTransaction = onCall(
         // Release the article so it can be purchased again.
         // createTransaction marks isSold=true atomically at creation
         // time; cancelling must undo that.
-        if (articleRef && articleSnap && articleSnap.exists) {
-          tx.update(articleRef, { isSold: false });
+        if (articleRef && articleUnlock) {
+          tx.update(articleRef, articleUnlock);
           cancelRelisted = true;
         }
         if (hasWalletDebit) {
