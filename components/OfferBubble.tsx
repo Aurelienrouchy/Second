@@ -770,9 +770,9 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
               </View>
               <View style={styles.meetupContent}>
                 <Text style={styles.meetupSpotName}>{meetup.location.name}</Text>
-                <Text style={styles.meetupDetail}>
+                {!meetup.location.toArrange && <Text style={styles.meetupDetail}>
                   {MeetupSpotCategoryLabels[meetup.location.category]} • {meetup.location.neighborhood.name}
-                </Text>
+                </Text>}
               </View>
             </View>
           </View>
@@ -787,7 +787,7 @@ const OfferBubble: React.FC<OfferBubbleProps> = ({
         <View style={styles.statusSection}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusBgColor(status) }]}>
             <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-              {getStatusText(status)}
+              {status === 'expired' && offer.expiredReason === 'replaced' ? 'Remplacée' : getStatusText(status)}
             </Text>
           </View>
           {expiryText && <Text style={styles.expiryText}>{expiryText}</Text>}

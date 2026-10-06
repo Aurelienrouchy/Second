@@ -7,13 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
-import { formatPrice } from '@/utils/formatPrice';
 import type { ChatHeaderProps } from '../types';
 
 export const ChatHeader = React.memo(function ChatHeader({
   otherParticipant,
   otherAvatar,
-  articlePrice,
   onMoreOptions,
 }: ChatHeaderProps) {
   const router = useRouter();
@@ -52,11 +50,7 @@ export const ChatHeader = React.memo(function ChatHeader({
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {formatDisplayName(otherParticipant.userName)}
               </Text>
-              {articlePrice != null && (
-                <Text style={styles.headerSubtitle} numberOfLines={1}>
-                  {formatPrice(articlePrice)}
-                </Text>
-              )}
+
             </View>
           </>
         )}
@@ -114,10 +108,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.foreground,
   },
-  headerSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 2,
-  },
+
 });

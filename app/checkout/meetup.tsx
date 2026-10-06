@@ -13,7 +13,7 @@
  * 48h dead-end (audit F8).
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   View,
@@ -41,6 +41,7 @@ import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
 import { homeKeys } from '@/features/home/query-keys';
 import { track } from '@/lib/analytics';
+import { MEETUP_TO_ARRANGE_SPOT } from '@/components/MakeOfferModal/types';
 
 // Special sentinel for "to be decided via chat"
 const VIA_CHAT_OPTION = '__via_chat__';
@@ -71,6 +72,8 @@ export default function MeetupCheckoutScreen() {
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [reviewing, setReviewing] = useState(false);
   // selectedOption: either a MeetupSpot or VIA_CHAT_OPTION string
   const [selectedOption, setSelectedOption] = useState<MeetupSpot | string | null>(null);
 
@@ -117,7 +120,7 @@ export default function MeetupCheckoutScreen() {
   // HANDLERS
   // =============================================================================
 
-  const handleBack = () => router.back();
+  const handleBack = () => reviewing ? setReviewing(false) : router.back();
 
   const isSpotSelected = selectedOption !== null && selectedOption !== VIA_CHAT_OPTION;
   const selectedSpot = isSpotSelected ? (selectedOption as MeetupSpot) : null;
@@ -146,9 +149,10 @@ export default function MeetupCheckoutScreen() {
   };
 
   const handleConfirm = async () => {
-    if (!article || !selectedOption || submitting || !currentUser) return;
+    if (!article || !selectedOption || submittingRef.current || !currentUser) return;
 
     try {
+      submittingRef.current = true;
       setSubmitting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -170,11 +174,7 @@ export default function MeetupCheckoutScreen() {
       // created here (audit F8). It is created server-side by
       // `acceptMeetupOffer` when the seller accepts, which also locks the
       // article atomically. Pre-locking it here made the offer un-acceptable.
-      const meetupLocation: MeetupSpot = selectedSpot ?? {
-        name: 'A convenir',
-        category: 'other_public',
-        neighborhood: { id: 'tbd', name: 'A convenir', borough: 'A convenir' },
-      };
+      const meetupLocation: MeetupSpot = selectedSpot ?? MEETUP_TO_ARRANGE_SPOT;
       const messageId = await ChatService.sendMeetupOffer(
         chat.id,
         currentUser.uid,
@@ -213,7 +213,7 @@ export default function MeetupCheckoutScreen() {
           deliveryType: 'meetup',
           articleTitle: article.title,
           amount: String(finalPrice),
-          spotName: selectedSpot?.name || 'A convenir',
+          spotName: selectedSpot?.name || MEETUP_TO_ARRANGE_SPOT.name,
           chatId: chat.id,
         },
       });
@@ -236,6 +236,7 @@ export default function MeetupCheckoutScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -356,7 +357,7 @@ export default function MeetupCheckoutScreen() {
 
   return (
     <View style={styles.container} testID="checkout-meetup-screen">
-      <ScreenHeader title="Lieu de rencontre" onBack={handleBack} />
+      <ScreenHeader title={reviewing ? "Récapitulatif" : "Lieu de rencontre"} onBack={handleBack} />
 
       <ScrollView
         style={styles.scrollView}
@@ -396,6 +397,12 @@ export default function MeetupCheckoutScreen() {
           </View>
         </View>
 
+        {reviewing ? (
+          <View style={styles.infoBox} testID="checkout-meetup-recap">
+            <Ionicons name="location-outline" size={18} color={colors.sage} />
+            <Text style={styles.infoText}>{selectedSpot?.name ?? MEETUP_TO_ARRANGE_SPOT.name}{'\n'}Votre proposition sera en attente de réponse. Le paiement aura lieu en main propre.</Text>
+          </View>
+        ) : <>
         {/* Seller's preferred spots */}
         {spots.length > 0 && (
           <>
@@ -444,13 +451,15 @@ export default function MeetupCheckoutScreen() {
           <View style={styles.spotInfo}>
             <Text style={styles.spotName}>À convenir par messagerie</Text>
             <Text style={styles.spotDetails}>
-              Vous choisirez le lieu avec le vendeur après confirmation
+              Vous choisirez le lieu ensemble par messagerie
             </Text>
           </View>
           <View style={[styles.radio, isViaChatSelected && styles.radioSelected]}>
             {isViaChatSelected && <View style={styles.radioInner} />}
           </View>
         </Pressable>
+
+        </>}
 
         {/* Info box */}
         <View style={styles.infoBox}>
@@ -461,23 +470,24 @@ export default function MeetupCheckoutScreen() {
               : 'Vous conviendrez de la date et de l\'heure avec le vendeur par messagerie après la confirmation.'}
           </Text>
         </View>
+        <Text style={styles.infoText}>Une seule proposition en attente par acheteur et par article. Une nouvelle proposition remplace la précédente. Un accord accepté doit être annulé explicitement avant une nouvelle proposition.</Text>
       </ScrollView>
 
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
-          testID="checkout-meetup-confirm"
+          testID={reviewing ? "checkout-meetup-confirm" : "checkout-meetup-continue"}
           style={[
             styles.ctaButton,
             submitting && styles.ctaButtonDisabled,
           ]}
-          onPress={handleConfirm}
+          onPress={reviewing ? handleConfirm : () => setReviewing(true)}
           disabled={!selectedOption || submitting}
         >
           {submitting ? (
             <ActivityIndicator size="small" color={colors.cream} />
           ) : (
-            <Text style={styles.ctaButtonText}>CONFIRMER LE MEETUP</Text>
+            <Text style={styles.ctaButtonText}>{reviewing ? "ENVOYER LA PROPOSITION" : "CONTINUER"}</Text>
           )}
         </Pressable>
       </View>

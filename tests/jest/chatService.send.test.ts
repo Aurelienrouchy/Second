@@ -25,7 +25,7 @@ const mockUpdateDoc = jest.fn((..._args: unknown[]) => Promise.resolve());
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((_db: unknown, name: string) => ({ name })),
-  doc: jest.fn((_db: unknown, col: string, id: string) => ({ col, id })),
+  doc: jest.fn((dbOrCollection: unknown, col?: string, id?: string) => col ? { col, id } : { col: (dbOrCollection as { name: string }).name, id: 'client-request-id' }),
   getDoc: (...args: unknown[]) => mockGetDoc(...args),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
   addDoc: (...args: unknown[]) => mockAddDoc(...args),
@@ -54,7 +54,7 @@ jest.mock('firebase/storage', () => ({
 }));
 
 // --- Callable Functions : acceptMeetupOffer (chemin meetup) ------------------
-const mockCallable = jest.fn((..._args: unknown[]) => Promise.resolve({ data: { success: true, transactionId: 'tx-1' } }));
+const mockCallable = jest.fn((..._args: unknown[]) => Promise.resolve({ data: { success: true, transactionId: 'tx-1', messageId: 'server-offer' } }));
 jest.mock('firebase/functions', () => ({
   httpsCallable: jest.fn((..._args: unknown[]) => mockCallable),
 }));
@@ -85,6 +85,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockAuth.currentUser = { uid: 'sender' };
   mockAreUsersBlocked.mockResolvedValue(false);
+  mockCallable.mockResolvedValue({ data: { success: true, transactionId: 'tx-1', messageId: 'server-offer' } });
   // Par défaut, toute lecture chat renvoie un chat à deux participants.
   mockGetDoc.mockResolvedValue(chatDoc(['sender', 'receiver']));
 });
@@ -143,136 +144,67 @@ describe('ChatService.sendMessage — écriture nominale', () => {
   });
 });
 
-describe('ChatService.sendOffer', () => {
-  it('compose le contenu FR et calcule le total (prix + livraison)', async () => {
-    await ChatService.sendOffer('chat-1', 'sender', 'receiver', 30, undefined, undefined, {
-      carrier: 'Postes Canada',
-      serviceName: 'Regular',
-      estimatedDays: '3-5',
-      amount: 8,
-      currency: 'CAD',
-    });
-
-    const [, messageData] = mockAddDoc.mock.calls[0] as [unknown, Record<string, unknown>];
-    expect(messageData.type).toBe('offer');
-    expect(messageData.content).toContain('Offre de 30 $');
-    expect(messageData.content).toContain('8 $ de livraison');
-    expect(messageData.content).toContain('Postes Canada');
-
-    const offer = messageData.offer as Record<string, unknown>;
-    expect(offer).toMatchObject({ amount: 30, status: 'pending', totalAmount: 38 });
+describe('ChatService.sendOffer — phase locale gratuite', () => {
+  it('bloque les nouvelles offres livraison avant toute écriture', async () => {
+    await expect(ChatService.sendOffer('chat-1', 'sender', 'receiver', 30, undefined, undefined, {
+      carrier: 'Postes Canada', serviceName: 'Regular', estimatedDays: '3-5', amount: 8, currency: 'CAD',
+    })).rejects.toThrow(/pas disponibles/);
+    expect(mockAddDoc).not.toHaveBeenCalled(); expect(mockCallable).not.toHaveBeenCalled();
   });
-
-  it('sans livraison : totalAmount = montant et contenu sans ligne livraison', async () => {
-    await ChatService.sendOffer('chat-1', 'sender', 'receiver', 25);
-    const [, messageData] = mockAddDoc.mock.calls[0] as [unknown, Record<string, unknown>];
-    expect(messageData.content).toBe('Offre de 25 $');
-    expect((messageData.offer as Record<string, unknown>).totalAmount).toBe(25);
+  it('le point d’entrée shipping sans devis reste bloqué', async () => {
+    await expect(ChatService.sendOffer('chat-1', 'sender', 'receiver', 25)).rejects.toThrow(/pas disponibles/);
+    expect(mockAddDoc).not.toHaveBeenCalled();
   });
 });
 
-describe('ChatService.acceptOffer — expiration (régression H9)', () => {
-  it('passe une offre expirée en "expired" et lève, sans jamais l’accepter', async () => {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    mockGetDoc.mockReset();
-    // 1er getDoc : le message d'offre (non-meetup, expiré).
-    mockGetDoc.mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ offer: { amount: 20, status: 'pending', expiresAt: yesterday } }),
-    });
-
-    await expect(
-      ChatService.acceptOffer('chat-1', 'msg-1', 'offer-1', 'receiver'),
-    ).rejects.toThrow(/expiré/);
-
-    // L'unique updateDoc doit être le passage en 'expired' (jamais 'accepted').
-    const statuses = mockUpdateDoc.mock.calls.map(
-      ([, payload]) => (payload as Record<string, unknown>)['offer.status'],
-    );
-    expect(statuses).toContain('expired');
-    expect(statuses).not.toContain('accepted');
-    expect(mockCallable).not.toHaveBeenCalled();
+describe('ChatService.acceptOffer — autorité serveur', () => {
+  it('propage le refus serveur d’une proposition expirée sans mutation client', async () => {
+    mockCallable.mockRejectedValueOnce(new Error('Cette offre a expiré'));
+    await expect(ChatService.acceptOffer('chat-1', 'msg-1', 'offer-1', 'receiver')).rejects.toThrow(/expiré/);
+    expect(mockCallable).toHaveBeenCalledWith({ chatId: 'chat-1', messageId: 'msg-1' });
+    expect(mockUpdateDoc).not.toHaveBeenCalled(); expect(mockAddDoc).not.toHaveBeenCalled();
   });
 });
 
-describe('ChatService.completeMeetup — ordre callable→message (B2)', () => {
-  /** getDocs renvoie une tx meetup_confirmed pour la 1re requête (en acheteur). */
-  function txFound(id = 'tx-confirmed') {
-    return { empty: false, docs: [{ id }], forEach: () => {}, size: 1 };
-  }
-
-  it('appelle la callable AVANT de marquer le message, et seulement après succès', async () => {
-    mockGetDocs.mockResolvedValueOnce(txFound());
-
-    const order: string[] = [];
-    mockCallable.mockImplementationOnce((..._a: unknown[]) => {
-      order.push('callable');
-      return Promise.resolve({ data: { success: true, transactionId: 'tx-confirmed' } });
-    });
-    mockUpdateDoc.mockImplementationOnce((..._a: unknown[]) => {
-      order.push('updateDoc');
-      return Promise.resolve();
-    });
-
+describe('ChatService.completeMeetup — accord exactement lié', () => {
+  const acceptedMessage = (linked = true) => ({ exists: () => true, data: () => ({ chatId: 'chat-1', offer: {
+    status: 'accepted', amount: 80, meetup: { location: { name: 'Café X' } }, ...(linked ? { transactionId: 'tx-confirmed' } : {}),
+  } }) });
+  it('demande la completion du message et de sa transaction dans la même callable', async () => {
+    mockGetDoc.mockResolvedValueOnce(acceptedMessage());
     await ChatService.completeMeetup('chat-1', 'msg-1', 'sender');
-
-    // La callable a bien été invoquée avec l'id de transaction résolu.
-    expect(mockCallable).toHaveBeenCalledWith({ transactionId: 'tx-confirmed' });
-    // L'ordre impose callable d'abord, écriture du message ensuite.
-    expect(order).toEqual(['callable', 'updateDoc']);
-
-    // Le message est marqué 'completed' une fois le backend confirmé.
-    const completed = mockUpdateDoc.mock.calls.find(
-      ([, payload]) => (payload as Record<string, unknown>)['offer.status'] === 'completed',
-    );
-    expect(completed).toBeDefined();
+    expect(mockCallable).toHaveBeenCalledWith({ transactionId: 'tx-confirmed', messageId: 'msg-1' });
+    expect(mockGetDocs).not.toHaveBeenCalled();
+    expect(mockUpdateDoc).not.toHaveBeenCalled(); expect(mockAddDoc).not.toHaveBeenCalled();
   });
-
-  it('ne marque PAS le message si la callable échoue (tx annulée/disputée)', async () => {
-    mockGetDocs.mockResolvedValueOnce(txFound());
-    mockCallable.mockImplementationOnce(() =>
-      Promise.reject(new Error('Cannot complete meetup from status cancelled')),
-    );
-
-    await expect(
-      ChatService.completeMeetup('chat-1', 'msg-1', 'sender'),
-    ).rejects.toThrow(/Cannot complete meetup from status cancelled/);
-
-    // Aucun updateDoc ne doit avoir posé 'offer.status' = 'completed'.
-    const completed = mockUpdateDoc.mock.calls.find(
-      ([, payload]) => (payload as Record<string, unknown>)['offer.status'] === 'completed',
-    );
-    expect(completed).toBeUndefined();
+  it('ne marque PAS le message si la callable échoue (accord annulé/disputé)', async () => {
+    mockGetDoc.mockResolvedValueOnce(acceptedMessage());
+    mockCallable.mockRejectedValueOnce(new Error('Cannot complete meetup from status cancelled'));
+    await expect(ChatService.completeMeetup('chat-1', 'msg-1', 'sender')).rejects.toThrow(/Cannot complete meetup from status cancelled/);
+    expect(mockUpdateDoc).not.toHaveBeenCalled(); expect(mockAddDoc).not.toHaveBeenCalled();
   });
-
-  it('lève une erreur claire et ne touche pas le message si aucune tx confirmée', async () => {
-    // getDocs renvoie le défaut empty:true pour acheteur ET vendeur.
-    await expect(
-      ChatService.completeMeetup('chat-1', 'msg-1', 'sender'),
-    ).rejects.toThrow(/Aucune transaction de rencontre à finaliser/);
-
-    expect(mockCallable).not.toHaveBeenCalled();
-    const completed = mockUpdateDoc.mock.calls.find(
-      ([, payload]) => (payload as Record<string, unknown>)['offer.status'] === 'completed',
-    );
-    expect(completed).toBeUndefined();
+  it('ne choisit aucune transaction arbitraire pour un ancien message sans accord lié', async () => {
+    mockGetDoc.mockResolvedValueOnce(acceptedMessage(false));
+    await expect(ChatService.completeMeetup('chat-1', 'msg-1', 'sender')).rejects.toThrow(/Aucune transaction de rencontre à finaliser/);
+    expect(mockCallable).not.toHaveBeenCalled(); expect(mockUpdateDoc).not.toHaveBeenCalled();
   });
 });
 
-describe('ChatService.rejectOffer', () => {
-  it('passe l’offre en "rejected"', async () => {
-    mockGetDoc.mockReset();
-    // 1er getDoc : updateDoc rejected ; 2e getDoc : relecture pour le message système.
-    mockGetDoc.mockResolvedValue({
-      exists: () => true,
-      data: () => ({ offer: { amount: 15 }, participants: ['sender', 'receiver'] }),
-    });
-
+describe('ChatService.rejectOffer — autorité serveur', () => {
+  it('demande un refus du message exact sans annuler une transaction locale', async () => {
     await ChatService.rejectOffer('chat-1', 'msg-1', 'offer-1', 'receiver');
+    expect(mockCallable).toHaveBeenCalledWith({ chatId: 'chat-1', messageId: 'msg-1' });
+    expect(mockUpdateDoc).not.toHaveBeenCalled(); expect(mockAddDoc).not.toHaveBeenCalled();
+  });
+});
 
-    const rejected = mockUpdateDoc.mock.calls.find(
-      ([, payload]) => (payload as Record<string, unknown>)['offer.status'] === 'rejected',
-    );
-    expect(rejected).toBeDefined();
+
+describe('ChatService.sendMeetupOffer — proposition serveur', () => {
+  it('transmet lieu et montant avec un identifiant de requête sans écrire de message client', async () => {
+    const location = { name: 'Lieu test', category: 'cafe' as const, neighborhood: { id: 'n1', name: 'Quartier test', borough: 'Test' } };
+    const id = await ChatService.sendMeetupOffer('chat-1', 'sender', 'receiver', 80, location);
+    expect(id).toBe('server-offer');
+    expect(mockCallable).toHaveBeenCalledWith({ chatId: 'chat-1', requestId: 'client-request-id', amount: 80, location });
+    expect(mockAddDoc).not.toHaveBeenCalled(); expect(mockUpdateDoc).not.toHaveBeenCalled();
   });
 });

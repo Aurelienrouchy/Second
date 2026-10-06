@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +30,7 @@ export interface MakeOfferModalRef {
 interface MakeOfferModalProps {
   articleId: string;
   articleTitle: string;
+  articleImage?: string;
   currentPrice: number;
   /** Default offer mode — 'meetup' if unset */
   defaultMode?: OfferMode;
@@ -50,6 +52,7 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
     {
       articleId,
       articleTitle,
+      articleImage,
       currentPrice,
       defaultMode = 'meetup',
       sellerNeighborhood,
@@ -256,6 +259,12 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
             </View>
           </View>
 
+          {state.step === 'location' && (
+            <View style={styles.articleReminder}>
+              {articleImage && <Image source={{ uri: articleImage }} style={styles.articleThumbnail} contentFit="cover" />}
+              <Text style={styles.articleReminderTitle} numberOfLines={2}>{articleTitle}</Text>
+            </View>
+          )}
           <View style={styles.content}>
             {state.step === 'offer' && <OfferStep context={context} />}
             {state.step === 'location' && state.mode === 'meetup' && (
@@ -276,6 +285,9 @@ const MakeOfferModal = forwardRef<MakeOfferModalRef, MakeOfferModalProps>(
 );
 
 const styles = StyleSheet.create({
+  articleReminder: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginHorizontal: spacing.lg, marginBottom: spacing.md },
+  articleThumbnail: { width: 44, height: 52, borderRadius: radius.sm },
+  articleReminderTitle: { flex: 1, fontFamily: fonts.sansMedium, fontSize: 13, color: colors.charcoal },
   bottomSheetContainer: {
     zIndex: 100,
   },

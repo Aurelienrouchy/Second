@@ -58,6 +58,7 @@ function buildContext(overrides: Partial<MakeOfferContext> = {}): MakeOfferConte
       setIsSubmitting: jest.fn(),
       ...actionsOverride,
     },
+    articleId: 'article-1',
     articleTitle: 'Veste en cuir',
     currentPrice: 100,
     onClose: jest.fn(),
@@ -159,4 +160,22 @@ describe('<OfferStep /> — validation du montant', () => {
     // 70 $ pour 100 $ → 30 % de réduction.
     expect(screen.getByText('30% de réduction')).toBeOnTheScreen();
   });
+});
+
+
+it('une virgule décimale française conserve le montant exact jusqu’au récapitulatif', () => {
+  const context = buildContext({ state: { offerAmount: '80,50' } as never });
+  render(<OfferStep context={context} />);
+  fireEvent.press(screen.getByText('Continuer'));
+  expect(context.actions.setStep).toHaveBeenCalledWith('location');
+});
+
+it('un montant contenant du texte ne peut pas avancer en tronquant la saisie', () => {
+  const spy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const context = buildContext({ state: { offerAmount: '80abc' } as never });
+  render(<OfferStep context={context} />);
+  fireEvent.press(screen.getByText('Continuer'));
+  expect(context.actions.setStep).not.toHaveBeenCalled();
+  expect(spy).toHaveBeenCalledWith('Erreur', 'Veuillez entrer un montant valide');
+  spy.mockRestore();
 });

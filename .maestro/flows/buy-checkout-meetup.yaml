@@ -91,11 +91,17 @@ appId: com.seconde.app
 - tapOn:
     id: "checkout-meetup-messaging-option"
 
-# Confirmer le meetup : crée la transaction + le chat + l'offre meetup.
+# Continuer mène au récapitulatif ; la transaction naît seulement après acceptation.
+- tapOn:
+    id: "checkout-meetup-continue"
+- assertVisible:
+    id: "checkout-meetup-recap"
+
+# Envoyer la proposition en attente dans le chat.
 - tapOn:
     id: "checkout-meetup-confirm"
 
-# Écran de succès : container racine stable prouve que la transaction meetup a
+# Écran de succès : container racine stable prouve que la transaction proposition a
 # bien été créée (createMeetupTransaction → /checkout/success).
 - extendedWaitUntil:
     visible:

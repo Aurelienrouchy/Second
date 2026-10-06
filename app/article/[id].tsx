@@ -232,6 +232,7 @@ export default function ArticleDetailScreen() {
         ref={makeOfferModalRef}
         articleId={article.id}
         articleTitle={article.title}
+        articleImage={article.images?.[0]?.url}
         currentPrice={article.price}
         defaultMode={SHIPPING_ENABLED && article.isShipping && !article.isHandDelivery ? 'shipping' : 'meetup'}
         sellerNeighborhood={article.neighborhood}

@@ -12,7 +12,6 @@ export interface ChatParticipantInfo {
 export interface ChatHeaderProps {
   otherParticipant: ChatParticipantInfo | null;
   otherAvatar: string | undefined;
-  articlePrice: number | undefined;
   onMoreOptions: () => void;
 }
 

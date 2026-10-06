@@ -18,7 +18,7 @@
 #   - offer-step-continue       (Continuer, MakeOfferModal/OfferStep)
 #   - offer-location-item-<id>  (lieu de meetup, MakeOfferModal/LocationStep)
 #   - offer-location-continue   (Continuer du LocationStep)
-#   - offer-confirm-submit      (ENVOYER L'OFFRE, MakeOfferModal/ConfirmStep)
+#   - offer-confirm-submit      (ENVOYER LA PROPOSITION, MakeOfferModal/ConfirmStep)
 # Les titres d'étape ("Faire une offre", "RÉCAPITULATIF") n'ont pas de testID →
 # copy FR de secours (deferred). L'étape lieu (data-dépendante) reste `optional`.
 appId: com.seconde.app
@@ -71,22 +71,17 @@ appId: com.seconde.app
 - tapOn:
     id: "offer-step-continue"
 
-# Étape lieu de rencontre (mode meetup uniquement). Sélection d'un spot
-# proposé par le vendeur : data-dépendante → best-effort, non bloquante.
-# Si l'article est en mode livraison, cette étape n'apparaît pas.
-- runFlow:
-    when:
-      visible:
-        id: "offer-location-item-.*"
-    commands:
-      # Sélectionner le premier lieu proposé puis poursuivre.
-      - tapOn:
-          id: "offer-location-item-.*"
-          index: 0
-          optional: true
-      - tapOn:
-          id: "offer-location-continue"
-          optional: true
+# Lieu facultatif : choisir la messagerie ne fait pas avancer automatiquement.
+- extendedWaitUntil:
+    visible:
+      id: "offer-location-to-arrange"
+    timeout: 10000
+- tapOn:
+    id: "offer-location-to-arrange"
+- assertVisible:
+    id: "offer-location-continue"
+- tapOn:
+    id: "offer-location-continue"
 
 # Récapitulatif → bouton d'envoi de l'offre. Sa présence prouve que le tunnel
 # d'offre a été parcouru jusqu'à l'étape finale d'envoi.
