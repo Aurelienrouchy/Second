@@ -10,7 +10,7 @@ Les défauts confirmés fournis dans le mandat ont reçu des correctifs locaux e
 - Série organisée par domaine dans [commits.md](commits.md). Code testé : `617ec865d8414a39abd9ba25fa58900eb13150c8` ; le dernier commit de documentation ajoute les rapports sans changer ce code.
 - Aucun push, PR, merge, déploiement, paiement réel, changement de compte externe, rotation de secret ou réécriture d'historique distant. Les SDK/gateways des tests unitaires sont mockés. Les builds d'audit pointent sur `demo-second` et les émulateurs.
 - `AGENTS.md` absent après recherche ; instructions lues dans `CLAUDE.md`, les guides RN/Expo et Firebase backend et les SKILL.md locaux pertinents aux lots. Les anciennes consignes de déploiement du dépôt ne s'appliquent pas au mandat interdisant tout déploiement. Six lots indépendants, intégration et validation finales uniques.
-- Node `24.19.0`, npm `11.9.0`, Java 21 ; moteur Functions déclaré Node 20. Tests exécutés sur Node 24, sans validation du runtime cloud Node 20. Dépendances des lockfiles installées par `npm ci` depuis `https://registry.npmjs.org`, caches sous `/tmp` ; aucun lockfile modifié.
+- Environnement initial : Node `24.19.0`, npm `11.9.0`, Java 21 ; moteur Functions déclaré Node 20. Validation complémentaire réussie avec Node **20.20.2 officiel**, isolé sous `/tmp`, sans modifier le runtime système : toutes les suites critiques et trois typechecks passent aussi. [node20-verification.md](node20-verification.md) précise provenance, empreinte, commandes et périmètre local. Dépendances des lockfiles installées par `npm ci` depuis `https://registry.npmjs.org`, caches sous `/tmp` ; aucun lockfile modifié ni appel de Function déployée.
 
 ## Couverture attestée
 
@@ -73,6 +73,8 @@ Les logs complets locaux résident sous `/tmp/second-final-*.log` ; [verificatio
 | Navigateur local Chromium | 3 scénarios passent (accueil desktop, deep link article avec query, accueil largeur mobile), zéro erreur JS, aucun appel externe tenté ; captures dans captures/ |
 | `git diff --check` | Passe |
 
+Complément Node 20.20.2 : les **735 Jest, 118 Vitest app, 608 Functions et 185 règles Firestore**, ainsi que les trois typechecks, passent sans changer de test ou de code. Les vérifications lint/exports/captures ci-dessus restent celles de la passe Node 24. [verification.json](verification.json) conserve séparément les deux runtimes et les empreintes de leurs logs. Aucun blocage de compatibilité locale Node 20 ne subsiste ; Storage et les parcours sur appareil restent non vérifiés.
+
 Les résultats CI `run33321090058` fournis par le mandat ne sont pas présentés comme une CI distante réexécutée. Les assertions/mocks ont été alignés sur le comportement attendu : erreurs non critiques de recherche, messages français, payload notifications, contexte auth des gates, phase financière OFF et accord meetup serveur. Aucune suppression de test pour rendre les suites vertes. Un timeout AdminRejectionModal observé pendant une validation très parallélisée a passé isolément puis dans la suite finale, sans modification de son assertion. Les fixtures profil/home et wallet libèrent désormais leurs caches/timers après démontage ; pas de `--forceExit` ni de réduction du cache produit.
 
 ## Actions réservées au propriétaire et limites avant livraison
@@ -83,7 +85,7 @@ Les résultats CI `run33321090058` fournis par le mandat ne sont pas présentés
 4. **Historique et capacités URL** : les règles SDK n'invalident pas les URLs `alt=media` tokenisées déjà distribuées. Révocation/migration des anciennes preuves/chats/drafts et promotion des médias legacy exigent une action séparée ; le cleanup les protège actuellement. Les nouveaux brouillons locaux sont isolés par UID ; l'ancienne clé globale et ses fichiers restent intacts, sans reprise automatique ni migration. Les anciennes références privées déjà partagées restent une limite distincte. Mesurer le scan de références et le volume des documents privés de replay/reçus avant une montée en charge.
 5. **Finance historique** : réservations ou payouts inconnus restent réservés/alertés jusqu'à rapprochement, sans re-crédit automatique risqué. Les données financières réelles n'ont pas été consultées. Aucune dette historique ou économie n'a été réécrite ; les nouvelles opérations restent fermées.
 6. **Analytics** : alignement technique/libellés, pas avis juridique. Profils et données PostHog historiques, suppression/rétention et autres engagements de confidentialité nécessitent validation du propriétaire.
-7. **Couverture restante** : les autres routes sont identifiées dans routes.md, sans garantie de revue manuelle intégrale. Les avertissements de lint et le runtime cloud Node 20 restent explicitement consignés ; les suites vertes ne prouvent pas tous les parcours natifs.
+7. **Couverture restante** : les autres routes sont identifiées dans routes.md, sans garantie de revue manuelle intégrale. Les avertissements de lint restent explicitement consignés ; les suites locales vertes sous Node 20 et 24 ne prouvent pas tous les parcours natifs ni l'exécution d'un environnement déployé, qui n'a pas été touché.
 
 ## Reproduction sûre
 

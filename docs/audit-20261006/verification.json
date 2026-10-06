@@ -2,7 +2,7 @@
   "testedCodeHead": "617ec865d8414a39abd9ba25fa58900eb13150c8",
   "generatedAtUtc": "2026-10-06T03:00:07.775638+00:00",
   "node": "24.19.0",
-  "runtimeNode20Validated": false,
+  "runtimeNode20Validated": true,
   "checks": [
     {
       "check": "jest",
@@ -193,5 +193,101 @@
       "status": "passed",
       "exitCode": 0
     }
-  ]
+  ],
+  "runtimeNode20Scope": "Local official Node 20.20.2 tests and TypeScript; no deployed cloud Function execution",
+  "cloudFunctionsDeploymentValidated": false,
+  "node20Validation": {
+    "generatedAtUtc": "2026-10-06T03:08:52.978092+00:00",
+    "testedBranchHeadAtStart": "69b47f5d997e162f160428e670ae6bc22898fd73",
+    "unchangedApplicationCodeHead": "617ec865d8414a39abd9ba25fa58900eb13150c8",
+    "node": "20.20.2",
+    "bundledNpm": "10.8.2",
+    "platform": "linux-x64",
+    "installationPath": "/tmp/second-node20",
+    "source": "https://nodejs.org/dist/v20.20.2/node-v20.20.2-linux-x64.tar.xz",
+    "checksumSource": "https://nodejs.org/dist/latest-v20.x/SHASUMS256.txt",
+    "archiveSha256": "df770b2a6f130ed8627c9782c988fda9669fa23898329a61a871e32f965e007d",
+    "checksumVerified": true,
+    "systemRuntimeChanged": false,
+    "dependenciesOrLockfilesChanged": false,
+    "applicationOrTestsChanged": false,
+    "storageRuntimeAttempted": false,
+    "checks": [
+      {
+        "check": "vitest-functions",
+        "command": "cd functions && PATH=/tmp/second-node20/bin:$PATH METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 /tmp/second-node20/bin/node node_modules/vitest/vitest.mjs run --maxWorkers=2",
+        "status": "passed",
+        "exitCode": 0,
+        "files": 51,
+        "passed": 608,
+        "skipped": 0,
+        "actualSdkContentionTests": 2,
+        "log": "/tmp/second-node20-functions.log",
+        "logAvailable": true,
+        "logSha256": "1963c918411c0662c7147a4e75b5797436ab46086d67e3c7efaf849ba28ba9d1"
+      },
+      {
+        "check": "jest",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
+        "status": "passed",
+        "exitCode": 0,
+        "suites": 91,
+        "passed": 735,
+        "forceExit": false,
+        "log": "/tmp/second-node20-jest.log",
+        "logAvailable": true,
+        "logSha256": "f6323ea78e77fb8b0949d5edfe6b51f82b6cd4473b97665381c644ed28521548"
+      },
+      {
+        "check": "vitest-app",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/vitest/vitest.mjs run --maxWorkers=2",
+        "status": "passed",
+        "exitCode": 0,
+        "files": 15,
+        "passed": 118,
+        "log": "/tmp/second-node20-vitest-app.log",
+        "logAvailable": true,
+        "logSha256": "0357768c9bd39c3ff60b61354ff3c60b17983216eeb618066d3834c2d32796f2"
+      },
+      {
+        "check": "firestore-rules",
+        "command": "PATH=/tmp/second-node20/bin:$PATH METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_RULES_FIRESTORE_ONLY=1 /tmp/second-node20/bin/node node_modules/vitest/vitest.mjs run --config tests/security/vitest.config.ts",
+        "status": "passed-partial-scope",
+        "exitCode": 0,
+        "files": 12,
+        "passed": 185,
+        "storageExcluded": true,
+        "log": "/tmp/second-node20-firestore-rules.log",
+        "logAvailable": true,
+        "logSha256": "5d1ea6b35b1de176596464ca9b04d1947e825607e5becfb3bc705d70f251c003"
+      },
+      {
+        "check": "functions-types",
+        "command": "cd functions && PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/typescript/bin/tsc --noEmit",
+        "status": "passed",
+        "exitCode": 0,
+        "log": "/tmp/second-node20-functions-types.log",
+        "logAvailable": true,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "app-types",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/typescript/bin/tsc --noEmit",
+        "status": "passed",
+        "exitCode": 0,
+        "log": "/tmp/second-node20-app-types.log",
+        "logAvailable": true,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "tests-types",
+        "command": "PATH=/tmp/second-node20/bin:$PATH /tmp/second-node20/bin/node node_modules/typescript/bin/tsc --noEmit -p tsconfig.test.json",
+        "status": "passed",
+        "exitCode": 0,
+        "log": "/tmp/second-node20-test-types.log",
+        "logAvailable": true,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  }
 }

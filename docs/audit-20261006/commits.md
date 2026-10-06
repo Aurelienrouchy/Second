@@ -18,3 +18,4 @@ Branche `audit/seconde-security-ux-20261006`. Aucun commit publié. La série in
 | `c5f3e5c1` | fix(web): preserve static landing and isolate native Stripe |
 | `280bfd22` | test: isolate SDK contention and expose partial Firestore verification |
 | `617ec865` | fix(sell): reject stale draft modal actions across accounts |
+| `69b47f5d` | docs(audit): consolidate independent review and final verification |
