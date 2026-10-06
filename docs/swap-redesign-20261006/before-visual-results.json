@@ -1,0 +1,83 @@
+{
+  "passed": 6,
+  "cases": [
+    {
+      "case": "home",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Seconde\nDonnez une nouvelle vie aux articles que vous aimez.\nSwap Zone\nÉchange tes pièces, sans frais.\n\n4 articles\n4 nouveautés cette semaine\nENTRER DANS LA ZONE\n\nÀ découvrir",
+      "screenshot": "captures/before-home.png"
+    },
+    {
+      "case": "catalogue",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nSwap Zone\nMES PIÈCES · 2\n\nDéposer un article\n35 $ - Maison Lune\nChemise en lin\nM\n\n20 $ - MARQUE\nSac en toile\nM\n\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nARTICLES DISPONIBLES · 2\n\nSWAP\nATELIER BLEU\nVeste en denim\n45 $\nM\n\nSWAP\nMAISON LUNE\nPull en laine\n30 $\nM",
+      "screenshot": "captures/before-catalogue.png"
+    },
+    {
+      "case": "proposal",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nProposer un swap\nLEUR ARTICLE\nATELIER BLEU\nVeste en denim\nTaille M · Bon état\nValeur\n45 $\n+ Ajouter\n\nMON ARTICLE PROPOSÉ\n+ Ajouter un article\nMESSAGE (OPTIONNEL)\n\nENVOYER LA PROPOSITION",
+      "screenshot": "captures/before-proposal.png"
+    },
+    {
+      "case": "mine",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nMes échanges\nTous\nEn attente\n1\nEn cours\n1\nHistorique\n\nLou M.\nEn attente\n\n2 articles · 55,00 $ CA ↔ 2 articles · 75,00 $ CA\nHier\n\nAlex B.\nAccepté\n\n2 articles · 55,00 $ CA ↔ 2 articles · 75,00 $ CA\nHier\n\nNoa D.\nTerminé\n\n2 articles · 55,00 $ CA ↔ 2 articles · 75,00 $ CA\nHier",
+      "screenshot": "captures/before-mine.png"
+    },
+    {
+      "case": "detail-sent",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nSwap reçu\n\nTa proposition est en attente de réponse\nL\nLou Martin\nBonjour, votre veste me plaît beaucoup. Ces deux articles vous intéresseraient-ils ?\nLOU MARTIN PROPOSE\nMAISON LUNE\nChemise en lin\nTaille M · Bon état\nValeur\n35 $\nSac en toile\nTaille M · Bon état\nValeur\n20 $\nCONTRE MON ARTICLE\nATELIER BLEU\nVeste en denim\nTaille M · Bon état\nValeur\n45 $\nMAISON LUNE\nPull en laine\nTaille M · Bon état\nValeur\n30 $\nRÉCAPITULATIF DE L'ÉCHANGE\nTu reçois\nChemise en lin, Sac en toile\nTu cèdes\nVeste en denim, Pull en laine\nAnnuler la proposition\n\nContacter Lou Martin",
+      "screenshot": "captures/before-detail-sent.png"
+    },
+    {
+      "case": "detail-received",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nSwap reçu\nNouveau\nC\nCamille\nBonjour, votre veste me plaît beaucoup. Ces deux articles vous intéresseraient-ils ?\nCAMILLE PROPOSE\nMAISON LUNE\nChemise en lin\nTaille M · Bon état\nValeur\n35 $\nSac en toile\nTaille M · Bon état\nValeur\n20 $\nCONTRE MON ARTICLE\nATELIER BLEU\nVeste en denim\nTaille M · Bon état\nValeur\n45 $\nMAISON LUNE\nPull en laine\nTaille M · Bon état\nValeur\n30 $\nRÉCAPITULATIF DE L'ÉCHANGE\nTu reçois\nChemise en lin, Sac en toile\nTu cèdes\nVeste en denim, Pull en laine\n\nContacter Camille\nREFUSER\n\nACCEPTER LE SWAP",
+      "screenshot": "captures/before-detail-received.png"
+    }
+  ]
+}

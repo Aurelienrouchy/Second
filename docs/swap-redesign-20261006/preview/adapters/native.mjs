@@ -1,0 +1,10 @@
+import {read,party} from '../fixtures.mjs';
+export const httpsCallable=()=>async()=>({data:await read({hasActiveParty:true,party})});
+export const ImpactFeedbackStyle={Light:'Light',Medium:'Medium'};export const NotificationFeedbackType={Success:'Success',Error:'Error',Warning:'Warning'};
+export const impactAsync=async()=>{},notificationAsync=async()=>{},selectionAsync=async()=>{};
+export const StatusBar=()=>null;
+export const randomUUID=()=> 'preview-uuid';
+export const MediaTypeOptions={Images:'images'};
+export const requestMediaLibraryPermissionsAsync=async()=>({status:'denied'});
+export const launchImageLibraryAsync=async()=>({canceled:true});
+export const ref=()=>{throw new Error('Firebase interdit dans l’aperçu');};export const uploadBytes=ref;

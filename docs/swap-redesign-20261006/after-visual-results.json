@@ -1,0 +1,642 @@
+{
+  "passed": 49,
+  "cases": [
+    {
+      "case": "home",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Seconde\nDonnez une nouvelle vie aux articles que vous aimez.\nUne nouvelle vie pour vos articles\nEspace échanges\nChoisissez un article qui vous plaît, puis proposez les vôtres en échange.\n\n4 articles à échanger\nDécouvrir les articles\n\nÀ découvrir",
+      "screenshot": "captures/after-home.png"
+    },
+    {
+      "case": "catalogue",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n2\n\nAjouter des articles\nAfficher 2 articles\n\nLes articles à découvrir\n2 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM",
+      "screenshot": "captures/after-catalogue.png"
+    },
+    {
+      "case": "proposal",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nProposer un échange\nAvec Lou Martin\nComposez votre proposition en choisissant les articles de chaque côté.\nLes articles de Lou Martin\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\n\n\nAjouter des articles\n\nVos articles\n\nChoisissez les articles que vous proposez en échange.\n\nAjouter des articles\nMessage facultatif\nPrésentez votre proposition en quelques mots.\nChoisissez au moins un article de chaque côté.\n\nEnvoyer la proposition",
+      "screenshot": "captures/after-proposal.png"
+    },
+    {
+      "case": "mine",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Espace échanges\n\nMes échanges\nTous\nEn attente\nEn cours\nHistorique\n\nLou M.\nProposé le 4 oct.\n\nProposition envoyée\nVous attendez la réponse du membre.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA\n\nAlex B.\nProposé le 4 oct.\n\nÉchange accepté\nChoisissez comment échanger vos articles.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA\n\nNoa D.\nProposé le 4 oct.\n\nÉchange terminé\nVous pouvez maintenant évaluer cet échange.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA",
+      "screenshot": "captures/after-mine.png"
+    },
+    {
+      "case": "detail-sent",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange avec\nLou M.\n\nProposition envoyée\nVous attendez la réponse du membre.\nVotre message\nBonjour, votre veste me plaît beaucoup. Ces deux articles vous intéresseraient-ils ?\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\nAnnuler la proposition\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-sent.png"
+    },
+    {
+      "case": "detail-received",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange avec\nCamille\n\nProposition reçue\nDécouvrez les articles proposés, puis choisissez votre réponse.\nMessage de Camille\nBonjour, votre veste me plaît beaucoup. Ces deux articles vous intéresseraient-ils ?\nVous donnez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\nVous recevez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\n\nContacter Camille\nAccepter la proposition\nRefuser",
+      "screenshot": "captures/after-detail-received.png"
+    },
+    {
+      "case": "home-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Seconde\nDonnez une nouvelle vie aux articles que vous aimez.\nÀ découvrir",
+      "screenshot": "captures/after-home-loading.png"
+    },
+    {
+      "case": "home-error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Seconde\nDonnez une nouvelle vie aux articles que vous aimez.\nUne nouvelle vie pour vos articles\nEspace échanges\nChoisissez un article qui vous plaît, puis proposez les vôtres en échange.\nLe catalogue n’a pas pu être chargé\nVérifiez votre connexion, puis réessayez.\nRéessayer\n\nÀ découvrir",
+      "screenshot": "captures/after-home-error.png"
+    },
+    {
+      "case": "home-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Seconde\nDonnez une nouvelle vie aux articles que vous aimez.\nUne nouvelle vie pour vos articles\nEspace échanges\nChoisissez un article qui vous plaît, puis proposez les vôtres en échange.\nAucun article à échanger pour le moment. Vous pouvez déjà ajouter les vôtres.\nDécouvrir les articles\n\nÀ découvrir",
+      "screenshot": "captures/after-home-empty.png"
+    },
+    {
+      "case": "catalogue-guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\nConnectez-vous pour proposer vos articles à l’échange.\n\nAjouter des articles\nLes articles à découvrir\n4 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nMaison Lune\nChemise en lin\nValeur 35 $\nM\nÀ échanger\nSac en toile\nValeur 20 $\nM\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM",
+      "screenshot": "captures/after-catalogue-guest.png"
+    },
+    {
+      "case": "catalogue-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges",
+      "screenshot": "captures/after-catalogue-loading.png"
+    },
+    {
+      "case": "catalogue-error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\n\nLe catalogue n’a pas pu être chargé\nVérifiez votre connexion, puis réessayez.\nRÉESSAYER",
+      "screenshot": "captures/after-catalogue-error.png"
+    },
+    {
+      "case": "catalogue-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n\nAjouter des articles\nLes articles à découvrir\n0 article\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\n\nAucun article à échanger pour le moment.\nVous pouvez déjà ajouter les vôtres.",
+      "screenshot": "captures/after-catalogue-empty.png"
+    },
+    {
+      "case": "mine-guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Espace échanges\n\nMes échanges\n\nVos échanges, au même endroit\nConnectez-vous pour retrouver vos propositions et suivre la remise de vos articles.\nSE CONNECTER\nDÉCOUVRIR LES ARTICLES",
+      "screenshot": "captures/after-mine-guest.png"
+    },
+    {
+      "case": "mine-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Espace échanges\n\nMes échanges",
+      "screenshot": "captures/after-mine-loading.png"
+    },
+    {
+      "case": "mine-error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Espace échanges\n\nMes échanges\n\nVos échanges n’ont pas pu être chargés\nVérifiez votre connexion, puis réessayez.\nRÉESSAYER",
+      "screenshot": "captures/after-mine-error.png"
+    },
+    {
+      "case": "mine-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Espace échanges\n\nMes échanges\nTous\nEn attente\nEn cours\nHistorique\n\nVotre premier échange commence ici\nDécouvrez les articles disponibles et proposez un échange avec un membre.\nDÉCOUVRIR LES ARTICLES",
+      "screenshot": "captures/after-mine-empty.png"
+    },
+    {
+      "case": "proposal-guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nProposer un échange\nAvec Lou Martin\nComposez votre proposition en choisissant les articles de chaque côté.\nSe connecter pour proposer un échange\nLes articles de Lou Martin\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\n\n\nAjouter des articles\n\nVos articles\n\nChoisissez les articles que vous proposez en échange.\n\nAjouter des articles\nMessage facultatif\nPrésentez votre proposition en quelques mots.\nConnectez-vous pour envoyer votre proposition.\n\nEnvoyer la proposition",
+      "screenshot": "captures/after-proposal-guest.png"
+    },
+    {
+      "case": "detail-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange",
+      "screenshot": "captures/after-detail-loading.png"
+    },
+    {
+      "case": "detail-missing",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange indisponible\nCet échange n’a pas pu être chargé. Vérifiez votre connexion et le compte utilisé.\nRÉESSAYER\nVOIR MES ÉCHANGES",
+      "screenshot": "captures/after-detail-missing.png"
+    },
+    {
+      "case": "detail-accepted",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange accepté\nChoisissez comment échanger vos articles.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\nComment souhaitez-vous échanger ?\n\nEn main propre\nConvenez d’un lieu et d’un moment avec le membre.\n\n\nEnvoi postal\nOrganisez l’envoi et les frais avec le membre.\n\n\nOuvrir un litige\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-accepted.png"
+    },
+    {
+      "case": "detail-photos",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nPhotos à ajouter\nAjoutez 1 à 4 photos de vos articles avant la remise ou l’envoi.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\nAjoutez des photos de vos articles\nAjoutez 1 à 4 photos pour montrer l’état de vos articles avant la remise ou l’envoi.\n\nAjouter des photos\n\nOuvrir un litige\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-photos.png"
+    },
+    {
+      "case": "detail-meetup",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange en cours\nConfirmez la remise de vos articles au membre.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\n\nJ'ai remis mes articles\n\nOuvrir un litige\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-meetup.png"
+    },
+    {
+      "case": "detail-postal",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange en cours\nOrganisez votre envoi postal, puis confirmez l’envoi.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\n\nJ'ai envoyé mes articles\n\nOuvrir un litige\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-postal.png"
+    },
+    {
+      "case": "detail-reception-confirmed",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange en cours\nRéception confirmée. Vous attendez la confirmation du membre.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\n\nRéception confirmée. Vous attendez la confirmation de l’autre membre.\n\nOuvrir un litige\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-reception-confirmed.png"
+    },
+    {
+      "case": "detail-completed",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange terminé\nVous pouvez maintenant évaluer cet échange.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\n\nOuvrir un litige\nComment s'est passé l'échange ?\n\n1\n\n2\n\n3\n\n4\n\n5\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-completed.png"
+    },
+    {
+      "case": "detail-legacy",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nPaiement historique en attente\nCe complément appartient à un ancien échange. Les paiements sont indisponibles actuellement.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\nComplément historique : 5,00 $ CA · Payeur prévu : Lou M.\n\nCe complément appartient à un ancien échange. Les paiements sont indisponibles actuellement.\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-legacy.png"
+    },
+    {
+      "case": "detail-disputed",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nLitige ouvert\nUn litige a été ouvert pour cet échange.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-disputed.png"
+    },
+    {
+      "case": "catalogue-narrow",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n2\n\nAjouter des articles\nAfficher 2 articles\n\nLes articles à découvrir\n2 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM",
+      "screenshot": "captures/after-catalogue-narrow.png"
+    },
+    {
+      "case": "proposal-narrow",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nProposer un échange\nAvec Lou Martin\nComposez votre proposition en choisissant les articles de chaque côté.\nLes articles de Lou Martin\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\n\n\nAjouter des articles\n\nVos articles\n\nChoisissez les articles que vous proposez en échange.\n\nAjouter des articles\nMessage facultatif\nPrésentez votre proposition en quelques mots.\nChoisissez au moins un article de chaque côté.\n\nEnvoyer la proposition",
+      "screenshot": "captures/after-proposal-narrow.png"
+    },
+    {
+      "case": "mine-narrow",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Espace échanges\n\nMes échanges\nTous\nEn attente\nEn cours\nHistorique\n\nLou M.\nProposé le 4 oct.\n\nProposition envoyée\nVous attendez la réponse du membre.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA\n\nAlex B.\nProposé le 4 oct.\n\nÉchange accepté\nChoisissez comment échanger vos articles.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA\n\nNoa D.\nProposé le 4 oct.\n\nÉchange terminé\nVous pouvez maintenant évaluer cet échange.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA",
+      "screenshot": "captures/after-mine-narrow.png"
+    },
+    {
+      "case": "detail-narrow",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange avec\nLou M.\n\nProposition envoyée\nVous attendez la réponse du membre.\nVotre message\nBonjour, votre veste me plaît beaucoup. Ces deux articles vous intéresseraient-ils ?\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\nAnnuler la proposition\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-narrow.png"
+    },
+    {
+      "case": "home-tablet",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Seconde\nDonnez une nouvelle vie aux articles que vous aimez.\nUne nouvelle vie pour vos articles\nEspace échanges\nChoisissez un article qui vous plaît, puis proposez les vôtres en échange.\n\n4 articles à échanger\nDécouvrir les articles\n\nÀ découvrir",
+      "screenshot": "captures/after-home-tablet.png"
+    },
+    {
+      "case": "catalogue-tablet",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n2\n\nAjouter des articles\nAfficher 2 articles\n\nLes articles à découvrir\n2 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM",
+      "screenshot": "captures/after-catalogue-tablet.png"
+    },
+    {
+      "case": "proposal-font130",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1.3,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nProposer un échange\nAvec Lou Martin\nComposez votre proposition en choisissant les articles de chaque côté.\nLes articles de Lou Martin\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\n\n\nAjouter des articles\n\nVos articles\n\nChoisissez les articles que vous proposez en échange.\n\nAjouter des articles\nMessage facultatif\nPrésentez votre proposition en quelques mots.\nChoisissez au moins un article de chaque côté.\n\nEnvoyer la proposition",
+      "screenshot": "captures/after-proposal-font130.png"
+    },
+    {
+      "case": "proposal-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nProposer un échange\nAvec Lou Martin\nComposez votre proposition en choisissant les articles de chaque côté.\nLes articles de Lou Martin\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\n\n\nAjouter des articles\n\nVos articles\n\nChoisissez les articles que vous proposez en échange.\n\nAjouter des articles\nMessage facultatif\nPrésentez votre proposition en quelques mots.\nChoisissez au moins un article de chaque côté.\n\nEnvoyer la proposition\nChoisissez vos articles\nTouchez un article pour le choisir ou le retirer.\n\n0 articles sélectionnés\n0 $\nUtiliser cette sélection",
+      "screenshot": "captures/after-proposal-loading.png"
+    },
+    {
+      "case": "proposal-error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nProposer un échange\nAvec Lou Martin\nComposez votre proposition en choisissant les articles de chaque côté.\nLes articles de Lou Martin\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\n\n\nAjouter des articles\n\nVos articles\n\nChoisissez les articles que vous proposez en échange.\n\nAjouter des articles\nMessage facultatif\nPrésentez votre proposition en quelques mots.\nChoisissez au moins un article de chaque côté.\n\nEnvoyer la proposition\nChoisissez vos articles\nTouchez un article pour le choisir ou le retirer.\n\n\nArticles indisponibles\nImpossible de charger vos articles. Votre sélection est conservée.\nRéessayer\n0 articles sélectionnés\n0 $\nUtiliser cette sélection",
+      "screenshot": "captures/after-proposal-error.png"
+    },
+    {
+      "case": "proposal-no-inventory",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nProposer un échange\nAvec Lou Martin\nComposez votre proposition en choisissant les articles de chaque côté.\nLes articles de Lou Martin\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\n\n\nAjouter des articles\n\nVos articles\n\nChoisissez les articles que vous proposez en échange.\n\nAjouter des articles\nMessage facultatif\nPrésentez votre proposition en quelques mots.\nChoisissez au moins un article de chaque côté.\n\nEnvoyer la proposition\nChoisissez vos articles\nTouchez un article pour le choisir ou le retirer.\n\n\nAucun article disponible\nVous n’avez aucun article disponible. Publiez un article pour le proposer en échange.\nPublier un article\n0 articles sélectionnés\n0 $\nUtiliser cette sélection",
+      "screenshot": "captures/after-proposal-no-inventory.png"
+    },
+    {
+      "case": "catalogue-deposit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n2\n\nAjouter des articles\nAfficher 2 articles\n\nLes articles à découvrir\n2 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM\nVos articles à échanger\nSélectionnez les articles de votre garde-robe à proposer.\n\nChemise rayée\nMaison Lune\nValeur 25 $ · M\n\nSélectionnez les articles à ajouter.\nAjouter à l’espace échanges",
+      "screenshot": "captures/after-catalogue-deposit.png"
+    },
+    {
+      "case": "catalogue-deposit-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n2\n\nAjouter des articles\nAfficher 2 articles\n\nLes articles à découvrir\n2 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM\nVos articles à échanger\nSélectionnez les articles de votre garde-robe à proposer.\n\nChargement de vos articles…",
+      "screenshot": "captures/after-catalogue-deposit-loading.png"
+    },
+    {
+      "case": "catalogue-deposit-error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n2\n\nAjouter des articles\nAfficher 2 articles\n\nLes articles à découvrir\n2 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM\nVos articles à échanger\nSélectionnez les articles de votre garde-robe à proposer.\n\n\nVos articles n’ont pas pu être chargés\nVérifiez votre connexion, puis réessayez.\nRéessayer",
+      "screenshot": "captures/after-catalogue-deposit-error.png"
+    },
+    {
+      "case": "catalogue-deposit-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nChoisissez un article, puis proposez les vôtres en échange.\n\nMes échanges\n\nVos articles\n2\n\nAjouter des articles\nAfficher 2 articles\n\nLes articles à découvrir\n2 articles\nAppui long pour choisir plusieurs articles.\nTrier\n\nCatégorie\n\nTaille\n\nCouleur\n\nMarque\n\nMatière\n\nÉtat\n\nÀ échanger\nAtelier Bleu\nVeste en denim\nValeur 45 $\nM\nÀ échanger\nMaison Lune\nPull en laine\nValeur 30 $\nM\nVos articles à échanger\nSélectionnez les articles de votre garde-robe à proposer.\n\n\nVotre garde-robe est encore vide\nPubliez un article, puis ajoutez-le ici pour commencer à échanger.\nPublier un article",
+      "screenshot": "captures/after-catalogue-deposit-empty.png"
+    },
+    {
+      "case": "detail-guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nRetrouvez votre échange\nConnectez-vous avec le compte qui participe à cet échange.\nSE CONNECTER",
+      "screenshot": "captures/after-detail-guest.png"
+    },
+    {
+      "case": "detail-expired",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "bottom",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange expiré\nCet échange n’est plus actif.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\n\nContacter Lou Martin",
+      "screenshot": "captures/after-detail-expired.png"
+    },
+    {
+      "case": "detail-declined",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nProposition refusée\nCette proposition a été refusée.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA",
+      "screenshot": "captures/after-detail-declined.png"
+    },
+    {
+      "case": "detail-cancelled",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange annulé\nCet échange a été annulé.\n\nÉchange avec\nLou M.\nVous donnez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\nVous recevez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA",
+      "screenshot": "captures/after-detail-cancelled.png"
+    },
+    {
+      "case": "home-narrow",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Seconde\nDonnez une nouvelle vie aux articles que vous aimez.\nUne nouvelle vie pour vos articles\nEspace échanges\nChoisissez un article qui vous plaît, puis proposez les vôtres en échange.\n\n4 articles à échanger\nDécouvrir les articles\n\nÀ découvrir",
+      "screenshot": "captures/after-home-narrow.png"
+    },
+    {
+      "case": "mine-font130",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1.3,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "Espace échanges\n\nMes échanges\nTous\nEn attente\nEn cours\nHistorique\n\nLou M.\nProposé le 4 oct.\n\nProposition envoyée\nVous attendez la réponse du membre.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA\n\nAlex B.\nProposé le 4 oct.\n\nÉchange accepté\nChoisissez comment échanger vos articles.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA\n\nNoa D.\nProposé le 4 oct.\n\nÉchange terminé\nVous pouvez maintenant évaluer cet échange.\nVous donnez\nChemise en lin\n+ 1 autre article\n55,00 $ CA\nVous recevez\nVeste en denim\n+ 1 autre article\n75,00 $ CA",
+      "screenshot": "captures/after-mine-font130.png"
+    },
+    {
+      "case": "detail-font130",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "scroll": "top",
+      "typographyScale": 1.3,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "bodyText": "\nEspace échanges\nDétail de l’échange\n\nÉchange avec\nCamille\n\nProposition reçue\nDécouvrez les articles proposés, puis choisissez votre réponse.\nMessage de Camille\nBonjour, votre veste me plaît beaucoup. Ces deux articles vous intéresseraient-ils ?\nVous donnez\nAtelier Bleu\nVeste en denim\nTaille M\nValeur indiquée · 45,00 $ CA\nMaison Lune\nPull en laine\nTaille M\nValeur indiquée · 30,00 $ CA\nVous recevez\nMaison Lune\nChemise en lin\nTaille M\nValeur indiquée · 35,00 $ CA\nSac en toile\nTaille M\nValeur indiquée · 20,00 $ CA\n\nContacter Camille\nAccepter la proposition\nRefuser",
+      "screenshot": "captures/after-detail-font130.png"
+    }
+  ]
+}
