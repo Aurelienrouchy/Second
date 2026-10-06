@@ -83,7 +83,9 @@ service firebase.storage {
     // Chat media is private to the authoritative participants and immutable.
     match /chat_images/{chatId}/{allPaths=**} {
       allow read: if participatesInChat(chatId);
-      allow create: if participatesInChat(chatId) && isValidImageUpload();
+      // An upload can be evaluated as create even when it replaces an object.
+      // Explicitly check the existing resource to preserve immutable media.
+      allow create: if resource == null && participatesInChat(chatId) && isValidImageUpload();
       allow update, delete: if false;
     }
 
@@ -95,7 +97,7 @@ service firebase.storage {
     // New proofs bind the uploader via a UID segment and are create-only.
     match /swaps/{swapId}/photos/{userId}/{fileName} {
       allow read: if participatesInSwap(swapId);
-      allow create: if participatesInSwap(swapId)
+      allow create: if resource == null && participatesInSwap(swapId)
         && request.auth.uid == userId
         && firestore.get(/databases/(default)/documents/swaps/$(swapId)).data.status == 'photos_pending'
         && isValidImageUpload();
