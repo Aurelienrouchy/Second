@@ -31,3 +31,5 @@ export { TopControls } from './components/capture/TopControls';
 export { ThumbnailStrip } from './components/capture/ThumbnailStrip';
 export { CameraControlsRow } from './components/capture/CameraControlsRow';
 export { SellOverlayCapture } from './components/capture/SellOverlayCapture';
+export { useSellCamera } from './hooks/useSellCamera';
+export { PhotoOrderControls } from './components/shared/PhotoOrderControls';

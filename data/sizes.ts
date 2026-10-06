@@ -1,69 +1,36 @@
 /**
  * Sizes Data — Unified source of truth
  *
- * These sizes match EXACTLY what is shown in the onboarding flow.
+ * These sizes are also used by the onboarding flow and the server AI reference.
  * 3 sections: Tops, Bottoms, Shoes
  * 2 systems: US, EU
  * 2 demographics: Adult, Kids
  *
- * IMPORTANT: These values MUST match the SIZE_REFERENCE in functions/src/productReference.ts
- * to ensure consistency between AI suggestions and the app's selectors.
+ * Canonical arrays live in functions/src/shared/sizeCatalog.json.
  */
 
 // Single source of truth lives in types/index.ts. data must never be imported
 // by types — this one-way re-export keeps SizeSystem identical on both sides.
+import sizeCatalog from '@/functions/src/shared/sizeCatalog.json';
 import type { SizeSystem } from '@/types';
 export type { SizeSystem };
 export type SizeDemographic = 'adult' | 'kids';
 export type SizeSection = 'tops' | 'bottoms' | 'shoes';
 
-// ─── Adult sizes ─────────────────────────────────────────────────────
+// Pure data shared with Functions; kept in its source tree so deployment includes it.
 
-// US
-export const SIZES_ADULT_TOPS_US = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
-export const SIZES_ADULT_BOTTOMS_US = ['24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '36', '38', '40'];
-export const SIZES_ADULT_SHOES_US = [
-  '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5',
-  '9', '9.5', '10', '10.5', '11', '11.5', '12', '13',
-];
-
-// EU
-export const SIZES_ADULT_TOPS_EU = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
-export const SIZES_ADULT_BOTTOMS_EU = ['32', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52'];
-export const SIZES_ADULT_SHOES_EU = [
-  '35', '35.5', '36', '36.5', '37', '37.5', '38', '38.5',
-  '39', '39.5', '40', '40.5', '41', '42', '43', '44', '45', '46',
-];
-
-// ─── Kids sizes ──────────────────────────────────────────────────────
-
-// US
-export const SIZES_KIDS_TOPS_US = [
-  '2T', '3T', '4T', '5', '6', '6X', '7', '8',
-  '10', '12', '14', '16',
-];
-export const SIZES_KIDS_BOTTOMS_US = [
-  '2T', '3T', '4T', '5', '6', '6X', '7', '8',
-  '10', '12', '14', '16',
-];
-export const SIZES_KIDS_SHOES_US = [
-  '5C', '6C', '7C', '8C', '9C', '10C', '11C', '12C', '13C',
-  '1Y', '2Y', '3Y', '4Y', '5Y', '6Y', '7Y',
-];
-
-// EU
-export const SIZES_KIDS_TOPS_EU = [
-  '2 ans', '3 ans', '4 ans', '5 ans', '6 ans', '8 ans',
-  '10 ans', '12 ans', '14 ans', '16 ans',
-];
-export const SIZES_KIDS_BOTTOMS_EU = [
-  '2 ans', '3 ans', '4 ans', '5 ans', '6 ans', '8 ans',
-  '10 ans', '12 ans', '14 ans', '16 ans',
-];
-export const SIZES_KIDS_SHOES_EU = [
-  '20', '21', '22', '23', '24', '25', '26', '27',
-  '28', '29', '30', '31', '32', '33', '34', '35',
-];
+export const SIZES_ADULT_TOPS_US = sizeCatalog.SIZES_ADULT_TOPS_US;
+export const SIZES_ADULT_BOTTOMS_US = sizeCatalog.SIZES_ADULT_BOTTOMS_US;
+export const SIZES_ADULT_SHOES_US = sizeCatalog.SIZES_ADULT_SHOES_US;
+export const SIZES_ADULT_TOPS_EU = sizeCatalog.SIZES_ADULT_TOPS_EU;
+export const SIZES_ADULT_BOTTOMS_EU = sizeCatalog.SIZES_ADULT_BOTTOMS_EU;
+export const SIZES_ADULT_SHOES_EU = sizeCatalog.SIZES_ADULT_SHOES_EU;
+export const SIZES_KIDS_TOPS_US = sizeCatalog.SIZES_KIDS_TOPS_US;
+export const SIZES_KIDS_BOTTOMS_US = sizeCatalog.SIZES_KIDS_BOTTOMS_US;
+export const SIZES_KIDS_SHOES_US = sizeCatalog.SIZES_KIDS_SHOES_US;
+export const SIZES_KIDS_TOPS_EU = sizeCatalog.SIZES_KIDS_TOPS_EU;
+export const SIZES_KIDS_BOTTOMS_EU = sizeCatalog.SIZES_KIDS_BOTTOMS_EU;
+export const SIZES_KIDS_SHOES_EU = sizeCatalog.SIZES_KIDS_SHOES_EU;
 
 // ─── Accessor map ────────────────────────────────────────────────────
 
@@ -140,7 +107,7 @@ export const SIZE_DATA: SizeCategory[] = [
   { categoryType: 'men_shoes', sizes: SIZES_ADULT_SHOES_EU },
   { categoryType: 'kids_clothing', sizes: [...SIZES_KIDS_TOPS_EU, ...SIZES_KIDS_BOTTOMS_EU] },
   { categoryType: 'kids_shoes', sizes: SIZES_KIDS_SHOES_EU },
-  { categoryType: 'accessories', sizes: ['Unique', 'S', 'M', 'L', 'XL'] },
+  { categoryType: 'accessories', sizes: sizeCatalog.SIZES_ACCESSORIES },
 ];
 
 export const sizes = {
@@ -217,7 +184,7 @@ export const getCategoryType = (categoryIds: string[]): SizeCategory['categoryTy
 export const getSizesForCategory = (categoryIds: string[]): string[] => {
   const categoryType = getCategoryType(categoryIds);
   const sizeData = SIZE_DATA.find(s => s.categoryType === categoryType);
-  return sizeData?.sizes || SIZE_DATA[0].sizes;
+  return [...new Set(sizeData?.sizes || SIZE_DATA[0].sizes)];
 };
 
 /**

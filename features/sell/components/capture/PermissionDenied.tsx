@@ -5,28 +5,31 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 
 interface PermissionDeniedProps {
   onGalleryPress: () => void;
+  photoCount?: number;
+  onContinue?: () => void;
+  onClose?: () => void;
+  onRetry?: () => void;
 }
 
 export const PermissionDenied = React.memo(function PermissionDenied({
-  onGalleryPress,
+  onGalleryPress, photoCount = 0, onContinue, onClose, onRetry,
 }: PermissionDeniedProps) {
   return (
     <View style={styles.permissionDenied}>
       <View style={styles.permissionIconCircle}>
         <Ionicons name="camera-outline" size={32} color={colors.muted} />
       </View>
-      <Text style={styles.permissionTitle}>Accès caméra requis</Text>
+      <Text style={styles.permissionTitle}>{onRetry ? 'Caméra indisponible' : 'Accès caméra requis'}</Text>
       <Text style={styles.permissionText}>
-        Pour prendre des photos de vos articles, autorisez l&apos;accès à la caméra
-        dans les réglages.
+        {onRetry ? 'Réessayez ou sélectionnez vos photos depuis la galerie.' : "Pour prendre des photos, autorisez l’accès à la caméra dans les réglages. Vous pouvez aussi utiliser la galerie."}
       </Text>
 
       <Pressable
         style={styles.settingsButton}
-        onPress={() => Linking.openSettings()}
+        onPress={onRetry ?? (() => Linking.openSettings())}
       >
         <Ionicons name="settings-outline" size={18} color={colors.cream} />
-        <Text style={styles.settingsButtonText}>OUVRIR LES RÉGLAGES</Text>
+        <Text style={styles.settingsButtonText}>{onRetry ? 'RÉESSAYER' : 'OUVRIR LES RÉGLAGES'}</Text>
       </Pressable>
 
       <Text style={styles.orText}>ou</Text>
@@ -41,6 +44,16 @@ export const PermissionDenied = React.memo(function PermissionDenied({
           Sélectionner depuis la galerie
         </Text>
       </Pressable>
+      {photoCount > 0 && onContinue && (
+        <Pressable testID="sell-capture-continue" style={styles.settingsButton} onPress={onContinue}>
+          <Text style={styles.settingsButtonText}>CONTINUER · {photoCount} PHOTO{photoCount > 1 ? 'S' : ''}</Text>
+        </Pressable>
+      )}
+      {onClose && (
+        <Pressable testID="sell-close-button" style={styles.galleryFallbackButton} onPress={onClose}>
+          <Text style={styles.galleryFallbackText}>Fermer</Text>
+        </Pressable>
+      )}
     </View>
   );
 });

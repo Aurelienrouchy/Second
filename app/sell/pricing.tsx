@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,7 +9,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
 import FormSectionTitle from '@/components/sell/FormSectionTitle';
@@ -23,7 +23,7 @@ import {
 } from '@/features/sell';
 import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
-import draftService, { ArticleDraft, DraftPricing } from '@/services/draftService';
+import draftService, { ArticleDraft, DraftPricing, DraftFields } from '@/services/draftService';
 import { track } from '@/lib/analytics';
 import { colors, spacing } from '@/constants/theme';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
@@ -32,6 +32,10 @@ type PackageSize = 'small' | 'medium' | 'large';
 
 export default function PricingScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const allowLeaveRef = useRef(false);
+  const advancingRef = useRef(false);
+  useFocusEffect(useCallback(() => { advancingRef.current = false; }, []));
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const priceInputRef = useRef<TextInput>(null);
@@ -39,14 +43,10 @@ export default function PricingScreen() {
 
   // Parse params
   const isResuming = params.resumeDraft === 'true';
-  const photos: string[] = params.photos ? JSON.parse(params.photos as string) : [];
-  const fields = params.fields ? JSON.parse(params.fields as string) : {};
-  const aiResult: AIAnalysisResult | null = params.aiResult
-    ? JSON.parse(params.aiResult as string)
-    : null;
-  const storageUrls: string[] = params.storageUrls
-    ? JSON.parse(params.storageUrls as string)
-    : [];
+  const [photos, setPhotos] = useState<string[]>(params.photos ? JSON.parse(params.photos as string) : []);
+  const [fields, setFields] = useState<DraftFields | null>(params.fields ? JSON.parse(params.fields as string) : null);
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(params.aiResult ? JSON.parse(params.aiResult as string) : null);
+  const [storageUrls, setStorageUrls] = useState<string[]>(params.storageUrls ? JSON.parse(params.storageUrls as string) : []);
 
   // State
   const [price, setPrice] = useState('');
@@ -67,6 +67,12 @@ export default function PricingScreen() {
       const existingDraft = await draftService.loadDraft();
       if (existingDraft) {
         setDraft(existingDraft);
+        if (isResuming) {
+          setPhotos(existingDraft.photos);
+          setStorageUrls(existingDraft.storageUrls ?? []);
+          setFields(existingDraft.fields);
+          setAiResult(existingDraft.aiResult);
+        }
         if (isResuming && existingDraft.pricing) {
           if (existingDraft.pricing.price !== null) {
             setPrice(existingDraft.pricing.price.toString());
@@ -100,30 +106,29 @@ export default function PricingScreen() {
     loadDraft();
   }, [isResuming]);
 
-  // Auto-save pricing
-  useEffect(() => {
-    if (!draft || !isInitialized) return;
-    const saveToDraft = async () => {
-      try {
-        const pricingData: DraftPricing = {
-          price: price ? parseFloat(price) : null,
-          isHandDelivery,
-          isShipping,
-          neighborhood: selectedNeighborhoods[0] || null,
-          neighborhoods: selectedNeighborhoods,
-          packageSize,
-        };
-        const updated = await draftService.updateDraftPricing(draft, pricingData);
-        setDraft(updated);
-      } catch (error) {
-        if (__DEV__) console.error('Failed to save draft pricing:', error);
-      }
+  const draftId = draft?.id;
+  const persistPricing = useCallback(async () => {
+    const latest = await draftService.loadDraft();
+    if (!latest) throw new Error('Draft unavailable');
+    const pricingData: DraftPricing = {
+      price: price ? parseFloat(price) : null, isHandDelivery, isShipping,
+      neighborhood: selectedNeighborhoods[0] || null,
+      neighborhoods: selectedNeighborhoods, packageSize,
     };
-    const timeoutId = setTimeout(saveToDraft, 500);
-    return () => clearTimeout(timeoutId);
-  }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize, draft?.id, isInitialized]);
+    setDraft(await draftService.updateDraftPricing(latest, pricingData));
+  }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize]);
 
-  const handleBack = () => {
+  useEffect(() => {
+    if (!draftId || !isInitialized) return;
+    const timeoutId = setTimeout(() => {
+      void persistPricing().catch(() => {
+        if (__DEV__) console.error('Failed to save draft pricing');
+      });
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [draftId, isInitialized, persistPricing]);
+
+  const handleBack = useCallback(() => {
     Alert.alert(
       'Quitter ?',
       'Tes modifications seront sauvegardées dans le brouillon.',
@@ -141,19 +146,30 @@ export default function PricingScreen() {
         },
         {
           text: 'Quitter',
-          onPress: () => {
+          onPress: async () => {
+            try { await persistPricing(); } catch {
+              Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter.');
+              return;
+            }
             track('sell_exit_prompted', {
               flow_step: 'pricing',
               confirmed_leave: true,
               photo_count: photos.length,
               has_price: !!price,
             });
+            allowLeaveRef.current = true;
             router.back();
           },
         },
       ],
     );
-  };
+  }, [persistPricing, photos.length, price, router]);
+
+  useEffect(() => navigation.addListener('beforeRemove', event => {
+    if (allowLeaveRef.current || draftService.wasPublished) return;
+    event.preventDefault();
+    handleBack();
+  }), [navigation, handleBack]);
 
   const handlePriceChange = (value: string) => {
     const cleaned = value.replace(',', '.').replace(/[^0-9.]/g, '');
@@ -200,7 +216,8 @@ export default function PricingScreen() {
     return newErrors.length === 0;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    if (advancingRef.current) return;
     if (!validateForm()) {
       const missingKeys: string[] = [];
       const priceValue = parseFloat(price);
@@ -214,6 +231,12 @@ export default function PricingScreen() {
         missing_fields: missingKeys,
         errors: missingKeys,
       });
+      return;
+    }
+    advancingRef.current = true;
+    try { await persistPricing(); } catch {
+      advancingRef.current = false;
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de continuer.');
       return;
     }
     track('sell_step_completed', {
@@ -237,7 +260,7 @@ export default function PricingScreen() {
           neighborhoods: selectedNeighborhoods,
           packageSize,
         }),
-        aiResult: params.aiResult,
+        aiResult: aiResult ? JSON.stringify(aiResult) : undefined,
         storageUrls: JSON.stringify(storageUrls),
       },
     });

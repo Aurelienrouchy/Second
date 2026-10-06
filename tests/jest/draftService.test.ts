@@ -367,3 +367,60 @@ describe('cleanupExpiredDrafts — purge des images orphelines', () => {
     );
   });
 });
+
+describe('media ordering and concurrent edits', () => {
+  it('keeps photo/storage URL pairs after reordering, deletion and stale field saves', async () => {
+    const draft = createEmptyDraft();
+    draft.photos = ['file:///documents/a.jpg', 'file:///documents/b.jpg', 'file:///documents/c.jpg'];
+    draft.originalPhotoUris = [...draft.photos];
+    draft.storageUrls = ['https://storage/a', 'https://storage/b', 'https://storage/c'];
+    await draftService.saveDraft(draft);
+    await Promise.all([
+      draftService.updateDraftPhotos(draft, [draft.photos[2], draft.photos[0]]),
+      draftService.updateDraftFields(draft, sampleFields()),
+    ]);
+    const resumed = await draftService.loadDraft();
+    expect(resumed?.photos).toEqual([draft.photos[2], draft.photos[0]]);
+    expect(resumed?.storageUrls).toEqual(['https://storage/c', 'https://storage/a']);
+    expect(resumed?.fields?.title).toBe('Robe fleurie Zara');
+  });
+
+  it('discards incomplete uploaded sets when a new gallery photo is added', async () => {
+    const draft = createEmptyDraft();
+    draft.photos = ['file:///documents/a.jpg'];
+    draft.originalPhotoUris = [...draft.photos];
+    draft.storageUrls = ['https://storage/a'];
+    await draftService.saveDraft(draft);
+    await draftService.updateDraftPhotos(draft, [...draft.photos, 'file:///gallery/b.jpg']);
+    expect((await draftService.loadDraft())?.storageUrls).toEqual([]);
+  });
+
+  it('caches new photos in distinct files rather than overwriting a retained photo', async () => {
+    const draft = createEmptyDraft();
+    const first = await draftService.updateDraftPhotos(draft, ['file:///gallery/a.jpg']);
+    const second = await draftService.updateDraftPhotos(first, ['file:///gallery/b.jpg', first.photos[0]]);
+    expect(second.photos[0]).not.toBe(first.photos[0]);
+    expect(second.photos[1]).toBe(first.photos[0]);
+  });
+});
+
+describe('finished draft lifecycle', () => {
+  it('does not resurrect a published or discarded draft through a delayed screen save', async () => {
+    const draft = createEmptyDraft();
+    await draftService.saveDraft(draft);
+    await draftService.deleteDraft(true);
+    await expect(draftService.updateDraftFields(draft, sampleFields())).rejects.toThrow('discarded');
+    expect(await AsyncStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+});
+
+describe('replaced drafts', () => {
+  it('does not overwrite a new draft from an older screen still saving', async () => {
+    const oldDraft = createEmptyDraft();
+    await draftService.saveDraft(oldDraft);
+    const newDraft = createEmptyDraft();
+    await draftService.saveDraft(newDraft);
+    await expect(draftService.updateDraftFields(oldDraft, sampleFields())).rejects.toThrow('replaced');
+    expect((await draftService.loadDraft())?.id).toBe(newDraft.id);
+  });
+});

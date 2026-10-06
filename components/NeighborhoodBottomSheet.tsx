@@ -121,6 +121,7 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
         onClose={() => setMounted(false)}
         topInset={insets.top}
         enableDynamicSizing={false}
+        backgroundStyle={styles.sheetBackground}
       >
         <View style={styles.container}>
           <View style={styles.header}>
@@ -173,9 +174,12 @@ const NeighborhoodBottomSheet = forwardRef<NeighborhoodBottomSheetRef, Neighborh
 );
 
 const styles = StyleSheet.create({
+  sheetBackground: {
+    backgroundColor: colors.surfaceWarm,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceWarm,
   },
   header: {
     flexDirection: 'row',

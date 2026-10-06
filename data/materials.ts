@@ -59,10 +59,9 @@ export const materials: MaterialItem[] = [
  * Get material items for SelectionBottomSheet
  * Returns items with value (ID) and label (display name)
  */
-export const getMaterialItems = () => materials.map(material => ({
-  value: material.id,
-  label: material.name,
-}));
+export const getMaterialItems = () => materials
+  .map(material => ({ value: material.id, label: material.name }))
+  .sort((a, b) => a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' }));
 
 /**
  * Find a material by ID

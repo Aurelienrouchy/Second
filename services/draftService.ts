@@ -88,7 +88,7 @@ async function cacheImage(uri: string, draftId: string, index: number): Promise<
 
   // Generate local filename
   const extension = uri.split('.').pop()?.split('?')[0] || 'jpg';
-  const localFilename = `${draftId}_${index}.${extension}`;
+  const localFilename = `${draftId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${extension}`;
   const localUri = `${DRAFT_IMAGES_DIR}${localFilename}`;
 
   // Check if source is already local
@@ -168,6 +168,29 @@ export function getDaysUntilExpiration(draft: ArticleDraft): number {
 class DraftService {
   private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly DEBOUNCE_MS = 500;
+  private updateQueue: Promise<unknown> = Promise.resolve();
+  private discardedDraftIds = new Set<string>();
+
+  // Merge each edit with the latest saved draft, in order. A delayed fields
+  // save must never restore photo order from an older screen snapshot.
+  private mutateDraft(
+    fallback: ArticleDraft,
+    update: (latest: ArticleDraft) => ArticleDraft | Promise<ArticleDraft>,
+  ): Promise<ArticleDraft> {
+    const operation = this.updateQueue.then(async () => {
+      if (this.discardedDraftIds.has(fallback.id)) throw new Error('Draft was discarded');
+      const stored = await AsyncStorage.getItem(DRAFT_KEY);
+      const parsed: ArticleDraft | null = stored ? JSON.parse(stored) : null;
+      if (parsed && parsed.id !== fallback.id) throw new Error('Draft was replaced');
+      const latest = parsed ?? fallback;
+      const updated = { ...await update(latest), updatedAt: new Date().toISOString() };
+      if (this.discardedDraftIds.has(updated.id)) throw new Error('Draft was discarded');
+      await this.saveDraft(updated);
+      return updated;
+    });
+    this.updateQueue = operation.catch(() => undefined);
+    return operation;
+  }
   // True le temps d'un flux après publication réussie : le guard beforeRemove de
   // l'écran details s'en sert pour ne pas afficher l'alerte "Quitter ?" alors que
   // le brouillon a déjà été supprimé. Ré-armé (false) à chaque édition / entrée de flux.
@@ -256,6 +279,8 @@ class DraftService {
    * @param keepStorageImages - If true, don't delete images from Firebase Storage (used after publishing)
    */
   async deleteDraft(keepStorageImages: boolean = false): Promise<void> {
+    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+    await this.updateQueue;
     if (__DEV__) console.log('[DraftService] deleteDraft() START, keepStorageImages:', keepStorageImages);
     try {
       // Read directly from AsyncStorage - DO NOT call loadDraft() here!
@@ -266,6 +291,7 @@ class DraftService {
 
       if (draftJson) {
         const draft: ArticleDraft = JSON.parse(draftJson);
+        this.discardedDraftIds.add(draft.id);
         if (__DEV__) console.log('[DraftService] Deleting cached images for draft:', draft.id);
 
         // Delete local cached images
@@ -335,118 +361,62 @@ class DraftService {
    */
   async updateDraftPhotos(
     draft: ArticleDraft,
-    newPhotos: string[]
+    newPhotos: string[],
+    storageUrls?: string[],
   ): Promise<ArticleDraft> {
-    // Cache new photos
-    const cachedPhotos = await this.cachePhotos(newPhotos, draft.id);
-
-    const updatedDraft: ArticleDraft = {
-      ...draft,
-      photos: cachedPhotos,
-      originalPhotoUris: newPhotos,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.saveDraft(updatedDraft);
-    return updatedDraft;
+    return this.mutateDraft(draft, async (latest) => {
+      const photoIndices = newPhotos.map((uri) => {
+        const cachedIndex = latest.photos.indexOf(uri);
+        return cachedIndex >= 0 ? cachedIndex : latest.originalPhotoUris.indexOf(uri);
+      });
+      const knownUrls = photoIndices.map((index) => latest.storageUrls[index]);
+      const alignedUrls = storageUrls ?? (
+        photoIndices.every(index => index >= 0) && knownUrls.every(Boolean) ? knownUrls : []
+      );
+      const cacheSources = newPhotos.map((uri, index) =>
+        photoIndices[index] >= 0 ? latest.photos[photoIndices[index]] : uri,
+      );
+      const cachedPhotos = await this.cachePhotos(cacheSources, latest.id);
+      return {
+        ...latest,
+        photos: cachedPhotos,
+        originalPhotoUris: newPhotos,
+        storageUrls: alignedUrls.length === newPhotos.length ? alignedUrls : [],
+        // Capture changes introducing new media invalidate the old analysis.
+        aiResult: storageUrls === undefined && photoIndices.some(index => index < 0) ? null : latest.aiResult,
+      };
+    });
   }
 
-  /**
-   * Update draft fields
-   */
-  async updateDraftFields(
-    draft: ArticleDraft,
-    fields: DraftFields
-  ): Promise<ArticleDraft> {
-    const updatedDraft: ArticleDraft = {
-      ...draft,
-      fields,
-      currentStep: Math.max(draft.currentStep, 2),
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.saveDraft(updatedDraft);
-    return updatedDraft;
+  /** Update fields without overwriting newer media or pricing edits. */
+  async updateDraftFields(draft: ArticleDraft, fields: DraftFields): Promise<ArticleDraft> {
+    return this.mutateDraft(draft, latest => ({
+      ...latest, fields, currentStep: Math.max(latest.currentStep, 2),
+    }));
   }
 
-  /**
-   * Update draft pricing
-   */
-  async updateDraftPricing(
-    draft: ArticleDraft,
-    pricing: DraftPricing
-  ): Promise<ArticleDraft> {
-    const updatedDraft: ArticleDraft = {
-      ...draft,
-      pricing,
-      currentStep: Math.max(draft.currentStep, 3),
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.saveDraft(updatedDraft);
-    return updatedDraft;
+  async updateDraftPricing(draft: ArticleDraft, pricing: DraftPricing): Promise<ArticleDraft> {
+    return this.mutateDraft(draft, latest => ({
+      ...latest, pricing, currentStep: Math.max(latest.currentStep, 3),
+    }));
   }
 
-  /**
-   * Update draft AI result and storage URLs
-   */
   async updateDraftAIResult(
     draft: ArticleDraft,
     aiResult: AIAnalysisResult,
-    storageUrls?: string[]
+    storageUrls?: string[],
   ): Promise<ArticleDraft> {
-    if (__DEV__) console.log('[DraftService] updateDraftAIResult called with:', {
-      draftId: draft.id,
-      hasAiResult: !!aiResult,
-      storageUrlsCount: storageUrls?.length || 0,
-      storageUrls: storageUrls,
-      existingStorageUrls: draft.storageUrls,
-    });
-
-    const updatedDraft: ArticleDraft = {
-      ...draft,
-      aiResult,
-      storageUrls: storageUrls || draft.storageUrls,
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (__DEV__) console.log('[DraftService] Saving draft with storageUrls:', updatedDraft.storageUrls);
-    await this.saveDraft(updatedDraft);
-    return updatedDraft;
+    return this.mutateDraft(draft, latest => ({
+      ...latest, aiResult, storageUrls: storageUrls ?? latest.storageUrls,
+    }));
   }
 
-  /**
-   * Update draft storage URLs (from AI analysis upload)
-   */
-  async updateDraftStorageUrls(
-    draft: ArticleDraft,
-    storageUrls: string[]
-  ): Promise<ArticleDraft> {
-    const updatedDraft: ArticleDraft = {
-      ...draft,
-      storageUrls,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.saveDraft(updatedDraft);
-    return updatedDraft;
+  async updateDraftStorageUrls(draft: ArticleDraft, storageUrls: string[]): Promise<ArticleDraft> {
+    return this.mutateDraft(draft, latest => ({ ...latest, storageUrls }));
   }
 
-  /**
-   * Update current step
-   */
-  async updateDraftStep(
-    draft: ArticleDraft,
-    step: number
-  ): Promise<ArticleDraft> {
-    const updatedDraft: ArticleDraft = {
-      ...draft,
-      currentStep: step,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.saveDraft(updatedDraft);
-    return updatedDraft;
+  async updateDraftStep(draft: ArticleDraft, step: number): Promise<ArticleDraft> {
+    return this.mutateDraft(draft, latest => ({ ...latest, currentStep: step }));
   }
 
   /**

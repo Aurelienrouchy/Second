@@ -1,6 +1,6 @@
 /**
  * Photos Review + Analysis Screen (merged)
- * Analysis starts automatically on mount, then auto-navigates to details on complete.
+ * Analysis starts automatically; photo order is persisted before continuing.
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import {
@@ -19,7 +20,7 @@ import {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,6 +30,7 @@ import { track } from '@/lib/analytics';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import {
+  PhotoOrderControls,
   AnalysisCard,
   ProgressStepsList,
   AnalysisFooter,
@@ -38,6 +40,7 @@ import { AIAnalysisResult, AnalysisPhase, CONDITION_DISPLAY } from '@/types/ai';
 import draftService, { createEmptyDraft } from '@/services/draftService';
 import { getColorName } from '@/data/colors';
 import { getMaterialName } from '@/data/materials';
+import { moveSellPhoto } from '@/utils/sellPhotos';
 
 // =============================================================================
 // CONSTANTS & TYPES
@@ -80,6 +83,7 @@ function countPrefilledFields(result: AIAnalysisResult): number {
 
 export default function PhotosReviewScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { width: screenWidth } = useWindowDimensions();
@@ -113,6 +117,25 @@ export default function PhotosReviewScreen() {
 
   // Guard against double navigation (timer + manual click)
   const hasNavigated = useRef(false);
+  useFocusEffect(useCallback(() => { hasNavigated.current = false; }, []));
+  const photoSaveRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const persistPhotoSnapshot = useCallback((nextPhotos: string[], nextUrls: string[]) => {
+    const save = photoSaveRef.current.catch(() => undefined).then(async () => {
+      const draft = await draftService.loadDraft() ?? createEmptyDraft();
+      return draftService.updateDraftPhotos(draft, nextPhotos, nextUrls);
+    });
+    photoSaveRef.current = save;
+    return save;
+  }, []);
+
+  const applyPhotoEdit = useCallback((nextPhotos: string[], nextUrls: string[]) => {
+    setPhotos(nextPhotos);
+    setStorageUrls(nextUrls);
+    void persistPhotoSnapshot(nextPhotos, nextUrls).catch(() => {
+      Alert.alert('Brouillon non sauvegardé', 'Vos photos restent disponibles ici. Réessayez avant de quitter.');
+    });
+  }, [persistPhotoSnapshot]);
 
   // Abort in-flight analysis on unmount / when leaving the screen
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -304,6 +327,7 @@ export default function PhotosReviewScreen() {
         if (
           draft?.aiResult &&
           draft.photos.length === photos.length &&
+          photos.every((uri, index) => uri === draft.photos[index] || uri === draft.originalPhotoUris[index]) &&
           draft.storageUrls.length > 0
         ) {
           if (__DEV__) console.log('[PhotosReview] Hydrating AI result from draft');
@@ -355,9 +379,29 @@ export default function PhotosReviewScreen() {
   // PHOTO HANDLERS
   // =============================================================================
 
-  const handleBack = () => {
-    router.back();
+  const handleBack = async () => {
+    abortControllerRef.current?.abort();
+    try {
+      await persistPhotoSnapshot(photos, storageUrls);
+      hasNavigated.current = true;
+      router.back();
+    } catch {
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+    }
   };
+
+  // Native swipe/hardware back must save the same media snapshot as the header.
+  useEffect(() => navigation.addListener('beforeRemove', (event) => {
+    if (hasNavigated.current || draftService.wasPublished) return;
+    event.preventDefault();
+    abortControllerRef.current?.abort();
+    void persistPhotoSnapshot(photos, storageUrls).then(() => {
+      hasNavigated.current = true;
+      navigation.dispatch(event.data.action);
+    }).catch(() => {
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+    });
+  }), [navigation, photos, storageUrls, persistPhotoSnapshot]);
 
   const handleAddPhotos = async () => {
     if (!canAddMore || isAnalyzing) return;
@@ -376,14 +420,7 @@ export default function PhotosReviewScreen() {
       if (!result.canceled && result.assets.length > 0) {
         const uris = result.assets.map((asset) => asset.uri);
         const added = uris.slice(0, remainingSlots);
-        setPhotos((prev) => {
-          const remaining = MAX_PHOTOS - prev.length;
-          return [...prev, ...uris.slice(0, remaining)];
-        });
-        // New photos have no uploaded Storage URL yet. Drop the stale set so
-        // publishing falls back to the local photos (re-uploaded at publish)
-        // instead of silently dropping the freshly added images.
-        setStorageUrls([]);
+        applyPhotoEdit([...photos, ...added], []);
         track('sell_photo_added', {
           screen: 'photos_review',
           method: 'gallery',
@@ -404,45 +441,41 @@ export default function PhotosReviewScreen() {
     }
   };
 
+  const handleMovePhoto = useCallback((from: number, to: number) => {
+    if (from === to || isAnalyzing) return;
+    const next = moveSellPhoto(photos, storageUrls, from, to);
+    applyPhotoEdit(next.photos, next.storageUrls);
+  }, [isAnalyzing, photos, storageUrls, applyPhotoEdit]);
+
   const handleMakePrimary = useCallback((index: number) => {
-    if (index === 0 || isAnalyzing) return;
-    setPhotos((prev) => {
-      const newPhotos = [...prev];
-      const [photo] = newPhotos.splice(index, 1);
-      newPhotos.unshift(photo);
-      return newPhotos;
-    });
-    // Keep uploaded Storage URLs aligned with the new photo order so the
-    // published article does not carry a stale/misordered primary image.
-    setStorageUrls((prev) => {
-      if (prev.length <= index) return prev;
-      const newUrls = [...prev];
-      const [url] = newUrls.splice(index, 1);
-      newUrls.unshift(url);
-      return newUrls;
-    });
-  }, [isAnalyzing]);
+    handleMovePhoto(index, 0);
+  }, [handleMovePhoto]);
 
   const handleRemovePhoto = useCallback((index: number) => {
     if (isAnalyzing) return;
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
-    setStorageUrls((prev) =>
-      prev.length > index ? prev.filter((_, i) => i !== index) : prev,
+    applyPhotoEdit(
+      photos.filter((_, i) => i !== index),
+      storageUrls.length === photos.length ? storageUrls.filter((_, i) => i !== index) : [],
     );
     track('sell_photo_removed', {
-      screen: 'photos_review',
-      photo_index: index,
-      photo_count_after: Math.max(0, photos.length - 1),
+      screen: 'photos_review', photo_index: index, photo_count_after: Math.max(0, photos.length - 1),
     });
-  }, [isAnalyzing, photos.length]);
+  }, [isAnalyzing, photos, storageUrls, applyPhotoEdit]);
 
   // =============================================================================
   // NAVIGATION HANDLERS
   // =============================================================================
 
-  const handleContinue = useCallback(() => {
-    if (!aiResult || hasNavigated.current) return;
+  const handleContinue = useCallback(async () => {
+    if (!aiResult || photos.length === 0 || hasNavigated.current) return;
     hasNavigated.current = true;
+    try {
+      await persistPhotoSnapshot(photos, storageUrls);
+    } catch {
+      hasNavigated.current = false;
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de continuer.');
+      return;
+    }
     track('sell_step_completed', {
       step: 'photos_review',
       photo_count: photos.length,
@@ -457,24 +490,33 @@ export default function PhotosReviewScreen() {
         storageUrls: JSON.stringify(storageUrls),
       },
     });
-  }, [aiResult, photos, storageUrls, prefilledCount, router]);
+  }, [aiResult, photos, storageUrls, prefilledCount, router, persistPhotoSnapshot]);
 
   // No auto-redirect — user reviews photos and clicks "Continuer" manually
 
-  const handleManualEntry = () => {
+  const handleManualEntry = async () => {
+    if (photos.length === 0 || hasNavigated.current) return;
+    hasNavigated.current = true;
     // Abandon any running analysis when the user opts for manual entry.
     abortControllerRef.current?.abort();
     track('ai_analysis_skipped', {
       photo_count: photos.length,
       analysis_state_at_tap: analysisState === 'complete' ? 'idle' : analysisState,
     });
+    try {
+      await persistPhotoSnapshot(photos, storageUrls);
+    } catch {
+      hasNavigated.current = false;
+      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de continuer.');
+      return;
+    }
     const mockResult = createMockAIResult();
     router.push({
       pathname: '/sell/details',
       params: {
         photos: JSON.stringify(photos),
         aiResult: JSON.stringify(mockResult),
-        storageUrls: JSON.stringify([]),
+        storageUrls: JSON.stringify(storageUrls),
       },
     });
   };
@@ -616,6 +658,8 @@ export default function PhotosReviewScreen() {
           </View>
         )}
 
+        <PhotoOrderControls photoCount={photos.length} disabled={isAnalyzing} onMove={handleMovePhoto} />
+
         {/* Add photos button -- centered layout matching mockup */}
         {canAddMore && (
           <Pressable
@@ -654,7 +698,7 @@ export default function PhotosReviewScreen() {
               />
             )}
 
-            {/* Results not shown — auto-navigates to details on complete */}
+            {/* Review and continue manually once the analysis completes. */}
           </View>
         )}
 
@@ -728,6 +772,7 @@ export default function PhotosReviewScreen() {
           <Pressable
             style={styles.continueButton}
             onPress={handleContinue}
+            disabled={photos.length === 0}
             testID="sell-photos-review-continue"
           >
             <Ionicons name="checkmark-circle-outline" size={18} color={colors.cream} />
@@ -776,11 +821,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.border,
   },
-  // Badge -- top-right position matching HTML mockup
+  // Leave the remove control clear on the right.
   primaryBadge: {
     position: 'absolute',
     top: 8,
-    right: 8,
+    left: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     paddingHorizontal: 8,
     paddingVertical: 4,
