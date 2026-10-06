@@ -1,5 +1,21 @@
-import { describe, it, expect } from 'vitest';
-import { fixStorageUrl, isStorageUrl } from './fixStorageUrl';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { fixStorageUrl, isStorageUrl, storageApiOrigin } from './fixStorageUrl';
+afterEach(() => vi.unstubAllEnvs());
+
+describe('Storage endpoint policy', () => {
+  it('keeps test REST upload URLs on the local emulator', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    expect(storageApiOrigin()).toBe('http://127.0.0.1:9199');
+    expect(isStorageUrl('http://127.0.0.1:9199/v0/b/demo-second/o/photo')).toBe(true);
+    expect(isStorageUrl('http://example.com:9199/v0/b/demo-second/o/photo')).toBe(false);
+  });
+  it('uses production only outside tests and without an explicit emulator build', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('EXPO_PUBLIC_FIREBASE_EMULATORS', '');
+    expect(storageApiOrigin()).toBe('https://firebasestorage.googleapis.com');
+    expect(isStorageUrl('http://127.0.0.1:9199/v0/b/demo-second/o/photo')).toBe(false);
+  });
+});
 
 describe('isStorageUrl', () => {
   it('returns true for Firebase Storage URLs', () => {

@@ -10,7 +10,7 @@ import { httpsCallable } from 'firebase/functions';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { AI_CONFIG, getPhaseProgress } from '@/config/aiConfig';
-import { fixStorageUrl } from '@/utils/fixStorageUrl';
+import { fixStorageUrl, storageApiOrigin } from '@/utils/fixStorageUrl';
 import {
   AIAnalysisResult,
   AIAnalysisResponse,
@@ -175,7 +175,8 @@ async function uploadImageToStorage(
   const encodedPath = encodeURIComponent(storagePath);
 
   const token = await user.getIdToken();
-  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+  const origin = storageApiOrigin();
+  const uploadUrl = `${origin}/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
 
   const res = await FileSystem.uploadAsync(uploadUrl, image.processedUri, {
     httpMethod: 'POST',
@@ -192,7 +193,7 @@ async function uploadImageToStorage(
 
   const metadata = JSON.parse(res.body) as { downloadTokens?: string };
   const downloadToken = metadata.downloadTokens?.split(',')[0];
-  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${downloadToken}`;
+  const downloadUrl = `${origin}/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
   return fixStorageUrl(downloadUrl);
 }

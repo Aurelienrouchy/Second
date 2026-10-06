@@ -4,6 +4,7 @@
  */
 
 import * as Haptics from 'expo-haptics';
+import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InteractionManager, Keyboard, TextInput } from 'react-native';
@@ -17,6 +18,8 @@ import { useArticleSearch } from '@/hooks/useArticleSearch';
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
 import { track } from '@/lib/analytics';
 import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
+import { ShopService } from '@/services/shopService';
+import { queryKeys } from '@/lib/queryKeys';
 
 import type { Article, ArticleSize, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
 import { formatPrice } from '@/utils/formatPrice';
@@ -85,6 +88,7 @@ export function useSearchScreen() {
     category?: string;
     brands?: string;
     shopId?: string;
+    sellerId?: string;
     query?: string;
     filters?: string;
     browse?: string;
@@ -128,8 +132,20 @@ export function useSearchScreen() {
   // Did we arrive with initial params that should show results immediately?
   const hasInitialContext = !!(
     params.query || params.category || params.categoryPath ||
-    params.brands || params.shopId || params.filters || isBrowseAll
+    params.brands || params.shopId || params.sellerId || params.filters || isBrowseAll
   );
+
+  // Old shop links contain a shop document ID. Resolve its owner instead of
+  // treating that ID as an article seller ID, and pause search during lookup.
+  const needsShopLookup = !!params.shopId && !params.sellerId;
+  const shopQuery = useQuery({
+    queryKey: queryKeys.shops.detail(params.shopId ?? ''),
+    queryFn: () => ShopService.getShopById(params.shopId!),
+    enabled: needsShopLookup,
+    staleTime: 10 * 60 * 1000,
+  });
+  const shopOwnerId = params.sellerId ?? (shopQuery.data?.status === 'approved' ? shopQuery.data.ownerId : undefined);
+  const shopScopeUnavailable = needsShopLookup && shopQuery.isFetched && !shopOwnerId;
 
   // ─── State ───────────────────────────────────────────────────────
   const [searchQuery, setSearchQueryLocal] = useState(params.query || '');
@@ -179,7 +195,8 @@ export function useSearchScreen() {
     initialFilters,
     initialQuery: params.query,
     initialCategoryPath,
-    sellerId: params.shopId,
+    sellerId: shopOwnerId,
+    enabled: !needsShopLookup || !!shopOwnerId,
     browseAll: isBrowseAll,
   });
 
@@ -228,7 +245,7 @@ export function useSearchScreen() {
         : params.categoryPath ? 'category_path'
         : params.category ? 'category'
         : params.brands ? 'brands'
-        : params.shopId ? 'shop'
+        : params.shopId || params.sellerId ? 'shop'
         : params.filters ? 'filters'
         : 'none';
     track('search_opened', {
@@ -265,6 +282,8 @@ export function useSearchScreen() {
   if (
     isSearching &&
     !isBrowseAll &&
+    !params.shopId &&
+    !params.sellerId &&
     !searchQuery.trim() &&
     selectedCategoryPath.length === 0 &&
     !hasActiveFilters
@@ -452,14 +471,16 @@ export function useSearchScreen() {
   // H5/H6 — with a text term, the server result order is popularity/relevance.
   // Price/date sorts would re-order only the current page (wrong global order +
   // skipped docs), so we only offer the relevance-compatible options in text
-  // mode. Without a term, all sorts stay available.
+  // mode. Seller-scoped browsing uses the available recency index; do not
+  // advertise price sorts that its server query cannot provide globally.
   const isTextMode = !!activeSearchQuery.trim();
+  const isShopScope = !!(params.shopId || params.sellerId);
   const availableSortItems = useMemo(
     () =>
       isTextMode
         ? SORT_ITEMS.filter((s) => s.value === 'popular')
-        : SORT_ITEMS,
-    [isTextMode]
+        : isShopScope ? SORT_ITEMS.filter((s) => s.value === 'recent') : SORT_ITEMS,
+    [isTextMode, isShopScope]
   );
 
   // If a text term is committed while an incompatible sort is selected, snap
@@ -468,6 +489,10 @@ export function useSearchScreen() {
   if (isTextMode && selectedSort !== 'popular') {
     setSelectedSort('popular');
     setFilters({ ...filters, sortBy: 'popular' });
+  }
+  if (!isTextMode && isShopScope && selectedSort !== 'recent') {
+    setSelectedSort('recent');
+    setFilters({ ...filters, sortBy: 'recent' });
   }
 
   // ─── Filter handlers (multi-select) ─────────────────────────────
@@ -732,7 +757,7 @@ export function useSearchScreen() {
   const isSortLocked = availableSortItems.length === 1;
 
   const getSortLabel = (): string => {
-    if (isSortLocked) return 'Tri automatique';
+    if (isSortLocked) return isTextMode ? 'Tri automatique' : 'Plus récents';
     const item = SORT_ITEMS.find((s) => s.value === selectedSort);
     return item ? item.label : 'Trier';
   };
@@ -759,7 +784,7 @@ export function useSearchScreen() {
       const cat = CATEGORIES.find((c) => c.id === params.category);
       return cat?.label || params.category;
     }
-    if (params.shopId) return 'Articles de la boutique';
+    if (params.shopId || params.sellerId) return 'Articles de la boutique';
     return 'Rechercher';
   };
 
@@ -791,13 +816,13 @@ export function useSearchScreen() {
     filters,
     activeSearchQuery,
     selectedCategoryPath,
-    isLoading,
+    isLoading: isLoading || (needsShopLookup && shopQuery.isLoading),
     isPaginating,
     hasNextPage,
     hasActiveFilters,
-    searchError,
-    isError,
-    refetch,
+    searchError: shopScopeUnavailable ? 'Cette boutique est indisponible.' : searchError,
+    isError: isError || shopScopeUnavailable,
+    refetch: shopScopeUnavailable ? shopQuery.refetch : refetch,
     isSearching,
     isGuest: !user,
     setIsSearching,

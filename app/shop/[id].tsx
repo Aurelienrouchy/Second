@@ -3,6 +3,7 @@
  * Displays complete information about a physical shop
  */
 
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 import { ShopService } from '@/services/shopService';
 import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
@@ -360,7 +361,7 @@ export default function ShopDetailScreen() {
               </View>
               <Pressable
                 style={styles.viewArticlesButton}
-                onPress={() => router.push(`/search?shopId=${shop.id}&source=shop`)}
+                onPress={() => router.push({ pathname: '/search', params: { sellerId: shop.ownerId, source: 'shop' } })}
               >
                 <Text style={styles.viewArticlesButtonText}>Voir tous les articles</Text>
                 <Ionicons name="chevron-forward" size={20} color={colors.primary} />
@@ -369,7 +370,7 @@ export default function ShopDetailScreen() {
           )}
 
           {/* Owner-only: manage the paid tier (F134) */}
-          {isOwner && (
+          {isOwner && PAYMENTS_ENABLED && (
             <View style={styles.section}>
               <Pressable
                 style={styles.manageTierButton}
@@ -630,4 +631,3 @@ const styles = StyleSheet.create({
     color: colors.cream,
   },
 });
-

@@ -325,7 +325,7 @@ export default function SwapDetailScreen() {
           const blob = await response.blob();
           const storageRef = ref(
             storage,
-            `swaps/${id}/photos/${user.id}_${i}_${Date.now()}.jpg`
+            `swaps/${id}/photos/${user.id}/${i}_${Date.now()}.jpg`
           );
           await uploadBytes(storageRef, blob);
           return getDownloadURL(storageRef);

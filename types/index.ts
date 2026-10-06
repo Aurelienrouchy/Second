@@ -63,9 +63,8 @@ export interface UserPreferences {
    */
   marketingConsent?: boolean;
   /**
-   * Consentement aux statistiques d'usage anonymisées (analytics produit).
-   * Modèle OPT-OUT (Loi 25) : activé par défaut, aucune donnée personnelle
-   * collectée. ABSENT => activé (true). Retirable/réactivable à tout moment
+   * Préférence de statistiques d'usage pseudonymes (analytics produit).
+   * Modèle produit OPT-OUT : activé par défaut après hydratation. ABSENT => activé (true). Retirable/réactivable à tout moment
    * depuis app/settings/privacy.tsx (câblé sur lib/analytics#setAnalyticsEnabled).
    */
   analyticsConsent?: boolean;
@@ -117,6 +116,7 @@ export interface User {
   styleProfile?: StyleProfile;
   onboardingCompleted?: boolean;
   authProvider?: 'email' | 'google' | 'apple';
+  expoPushTokens?: string[]; // Expo Push Service tokens (iOS)
   fcmTokens?: string[];  // Firebase Cloud Messaging tokens for push notifications
   likedSellers?: string[];     // IDs des vendeurs aimés
   sellerLikesCount?: number;   // Nombre de likes reçus en tant que vendeur
@@ -240,6 +240,7 @@ export interface Article {
   isActive: boolean;
   isSold: boolean;
   likes: number;
+  favoritesCount?: number;
   views: number;
   location?: string; // Ville ou code postal (legacy)
   neighborhood?: MeetupNeighborhood; // Quartier pour meetup
@@ -307,6 +308,8 @@ export interface ShippingEstimate {
 }
 
 export interface MessageOffer {
+  transactionId?: string;
+  expiredReason?: string;
   amount: number;
   status: OfferStatus;
   message?: string;
@@ -726,6 +729,8 @@ export interface MeetupNeighborhood {
 
 // Lieu de rencontre spécifique
 export interface MeetupSpot {
+  /** Location will be chosen explicitly in the conversation. */
+  toArrange?: boolean;
   id?: string;
   name: string;
   category: MeetupSpotCategory;
@@ -810,6 +815,8 @@ export interface UserMeetupScore {
 
 // Extension de MessageOffer pour supporter le meetup
 export interface MessageOfferWithMeetup {
+  transactionId?: string;
+  expiredReason?: string;
   amount: number;
   status: OfferStatus;
   message?: string;
@@ -1026,4 +1033,3 @@ export interface WithdrawalRequest {
   createdAt: Date;
   updatedAt?: Date;
 }
-

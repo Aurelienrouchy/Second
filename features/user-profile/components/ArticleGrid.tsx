@@ -3,16 +3,15 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
-import React, { useCallback, type ReactElement } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import React, { useCallback, useLayoutEffect, useRef, type ReactElement } from 'react';
+import { type NativeScrollEvent, type NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, spacing } from '@/constants/theme';
 import { Article } from '@/types';
 
 import { ArticleGridItem } from './ArticleGridItem';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_GAP = 2;
 const NUM_COLUMNS = 3;
 
@@ -30,6 +29,10 @@ interface ArticleGridProps {
    * reviews tab (plain ScrollView) instead.
    */
   ListHeaderComponent?: ReactElement;
+  ListFooterComponent?: ReactElement;
+  /** Keep one list/header mounted while retaining each tab's user scroll position. */
+  contentKey?: string;
+  showEmptyState?: boolean;
   /** Padding applied at the very bottom of the scrollable grid. */
   bottomInset?: number;
 }
@@ -40,8 +43,34 @@ export const ArticleGrid = React.memo(function ArticleGrid({
   articles,
   onArticlePress,
   ListHeaderComponent,
+  ListFooterComponent,
+  contentKey = 'articles',
+  showEmptyState = true,
   bottomInset = 0,
 }: ArticleGridProps) {
+  const listRef = useRef<FlashListRef<Article>>(null);
+  const offsets = useRef<Record<string, number>>({});
+  const userScrolling = useRef(false);
+  const restoringOffset = useRef<number | null>(null);
+  const previousContentKey = useRef(contentKey);
+
+  const restoreScroll = useCallback(() => {
+    if (restoringOffset.current === null) return;
+    listRef.current?.scrollToOffset({ offset: restoringOffset.current, animated: false, skipFirstItemOffset: true });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (previousContentKey.current === contentKey) return;
+    previousContentKey.current = contentKey;
+    userScrolling.current = false;
+    restoringOffset.current = offsets.current[contentKey] ?? 0;
+    const frame = requestAnimationFrame(restoreScroll);
+    return () => cancelAnimationFrame(frame);
+  }, [contentKey, restoreScroll]);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (userScrolling.current) offsets.current[contentKey] = event.nativeEvent.contentOffset.y;
+  }, [contentKey]);
   const renderItem = useCallback(
     ({ item }: { item: Article }) => (
       <ArticleGridItem
@@ -55,22 +84,30 @@ export const ArticleGrid = React.memo(function ArticleGrid({
   // Empty state still needs the header (profile + tabs) above it when this
   // grid drives the whole screen, so render it through the FlashList rather
   // than short-circuiting to a bare empty view.
-  const ListEmptyComponent = ListHeaderComponent ? GridEmpty : undefined;
+  const ListEmptyComponent = showEmptyState && ListHeaderComponent ? GridEmpty : undefined;
 
-  if (articles.length === 0 && !ListHeaderComponent) {
+  if (articles.length === 0 && !ListHeaderComponent && showEmptyState) {
     return <GridEmpty />;
   }
 
   return (
     <View style={styles.gridWrapper}>
       <FlashList
+        ref={listRef}
+        testID="profile-content-list"
         data={articles}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         numColumns={NUM_COLUMNS}
         ItemSeparatorComponent={GridSeparator}
         ListHeaderComponent={ListHeaderComponent}
+        ListFooterComponent={ListFooterComponent}
         ListEmptyComponent={ListEmptyComponent}
+        maintainVisibleContentPosition={{ disabled: true }}
+        onScroll={handleScroll}
+        onScrollBeginDrag={() => { userScrolling.current = true; restoringOffset.current = null; }}
+        onMomentumScrollEnd={() => { userScrolling.current = false; }}
+        onContentSizeChange={restoreScroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomInset }}
       />
@@ -94,7 +131,7 @@ const GridSeparator = React.memo(function GridSeparator() {
 const styles = StyleSheet.create({
   gridWrapper: {
     flex: 1,
-    width: SCREEN_WIDTH,
+    width: '100%',
   },
   separator: {
     height: GRID_GAP,

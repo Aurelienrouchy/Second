@@ -12,11 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   Pressable,
-  ScrollView,
   Share,
   StyleSheet,
   Text,
@@ -53,6 +53,7 @@ import { UserStatsService, type UserStats } from '@/services/userStatsService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { Article, User } from '@/types';
 import { formatDisplayName } from '@/utils/formatName';
+import { normalizeArticleImages } from '@/utils/articleImages';
 
 export default function UserProfileScreen() {
   const { id, source } = useLocalSearchParams<{ id: string; source?: string }>();
@@ -89,6 +90,8 @@ export default function UserProfileScreen() {
   const {
     data: publicProfile = null,
     isLoading: publicProfileLoading,
+    error: publicProfileError,
+    refetch: refetchPublicProfile,
   } = useQuery<UserPublicProfile | null>({
     queryKey: ['users', 'publicProfile', id] as const,
     queryFn: () => getUserPublicProfile(id!),
@@ -100,6 +103,8 @@ export default function UserProfileScreen() {
   const {
     data: ownProfileUser = null,
     isLoading: ownProfileLoading,
+    error: ownProfileError,
+    refetch: refetchOwnProfile,
   } = useQuery<User | null>({
     queryKey: queryKeys.users.profile(id ?? ''),
     queryFn: () => UserService.getUserById(id!),
@@ -116,9 +121,9 @@ export default function UserProfileScreen() {
   });
 
   // Own profile articles (authenticated — direct Firestore read)
-  const { data: ownArticles = [] } = useQuery<Article[]>({
+  const { data: ownArticles = [], isLoading: ownArticlesLoading, error: ownArticlesError, refetch: refetchOwnArticles } = useQuery<Article[]>({
     queryKey: queryKeys.users.articles(id ?? ''),
-    queryFn: () => UserStatsService.getArticlesEnVente(id!).catch(() => [] as Article[]),
+    queryFn: () => UserStatsService.getArticlesEnVente(id!),
     enabled: !!id && isOwnProfile,
     staleTime: 5 * 60 * 1000,
   });
@@ -127,6 +132,8 @@ export default function UserProfileScreen() {
   const {
     data: ownReviews = [],
     isLoading: ownReviewsLoading,
+    error: ownReviewsError,
+    refetch: refetchOwnReviews,
   } = useQuery<ProfileReview[]>({
     queryKey: ['reviews', 'user', id] as const,
     queryFn: async () => {
@@ -148,8 +155,9 @@ export default function UserProfileScreen() {
   // ─── Derive unified data from the two paths ───
 
   const isLoading = isOwnProfile ? ownProfileLoading : publicProfileLoading;
+  const profileError = isOwnProfile ? ownProfileError : publicProfileError;
 
-  const profileUser: User | null = isOwnProfile
+  const profileUser = useMemo<User | null>(() => isOwnProfile
     ? ownProfileUser
     : publicProfile
       ? ({
@@ -165,9 +173,9 @@ export default function UserProfileScreen() {
           accountType: publicProfile.profile.accountType,
           sellerLikesCount: publicProfile.profile.sellerLikesCount,
         } as unknown as User)
-      : null;
+      : null, [isOwnProfile, ownProfileUser, publicProfile]);
 
-  const stats: UserStats | null = isOwnProfile
+  const stats = useMemo<UserStats | null>(() => isOwnProfile
     ? ownStats
     : publicProfile
       ? {
@@ -179,21 +187,21 @@ export default function UserProfileScreen() {
           moyenneNote: publicProfile.stats.averageRating,
           nombreAvis: publicProfile.stats.totalReviews,
         }
-      : null;
+      : null, [isOwnProfile, ownStats, publicProfile]);
 
-  const articles: Article[] = isOwnProfile
+  const articles = useMemo<Article[]>(() => isOwnProfile
     ? ownArticles
     : (publicProfile?.articles ?? []).map((a) => ({
         id: a.id,
         title: a.title,
         price: a.price,
-        images: a.images,
+        images: normalizeArticleImages(a.images),
         isSold: a.isSold,
         condition: a.condition,
         brand: a.brand,
-      } as unknown as Article));
+      } as unknown as Article)), [isOwnProfile, ownArticles, publicProfile]);
 
-  const reviews: ProfileReview[] = isOwnProfile
+  const reviews = useMemo<ProfileReview[]>(() => isOwnProfile
     ? ownReviews
     : (publicProfile?.reviews ?? []).map((r) => ({
         id: r.id,
@@ -203,7 +211,7 @@ export default function UserProfileScreen() {
         date: r.createdAt,
         text: r.text,
         note: r.note,
-      }));
+      })), [isOwnProfile, ownReviews, publicProfile]);
 
   const reviewsLoading = isOwnProfile ? ownReviewsLoading : publicProfileLoading;
 
@@ -423,9 +431,8 @@ export default function UserProfileScreen() {
   }, [router]);
 
   // ─── Shared header (profile + actions + tabs) ────────────────────────────────
-  // Rendered as the FlashList ListHeaderComponent on the articles tab and at
-  // the top of the ScrollView on the reviews tab. React Compiler memoizes this
-  // JSX; child components are already React.memo'd so the tree stays cheap.
+  // The same FlashList/header remains mounted for both tabs. Data is cached
+  // independently of the selected tab; each tab retains its scroll position.
   const profileHeaderElement = profileUser ? (
     <View>
       <View>
@@ -467,10 +474,11 @@ export default function UserProfileScreen() {
         <ScreenHeader title="" onBack={handleBack} showBorder={false} />
         <View style={styles.notFoundState}>
           <Ionicons name="person-outline" size={48} color={colors.muted} />
-          <Text style={styles.emptyTitle}>Utilisateur introuvable</Text>
+          <Text style={styles.emptyTitle}>{profileError ? 'Impossible de charger le profil' : 'Utilisateur introuvable'}</Text>
           <Text style={styles.emptySubtitle}>
-            Ce profil n&apos;existe pas ou a été supprimé
+            {profileError ? 'Vérifiez votre connexion et réessayez.' : 'Ce profil n’existe pas ou a été supprimé'}
           </Text>
+          {profileError && <Pressable onPress={() => { if (isOwnProfile) void refetchOwnProfile(); else void refetchPublicProfile(); }} style={styles.headerActionButton} accessibilityRole="button"><Text style={styles.headerActionButtonText}>Réessayer</Text></Pressable>}
         </View>
       </View>
     );
@@ -504,37 +512,32 @@ export default function UserProfileScreen() {
         }
       />
 
-      {/* Header shared by both tabs: profile + actions, then the sticky tabs.
-          Children 0 = header/actions, 1 = tabs row (sticky index). */}
-      {activeTab === 'articles' ? (
-        // Articles tab: the FlashList grid is the single scroll container, so
-        // virtualization survives even on sellers with 50-200 articles
-        // (the old ScrollView wrapper neutralized it entirely — LIST-01).
-        <ArticleGrid
-          articles={articles}
-          onArticlePress={handleArticlePress}
-          ListHeaderComponent={profileHeaderElement}
-          bottomInset={100}
-        />
-      ) : (
-        // Reviews tab: bounded content (max ~20 reviews, .map-based), so a
-        // plain ScrollView with sticky tabs stays appropriate here.
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          stickyHeaderIndices={[1]}
-        >
-          {profileHeaderElement}
-          <ReviewList
-            stats={stats}
-            reviews={reviews}
-            isLoading={reviewsLoading}
-            isOwnProfile={isOwnProfile}
-            onReviewerPress={handleReviewerPress}
-          />
-          <View style={styles.bottomPadding} />
-        </ScrollView>
-      )}
+      <ArticleGrid
+        articles={activeTab === 'articles' ? articles : []}
+        onArticlePress={handleArticlePress}
+        ListHeaderComponent={profileHeaderElement}
+        contentKey={`${id}:${activeTab}`}
+        showEmptyState={activeTab === 'articles' && !(isOwnProfile && (ownArticlesLoading || ownArticlesError))}
+        ListFooterComponent={activeTab === 'avis' ? (
+          ownReviewsError && isOwnProfile ? (
+            <View style={styles.contentState}>
+              <Text style={styles.emptySubtitle}>Impossible de charger les avis.</Text>
+              <Pressable onPress={() => void refetchOwnReviews()} accessibilityRole="button"><Text style={styles.headerActionButtonText}>Réessayer</Text></Pressable>
+            </View>
+          ) : (
+            <ReviewList stats={stats} reviews={reviews} isLoading={reviewsLoading}
+              isOwnProfile={isOwnProfile} onReviewerPress={handleReviewerPress} />
+          )
+        ) : isOwnProfile && ownArticlesError ? (
+          <View style={styles.contentState}>
+            <Text style={styles.emptySubtitle}>Impossible de charger les articles.</Text>
+            <Pressable onPress={() => void refetchOwnArticles()} accessibilityRole="button"><Text style={styles.headerActionButtonText}>Réessayer</Text></Pressable>
+          </View>
+        ) : isOwnProfile && ownArticlesLoading ? (
+          <View style={styles.contentState}><ActivityIndicator color={colors.muted} /></View>
+        ) : undefined}
+        bottomInset={100}
+      />
 
       <ReportBottomSheet ref={reportSheetRef} />
     </View>
@@ -550,9 +553,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  scrollView: {
-    flex: 1,
-  },
+  contentState: { paddingVertical: spacing['2xl'], alignItems: 'center', gap: spacing.md },
   notFoundState: {
     flex: 1,
     justifyContent: 'center',
@@ -609,8 +610,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
 
-  // Bottom
-  bottomPadding: {
-    height: 100,
-  },
 });

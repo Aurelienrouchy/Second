@@ -25,6 +25,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 import { firestore } from '@/config/firebaseConfig';
 import { useUser } from '@/hooks/useAuth';
@@ -58,6 +59,7 @@ const STORAGE_KEY = 'user_favorites';
 // articleIds.size() <= 500). Guarding client-side avoids a silent write
 // rejection + optimistic rollback with no user feedback once the cap is hit.
 const FAVORITES_CAP = 500;
+const pendingFavoriteWrites = new Set<string>();
 
 export const favoritesKeys = {
   all: ['favorites'] as const,
@@ -157,6 +159,8 @@ async function fetchFavoriteIds(userId: string | null): Promise<string[]> {
 
 interface ToggleContext {
   previousIds: string[] | undefined;
+  previousArticle: Article | null | undefined;
+  adding: boolean;
 }
 
 async function toggleFavoriteMutation({
@@ -254,6 +258,14 @@ export function useFavorites() {
       const previousIds = queryClient.getQueryData<string[]>(
         favoritesKeys.ids(userId)
       );
+      await queryClient.cancelQueries({ queryKey: queryKeys.articles.detail(articleId) });
+      const previousArticle = queryClient.getQueryData<Article | null>(queryKeys.articles.detail(articleId));
+      const adding = !(previousIds ?? []).includes(articleId);
+      queryClient.setQueryData<Article | null>(queryKeys.articles.detail(articleId), (old) => old ? {
+        ...old,
+        likes: Math.max(0, (old.likes ?? 0) + (adding ? 1 : -1)),
+        favoritesCount: Math.max(0, (old.favoritesCount ?? old.likes ?? 0) + (adding ? 1 : -1)),
+      } : old);
 
       // Optimistic update
       queryClient.setQueryData<string[]>(
@@ -264,7 +276,7 @@ export function useFavorites() {
             : [...old, articleId]
       );
 
-      return { previousIds };
+      return { previousIds, previousArticle, adding };
     },
     onError: (_err, _articleId, context) => {
       // Rollback on error
@@ -274,19 +286,40 @@ export function useFavorites() {
           context.previousIds
         );
       }
+      if (context) queryClient.setQueryData(queryKeys.articles.detail(_articleId), context.previousArticle);
+    },
+    onSuccess: (_data, articleId, context) => {
+      if (!userId || !context) return;
+      // The write promise resolves before the trigger. Keep the optimistic
+      // count until its transactional server projection acknowledges this user.
+      let stop: (() => void) | undefined;
+      const timeout = setTimeout(() => stop?.(), 30_000);
+      stop = onSnapshot(doc(firestore, 'favorite_memberships', articleId, 'users', userId), (snapshot) => {
+        if (!snapshot.exists() || snapshot.data().counted !== context.adding) return;
+        stop?.();
+        clearTimeout(timeout);
+        void getDoc(doc(firestore, 'articles', articleId)).then((article) => {
+          if (!article.exists()) return;
+          const data = article.data();
+          queryClient.setQueryData<Article | null>(queryKeys.articles.detail(articleId), (old) => old ? {
+            ...old, likes: data.likes ?? 0, favoritesCount: data.favoritesCount ?? 0,
+          } : old);
+        }).catch(() => {});
+      }, () => { stop?.(); clearTimeout(timeout); });
     },
     onSettled: (_data, _err, articleId) => {
+      pendingFavoriteWrites.delete(`${userId ?? 'guest'}:${articleId}`);
       // Invalidate the favorites list so the Favorites screen refreshes
       if (userId) {
         queryClient.invalidateQueries({ queryKey: favoritesKeys.list(userId) });
       }
-      // Refresh the article doc so its likes counter reflects the toggle
-      queryClient.invalidateQueries({ queryKey: queryKeys.articles.detail(articleId) });
     },
   });
 
   const toggleFavorite = useCallback(
     (articleId: string, opts?: ToggleFavoriteOptions) => {
+      const pendingKey = `${userId ?? 'guest'}:${articleId}`;
+      if (pendingFavoriteWrites.has(pendingKey)) return;
       // Block adding beyond the cap so the Firestore write can't reject
       // silently and roll back the optimistic update without feedback.
       const isAdding = !favoriteIds.includes(articleId);
@@ -303,6 +336,7 @@ export function useFavorites() {
       }
 
       const source: FavoriteSource = opts?.source ?? 'article_detail';
+      pendingFavoriteWrites.add(pendingKey);
       if (isAdding) {
         track('article_favorited', {
           article_id: articleId,
@@ -326,7 +360,7 @@ export function useFavorites() {
 
       mutation.mutate(articleId);
     },
-    [mutation, favoriteIds]
+    [mutation, favoriteIds, userId]
   );
 
   const isFavorite = useCallback(

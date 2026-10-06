@@ -63,7 +63,7 @@ global.fetch = jest.fn((..._args: unknown[]) =>
   Promise.resolve({ blob: () => Promise.resolve({}) }),
 ) as unknown as typeof fetch;
 
-import { getDoc, updateDoc } from 'firebase/firestore';
+import { getDoc } from 'firebase/firestore';
 import { auth } from '@/config/firebaseConfig';
 import { ArticlesService } from '@/services/articlesService';
 
@@ -241,7 +241,7 @@ describe('createArticle — erreurs', () => {
     );
 
     await expect(ArticlesService.createArticle(baseArticle())).rejects.toThrow(
-      /Erreur lors de la creation de l'article/,
+      /Erreur lors de la création de l'article: PERMISSION_DENIED: email non vérifié/,
     );
   });
 
@@ -272,11 +272,10 @@ describe('deleteArticle — soft delete via callable', () => {
 });
 
 describe('updateArticle — édition d’un article existant', () => {
-  it('met à jour le document via updateDoc avec les changements fournis', async () => {
+  it('délègue l’édition à la callable qui valide et protège la réservation', async () => {
     await ArticlesService.updateArticle('art_7', { price: 30 });
-    expect(updateDoc).toHaveBeenCalledTimes(1);
-    // Le 2e argument porte exactement le patch demandé.
-    expect((updateDoc as jest.Mock).mock.calls[0][1]).toEqual({ price: 30 });
+    expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'updateArticle');
+    expect(mockUpdateArticleFn).toHaveBeenCalledWith({ articleId: 'art_7', updates: { price: 30 } });
   });
 });
 

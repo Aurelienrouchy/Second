@@ -114,7 +114,7 @@ describe('analyzeProductImage — upload RN-safe (REST, pas le Web SDK)', () => 
     ];
     // Endpoint REST media + bucket configuré + chemin drafts/<uid>/ encodé (%2F).
     expect(url).toContain(
-      'https://firebasestorage.googleapis.com/v0/b/test-bucket.firebasestorage.app/o?uploadType=media&name=',
+      'http://127.0.0.1:9199/v0/b/test-bucket.firebasestorage.app/o?uploadType=media&name=',
     );
     expect(url).toContain('drafts%2Fuid%2F');
     // Le fichier local NORMALISÉ (resize + JPEG) est streamé (pas de base64/blob côté JS).
