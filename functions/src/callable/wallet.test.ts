@@ -69,7 +69,7 @@ const {
 
   function mockDocRef(path: string): Record<string, unknown> {
     return {
-      path,
+      path, id: path.split('/').pop()!,
       get: async () => state.docSnapshots[path] ?? mockSnap(path, null),
       set: async (data: Record<string, unknown>) => {
         state.writeOps.push({ method: 'set', path, data });
@@ -114,8 +114,11 @@ const {
 
   function createMockTransaction() {
     return {
-      get: async (ref: { path: string }) =>
-        state.docSnapshots[ref.path] ?? mockSnap(ref.path, null),
+      get: async (ref: { path?: string; get?: () => Promise<unknown> }) => {
+        // Admin SDK transaction.get supports queries as well as document refs.
+        if (ref.path) return state.docSnapshots[ref.path] ?? mockSnap(ref.path, null);
+        return ref.get!();
+      },
       set: (ref: { path: string }, data: Record<string, unknown>) => {
         state.writeOps.push({ method: 'set', path: ref.path, data });
       },
@@ -135,6 +138,7 @@ const {
 
   const mockFieldValue = {
     serverTimestamp: () => ({ _type: 'serverTimestamp' }),
+    delete: () => ({ _type: 'delete' }),
     increment: (n: number) => ({ _type: 'increment', value: n }),
     arrayUnion: (...args: unknown[]) => ({ _type: 'arrayUnion', values: args }),
   };
@@ -590,6 +594,8 @@ describe('walletWithdraw', () => {
 
     expect(result.transferId).toBe('tr_456');
     expect(result.payoutId).toBe('po_456');
+    const requestWrite = writeOps.find(w => w.path.startsWith('withdrawal_requests/') && w.method === 'set');
+    const withdrawalRequestId = requestWrite!.path.split('/').pop()!;
 
     expect(transferArgs[0]).toEqual({
       amount: 2000,
@@ -598,6 +604,7 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
+        withdrawalRequestId,
       },
     });
     // Deterministic idempotency key derived from the ledger entry id
@@ -609,6 +616,7 @@ describe('walletWithdraw', () => {
       metadata: {
         firebaseUserId: 'user1',
         walletWithdrawal: 'true',
+        withdrawalRequestId,
       },
     });
     // stripe-node v22: single RequestOptions object carries both the Connect

@@ -13,7 +13,7 @@ const holder = vi.hoisted(() => ({
   fs: null as MockFirestore | null,
 }));
 
-const fs: MockFirestore = createFirestoreMock();
+const fs: MockFirestore = createFirestoreMock({ enforceReadBeforeWrite: true });
 holder.fs = fs;
 
 vi.mock('../config/firebase', () => ({
@@ -61,6 +61,7 @@ vi.mock('firebase-functions/logger', () => ({
 }));
 
 import { createLabelIdempotent } from './labelFulfillment';
+import { issueTransactionRefund } from './refund';
 
 interface FakeShipEngine {
   createLabel: (rateId: string) => Promise<any>;
@@ -79,6 +80,7 @@ function makeLabel(id: string) {
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   fs.reset();
 });
 
@@ -272,3 +274,102 @@ describe('createLabelIdempotent (F5/F82)', () => {
 
 // Silence unused-import lints for WriteOp in environments that tree-shake types.
 export type _W = WriteOp;
+
+
+describe('label settlement ownership and atomic cost variance', () => {
+  function seedPaid() {
+    fs.setDoc('transactions/tx1', { sellerId: 'seller1', buyerId: 'buyer1', articleId: 'item',
+      deliveryType: 'shipping', sellerPayout: 45, totalAmount: 45, status: 'paid',
+      shippingCost: 10, paidVia: 'wallet', walletAmountUsed: 4500 });
+    fs.setDoc('articles/item', { isSold: true, activeTransactionId: 'tx1' });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, heldBalance: 0, status: 'active' });
+    fs.setDoc('wallets/buyer1', { balance: 0, status: 'active' });
+  }
+  const run = (createLabel: FakeShipEngine['createLabel']) => createLabelIdempotent({
+    transactionRef: fs.db.collection('transactions').doc('tx1') as never,
+    transactionId: 'tx1', rateId: 'rate_1', shipEngine: { createLabel } as never,
+    estimatedShippingCost: 10,
+  });
+
+  it.each(['cancelled', 'refunded', 'meetup_completed'])('never calls the provider after %s', async status => {
+    seedPaid();
+    await fs.db.collection('transactions').doc('tx1').update({ status });
+    const createLabel = vi.fn(async () => makeLabel('orphan'));
+    expect(await run(createLabel)).toBe('skip');
+    expect(createLabel).not.toHaveBeenCalled();
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
+  });
+
+  it.each([false, true])('a refund while the provider is pending cannot re-credit or reopen the agreement (new owner %s)', async newOwner => {
+    seedPaid();
+    const result = await run(async () => {
+      await issueTransactionRefund('tx1', fs.getDoc('transactions/tx1')!, { idempotencyKey: 'mock_refund' });
+      if (newOwner) {
+        fs.setDoc('transactions/tx2', { articleId: 'item', status: 'meetup_pending' });
+        fs.setDoc('articles/item', { isSold: true, activeTransactionId: 'tx2' });
+      }
+      return makeLabel('orphan');
+    });
+    expect(result).toBe('failed');
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('refunded');
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(4500);
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
+    expect(fs.getDoc('articles/item')!.isSold).toBe(newOwner);
+    if (newOwner) expect(fs.getDoc('articles/item')!.activeTransactionId).toBe('tx2');
+    const alerts = fs.writeOps.filter(w => w.path.startsWith('admin_alerts/'));
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].data).toMatchObject({ kind: 'orphan_shipping_label', context: { labelId: 'orphan' } });
+  });
+
+  it('preserves a different accepted agreement when ownership changes during provider work', async () => {
+    seedPaid();
+    const result = await run(async () => {
+      fs.setDoc('transactions/tx2', { articleId: 'item', status: 'meetup_pending' });
+      fs.setDoc('articles/item', { isSold: true, activeTransactionId: 'tx2' });
+      return makeLabel('orphan');
+    });
+    expect(result).toBe('failed');
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('paid');
+    expect(fs.getDoc('transactions/tx1')!.sellerCreditedCents).toBeUndefined();
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
+    expect(fs.getDoc('articles/item')!.activeTransactionId).toBe('tx2');
+  });
+
+  it.each([12, 8])('records the actual cost but no variance ledger at the inclusive threshold (cost %i)', async cost => {
+    seedPaid();
+    expect(await run(async () => ({ ...makeLabel('L1'), shipmentCost: cost }))).toBe('created');
+    expect(fs.getDoc('transactions/tx1')).toMatchObject({ actualShippingCost: cost, shippingCostDelta: cost - 10 });
+    expect(fs.getDoc('platform_ledger/shipping_cost_variance_tx1')).toBeUndefined();
+  });
+
+  it.each([15, 5])('rolls back the variance entry with a retried settlement and commits one deterministic entry (cost %i)', async cost => {
+    seedPaid();
+    let providerFinished = false;
+    let retryOnce = true;
+    let attempts = 0;
+    const original = fs.db.runTransaction.bind(fs.db);
+    vi.spyOn(fs.db, 'runTransaction').mockImplementation(async handler => {
+      if (providerFinished && retryOnce) {
+        retryOnce = false;
+        try {
+          await original(async tx => { attempts++; await handler(tx); throw new Error('MOCK_TRANSACTION_RETRY'); });
+        } catch (err) {
+          if ((err as Error).message !== 'MOCK_TRANSACTION_RETRY') throw err;
+        }
+        return original(async tx => { attempts++; return handler(tx); });
+      }
+      return original(handler);
+    });
+    const createLabel = vi.fn(async () => { providerFinished = true; return { ...makeLabel('L1'), shipmentCost: cost }; });
+    expect(await run(createLabel)).toBe('created');
+    expect(attempts).toBe(2);
+    expect(createLabel).toHaveBeenCalledOnce();
+    const entries = fs.writeOps.filter(w => w.data.type === 'shipping_cost_variance');
+    expect(entries).toHaveLength(1);
+    expect(entries[0].path).toBe('platform_ledger/shipping_cost_variance_tx1');
+    expect(fs.getDoc(entries[0].path)).toMatchObject({ delta: cost - 10, estimatedShippingCost: 10, actualShippingCost: cost });
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+    expect(await run(createLabel)).toBe('skip');
+    expect(createLabel).toHaveBeenCalledOnce();
+  });
+});

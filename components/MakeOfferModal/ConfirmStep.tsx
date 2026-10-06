@@ -38,7 +38,7 @@ const ConfirmStep: React.FC<ConfirmStepProps> = ({ context, onSubmitMeetup, onSu
   const handleSubmit = async () => {
     if (submittingRef.current) return;
     const amount = parseOfferAmount(offerAmount);
-    if (!Number.isFinite(amount) || amount < 1 || amount > context.currentPrice) {
+    if (!Number.isFinite(amount) || amount < Math.min(1, context.currentPrice) || amount <= 0 || amount > context.currentPrice) {
       Alert.alert('Erreur', 'Montant de proposition invalide');
       return;
     }

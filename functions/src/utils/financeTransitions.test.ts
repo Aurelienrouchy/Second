@@ -3,7 +3,7 @@ import { createFirestoreMock, createStripeMock } from './testHelpers/firestoreMo
 import type { MockFirestore, StripeMock } from './testHelpers/firestoreMock';
 
 const holder = vi.hoisted(() => ({ fs: null as MockFirestore | null, stripe: null as StripeMock | null }));
-const fs = createFirestoreMock();
+const fs = createFirestoreMock({ enforceReadBeforeWrite: true });
 const stripe = createStripeMock();
 holder.fs = fs;
 holder.stripe = stripe;
@@ -60,6 +60,43 @@ describe('seller debt conservation across escrow, release and refund', () => {
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
     expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(777);
     expect(equity()).toBe(3777);
+  });
+
+  it.each([false, true])('underfunded delivery releases only its actual movement (legacy marker %s)', async legacy => {
+    await credit(0, 2000);
+    await fs.db.collection('wallets').doc('seller1').update({ pendingBalance: 1000 });
+    await applyTrackingOutcome('sale1', 'DELIVERED', 'test');
+    const delivered = fs.getDoc('transactions/sale1')!;
+    if (legacy) { delete delivered.sellerHeldCreditCents; fs.setDoc('transactions/sale1', delivered); }
+    await fs.db.collection('transactions').doc('sale1').update({ fundsReleaseAt: new Date(Date.now() - 1000) });
+    await (releaseHeldFunds as unknown as () => Promise<void>)();
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(1000);
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(2000);
+    expect(equity()).toBe(3000);
+  });
+
+  it('zero funded delivery cannot release another sale held balance', async () => {
+    await credit(0, 2000);
+    await fs.db.collection('wallets').doc('seller1').update({ pendingBalance: 0 });
+    await deliverAndRelease();
+    expect(fs.getDoc('transactions/sale1')!.sellerHeldCreditCents).toBe(0);
+    expect(fs.getDoc('transactions/sale1')!.sellerReleasedCents).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(2000);
+  });
+
+  it('legacy delivery without any attributable movement proof stays held for reconciliation', async () => {
+    await credit(0, 2000);
+    await applyTrackingOutcome('sale1', 'DELIVERED', 'test');
+    const sale = fs.getDoc('transactions/sale1')!;
+    delete sale.sellerHeldCreditCents;
+    fs.setDoc('transactions/sale1', { ...sale, fundsReleaseAt: new Date(Date.now() - 1000) });
+    for (const write of fs.writeOps.filter(w => w.data.type === 'funds_held')) fs.setDoc(write.path, null);
+    await (releaseHeldFunds as unknown as () => Promise<void>)();
+    expect(fs.getDoc('transactions/sale1')!.status).toBe('delivered');
+    expect(fs.getDoc('transactions/sale1')!.fundsReleasedAt).toBeUndefined();
+    expect(fs.getDoc('wallets/seller1')!.balance).toBe(0);
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(6500);
   });
 
   it('derives net escrow for a legacy transaction from the debt repayment ledger', async () => {

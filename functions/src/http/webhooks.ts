@@ -14,6 +14,7 @@
  * transaction — it is not atomic but can be safely retried/recreated
  * manually without financial inconsistency.
  */
+import { articleReleaseUpdate } from '../utils/articleReservation';
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -1634,6 +1635,8 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
       ? db.collection('articles').doc(txData.articleId)
       : null;
     const articleSnap = articleRef ? await tx.get(articleRef) : null;
+    const articleUnlock = articleRef && articleSnap?.exists
+      ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
 
     const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
     const shouldRefundWallet =
@@ -1653,8 +1656,8 @@ async function handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
     });
 
     // Release the article so it can be purchased again
-    if (articleRef && articleSnap && articleSnap.exists) {
-      tx.update(articleRef, { isSold: false });
+    if (articleRef && articleUnlock) {
+      tx.update(articleRef, articleUnlock!);
       cancelRelisted = true;
     }
 
@@ -2486,6 +2489,21 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     const emitBuyerId = typeof txData.buyerId === 'string' ? txData.buyerId : null;
     const emitReason = mapRefundReason(txData.refundReason);
 
+    const sellerId = txData.sellerId;
+    const paidVia = txData.paidVia;
+    const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
+
+    const buyerId = txData.buyerId;
+    const buyerWalletRef = paidVia === 'wallet' || paidVia === 'wallet_and_card'
+      ? db.collection('wallets').doc(buyerId) : null;
+    const buyerWalletSnap = buyerWalletRef ? await tx.get(buyerWalletRef) : null;
+    const sellerWalletRef = db.collection('wallets').doc(sellerId);
+    const sellerWalletSnap = await tx.get(sellerWalletRef);
+    const articleRef = txData.articleId ? db.collection('articles').doc(txData.articleId) : null;
+    const articleSnap = articleRef ? await tx.get(articleRef) : null;
+    const articleUnlock = articleRef && articleSnap?.exists
+      ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
+
     // Mark transaction as refunded
     tx.update(txDoc.ref, {
       status: 'refunded',
@@ -2493,21 +2511,13 @@ async function handleChargeRefunded(charge: any): Promise<void> {
       stripeRefundId: charge.refunds?.data?.[0]?.id || null,
     });
 
-    const sellerId = txData.sellerId;
-    const paidVia = txData.paidVia;
-    const walletAmountUsed = txData.walletAmountUsed || 0; // in cents
-
     // --- Handle wallet refund for buyer (mixed/100%-wallet payments) ---
     // The buyer's wallet portion is a purely INTERNAL movement: it was debited
     // from the buyer at checkout, so on refund it must be re-credited to the
     // buyer's wallet. The card portion is returned to the card by the Stripe
     // refund itself (a plain refund on the platform charge — single-rail model,
     // no transfer to reverse). This handler only reconciles the ledger.
-    if (paidVia === 'wallet' || paidVia === 'wallet_and_card') {
-      const buyerId = txData.buyerId;
-      const buyerWalletRef = db.collection('wallets').doc(buyerId);
-      const buyerWalletSnap = await tx.get(buyerWalletRef);
-
+    if (buyerWalletRef && buyerWalletSnap) {
       if (buyerWalletSnap.exists) {
         const walletData = buyerWalletSnap.data()!;
         // Refund the wallet portion back to buyer's wallet
@@ -2557,8 +2567,6 @@ async function handleChargeRefunded(charge: any): Promise<void> {
     // 'paid' with labelCreationPending was NEVER credited, so sellerCreditedCents
     // is absent and the debit target is 0 (debiting would create false debt).
     // The legacy derived-payout fallback is intentionally dropped here.
-    const sellerWalletRef = db.collection('wallets').doc(sellerId);
-    const sellerWalletSnap = await tx.get(sellerWalletRef);
     const sellerDebitTarget =
       typeof txData.sellerCreditedCents === 'number' ? txData.sellerCreditedCents : 0;
 
@@ -2640,14 +2648,8 @@ async function handleChargeRefunded(charge: any): Promise<void> {
       }
     }
 
-    // Release the article
-    if (txData.articleId) {
-      const articleRef = db.collection('articles').doc(txData.articleId);
-      const articleSnap = await tx.get(articleRef);
-      if (articleSnap.exists) {
-        tx.update(articleRef, { isSold: false });
-      }
-    }
+    // Release only the reservation owned by this refunded transaction.
+    if (articleRef && articleUnlock) tx.update(articleRef, articleUnlock);
 
     return { buyerId: emitBuyerId, reason: emitReason };
   });

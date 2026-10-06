@@ -10,7 +10,8 @@ import { track } from '@/lib/analytics';
 import { formatPrice } from '@/utils/formatPrice';
 
 // Offer amount bounds — the upper bound mirrors the server-side ceiling
-// enforced in firestore.rules (offer.amount <= 50000). Kept in sync manually.
+// enforced by the callable (offer.amount <= 50000). Cheap listings can still
+// be proposed at full price, preserving the existing negotiated-offer floor.
 const MIN_OFFER_AMOUNT = 1;
 const MAX_OFFER_AMOUNT = 50000;
 
@@ -47,7 +48,7 @@ const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
       });
     };
 
-    if (!amount || amount < MIN_OFFER_AMOUNT) {
+    if (!amount || amount < Math.min(MIN_OFFER_AMOUNT, currentPrice)) {
       emitConfirmed('invalid');
       Alert.alert('Erreur', 'Veuillez entrer un montant valide');
       return;

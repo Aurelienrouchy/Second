@@ -216,7 +216,7 @@ function applyWrite(
   }
 }
 
-export function createFirestoreMock(): MockFirestore {
+export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean } = {}): MockFirestore {
   // Committed document store. Absence of a key => doc does not exist.
   const store = new Map<string, DocData>();
   // Explicit "non-existent" markers (setDoc(path, null)).
@@ -381,7 +381,12 @@ export function createFirestoreMock(): MockFirestore {
     // the same tx see pre-tx state (Firestore semantics).
     const staged: WriteOp[] = [];
     const tx: MockTransaction = {
-      get: (async (ref: MockDocRef | MockQuery | MockAggregateQuery) => 'path' in ref ? snapFor(ref.path) : ref.get()) as MockTransaction['get'],
+      get: (async (ref: MockDocRef | MockQuery | MockAggregateQuery) => {
+        if (options.enforceReadBeforeWrite && staged.length > 0) {
+          throw new Error('READ_AFTER_WRITE_ERROR: Firestore requires all reads before writes');
+        }
+        return 'path' in ref ? snapFor(ref.path) : ref.get();
+      }) as MockTransaction['get'],
       set: (ref, data, opts) =>
         void staged.push({ method: 'set', path: ref.path, data, merge: opts?.merge }),
       update: (ref, data) => void staged.push({ method: 'update', path: ref.path, data }),

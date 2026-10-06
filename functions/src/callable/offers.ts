@@ -104,15 +104,18 @@ export const sendMeetupProposal = onCall(options, async (request) => {
       }
     }
     const amount = counterKind === 'price' || !original ? input.amount : original.offer.amount;
-    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 1 || amount > 50000 || Math.abs(Math.round(amount * 100) - amount * 100) > 0.0000001 ||
-        typeof article.price !== 'number' || amount > article.price) throw new HttpsError('invalid-argument', 'Montant de proposition invalide');
+    if (typeof article.price !== 'number' || !Number.isFinite(article.price) || article.price < 0.01 ||
+        typeof amount !== 'number' || !Number.isFinite(amount) || amount < Math.min(1, article.price) || amount > 50000 ||
+        Math.abs(Math.round(amount * 100) - amount * 100) > 0.0000001 || amount > article.price) {
+      throw new HttpsError('invalid-argument', 'Montant de proposition invalide');
+    }
     const location = normalizeMeetupLocation(counterKind === 'location' || !original ? input.location : original.offer.meetup.location);
     const dateTimeRaw = counterKind === 'time' ? input.dateTime : original?.offer.meetup.dateTime;
     const dateTime = dateTimeRaw?.toDate?.() ?? (dateTimeRaw ? new Date(dateTimeRaw) : null);
     if (dateTime && (!Number.isFinite(dateTime.getTime()) || dateTime.getTime() <= Date.now())) throw new HttpsError('invalid-argument', 'Horaire de rencontre invalide');
     const existingSame = pending.find((d) => {
       const previous = d.data()!;
-      return !originalId && previous.senderId === caller && previous.offer.amount === amount && previous.offer.message === (note || undefined) &&
+      return !originalId && previous.chatId === chatId && previous.senderId === caller && previous.offer.amount === amount && previous.offer.message === (note || undefined) &&
         !offerExpired(previous.offer) && meetupLocationsEqual(previous.offer.meetup.location, location);
     });
     if (existingSame && pending.length === 1) {

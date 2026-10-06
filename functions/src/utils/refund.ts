@@ -26,6 +26,7 @@
  *
  * All wallet/ledger amounts are CENTS. Transaction cost fields are DOLLARS.
  */
+import { articleReleaseUpdate } from './articleReservation';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
@@ -232,6 +233,8 @@ export async function issueTransactionRefund(
       ? db.collection('articles').doc(data.articleId)
       : null;
     const articleSnap = articleRef ? await tx.get(articleRef) : null;
+    const articleUnlock = relistArticle && articleRef && articleSnap?.exists
+      ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
 
     // Writes.
     tx.update(txRef, {
@@ -243,8 +246,8 @@ export async function issueTransactionRefund(
       disputed: false,
     });
 
-    if (relistArticle && articleRef && articleSnap && articleSnap.exists) {
-      tx.update(articleRef, { isSold: false });
+    if (articleRef && articleUnlock) {
+      tx.update(articleRef, articleUnlock);
     }
 
     // Re-credit buyer wallet portion (card portion goes back via Stripe).

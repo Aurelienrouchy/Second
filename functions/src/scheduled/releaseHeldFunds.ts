@@ -32,7 +32,7 @@
  *
  * Ledger types introduced here: 'funds_released'.
  */
-import { sellerPendingCreditCents } from '../utils/sellerEscrow';
+import { sellerPendingCreditCents, sellerHeldCreditCents } from '../utils/sellerEscrow';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
@@ -109,6 +109,7 @@ export function applyDeliveredHeldFunds(
   const releaseAt = Timestamp.fromMillis(deliveredAtMs + DISPUTE_WINDOW_MS);
   tx.update(transactionRef, {
     fundsReleaseAt: releaseAt,
+    sellerHeldCreditCents: sellerPayoutCents,
   });
 }
 
@@ -200,7 +201,12 @@ export const releaseHeldFunds = onSchedule(
             const escrowCents = typeof tdata.sellerCreditedCents === 'number'
               ? await sellerPendingCreditCents(tx, sellerWalletRef, tdata, transactionId)
               : sellerPayoutCents;
-            const moveCents = Math.min(escrowCents, heldNow);
+            const actualHeldCents = await sellerHeldCreditCents(tx, sellerWalletRef, tdata, transactionId, escrowCents);
+            if (actualHeldCents === null) {
+              logger.error('[releaseHeldFunds] missing sale escrow movement — reconciliation required', { transactionId, sellerId });
+              return false;
+            }
+            const moveCents = Math.min(actualHeldCents, Math.max(0, heldNow));
 
             // F39: regularise any outstanding sellerDebt FIRST. The released
             // amount pays down the debt before the remainder lands in the
@@ -252,6 +258,8 @@ export const releaseHeldFunds = onSchedule(
               status: 'completed',
               completedAt: FieldValue.serverTimestamp(),
               fundsReleasedAt: FieldValue.serverTimestamp(),
+              sellerHeldCreditCents: actualHeldCents,
+              sellerReleasedCents: moveCents,
             });
 
             return true;

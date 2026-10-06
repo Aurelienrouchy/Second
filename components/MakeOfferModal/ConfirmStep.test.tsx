@@ -179,6 +179,13 @@ describe('<ConfirmStep /> — envoi de l’offre', () => {
 
 
 describe('<ConfirmStep /> — contrôle explicite de proposition', () => {
+  it('envoie le prix intégral d’un article à moins de 1 $ sans le tronquer', async () => {
+    const context = buildContext({ currentPrice: 0.5, state: { offerAmount: '0,50' } as never });
+    const onSubmitMeetup = jest.fn().mockResolvedValue(undefined);
+    render(<ConfirmStep context={context} onSubmitMeetup={onSubmitMeetup} />);
+    fireEvent.press(screen.getByTestId('offer-confirm-submit'));
+    await waitFor(() => expect(onSubmitMeetup).toHaveBeenCalledWith(0.5, '', spot));
+  });
   it('un double clic en cours d’envoi ne crée qu’une requête', async () => {
     let resolve!: () => void;
     const onSubmitMeetup = jest.fn(() => new Promise<void>((done) => { resolve = done; }));

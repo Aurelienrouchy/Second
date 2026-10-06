@@ -6,6 +6,7 @@
  * Payment via Stripe Connect Standard (destination charges)
  * Commission via service fee calculation (application_fee_amount)
  */
+import { articleReleaseUpdate } from '../utils/articleReservation';
 import { randomUUID } from 'node:crypto';
 import { isDefinitiveStripeFailure } from '../utils/payoutOutcome';
 import { hasBlockedUser, meetupLocationsEqual, meetupThreadId, normalizeMeetupLocation, offerExpired } from '../utils/meetupOffers';
@@ -2532,9 +2533,10 @@ export const acceptMeetupOffer = onCall(
         }
         const offer = message.offer;
         const amount = offer.amount;
-        if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 1 || amount > 50000 ||
+        if (typeof article.price !== 'number' || !Number.isFinite(article.price) || article.price < 0.01 ||
+            typeof amount !== 'number' || !Number.isFinite(amount) || amount < Math.min(1, article.price) || amount > 50000 ||
             Math.abs(Math.round(amount * 100) - amount * 100) > 0.0000001 ||
-            typeof article.price !== 'number' || amount > article.price) throw new HttpsError('failed-precondition', 'Montant de proposition invalide');
+            amount > article.price) throw new HttpsError('failed-precondition', 'Montant de proposition invalide');
         const offerLocation = normalizeMeetupLocation(offer.meetup.location);
         const threadRef = db.collection('meetup_offer_threads').doc(meetupThreadId(articleId, buyerId));
         const thread = (await tx.get(threadRef)).data();
@@ -3006,6 +3008,9 @@ export const reportMeetupNoShow = onCall(
           articleSnap = await tx.get(articleRef);
         }
 
+        const articleUnlock = articleRef && articleSnap?.exists
+          ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
+
         const reportedAgainst = isBuyer ? data.sellerId : data.buyerId;
 
         // 1. Freeze the transaction in `disputed`. No money moves (meetup =
@@ -3025,8 +3030,8 @@ export const reportMeetupNoShow = onCall(
         });
 
         // 2. Unlock the article so the seller can re-list / re-sell it.
-        if (articleRef && articleSnap && articleSnap.exists) {
-          tx.update(articleRef, { isSold: false });
+        if (articleRef && articleUnlock) {
+          tx.update(articleRef, articleUnlock);
         }
 
         // 3. Open a dispute doc for admin (human-review) — the recourse for both
@@ -3744,6 +3749,9 @@ export const cancelPendingTransaction = onCall(
           articleSnap = await tx.get(articleRef);
         }
 
+        const articleUnlock = articleRef && articleSnap?.exists
+          ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
+
         // F03: Read buyer wallet if wallet was used (all reads before writes)
         const walletAmountUsed = data.walletAmountUsed || 0; // in cents
         const hasWalletDebit = walletAmountUsed > 0 && (data.paidVia === 'wallet_and_card' || data.paidVia === 'wallet');
@@ -3772,8 +3780,8 @@ export const cancelPendingTransaction = onCall(
         // Release the article so it can be purchased again.
         // createTransaction marks isSold=true atomically at creation
         // time; cancelling must undo that.
-        if (articleRef && articleSnap && articleSnap.exists) {
-          tx.update(articleRef, { isSold: false });
+        if (articleRef && articleUnlock) {
+          tx.update(articleRef, articleUnlock);
           cancelRelisted = true;
         }
         if (hasWalletDebit) {

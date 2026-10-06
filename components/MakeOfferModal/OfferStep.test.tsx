@@ -97,6 +97,14 @@ describe('<OfferStep /> — validation du montant', () => {
     expect(context.actions.setStep).not.toHaveBeenCalled();
   });
 
+  it('permet le prix intégral d’un article à moins de 1 $', () => {
+    const context = buildContext({ currentPrice: 0.5, state: { offerAmount: '0,50' } as never });
+    render(<OfferStep context={context} />);
+    fireEvent.press(screen.getByText('Continuer'));
+    expect(context.actions.setStep).toHaveBeenCalledWith('location');
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
   it('refuse un montant au-dessus du plafond serveur (50000 $)', () => {
     const context = buildContext({ state: { offerAmount: '50001' } as never });
     render(<OfferStep context={context} />);

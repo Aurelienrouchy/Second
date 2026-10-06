@@ -50,6 +50,23 @@ describe('atomic meetup proposals', () => {
     setup('duplicate'); await propose('one'); await propose('two', 70, 'duplicate');
     expect(pending('one')).toBe('expired'); expect(pending('two')).toBe('pending');
   });
+  it('identical terms in another legacy chat create a visible replacement in that chat', async () => {
+    setup('duplicate');
+    await propose('one');
+    const result = await propose('two', 80, 'duplicate');
+    expect(result).toMatchObject({ messageId: 'two', replaced: true, reused: false });
+    expect(fs.getDoc('messages/two')?.chatId).toBe('duplicate');
+    expect(pending('one')).toBe('expired');
+    expect(pending('two')).toBe('pending');
+  });
+  it('allows a cheap article at its full price without lowering the negotiation floor', async () => {
+    fs.setDoc('articles/article1', { sellerId: 'seller', price: 0.5, isSold: false, isActive: true });
+    await expect(propose('discount', 0.49)).rejects.toMatchObject({ code: 'invalid-argument' });
+    await propose('full-price', 0.5);
+    expect((fs.getDoc('messages/full-price')?.offer as { amount: number }).amount).toBe(0.5);
+    fs.setDoc('articles/article1', { sellerId: 'seller', price: 100, isSold: false, isActive: true });
+    await expect(propose('sub-minimum', 0.5)).rejects.toMatchObject({ code: 'invalid-argument' });
+  });
   it('different buyers keep separate pending negotiations', async () => {
     setup('chat2', 'otherBuyer');
     await Promise.all([propose('one'), propose('two', 80, 'chat2', 'otherBuyer')]);

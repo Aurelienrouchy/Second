@@ -27,7 +27,7 @@ const holder = vi.hoisted(() => ({
   shipEngine: null as { createLabel: (...a: unknown[]) => unknown } | null,
 }));
 
-const fs: MockFirestore = createFirestoreMock();
+const fs: MockFirestore = createFirestoreMock({ enforceReadBeforeWrite: true });
 const stripeMock: StripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripeMock = stripeMock;
@@ -199,5 +199,20 @@ describe('payWithWallet — shipping label (B1, createLabelIdempotent)', () => {
     expect(tx.status).toBe('paid');
     expect(tx.labelCreationPending).toBe(true);
     expect(fs.getDoc('wallets/seller1')).toBeUndefined();
+  });
+});
+
+
+describe('legacy non-shipping wallet credit preserves Firestore read ordering', () => {
+  it.each([true, false])('reads before writes with seller wallet existing=%s', async existing => {
+    seedShippingPayable();
+    await fs.db.collection('transactions').doc('tx1').update({ deliveryType: 'legacy_local' });
+    if (existing) fs.setDoc('wallets/seller1', { balance: 100, pendingBalance: 200, sellerDebt: 1000, status: 'active' });
+    const result = await callPay({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    expect(result.success).toBe(true);
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(4000);
+    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(existing ? 3700 : 4500);
+    expect(fs.getDoc('transactions/tx1')!.sellerCreditedCents).toBe(4500);
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('paid');
   });
 });

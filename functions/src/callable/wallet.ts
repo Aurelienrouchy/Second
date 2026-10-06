@@ -33,6 +33,7 @@
  * sale is `disputed`, and create a withdrawal_requests/{id}='processing' doc
  * (closed out by payout.paid / payout.failed webhooks).
  */
+import { articleReleaseUpdate } from '../utils/articleReservation';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
@@ -686,13 +687,7 @@ export const payWithWallet = onCall(
 
         // --- Writes ---
 
-        // 1. Debit buyer wallet
-        tx.update(buyerWalletRef, {
-          balance: FieldValue.increment(-totalAmountCents),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-
-        // 2. Credit seller wallet pendingBalance.
+        // Read the seller before staging any write; then credit seller wallet pendingBalance.
         // P1 (atomicity payment<->label): for SHIPPING transactions defer the
         // seller credit until the shipping label is created (label step /
         // sweepPendingLabels). Crediting then failing the label would pay the
@@ -702,6 +697,12 @@ export const payWithWallet = onCall(
         if (!isShipping) {
           await creditSellerForSale(tx, txRef, txData, transactionId);
         }
+
+        // 1. Debit buyer wallet
+        tx.update(buyerWalletRef, {
+          balance: FieldValue.increment(-totalAmountCents),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
 
         // 3. Mark transaction as paid
         tx.update(txRef, {
@@ -1038,6 +1039,9 @@ export const refundWalletPayment = onCall(
           articleSnap = await tx.get(articleRef);
         }
 
+        const articleUnlock = articleRef && articleSnap?.exists
+          ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
+
         // --- All writes ---
 
         // 1. Credit buyer's wallet
@@ -1147,8 +1151,8 @@ export const refundWalletPayment = onCall(
         });
 
         // 4. Release article
-        if (articleRef && articleSnap && articleSnap.exists) {
-          tx.update(articleRef, { isSold: false });
+        if (articleRef && articleUnlock) {
+          tx.update(articleRef, articleUnlock);
         }
       });
 

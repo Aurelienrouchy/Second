@@ -117,6 +117,15 @@ describe('acceptMeetupOffer — auth', () => {
   });
 });
 
+it('accepts the full price of a sub-dollar article and preserves its exact amount', async () => {
+  seedChatArticle();
+  fs.setDoc(`articles/${ARTICLE}`, { sellerId: SELLER, price: 0.5, isSold: false, isActive: true });
+  seedOffer('cheap', BUYER, 0.5);
+  const result = await callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'cheap' } });
+  expect(fs.getDoc(`transactions/${result.transactionId}`)?.amount).toBe(0.5);
+  expect(fs.getDoc(`articles/${ARTICLE}`)?.isSold).toBe(true);
+});
+
 // ===========================================================================
 // F9 — buyer/seller derived from the article
 // ===========================================================================
