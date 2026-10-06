@@ -1,0 +1,25 @@
+{
+  "scope": "YAML parser only; not Maestro execution/schema or device validation",
+  "files": [
+    ".maestro/flows/00-launch.yaml",
+    ".maestro/flows/01-chat-open-and-send.yaml",
+    ".maestro/flows/article-gallery.yaml",
+    ".maestro/flows/auth-signup-consent.yaml",
+    ".maestro/flows/boutiques-admin-open-shop.yaml",
+    ".maestro/flows/buy-checkout-meetup.yaml",
+    ".maestro/flows/notifications-open-center.yaml",
+    ".maestro/flows/offers-make-offer.yaml",
+    ".maestro/flows/profile-reviews-view-and-avis.yaml",
+    ".maestro/flows/search-text-and-filter.yaml",
+    ".maestro/flows/sell-create-with-photos.yaml",
+    ".maestro/flows/sell-edit-draft.yaml",
+    ".maestro/flows/shared-foundations-offline-banner.yaml",
+    ".maestro/flows/swap-propose-exchange.yaml",
+    ".maestro/flows/wallet-open.yaml",
+    ".maestro/subflows/open-app-fresh.yaml",
+    ".maestro/subflows/open-app.yaml",
+    ".maestro/subflows/pass-onboarding.yaml"
+  ],
+  "parsed": 18,
+  "errors": []
+}

@@ -1,0 +1,25 @@
+{
+  "method": "Automated literal-pattern scan only, not a security verdict or manual review",
+  "trackedTextFilesScanned": 1671,
+  "binaryAssetsExcluded": 43,
+  "symlinksOrGitlinksExcluded": 127,
+  "removedTrackedFiles": 3,
+  "findings": [
+    {
+      "path": ".agents/skills/firebase-apk-scanner/references/vulnerabilities.md",
+      "category": "password-literal"
+    },
+    {
+      "path": ".agents/skills/firebase-auth-basics/references/ios_setup.md",
+      "category": "password-literal"
+    },
+    {
+      "path": ".agents/skills/insecure-defaults/references/examples.md",
+      "category": "password-literal"
+    },
+    {
+      "path": "components/AuthBottomSheet.tsx",
+      "category": "password-literal"
+    }
+  ]
+}
