@@ -55,3 +55,10 @@ functions/lib-scripts/
 
 # Maestro execution artifacts (flows/subflows are kept, run output is not)
 .maestro/tests/
+
+# Local signing material and private planning documents
+credentials.json
+ROADMAP_SECONDE_DRAFT.md
+firebase-debug.log
+storage-debug.log
+ui-debug.log
