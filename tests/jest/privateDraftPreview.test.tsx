@@ -1,5 +1,7 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
+import { auth } from '@/config/firebaseConfig';
+import { Modal } from 'react-native';
 import DraftResumeModal from '@/components/DraftResumeModal';
 import type { ArticleDraft } from '@/services/draftService';
 
@@ -41,4 +43,25 @@ it('hides a previous account draft preview, title and actions after an account s
   expect(screen.queryByTestId('draft-private-preview')).toBeNull();
   expect(screen.queryByText('Brouillon trouvé')).toBeNull();
   expect(screen.queryByText('Article sans titre')).toBeNull();
+});
+
+
+it('rejects late resume/discard/native close events immediately after SDK account switch before rerender', () => {
+  const mockAuth = auth as unknown as { currentUser: { uid: string } | null };
+  mockAuth.currentUser = { uid: 'alice' };
+  mockUid.mockReturnValue('alice');
+  const draft: ArticleDraft = {
+    id: 'd1', ownerUid: 'alice', createdAt: '2026-10-06T00:00:00Z', updatedAt: '2026-10-06T00:00:00Z', currentStep: 1,
+    photos: [], originalPhotoUris: [], storageUrls: [], fields: null, pricing: null, aiResult: null,
+  };
+  const resume = jest.fn();
+  const discard = jest.fn();
+  const screen = render(<DraftResumeModal visible draft={draft} onResume={resume} onDiscard={discard} />);
+  mockAuth.currentUser = { uid: 'bob' };
+  fireEvent.press(screen.getByText('Reprendre'));
+  fireEvent.press(screen.getByText('Recommencer'));
+  fireEvent(screen.UNSAFE_getByType(Modal), 'requestClose');
+  expect(resume).not.toHaveBeenCalled();
+  expect(discard).not.toHaveBeenCalled();
+  mockAuth.currentUser = null;
 });
