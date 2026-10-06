@@ -2,13 +2,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+// Emulator-only tests do not need ADC's cloud metadata probe.
+if (emulatorHost) process.env.METADATA_SERVER_DETECTION = 'none';
 if (emulatorHost && !/^(127\.0\.0\.1|localhost):\d+$/.test(emulatorHost)) {
   throw new Error('Meetup contention tests require a loopback Firestore emulator');
+}
+if (emulatorHost && process.env.GCLOUD_PROJECT && process.env.GCLOUD_PROJECT !== 'demo-second') {
+  throw new Error('Meetup contention tests require the demo-second project');
 }
 vi.mock('../config/firebase', async () => {
   const { initializeApp, getApps } = await import('firebase-admin/app');
   const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
   const app = getApps().find((a) => a.name === 'meetup-contention-tests') ?? initializeApp({ projectId: 'demo-second' }, 'meetup-contention-tests');
+  if (app.options.projectId !== 'demo-second') throw new Error('Cannot reuse a real project app in contention tests');
   return { db: getFirestore(app), FieldValue };
 });
 vi.mock('../utils/rateLimit', () => ({ checkRateLimit: async () => {}, resolveCallerKey: (r: { auth: { uid: string } }) => ({ callerKey: r.auth.uid, isAuthenticated: true }) }));
@@ -34,9 +40,9 @@ const reject = rejectMeetupProposal as unknown as (r: Request) => Promise<unknow
 const location = { name: 'Lieu de test', category: 'cafe', neighborhood: { id: 'n1', name: 'Quartier test', borough: 'Arrondissement test' } };
 let prefix: string;
 let articleId: string;
-const seller = 'audit-meetup-seller';
-const buyer = 'audit-meetup-buyer';
-const secondBuyer = 'audit-meetup-buyer-2';
+let seller: string;
+let buyer: string;
+let secondBuyer: string;
 const chats = () => [`${prefix}-chat-1`, `${prefix}-chat-2`];
 const propose = (suffix: string, amount = 80, index = 0) => send({ auth: { uid: index === 0 ? buyer : secondBuyer }, data: {
   chatId: chats()[index], requestId: `${prefix}-${suffix}`, amount, location,
@@ -45,6 +51,8 @@ const propose = (suffix: string, amount = 80, index = 0) => send({ auth: { uid: 
 describe.skipIf(!emulatorHost)('meetup negotiation with real emulator contention', () => {
   beforeEach(async () => {
     prefix = `audit-meetup-${randomUUID()}`; articleId = `${prefix}-article`;
+    seller = `${prefix}-seller`; buyer = `${prefix}-buyer`; secondBuyer = `${prefix}-buyer-2`;
+    await Promise.all([seller, buyer, secondBuyer].map((uid) => db.collection('users').doc(uid).set({ blockedUserIds: [] })));
     await db.collection('articles').doc(articleId).set({ price: 100, sellerId: seller, isSold: false, isActive: true });
     await Promise.all(chats().map((chatId, index) => db.collection('chats').doc(chatId).set({ articleId, participants: [seller, index === 0 ? buyer : secondBuyer] })));
   });
@@ -54,6 +62,7 @@ describe.skipIf(!emulatorHost)('meetup negotiation with real emulator contention
     const requests = await db.collection('meetup_offer_requests').where('chatId', 'in', chats()).get();
     const refs = [...agreements.docs, ...messages.docs, ...requests.docs].map((d) => d.ref);
     refs.push(db.collection('articles').doc(articleId), ...chats().map((id) => db.collection('chats').doc(id)),
+      ...[seller, buyer, secondBuyer].map((uid) => db.collection('users').doc(uid)),
       ...[buyer, secondBuyer].map((uid) => db.collection('meetup_offer_threads').doc(meetupThreadId(articleId, uid))));
     await Promise.all(refs.map((ref) => ref.delete()));
   });
