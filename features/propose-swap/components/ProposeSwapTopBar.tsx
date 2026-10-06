@@ -8,25 +8,33 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 
 interface ProposeSwapTopBarProps {
   onBack?: () => void;
+  disabled?: boolean;
 }
 
 export const ProposeSwapTopBar = React.memo(function ProposeSwapTopBar({
   onBack,
+  disabled = false,
 }: ProposeSwapTopBarProps) {
   return (
     <View style={styles.topBar}>
       <Pressable
         style={styles.backButton}
         onPress={onBack ?? (() => router.back())}
-        hitSlop={8}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel="Revenir à l’écran précédent"
+        accessibilityState={{ disabled }}
       >
         <Ionicons name="chevron-back" size={20} color={colors.charcoal} />
       </Pressable>
-      <Text style={styles.title}>Proposer un swap</Text>
+      <View style={styles.heading}>
+        <Text style={styles.eyebrow}>Espace échanges</Text>
+        <Text style={styles.title} accessibilityRole="header">Proposer un échange</Text>
+      </View>
     </View>
   );
 });
@@ -35,27 +43,33 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(245, 240, 232, 0.95)',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: sizing.minTouchTarget,
+    height: sizing.minTouchTarget,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  heading: { flex: 1, gap: spacing.xs },
+  eyebrow: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.primary,
+  },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    fontWeight: '400',
-    lineHeight: 24,
+    fontFamily: fonts.displayMedium,
+    fontSize: 26,
+    lineHeight: 30,
     color: colors.charcoal,
     flex: 1,
   },

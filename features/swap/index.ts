@@ -9,5 +9,6 @@ export { SwapStatusView } from './components/SwapStatusView';
 export { SwapActions } from './components/SwapActions';
 export { SwapContactButton } from './components/SwapContactButton';
 export { SwapStickyActions } from './components/SwapStickyActions';
+export { getSwapStatusLabel, getSwapNextStep } from './presentation';
 
 export type { SwapParticipantContext, SwapActionHandlers } from './types';

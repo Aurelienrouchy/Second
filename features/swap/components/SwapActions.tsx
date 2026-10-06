@@ -4,13 +4,14 @@
  * All callbacks are received via props from the screen.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text, Caption } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 import { track } from '@/lib/analytics';
 import { openSwapDispute } from '@/services/swapService';
 import type { SwapActionHandlers, SwapParticipantContext } from '../types';
@@ -46,9 +47,10 @@ export const SwapActions = React.memo(function SwapActions({
   return (
     <View style={styles.actionsSection}>
       {/* Payment pending — payer settles the cash complement */}
-      {status === 'payment_pending' && isTopUpPayer && (
+      {status === 'payment_pending' && PAYMENTS_ENABLED && isTopUpPayer && (
         <Pressable
-          style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
           onPress={handlers.onPayTopUp}
           disabled={isProcessing}
         >
@@ -66,11 +68,11 @@ export const SwapActions = React.memo(function SwapActions({
       )}
 
       {/* Payment pending — the other party waits for the payment */}
-      {status === 'payment_pending' && !isTopUpPayer && (
+      {status === 'payment_pending' && (PAYMENTS_ENABLED ? !isTopUpPayer : true) && (
         <View style={styles.waitingCard}>
           <Ionicons name="hourglass-outline" size={24} color={colors.rust} />
           <Text variant="body" style={styles.waitingText}>
-            {`En attente du paiement de ${topUpPayerName}`}
+            {PAYMENTS_ENABLED ? `En attente du paiement de ${topUpPayerName || 'l’autre membre'}` : 'Ce complément appartient à un ancien échange. Les paiements sont indisponibles actuellement.'}
           </Text>
         </View>
       )}
@@ -79,7 +81,8 @@ export const SwapActions = React.memo(function SwapActions({
       {status === 'proposed' && isReceiver && (
         <>
           <Pressable
-            style={({ pressed }) => [styles.acceptBtn, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.acceptBtn, pressed && styles.pressed]}
             onPress={handlers.onAccept}
             disabled={isProcessing}
           >
@@ -96,7 +99,8 @@ export const SwapActions = React.memo(function SwapActions({
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [styles.declineBtn, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.declineBtn, pressed && styles.pressed]}
             onPress={handlers.onDecline}
             disabled={isProcessing}
           >
@@ -111,7 +115,8 @@ export const SwapActions = React.memo(function SwapActions({
       {/* Proposed - Initiator can cancel */}
       {status === 'proposed' && isInitiator && (
         <Pressable
-          style={({ pressed }) => [styles.declineBtn, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.declineBtn, pressed && styles.pressed]}
           onPress={handlers.onCancel}
           disabled={isProcessing}
         >
@@ -145,7 +150,7 @@ export const SwapActions = React.memo(function SwapActions({
         <View style={styles.waitingCard}>
           <Ionicons name="hourglass-outline" size={24} color={colors.rust} />
           <Text variant="body" style={styles.waitingText}>
-            {"En attente des photos de l'autre participant"}
+            {"Vos photos sont ajoutées. Vous attendez celles de l’autre membre."}
           </Text>
         </View>
       )}
@@ -153,7 +158,8 @@ export const SwapActions = React.memo(function SwapActions({
       {/* Shipping - Confirm shipping */}
       {status === 'shipping' && !hasConfirmedShipping && (
         <Pressable
-          style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
           onPress={handlers.onConfirmShipping}
           disabled={isProcessing}
         >
@@ -161,9 +167,9 @@ export const SwapActions = React.memo(function SwapActions({
             <ActivityIndicator size="small" color={colors.cream} />
           ) : (
             <>
-              <Ionicons name="send" size={20} color={colors.cream} />
+              <Ionicons name={exchangeMode === 'hand_delivery' ? 'hand-left-outline' : 'send'} size={20} color={colors.cream} />
               <Text variant="body" style={styles.actionButtonText}>
-                {"J'ai envoyé mon article"}
+                {exchangeMode === 'hand_delivery' ? "J'ai remis mes articles" : "J'ai envoyé mes articles"}
               </Text>
             </>
           )}
@@ -173,7 +179,8 @@ export const SwapActions = React.memo(function SwapActions({
       {/* Shipping - Confirm reception */}
       {status === 'shipping' && hasConfirmedShipping && !hasConfirmedReception && (
         <Pressable
-          style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
           onPress={handlers.onConfirmReception}
           disabled={isProcessing}
         >
@@ -183,12 +190,21 @@ export const SwapActions = React.memo(function SwapActions({
             <>
               <Ionicons name="cube" size={20} color={colors.cream} />
               <Text variant="body" style={styles.actionButtonText}>
-                {"J'ai reçu l'article"}
+                {"J'ai reçu les articles"}
               </Text>
             </>
           )}
         </Pressable>
       )}
+
+      {status === 'shipping' && hasConfirmedReception && (
+        <View style={styles.waitingCard}>
+          <Ionicons name="time-outline" size={24} color={colors.primary} />
+          <Text style={styles.waitingText}>Réception confirmée. Vous attendez la confirmation de l’autre membre.</Text>
+        </View>
+      )}
+
+      {status === 'completed' && hasRated && <Text style={styles.waitingText}>Votre évaluation a été enregistrée. Merci !</Text>}
 
       {/* Dispute escape hatch — available once the swap is locked in
           (post-acceptance) and through the post-completion protection window.
@@ -231,23 +247,28 @@ const DISPUTE_REASONS: readonly string[] = [
 const DisputeButton = React.memo(function DisputeButton({ disabled, status }: DisputeButtonProps) {
   const { id: swapId } = useLocalSearchParams<{ id: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const dialogRef = useRef(false);
 
   const submitDispute = useCallback(
     async (reason: string) => {
-      if (!swapId) return;
+      dialogRef.current = false;
+      if (!swapId || submittingRef.current) return;
+      submittingRef.current = true;
       setIsSubmitting(true);
       try {
         await openSwapDispute(swapId, reason);
         track('swap_dispute_opened', { swap_id: swapId, reason, status, outcome: 'success' });
         Alert.alert(
           'Litige ouvert',
-          "L'échange est gelé. Notre équipe va l'examiner et tranchera (remboursement du complément ou libération au bénéficiaire)."
+          "Votre signalement a été enregistré. Les actions de l’échange sont suspendues pendant son examen."
         );
       } catch (error) {
         if (__DEV__) console.error('Error opening swap dispute:', error);
         track('swap_dispute_opened', { swap_id: swapId, reason, status, outcome: 'error' });
-        Alert.alert('Erreur', "Impossible d'ouvrir le litige. Réessaie plus tard.");
+        Alert.alert('Erreur', "Impossible d'ouvrir le litige. Veuillez réessayer plus tard.");
       } finally {
+        submittingRef.current = false;
         setIsSubmitting(false);
       }
     },
@@ -255,6 +276,8 @@ const DisputeButton = React.memo(function DisputeButton({ disabled, status }: Di
   );
 
   const handlePress = useCallback(() => {
+    if (disabled || submittingRef.current || dialogRef.current) return;
+    dialogRef.current = true;
     Alert.alert(
       'Ouvrir un litige',
       'Quel est le problème avec cet échange ?',
@@ -263,16 +286,19 @@ const DisputeButton = React.memo(function DisputeButton({ disabled, status }: Di
           text: reason,
           onPress: () => submitDispute(reason),
         })),
-        { text: 'Annuler', style: 'cancel' as const },
+        { text: 'Annuler', style: 'cancel' as const, onPress: () => { dialogRef.current = false; } },
       ],
-      { cancelable: true }
+      { cancelable: true, onDismiss: () => { dialogRef.current = false; } }
     );
-  }, [submitDispute]);
+  }, [disabled, submitDispute]);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.disputeButton, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.disputeButton, pressed && styles.pressed]}
       onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel="Ouvrir un litige"
+      accessibilityState={{ disabled: disabled || isSubmitting, busy: isSubmitting }}
       disabled={disabled || isSubmitting}
     >
       {isSubmitting ? (
@@ -305,11 +331,12 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
   return (
     <View style={styles.modeSelection}>
       <Text variant="h3" style={styles.modeTitle}>
-        {"Comment veux-tu échanger ?"}
+        {"Comment souhaitez-vous échanger ?"}
       </Text>
 
       <Pressable
-        style={({ pressed }) => [styles.modeButton, pressed && { opacity: 0.7 }]}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.modeButton, pressed && styles.pressed]}
         onPress={() => onSelect('hand_delivery')}
         disabled={isProcessing}
       >
@@ -318,13 +345,14 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
           <Text variant="body" style={styles.modeButtonTitle}>
             En main propre
           </Text>
-          <Caption>Retrouve-toi avec l&apos;autre pour échanger</Caption>
+          <Caption>Convenez d’un lieu et d’un moment avec le membre.</Caption>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>
 
       <Pressable
-        style={({ pressed }) => [styles.modeButton, pressed && { opacity: 0.7 }]}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.modeButton, pressed && styles.pressed]}
         onPress={() => onSelect('shipping')}
         disabled={isProcessing}
       >
@@ -333,7 +361,7 @@ const ExchangeModeSelector = React.memo(function ExchangeModeSelector({
           <Text variant="body" style={styles.modeButtonTitle}>
             Envoi postal
           </Text>
-          <Caption>Envoie ton article par la poste</Caption>
+          <Caption>Organisez l’envoi et les frais avec le membre.</Caption>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>
@@ -353,14 +381,15 @@ const PhotoUploadSection = React.memo(function PhotoUploadSection({
   return (
     <View style={styles.photosSection}>
       <Text variant="h3" style={styles.sectionTitle}>
-        Envoie des photos de ton article
+        Ajoutez des photos de vos articles
       </Text>
       <Caption style={styles.sectionDesc}>
-        {"Prends 2-4 photos de l'article avant de l'envoyer"}
+        {"Ajoutez 1 à 4 photos pour montrer l’état de vos articles avant la remise ou l’envoi."}
       </Caption>
 
       <Pressable
-        style={({ pressed }) => [styles.uploadButton, pressed && { opacity: 0.7 }]}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.uploadButton, pressed && styles.pressed]}
         onPress={onUpload}
         disabled={isProcessing}
       >
@@ -399,11 +428,13 @@ const RatingSection = React.memo(function RatingSection({
         {RATING_SCORES.map((score) => (
           <Pressable
             key={score}
-            style={({ pressed }) => [styles.ratingButton, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [styles.ratingButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`Évaluer l’échange : ${score} sur 5`}
             onPress={() => onRate(score)}
             disabled={isProcessing}
           >
-            <Ionicons name="star" size={32} color="#FFD700" />
+            <Ionicons name="star" size={32} color={colors.primary} />
             <Caption style={styles.ratingScore}>{score}</Caption>
           </Pressable>
         ))}
@@ -417,16 +448,18 @@ const RatingSection = React.memo(function RatingSection({
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
+  pressed: { opacity: 0.7 },
   actionsSection: {
-    marginTop: 20,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
   },
   acceptBtn: {
+    minHeight: sizing.minTouchTarget,
     flex: 2,
     flexDirection: 'row',
     paddingVertical: 15,
-    backgroundColor: colors.sage,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    borderRadius: radius.xl,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
@@ -439,11 +472,12 @@ const styles = StyleSheet.create({
     color: colors.cream,
   },
   declineBtn: {
+    minHeight: sizing.minTouchTarget,
     flex: 1,
     paddingVertical: 15,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
-    borderRadius: 8,
+    borderRadius: radius.xl,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
@@ -456,8 +490,8 @@ const styles = StyleSheet.create({
     color: colors.rust,
   },
   modeSelection: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.xl,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -470,11 +504,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   modeButton: {
+    minHeight: sizing.minTouchTarget,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: colors.sageLight,
-    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderRadius: radius.xl,
     marginBottom: 8,
     gap: 12,
   },
@@ -488,9 +523,9 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   photosSection: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: 24,
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.xl,
+    padding: spacing.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
@@ -510,13 +545,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   uploadButton: {
+    minHeight: sizing.minTouchTarget,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.sage,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 100,
+    borderRadius: radius.xl,
     gap: 8,
   },
   uploadButtonText: {
@@ -528,9 +564,9 @@ const styles = StyleSheet.create({
   waitingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    backgroundColor: colors.surfaceWarm,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: radius.xl,
     gap: 12,
   },
   waitingText: {
@@ -538,15 +574,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 14,
     fontWeight: '500',
-    color: colors.muted,
+    color: colors.foregroundSecondary,
   },
   actionButton: {
+    minHeight: sizing.minTouchTarget,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.sage,
+    backgroundColor: colors.primary,
     paddingVertical: 16,
-    borderRadius: 8,
+    borderRadius: radius.xl,
     gap: 12,
   },
   actionButtonText: {
@@ -556,32 +593,37 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
   ratingSection: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: 24,
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: radius.xl,
+    padding: spacing.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
   },
   ratingButtons: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   ratingButton: {
+    minWidth: sizing.minTouchTarget,
+    minHeight: sizing.minTouchTarget,
     alignItems: 'center',
   },
   ratingScore: {
     marginTop: 4,
   },
   disputeButton: {
+    minHeight: sizing.minTouchTarget,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceWarm,
     marginTop: 12,
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: radius.xl,
     gap: 8,
     borderWidth: 1,
     borderColor: colors.border,

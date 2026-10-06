@@ -14,15 +14,7 @@ const TILE_ROWS = [0, 1, 2, 3];
 export const SwapPartyDetailSkeleton = React.memo(function SwapPartyDetailSkeleton() {
   return (
     <View style={styles.container}>
-      {/* Header silhouette */}
-      <View style={styles.header}>
-        <View style={styles.backDot} />
-        <View style={styles.headerTitle}>
-          <View style={[styles.line, styles.lineLabel]} />
-          <View style={[styles.line, styles.lineTitle]} />
-        </View>
-      </View>
-
+      {/* Catalogue silhouette; navigation stays live in PartyHeader. */}
       {/* Deposit section silhouette */}
       <View style={styles.depositSection}>
         <View style={[styles.line, styles.lineDeposit]} />
@@ -111,15 +103,17 @@ const styles = StyleSheet.create({
   },
   grid: {
     marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   gridRow: {
     flexDirection: 'row',
-    gap: 1,
-    marginBottom: 1,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   gridTile: {
     flex: 1,
-    aspectRatio: 3 / 4,
+    aspectRatio: 4 / 5,
+    borderRadius: radius.md,
     backgroundColor: colors.darkSurface2,
   },
 });

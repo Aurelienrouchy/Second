@@ -26,19 +26,20 @@ export const PartyEmptyGrid = React.memo(function PartyEmptyGrid({
       <Text style={styles.emptyGridTitle}>
         {hasActiveFilters
           ? 'Aucun article ne correspond aux filtres'
-          : 'Aucun article disponible pour l’instant.'}
+          : 'Aucun article à échanger pour le moment.'}
       </Text>
       <Text style={styles.emptyGridText}>
         {hasActiveFilters
           ? 'Essayez de modifier vos critères de recherche'
-          : 'Reviens bientôt, de nouvelles pièces vont arriver.'}
+          : 'Vous pouvez déjà ajouter les vôtres.'}
       </Text>
       {hasActiveFilters && (
         <Pressable
+          accessibilityRole="button"
           onPress={onClearFilters}
           style={({ pressed }) => [styles.clearFiltersButton, pressed && styles.pressed]}
         >
-          <Text style={styles.clearFiltersText}>Réinitialiser</Text>
+          <Text style={styles.clearFiltersText}>Effacer les filtres</Text>
         </Pressable>
       )}
     </View>
@@ -47,10 +48,12 @@ export const PartyEmptyGrid = React.memo(function PartyEmptyGrid({
 
 const styles = StyleSheet.create({
   emptyGrid: {
-    marginHorizontal: spacing.lg,
+    marginHorizontal: spacing.xs,
     marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing['2xl'],
+    paddingVertical: spacing.xl,
+    backgroundColor: colors.darkSurface1,
+    borderRadius: radius.lg,
     alignItems: 'center',
   },
   pressed: {
@@ -71,14 +74,15 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     lineHeight: typography.bodySmall.lineHeight,
     letterSpacing: typography.bodySmall.letterSpacing,
-    color: colors.whiteTranslucent,
+    color: colors.creamTranslucent60,
     textAlign: 'center',
   },
   clearFiltersButton: {
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.none,
+    minHeight: sizing.minTouchTarget,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.rust,
   },

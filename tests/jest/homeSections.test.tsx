@@ -15,7 +15,10 @@
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
+import type { SwapPartyItem } from '@/types';
 import React from 'react';
 
 // httpsCallable renvoie une fonction unique mockée que chaque test pilote.
@@ -154,5 +157,75 @@ describe('homeKeys — clés de cache des sections', () => {
       'swap-zone-items',
       'party-9',
     ]);
+  });
+});
+
+
+const mockRecentPartyItems = jest.fn();
+jest.mock('@/services/swapService', () => ({ getRecentPartyItems: (...args: unknown[]) => mockRecentPartyItems(...args) }));
+jest.mock('expo-linear-gradient', () => ({ LinearGradient: require('react-native').View }));
+import { SwapZoneSection } from '@/components/home/SwapZoneSection';
+import { SwapZoneWrapper } from '@/features/home/swap-zone/SwapZoneSection';
+
+const previewItem: SwapPartyItem = {
+  id: 'preview', partyId: 'generalist', articleId: 'a1', sellerId: 'seller', sellerName: 'Alice',
+  title: 'Veste', price: 35, imageUrl: 'https://example.test/veste.jpg', isSwapped: false, addedAt: new Date(),
+};
+
+describe('Home — Espace échanges', () => {
+  beforeEach(() => { mockCallable.mockReset(); mockRecentPartyItems.mockReset(); });
+  it('affiche le stock total et les vraies photos sans inventer de nouveautés globales', () => {
+    const onPress = jest.fn();
+    const { UNSAFE_getAllByType } = render(<SwapZoneSection zone={{ id: 'generalist', name: 'Swap Zone', itemsCount: 28 }} items={[previewItem]} newThisWeek={6} onPress={onPress} />);
+    expect(screen.getByText('Espace échanges')).toBeOnTheScreen();
+    expect(screen.getByText('28 articles à échanger')).toBeOnTheScreen();
+    expect(screen.queryByText(/nouveautés|cette semaine/)).toBeNull();
+    expect(UNSAFE_getAllByType(Image)[0].props.source).toEqual({ uri: previewItem.imageUrl });
+    fireEvent.press(screen.getByText('Découvrir les articles'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+  it('différencie absence d’espace, erreur et chargement', () => {
+    const retry = jest.fn();
+    const { rerender } = render(<SwapZoneSection />);
+    expect(screen.getByText('Aucun espace disponible pour le moment')).toBeOnTheScreen();
+    expect(screen.queryByText('Découvrir les articles')).toBeNull();
+    rerender(<SwapZoneSection isError onRetry={retry} />);
+    expect(screen.getByText('Le catalogue n’a pas pu être chargé')).toBeOnTheScreen();
+    expect(screen.queryByText('Bientôt disponible')).toBeNull();
+    fireEvent.press(screen.getByText('Réessayer'));
+    expect(retry).toHaveBeenCalledTimes(1);
+    rerender(<SwapZoneSection isLoading />);
+    expect(screen.getByLabelText('Chargement de l’Espace échanges')).toBeOnTheScreen();
+    expect(screen.queryByText('Réessayer')).toBeNull();
+  });
+  it('garde l’entrée du catalogue ouvert quand le stock est vide ou les aperçus échouent', () => {
+    const press = jest.fn();
+    const { rerender } = render(<SwapZoneSection zone={{ id: 'generalist', name: 'Swap Zone', itemsCount: 0 }} onPress={press} />);
+    expect(screen.getByText('Aucun article à échanger pour le moment. Vous pouvez déjà ajouter les vôtres.')).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Découvrir les articles'));
+    expect(press).toHaveBeenCalledTimes(1);
+    rerender(<SwapZoneSection zone={{ id: 'generalist', name: 'Swap Zone', itemsCount: 28 }} previewsError onPress={press} />);
+    expect(screen.getByText('Les aperçus ne sont pas disponibles. Vous pouvez ouvrir le catalogue.')).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Découvrir les articles'));
+    expect(press).toHaveBeenCalledTimes(2);
+  });
+  it('le wrapper transmet les photos du hook et navigue vers la route existante', async () => {
+    mockCallable.mockResolvedValueOnce({ data: { hasActiveParty: true, party: { id: 'generalist', name: 'Swap Zone', itemsCount: 28 } } });
+    mockRecentPartyItems.mockResolvedValueOnce([previewItem]);
+    const { UNSAFE_getAllByType } = render(<SwapZoneWrapper />, { wrapper: createWrapper() });
+    await waitFor(() => expect(UNSAFE_getAllByType(Image)).toHaveLength(1));
+    expect(mockRecentPartyItems).toHaveBeenCalledWith('generalist', 6);
+    expect(screen.getByText('28 articles à échanger')).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Découvrir les articles'));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/swap-zone', params: { source: 'home' } });
+  });
+  it('le wrapper expose une erreur de chargement et permet une nouvelle tentative', async () => {
+    mockCallable.mockRejectedValueOnce(new Error('offline'));
+    render(<SwapZoneWrapper />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByText('Le catalogue n’a pas pu être chargé')).toBeOnTheScreen());
+    mockCallable.mockResolvedValueOnce({ data: { hasActiveParty: false, party: null } });
+    fireEvent.press(screen.getByText('Réessayer'));
+    await waitFor(() => expect(screen.getByText('Aucun espace disponible pour le moment')).toBeOnTheScreen());
+    expect(mockCallable).toHaveBeenCalledTimes(2);
   });
 });

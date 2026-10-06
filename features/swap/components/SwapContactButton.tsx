@@ -4,13 +4,13 @@
  * participant, then navigates to it with the real chatId.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
 import { useUser } from '@/hooks/useAuth';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { ChatService } from '@/services/chatService';
@@ -28,13 +28,15 @@ export const SwapContactButton = React.memo(function SwapContactButton({
   const currentUser = useUser();
   const showAuthSheet = useAuthSheetStore((state) => state.show);
   const [isLoading, setIsLoading] = useState(false);
+  const loadingRef = useRef(false);
 
   const handlePress = useCallback(async () => {
     if (!currentUser?.id) {
       showAuthSheet('Connectez-vous pour contacter ce participant');
       return;
     }
-    if (!otherUserId) return;
+    if (!otherUserId || loadingRef.current) return;
+    loadingRef.current = true;
 
     setIsLoading(true);
     try {
@@ -58,13 +60,17 @@ export const SwapContactButton = React.memo(function SwapContactButton({
       });
       Alert.alert('Erreur', 'Impossible de démarrer la conversation.');
     } finally {
+      loadingRef.current = false;
       setIsLoading(false);
     }
   }, [currentUser?.id, otherUserId, showAuthSheet]);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.contactButton, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`Contacter ${otherUserName}`}
+      accessibilityState={{ disabled: isLoading, busy: isLoading }}
       onPress={handlePress}
       disabled={isLoading}
     >
@@ -83,15 +89,17 @@ export const SwapContactButton = React.memo(function SwapContactButton({
 });
 
 const styles = StyleSheet.create({
+  pressed: { opacity: 0.7 },
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    marginHorizontal: 24,
+    minHeight: sizing.minTouchTarget,
+    backgroundColor: colors.surfaceWarm,
+    marginHorizontal: spacing.md,
     marginTop: 20,
     paddingVertical: 16,
-    borderRadius: 8,
+    borderRadius: radius.xl,
     gap: 8,
     borderWidth: 1,
     borderColor: colors.border,
@@ -100,6 +108,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 13,
     fontWeight: '500',
-    color: colors.sage,
+    color: colors.foreground,
+    flexShrink: 1,
+    textAlign: 'center',
   },
 });

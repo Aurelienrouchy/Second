@@ -5,8 +5,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,7 +17,9 @@ import { randomUUID } from 'expo-crypto';
 import { privateMediaUrl, PRIVATE_IMAGE_UPLOAD_METADATA } from '@/utils/privateMedia';
 import { prepareImageForUpload } from '@/utils/imageUtils';
 import { track } from '@/lib/analytics';
-import { useUser } from '@/hooks/useAuth';
+import { useUser, useIsLoading } from '@/hooks/useAuth';
+import { useAuthSheetStore } from '@/store/authSheetStore';
+import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 import { storage } from '@/config/firebaseConfig';
 import {
   acceptSwap,
@@ -34,7 +36,7 @@ import {
 } from '@/services/swapService';
 import { Swap, SwapExchangeMode } from '@/types';
 import { colors, spacing } from '@/constants/theme';
-import { Text } from '@/components/ui';
+import { Text, Button } from '@/components/ui';
 import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
 import {
   SwapDetailSkeleton,
@@ -44,6 +46,7 @@ import {
   SwapActions,
   SwapContactButton,
   SwapStickyActions,
+  getSwapNextStep,
 } from '@/features/swap';
 import type { SwapActionHandlers, SwapParticipantContext } from '@/features/swap';
 
@@ -56,11 +59,21 @@ export default function SwapDetailScreen() {
     ? (sourceParam as SwapViewSource)
     : 'deep_link';
   const user = useUser();
-  const insets = useSafeAreaInsets();
+  const isAuthLoading = useIsLoading();
+  const showAuth = useAuthSheetStore(state => state.show);
 
-  const [swap, setSwap] = useState<Swap | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [delivery, setDelivery] = useState<{ key: string; swap: Swap | null } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const userId = user?.id;
+  const subscriptionKey = `${id ?? ''}:${userId ?? ''}:${retryCount}`;
+  const swap = delivery?.key === subscriptionKey ? delivery.swap : null;
+  const isLoading = !!id && !!userId && delivery?.key !== subscriptionKey;
+  const viewedRef = useRef<string | null>(null);
+  const processingRef = useRef(false);
+  const confirmationRef = useRef(false);
+  const beginProcessing = useCallback(() => { processingRef.current = true; setIsProcessing(true); }, []);
+  const endProcessing = useCallback(() => { processingRef.current = false; setIsProcessing(false); }, []);
 
   // Stripe top-up payment state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -70,34 +83,33 @@ export default function SwapDetailScreen() {
   // Real-time subscription
   // -----------------------------------------------------------------------
   useEffect(() => {
-    if (!id) return;
+    if (!id || !userId) return;
 
     const unsubscribe = subscribeToSwap(id, (swapData) => {
-      setSwap(swapData);
-      setIsLoading(false);
+      setDelivery({ key: subscriptionKey, swap: swapData });
     });
 
     return () => unsubscribe();
-  }, [id]);
+  }, [id, userId, subscriptionKey]);
 
   // Fire swap_viewed once, on the first real-time delivery of a loaded swap.
   // The not_found branch is intentionally not tracked (swap_viewed requires a
   // SwapStatus, unavailable when the swap does not exist — see notes).
-  const viewedRef = useRef(false);
   useEffect(() => {
-    if (isLoading || viewedRef.current || !swap || !id) return;
-    viewedRef.current = true;
+    const viewKey = `${id ?? ''}:${userId ?? ''}`;
+    if (isLoading || viewedRef.current === viewKey || !swap || !id) return;
+    viewedRef.current = viewKey;
     track('swap_viewed', {
       swap_id: id,
       outcome: 'loaded',
       status: swap.status,
-      is_initiator: swap.initiatorId === user?.id,
-      is_top_up_payer: swap.cashTopUp?.payerId === user?.id,
+      is_initiator: swap.initiatorId === userId,
+      is_top_up_payer: swap.cashTopUp?.payerId === userId,
       cash_top_up_cents: swap.cashTopUp?.amount ?? 0,
       ...(swap.exchangeMode ? { exchange_mode: swap.exchangeMode } : {}),
       source: viewSource,
     });
-  }, [isLoading, swap, id, user?.id, viewSource]);
+  }, [isLoading, swap, id, userId, viewSource]);
 
   // -----------------------------------------------------------------------
   // Derived participant context
@@ -107,6 +119,7 @@ export default function SwapDetailScreen() {
 
     const isInitiator = swap.initiatorId === user.id;
     const isReceiver = swap.receiverId === user.id;
+    if (!isInitiator && !isReceiver) return null;
 
     const payerId = swap.cashTopUp?.payerId;
     const payerName =
@@ -130,8 +143,8 @@ export default function SwapDetailScreen() {
         ? getSwapItems(swap, 'initiator')
         : getSwapItems(swap, 'receiver'),
       hasUploadedPhotos: isInitiator
-        ? !!swap.initiatorPhotos
-        : !!swap.receiverPhotos,
+        ? !!swap.initiatorPhotos?.photos.length
+        : !!swap.receiverPhotos?.photos.length,
       hasConfirmedShipping: isInitiator
         ? !!swap.initiatorShippedAt
         : !!swap.receiverShippedAt,
@@ -147,9 +160,9 @@ export default function SwapDetailScreen() {
   // -----------------------------------------------------------------------
   const handleAccept = useCallback(
     async (surface: 'sticky_bar' | 'inline' = 'inline') => {
-      if (!id) return;
+      if (!id || processingRef.current) return;
       const cashTopUpCents = swap?.cashTopUp?.amount ?? 0;
-      setIsProcessing(true);
+      beginProcessing();
       try {
         await acceptSwap(id);
         track('swap_accepted', {
@@ -168,25 +181,28 @@ export default function SwapDetailScreen() {
         });
         Alert.alert('Erreur', "Impossible d'accepter l'échange");
       } finally {
-        setIsProcessing(false);
+        endProcessing();
       }
     },
-    [id, swap?.cashTopUp?.amount]
+    [id, swap?.cashTopUp?.amount, beginProcessing, endProcessing]
   );
 
   const handleDecline = useCallback(async () => {
+    if (processingRef.current || confirmationRef.current) return;
+    confirmationRef.current = true;
     Alert.alert(
       "Refuser l'échange",
-      'Es-tu sûr de vouloir refuser cette proposition ?',
+      'Souhaitez-vous refuser cette proposition ?',
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: 'Revenir à la proposition', style: 'cancel', onPress: () => { confirmationRef.current = false; } },
         {
           text: 'Refuser',
           style: 'destructive',
           onPress: async () => {
-            if (!id) return;
+            confirmationRef.current = false;
+            if (!id || processingRef.current) return;
             const cashTopUpCents = swap?.cashTopUp?.amount ?? 0;
-            setIsProcessing(true);
+            beginProcessing();
             try {
               await declineSwap(id);
               track('swap_declined', {
@@ -203,18 +219,19 @@ export default function SwapDetailScreen() {
               });
               Alert.alert('Erreur', "Impossible de refuser l'échange");
             } finally {
-              setIsProcessing(false);
+              endProcessing();
             }
           },
         },
-      ]
+      ],
+      { cancelable: true, onDismiss: () => { confirmationRef.current = false; } }
     );
-  }, [id, swap?.cashTopUp?.amount]);
+  }, [id, swap?.cashTopUp?.amount, beginProcessing, endProcessing]);
 
   const handlePayTopUp = useCallback(async () => {
-    if (!id) return;
+    if (!PAYMENTS_ENABLED || !id || processingRef.current) return;
     const cashTopUpCents = swap?.cashTopUp?.amount ?? 0;
-    setIsProcessing(true);
+    beginProcessing();
     try {
       const { clientSecret: secret } = await createSwapTopUpCheckout(id);
       // The native sheet displays the server-authoritative PaymentIntent amount.
@@ -234,9 +251,9 @@ export default function SwapDetailScreen() {
       });
       Alert.alert('Erreur', "Impossible d'initier le paiement du complément");
     } finally {
-      setIsProcessing(false);
+      endProcessing();
     }
-  }, [id, swap?.cashTopUp?.amount]);
+  }, [id, swap?.cashTopUp?.amount, beginProcessing, endProcessing]);
 
   const handlePaymentResult = useCallback((result: StripePaymentResult) => {
     setShowStripePayment(false);
@@ -253,52 +270,58 @@ export default function SwapDetailScreen() {
   }, []);
 
   const handleCancel = useCallback(async () => {
+    if (processingRef.current || confirmationRef.current) return;
+    confirmationRef.current = true;
     Alert.alert(
       "Annuler l'échange",
-      'Es-tu sûr de vouloir annuler cette proposition ?',
+      'Souhaitez-vous annuler cette proposition ?',
       [
-        { text: 'Non', style: 'cancel' },
+        { text: 'Conserver la proposition', style: 'cancel', onPress: () => { confirmationRef.current = false; } },
         {
           text: 'Oui, annuler',
           style: 'destructive',
           onPress: async () => {
-            if (!id) return;
-            setIsProcessing(true);
+            confirmationRef.current = false;
+            if (!id || processingRef.current) return;
+            beginProcessing();
             try {
               await cancelSwap(id);
               track('swap_cancelled', { swap_id: id, outcome: 'success' });
-              router.back();
+              if (router.canGoBack()) router.back();
+              else router.replace('/my-swaps');
             } catch (error) {
               if (__DEV__) console.error('Error cancelling swap:', error);
               track('swap_cancelled', { swap_id: id, outcome: 'error' });
               Alert.alert('Erreur', "Impossible d'annuler l'échange");
             } finally {
-              setIsProcessing(false);
+              endProcessing();
             }
           },
         },
-      ]
+      ],
+      { cancelable: true, onDismiss: () => { confirmationRef.current = false; } }
     );
-  }, [id]);
+  }, [id, beginProcessing, endProcessing]);
 
   const handleSetExchangeMode = useCallback(
     async (mode: SwapExchangeMode) => {
-      if (!id) return;
-      setIsProcessing(true);
+      if (!id || processingRef.current) return;
+      beginProcessing();
       try {
         await setExchangeMode(id, mode);
       } catch (error) {
         if (__DEV__) console.error('Error setting exchange mode:', error);
         Alert.alert('Erreur', "Impossible de définir le mode d'échange");
       } finally {
-        setIsProcessing(false);
+        endProcessing();
       }
     },
-    [id]
+    [id, beginProcessing, endProcessing]
   );
 
   const handleUploadPhotos = useCallback(async () => {
-    if (!id || !user) return;
+    if (!id || !user || processingRef.current) return;
+    beginProcessing();
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'] as const,
@@ -318,7 +341,10 @@ export default function SwapDetailScreen() {
         return;
       }
 
-      setIsProcessing(true);
+      if (!result.assets.length || result.assets.length > 4) {
+        Alert.alert('Choisir vos photos', 'Sélectionnez 1 à 4 photos de vos articles.');
+        return;
+      }
 
       const uploadedUrls = await Promise.all(
         result.assets.map(async (asset, i) => {
@@ -340,7 +366,7 @@ export default function SwapDetailScreen() {
         photos_count: uploadedUrls.length,
         outcome: 'success',
       });
-      Alert.alert('Photos envoyées', 'Tes photos ont bien été ajoutées.');
+      Alert.alert('Photos envoyées', 'Vos photos ont bien été ajoutées.');
     } catch (error) {
       if (__DEV__) console.error('Error uploading photos:', error);
       track('swap_photos_uploaded', {
@@ -350,80 +376,59 @@ export default function SwapDetailScreen() {
       });
       Alert.alert('Erreur', "Impossible d'envoyer les photos");
     } finally {
-      setIsProcessing(false);
+      endProcessing();
     }
-  }, [id, user]);
+  }, [id, user, beginProcessing, endProcessing]);
 
   const handleConfirmShipping = useCallback(async () => {
-    if (!id || !user) return;
-    Alert.alert("Confirmer l'envoi", 'As-tu bien envoyé ton article ?', [
-      { text: 'Non', style: 'cancel' },
-      {
-        text: 'Oui, envoyé !',
-        onPress: async () => {
-          const exchangeMode = swap?.exchangeMode ?? '';
-          setIsProcessing(true);
-          try {
-            await confirmShipping(id, user.id);
-            track('swap_shipping_confirmed', {
-              swap_id: id,
-              exchange_mode: exchangeMode,
-              outcome: 'success',
-            });
-          } catch (error) {
-            if (__DEV__) console.error('Error confirming shipping:', error);
-            track('swap_shipping_confirmed', {
-              swap_id: id,
-              exchange_mode: exchangeMode,
-              outcome: 'error',
-            });
-            Alert.alert('Erreur', "Impossible de confirmer l'envoi");
-          } finally {
-            setIsProcessing(false);
-          }
-        },
-      },
-    ]);
-  }, [id, user, swap?.exchangeMode]);
+    if (!id || !user || processingRef.current || confirmationRef.current) return;
+    const handDelivery = swap?.exchangeMode === 'hand_delivery';
+    confirmationRef.current = true;
+    Alert.alert(handDelivery ? 'Confirmer la remise' : 'Confirmer l’envoi', handDelivery ? 'Avez-vous remis vos articles au membre ?' : 'Avez-vous envoyé vos articles au membre ?', [
+      { text: 'Pas encore', style: 'cancel', onPress: () => { confirmationRef.current = false; } },
+      { text: handDelivery ? 'Oui, articles remis' : 'Oui, articles envoyés', onPress: async () => {
+        confirmationRef.current = false;
+        if (processingRef.current) return;
+        beginProcessing();
+        try {
+          await confirmShipping(id, user.id);
+          track('swap_shipping_confirmed', { swap_id: id, exchange_mode: swap?.exchangeMode ?? '', outcome: 'success' });
+        } catch (error) {
+          if (__DEV__) console.error('Error confirming shipping:', error);
+          track('swap_shipping_confirmed', { swap_id: id, exchange_mode: swap?.exchangeMode ?? '', outcome: 'error' });
+          Alert.alert('Erreur', handDelivery ? 'Impossible de confirmer la remise.' : 'Impossible de confirmer l’envoi.');
+        } finally { endProcessing(); }
+      } },
+    ], { cancelable: true, onDismiss: () => { confirmationRef.current = false; } });
+  }, [id, user, swap?.exchangeMode, beginProcessing, endProcessing]);
 
   const handleConfirmReception = useCallback(async () => {
-    if (!id || !user) return;
-    Alert.alert('Confirmer la réception', "As-tu bien reçu l'article ?", [
-      { text: 'Non', style: 'cancel' },
-      {
-        text: 'Oui, reçu !',
-        onPress: async () => {
-          const exchangeMode = swap?.exchangeMode ?? '';
-          setIsProcessing(true);
-          try {
-            await confirmReception(id, user.id);
-            track('swap_reception_confirmed', {
-              swap_id: id,
-              exchange_mode: exchangeMode,
-              outcome: 'success',
-            });
-          } catch (error) {
-            if (__DEV__) console.error('Error confirming reception:', error);
-            track('swap_reception_confirmed', {
-              swap_id: id,
-              exchange_mode: exchangeMode,
-              outcome: 'error',
-            });
-            Alert.alert('Erreur', 'Impossible de confirmer la réception');
-          } finally {
-            setIsProcessing(false);
-          }
-        },
-      },
-    ]);
-  }, [id, user, swap?.exchangeMode]);
+    if (!id || !user || processingRef.current || confirmationRef.current) return;
+    confirmationRef.current = true;
+    Alert.alert('Confirmer la réception', 'Avez-vous reçu les articles convenus ?', [
+      { text: 'Pas encore', style: 'cancel', onPress: () => { confirmationRef.current = false; } },
+      { text: 'Oui, articles reçus', onPress: async () => {
+        confirmationRef.current = false;
+        if (processingRef.current) return;
+        beginProcessing();
+        try {
+          await confirmReception(id, user.id);
+          track('swap_reception_confirmed', { swap_id: id, exchange_mode: swap?.exchangeMode ?? '', outcome: 'success' });
+        } catch (error) {
+          if (__DEV__) console.error('Error confirming reception:', error);
+          track('swap_reception_confirmed', { swap_id: id, exchange_mode: swap?.exchangeMode ?? '', outcome: 'error' });
+          Alert.alert('Erreur', 'Impossible de confirmer la réception.');
+        } finally { endProcessing(); }
+      } },
+    ], { cancelable: true, onDismiss: () => { confirmationRef.current = false; } });
+  }, [id, user, swap?.exchangeMode, beginProcessing, endProcessing]);
 
   const swapInitiatorId = swap?.initiatorId;
 
   const handleRate = useCallback(
     async (score: number) => {
-      if (!id || !user) return;
-      setIsProcessing(true);
+      if (!id || !user || processingRef.current) return;
+      beginProcessing();
       try {
         await rateSwap(id, user.id, score);
         track('swap_rated', {
@@ -431,15 +436,15 @@ export default function SwapDetailScreen() {
           score,
           is_initiator: swapInitiatorId === user.id,
         });
-        Alert.alert('Merci !', 'Ta note a été enregistrée.');
+        Alert.alert('Merci !', 'Votre évaluation a été enregistrée.');
       } catch (error) {
         if (__DEV__) console.error('Error rating swap:', error);
         Alert.alert('Erreur', "Impossible d'enregistrer la note");
       } finally {
-        setIsProcessing(false);
+        endProcessing();
       }
     },
-    [id, user, swapInitiatorId]
+    [id, user, swapInitiatorId, beginProcessing, endProcessing]
   );
 
   const actionHandlers = useMemo<SwapActionHandlers>(
@@ -467,53 +472,46 @@ export default function SwapDetailScreen() {
     ]
   );
 
-  // -----------------------------------------------------------------------
-  // Loading state
-  // -----------------------------------------------------------------------
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <SwapDetailSkeleton />
-      </SafeAreaView>
-    );
+  if (!user && !isAuthLoading) {
+    return <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SwapTopBar />
+      <ScrollView contentContainerStyle={styles.errorContainer}>
+        <Ionicons name="swap-horizontal-outline" size={44} color={colors.primary} />
+        <Text variant="h1" center>Retrouvez votre échange</Text>
+        <Text style={styles.errorText}>Connectez-vous avec le compte qui participe à cet échange.</Text>
+        <Button style={styles.stateButton} onPress={() => showAuth('Connectez-vous pour consulter votre échange', undefined, { source: 'swap', gateKey: 'swap_detail' })}>Se connecter</Button>
+      </ScrollView>
+    </SafeAreaView>;
   }
-
-  // -----------------------------------------------------------------------
-  // Error state
-  // -----------------------------------------------------------------------
+  if (isLoading || isAuthLoading) {
+    return <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SwapTopBar />
+      <ScrollView><SwapDetailSkeleton /></ScrollView>
+    </SafeAreaView>;
+  }
   if (!swap || !participant) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.muted} />
-          <Text variant="body" style={styles.errorText}>
-            Échange non trouvé
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SwapTopBar />
+      <ScrollView contentContainerStyle={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={44} color={colors.primary} />
+        <Text variant="h1" center>Échange indisponible</Text>
+        <Text style={styles.errorText}>Cet échange n’a pas pu être chargé. Vérifiez votre connexion et le compte utilisé.</Text>
+        <Button style={styles.stateButton} onPress={() => setRetryCount(count => count + 1)}>Réessayer</Button>
+        <Button variant="ghost" style={styles.stateButton} onPress={() => router.replace('/my-swaps')}>Voir mes échanges</Button>
+      </ScrollView>
+    </SafeAreaView>;
   }
-
-  // -----------------------------------------------------------------------
-  // Render
-  // -----------------------------------------------------------------------
-  const showNewBadge = swap.status === 'proposed' && !participant.isInitiator;
   const otherUserId = participant.isInitiator ? swap.receiverId : swap.initiatorId;
-
+  const payer = swap.cashTopUp?.payerId === user?.id ? 'you' : swap.cashTopUp?.payerId === otherUserId ? 'other' : 'unknown';
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
-
-      <SwapTopBar showNewBadge={showNewBadge} />
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl + spacing.lg }}
-      >
-        {/* Proposed status: detailed offer layout (receiver perspective) */}
-        {swap.status === 'proposed' && !participant.isInitiator && (
+      <SwapTopBar />
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {swap.status === 'proposed' ? (
           <SwapProposalView
             senderName={participant.senderName}
             senderImage={participant.senderImage}
@@ -521,31 +519,11 @@ export default function SwapDetailScreen() {
             senderItems={participant.senderItems}
             myItems={participant.myItems}
             cashTopUp={swap.cashTopUp}
+            isInitiator={participant.isInitiator}
+            currentUserId={user?.id}
+            otherUserId={otherUserId}
           />
-        )}
-
-        {/* Proposed status: initiator sees their sent proposal */}
-        {swap.status === 'proposed' && participant.isInitiator && (
-          <View style={styles.initiatorPendingSection}>
-            <View style={styles.pendingBadge}>
-              <Ionicons name="time-outline" size={20} color={colors.sage} />
-              <Text variant="body" style={styles.pendingText}>
-                Ta proposition est en attente de réponse
-              </Text>
-            </View>
-            <SwapProposalView
-              senderName={participant.senderName}
-              senderImage={participant.senderImage}
-              message={swap.message}
-              senderItems={participant.myItems}
-              myItems={participant.senderItems}
-              cashTopUp={swap.cashTopUp}
-            />
-          </View>
-        )}
-
-        {/* Other statuses: simplified layout */}
-        {swap.status !== 'proposed' && (
+        ) : (
           <SwapStatusView
             status={swap.status}
             senderName={participant.senderName}
@@ -553,89 +531,26 @@ export default function SwapDetailScreen() {
             senderItems={participant.senderItems}
             myItems={participant.myItems}
             cashTopUpAmount={swap.cashTopUp?.amount}
+            cashTopUpPayer={payer}
+            isInitiator={participant.isInitiator}
+            nextStep={getSwapNextStep(swap, user?.id || '')}
           />
         )}
-
-        {/* Action buttons based on status.
-            The proposed-receiver case is owned exclusively by the sticky bar
-            below, so we skip the in-flow Accept/Decline to avoid duplicating
-            the same actions on two surfaces. */}
-        {!(swap.status === 'proposed' && !participant.isInitiator) && (
-          <SwapActions
-            status={swap.status}
-            participant={participant}
-            handlers={actionHandlers}
-            isProcessing={isProcessing}
-            exchangeMode={swap.exchangeMode}
-          />
+        {!(swap.status === 'proposed' && participant.isReceiver) && (
+          <SwapActions status={swap.status} participant={participant} handlers={actionHandlers} isProcessing={isProcessing} exchangeMode={swap.exchangeMode} />
         )}
-
-        {/* Contact button */}
-        {swap.status !== 'declined' && swap.status !== 'cancelled' && (
-          <SwapContactButton
-            otherUserId={otherUserId}
-            otherUserName={participant.senderName}
-          />
-        )}
+        {swap.status !== 'declined' && swap.status !== 'cancelled' && <SwapContactButton otherUserId={otherUserId} otherUserName={participant.senderName} />}
       </ScrollView>
-
-      {/* Sticky bottom -- proposed status only */}
-      {swap.status === 'proposed' && !participant.isInitiator && (
-        <SwapStickyActions
-          onAccept={() => handleAccept('sticky_bar')}
-          onDecline={handleDecline}
-          isProcessing={isProcessing}
-        />
-      )}
-
-      {/* Stripe Payment Sheet — cash top-up settlement */}
-      {clientSecret && (
-        <StripePayment
-          clientSecret={clientSecret}
-          visible={showStripePayment}
-          onResult={handlePaymentResult}
-        />
-      )}
+      {swap.status === 'proposed' && participant.isReceiver && <SwapStickyActions onAccept={() => handleAccept('sticky_bar')} onDecline={handleDecline} isProcessing={isProcessing} />}
+      {PAYMENTS_ENABLED && clientSecret && <StripePayment clientSecret={clientSecret} visible={showStripePayment} onResult={handlePaymentResult} />}
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  errorText: {
-    color: colors.muted,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  initiatorPendingSection: {
-    paddingTop: spacing.md,
-  },
-  pendingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 24,
-    marginBottom: 16,
-    backgroundColor: 'rgba(122, 140, 110, 0.08)',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(122, 140, 110, 0.2)',
-  },
-  pendingText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.sage,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  errorContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
+  errorText: { color: colors.foregroundSecondary, textAlign: 'center' },
+  stateButton: { height: 'auto', minHeight: 48, paddingVertical: spacing.md },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: spacing.xl },
 });

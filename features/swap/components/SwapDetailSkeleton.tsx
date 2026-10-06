@@ -12,13 +12,6 @@ import { colors, spacing } from '@/constants/theme';
 export const SwapDetailSkeleton = React.memo(function SwapDetailSkeleton() {
   return (
     <View style={styles.container}>
-      {/* Top bar skeleton */}
-      <View style={styles.topBar}>
-        <Skeleton width={36} height={36} borderRadius={18} />
-        <Skeleton width={120} height={20} />
-        <View style={styles.spacer} />
-      </View>
-
       {/* Sender profile skeleton */}
       <View style={styles.senderRow}>
         <SkeletonAvatar size={44} />
@@ -82,7 +75,7 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.md,
     paddingVertical: 16,
     gap: 12,
   },
@@ -92,24 +85,24 @@ const styles = StyleSheet.create({
   senderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.md,
     paddingVertical: 20,
     gap: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceWarm,
   },
   senderInfo: {
     flex: 1,
     gap: 6,
   },
   messageSkeleton: {
-    marginHorizontal: 24,
+    marginHorizontal: spacing.md,
     marginVertical: 20,
     padding: 14,
     backgroundColor: colors.cream,
     borderRadius: 12,
   },
   itemsSection: {
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.md,
     marginBottom: 20,
     gap: 8,
   },
@@ -117,8 +110,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     padding: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: colors.surfaceWarm,
+    borderRadius: 16,
   },
   itemInfo: {
     flex: 1,
@@ -126,11 +119,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   summarySkeleton: {
-    marginHorizontal: 24,
+    marginHorizontal: spacing.md,
     marginVertical: 20,
   },
   actionsSkeleton: {
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
 });

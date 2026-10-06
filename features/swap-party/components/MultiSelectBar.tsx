@@ -1,98 +1,40 @@
-/**
- * MultiSelectBar Component
- * Bottom action bar when items are selected for swap proposal
- */
-
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-
 import { Text } from '@/components/ui';
-import { colors, spacing, radius, typography } from '@/constants/theme';
+import { colors, spacing, radius, sizing, typography } from '@/constants/theme';
 import type { MultiSelectBarProps } from '../types';
 
-export const MultiSelectBar = React.memo(function MultiSelectBar({
-  selectedCount,
-  canPropose,
-  onCancel,
-  onPropose,
-}: MultiSelectBarProps) {
-  if (selectedCount === 0) return null;
-
+export const MultiSelectBar = React.memo(function MultiSelectBar({ selectedCount, canPropose, onCancel, onPropose }: MultiSelectBarProps) {
   return (
-    <View style={styles.multiSelectBar}>
-      <Pressable
-        style={({ pressed }) => [styles.cancelSelectButton, pressed && styles.pressed]}
-        onPress={onCancel}
-      >
-        <Text style={styles.cancelButtonText}>Annuler</Text>
-      </Pressable>
-
-      <Text style={styles.selectedCountText}>
-        {selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}
-      </Text>
-
-      {canPropose && (
-        <Pressable
-          style={({ pressed }) => [styles.proposeButton, pressed && styles.pressed]}
-          onPress={onPropose}
-        >
-          <Text style={styles.proposeButtonText}>Proposer</Text>
+    <View style={styles.bar}>
+      <View style={styles.heading}>
+        <Text style={styles.title}>Votre sélection</Text>
+        <Text style={styles.count}>{selectedCount} article{selectedCount > 1 ? 's' : ''}</Text>
+      </View>
+      <Text style={styles.hint}>{selectedCount > 0 ? 'Vous proposerez vos articles à cette personne.' : 'Aucun article sélectionné ne correspond aux filtres.'}</Text>
+      <View style={styles.actions}>
+        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]} onPress={onCancel}>
+          <Text style={styles.cancelText}>Annuler</Text>
         </Pressable>
-      )}
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canPropose }} style={({ pressed }) => [styles.proposeButton, !canPropose && styles.disabled, pressed && styles.pressed]} onPress={onPropose} disabled={!canPropose}>
+          <Text style={styles.proposeText}>Continuer</Text>
+        </Pressable>
+      </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  multiSelectBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.darkSurface2,
-    borderTopWidth: 1,
-    borderTopColor: colors.rust,
-    gap: spacing.md,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  cancelSelectButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.none,
-    borderWidth: 1,
-    borderColor: colors.darkBorderStrong,
-  },
-  cancelButtonText: {
-    fontFamily: typography.button.fontFamily,
-    fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
-    letterSpacing: typography.button.letterSpacing,
-    textTransform: 'uppercase',
-    color: colors.cream,
-  },
-  selectedCountText: {
-    fontFamily: typography.button.fontFamily,
-    fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
-    letterSpacing: typography.button.letterSpacing,
-    textTransform: 'uppercase',
-    color: colors.sand,
-  },
-  proposeButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.sage,
-    borderRadius: radius.none,
-  },
-  proposeButtonText: {
-    fontFamily: typography.button.fontFamily,
-    fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
-    letterSpacing: typography.button.letterSpacing,
-    textTransform: 'uppercase',
-    color: colors.cream,
-  },
+  bar: { padding: spacing.md, backgroundColor: colors.darkSurface2, borderTopWidth: 1, borderTopColor: colors.sand, gap: spacing.sm },
+  heading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  title: { ...typography.label, color: colors.cream },
+  count: { ...typography.caption, color: colors.sand },
+  hint: { ...typography.caption, color: colors.creamTranslucent60 },
+  actions: { flexDirection: 'row', gap: spacing.sm },
+  pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.4 },
+  cancelButton: { flex: 1, minHeight: sizing.minTouchTarget, padding: spacing.sm, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.darkBorderStrong },
+  cancelText: { ...typography.label, color: colors.cream, textAlign: 'center' },
+  proposeButton: { flex: 1, minHeight: sizing.minTouchTarget, padding: spacing.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryDark, borderRadius: radius.md },
+  proposeText: { ...typography.label, color: colors.cream, textAlign: 'center' },
 });

@@ -16,6 +16,10 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+jest.mock('@/config/featureFlags', () => ({ PAYMENTS_ENABLED: false }));
+const paymentFlags = jest.requireMock('@/config/featureFlags') as { PAYMENTS_ENABLED: boolean };
+beforeEach(() => { paymentFlags.PAYMENTS_ENABLED = false; });
+
 // Le barrel @/components/ui ré-exporte des composants natifs lourds
 // (ThemedBottomSheet → @expo/ui → expo-asset, OfflineBanner → expo-network…)
 // non transformés par le preset. Les composants testés n'en consomment que
@@ -57,7 +61,7 @@ describe('<ValueComparisonBox /> — différence de valeur', () => {
       <ValueComparisonBox {...baseProps} initiatorTotal={120} receiverTotal={50} />
     );
 
-    expect(screen.getByText('Différence de 70 $ en ta faveur')).toBeOnTheScreen();
+    expect(screen.getByText('Différence de 70 $ en votre faveur')).toBeOnTheScreen();
   });
 
   it('affiche "Valeurs equivalentes" et aucun bouton suggéré quand les totaux sont égaux', () => {
@@ -65,12 +69,25 @@ describe('<ValueComparisonBox /> — différence de valeur', () => {
       <ValueComparisonBox {...baseProps} initiatorTotal={60} receiverTotal={60} />
     );
 
-    expect(screen.getByText('Valeurs equivalentes')).toBeOnTheScreen();
+    expect(screen.getByText('Valeurs équivalentes')).toBeOnTheScreen();
     expect(screen.queryByText(/Suggéré:/)).toBeNull();
   });
 });
 
+describe('<ValueComparisonBox /> — paiements désactivés', () => {
+  it('garde les valeurs indicatives et masque toutes les commandes de complément', () => {
+    render(<ValueComparisonBox {...baseProps} initiatorTotal={40} receiverTotal={100} />);
+    expect(screen.getByText('Valeur affichée · à titre indicatif')).toBeOnTheScreen();
+    expect(screen.getByText('Un écart de valeur n’empêche pas l’échange.')).toBeOnTheScreen();
+    expect(screen.queryByText(/complément en argent/)).toBeNull();
+    expect(screen.queryByText('Je paie')).toBeNull();
+    expect(screen.queryByPlaceholderText('0')).toBeNull();
+    expect(screen.queryByText(/Suggéré/)).toBeNull();
+  });
+});
+
 describe('<ValueComparisonBox /> — montant suggéré', () => {
+  beforeEach(() => { paymentFlags.PAYMENTS_ENABLED = true; });
   it('propose la différence en montant suggéré et la reporte au tap', () => {
     const onComplementAmountChange = jest.fn();
     render(
@@ -82,7 +99,7 @@ describe('<ValueComparisonBox /> — montant suggéré', () => {
       />
     );
 
-    const suggest = screen.getByText('Suggéré: 60 $');
+    const suggest = screen.getByText('Suggéré : 60 $');
     fireEvent.press(suggest);
 
     // Le complément suggéré = différence absolue (60), passé en string.
@@ -91,6 +108,7 @@ describe('<ValueComparisonBox /> — montant suggéré', () => {
 });
 
 describe('<ValueComparisonBox /> — saisie du complément', () => {
+  beforeEach(() => { paymentFlags.PAYMENTS_ENABLED = true; });
   it('sanitise la saisie en ne gardant que les chiffres', () => {
     const onComplementAmountChange = jest.fn();
     render(
@@ -110,6 +128,7 @@ describe('<ValueComparisonBox /> — saisie du complément', () => {
 });
 
 describe('<ValueComparisonBox /> — choix du payeur', () => {
+  beforeEach(() => { paymentFlags.PAYMENTS_ENABLED = true; });
   it('affiche le nom du receveur sur le bouton "paie" et notifie le changement de payeur', () => {
     const onComplementPayerChange = jest.fn();
     render(

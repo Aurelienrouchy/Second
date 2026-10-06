@@ -1,264 +1,70 @@
-/**
- * SwapStatusView
- * Simplified layout for non-proposed statuses (accepted, shipping, completed, etc.).
- * Shows status indicator, compact sender card, items display and summary.
- */
-
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-
-import { Text, Caption } from '@/components/ui';
+import { Text } from '@/components/ui';
 import SwapItemCard from '@/components/swap/SwapItemCard';
-import SwapSummaryBox from '@/components/swap/SwapSummaryBox';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { formatPriceWithCurrency } from '@/utils/formatPrice';
+import { formatDisplayName } from '@/utils/formatName';
 import { SwapItemInfo, SwapStatus } from '@/types';
+import { getSwapStatusLabel } from '../presentation';
 
-const STATUS_LABELS: Record<SwapStatus, string> = {
-  proposed: 'Swap reçu',
-  payment_pending: 'Paiement en attente',
-  accepted: 'Accepté',
-  declined: 'Refusé',
-  cancelled: 'Annulé',
-  photos_pending: 'Photos en attente',
-  shipping: "En cours d'envoi",
-  completed: 'Terminé',
-  disputed: 'Litige',
-  expired: 'Échange expiré',
+const CAPTIONS: Partial<Record<SwapStatus, string>> = {
+  expired: 'Cet échange n’est plus actif.',
+  disputed: 'Un litige a été ouvert pour cet échange.',
+  declined: 'Cette proposition a été refusée.',
+  cancelled: 'Cet échange a été annulé.',
+  completed: 'La réception des articles a été confirmée par les deux membres.',
 };
-
-/**
- * Short copy shown under the status indicator for terminal/blocked states.
- * Empty string = no caption.
- */
-const STATUS_CAPTIONS: Partial<Record<SwapStatus, string>> = {
-  expired:
-    "Cet échange a expiré faute d'activité. Les articles ont été libérés et tout complément payé a été remboursé.",
-  disputed: "Un litige est ouvert. Notre équipe examine l'échange.",
-};
-
-const SHOW_SUMMARY_STATUSES: ReadonlySet<SwapStatus> = new Set([
-  'payment_pending',
-  'accepted',
-  'photos_pending',
-  'shipping',
-  'completed',
-]);
-
-/**
- * Statuses rendered with the SOMBRE SwapZone treatment (dark indicator) — the
- * terminal/blocked states stand out from the active editorial flow.
- */
-const DARK_STATUSES: ReadonlySet<SwapStatus> = new Set(['expired', 'disputed']);
-
-function getStatusIconName(
-  status: SwapStatus
-): 'checkmark-circle' | 'close-circle' | 'alert-circle' | 'time-outline' | 'swap-horizontal' {
-  if (status === 'completed') return 'checkmark-circle';
-  if (status === 'expired') return 'time-outline';
-  if (status === 'disputed') return 'alert-circle';
-  if (status === 'declined' || status === 'cancelled') return 'close-circle';
-  return 'swap-horizontal';
-}
-
 interface SwapStatusViewProps {
   status: SwapStatus;
   senderName: string;
   senderImage: string | undefined;
   senderItems: SwapItemInfo[];
   myItems: SwapItemInfo[];
+  /** Stored amount in cents, retained for existing callers. */
   cashTopUpAmount: number | undefined;
+  isInitiator?: boolean;
+  nextStep?: string;
+  cashTopUpPayer?: 'you' | 'other' | 'unknown';
 }
-
 export const SwapStatusView = React.memo(function SwapStatusView({
-  status,
-  senderName,
-  senderImage,
-  senderItems,
-  myItems,
-  cashTopUpAmount,
+  status, senderName, senderImage, senderItems, myItems, cashTopUpAmount,
+  isInitiator = false, nextStep, cashTopUpPayer = 'unknown',
 }: SwapStatusViewProps) {
-  const isDark = DARK_STATUSES.has(status);
-  const caption = STATUS_CAPTIONS[status];
+  const name = formatDisplayName(senderName);
+  const payer = cashTopUpPayer === 'you' ? 'Vous' : cashTopUpPayer === 'other' ? name : 'Payeur à confirmer';
   return (
-    <>
-      {/* Status Indicator — dark (SwapZone sombre) for terminal/blocked states */}
-      <View style={[styles.statusIndicator, isDark && styles.statusIndicatorDark]}>
-        <View style={styles.statusBlock}>
-          <View style={[styles.statusIcon, isDark && styles.statusIconDark]}>
-            <Ionicons
-              name={getStatusIconName(status)}
-              size={20}
-              color={isDark ? colors.cream : colors.surface}
-            />
-          </View>
-          <Text style={[styles.statusText, isDark && styles.statusTextDark]}>
-            {STATUS_LABELS[status]}
-          </Text>
-        </View>
-        {!!caption && (
-          <Text style={[styles.statusCaption, isDark && styles.statusCaptionDark]}>
-            {caption}
-          </Text>
-        )}
-      </View>
-
-      {/* Compact Sender Info */}
-      <View style={styles.compactSenderCard}>
-        <View style={styles.avatarSmall}>
-          <Image
-            source={senderImage ? { uri: senderImage } : undefined}
-            style={styles.avatarImageSmall}
-            contentFit="cover"
-          />
-        </View>
-        <View style={styles.compactSenderInfo}>
-          <Text style={styles.compactSenderName}>{senderName}</Text>
-          <Caption>Villeray · 2.8 km</Caption>
+    <View style={styles.content}>
+      <View style={styles.status}>
+        <Ionicons name={status === 'completed' ? 'checkmark-circle-outline' : status === 'disputed' ? 'alert-circle-outline' : 'swap-horizontal-outline'} size={24} color={colors.primary} />
+        <View style={styles.info}>
+          <Text style={styles.statusTitle}>{getSwapStatusLabel(status, isInitiator)}</Text>
+          {!!(nextStep || CAPTIONS[status]) && <Text style={styles.body}>{nextStep || CAPTIONS[status]}</Text>}
         </View>
       </View>
-
-      {/* Items Display */}
-      <View style={styles.itemsSection}>
-        <Text style={styles.itemsSectionLabel}>
-          {"Éléments de l'échange"}
-        </Text>
-        <View style={styles.itemsStack}>
-          {senderItems.map((item, index) => (
-            <SwapItemCard
-              key={`sender-${index}`}
-              item={item}
-              variant="their"
-            />
-          ))}
-        </View>
-        <View style={styles.swapDivider}>
-          <Ionicons name="swap-horizontal" size={16} color={colors.muted} />
-        </View>
-        <View style={styles.itemsStack}>
-          {myItems.map((item, index) => (
-            <SwapItemCard
-              key={`receiver-${index}`}
-              item={item}
-              variant="mine"
-            />
-          ))}
-        </View>
+      <View style={styles.member}>
+        {senderImage ? <Image source={{ uri: senderImage }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatar}><Ionicons name="person-outline" size={22} color={colors.foregroundSecondary} /></View>}
+        <View style={styles.info}><Text style={styles.eyebrow}>Échange avec</Text><Text style={styles.name}>{name}</Text></View>
       </View>
-
-      {/* Summary Box — only for relevant statuses */}
-      {SHOW_SUMMARY_STATUSES.has(status) && (
-        <View style={styles.summaryContainer}>
-          <SwapSummaryBox
-            youReceive={senderItems.map((item) => item.title).join(', ')}
-            youGive={myItems.map((item) => item.title).join(', ')}
-            receivedItems={senderItems}
-            givenItems={myItems}
-            cashSupplement={cashTopUpAmount}
-          />
-        </View>
-      )}
-    </>
+      <View style={styles.section}><Text style={styles.sectionTitle}>Vous donnez</Text>{myItems.map((item, index) => <SwapItemCard key={`${item.articleId}-${index}`} item={item} variant="mine" />)}</View>
+      <View style={styles.section}><Text style={styles.sectionTitle}>Vous recevez</Text>{senderItems.map((item, index) => <SwapItemCard key={`${item.articleId}-${index}`} item={item} variant="their" />)}</View>
+      {!!cashTopUpAmount && <View style={styles.legacy}><Text style={styles.body}>Complément historique : {formatPriceWithCurrency(cashTopUpAmount / 100).replace(/ /g, '\u00A0')} · Payeur prévu : {payer.replace(/\.+$/, '')}.</Text></View>}
+    </View>
   );
 });
-
 const styles = StyleSheet.create({
-  statusIndicator: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: colors.surface,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.sage,
-    gap: 8,
-  },
-  statusIndicatorDark: {
-    backgroundColor: colors.deep,
-    borderLeftColor: colors.rust,
-  },
-  statusBlock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  statusIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.sage,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusIconDark: {
-    backgroundColor: colors.darkSurface2,
-  },
-  statusText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.charcoal,
-  },
-  statusTextDark: {
-    color: colors.cream,
-  },
-  statusCaption: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.muted,
-  },
-  statusCaptionDark: {
-    color: colors.creamTranslucent60,
-  },
-  compactSenderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  avatarSmall: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  avatarImageSmall: {
-    width: '100%',
-    height: '100%',
-  },
-  compactSenderInfo: {
-    flex: 1,
-  },
-  compactSenderName: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.charcoal,
-  },
-  itemsSection: {
-    paddingHorizontal: 24,
-    marginTop: 20,
-  },
-  itemsSectionLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    letterSpacing: 0.15,
-    textTransform: 'uppercase',
-    color: colors.muted,
-    marginBottom: 8,
-  },
-  itemsStack: {
-    gap: 12,
-  },
-  swapDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  summaryContainer: {
-    marginHorizontal: 24,
-    marginVertical: 20,
-  },
+  content: { padding: spacing.md, gap: spacing.lg },
+  status: { flexDirection: 'row', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceWarm, borderRadius: radius.xl },
+  info: { flex: 1, minWidth: 0, gap: spacing.xs },
+  statusTitle: { fontFamily: fonts.sansMedium, fontSize: 15, lineHeight: 22, color: colors.foreground },
+  body: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 22, color: colors.foregroundSecondary },
+  member: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: { width: 48, height: 48, borderRadius: radius.full, backgroundColor: colors.surfaceWarm, justifyContent: 'center', alignItems: 'center' },
+  eyebrow: { fontFamily: fonts.sansMedium, fontSize: 12, lineHeight: 17, color: colors.foregroundSecondary },
+  name: { fontFamily: fonts.sansMedium, fontSize: 16, lineHeight: 23, color: colors.foreground },
+  section: { gap: spacing.sm },
+  sectionTitle: { fontFamily: fonts.displayMedium, fontSize: 26, lineHeight: 31, color: colors.foreground },
+  legacy: { backgroundColor: colors.surfaceWarm, borderRadius: radius.xl, padding: spacing.md },
 });
