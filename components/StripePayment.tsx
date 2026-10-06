@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useStripe } from '@stripe/stripe-react-native';
+import { useStripe } from '@/lib/stripe';
 
 import { track } from '@/lib/analytics';
 

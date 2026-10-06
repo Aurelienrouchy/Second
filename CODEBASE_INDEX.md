@@ -208,6 +208,8 @@ Zustand 5 + `subscribeWithSelector`. Tous ont `reset()` appelé dans `store/rese
 | `useMoments` | `useMoments.ts` | Social — moments/stories |
 | `useFcmToken` | `useFcmToken.ts` | Notif — token FCM |
 | `useNotificationSetup` | `useNotificationSetup.ts` | Notif — permissions + setup |
+| `useFirebaseUserId` | `useFirebaseUserId.ts` | Identité SDK actuelle via external store — cache/local preview gardés au bon UID |
+| `usePrivateMediaSource` | `usePrivateMediaSource.ts` | Auth/Storage SDK — lecture privée bornée, annulation sur logout/changement de compte |
 | `useGuestTracking` | `useGuestTracking.ts` | Analytics — visiteur non-auth |
 | `useCategoryNavigation` | `useCategoryNavigation.ts` | Nav — catégories |
 | `useBottomSheetBackHandler` | `useBottomSheetBackHandler.ts` | UI — Android back + bottom sheet |
@@ -297,6 +299,7 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | VisualSearchCamera | `VisualSearchCamera.tsx` | Smart — recherche visuelle |
 | ReportBottomSheet | `ReportBottomSheet.tsx` | Smart — signalement |
 | NotificationBellIcon | `NotificationBellIcon.tsx` | Smart — badge notifs |
+| PrivateStorageImage | `PrivateStorageImage.tsx` | UI — médias privés lus via SDK authentifié, octets mémoire, aucun cache disque |
 | DraftResumeModal | `DraftResumeModal.tsx` | Smart — reprise brouillon |
 | SaveSearchButton | `SaveSearchButton.tsx` | Smart — sauvegarder recherche |
 | ThemedText/View | `ThemedText.tsx`, `ThemedView.tsx` | UI — wrappers thème |
@@ -321,6 +324,8 @@ BottomTabBar, CategoryRow, DetailActions, DetailHeader, FilterRow, TopBar
 | `automatedDecisionMeta.ts` | Loi 25 art. 12.1 — copy FR décisions auto (titre, explication, critères lisibles) |
 
 ## Utils — `utils/`
+
+`privateMedia.ts` : références Storage privées canoniques sans token, validation bucket/path et encodage de données image mémoire.
 
 | Fichier | Rôle |
 |---------|------|
@@ -448,7 +453,7 @@ firebase.ts, gemini.ts, intelcom.ts, secrets.ts, shipEngine.ts, shippo.ts, strip
 ### Référentiel partagé — `functions/src/shared/`
 `sizeCatalog.json` est importé par les référentiels de tailles app/onboarding et Functions. `features/sell/hooks/useSellCamera.ts` gère les sessions caméra, leur readiness et la reprise après erreur ; `features/sell/components/shared/PhotoOrderControls.tsx` expose le réordre des photos.
 
-Ajouts audit du 6 octobre 2026 : `sellerEscrow.ts` (résolution du crédit net en escrow, y compris ledger de dette ancien), `payoutOutcome.ts` (classification rejet confirmé/inconnu et rapprochement read-only des payouts sans identifiant persisté). Tests associés : `financeTransitions.test.ts`, `payoutOutcome.test.ts`, et `callable/paymentPhase.test.ts`. La configuration serveur `featureFlags.ts` protège les nouvelles opérations financières avec `assertNewPaymentsEnabled` (OFF par défaut), sans bloquer refunds/régularisation.
+Ajouts audit du 6 octobre 2026 : `articleReservation.ts` (libération terminale uniquement par l’accord propriétaire, fallback legacy conservateur dans la transaction), `sellerEscrow.ts` (résolution du crédit net et montant held réel par vente, y compris ledgers anciens), `payoutOutcome.ts` (classification rejet confirmé/inconnu et rapprochement read-only des payouts sans identifiant persisté). Tests associés : `articleReservation.test.ts`, `articleReservationFlows.test.ts`, `financeTransitions.test.ts`, `labelFulfillment.test.ts`, `payoutOutcome.test.ts`, et `callable/paymentPhase.test.ts`. Le double Firestore peut imposer les lectures avant toute écriture pour les tests de conservation/régularisation. La configuration serveur `featureFlags.ts` protège les nouvelles opérations financières avec `assertNewPaymentsEnabled` (OFF par défaut), sans bloquer refunds/régularisation.
 debounce.ts, fees.ts, geohash.ts, notifications.ts, rateLimit.ts, jobLock.ts (F82 : `acquireJobLock`/`releaseJobLock` — verrou anti-overlap `job_locks/{job}` avec TTL pour jobs scheduled à opérations payantes ; sweepPendingLabels), search.ts (`normalizeSearchText` + `generateSearchKeywords` + `calculatePopularityScore`), labelFulfillment.ts (P1 : `creditSellerForSale` crédit vendeur après label réussi + `reconcileShippingCost` coût réel vs estimé + `createLabelIdempotent` (F5/F82 : création label idempotente sans double-paiement — réservation atomique TTL avant l'appel ShipEngine payant, commit atomique sous garde, partagé webhook/sweep), partagé webhook/wallet/sweep), trackingTransition.ts (P1 : `applyTrackingOutcome` machine à états tracking partagée poller/webhook/callable — label_created→shipped au 1er scan, DELIVERED→heldBalance, FAILURE→delivery_failed ; `DELIVERABLE_STATUSES` garde de statut), returnRefund.ts (B2 : `processReturnDelivered` — refund du retour partagé poller/webhook, déclenché au DELIVERED du colis retour ; status-guard `return_requested`, idempotent `rf_return_<txId>`, refund acheteur = `totalAmount - returnLabelCost` via `issueTransactionRefund` partiel carte/wallet, débit vendeur, status `refunded` + `returnDeliveredAt`), failedOperations.ts (P1 : `writeFailedOperation` — helper dead-letter `failed_operations`, best-effort jamais throw, schéma canonique type/refId/payload/error/attempts/status, consommé par `retryFailedOperations` ; + F43/F85 `writeAdminAlert` — alerte opérateur `admin_alerts/{auto}` pour les cas non auto-réparables (re-crédit sans wallet, dead-letter exhausted, refund.failed, breach invariant wallet)), refund.ts (`issueTransactionRefund` — coeur de refund partagé : modèle single-rail, refund Stripe plat sur la charge plateforme (PAS de reverse_transfer), re-crédit wallet acheteur + débit vendeur cascade pending→held→balance→sellerDebt, idempotent par clé `rf_*`), payoutRecovery.ts (F36/F99 : `revertFailedPayout` — re-crédit wallet + reversal du transfer plateforme→connecté sur payout échoué, idempotent par statut `withdrawal_requests` + clé `rev_${transferId}`, partagé webhook payout.failed / reconcile / retryFailedOperations), stripeAccount.ts (F59/F62/F117 : `deriveStripeAccountState` mappe un `Account` Stripe → état canonique `{status, charges/payouts/details, requirementsCurrentlyDue/PastDue, disabledReason, currentDeadline, bankAccountLast4/Status}` — status `restricted` si `disabled_reason` ou `past_due`, jamais `undefined` ; `stripeAccountFirestoreFields` → map `users/{uid}` CF-only ; partagé `handleAccountUpdated` webhook + `getStripeAccountStatus`/`createStripeConnectAccount`/`uploadStripeIdentityDocument` callables)
 
 ---

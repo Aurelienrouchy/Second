@@ -1,6 +1,6 @@
 {
   "name": "seconde",
-  "main": "expo-router/entry",
+  "main": "./index",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
@@ -25,6 +25,7 @@
     "test:functions": "cd functions && npx vitest run",
     "test:all": "npm run test && npm run test:unit && npm run test:functions && npm run test:security",
     "test:security:run": "vitest run --config tests/security/vitest.config.ts",
+    "test:security:firestore:run": "FIREBASE_RULES_FIRESTORE_ONLY=1 vitest run --config tests/security/vitest.config.ts",
     "test:security": "firebase emulators:exec --project demo-second --only firestore,storage,auth 'npm run test:security:run'",
     "test:e2e": "maestro test .maestro/flows",
     "import:brands": "node scripts/import-brands.js",

@@ -832,6 +832,8 @@ interface TransactionDocument {
   walletCheckoutOutcome?: 'creating' | 'unknown'; // No refund/expiry without certified Stripe outcome.
   sellerPendingCreditCents?: number; // Net sale amount entering escrow (gross minus debt repaid).
   sellerDebtRepaidCents?: number;  // Debt paid down at original sale credit.
+  sellerHeldCreditCents?: number; // Actual cents moved pending -> held for this sale.
+  sellerReleasedCents?: number;   // Actual held cents consumed at release (including debt repayment).
   sellerCreditedCents?: number;    // Gross refund exposure, including debt repaid (in cents).
                                    // ATOMICITY (P1): for SHIPPING transactions the seller is credited
                                    // ONLY after the shipping label is successfully created (label step
@@ -1617,7 +1619,7 @@ Virtual wallet for buyers and sellers. All amounts are in **cents** (not dollars
 
 **Single-rail money model (separate charges & transfers).** Every buyer charge — pure card, mixed wallet+card, and swap top-up — lands on the PLATFORM account (NO `transfer_data.destination`, NO `application_fee_amount` at capture). The platform keeps the funds (which include the `shippingCost` used to pay the ShipEngine label and the `serviceFee`). The seller is credited ONLY in the wallet ledger and paid out by the SINGLE platform→connected transfer in `walletWithdraw`. Consequently a refund is a plain `stripe.refunds.create` on the platform PaymentIntent — there is NO transfer to reverse and NO application fee to claw back.
 
-Only `sellerPendingCreditCents` (net after original debt repayment) moves and releases through the sale escrow buckets. Legacy net amounts are derived from the server-owned original debt-repayment ledger where necessary. `sellerCreditedCents` remains the gross exposure to undo on a full refund.
+Only `sellerPendingCreditCents` (net after original debt repayment) may enter the sale escrow buckets. Delivery persists the actual, capped pending-to-held movement as `sellerHeldCreditCents`; release consumes at most that amount and persists `sellerReleasedCents`. For legacy documents, the exact transaction-linked `funds_held` ledger proves the actual held amount; absent movement proof keeps the funds reserved for reconciliation. Legacy net amounts are derived from the server-owned original debt-repayment ledger where necessary. `sellerCreditedCents` remains the gross exposure to undo on a full refund.
 
 Fund flow per sale: `pendingBalance` (paid) → `heldBalance` (delivered, `applyDeliveredHeldFunds`) → `balance` (`releaseHeldFunds` after 7d). On `charge.dispute.created` any released portion is moved `balance → heldBalance` and the exact amount is persisted as `transactions.disputeFreezeCents`; `charge.dispute.closed` releases the frozen hold back to `balance` (won / warning_closed, `dispute_hold_released`) or debits the seller (lost, cascading `pendingBalance → heldBalance → balance`, recording `sellerDebt` if insufficient, and releasing any frozen surplus the debit did not consume).
 
