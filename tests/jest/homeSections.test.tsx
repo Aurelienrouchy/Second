@@ -15,7 +15,7 @@
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 // httpsCallable renvoie une fonction unique mockée que chaque test pilote.
@@ -29,13 +29,24 @@ import { useTrendingBrands } from '@/features/home/trending-brands/useTrendingBr
 import { useDiscoverArticles } from '@/features/home/discover/useDiscoverArticles';
 import { homeKeys } from '@/features/home/query-keys';
 
+const clients: QueryClient[] = [];
+
 function createWrapper() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
+  clients.push(client);
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client }, children);
 }
+
+afterEach(() => {
+  // Trending brands set their own 24h gcTime. Dispose the fixture cache
+  // after unmount rather than altering the production cache or forcing exit.
+  cleanup();
+  for (const client of clients) client.clear();
+  clients.length = 0;
+});
 
 describe('useTrendingBrands', () => {
   beforeEach(() => mockCallable.mockReset());

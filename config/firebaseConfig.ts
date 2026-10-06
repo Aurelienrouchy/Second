@@ -1,14 +1,22 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth, connectAuthEmulator } from 'firebase/auth';
 // @ts-expect-error getReactNativePersistence exists at runtime
 import { getReactNativePersistence } from '@firebase/auth';
 import {
   initializeFirestore,
   memoryLocalCache,
+  connectFirestoreEmulator,
 } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resolveFirebaseEnvironment } from './firebaseEnvironment';
+
+const environment = resolveFirebaseEnvironment({
+  test: process.env.NODE_ENV === 'test',
+  useEmulators: process.env.EXPO_PUBLIC_FIREBASE_EMULATORS,
+  emulatorHost: process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST,
+});
 
 // Hardcoded fallbacks for the production project.
 // Prefer EXPO_PUBLIC_FIREBASE_* env vars (see .env.example) so credentials
@@ -22,7 +30,13 @@ const FALLBACK_CONFIG = {
   appId: '1:628214013296:ios:f8cb32e7616df1b0dd83b5',
 };
 
-const firebaseConfig = {
+const firebaseConfig = environment.useEmulators ? {
+  apiKey: 'demo-api-key',
+  projectId: environment.emulatorProjectId,
+  authDomain: `${environment.emulatorProjectId}.firebaseapp.com`,
+  storageBucket: `${environment.emulatorProjectId}.appspot.com`,
+  appId: 'demo-second-app',
+} : {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || FALLBACK_CONFIG.apiKey,
   authDomain:
     process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || FALLBACK_CONFIG.authDomain,
@@ -44,10 +58,14 @@ const firebaseConfig = {
 // project (dev/staging) — they take precedence automatically.
 
 // Initialize Firebase (prevent double init)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const existingApp = getApps()[0];
+const app = existingApp ?? initializeApp(firebaseConfig);
+if (environment.useEmulators && app.options.projectId !== environment.emulatorProjectId) {
+  throw new Error('Emulator builds require the demo-second Firebase project.');
+}
 
 // Initialize Auth with AsyncStorage persistence for React Native
-const auth = getApps().length <= 1
+const auth = !existingApp
   ? initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
     })
@@ -62,5 +80,13 @@ const firestore = initializeFirestore(app, {
 });
 const storage = getStorage(app);
 const functions = getFunctions(app, 'northamerica-northeast1');
+
+if (environment.useEmulators) {
+  const host = environment.emulatorHost;
+  connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
+  connectFirestoreEmulator(firestore, host, 8080);
+  connectStorageEmulator(storage, host, 9199);
+  connectFunctionsEmulator(functions, host, 5001);
+}
 
 export { app, auth, firestore, storage, functions };
