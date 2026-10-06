@@ -1,0 +1,184 @@
+{
+  "generatedAtUtc": "2026-10-06T03:30:14.288120+00:00",
+  "headSha": "419ab1835be894ec9d5f6d4e8347b36c171db690",
+  "registry": "https://registry.npmjs.org",
+  "node": "20.20.2",
+  "npm": "10.8.2",
+  "comparisonCommand": "npm audit --package-lock-only --json --registry=https://registry.npmjs.org --cache=/tmp/second-npm-cache --fetch-retries=0 --fetch-timeout=20000",
+  "countsAreTransitiveGroupsNotIndependentBusinessVulnerabilities": true,
+  "firstUnwritableCacheResultsDiscarded": true,
+  "areas": {
+    "root": {
+      "before": {
+        "counts": {
+          "info": 0,
+          "low": 1,
+          "moderate": 29,
+          "high": 75,
+          "critical": 3,
+          "total": 108
+        },
+        "resultPath": "/tmp/second-root-dependency-baseline.json",
+        "sha256": "b2f8ea94c06e35d8204179e1f951030e81170027995ccefb0d40dee31cf2ed10"
+      },
+      "after": {
+        "counts": {
+          "info": 0,
+          "low": 1,
+          "moderate": 29,
+          "high": 75,
+          "critical": 0,
+          "total": 105
+        },
+        "resultPath": "/tmp/second-root-dependency-final-lock.json",
+        "sha256": "03d1f69a1a2d9fda68d06e63b8e2772ddbc0b37e39afec4d214b201d1c9ba96b"
+      },
+      "installedAfter": {
+        "counts": {
+          "info": 0,
+          "low": 1,
+          "moderate": 29,
+          "high": 78,
+          "critical": 0,
+          "total": 108
+        },
+        "resultPath": "/tmp/second-root-dependency-audit-after.json",
+        "sha256": "9b01016fe8c3ce43614ab2973ac00d31e133c93a19f5c215946a0ae65afc8e25"
+      }
+    },
+    "functions": {
+      "before": {
+        "counts": {
+          "info": 0,
+          "low": 1,
+          "moderate": 15,
+          "high": 12,
+          "critical": 4,
+          "total": 32
+        },
+        "resultPath": "/tmp/second-functions-dependency-baseline.json",
+        "sha256": "45b95beb6b61bf61d4e6b84bd2700845e3a193777c1400ce05ca12657b0975fa"
+      },
+      "after": {
+        "counts": {
+          "info": 0,
+          "low": 1,
+          "moderate": 15,
+          "high": 12,
+          "critical": 0,
+          "total": 28
+        },
+        "resultPath": "/tmp/second-functions-dependency-final-lock.json",
+        "sha256": "92b85d0e4c65f65ab1656a2faf7df5f0aa5ac26ee131e1e759b870dddc84f2c1"
+      },
+      "installedAfter": {
+        "counts": {
+          "info": 0,
+          "low": 1,
+          "moderate": 15,
+          "high": 12,
+          "critical": 0,
+          "total": 28
+        },
+        "resultPath": "/tmp/second-functions-dependency-audit-after.json",
+        "sha256": "92b85d0e4c65f65ab1656a2faf7df5f0aa5ac26ee131e1e759b870dddc84f2c1"
+      }
+    }
+  },
+  "changedVersions": [
+    {
+      "lockfile": "package-lock.json",
+      "path": "node_modules/@protobufjs/inquire",
+      "before": "1.1.2",
+      "after": null
+    },
+    {
+      "lockfile": "package-lock.json",
+      "path": "node_modules/fast-xml-parser",
+      "before": "4.5.3",
+      "after": "4.5.7"
+    },
+    {
+      "lockfile": "package-lock.json",
+      "path": "node_modules/protobufjs",
+      "before": "7.6.2",
+      "after": "7.6.6"
+    },
+    {
+      "lockfile": "package-lock.json",
+      "path": "node_modules/shell-quote",
+      "before": "1.8.3",
+      "after": "1.12.0"
+    },
+    {
+      "lockfile": "package-lock.json",
+      "path": "node_modules/websocket-driver",
+      "before": "0.7.4",
+      "after": "0.7.5"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/@protobufjs/codegen",
+      "before": "2.0.4",
+      "after": "2.0.5"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/@protobufjs/eventemitter",
+      "before": "1.1.0",
+      "after": "1.1.1"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/@protobufjs/fetch",
+      "before": "1.1.0",
+      "after": "1.1.1"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/@protobufjs/inquire",
+      "before": "1.1.0",
+      "after": null
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/@protobufjs/utf8",
+      "before": "1.1.0",
+      "after": "1.1.2"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/fast-xml-parser",
+      "before": "4.5.3",
+      "after": "4.5.7"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/protobufjs",
+      "before": "7.5.4",
+      "after": "7.6.6"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/proxy-addr",
+      "before": "2.0.7",
+      "after": "2.0.8"
+    },
+    {
+      "lockfile": "functions/package-lock.json",
+      "path": "node_modules/websocket-driver",
+      "before": "0.7.4",
+      "after": "0.7.5"
+    }
+  ],
+  "remainingAlertReachabilityAndUpgradeCompatibility": "not fully assessed",
+  "installedLockDifference": {
+    "rootInstalledOnlyGroups": [
+      "@shopify/react-native-skia",
+      "react-native-maps",
+      "react-native-screens"
+    ],
+    "critical": 0,
+    "note": "Installed-tree and lockfile-only npm audit scopes differ; report both rather than assert equal coverage"
+  }
+}

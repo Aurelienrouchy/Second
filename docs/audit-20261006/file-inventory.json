@@ -10823,7 +10823,7 @@
       "bytes": 185520,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "dependency metadata reviewed and updated by official npm; compiler/test scope verified; no complete upstream source review"
     },
     {
       "path": "functions/package.json",
@@ -12027,7 +12027,7 @@
       "bytes": 734709,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "dependency metadata reviewed and updated by official npm; compiler/test scope verified; no complete upstream source review"
     },
     {
       "path": "package.json",
@@ -12929,6 +12929,8 @@
     "docs/audit-20261006/captures/web-landing-mobile-root.png",
     "docs/audit-20261006/check-web-landing.py",
     "docs/audit-20261006/commits.md",
+    "docs/audit-20261006/dependencies.md",
+    "docs/audit-20261006/dependency-audit.json",
     "docs/audit-20261006/emulator-verification.md",
     "docs/audit-20261006/file-inventory.json",
     "docs/audit-20261006/finance-second-pass.md",
@@ -12940,6 +12942,7 @@
     "docs/audit-20261006/privacy-notifications.md",
     "docs/audit-20261006/private-drafts-ai.md",
     "docs/audit-20261006/private-media.md",
+    "docs/audit-20261006/publication-status.md",
     "docs/audit-20261006/review-media-security.md",
     "docs/audit-20261006/review-offers-finance.md",
     "docs/audit-20261006/review-resolution.md",
@@ -13020,6 +13023,6 @@
     "utils/sellPhotos.test.ts",
     "utils/sellPhotos.ts"
   ],
-  "current_source_head": "617ec865d8414a39abd9ba25fa58900eb13150c8",
+  "current_source_head": "419ab1835be894ec9d5f6d4e8347b36c171db690",
   "route_files_directly_changed": 17
 }

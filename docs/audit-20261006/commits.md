@@ -1,6 +1,6 @@
-# Commits locaux de la livraison
+# Commits de la livraison
 
-Branche `audit/seconde-security-ux-20261006`. Aucun commit publié. La série inclut les correctifs initiaux et les compléments après revue indépendante. Le dernier commit de documentation finalise les preuves sans modifier le code testé.
+Branche `audit/seconde-security-ux-20261006`, publiée après autorisation explicite du propriétaire. La [PR #2](https://github.com/Aurelienrouchy/Second/pull/2) reste en brouillon ; aucun merge ou déploiement. La série inclut les correctifs initiaux, les compléments après revue indépendante et le défaut Storage reproduit par GitHub. Cette table liste les commits précédant le commit qui la met à jour ; ce dernier finalise seulement les preuves.
 
 | Commit | Objet |
 | --- | --- |
@@ -19,3 +19,6 @@ Branche `audit/seconde-security-ux-20261006`. Aucun commit publié. La série in
 | `280bfd22` | test: isolate SDK contention and expose partial Firestore verification |
 | `617ec865` | fix(sell): reject stale draft modal actions across accounts |
 | `69b47f5d` | docs(audit): consolidate independent review and final verification |
+| `1cbe3db1` | docs(audit): verify critical suites on official Node 20 |
+| `545a9fd6` | fix(storage): reject replacement uploads of immutable media |
+| `419ab183` | fix(deps): update compatible transitive security releases |

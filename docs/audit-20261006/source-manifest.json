@@ -1,6 +1,6 @@
 {
   "base": "b79d0c8e47a18ec9b405b13e8229a63f5ef02980",
-  "tested_code_head": "617ec865d8414a39abd9ba25fa58900eb13150c8",
+  "tested_code_head": "419ab1835be894ec9d5f6d4e8347b36c171db690",
   "scope": "Changed tracked repository sources/config/tests/docs outside the audit directory; removed file contents are never read or included",
   "files": [
     {
@@ -365,6 +365,11 @@
       "path": "firestore.rules",
       "sha256": "756a66713ff016d1c9fa4c789e90ff1c4f55968a4e7a42581700dcd650428ea5",
       "bytes": 47303
+    },
+    {
+      "path": "functions/package-lock.json",
+      "sha256": "e5772f68952ce003f3fb39f6d5e973c339df6afb8e43486cfb133126cfd7936c",
+      "bytes": 185239
     },
     {
       "path": "functions/src/callable/acceptMeetupOffer.test.ts",
@@ -812,6 +817,11 @@
       "bytes": 992
     },
     {
+      "path": "package-lock.json",
+      "sha256": "ff4b8e12f5e461318c80db10ee90a04772fbe39a3a4bf6391bba7309391ab9d0",
+      "bytes": 734338
+    },
+    {
       "path": "package.json",
       "sha256": "d9ca8aeac36a91669f5a46f1059ad74cd525d432a23ccf6b6ad1cdb8164af31f",
       "bytes": 4708
@@ -843,8 +853,8 @@
     },
     {
       "path": "storage.rules",
-      "sha256": "819d2568d2a8b705d1b7bbd14bc6fb2b49a82992908f5adf349626e98d41c851",
-      "bytes": 4951
+      "sha256": "12a592930309dc124330c53bfa4acc50a5af42b277f8a2731c46efcdc8839111",
+      "bytes": 5147
     },
     {
       "path": "store/authStore.ts",

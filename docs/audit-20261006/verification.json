@@ -289,5 +289,250 @@
         "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       }
     ]
+  },
+  "remoteCi": {
+    "headSha": "419ab1835be894ec9d5f6d4e8347b36c171db690",
+    "runId": 37408695175,
+    "runUrl": "https://github.com/Aurelienrouchy/Second/actions/runs/37408695175",
+    "status": "completed",
+    "conclusion": "success",
+    "runtime": "Node 20.20.2; JDK 21; official Firebase CLI emulators",
+    "jest": {
+      "passed": 735,
+      "suites": 91
+    },
+    "functions": {
+      "passed": 606,
+      "skipped": 2,
+      "skipReason": "Actual SDK Firestore contention suite requires an emulator in the Functions job; passed locally under Node 20 and 24"
+    },
+    "securityRules": {
+      "passed": 205,
+      "files": 13,
+      "firestore": 185,
+      "storage": 20,
+      "skipped": 0,
+      "project": "demo-second",
+      "log": "/tmp/second-ci-deps-security.log",
+      "logSha256": "c2367fb4bd306bf2afb20f3bd4f3065b26fbf2d35be8f44aaac845ecdbb6dd5c"
+    },
+    "typechecks": {
+      "app": "passed",
+      "tests": "passed",
+      "functions": "passed"
+    },
+    "e2e": "skipped by existing if:false; no build/device",
+    "firstRun": {
+      "headSha": "1cbe3db1fa32380b44937533776ffc5cbac15e56",
+      "runId": 37407926239,
+      "rulesPassed": 203,
+      "rulesFailed": 2,
+      "failure": "Immutable chat/swap replacement uploads incorrectly permitted; fixed by resource == null without test changes"
+    },
+    "finalDocumentationHeadChecks": "Track last published SHA and completion in PR; no code change after this passed head",
+    "observedAtUtc": "2026-10-06T03:30:14.327188+00:00"
+  },
+  "remoteCiHistory": [
+    {
+      "headSha": "545a9fd6f9d295cf90de25917a1e06cba86949c9",
+      "runId": 37408183916,
+      "runUrl": "https://github.com/Aurelienrouchy/Second/actions/runs/37408183916",
+      "status": "completed",
+      "conclusion": "success",
+      "runtime": "Node 20.20.2; JDK 21; official Firebase CLI emulators",
+      "jest": {
+        "passed": 735,
+        "suites": 91
+      },
+      "functions": {
+        "passed": 606,
+        "skipped": 2,
+        "skipReason": "Actual SDK Firestore contention suite requires an emulator in the Functions job; passed locally under Node 20 and 24"
+      },
+      "securityRules": {
+        "passed": 205,
+        "files": 13,
+        "firestore": 185,
+        "storage": 20,
+        "skipped": 0,
+        "project": "demo-second",
+        "log": "/tmp/second-ci-storage-fix-security.log",
+        "logSha256": "ea458f0cba8b611c0402d8b165286548052965dba5a57cf43caf4bc318c19c0d"
+      },
+      "typechecks": {
+        "app": "passed",
+        "tests": "passed",
+        "functions": "passed"
+      },
+      "e2e": "skipped by existing if:false; no build/device",
+      "firstRun": {
+        "headSha": "1cbe3db1fa32380b44937533776ffc5cbac15e56",
+        "runId": 37407926239,
+        "rulesPassed": 203,
+        "rulesFailed": 2,
+        "failure": "Immutable chat/swap replacement uploads incorrectly permitted; fixed by resource == null without test changes"
+      },
+      "finalDocumentationHeadChecks": "Track last published SHA and completion in PR; no code change after this passed head",
+      "observedAtUtc": "2026-10-06T03:19:54.532910+00:00"
+    }
+  ],
+  "postDependencyValidation": {
+    "headSha": "419ab1835be894ec9d5f6d4e8347b36c171db690",
+    "node": "20.20.2",
+    "lockfilesReinstalledFromOfficialRegistry": true,
+    "allChecksPassed": true,
+    "checks": [
+      {
+        "check": "jest",
+        "command": [
+          "./node_modules/.bin/jest",
+          "--runInBand",
+          "--detectOpenHandles"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 19.98,
+        "log": "/tmp/second-deps-jest.log",
+        "logSha256": "34c5904aa819d6f84e56e32a976e585297562eca67ae39e252ddee77b6c99293"
+      },
+      {
+        "check": "vitest-app",
+        "command": [
+          "./node_modules/.bin/vitest",
+          "run",
+          "--maxWorkers=2"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 2.53,
+        "log": "/tmp/second-deps-vitest-app.log",
+        "logSha256": "6c3e85ace1e6cb17c1c11e561a903e12bf1bf00aa0fda29167aef27f536174eb"
+      },
+      {
+        "check": "app-types",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "--noEmit"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 11.93,
+        "log": "/tmp/second-deps-app-types.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "tests-types",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "--noEmit",
+          "-p",
+          "tsconfig.test.json"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 6.83,
+        "log": "/tmp/second-deps-tests-types.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "functions-types",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "--noEmit"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 6.51,
+        "log": "/tmp/second-deps-functions-types.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "check": "lint",
+        "command": [
+          "./node_modules/.bin/expo",
+          "lint"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 22.13,
+        "log": "/tmp/second-deps-lint.log",
+        "logSha256": "80e73250872101cf278378a220e805f0f75c4474cc003c4151e784eed687af8f"
+      },
+      {
+        "check": "boundaries",
+        "command": [
+          "npm",
+          "run",
+          "lint:boundaries"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 26.49,
+        "log": "/tmp/second-deps-boundaries.log",
+        "logSha256": "695508a90b5df29fabb719e1faa5757be253746c3ac71011dfc5c7edf7804105"
+      },
+      {
+        "check": "mobile-export",
+        "command": [
+          "./node_modules/.bin/expo",
+          "export",
+          "--platform",
+          "ios",
+          "--platform",
+          "android",
+          "--output-dir",
+          "/tmp/second-deps-mobile-audit",
+          "--max-workers",
+          "2"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 60.34,
+        "log": "/tmp/second-deps-mobile-export.log",
+        "logSha256": "f02d2efad75319f627966296f85d23a810cd1e6173fdd653f68b6143a8d01470"
+      },
+      {
+        "check": "web-export",
+        "command": [
+          "./node_modules/.bin/expo",
+          "export",
+          "--platform",
+          "web",
+          "--output-dir",
+          "/tmp/second-deps-web-audit",
+          "--max-workers",
+          "2"
+        ],
+        "exitCode": 0,
+        "elapsedSeconds": 1.38,
+        "log": "/tmp/second-deps-web-export.log",
+        "logSha256": "78450943494ca33943b8e357f875695eee4237efa4c0a7454feb4ab6e3732b82"
+      },
+      {
+        "check": "functions",
+        "exitCode": 0,
+        "passed": 608,
+        "skipped": 0,
+        "actualSdkContentionTests": 2,
+        "log": "/tmp/second-deps-functions.log",
+        "logSha256": "5462aeb0835f7d5b24e4ec1512783d1e73f92e3bf6be8f76bd234b86899fe1cc"
+      },
+      {
+        "check": "firestore-rules",
+        "exitCode": 0,
+        "passed": 185,
+        "files": 12,
+        "storageExcluded": true,
+        "log": "/tmp/second-deps-firestore-rules.log",
+        "logSha256": "b68b6300148ceb4021a16c4eca02baca80aa56aadd21d6440badb19e78737286"
+      },
+      {
+        "check": "chromium-static-landing",
+        "exitCode": 0,
+        "passed": 3,
+        "log": "/tmp/second-deps-web-smoke.log",
+        "result": "docs/audit-20261006/web-smoke.json",
+        "logSha256": "33c8c3c9ca637be288055c1f85a6ae669443917106f7c83ad5c49836869ceddc"
+      }
+    ],
+    "lintWarnings": 93,
+    "lintErrors": 0,
+    "storage": "passed on GitHub; local runtime download still blocked",
+    "nativeE2E": "not run; device/build unavailable",
+    "dependenciesReport": "dependency-audit.json",
+    "emulatorStopped": true,
+    "finalDocumentationOnlyChecks": "follow final pushed documentation SHA in PR; no manual workflow rerun"
   }
 }
