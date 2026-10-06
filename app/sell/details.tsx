@@ -32,6 +32,7 @@ import { getSizesForCategory } from '@/data/sizes';
 import { getCategoryInfoFromIds } from '@/data/categories-v2';
 import draftService, { ArticleDraft, DraftFields } from '@/services/draftService';
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, spacing } from '@/constants/theme';
 
 // Lift the sticky footer to sit spacing.md (16) above the keyboard when open;
@@ -52,6 +53,7 @@ interface EditedFields {
 
 export default function DetailsScreen() {
   const router = useRouter();
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
   const navigation = useNavigation();
   const advancingRef = useRef(false);
   useFocusEffect(useCallback(() => { advancingRef.current = false; }, []));
@@ -103,7 +105,9 @@ export default function DetailsScreen() {
   // Load draft on mount
   useEffect(() => {
     const loadDraft = async () => {
+      draftService.assertCurrentOwner(photoOwnerUid);
       const existingDraft = await draftService.loadDraft();
+      draftService.assertCurrentOwner(photoOwnerUid);
       if (existingDraft) {
         setDraft(existingDraft);
         if (isResuming && existingDraft.fields) {
@@ -130,12 +134,16 @@ export default function DetailsScreen() {
         setIsInitialized(true);
       }
     };
-    loadDraft();
-  }, [isResuming]);
+    void loadDraft().catch(() => {
+      if (__DEV__) console.warn('Draft initialization interrupted');
+    });
+  }, [isResuming, photoOwnerUid]);
 
   const draftId = draft?.id;
   const persistFields = useCallback(async () => {
+    draftService.assertCurrentOwner(photoOwnerUid);
     const latest = await draftService.loadDraft();
+    draftService.assertCurrentOwner(photoOwnerUid);
     if (!latest) throw new Error('Draft unavailable');
     const draftFields: DraftFields = {
       title: fields.title, description: fields.description,
@@ -145,7 +153,7 @@ export default function DetailsScreen() {
     };
     const updated = await draftService.updateDraftFields(latest, draftFields);
     setDraft(updated);
-  }, [fields]);
+  }, [fields, photoOwnerUid]);
 
   // Auto-save while editing; navigation also waits for a final save.
   useEffect(() => {
@@ -360,7 +368,7 @@ export default function DetailsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PhotoStripPreview photos={photos} />
+        <PhotoStripPreview ownerUid={draft?.ownerUid ?? photoOwnerUid} photos={storageUrls.length === photos.length && storageUrls.length > 0 ? storageUrls : photos} />
 
         <FormSectionTitle title="Essentiel" />
 

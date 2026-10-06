@@ -5,12 +5,13 @@
  */
 
 import { functions, storage, auth } from '@/config/firebaseConfig';
-import { ref, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
+import { ref, listAll, deleteObject, updateMetadata } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { AI_CONFIG, getPhaseProgress } from '@/config/aiConfig';
-import { fixStorageUrl, storageApiOrigin } from '@/utils/fixStorageUrl';
+import { storageApiOrigin } from '@/utils/fixStorageUrl';
+import { privateMediaUrl, PRIVATE_IMAGE_UPLOAD_METADATA } from '@/utils/privateMedia';
 import {
   AIAnalysisResult,
   AIAnalysisResponse,
@@ -155,16 +156,18 @@ const MIME_EXTENSIONS: Record<string, string> = {
  * The Web SDK upload path is unusable in RN 0.83 New Arch: it builds a Blob
  * from a Uint8Array for the XHR body, which the native BlobManager rejects
  * ("Creating blobs from ArrayBuffer ... not supported"). We bypass the SDK and
- * stream the local file straight to the Storage REST media endpoint via
- * expo-file-system, then build the download URL from the JSON response.
+ * stream the local file via authenticated Storage REST media upload.
+ * Firebase can generate download tokens automatically; the response body is
+ * ignored completely. Only a canonical authenticated media URL is returned.
  */
 async function uploadImageToStorage(
   image: ProcessedImage,
   draftId: string,
-  index: number
+  index: number,
+  ownerUid: string,
 ): Promise<string> {
   const user = auth.currentUser;
-  if (!user) throw new Error('User not authenticated');
+  if (!user || user.uid !== ownerUid) throw new Error('User changed during upload');
 
   const bucket = storage.app.options.storageBucket;
   if (!bucket) throw new Error('Storage bucket not configured');
@@ -172,12 +175,13 @@ async function uploadImageToStorage(
   const extension = MIME_EXTENSIONS[image.mimeType] || 'jpg';
   const filename = `${draftId}_${index}_${Date.now()}.${extension}`;
   const storagePath = `${DRAFTS_STORAGE_PATH}/${user.uid}/${draftId}/${filename}`;
+  const canonicalUrl = privateMediaUrl(bucket, storagePath);
   const encodedPath = encodeURIComponent(storagePath);
 
   const token = await user.getIdToken();
+  if (auth.currentUser?.uid !== user.uid) throw new Error('User changed during upload');
   const origin = storageApiOrigin();
   const uploadUrl = `${origin}/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
-
   const res = await FileSystem.uploadAsync(uploadUrl, image.processedUri, {
     httpMethod: 'POST',
     uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
@@ -186,31 +190,32 @@ async function uploadImageToStorage(
       'Content-Type': image.mimeType,
     },
   });
-
   if (res.status < 200 || res.status >= 300) {
-    throw new Error(`Storage upload failed: ${res.status} ${res.body}`);
+    throw new Error(`Storage upload failed: ${res.status}`);
   }
-
-  const metadata = JSON.parse(res.body) as { downloadTokens?: string };
-  const downloadToken = metadata.downloadTokens?.split(',')[0];
-  const downloadUrl = `${origin}/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${downloadToken}`;
-
-  return fixStorageUrl(downloadUrl);
+  // Firebase can auto-generate a download token. Do not parse, persist or print the upload response body: the
+  // canonical reference must always go through authenticated SDK reads.
+  if (auth.currentUser?.uid !== user.uid) throw new Error('User changed during upload');
+  // Only this new upload is touched; historical object metadata/tokens stay intact.
+  await updateMetadata(ref(storage, storagePath), { cacheControl: PRIVATE_IMAGE_UPLOAD_METADATA.cacheControl });
+  if (auth.currentUser?.uid !== user.uid) throw new Error('User changed during upload');
+  return canonicalUrl;
 }
 
 /**
  * Upload multiple processed images to Firebase Storage
- * Returns array of download URLs
+ * Returns canonical private Storage media references
  */
 async function uploadImagesToStorage(
   images: ProcessedImage[],
   draftId: string,
+  ownerUid: string,
   onProgress?: (uploaded: number, total: number) => void
 ): Promise<string[]> {
   const urls: string[] = [];
 
   for (let i = 0; i < images.length; i++) {
-    const url = await uploadImageToStorage(images[i], draftId, i);
+    const url = await uploadImageToStorage(images[i], draftId, i, ownerUid);
     urls.push(url);
     onProgress?.(i + 1, images.length);
   }
@@ -221,17 +226,19 @@ async function uploadImagesToStorage(
 /**
  * Delete all images for a draft from Firebase Storage
  */
-export async function deleteDraftImagesFromStorage(draftId: string): Promise<void> {
+export async function deleteDraftImagesFromStorage(draftId: string, ownerUid?: string): Promise<void> {
   try {
     const uid = auth.currentUser?.uid;
-    if (!uid) return;
+    if (!uid || (ownerUid && uid !== ownerUid)) return;
     const folderRef = ref(storage, `${DRAFTS_STORAGE_PATH}/${uid}/${draftId}`);
     const listResult = await listAll(folderRef);
 
-    // Delete all files in the folder
-    await Promise.all(
-      listResult.items.map(item => deleteObject(item))
-    );
+    if (auth.currentUser?.uid !== uid) return;
+    // Keep deletion bound to the initiating owner if an account changes.
+    for (const item of listResult.items) {
+      if (auth.currentUser?.uid !== uid) return;
+      await deleteObject(item);
+    }
 
     if (__DEV__) console.log(`[aiService] Deleted ${listResult.items.length} images for draft ${draftId}`);
   } catch (error: any) {
@@ -299,6 +306,10 @@ export async function analyzeProductImage(
   options?: AIAnalysisOptions
 ): Promise<AIAnalysisResponse> {
   const startTime = Date.now();
+  const ownerUid = auth.currentUser?.uid;
+  const assertOwner = () => {
+    if (!ownerUid || auth.currentUser?.uid !== ownerUid) throw new Error('Account changed during analysis');
+  };
   const { onProgress, onPhaseChange, signal, draftId } = options || {};
 
   // Generate a temporary draft ID if not provided
@@ -366,7 +377,7 @@ export async function analyzeProductImage(
     }
 
     // Verify user is authenticated before uploading
-    if (!auth.currentUser) {
+    if (!ownerUid || !auth.currentUser) {
       if (__DEV__) console.error('[aiService] User not authenticated - cannot upload to Storage');
       return {
         success: false,
@@ -374,30 +385,30 @@ export async function analyzeProductImage(
       };
     }
 
+    assertOwner();
     // Upload images to Firebase Storage
     if (__DEV__) console.log(`[aiService] Uploading ${imageUris.length} image(s) to Storage... (user: ${auth.currentUser.uid})`);
     try {
       uploadedStorageUrls = await uploadImagesToStorage(
         processedImages,
         effectiveDraftId,
+        ownerUid,
         (uploaded, total) => {
           // Update progress during upload phase (0-30%)
           const uploadProgress = (uploaded / total) * 30;
           onProgress?.(Math.round(uploadProgress));
         }
       );
-      if (__DEV__) console.log(`[aiService] Uploaded to Storage:`, {
-        count: uploadedStorageUrls.length,
-        urls: uploadedStorageUrls,
-      });
-    } catch (error: any) {
-      if (__DEV__) console.error('[aiService] Storage upload failed:', error);
+      if (__DEV__) console.log(`[aiService] Uploaded ${uploadedStorageUrls.length} private draft image(s)`);
+    } catch {
+      if (__DEV__) console.error('[aiService] Storage upload failed');
       return {
         success: false,
         error: createDetailedError('NETWORK_ERROR', 'Échec de l\'upload des images'),
       };
     }
 
+    assertOwner();
     // Prepare images for API (base64 for LLM analysis)
     const images = processedImages.map((img) => ({
       base64: img.base64,
@@ -428,7 +439,8 @@ export async function analyzeProductImage(
     // Phase 3: Analysis
     updatePhase('analysis');
 
-    // Call Firebase Cloud Function
+    // Call Firebase Cloud Function only for the account which selected media.
+    try { assertOwner(); } catch (error) { clearTimeout(timeoutId); throw error; }
     const analyzeFunction = httpsCallable(functions, 'analyzeProductImage');
     const callPromise = analyzeFunction({ images });
 
@@ -441,6 +453,7 @@ export async function analyzeProductImage(
       clearTimeout(timeoutId);
     }
 
+    assertOwner();
     // Check for cancellation after API call
     if (signal?.aborted) throw new Error('Cancelled');
 
@@ -483,7 +496,7 @@ export async function analyzeProductImage(
     // Cleanup uploaded images on error (unless cancelled by user)
     if (uploadedStorageUrls.length > 0 && error.message !== 'Cancelled') {
       if (__DEV__) console.log('[aiService] Cleaning up uploaded images after error...');
-      deleteDraftImagesFromStorage(effectiveDraftId).catch((e) => { if (__DEV__) console.warn(e); });
+      deleteDraftImagesFromStorage(effectiveDraftId, ownerUid).catch((e) => { if (__DEV__) console.warn(e); });
     }
 
     // Handle cancellation

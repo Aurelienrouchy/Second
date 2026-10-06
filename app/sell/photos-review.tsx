@@ -24,9 +24,10 @@ import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from '
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'expo-image';
+import { PrivateStorageImage } from '@/components/PrivateStorageImage';
 
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui';
 import {
@@ -83,6 +84,7 @@ function countPrefilledFields(result: AIAnalysisResult): number {
 
 export default function PhotosReviewScreen() {
   const router = useRouter();
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
@@ -122,12 +124,16 @@ export default function PhotosReviewScreen() {
 
   const persistPhotoSnapshot = useCallback((nextPhotos: string[], nextUrls: string[]) => {
     const save = photoSaveRef.current.catch(() => undefined).then(async () => {
-      const draft = await draftService.loadDraft() ?? createEmptyDraft();
-      return draftService.updateDraftPhotos(draft, nextPhotos, nextUrls);
+      draftService.assertCurrentOwner(photoOwnerUid);
+      const existing = await draftService.loadDraft();
+      draftService.assertCurrentOwner(photoOwnerUid);
+      const saved = await draftService.updateDraftPhotos(existing ?? createEmptyDraft(), nextPhotos, nextUrls);
+      draftService.assertCurrentOwner(photoOwnerUid);
+      return saved;
     });
     photoSaveRef.current = save;
     return save;
-  }, []);
+  }, [photoOwnerUid]);
 
   const applyPhotoEdit = useCallback((nextPhotos: string[], nextUrls: string[]) => {
     setPhotos(nextPhotos);
@@ -149,6 +155,7 @@ export default function PhotosReviewScreen() {
     };
   }, []);
 
+  const displayPhotos = storageUrls.length === photos.length && storageUrls.length > 0 ? storageUrls : photos;
   const canAddMore = photos.length < MAX_PHOTOS;
   const remainingSlots = MAX_PHOTOS - photos.length;
   const isAnalyzing = analysisState === 'loading';
@@ -238,16 +245,19 @@ export default function PhotosReviewScreen() {
     });
 
     try {
+      draftService.assertCurrentOwner(photoOwnerUid);
       // The draft can be missing if AsyncStorage was purged or the parse failed.
       // Rather than blocking the analysis, recover by recreating an empty draft
       // seeded with the photos we already hold in screen state.
       let draft = await draftService.loadDraft();
+      draftService.assertCurrentOwner(photoOwnerUid);
       if (!draft) {
         if (!isMountedRef.current || controller.signal.aborted) return;
         if (__DEV__) console.log('[PhotosReview] No draft found, recreating from current photos');
         draft = await draftService.updateDraftPhotos(createEmptyDraft(), photos);
       }
 
+      draftService.assertCurrentOwner(photoOwnerUid);
       const response = await analyzeProductImage(photos, {
         draftId: draft.id,
         signal: controller.signal,
@@ -323,7 +333,9 @@ export default function PhotosReviewScreen() {
     // from the draft instead and only run a fresh analysis when there is none.
     const hydrateOrAnalyze = async () => {
       try {
+        draftService.assertCurrentOwner(photoOwnerUid);
         const draft = await draftService.loadDraft();
+        draftService.assertCurrentOwner(photoOwnerUid);
         if (
           draft?.aiResult &&
           draft.photos.length === photos.length &&
@@ -359,7 +371,7 @@ export default function PhotosReviewScreen() {
     };
 
     hydrateOrAnalyze();
-  }, [photos.length]);
+  }, [photos.length, photoOwnerUid]);
 
   // Count pre-filled fields
   const prefilledCount = aiResult
@@ -569,8 +581,10 @@ export default function PhotosReviewScreen() {
               onPress={() => handleMakePrimary(0)}
               disabled={isAnalyzing}
             >
-              <Image
-                source={{ uri: photos[0] }}
+              <PrivateStorageImage
+                uri={displayPhotos[0]}
+                allowLocalSource
+                localSourceOwnerUid={photoOwnerUid}
                 style={StyleSheet.absoluteFill}
                 contentFit="cover"
               />
@@ -592,15 +606,17 @@ export default function PhotosReviewScreen() {
 
             {/* Side photos */}
             <View style={[styles.gridSide, { width: sideWidth }]}>
-              {photos.slice(1, 3).map((uri, index) => (
+              {displayPhotos.slice(1, 3).map((uri, index) => (
                 <Pressable
                   key={`side-${index}`}
                   style={[styles.gridSideItem, { height: sideHeight }]}
                   onPress={() => handleMakePrimary(index + 1)}
                   disabled={isAnalyzing}
                 >
-                  <Image
-                    source={{ uri }}
+                  <PrivateStorageImage
+                    uri={uri}
+                    allowLocalSource
+                localSourceOwnerUid={photoOwnerUid}
                     style={StyleSheet.absoluteFill}
                     contentFit="cover"
                   />
@@ -632,15 +648,17 @@ export default function PhotosReviewScreen() {
         {/* Extra photos row (4th and 5th) */}
         {photos.length > 3 && (
           <View style={[styles.extraRow, { opacity: photoActionsOpacity }]}>
-            {photos.slice(3).map((uri, index) => (
+            {displayPhotos.slice(3).map((uri, index) => (
               <Pressable
                 key={`extra-${index}`}
                 style={styles.extraItem}
                 onPress={() => handleMakePrimary(index + 3)}
                 disabled={isAnalyzing}
               >
-                <Image
-                  source={{ uri }}
+                <PrivateStorageImage
+                  uri={uri}
+                  allowLocalSource
+                localSourceOwnerUid={photoOwnerUid}
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
                 />

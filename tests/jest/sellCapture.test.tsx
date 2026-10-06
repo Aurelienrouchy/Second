@@ -11,7 +11,7 @@ const mockDraft = { id: 'test', photos: [], storageUrls: [] };
 const mockSavePhotos = jest.fn((..._args: unknown[]) => Promise.resolve(mockDraft));
 jest.mock('@/services/draftService', () => ({
   __esModule: true,
-  default: { loadDraft: () => Promise.resolve(mockDraft), saveDraft: jest.fn(), updateDraftPhotos: (...args: unknown[]) => mockSavePhotos(...args) },
+  default: { assertCurrentOwner: jest.fn(), loadDraft: () => Promise.resolve(mockDraft), saveDraft: jest.fn(), updateDraftPhotos: (...args: unknown[]) => mockSavePhotos(...args) },
   createEmptyDraft: () => mockDraft,
 }));
 jest.mock('expo-image-picker', () => ({

@@ -1,13 +1,15 @@
 import React from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
-import { Image } from 'expo-image';
+import { PrivateStorageImage } from '@/components/PrivateStorageImage';
 
 interface PhotoStripPreviewProps {
   photos: string[];
+  ownerUid: string | undefined;
 }
 
 export const PhotoStripPreview = React.memo(function PhotoStripPreview({
   photos,
+  ownerUid,
 }: PhotoStripPreviewProps) {
   if (photos.length === 0) return null;
 
@@ -19,9 +21,11 @@ export const PhotoStripPreview = React.memo(function PhotoStripPreview({
       style={styles.photoStripContainer}
     >
       {photos.map((uri, index) => (
-        <Image
+        <PrivateStorageImage
           key={`photo-${index}`}
-          source={{ uri }}
+          uri={uri}
+          allowLocalSource
+            localSourceOwnerUid={ownerUid}
           style={styles.photoThumb}
           contentFit="cover"
         />

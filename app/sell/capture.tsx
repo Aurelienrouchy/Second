@@ -23,6 +23,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, fonts, radius } from '@/constants/theme';
 import { Skeleton } from '@/components/ui/Skeleton';
 import BlurOverlay from '@/components/sell/BlurOverlay';
@@ -45,6 +46,7 @@ export default function CaptureScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const cameraRef = useRef<CameraView>(null);
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
 
   const isResuming = params.resumeDraft === 'true';
   const resumedPhotos: string[] = params.photos
@@ -63,10 +65,14 @@ export default function CaptureScreen() {
 
   const persistPhotos = useCallback(async () => {
     if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current);
+    draftService.assertCurrentOwner(photoOwnerUid);
     await draftReadyRef.current;
+    draftService.assertCurrentOwner(photoOwnerUid);
     const draft = draftRef.current ?? await draftService.loadDraft() ?? createEmptyDraft();
+    draftService.assertCurrentOwner(photoOwnerUid);
     draftRef.current = await draftService.updateDraftPhotos(draft, photos);
-  }, [photos]);
+    draftService.assertCurrentOwner(photoOwnerUid);
+  }, [photos, photoOwnerUid]);
 
   const saveBeforeLeaving = useCallback(async (leave: () => void) => {
     if (leavingRef.current) return;
@@ -140,8 +146,11 @@ export default function CaptureScreen() {
   // Initialize or load draft on mount
   useEffect(() => {
     const initDraft = async () => {
+      draftService.assertCurrentOwner(photoOwnerUid);
       if (isResuming) {
+        draftService.assertCurrentOwner(photoOwnerUid);
         const existingDraft = await draftService.loadDraft();
+        draftService.assertCurrentOwner(photoOwnerUid);
         if (existingDraft) draftRef.current = existingDraft;
       } else {
         const newDraft = createEmptyDraft();
@@ -149,8 +158,14 @@ export default function CaptureScreen() {
         draftRef.current = newDraft;
       }
     };
-    draftReadyRef.current = initDraft();
-  }, [isResuming]);
+    const ready = initDraft();
+    draftReadyRef.current = ready;
+    // Preserve failure for Continue/close, while handling an early logout before
+    // the debounced save begins awaiting initialization.
+    void ready.catch(() => {
+      if (__DEV__) console.warn('Draft initialization interrupted');
+    });
+  }, [isResuming, photoOwnerUid]);
 
   // Persist edits while staying on the screen; Continue/close flush immediately.
   useEffect(() => {
@@ -391,6 +406,7 @@ export default function CaptureScreen() {
         <Animated.View style={[styles.thumbOverlay, thumbContainerStyle]}>
           {showThumbStrip && (
             <ThumbnailStrip
+              ownerUid={photoOwnerUid}
               photos={photos}
               onRemovePhoto={handleRemovePhoto}
               onGalleryPress={handleGalleryPress}

@@ -21,6 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { BlurView } from 'expo-blur';
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, fonts } from '@/constants/theme';
 
 import draftService, { createEmptyDraft, ArticleDraft } from '@/services/draftService';
@@ -46,6 +47,7 @@ interface SellOverlayCaptureProps {
 function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProps) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [permission, requestPermission] = useCameraPermissions();
@@ -59,10 +61,14 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   const persistPhotos = useCallback(async () => {
     if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current);
+    draftService.assertCurrentOwner(photoOwnerUid);
     await draftReadyRef.current;
+    draftService.assertCurrentOwner(photoOwnerUid);
     const draft = draftRef.current ?? await draftService.loadDraft() ?? createEmptyDraft();
+    draftService.assertCurrentOwner(photoOwnerUid);
     draftRef.current = await draftService.updateDraftPhotos(draft, photos);
-  }, [photos]);
+    draftService.assertCurrentOwner(photoOwnerUid);
+  }, [photos, photoOwnerUid]);
 
   const saveBeforeLeaving = useCallback(async (leave: () => void) => {
     if (leavingRef.current) return;
@@ -129,7 +135,9 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   useEffect(() => {
     const initDraft = async () => {
       try {
+        draftService.assertCurrentOwner(photoOwnerUid);
         const existingDraft = await draftService.loadDraft();
+        draftService.assertCurrentOwner(photoOwnerUid);
         if (existingDraft) {
           draftRef.current = existingDraft;
           if (existingDraft.photos.length > 0) {
@@ -145,7 +153,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
       }
     };
     draftReadyRef.current = initDraft();
-  }, []);
+  }, [photoOwnerUid]);
 
   // Persist edits while staying on the screen; Continue/close flush immediately.
   useEffect(() => {
@@ -410,6 +418,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           <Animated.View style={[styles.thumbContainer, thumbContainerStyle]}>
             {showThumbStrip && (
               <ThumbnailStrip
+              ownerUid={photoOwnerUid}
                 photos={photos}
                 onRemovePhoto={handleRemovePhoto}
                 onGalleryPress={handleGalleryPress}

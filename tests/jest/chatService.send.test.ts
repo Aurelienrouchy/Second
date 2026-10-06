@@ -46,11 +46,14 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
 }));
 
-// --- Storage (sendImage) : non exercé ici mais importé par le service --------
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'media-request-id' }));
+const mockUploadBytes = jest.fn((..._args: unknown[]) => Promise.resolve({ metadata: { downloadTokens: ['automatically-created-test-token'] } }));
+const mockGetDownloadURL = jest.fn();
+// Storage image sends are mocked: no external upload or token is created.
 jest.mock('firebase/storage', () => ({
-  ref: jest.fn((..._args: unknown[]) => ({})),
-  uploadBytes: jest.fn((..._args: unknown[]) => Promise.resolve({ ref: {} })),
-  getDownloadURL: jest.fn((..._args: unknown[]) => Promise.resolve('https://storage/img.jpg')),
+  ref: jest.fn((_storage: unknown, path: string) => ({ bucket: 'demo-second.appspot.com', fullPath: path })),
+  uploadBytes: (...args: unknown[]) => mockUploadBytes(...args),
+  getDownloadURL: (...args: unknown[]) => mockGetDownloadURL(...args),
 }));
 
 // --- Callable Functions : acceptMeetupOffer (chemin meetup) ------------------
@@ -206,5 +209,32 @@ describe('ChatService.sendMeetupOffer — proposition serveur', () => {
     expect(id).toBe('server-offer');
     expect(mockCallable).toHaveBeenCalledWith({ chatId: 'chat-1', requestId: 'client-request-id', amount: 80, location });
     expect(mockAddDoc).not.toHaveBeenCalled(); expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('ChatService.sendImage — private references', () => {
+  it('ignores auto-generated upload tokens and writes only tokenless media references', async () => {
+    const localFetch = jest.spyOn(global, 'fetch').mockResolvedValue({ blob: async () => ({}) } as unknown as Response);
+    try {
+      await ChatService.sendImage('chat-1', 'sender', 'receiver', 'file:///photo.jpg');
+      expect(mockUploadBytes).toHaveBeenCalledTimes(2);
+      for (const upload of mockUploadBytes.mock.calls) {
+        expect(upload[2]).toEqual({ contentType: 'image/jpeg', cacheControl: 'private, no-store, max-age=0', customMetadata: { firebaseStorageDownloadTokens: '' } });
+      }
+      const message = mockAddDoc.mock.calls[0][1] as { image: { url: string; thumbnail: string } };
+      expect(message.image.url).toContain('/o/chat_images%2Fchat-1%2Fmedia-request-id.jpg?alt=media');
+      expect(message.image.thumbnail).toContain('/o/chat_images%2Fchat-1%2Fmedia-request-id_thumb.jpg?alt=media');
+      expect(JSON.stringify(message)).not.toContain('automatically-created-test-token');
+      expect(message.image.url).not.toContain('token=');
+      expect(message.image.thumbnail).not.toContain('token=');
+      expect(mockGetDownloadURL).not.toHaveBeenCalled();
+    } finally { localFetch.mockRestore(); }
+  });
+  it('rejects a stale/signed-out sender before uploading any bytes', async () => {
+    mockAuth.currentUser = null;
+    await expect(ChatService.sendImage('chat-1', 'sender', 'receiver', 'file:///photo.jpg')).rejects.toThrow('Session invalide');
+    expect(mockUploadBytes).not.toHaveBeenCalled();
+    expect(mockAddDoc).not.toHaveBeenCalled();
   });
 });

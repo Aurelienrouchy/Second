@@ -14,6 +14,7 @@ const mockDraft = {
 jest.mock('@/services/draftService', () => ({
   __esModule: true,
   default: {
+    assertCurrentOwner: jest.fn(),
     loadDraft: () => Promise.resolve(mockDraft),
     updateDraftPricing: () => Promise.resolve(mockDraft),
   },

@@ -16,7 +16,9 @@ import {
 } from 'firebase/firestore';
 import type { DocumentData, FieldValue } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { ref, uploadBytes } from 'firebase/storage';
+import { randomUUID } from 'expo-crypto';
+import { privateMediaUrl, PRIVATE_IMAGE_UPLOAD_METADATA } from '@/utils/privateMedia';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, firestore, functions, storage } from '../config/firebaseConfig';
 import {
@@ -398,6 +400,9 @@ export class ChatService {
     imageUri: string
   ): Promise<string> {
     try {
+      if (!auth.currentUser || auth.currentUser.uid !== senderId) {
+        throw new Error('Session invalide pour envoyer une photo');
+      }
       // Compress and resize image
       const manipulatedImage = await ImageManipulator.manipulateAsync(
         imageUri,
@@ -413,7 +418,7 @@ export class ChatService {
       );
 
       // Upload to Firebase Storage using web SDK
-      const timestamp = Date.now();
+      const timestamp = randomUUID();
       const imageName = `chat_images/${chatId}/${timestamp}.jpg`;
       const thumbnailName = `chat_images/${chatId}/${timestamp}_thumb.jpg`;
 
@@ -430,15 +435,13 @@ export class ChatService {
         thumbnailResponse.blob(),
       ]);
       await Promise.all([
-        uploadBytes(imageRef, imageBlob),
-        uploadBytes(thumbnailRef, thumbnailBlob),
+        uploadBytes(imageRef, imageBlob, PRIVATE_IMAGE_UPLOAD_METADATA),
+        uploadBytes(thumbnailRef, thumbnailBlob, PRIVATE_IMAGE_UPLOAD_METADATA),
       ]);
 
-      // Get download URLs
-      const [imageUrl, thumbnailUrl] = await Promise.all([
-        getDownloadURL(imageRef),
-        getDownloadURL(thumbnailRef),
-      ]);
+      // Persist only tokenless references; reads require participant auth.
+      const imageUrl = privateMediaUrl(imageRef.bucket, imageRef.fullPath);
+      const thumbnailUrl = privateMediaUrl(thumbnailRef.bucket, thumbnailRef.fullPath);
 
       // Send message with image metadata
       return await this.sendMessageWithType(

@@ -11,7 +11,7 @@ const mockLoadDraft = jest.fn((..._args: unknown[]) => Promise.resolve(mockDraft
 const mockUpdatePhotos = jest.fn((..._args: unknown[]) => Promise.resolve(mockDraft));
 jest.mock('@/services/draftService', () => ({
   __esModule: true,
-  default: { loadDraft: (...args: unknown[]) => mockLoadDraft(...args), updateDraftPhotos: (...args: unknown[]) => mockUpdatePhotos(...args) },
+  default: { assertCurrentOwner: jest.fn(), loadDraft: (...args: unknown[]) => mockLoadDraft(...args), updateDraftPhotos: (...args: unknown[]) => mockUpdatePhotos(...args) },
   createEmptyDraft: () => mockDraft,
 }));
 jest.mock('expo-router', () => ({

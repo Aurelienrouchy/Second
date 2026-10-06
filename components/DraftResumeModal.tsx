@@ -6,7 +6,8 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { Image } from 'expo-image';
+import { PrivateStorageImage } from '@/components/PrivateStorageImage';
+import { useFirebaseUserId } from '@/hooks/useFirebaseUserId';
 import { Ionicons } from '@expo/vector-icons';
 import { ArticleDraft, getDaysUntilExpiration } from '@/services/draftService';
 import { APP_LOCALE } from '@/constants/locale';
@@ -32,7 +33,8 @@ export default function DraftResumeModal({
   onResume,
   onDiscard,
 }: DraftResumeModalProps) {
-  if (!draft) return null;
+  const currentUid = useFirebaseUserId();
+  if (!draft || draft.ownerUid !== currentUid) return null;
 
   const daysLeft = getDaysUntilExpiration(draft);
   // Prefer the uploaded Storage URL: it survives local cache purges, whereas
@@ -75,8 +77,11 @@ export default function DraftResumeModal({
           <View style={styles.previewCard}>
             {/* Photo preview */}
             {previewPhoto ? (
-              <Image
-                source={{ uri: previewPhoto }}
+              <PrivateStorageImage
+                testID="draft-private-preview"
+                uri={previewPhoto}
+                allowLocalSource
+                localSourceOwnerUid={draft.ownerUid}
                 style={styles.previewImage}
                 contentFit="cover"
               />

@@ -11,8 +11,10 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes } from 'firebase/storage';
 
+import { randomUUID } from 'expo-crypto';
+import { privateMediaUrl, PRIVATE_IMAGE_UPLOAD_METADATA } from '@/utils/privateMedia';
 import { prepareImageForUpload } from '@/utils/imageUtils';
 import { track } from '@/lib/analytics';
 import { useUser } from '@/hooks/useAuth';
@@ -325,10 +327,10 @@ export default function SwapDetailScreen() {
           const blob = await response.blob();
           const storageRef = ref(
             storage,
-            `swaps/${id}/photos/${user.id}/${i}_${Date.now()}.jpg`
+            `swaps/${id}/photos/${user.id}/${i}_${randomUUID()}.jpg`
           );
-          await uploadBytes(storageRef, blob);
-          return getDownloadURL(storageRef);
+          await uploadBytes(storageRef, blob, PRIVATE_IMAGE_UPLOAD_METADATA);
+          return privateMediaUrl(storageRef.bucket, storageRef.fullPath);
         })
       );
 

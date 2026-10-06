@@ -25,6 +25,7 @@ import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
 import draftService, { ArticleDraft, DraftPricing, DraftFields } from '@/services/draftService';
 import { track } from '@/lib/analytics';
+import { auth } from '@/config/firebaseConfig';
 import { colors, spacing } from '@/constants/theme';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 
@@ -32,6 +33,7 @@ type PackageSize = 'small' | 'medium' | 'large';
 
 export default function PricingScreen() {
   const router = useRouter();
+  const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
   const navigation = useNavigation();
   const allowLeaveRef = useRef(false);
   const advancingRef = useRef(false);
@@ -64,7 +66,9 @@ export default function PricingScreen() {
   // Load draft on mount
   useEffect(() => {
     const loadDraft = async () => {
+      draftService.assertCurrentOwner(photoOwnerUid);
       const existingDraft = await draftService.loadDraft();
+      draftService.assertCurrentOwner(photoOwnerUid);
       if (existingDraft) {
         setDraft(existingDraft);
         if (isResuming) {
@@ -103,12 +107,16 @@ export default function PricingScreen() {
         setIsInitialized(true);
       }
     };
-    loadDraft();
-  }, [isResuming]);
+    void loadDraft().catch(() => {
+      if (__DEV__) console.warn('Draft initialization interrupted');
+    });
+  }, [isResuming, photoOwnerUid]);
 
   const draftId = draft?.id;
   const persistPricing = useCallback(async () => {
+    draftService.assertCurrentOwner(photoOwnerUid);
     const latest = await draftService.loadDraft();
+    draftService.assertCurrentOwner(photoOwnerUid);
     if (!latest) throw new Error('Draft unavailable');
     const pricingData: DraftPricing = {
       price: price ? parseFloat(price) : null, isHandDelivery, isShipping,
@@ -116,7 +124,7 @@ export default function PricingScreen() {
       neighborhoods: selectedNeighborhoods, packageSize,
     };
     setDraft(await draftService.updateDraftPricing(latest, pricingData));
-  }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize]);
+  }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize, photoOwnerUid]);
 
   useEffect(() => {
     if (!draftId || !isInitialized) return;
