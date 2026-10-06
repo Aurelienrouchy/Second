@@ -10,7 +10,7 @@ La compensation d'un paiement mixte vérifie atomiquement le statut et l'identif
 
 Le retrait conserve désormais les fonds réservés si le résultat externe ou sa persistance est inconnu. Le transfert est enregistré avant la soumission du payout. Le rapprochement d'un payout non enregistré est **en lecture seule**, sur le compte connecté exact et avec vérification du montant, de la devise, de l'utilisateur et de l'identifiant de demande. Absence de résultat, résultats multiples, erreur de lecture ou scan incomplet restent inconnus. Le retry vérifie le résultat courant ; seuls `failed`/`canceled` permettent la compensation. Une notification périmée ne peut plus inverser le transfert d'un retrait déjà terminé.
 
-Le crédit vendeur distingue exposition brute au remboursement (`sellerCreditedCents`) et crédit effectif en escrow (`sellerPendingCreditCents`, avec `sellerDebtRepaidCents`). Livraison et libération déplacent uniquement le net ; les remboursements conservent l'exposition brute et rétablissent la dette lorsque nécessaire. Les anciennes transactions peuvent déduire le remboursement de dette depuis leur ledger serveur, avant toute écriture ; aucune migration externe exécutée.
+Le crédit vendeur distingue exposition brute au remboursement (`sellerCreditedCents`) et crédit effectif en escrow (`sellerPendingCreditCents`, avec `sellerDebtRepaidCents`). Livraison et libération déplacent uniquement le net ; le deuxième passage enregistre aussi le mouvement held réellement plafonné par transaction (voir `finance-second-pass.md`) ; les remboursements conservent l'exposition brute et rétablissent la dette lorsque nécessaire. Les anciennes transactions peuvent déduire le remboursement de dette depuis leur ledger serveur, avant toute écriture ; aucune migration externe exécutée.
 
 La marge par transaction ajoute la recette transport avant de déduire le transport payé au transporteur et les frais du processeur. La taxe reste distincte de cette marge. `carrierCost` et `carrierCostEstimated` distinguent coût réel/estimé ; le coût réel met à jour la marge atomiquement à la création du bordereau, quel que soit l'ordre entre événement de paiement et bordereau. La marge concerne ces coûts par transaction, sans prétendre couvrir les dépenses d'exploitation générales.
 
@@ -29,7 +29,7 @@ La marge par transaction ajoute la recette transport avant de déduire le transp
 | `functions/src/utils/sellerEscrow.ts` | Nouveau helper | Résolution net/brut et ledger ancien |
 | `functions/src/utils/payoutRecovery.ts`, `functions/src/utils/payoutOutcome.ts` | Compensation et certification de résultat | Payout connu requis pour retries ; pas de reversal de completed ni d'autre payout |
 | `functions/src/scheduled/reconcile.ts`, `retryFailedOperations.ts`, `transactionExpiration.ts` | Branches financières concernées | Certification avant restitution, alerte checkout inconnu, aucune expiration aveugle |
-| `functions/src/http/webhooks.ts`, `functions/src/utils/refund.ts` | Sections appels revenu/payout et cascade remboursement | Lus comme contrats ; aucune réécriture de webhook/refund dans ce lot |
+| `functions/src/http/webhooks.ts`, `functions/src/utils/refund.ts` | Sections appels revenu/payout et cascade remboursement | Premier passage : contrats ; deuxième passage : gardes de réservation et ordre des lectures du remboursement webhook corrigés |
 | `functions/src/utils/testHelpers/firestoreMock.ts` | Contrat double Firestore/Stripe | Ajout lecture payouts.list ; transaction sérialisée partagée fournie par le lot offres |
 
 Cet inventaire constitue une lecture ciblée des transitions concernées, pas une preuve d'examen de chaque ligne du dépôt ni de chaque statut historique en production.
@@ -49,7 +49,7 @@ Cet inventaire constitue une lecture ciblée des transitions concernées, pas un
 | Dette vendeur → pending → held → disponible → remboursement | Net escrow et exposition brute distingués | Dettes 0/1500/4500/6000 cents, remboursements aux trois stades, held indépendant, ledger legacy | Exhaustivité/intégrité de tous les ledgers historiques |
 | Recettes/coûts transport → marge | Recette et coût distincts, taxe exclue | Coût égal/supérieur/inférieur à la recette ; actualité du coût à partir du bordereau | Factures réelles et frais d'exploitation non modélisés |
 
-Les tests de concurrence utilisent un double Firestore qui sérialise les transactions concurrentes et applique les sentinelles. Ils valident les transitions et invariants ; ils ne prétendent pas simuler les retries, pannes réseau ou la contention de l'Admin SDK en production.
+Les tests de concurrence utilisent un double Firestore qui sérialise les transactions concurrentes et applique les sentinelles. Ils valident les transitions et invariants ; ils ne prétendent pas reproduire les pannes réseau ou la contention de l'Admin SDK en production. Le deuxième passage rejoue explicitement le callback du commit label après abandon des écritures stagées pour vérifier l'atomicité du ledger ; cela reste une simulation locale.
 
 ## Vérifications
 
@@ -69,3 +69,7 @@ Nouveaux tests : `paymentPhase.test.ts`, `financeTransitions.test.ts`, `payoutOu
 - Un transfert dont ni l'identifiant ni un payout n'ont pu être persistés demande un rapprochement humain ; aucun nouveau payout n'est créé pour "tester" son existence.
 - Aucune vérification de Stripe/Connect/banque/bordereau réel ni analyse de données financières historiques. Toute incohérence historique déjà matérialisée (fonds bruts libérés, ledger manquant) exige analyse et décision propriétaire avant réparation externe.
 - Ce lot n'établit pas une conformité juridique, fiscale ou comptable générale et ne change aucune règle économique.
+
+## Deuxième passage après revue indépendante
+
+Voir `finance-second-pass.md` pour R3–R7, les gardes de propriété article dans 9 transitions, le séquestre réellement déplacé, les bordereaux tardifs, le ledger transport atomique et les **285/285 tests ciblés** finaux. Ce complément remplace les limites de couverture du premier passage concernant ces sections ; il ne prétend pas vérifier des paiements ou des données réels.

@@ -1,42 +1,46 @@
 {
-  "testedCodeHead": "a4708f22c1af8172f9789b317fa8b97be3088618",
-  "generatedAtUtc": "2026-10-06T02:25:51.997546+00:00",
+  "testedCodeHead": "617ec865d8414a39abd9ba25fa58900eb13150c8",
+  "generatedAtUtc": "2026-10-06T03:00:07.775638+00:00",
   "node": "24.19.0",
+  "runtimeNode20Validated": false,
   "checks": [
     {
       "check": "jest",
       "command": "./node_modules/.bin/jest --runInBand --detectOpenHandles",
       "status": "passed",
       "exitCode": 0,
-      "suites": 85,
-      "passed": 681,
+      "suites": 91,
+      "passed": 735,
+      "forceExit": false,
       "log": "/tmp/second-final-jest.log",
       "logAvailable": true,
-      "logSha256": "2cbb1929c963fc8c53e6f1ffc2a0f0471d6ed81cd8b9dddbb41de5bfb5eb0e99"
+      "logSha256": "7c1c866ee3a4a8ddc48e60608ee029f522ab8e7cb89c2f269cceb5c7bcac842b"
     },
     {
       "check": "vitest-app",
-      "command": "./node_modules/.bin/vitest run",
+      "command": "./node_modules/.bin/vitest run --maxWorkers=2",
       "status": "passed",
       "exitCode": 0,
-      "files": 14,
-      "passed": 111,
+      "files": 15,
+      "passed": 118,
       "log": "/tmp/second-final-vitest.log",
       "logAvailable": true,
-      "logSha256": "ae53c7d0fbd8397169c3d4bc79e8b70b2c6f21d0b16c33069e99922c90aca903"
+      "logSha256": "0cdd39be185689cf46bfb27d378e0bba9742ebd3d4594b37529c25c96031922c"
     },
     {
       "check": "vitest-functions",
-      "command": "cd functions && ./node_modules/.bin/vitest run",
-      "status": "passed-with-skips",
+      "command": "cd functions && METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 ./node_modules/.bin/vitest run --maxWorkers=2",
+      "status": "passed",
       "exitCode": 0,
-      "filesPassed": 47,
-      "filesSkipped": 1,
-      "passed": 513,
-      "skipped": 2,
+      "filesPassed": 51,
+      "filesSkipped": 0,
+      "passed": 608,
+      "skipped": 0,
+      "actualSdkContentionTests": 2,
+      "transport": "Firestore emulator only; other gateways mocked, Auth/Storage host flags are safeguards and do not assert those servers run",
       "log": "/tmp/second-final-functions.log",
       "logAvailable": true,
-      "logSha256": "8ce6b20cc4872c5f52506671bd0217174fc9d5312b0245dc5f3a819d502cff63"
+      "logSha256": "b1f59ad2d446258a6e173179becc94c67837f3c0af01d2c07c438e5ef1f94766"
     },
     {
       "check": "app-types",
@@ -71,10 +75,10 @@
       "status": "passed-with-warnings",
       "exitCode": 0,
       "errors": 0,
-      "warnings": 94,
+      "warnings": 93,
       "log": "/tmp/second-final-lint.log",
       "logAvailable": true,
-      "logSha256": "08b0453f039f8bdfd261910d0953efe803b813c22c4a84561628a3a045ea3a09"
+      "logSha256": "0a233309c3bf9a89eda463bd288945295177194ccdfaadcf4eb0878efbdd0c96"
     },
     {
       "check": "boundaries",
@@ -86,29 +90,51 @@
       "logSha256": "9d33fc83472790913f39623bce7369347121bab4c732e0982ff3352e5354e1c9"
     },
     {
-      "check": "firebase-rules",
-      "command": "XDG_CONFIG_HOME=/tmp/second-firebase-config FIREBASE_EMULATORS_PATH=/tmp/second-emulators PATH=/tmp/second-firebase-cli/node_modules/.bin:$PATH CI=1 npm run test:security",
-      "status": "blocked-before-test-execution",
-      "exitCode": 1,
+      "check": "firestore-rules",
+      "command": "METADATA_SERVER_DETECTION=none GCLOUD_PROJECT=demo-second FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run test:security:firestore:run",
+      "status": "passed-partial-scope",
+      "exitCode": 0,
+      "files": 12,
+      "passed": 185,
+      "storageExcluded": true,
       "project": "demo-second",
-      "reason": "Official Firestore emulator JAR download fails; independent official URL curl reports CONNECT HTTP403",
-      "log": "/tmp/second-final-rules.log",
+      "log": "/tmp/second-final-firestore-rules.log",
       "logAvailable": true,
-      "logSha256": "d16973879e1674d3b04714b57de7a5a353daedb6c5d39e5851187ec4df92889f"
+      "logSha256": "084d385cbcfefc06d77d31d20092c13ba58b3ab8494295613f5d55645f1ae713"
     },
     {
-      "check": "official-emulator-download",
+      "check": "storage-rules-and-http",
+      "command": "npm run test:security",
+      "status": "blocked-before-storage-test-execution",
+      "exitCode": null,
+      "reason": "Official Storage rules runtime download host storage.googleapis.com is refused at network CONNECT HTTP403; no available official Google Cloud Storage runtime component. Partial Firestore pass does not cover Storage."
+    },
+    {
+      "check": "official-canonical-emulator-download",
       "command": "curl -I --max-time 15 https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar",
-      "status": "blocked",
+      "status": "blocked-transport",
       "exitCode": 56,
       "http": 403,
-      "log": "/tmp/second-final-emulator-download.log",
+      "failureLayer": "CONNECT tunnel before HTTPS object access; not project ACL or approval denial",
+      "log": "/tmp/second-review-emulator-download.log",
       "logAvailable": true,
-      "logSha256": "2d5411e41b0a749e55c32f9222050a61447f046e4daa1b5697864c53e075bf2b"
+      "logSha256": "35bcbb10e58fe43dcb7817999fc6f2c1eb14fc72cc0ce7346361071ceb837877"
+    },
+    {
+      "check": "official-alternate-firestore-source",
+      "status": "verified-and-used",
+      "source": "https://dl.google.com/dl/cloudsdk/channels/rapid/components/google-cloud-sdk-cloud-firestore-emulator-20260717053915.tar.gz",
+      "version": "1.22.0",
+      "distribution": "Google Cloud CLI 587.0.0 component",
+      "packageSha256": "e962450b637827664094959571fd92c3680de863936bd481bd0a050f76ca91ba",
+      "jarSha256": "6262939c48d3d6b08495931706b8920399e57d5f5918e6af133a3d30cb3ae369",
+      "log": "/tmp/second-gcloud-firestore-download.log",
+      "logAvailable": true,
+      "logSha256": "c10defa7c18ef828c19886b18db413ac05d081d332444bc0f3cc1d2fba7918cf"
     },
     {
       "check": "mobile-bundles",
-      "command": "CI=1 EXPO_OFFLINE=1 EXPO_NO_TELEMETRY=1 EXPO_NO_CACHE=1 EXPO_PUBLIC_FIREBASE_EMULATORS=1 ./node_modules/.bin/expo export --platform ios --platform android --output-dir /tmp/second-mobile-audit --max-workers 2",
+      "command": "CI=1 EXPO_OFFLINE=1 EXPO_NO_TELEMETRY=1 EXPO_NO_CACHE=1 EXPO_PUBLIC_FIREBASE_EMULATORS=1 EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=127.0.0.1 ./node_modules/.bin/expo export --platform ios --platform android --output-dir /tmp/second-mobile-audit --max-workers 2",
       "status": "passed",
       "exitCode": 0,
       "platforms": [
@@ -119,17 +145,31 @@
       "deviceRun": false,
       "log": "/tmp/second-final-mobile-export.log",
       "logAvailable": true,
-      "logSha256": "f87828522b97520cf54a45941c9bef9be34ff4bee9b2aeae03694265d3087b87"
+      "logSha256": "1431926c5e0e71c7446391f5d4fa3922f02b415e76bc7b68f48271817d61e2f9"
     },
     {
       "check": "web-bundle",
-      "command": "CI=1 EXPO_OFFLINE=1 EXPO_NO_TELEMETRY=1 EXPO_PUBLIC_FIREBASE_EMULATORS=1 ./node_modules/.bin/expo export --platform web --output-dir /tmp/second-web-audit",
-      "status": "failed",
-      "exitCode": 1,
-      "reason": "Native Stripe CardField/codegen import via useDeepLinking on web",
-      "log": "/tmp/second-web-export.log",
+      "command": "CI=1 EXPO_OFFLINE=1 EXPO_NO_TELEMETRY=1 EXPO_NO_CACHE=1 EXPO_PUBLIC_FIREBASE_EMULATORS=1 EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=127.0.0.1 ./node_modules/.bin/expo export --platform web --output-dir /tmp/second-web-audit --max-workers 2",
+      "status": "passed",
+      "exitCode": 0,
+      "scope": "Intentional static native-app deep-link landing; no marketplace mounted",
+      "log": "/tmp/second-final-web-export.log",
       "logAvailable": true,
-      "logSha256": "fefc1479c904e1d1e649b9eea06bb715ea95837fe0d618949cdc7fb60baf7fdb"
+      "logSha256": "1f9eefc2b3b6c4efa5afa755735a5b69987b57f42d513844eead8e8bfe56a86d"
+    },
+    {
+      "check": "web-chromium-smoke",
+      "command": "python docs/audit-20261006/check-web-landing.py /tmp/second-web-audit",
+      "status": "passed",
+      "exitCode": 0,
+      "passed": 3,
+      "pageErrors": 0,
+      "externalRequestsAttempted": 0,
+      "nativeAppValidated": false,
+      "log": "/tmp/second-final-web-smoke.log",
+      "result": "web-smoke.json",
+      "logAvailable": true,
+      "logSha256": "33c8c3c9ca637be288055c1f85a6ae669443917106f7c83ad5c49836869ceddc"
     },
     {
       "check": "maestro",
@@ -137,6 +177,15 @@
       "status": "not-run",
       "exitCode": null,
       "reason": "Maestro/ADB/Xcode/app/device unavailable; only YAML parsing performed"
+    },
+    {
+      "check": "maestro-yaml",
+      "status": "passed-syntax-only",
+      "parsed": 19,
+      "errors": 0,
+      "report": "maestro-syntax.json",
+      "flowsAndSubflows": 18,
+      "configs": 1
     },
     {
       "check": "diff-check",

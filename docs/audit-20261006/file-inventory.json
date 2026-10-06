@@ -7498,7 +7498,7 @@
       "bytes": 824,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": ".firebaserc",
@@ -7519,7 +7519,7 @@
       "bytes": 819,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": ".maestro/README.md",
@@ -7568,7 +7568,7 @@
       "bytes": 4266,
       "kind": "blob",
       "area": ".maestro",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": ".maestro/flows/notifications-open-center.yaml",
@@ -7582,14 +7582,14 @@
       "bytes": 3699,
       "kind": "blob",
       "area": ".maestro",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": ".maestro/flows/profile-reviews-view-and-avis.yaml",
       "bytes": 3717,
       "kind": "blob",
       "area": ".maestro",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": ".maestro/flows/search-text-and-filter.yaml",
@@ -7687,7 +7687,7 @@
       "bytes": 34129,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "GoogleService-Info.plist",
@@ -7708,14 +7708,14 @@
       "bytes": 11049,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "analytics-events.md",
       "bytes": 89431,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "android/.gitignore",
@@ -8086,7 +8086,7 @@
       "bytes": 9612,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/(tabs)/_layout.tsx",
@@ -8142,7 +8142,7 @@
       "bytes": 11304,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/admin/_layout.tsx",
@@ -8184,7 +8184,7 @@
       "bytes": 7764,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/article/edit/[id].tsx",
@@ -8198,7 +8198,7 @@
       "bytes": 24334,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/checkout/_layout.tsx",
@@ -8219,7 +8219,7 @@
       "bytes": 23639,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/checkout/shipping.tsx",
@@ -8352,7 +8352,7 @@
       "bytes": 10670,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/sell/_layout.tsx",
@@ -8366,35 +8366,35 @@
       "bytes": 13288,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/sell/details.tsx",
       "bytes": 19037,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/sell/photos-review.tsx",
       "bytes": 31994,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/sell/preview.tsx",
       "bytes": 21715,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/sell/pricing.tsx",
       "bytes": 11958,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/settings/_layout.tsx",
@@ -8422,7 +8422,7 @@
       "bytes": 19730,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/settings/bank-account.tsx",
@@ -8464,7 +8464,7 @@
       "bytes": 8595,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/settings/index.tsx",
@@ -8520,7 +8520,7 @@
       "bytes": 17861,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/settings/profile-details.tsx",
@@ -8562,14 +8562,14 @@
       "bytes": 19331,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/shop/upgrade.tsx",
       "bytes": 18659,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/swap-parties.tsx",
@@ -8597,14 +8597,14 @@
       "bytes": 21043,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/user/[id].tsx",
       "bytes": 20429,
       "kind": "blob",
       "area": "app",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "app/visual-search-results.tsx",
@@ -8765,7 +8765,7 @@
       "bytes": 7919,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/ConditionSelector.tsx",
@@ -8786,7 +8786,7 @@
       "bytes": 7416,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/EditableField.tsx",
@@ -8807,77 +8807,77 @@
       "bytes": 8111,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/MakeOfferModal/ConfirmStep.test.tsx",
       "bytes": 6897,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/MakeOfferModal/ConfirmStep.tsx",
       "bytes": 10624,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/MakeOfferModal/LocationStep.tsx",
       "bytes": 17120,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/MakeOfferModal/OfferStep.test.tsx",
       "bytes": 5998,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/MakeOfferModal/OfferStep.tsx",
       "bytes": 8272,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/MakeOfferModal/index.tsx",
       "bytes": 10449,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/MakeOfferModal/types.ts",
       "bytes": 2522,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/NeighborhoodBottomSheet.tsx",
       "bytes": 7937,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/OfferBubble.tsx",
       "bytes": 32784,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/PhotoCarousel.tsx",
       "bytes": 3135,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/ProductCard.constants.ts",
@@ -8954,7 +8954,7 @@
       "bytes": 6097,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/VisualSearchCamera.tsx",
@@ -9059,7 +9059,7 @@
       "bytes": 15409,
       "kind": "blob",
       "area": "components",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "components/legal/TermsContent.tsx",
@@ -9423,7 +9423,7 @@
       "bytes": 2773,
       "kind": "blob",
       "area": "config",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "config/posthogConfig.ts",
@@ -9472,7 +9472,7 @@
       "bytes": 224,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "data/brands-list.json",
@@ -9514,7 +9514,7 @@
       "bytes": 2438,
       "kind": "blob",
       "area": "data",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "data/neighborhoods.ts",
@@ -9535,7 +9535,7 @@
       "bytes": 8678,
       "kind": "blob",
       "area": "data",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "docs/01-project-overview.md",
@@ -9801,7 +9801,7 @@
       "bytes": 3053,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/article/components/HeaderButton.tsx",
@@ -9829,7 +9829,7 @@
       "bytes": 19066,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/article/index.ts",
@@ -9878,7 +9878,7 @@
       "bytes": 3579,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/chat/components/ChatInputBar.tsx",
@@ -9913,7 +9913,7 @@
       "bytes": 1481,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/checkout-shipping/components/PayButton.tsx",
@@ -10151,7 +10151,7 @@
       "bytes": 2155,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/onboarding/index.ts",
@@ -10312,7 +10312,7 @@
       "bytes": 32140,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/search/index.ts",
@@ -10403,28 +10403,28 @@
       "bytes": 2947,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/sell/components/capture/SellOverlayCapture.tsx",
       "bytes": 14569,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/sell/components/capture/ThumbnailStrip.tsx",
       "bytes": 3461,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/sell/components/capture/TopControls.tsx",
       "bytes": 2822,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/sell/components/details/ChipSelector.tsx",
@@ -10487,7 +10487,7 @@
       "bytes": 1032,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/sell/components/shared/SellFooter.tsx",
@@ -10501,7 +10501,7 @@
       "bytes": 1449,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/swap-party/components/AddItemSheet.tsx",
@@ -10641,14 +10641,14 @@
       "bytes": 3302,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/user-profile/components/ArticleGridItem.tsx",
       "bytes": 3190,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/user-profile/components/ProfileHeader.tsx",
@@ -10683,7 +10683,7 @@
       "bytes": 3626,
       "kind": "blob",
       "area": "features",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "features/user-profile/components/StatItem.tsx",
@@ -10767,7 +10767,7 @@
       "bytes": 75913,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "firestore.indexes.json",
@@ -10781,7 +10781,7 @@
       "bytes": 50333,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/.env.example",
@@ -10858,7 +10858,7 @@
       "bytes": 7848,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/ai.ts",
@@ -10914,21 +10914,21 @@
       "bytes": 12548,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/createTransaction.shipping.test.ts",
       "bytes": 16479,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/deleteUserAccount.gates.test.ts",
       "bytes": 7224,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/getServiceFee.test.ts",
@@ -10963,14 +10963,14 @@
       "bytes": 7010,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/payments.ts",
       "bytes": 162266,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/privacyIncidents.ts",
@@ -10984,7 +10984,7 @@
       "bytes": 32706,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/recourse.test.ts",
@@ -11019,7 +11019,7 @@
       "bytes": 16349,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/search.ts",
@@ -11040,14 +11040,14 @@
       "bytes": 8325,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/shopTier.ts",
       "bytes": 7760,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/stripeAccountLifecycle.test.ts",
@@ -11068,7 +11068,7 @@
       "bytes": 85164,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/username.ts",
@@ -11089,35 +11089,35 @@
       "bytes": 41242,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/wallet.ts",
       "bytes": 50062,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/callable/walletWithdraw.guards.test.ts",
       "bytes": 12666,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/config/featureFlags.ts",
       "bytes": 1621,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/config/firebase.ts",
       "bytes": 457,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/config/shipEngine.ts",
@@ -11152,28 +11152,28 @@
       "bytes": 123454,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/index.ts",
       "bytes": 10679,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/lib/analytics.ts",
       "bytes": 3394,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/productReference.ts",
       "bytes": 9876,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/alertAgingDisputes.test.ts",
@@ -11194,7 +11194,7 @@
       "bytes": 1786,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/expireStalePostAcceptanceSwaps.test.ts",
@@ -11215,14 +11215,14 @@
       "bytes": 5050,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/offerExpiration.ts",
       "bytes": 9838,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/popularity.ts",
@@ -11236,21 +11236,21 @@
       "bytes": 4682,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/reconcile.ts",
       "bytes": 17557,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/releaseHeldFunds.ts",
       "bytes": 18585,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/retentionPurge.ts",
@@ -11264,21 +11264,21 @@
       "bytes": 4287,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/retryFailedOperations.ts",
       "bytes": 16693,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/savedSearches.ts",
       "bytes": 14966,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/stats.ts",
@@ -11313,14 +11313,14 @@
       "bytes": 15365,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scheduled/transactionExpiration.ts",
       "bytes": 38150,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/scripts/backfillSearchIndex.ts",
@@ -11334,7 +11334,7 @@
       "bytes": 1522,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/services/ai.ts",
@@ -11369,7 +11369,7 @@
       "bytes": 10432,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/triggers/embeddings.ts",
@@ -11383,7 +11383,7 @@
       "bytes": 8757,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/triggers/messages.ts",
@@ -11404,7 +11404,7 @@
       "bytes": 10490,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/triggers/users.ts",
@@ -11481,14 +11481,14 @@
       "bytes": 8871,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/labelFulfillment.ts",
       "bytes": 18730,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/normalizeBrand.ts",
@@ -11502,28 +11502,28 @@
       "bytes": 2838,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/notifications.ts",
       "bytes": 16477,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/payoutRecovery.test.ts",
       "bytes": 5490,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/payoutRecovery.ts",
       "bytes": 7379,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/rateLimit.ts",
@@ -11537,7 +11537,7 @@
       "bytes": 15416,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/returnRefund.ts",
@@ -11572,21 +11572,21 @@
       "bytes": 23803,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/trackingTransition.test.ts",
       "bytes": 6261,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/src/utils/trackingTransition.ts",
       "bytes": 14265,
       "kind": "blob",
       "area": "functions",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "functions/tsconfig.json",
@@ -11614,14 +11614,14 @@
       "bytes": 14001,
       "kind": "blob",
       "area": "hooks",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "hooks/useArticleSearch.ts",
       "bytes": 12257,
       "kind": "blob",
       "area": "hooks",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "hooks/useAuth.ts",
@@ -11691,14 +11691,14 @@
       "bytes": 6254,
       "kind": "blob",
       "area": "hooks",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "hooks/useFavorites.ts",
       "bytes": 12187,
       "kind": "blob",
       "area": "hooks",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "hooks/useNetworkStatus.ts",
@@ -11712,7 +11712,7 @@
       "bytes": 21505,
       "kind": "blob",
       "area": "hooks",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "hooks/usePersonalizedFeed.ts",
@@ -11957,7 +11957,7 @@
       "bytes": 8633,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "knip.json",
@@ -11971,7 +11971,7 @@
       "bytes": 4935,
       "kind": "blob",
       "area": "lib",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "lib/automatedDecisionMeta.ts",
@@ -12034,7 +12034,7 @@
       "bytes": 4574,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "public/.well-known/apple-app-site-association",
@@ -12104,14 +12104,14 @@
       "bytes": 16695,
       "kind": "blob",
       "area": "services",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "services/articlesService.ts",
       "bytes": 37061,
       "kind": "blob",
       "area": "services",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "services/authMergeService.ts",
@@ -12132,14 +12132,14 @@
       "bytes": 54094,
       "kind": "blob",
       "area": "services",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "services/draftService.ts",
       "bytes": 15633,
       "kind": "blob",
       "area": "services",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "services/favoritesService.ts",
@@ -12237,7 +12237,7 @@
       "bytes": 21656,
       "kind": "blob",
       "area": "services",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "services/userStatsService.ts",
@@ -12279,7 +12279,7 @@
       "bytes": 4065,
       "kind": "blob",
       "area": "(root)",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "store/__tests__/notificationStore.test.tsx",
@@ -12300,7 +12300,7 @@
       "bytes": 22726,
       "kind": "blob",
       "area": "store",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "store/chatStore.ts",
@@ -12377,14 +12377,14 @@
       "bytes": 8452,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/articlesService.test.ts",
       "bytes": 11532,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/auth-onboarding/SignUpForm.test.tsx",
@@ -12405,7 +12405,7 @@
       "bytes": 15685,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/auth-onboarding/useAuthRequired.test.tsx",
@@ -12426,7 +12426,7 @@
       "bytes": 11892,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/chatStore.test.ts",
@@ -12447,14 +12447,14 @@
       "bytes": 13435,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/homeSections.test.tsx",
       "bytes": 5356,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/moderationService.test.ts",
@@ -12489,7 +12489,7 @@
       "bytes": 4082,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/profile-reviews/userStatsService.test.tsx",
@@ -12510,7 +12510,7 @@
       "bytes": 8190,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/shared-foundations/AppErrorBoundary.test.tsx",
@@ -12608,7 +12608,7 @@
       "bytes": 9138,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/useChat.test.tsx",
@@ -12664,7 +12664,7 @@
       "bytes": 7829,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/jest/wallet/walletService.test.ts",
@@ -12692,14 +12692,14 @@
       "bytes": 922,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/security/messages.rules.test.ts",
       "bytes": 3161,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/security/reports.rules.test.ts",
@@ -12713,7 +12713,7 @@
       "bytes": 2974,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/security/shops.rules.test.ts",
@@ -12727,7 +12727,7 @@
       "bytes": 3400,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/security/swaps.rules.test.ts",
@@ -12755,7 +12755,7 @@
       "bytes": 262,
       "kind": "blob",
       "area": "tests",
-      "review_evidence": "metadata_inventory_only"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "tests/security/wallets.rules.test.ts",
@@ -12790,14 +12790,14 @@
       "bytes": 38360,
       "kind": "blob",
       "area": "types",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "types/index.ts",
       "bytes": 32252,
       "kind": "blob",
       "area": "types",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "utils/age.ts",
@@ -12825,14 +12825,14 @@
       "bytes": 2166,
       "kind": "blob",
       "area": "utils",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "utils/fixStorageUrl.ts",
       "bytes": 1050,
       "kind": "blob",
       "area": "utils",
-      "review_evidence": "changed_or_removed_by_audit"
+      "review_evidence": "changed_or_removed_with_targeted_review_and_validation_in_lot_reports"
     },
     {
       "path": "utils/formatName.test.ts",
@@ -12915,11 +12915,40 @@
   "classification_note": "Changed status is evidence of the audit diff, not proof of a complete manual security review. Compiler/bundle/tests cover their configured scope. See lot reports for exact reviewed sources and limitations.",
   "base_blob_files": 1716,
   "base_symlinks": 128,
-  "new_audit_files": [
+  "added_files": [
     ".maestro/flows/article-gallery.yaml",
     "components/MakeOfferModal/LocationStep.test.tsx",
+    "components/PrivateStorageImage.tsx",
     "components/ZoomableGalleryImage.tsx",
     "config/firebaseEnvironment.ts",
+    "docs/audit-20261006/README.md",
+    "docs/audit-20261006/articles.md",
+    "docs/audit-20261006/automated-scan.json",
+    "docs/audit-20261006/captures/web-landing-desktop-article.png",
+    "docs/audit-20261006/captures/web-landing-desktop-root.png",
+    "docs/audit-20261006/captures/web-landing-mobile-root.png",
+    "docs/audit-20261006/check-web-landing.py",
+    "docs/audit-20261006/commits.md",
+    "docs/audit-20261006/emulator-verification.md",
+    "docs/audit-20261006/file-inventory.json",
+    "docs/audit-20261006/finance-second-pass.md",
+    "docs/audit-20261006/finance.md",
+    "docs/audit-20261006/maestro-syntax.json",
+    "docs/audit-20261006/media-rules.md",
+    "docs/audit-20261006/offers.md",
+    "docs/audit-20261006/privacy-notifications.md",
+    "docs/audit-20261006/private-drafts-ai.md",
+    "docs/audit-20261006/private-media.md",
+    "docs/audit-20261006/review-media-security.md",
+    "docs/audit-20261006/review-offers-finance.md",
+    "docs/audit-20261006/review-resolution.md",
+    "docs/audit-20261006/routes.md",
+    "docs/audit-20261006/sell.md",
+    "docs/audit-20261006/source-manifest.json",
+    "docs/audit-20261006/ux-validation.md",
+    "docs/audit-20261006/verification.json",
+    "docs/audit-20261006/web-platform.md",
+    "docs/audit-20261006/web-smoke.json",
     "features/onboarding/constants/sizes.test.ts",
     "features/sell/components/__tests__/PermissionDenied.test.tsx",
     "features/sell/components/shared/PhotoOrderControls.tsx",
@@ -12932,6 +12961,7 @@
     "functions/src/callable/offers.ts",
     "functions/src/callable/paymentPhase.test.ts",
     "functions/src/callable/publicProfileImages.test.ts",
+    "functions/src/callable/uploadSwapPhotos.test.ts",
     "functions/src/config/firebaseIsolation.test.ts",
     "functions/src/lib/analytics.test.ts",
     "functions/src/scheduled/cleanupDrafts.test.ts",
@@ -12941,6 +12971,9 @@
     "functions/src/triggers/favorites.test.ts",
     "functions/src/utils/articleMedia.test.ts",
     "functions/src/utils/articleMedia.ts",
+    "functions/src/utils/articleReservation.test.ts",
+    "functions/src/utils/articleReservation.ts",
+    "functions/src/utils/articleReservationFlows.test.ts",
     "functions/src/utils/expoPush.test.ts",
     "functions/src/utils/expoPush.ts",
     "functions/src/utils/financeTransitions.test.ts",
@@ -12949,24 +12982,43 @@
     "functions/src/utils/payoutOutcome.test.ts",
     "functions/src/utils/payoutOutcome.ts",
     "functions/src/utils/sellerEscrow.ts",
+    "hooks/__tests__/usePrivateMediaSource.test.tsx",
+    "hooks/useFirebaseUserId.ts",
+    "hooks/usePrivateMediaSource.ts",
+    "index.ts",
+    "index.web.ts",
     "lib/analytics.test.ts",
+    "lib/stripe.native.ts",
+    "lib/stripe.ts",
+    "lib/stripe.types.ts",
+    "lib/stripe.web.ts",
     "tests/jest/ImageGallery.test.tsx",
+    "tests/jest/PrivateStorageImage.test.tsx",
     "tests/jest/articlesSearchPagination.test.ts",
     "tests/jest/firebaseEmulatorIsolation.test.ts",
+    "tests/jest/platformEntry.test.ts",
+    "tests/jest/privateDraftPreview.test.tsx",
     "tests/jest/sellCapture.test.tsx",
     "tests/jest/sellPhotosReview.test.tsx",
     "tests/jest/sellPricingResume.test.tsx",
     "tests/jest/shopSearchScope.test.tsx",
+    "tests/jest/stripe.native.test.ts",
+    "tests/jest/stripe.web.test.tsx",
     "tests/jest/useFavorites.test.tsx",
     "tests/security/articles.rules.test.ts",
+    "tests/security/favorites.rules.test.ts",
     "utils/addressValidation.test.ts",
     "utils/addressValidation.ts",
     "utils/articleImages.test.ts",
     "utils/articleImages.ts",
     "utils/galleryGeometry.test.ts",
     "utils/galleryGeometry.ts",
+    "utils/privateMedia.test.ts",
+    "utils/privateMedia.ts",
     "utils/sellCatalog.test.ts",
     "utils/sellPhotos.test.ts",
     "utils/sellPhotos.ts"
-  ]
+  ],
+  "current_source_head": "617ec865d8414a39abd9ba25fa58900eb13150c8",
+  "route_files_directly_changed": 17
 }

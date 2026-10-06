@@ -1,6 +1,7 @@
 {
   "scope": "YAML parser only; not Maestro execution/schema or device validation",
   "files": [
+    ".maestro/config.yaml",
     ".maestro/flows/00-launch.yaml",
     ".maestro/flows/01-chat-open-and-send.yaml",
     ".maestro/flows/article-gallery.yaml",
@@ -20,6 +21,8 @@
     ".maestro/subflows/open-app.yaml",
     ".maestro/subflows/pass-onboarding.yaml"
   ],
-  "parsed": 18,
+  "parsed": 19,
+  "flowsAndSubflows": 18,
+  "configs": 1,
   "errors": []
 }

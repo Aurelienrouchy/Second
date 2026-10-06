@@ -2,7 +2,7 @@
 
 Les 76 fichiers TSX sous `app/` sont inventoriés ci-dessous, layouts inclus. Tous relèvent du typecheck app et des bundles iOS/Android. Cette compilation ne prouve ni une lecture manuelle de chaque écran ni un parcours utilisateur complet. Les suites citées vérifient les unités/contrats indiqués, pas toute la route.
 
-**Pour chaque ligne : E2E appareil, rendu visuel et captures non exécutés**, faute de Maestro/ADB/Xcode/appareil. Les tests Firebase Rules sont ajoutés mais bloqués par le téléchargement officiel de l’émulateur.
+**Pour chaque ligne : E2E appareil, rendu visuel et captures non exécutés**, faute de Maestro/ADB/Xcode/appareil. Les règles Firestore passent sur l'émulateur officiel ; seules les règles Storage restent bloquées. Les captures web statiques ne valident pas ces routes natives.
 
 | Fichier | Parcours | Examen attesté | Correction | Preuve ciblée / limite |
 | --- | --- | --- | --- | --- |
@@ -13,14 +13,14 @@ Les 76 fichiers TSX sous `app/` sont inventoriés ci-dessous, layouts inclus. To
 | `app/(tabs)/profile.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/(tabs)/sell.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/+not-found.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
-| `app/_layout.tsx` | Navigation/layout | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
+| `app/_layout.tsx` | Navigation/layout | Imports/provider et entrée de plateforme examinés ; revue intégrale non attestée | Adaptateur Stripe natif/web, Router natif conservé | Tests adaptateur/entry et exports trois plateformes ; aucun rendu natif |
 | `app/admin/_layout.tsx` | Navigation/layout | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/admin/disputes.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/admin/reports.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/admin/shop-detail/[id].tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/admin/shops.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/article/[id].tsx` | Articles / offres | Oui, entrée offre et composants associés | Galerie, proposition commune | Jest galerie/services et Functions offres |
-| `app/article/edit/[id].tsx` | Édition article | Service/callable associés seulement | Champs serveur protégés, médias promus, verrou engagement | Jest articleService + Functions products/media ; rules non exécutées |
+| `app/article/edit/[id].tsx` | Édition article | Service/callable associés seulement | Champs serveur protégés, médias promus, verrou engagement | Jest articleService + Functions products/media ; rules Firestore passées, Storage non exécutées |
 | `app/chat/[id].tsx` | Conversation | Oui, sections offre/header | Header, propositions, réponses | Jest service/modal + Functions transitions |
 | `app/checkout/_layout.tsx` | Navigation/layout | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/checkout/index.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
@@ -48,7 +48,7 @@ Les 76 fichiers TSX sous `app/` sont inventoriés ci-dessous, layouts inclus. To
 | `app/sell/capture.tsx` | Vente / caméra | Oui | Sessions caméra, erreurs, torche, photos | Jest capture/hook ; caméra native non vérifiée |
 | `app/sell/details.tsx` | Vente / détails | Oui | Matières A–Z, paires de photos, brouillon | Jest vente + Vitest référentiels |
 | `app/sell/photos-review.tsx` | Vente / photos | Oui | Réordre quelconque et persistance | Jest photos/brouillon + Vitest réordre |
-| `app/sell/preview.tsx` | Publication | Service/callable associés seulement | Promotion médias et garde publication | Jest articleService + Functions media ; écran non vérifié |
+| `app/sell/preview.tsx` | Publication | Reprise/publication et garde propriétaire examinées | Promotion médias, aperçu privé et session propriétaire | Tests service/preview/Functions media ; rendu natif et publication réelle non vérifiés |
 | `app/sell/pricing.tsx` | Vente / prix | Oui | Reprise de photos et brouillon | Jest reprise prix/brouillon |
 | `app/settings/_layout.tsx` | Navigation/layout | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/settings/about.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
@@ -75,7 +75,7 @@ Les 76 fichiers TSX sous `app/` sont inventoriés ci-dessous, layouts inclus. To
 | `app/settings/verify-email.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/shop/[id].tsx` | Boutique | Oui, lien articles et forfait | sellerId explicite, entrée payante masquée | Jest scope boutique ; navigation tactile non vérifiée |
 | `app/shop/upgrade.tsx` | Forfait | Oui | Accès direct indisponible pendant MVP | Relecture + Functions garde financière |
-| `app/swap/[id].tsx` | Troc / preuves | Oui, upload de preuves | Chemin UID/participants, immutabilité | Tests rules ajoutés non exécutés ; Functions guards |
+| `app/swap/[id].tsx` | Troc / preuves | Oui, upload de preuves | Chemin UID/participants, immutabilité, nouvelle référence sans bearer distribué | Tests metadata/guards ; règles Storage et lecture HTTP non exécutées |
 | `app/swap-parties.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/swap-party/[id].tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |
 | `app/swap-zone.tsx` | Autre route | Inventaire + compilation ; revue manuelle intégrale non attestée | Aucune correction ciblée dans cet écran | Types/bundles seulement ; suites existantes selon leur propre périmètre |

@@ -1,0 +1,59 @@
+{
+  "passed": 3,
+  "cases": [
+    {
+      "case": "desktop-root",
+      "title": "Seconde — La mode responsable, en toute simplicité",
+      "openAppHref": "seconde://",
+      "rootElementCount": 0,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "localRequestPaths": [
+        "/",
+        "/_expo/static/js/web/index-4ac13a0377c55e7b7c36647f74e8b3ea.js",
+        "/favicon.png"
+      ],
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "screenshot": "/workspace/Second/docs/audit-20261006/captures/web-landing-desktop-root.png"
+    },
+    {
+      "case": "desktop-article",
+      "title": "Seconde — La mode responsable, en toute simplicité",
+      "openAppHref": "seconde://article/local-audit?source=local",
+      "rootElementCount": 0,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "localRequestPaths": [
+        "/article/local-audit",
+        "/_expo/static/js/web/index-4ac13a0377c55e7b7c36647f74e8b3ea.js",
+        "/favicon.png"
+      ],
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "screenshot": "/workspace/Second/docs/audit-20261006/captures/web-landing-desktop-article.png"
+    },
+    {
+      "case": "mobile-root",
+      "title": "Seconde — La mode responsable, en toute simplicité",
+      "openAppHref": "seconde://",
+      "rootElementCount": 0,
+      "pageErrors": [],
+      "remoteRequestsAttempted": [],
+      "localRequestPaths": [
+        "/",
+        "/_expo/static/js/web/index-4ac13a0377c55e7b7c36647f74e8b3ea.js",
+        "/favicon.png"
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "/workspace/Second/docs/audit-20261006/captures/web-landing-mobile-root.png"
+    }
+  ]
+}
