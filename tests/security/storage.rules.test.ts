@@ -115,6 +115,32 @@ describe('storage rules', () => {
     await assertFails(uploadBytes(ref(env.authenticatedContext(ALICE).storage(), 'articles/article-1/new.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
   });
 
+  it.each(['meetup_disputed', 'meetup_pending', 'processing', 'missing'])
+    ('denies owner media changes when an unsold article still has a %s transaction link', async (status) => {
+      const env = await getTestEnv();
+      const path = 'articles/article-1/locked.jpg';
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await uploadBytes(ref(ctx.storage(), path), makeBytes(10), { contentType: 'image/jpeg' });
+        await setDoc(doc(ctx.firestore(), 'articles', 'article-1'), { sellerId: ALICE, isSold: false, activeTransactionId: 'agreement' });
+        if (status !== 'missing') await setDoc(doc(ctx.firestore(), 'transactions', 'agreement'), { status, articleId: 'article-1' });
+      });
+      const owner = ref(env.authenticatedContext(ALICE).storage(), path);
+      await assertFails(uploadBytes(owner, makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertFails(deleteObject(owner));
+    });
+
+  it.each(['cancelled', 'refunded', 'completed', 'meetup_completed'])
+    ('allows owner media edits once its linked transaction is explicitly %s and isSold is false', async (status) => {
+      const env = await getTestEnv();
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'articles', 'article-1'), { sellerId: ALICE, isSold: false, activeTransactionId: 'agreement' });
+        await setDoc(doc(ctx.firestore(), 'transactions', 'agreement'), { status, articleId: 'article-1' });
+      });
+      const owner = ref(env.authenticatedContext(ALICE).storage(), 'articles/article-1/new.jpg');
+      await assertSucceeds(uploadBytes(owner, makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertSucceeds(deleteObject(owner));
+    });
+
   it('scopes prepublication staging and draft reads to the owner', async () => {
     const env = await getTestEnv();
     const owner = env.authenticatedContext(ALICE).storage();

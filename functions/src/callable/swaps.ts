@@ -1126,6 +1126,22 @@ export const setSwapExchangeMode = onCall(
  * Upload photo proof for a swap. Transitions to 'shipping' when both sides have
  * uploaded.
  */
+function assertCanSubmitSwapPhotos(snapshot: FirebaseFirestore.DocumentSnapshot, uid: string) {
+  if (!snapshot.exists) throw new HttpsError('not-found', 'Swap introuvable');
+  const swap = snapshot.data()!;
+  if (swap.initiatorId !== uid && swap.receiverId !== uid) {
+    throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
+  }
+  if (swap.status !== 'photos_pending') {
+    throw new HttpsError('failed-precondition', 'Cet échange n’attend pas de photos');
+  }
+  const isInitiator = swap.initiatorId === uid;
+  if (isInitiator ? swap.initiatorPhotos : swap.receiverPhotos) {
+    throw new HttpsError('failed-precondition', 'Ces preuves sont déjà enregistrées et ne peuvent plus être remplacées');
+  }
+  return { swap, isInitiator };
+}
+
 export const uploadSwapPhotos = onCall(
   { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB' },
   async (request) => {
@@ -1134,41 +1150,50 @@ export const uploadSwapPhotos = onCall(
     }
 
     const { swapId, photoUrls } = request.data;
-    if (!swapId || typeof swapId !== 'string') {
+    if (!swapId || typeof swapId !== 'string' || swapId.includes('/')) {
       throw new HttpsError('invalid-argument', 'swapId requis');
     }
     if (!Array.isArray(photoUrls) || photoUrls.length === 0) {
       throw new HttpsError('invalid-argument', 'photoUrls requis (tableau non vide)');
     }
-    if (photoUrls.length > 10 || photoUrls.some((url: unknown) => {
-      const path = typeof url === 'string' ? storageObjectPath(url, storage.bucket().name) : null;
-      return !path?.startsWith(`swaps/${swapId}/photos/${request.auth!.uid}/`);
+    const uid = request.auth.uid;
+    const bucket = storage.bucket();
+    const photoPaths = photoUrls.map((url: unknown) =>
+      typeof url === 'string' ? storageObjectPath(url, bucket.name) : null,
+    );
+    if (photoUrls.length > 10 || photoPaths.some((path: string | null) => {
+      const segments = path?.split('/');
+      return !segments || segments.length !== 5 || segments[0] !== 'swaps' ||
+        segments[1] !== swapId || segments[2] !== 'photos' || segments[3] !== uid;
     })) {
       throw new HttpsError('invalid-argument', 'Photos de preuve invalides');
     }
 
     try {
+      const swapRef = db.collection('swaps').doc(swapId);
+      // Authorize before Admin Storage reads, then recheck the live state in the
+      // transaction after all objects are validated. Proof objects are immutable
+      // to clients, so no client can replace them between validation and commit.
+      assertCanSubmitSwapPhotos(await swapRef.get(), uid);
+      await Promise.all(photoPaths.map(async (path: string | null) => {
+        const file = bucket.file(path!);
+        let metadata;
+        try {
+          [metadata] = await file.getMetadata();
+        } catch (error: unknown) {
+          if (typeof error === 'object' && error !== null && 'code' in error && Number(error.code) === 404) {
+            throw new HttpsError('failed-precondition', 'Téléversez les photos avant d’enregistrer les preuves');
+          }
+          throw error;
+        }
+        const size = Number(metadata.size);
+        if (!metadata.contentType?.startsWith('image/') || !Number.isFinite(size) || size <= 0 || size >= 10 * 1024 * 1024) {
+          throw new HttpsError('invalid-argument', 'Photo de preuve invalide ou trop volumineuse');
+        }
+      }));
+
       await db.runTransaction(async (tx) => {
-        const swapRef = db.collection('swaps').doc(swapId);
-        const swapSnap = await tx.get(swapRef);
-
-        if (!swapSnap.exists) {
-          throw new HttpsError('not-found', 'Swap introuvable');
-        }
-
-        const swap = swapSnap.data()!;
-        const uid = request.auth!.uid;
-
-        if (swap.initiatorId !== uid && swap.receiverId !== uid) {
-          throw new HttpsError('permission-denied', 'Vous n\'êtes pas participant de cet échange');
-        }
-
-        if (swap.status !== 'photos_pending') {
-          throw new HttpsError(
-            'failed-precondition',
-            `Impossible d'uploader des photos en statut "${swap.status}"`
-          );
-        }
+        const { swap, isInitiator } = assertCanSubmitSwapPhotos(await tx.get(swapRef), uid);
 
         const photoProof = {
           userId: uid,
@@ -1181,10 +1206,6 @@ export const uploadSwapPhotos = onCall(
           updatedAt: FieldValue.serverTimestamp(),
         };
 
-        const isInitiator = swap.initiatorId === uid;
-        if (isInitiator ? swap.initiatorPhotos : swap.receiverPhotos) {
-          throw new HttpsError('failed-precondition', 'Ces preuves sont déjà enregistrées et ne peuvent plus être remplacées');
-        }
         if (isInitiator) {
           updateData.initiatorPhotos = photoProof;
         } else {

@@ -108,6 +108,23 @@ async function assertNoLiveArticleTransaction(
   }
 }
 
+async function assertArticleEditable(
+  tx: FirebaseFirestore.Transaction, articleId: string, uid: string,
+): Promise<FirebaseFirestore.DocumentData> {
+  const snap = await tx.get(db.collection('articles').doc(articleId));
+  if (!snap.exists) throw new HttpsError('not-found', 'Article introuvable');
+  const existing = snap.data()!;
+  if (existing.sellerId !== uid) throw new HttpsError('permission-denied', 'Pas votre article');
+  await assertNoLiveArticleTransaction(tx, articleId, existing);
+  if (existing.isSold === true) {
+    throw new HttpsError('failed-precondition', 'Impossible de modifier un article vendu');
+  }
+  if (existing.isActive === false) {
+    throw new HttpsError('failed-precondition', 'Impossible de modifier un article desactive');
+  }
+  return existing;
+}
+
 /**
  * Increment article view count
  */
@@ -541,7 +558,7 @@ export const toggleArticleSold = onCall(
     }
 
     const { articleId } = request.data;
-    if (!articleId || typeof articleId !== 'string') {
+    if (!articleId || typeof articleId !== 'string' || articleId.includes('/')) {
       throw new HttpsError('invalid-argument', 'articleId requis');
     }
 
@@ -594,7 +611,7 @@ export const updateArticle = onCall(
     const uid = request.auth.uid;
     const { articleId, updates } = request.data ?? {};
 
-    if (!articleId || typeof articleId !== 'string') {
+    if (!articleId || typeof articleId !== 'string' || articleId.includes('/')) {
       throw new HttpsError('invalid-argument', 'articleId requis');
     }
     if (!updates || typeof updates !== 'object') {
@@ -706,6 +723,9 @@ export const updateArticle = onCall(
           );
         }
       }
+      // Admin copies must not occur under someone else's or a locked article's
+      // namespace. The final transaction repeats this guard after the copies.
+      await db.runTransaction((tx) => assertArticleEditable(tx, articleId, uid));
       sanitized.images = await promoteArticleImages(updates.images.map(
         (img: { url: string; blurhash?: string }) => {
           const entry: { url: string; blurhash?: string } = {
@@ -809,35 +829,7 @@ export const updateArticle = onCall(
     const articleRef = db.collection('articles').doc(articleId);
 
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(articleRef);
-      if (!snap.exists) {
-        throw new HttpsError('not-found', 'Article introuvable');
-      }
-
-      const existing = snap.data()!;
-
-      // Ownership check
-      if (existing.sellerId !== uid) {
-        throw new HttpsError('permission-denied', 'Pas votre article');
-      }
-
-      await assertNoLiveArticleTransaction(tx, articleId, existing);
-
-      // Block editing sold articles
-      if (existing.isSold === true) {
-        throw new HttpsError(
-          'failed-precondition',
-          'Impossible de modifier un article vendu',
-        );
-      }
-
-      // Block editing deactivated articles (task #14)
-      if (existing.isActive === false) {
-        throw new HttpsError(
-          'failed-precondition',
-          'Impossible de modifier un article desactive',
-        );
-      }
+      const existing = await assertArticleEditable(tx, articleId, uid);
 
       // Delivery options (P3-7): the resulting article must keep at least one
       // delivery mode. We only need to re-check when the caller actually touched

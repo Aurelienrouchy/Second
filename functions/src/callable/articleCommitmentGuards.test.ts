@@ -15,6 +15,7 @@ vi.mock('firebase-functions/v2/https', async () => {
   return { ...actual, onCall: (_options: unknown, handler: unknown) => handler };
 });
 import { toggleArticleSold, updateArticle } from './products';
+import { promoteArticleImages } from '../utils/articleMedia';
 type Handler = (request: { auth: { uid: string }; data: Record<string, unknown> }) => Promise<unknown>;
 const toggle = toggleArticleSold as unknown as Handler;
 const edit = updateArticle as unknown as Handler;
@@ -23,6 +24,7 @@ const article = { sellerId: 'seller', title: 'Article', price: 20, isSold: false
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.mocked(promoteArticleImages).mockReset();
   fs.reset();
   fs.setDoc('articles/item', article);
 });
@@ -62,5 +64,43 @@ describe('article commitment guards', () => {
     fs.setDoc('articles/item', { ...article, activeTransactionId: 'missing-agreement' });
     await expect(toggle(request)).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(fs.getDoc('articles/item')?.isSold).toBe(false);
+  });
+
+  it('keeps legitimate title edits and soft deletes available through the callable', async () => {
+    await edit({ ...request, data: { articleId: 'item', updates: { title: 'Un autre article' } } });
+    expect(fs.getDoc('articles/item')?.title).toBe('Un autre article');
+    await edit({ ...request, data: { articleId: 'item', updates: { isActive: false } } });
+    expect(fs.getDoc('articles/item')?.isActive).toBe(false);
+  });
+
+  it.each(['foreign', 'missing', 'sold', 'inactive', 'legacy-agreement'])
+    ('rejects %s article edits before creating any promoted Storage copies', async (state) => {
+      if (state === 'foreign') fs.setDoc('articles/item', { ...article, sellerId: 'other' });
+      if (state === 'missing') fs.setDoc('articles/item', null);
+      if (state === 'sold') fs.setDoc('articles/item', { ...article, isSold: true });
+      if (state === 'inactive') fs.setDoc('articles/item', { ...article, isActive: false });
+      if (state === 'legacy-agreement') fs.setDoc('transactions/agreement', { articleId: 'item', status: 'meetup_disputed' });
+      await expect(edit({ ...request, data: { articleId: 'item', updates: { images: [{ url: 'https://example.com/staged.jpg' }] } } })).rejects.toMatchObject({ code: state === 'foreign' ? 'permission-denied' : state === 'missing' ? 'not-found' : 'failed-precondition' });
+      expect(promoteArticleImages).not.toHaveBeenCalled();
+      expect(fs.writeOps).toHaveLength(0);
+    });
+
+  it('rechecks a commitment accepted during image promotion before publishing the new images', async () => {
+    vi.mocked(promoteArticleImages).mockImplementationOnce(async () => {
+      fs.setDoc('articles/item', { ...article, isSold: true, activeTransactionId: 'agreement' });
+      fs.setDoc('transactions/agreement', { articleId: 'item', status: 'meetup_pending' });
+      return [{ url: 'https://example.com/promoted.jpg' }];
+    });
+    await expect(edit({ ...request, data: { articleId: 'item', updates: { images: [{ url: 'https://example.com/staged.jpg' }] } } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(promoteArticleImages).toHaveBeenCalledOnce();
+    expect(fs.getDoc('articles/item')?.images).toBeUndefined();
+    expect(fs.getDoc('articles/item')?.activeTransactionId).toBe('agreement');
+  });
+
+  it('publishes validated promoted images for an available owned article', async () => {
+    const images = [{ url: 'https://example.com/promoted.jpg' }];
+    vi.mocked(promoteArticleImages).mockResolvedValueOnce(images);
+    await edit({ ...request, data: { articleId: 'item', updates: { images: [{ url: 'https://example.com/staged.jpg' }] } } });
+    expect(fs.getDoc('articles/item')?.images).toEqual(images);
   });
 });

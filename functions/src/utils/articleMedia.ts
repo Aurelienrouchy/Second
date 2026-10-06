@@ -29,19 +29,31 @@ export async function promoteArticleImages(
     const path = storageObjectPath(image.url, bucket.name);
     if (!path) throw new HttpsError('invalid-argument', 'URL de photo invalide');
     const segments = path.split('/');
-    if (allowCurrentArticle && segments[0] === 'articles' && segments[1] === articleId && segments.length >= 3) return image;
+    const currentArticle = allowCurrentArticle && segments[0] === 'articles' && segments[1] === articleId && segments.length >= 3;
     const staged = (segments[0] === 'drafts' || segments[0] === 'products') && segments[1] === uid && segments.length >= 4;
-    if (!staged) throw new HttpsError('permission-denied', 'Cette photo ne vous appartient pas');
+    if (!staged && !currentArticle) throw new HttpsError('permission-denied', 'Cette photo ne vous appartient pas');
     const source = bucket.file(path);
-    const [metadata] = await source.getMetadata();
-    if (!metadata.contentType?.startsWith('image/') || Number(metadata.size) >= 10 * 1024 * 1024) {
+    let metadata;
+    try {
+      [metadata] = await source.getMetadata();
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null && 'code' in error && Number(error.code) === 404) {
+        throw new HttpsError('invalid-argument', 'Cette photo n’existe plus');
+      }
+      throw error;
+    }
+    const size = Number(metadata.size);
+    if (!metadata.contentType?.startsWith('image/') || !Number.isFinite(size) || size <= 0 || size >= 10 * 1024 * 1024) {
       throw new HttpsError('invalid-argument', 'Photo invalide ou trop volumineuse');
     }
+    if (currentArticle) return image;
     const destinationPath = `articles/${articleId}/image_${index}_${randomUUID()}`;
     const token = randomUUID();
     const destination = bucket.file(destinationPath);
     await source.copy(destination);
-    await destination.setMetadata({ metadata: { firebaseStorageDownloadTokens: token } });
+    // A staged private/no-store policy must not leak into the public article's
+    // new URL. Existing article files are validated only, never rotated here.
+    await destination.setMetadata({ cacheControl: 'public, max-age=3600', metadata: { firebaseStorageDownloadTokens: token } });
     const downloadOrigin = process.env.FIREBASE_STORAGE_EMULATOR_HOST
       ? `http://${process.env.FIREBASE_STORAGE_EMULATOR_HOST}`
       : 'https://firebasestorage.googleapis.com';

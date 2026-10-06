@@ -143,54 +143,11 @@ service cloud.firestore {
       // Public read (browse / discovery uses unauthenticated reads).
       allow read: if true;
 
-      // The callable validates email, media ownership and promotes staged media.
-      allow create: if false;
-
-      allow update: if isAuthenticated() &&
-                       request.auth.uid == resource.data.sellerId &&
-                       isValidArticleUpdate(resource.data, request.resource.data);
-
-      // Soft delete only — owner sets isActive: false. Hard delete still
-      // allowed so the existing UI flow that calls delete() keeps
-      // working until it's migrated.
-      allow delete: if isAuthenticated() &&
-                       request.auth.uid == resource.data.sellerId &&
-                       resource.data.isSold == false;
-
-      function isValidArticleData(data) {
-        return data.keys().hasAll(['title', 'price', 'sellerId', 'isActive', 'isSold']) &&
-               isValidString(data.title, 3, 200) &&
-               isValidPrice(data.price) &&
-               data.sellerId == request.auth.uid &&
-               data.isActive is bool &&
-               data.isSold == false &&
-               !data.keys().hasAny(['soldAt', 'activeTransactionId', 'reservedBy', 'reservationTransactionId']) &&
-               (!('description' in data) || isValidString(data.description, 0, 5000)) &&
-               // moderationStatus must be 'approved' if provided (auto-approved for now)
-               (!('moderationStatus' in data) || data.moderationStatus == 'approved') &&
-               // Server-managed counters must start at zero
-               (!('views' in data) || data.views == 0) &&
-               (!('likes' in data) || data.likes == 0) &&
-               (!('likedBy' in data) || data.likedBy.size() == 0) &&
-               (!('favoritesCount' in data) || data.favoritesCount == 0);
-      }
-
-      function isValidArticleUpdate(oldData, newData) {
-        return newData.sellerId == oldData.sellerId &&
-               newData.isActive is bool &&
-               isValidString(newData.title, 3, 200) &&
-               isValidPrice(newData.price) &&
-               (!('description' in newData) || isValidString(newData.description, 0, 5000)) &&
-               // affectedKeys includes removals (deleteField / replacement set).
-               !newData.diff(oldData).affectedKeys().hasAny([
-                 'sellerId', 'isSold', 'soldAt', 'activeTransactionId',
-                 'reservedBy', 'reservationTransactionId', 'views', 'likes',
-                 'likedBy', 'favoritesCount', 'moderationStatus', 'createdAt',
-                 'sellerName', 'sellerImage', 'shopId'
-               ]) &&
-               // Accepted/reserved articles cannot be edited around their lock.
-               oldData.isSold == false;
-      }
+      // All current client edits and soft deletes already use updateArticle.
+      // Only the server can atomically check legacy transactions (including
+      // missing article locks), validate fields and promote staged images.
+      // A direct image update would otherwise bypass that promotion entirely.
+      allow create, update, delete: if false;
     }
 
     // Products Collection Rules
@@ -382,7 +339,20 @@ service cloud.firestore {
       function isValidFavoritesData(data) {
         return data.userId == request.auth.uid &&
                data.articleIds is list &&
-               data.articleIds.size() <= 500; // Cap at 500 favorites
+               data.articleIds.size() <= 500 &&
+               validArticleIds(data.articleIds);
+      }
+
+      function validArticleIds(ids) {
+        // Rules cannot loop over a list. Round-tripping the joined string
+        // rejects non-string elements and embedded path separators. Keep each
+        // ID below 375 characters (<= 1500 UTF-8 bytes) and reject reserved IDs.
+        let joined = ids.join('/');
+        return ids.size() == 0 ||
+               (joined.split('/') == ids &&
+                joined.matches('[^/]{1,375}(/[^/]{1,375})*') &&
+                !joined.matches('([^/]+/)*[.]{1,2}(/[^/]+)*') &&
+                !joined.matches('([^/]+/)*__[^/]*__(/[^/]+)*'));
       }
     }
     // Server projection acknowledgment for the owner's optimistic like count.

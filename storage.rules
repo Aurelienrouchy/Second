@@ -15,7 +15,15 @@ service firebase.storage {
       return request.auth != null
         && firestore.exists(/databases/(default)/documents/articles/$(articleId))
         && firestore.get(/databases/(default)/documents/articles/$(articleId)).data.sellerId == request.auth.uid
-        && firestore.get(/databases/(default)/documents/articles/$(articleId)).data.isSold == false;
+        && firestore.get(/databases/(default)/documents/articles/$(articleId)).data.isSold == false
+        && hasNoLiveArticleLink(firestore.get(/databases/(default)/documents/articles/$(articleId)).data);
+    }
+    function hasNoLiveArticleLink(article) {
+      return !('activeTransactionId' in article) || article.activeTransactionId == null ||
+        (article.activeTransactionId is string && article.activeTransactionId != ''
+          && firestore.exists(/databases/(default)/documents/transactions/$(article.activeTransactionId))
+          && firestore.get(/databases/(default)/documents/transactions/$(article.activeTransactionId)).data.status
+            in ['cancelled', 'refunded', 'completed', 'meetup_completed']);
     }
     function participatesInChat(chatId) {
       return request.auth != null

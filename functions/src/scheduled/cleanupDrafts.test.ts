@@ -6,7 +6,7 @@ vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: (_: unknown, han
 import { cleanupExpiredDrafts } from './cleanupDrafts';
 const run = cleanupExpiredDrafts as unknown as () => Promise<void>;
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000).toISOString();
-const file = (name: string, timeCreated: string) => ({ name, getMetadata: async () => [{ timeCreated }], delete: vi.fn() });
+const file = (name: string, timeCreated: string) => ({ name, getMetadata: async () => [{ timeCreated, generation: '100' }], delete: vi.fn() });
 describe('draft cleanup lifecycle', () => {
   beforeEach(() => { state.files = []; state.protected = new Set(); state.failReferences = false; });
   it('deletes only abandoned files older than 14 days; preserves published refs and recent files', async () => {
@@ -14,6 +14,7 @@ describe('draft cleanup lifecycle', () => {
     state.protected.add(state.files[1].name);
     await run();
     expect(state.files.map((f) => f.delete.mock.calls.length)).toEqual([1, 0, 0]);
+    expect(state.files[0].delete).toHaveBeenCalledWith({ ifGenerationMatch: '100' });
   });
   it('fails closed if published references cannot be read', async () => {
     state.files = [file('drafts/alice/old/photo.jpg', daysAgo(90))]; state.failReferences = true;
@@ -24,5 +25,32 @@ describe('draft cleanup lifecycle', () => {
     state.files = [file('drafts/alice/old/photo.jpg', 'invalid')];
     await run();
     expect(state.files[0].delete).not.toHaveBeenCalled();
+  });
+  it('preserves a freshly re-uploaded generation after inspecting an old version', async () => {
+    let currentGeneration = 'old';
+    let deleted = false;
+    const old = {
+      name: 'drafts/alice/old/photo.jpg',
+      getMetadata: async () => {
+        const inspected = { timeCreated: daysAgo(90), generation: currentGeneration };
+        currentGeneration = 'fresh'; // owner replaces it before deletion
+        return [inspected];
+      },
+      delete: vi.fn(async (options?: { ifGenerationMatch?: string }) => {
+        if (options?.ifGenerationMatch && options.ifGenerationMatch !== currentGeneration) throw { code: 412 };
+        deleted = true;
+      }),
+    };
+    state.files = [old];
+    await run();
+    expect(old.delete).toHaveBeenCalledWith({ ifGenerationMatch: 'old' });
+    expect(currentGeneration).toBe('fresh');
+    expect(deleted).toBe(false);
+  });
+  it('fails closed when the inspected object has no generation', async () => {
+    const unknown = { name: 'drafts/alice/old/photo.jpg', getMetadata: async () => [{ timeCreated: daysAgo(90) }], delete: vi.fn() };
+    state.files = [unknown];
+    await run();
+    expect(unknown.delete).not.toHaveBeenCalled();
   });
 });

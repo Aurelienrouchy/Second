@@ -8,7 +8,7 @@ vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentWritten: (_: unkno
 vi.mock('../utils/notifications', () => ({ sendPushNotification: vi.fn() }));
 import { onArticleFavorited } from './favorites';
 const run = onArticleFavorited as unknown as (event: unknown) => Promise<void>;
-const event = (uid: string, before: string[] | null, after: string[] | null) => ({ params: { userId: uid }, data: { before: { data: () => before && ({ articleIds: before }) }, after: { data: () => after && ({ articleIds: after }) } } });
+const event = (uid: string, before: unknown, after: unknown) => ({ params: { userId: uid }, data: { before: { data: () => before && ({ articleIds: before }) }, after: { data: () => after && ({ articleIds: after }) } } });
 
 describe('favorite projection: creation, replay and ordering', () => {
   beforeEach(() => {
@@ -51,5 +51,24 @@ describe('favorite projection: creation, replay and ordering', () => {
     await run(event('alice', ['a'], null));
     await run(event('alice', ['a'], null));
     expect(fs.getDoc('articles/a')).toMatchObject({ favoritesCount: 0, likes: 0 });
+  });
+  it('projects valid IDs in a malformed legacy event instead of retrying a poisoned ID forever', async () => {
+    const malformed = [null, 17, {}, [], '', 'a/b', '.', '..', '__reserved__', 'x'.repeat(1501), 'a'];
+    fs.setDoc('favorites/alice', { articleIds: malformed });
+    await run(event('alice', null, malformed));
+    await run(event('alice', null, malformed));
+    expect(fs.getDoc('articles/a')).toMatchObject({ favoritesCount: 1, likes: 1 });
+    expect(fs.writeOps.map((op) => op.path)).toEqual([
+      'favorite_memberships/a/users/alice', 'articles/a', 'search_index/a',
+      'favorite_memberships/a/users/alice', 'articles/a', 'search_index/a',
+    ]);
+  });
+  it('handles a malformed live source and whole-list events without throwing or resurrecting a favorite', async () => {
+    fs.setDoc('favorites/alice', { articleIds: {} });
+    await run(event('alice', ['a', null], {}));
+    await run(event('alice', null, ['a', null]));
+    await run(event('alice', {}, 17));
+    expect(fs.getDoc('articles/a')).toMatchObject({ favoritesCount: 0, likes: 0 });
+    expect(fs.getDoc('favorite_memberships/a/users/alice')?.counted).toBe(false);
   });
 });

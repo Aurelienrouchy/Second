@@ -39,11 +39,14 @@ export const cleanupExpiredDrafts = onSchedule(
           if (publishedPaths.has(file.name)) continue;
           const [metadata] = await file.getMetadata();
           const timeCreated = metadata.timeCreated;
-          if (!timeCreated) continue;
+          const generation = metadata.generation;
+          if (!timeCreated || !generation) continue;
           const created = new Date(timeCreated).getTime();
 
           if (Number.isFinite(created) && created < cutoff) {
-            await file.delete();
+            // The owner may have re-uploaded this path since getMetadata. Never
+            // delete a newer, freshly created generation based on the old age.
+            await file.delete({ ifGenerationMatch: generation });
             deleted++;
           }
         } catch (fileError) {

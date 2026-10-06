@@ -7,6 +7,16 @@ import { db, FieldValue } from '../config/firebase';
 import * as logger from 'firebase-functions/logger';
 import { sendPushNotification } from '../utils/notifications';
 
+/** Old events and Admin writes may predate the stricter client rules. */
+function favoriteArticleIds(value: unknown): Set<string> {
+  if (!Array.isArray(value)) return new Set();
+  return new Set(value.filter((id): id is string =>
+    typeof id === 'string' && id.length > 0 &&
+    Buffer.byteLength(id, 'utf8') <= 1500 && !id.includes('/') &&
+    id !== '.' && id !== '..' && !/^__[\s\S]*__$/.test(id),
+  ));
+}
+
 /**
  * Canonical writer of article engagement counters (P1-3 / P1-5).
  *
@@ -28,10 +38,8 @@ export const onArticleFavorited = onDocumentWritten(
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
 
-      const beforeIds: string[] = beforeData?.articleIds || [];
-      const afterIds: string[] = afterData?.articleIds || [];
-      const beforeSet = new Set(beforeIds);
-      const afterSet = new Set(afterIds);
+      const beforeSet = favoriteArticleIds(beforeData?.articleIds);
+      const afterSet = favoriteArticleIds(afterData?.articleIds);
       const touched = new Set([...beforeSet].filter((id) => !afterSet.has(id)).concat([...afterSet].filter((id) => !beforeSet.has(id))));
       const buyerUserId = event.params.userId;
       const newFavoriteIds: string[] = [];
@@ -50,7 +58,7 @@ export const onArticleFavorited = onDocumentWritten(
             tx.get(favoriteRef), tx.get(articleRef), tx.get(memberRef), tx.get(indexRef),
             tx.get(countQuery),
           ]);
-          const desired = (favorite.data()?.articleIds || []).includes(id);
+          const desired = favoriteArticleIds(favorite.data()?.articleIds).has(id);
           const added = desired && !beforeSet.has(id) && member.data()?.counted !== true;
           tx.set(memberRef, { counted: desired, updatedAt: FieldValue.serverTimestamp() });
           if (!article.exists) return false;
