@@ -109,6 +109,7 @@ export default {
         {
           "ios": {
             "deploymentTarget": "16.4",
+            "enableSceneSupport": true,
             "extraPods": [
               { "name": "GoogleUtilities", "modular_headers": true },
               { "name": "RecaptchaInterop", "modular_headers": true }
@@ -338,7 +339,7 @@ export default {
     },
     "experiments": {
       "typedRoutes": true,
-      // React Compiler activé via babel-preset-expo (SDK 56). Le preset applique
+      // React Compiler activé via babel-preset-expo (SDK 57). Le preset applique
       // automatiquement babel-plugin-react-compiler — pas d'édition manuelle de
       // babel.config.js, donc react-native-worklets/plugin reste intact.
       // Auto-mémoïse les composants (lot de cartes de liste, rails home, etc.).

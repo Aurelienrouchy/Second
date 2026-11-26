@@ -1,0 +1,65 @@
+{
+  "protocol": "phase1_sdk57_root_integration_verification_v1",
+  "verifiedAt": "2026-11-26T14:21:26.946378+00:00",
+  "sourceRoot": "/tmp/seconde-v1-git-release-20261125",
+  "baseSourceCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+  "candidateBaseWithReports": "2d21bae88a107c151d37f42b8cf8b0769e455f1c",
+  "qaSourceSha256": "a3a0b38b19d3d75500cf8ef3d7cd2f5350b06f61c1512e3c14aadc6dba02bf3c",
+  "runtimeFiles": 1063,
+  "onlyChangedInputsSince95b": [
+    "app.config.js",
+    "eas.json",
+    "package-lock.json",
+    "package.json",
+    "yarn.lock"
+  ],
+  "all1059OtherRuntimeDigestsRootCompared": true,
+  "workerReportSha256": "a3e3eb48ce0b48ff2e78dc9280cf2b119649bcd7a5df1cc8e5a165471f536a9a",
+  "integrationManifestSha256": "9b3122f6d354732fadbdb9bcaa4d9483e9684d7e7190962c19a3d560f6ec6641",
+  "rootVerifiedAllRawProofDigests": true,
+  "candidateNpmCiExitCode": 0,
+  "candidateAppTscExitCode": 0,
+  "installed": {
+    "expo": "57.0.34",
+    "reactNative": "0.86.3",
+    "hermesCompiler": "250829098.0.17"
+  },
+  "workerAutomatedResults": {
+    "jest": {
+      "suites": 224,
+      "tests": 2208,
+      "failed": 0,
+      "skipped": 0,
+      "openHandles": [],
+      "normalExit": 0,
+      "forceExit": false
+    },
+    "vitest": {
+      "files": 31,
+      "tests": 329,
+      "failed": 0,
+      "skipped": 0,
+      "normalExit": 0
+    },
+    "expoDoctorPassed": 21,
+    "expoDoctorTotal": 21,
+    "expoOnlineDependencyCheckExit": 0,
+    "appTscExit": 0,
+    "boundariesExit": 0
+  },
+  "rootReadRawJestVitestCounts": true,
+  "rootVerifiedProductionExportDigests": true,
+  "sceneSupportAndAndroidPinsIndependentlyReviewed": true,
+  "generatedNativeEditsIntegrated": false,
+  "backendOrDataProviderSdkChanged": false,
+  "newDevAndProductionNativeBuildsRequired": true,
+  "newNativeDeviceQaCompleted": false,
+  "oldNativeSdk56ClientsMustNotLoadJs57": true,
+  "rootMainWorkspaceStillSdk56ToPreserveExistingUserMetros": true,
+  "candidateRuntimeTransferLockProtectsAgainstStaleRootSnapshot": true,
+  "limitations": [
+    "Source/configuration and automated verification only; native57 compilation/install/runtime memory and actual store binaries remain to verify.",
+    "Historical95b/3a/211 store evidence is not relabeled as SDK57.",
+    "Production erasure receipt3eb and writer matrix remain immutable; new client requires separate provenance supplement."
+  ]
+}

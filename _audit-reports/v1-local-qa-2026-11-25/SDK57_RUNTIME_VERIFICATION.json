@@ -1,0 +1,529 @@
+{
+  "protocol": "phase1_sdk57_runtime_verification_v1",
+  "verifiedAt": "2026-11-26T14:17:03.532676+00:00",
+  "status": "FROZEN_AUTOMATED_AND_STATIC_PASS_NATIVE_BUILD_AND_DEVICE_QA_PENDING",
+  "baseCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+  "worktree": "/tmp/seconde-v1-sdk57-20261126",
+  "branch": "codex/v1-sdk57-runtime-20261126",
+  "integrationManifest": {
+    "path": "/tmp/seconde-v1-sdk57-verification-20261126/integration-manifest.json",
+    "sha256": "9b3122f6d354732fadbdb9bcaa4d9483e9684d7e7190962c19a3d560f6ec6641"
+  },
+  "integrationFiles": [
+    {
+      "path": "app.config.js",
+      "operation": "replace",
+      "baseSha256": "9c6c30161f1f772645643620de5ce548cc22c434cbf6f98af61c045d40377526",
+      "sha256": "863eef7b24069c51056af50de66ac240f4cbfaf4fe820df65122560551b50fb9",
+      "bytes": 12532
+    },
+    {
+      "path": "eas.json",
+      "operation": "replace",
+      "baseSha256": "094b33d7b3ee6b95ca62f39273f5cfc9f881b35f2d1d149b6e4b0edcf93b3de9",
+      "sha256": "7d6786b4d6006e3f5a3446691233b32229b52e1391d03df282a3258cc86b9f7f",
+      "bytes": 2285
+    },
+    {
+      "path": "package.json",
+      "operation": "replace",
+      "baseSha256": "8f8d01362623406944877d37fb9527db2352076d48d532164b2d58f8152d32a2",
+      "sha256": "edf17537997f6d97fc40d46a023670ed4785d47ea259f2bbe6c3df09fc1ff239",
+      "bytes": 4977
+    },
+    {
+      "path": "package-lock.json",
+      "operation": "replace",
+      "baseSha256": "20515b7e7ad64735ddf6d1a56f7d3c45f029aa0d5fb7011f430aa5af58b7b57b",
+      "sha256": "3aa72cc8e1f229a5fff97a1b8f632c0255c90c2d651cbef6d8dc1575fa6aaa40",
+      "bytes": 777884
+    },
+    {
+      "path": "yarn.lock",
+      "operation": "delete",
+      "baseSha256": "4c37de346408efab5e4d6e9d32c40d855ea47353f552ce67bcdbde005c04ab69",
+      "sha256": null,
+      "bytes": null
+    }
+  ],
+  "changedDeclaredDependencies": [
+    {
+      "package": "@expo/ui",
+      "category": "dependencies",
+      "beforeRange": "~56.0.26",
+      "afterRange": "~57.0.26",
+      "lockedVersion": "57.0.26"
+    },
+    {
+      "package": "expo",
+      "category": "dependencies",
+      "beforeRange": "~56.0.23",
+      "afterRange": "~57.0.34",
+      "lockedVersion": "57.0.34"
+    },
+    {
+      "package": "expo-apple-authentication",
+      "category": "dependencies",
+      "beforeRange": "~56.0.4",
+      "afterRange": "~57.0.2",
+      "lockedVersion": "57.0.2"
+    },
+    {
+      "package": "expo-application",
+      "category": "dependencies",
+      "beforeRange": "~56.0.3",
+      "afterRange": "~57.0.3",
+      "lockedVersion": "57.0.3"
+    },
+    {
+      "package": "expo-blur",
+      "category": "dependencies",
+      "beforeRange": "~56.0.4",
+      "afterRange": "~57.0.3",
+      "lockedVersion": "57.0.3"
+    },
+    {
+      "package": "expo-build-properties",
+      "category": "dependencies",
+      "beforeRange": "~56.0.27",
+      "afterRange": "~57.0.24",
+      "lockedVersion": "57.0.24"
+    },
+    {
+      "package": "expo-camera",
+      "category": "dependencies",
+      "beforeRange": "~56.0.8",
+      "afterRange": "~57.0.6",
+      "lockedVersion": "57.0.6"
+    },
+    {
+      "package": "expo-constants",
+      "category": "dependencies",
+      "beforeRange": "~56.0.16",
+      "afterRange": "~57.0.25",
+      "lockedVersion": "57.0.25"
+    },
+    {
+      "package": "expo-crypto",
+      "category": "dependencies",
+      "beforeRange": "~56.0.5",
+      "afterRange": "~57.0.4",
+      "lockedVersion": "57.0.4"
+    },
+    {
+      "package": "expo-dev-client",
+      "category": "dependencies",
+      "beforeRange": "~56.0.27",
+      "afterRange": "~57.0.22",
+      "lockedVersion": "57.0.22"
+    },
+    {
+      "package": "expo-device",
+      "category": "dependencies",
+      "beforeRange": "~56.0.4",
+      "afterRange": "~57.0.2",
+      "lockedVersion": "57.0.2"
+    },
+    {
+      "package": "expo-file-system",
+      "category": "dependencies",
+      "beforeRange": "~56.0.7",
+      "afterRange": "~57.0.7",
+      "lockedVersion": "57.0.7"
+    },
+    {
+      "package": "expo-font",
+      "category": "dependencies",
+      "beforeRange": "~56.0.5",
+      "afterRange": "~57.0.4",
+      "lockedVersion": "57.0.4"
+    },
+    {
+      "package": "expo-haptics",
+      "category": "dependencies",
+      "beforeRange": "~56.0.3",
+      "afterRange": "~57.0.3",
+      "lockedVersion": "57.0.3"
+    },
+    {
+      "package": "expo-image",
+      "category": "dependencies",
+      "beforeRange": "~56.0.13",
+      "afterRange": "~57.0.5",
+      "lockedVersion": "57.0.5"
+    },
+    {
+      "package": "expo-image-manipulator",
+      "category": "dependencies",
+      "beforeRange": "~56.0.26",
+      "afterRange": "~57.0.23",
+      "lockedVersion": "57.0.23"
+    },
+    {
+      "package": "expo-image-picker",
+      "category": "dependencies",
+      "beforeRange": "~56.0.25",
+      "afterRange": "~57.0.22",
+      "lockedVersion": "57.0.22"
+    },
+    {
+      "package": "expo-linear-gradient",
+      "category": "dependencies",
+      "beforeRange": "~56.0.4",
+      "afterRange": "~57.0.2",
+      "lockedVersion": "57.0.2"
+    },
+    {
+      "package": "expo-linking",
+      "category": "dependencies",
+      "beforeRange": "~56.0.18",
+      "afterRange": "~57.0.14",
+      "lockedVersion": "57.0.14"
+    },
+    {
+      "package": "expo-localization",
+      "category": "dependencies",
+      "beforeRange": "~56.0.6",
+      "afterRange": "~57.0.2",
+      "lockedVersion": "57.0.2"
+    },
+    {
+      "package": "expo-network",
+      "category": "dependencies",
+      "beforeRange": "~56.0.5",
+      "afterRange": "~57.0.3",
+      "lockedVersion": "57.0.3"
+    },
+    {
+      "package": "expo-notifications",
+      "category": "dependencies",
+      "beforeRange": "~56.0.26",
+      "afterRange": "~57.0.26",
+      "lockedVersion": "57.0.26"
+    },
+    {
+      "package": "expo-router",
+      "category": "dependencies",
+      "beforeRange": "~56.2.21",
+      "afterRange": "~57.0.32",
+      "lockedVersion": "57.0.32"
+    },
+    {
+      "package": "expo-secure-store",
+      "category": "dependencies",
+      "beforeRange": "~56.0.4",
+      "afterRange": "~57.0.4",
+      "lockedVersion": "57.0.4"
+    },
+    {
+      "package": "expo-sharing",
+      "category": "dependencies",
+      "beforeRange": "~56.0.26",
+      "afterRange": "~57.0.27",
+      "lockedVersion": "57.0.27"
+    },
+    {
+      "package": "expo-splash-screen",
+      "category": "dependencies",
+      "beforeRange": "~56.0.15",
+      "afterRange": "~57.0.12",
+      "lockedVersion": "57.0.12"
+    },
+    {
+      "package": "expo-status-bar",
+      "category": "dependencies",
+      "beforeRange": "~56.0.4",
+      "afterRange": "~57.0.1",
+      "lockedVersion": "57.0.1"
+    },
+    {
+      "package": "expo-symbols",
+      "category": "dependencies",
+      "beforeRange": "~56.0.7",
+      "afterRange": "~57.0.3",
+      "lockedVersion": "57.0.3"
+    },
+    {
+      "package": "expo-system-ui",
+      "category": "dependencies",
+      "beforeRange": "~56.0.5",
+      "afterRange": "~57.0.4",
+      "lockedVersion": "57.0.4"
+    },
+    {
+      "package": "react-native",
+      "category": "dependencies",
+      "beforeRange": "0.85.3",
+      "afterRange": "0.86.3",
+      "lockedVersion": "0.86.3"
+    },
+    {
+      "package": "react-native-gesture-handler",
+      "category": "dependencies",
+      "beforeRange": "~2.31.1",
+      "afterRange": "~2.32.0",
+      "lockedVersion": "2.32.0"
+    },
+    {
+      "package": "react-native-reanimated",
+      "category": "dependencies",
+      "beforeRange": "4.3.1",
+      "afterRange": "4.5.1",
+      "lockedVersion": "4.5.1"
+    },
+    {
+      "package": "react-native-worklets",
+      "category": "dependencies",
+      "beforeRange": "0.8.3",
+      "afterRange": "0.10.1",
+      "lockedVersion": "0.10.1"
+    },
+    {
+      "package": "@react-native/jest-preset",
+      "category": "devDependencies",
+      "beforeRange": "^0.85.3",
+      "afterRange": "^0.86.3",
+      "lockedVersion": "0.86.3"
+    },
+    {
+      "package": "eslint-config-expo",
+      "category": "devDependencies",
+      "beforeRange": "~56.0.4",
+      "afterRange": "~57.0.2",
+      "lockedVersion": "57.0.2"
+    },
+    {
+      "package": "jest-expo",
+      "category": "devDependencies",
+      "beforeRange": "~56.0.5",
+      "afterRange": "~57.0.6",
+      "lockedVersion": "57.0.6"
+    }
+  ],
+  "coreDataProvidersUnchanged": [
+    {
+      "package": "firebase",
+      "before": "12.12.1",
+      "after": "12.12.1"
+    },
+    {
+      "package": "@firebase/app",
+      "before": "0.14.11",
+      "after": "0.14.11"
+    },
+    {
+      "package": "@firebase/auth",
+      "before": "1.13.0",
+      "after": "1.13.0"
+    },
+    {
+      "package": "@firebase/firestore",
+      "before": "4.14.0",
+      "after": "4.14.0"
+    },
+    {
+      "package": "@firebase/storage",
+      "before": "0.14.2",
+      "after": "0.14.2"
+    },
+    {
+      "package": "@stripe/stripe-react-native",
+      "before": "0.66.0",
+      "after": "0.66.0"
+    },
+    {
+      "package": "posthog-react-native",
+      "before": "4.54.4",
+      "after": "4.54.4"
+    }
+  ],
+  "runtime": {
+    "expo": "57.0.34",
+    "reactNative": "0.86.3",
+    "hermesV1NativePin": "hermes-v250829098.0.17",
+    "hermesV1Compiler": "250829098.0.17",
+    "reanimated": "4.5.1",
+    "worklets": "0.10.1",
+    "react": "19.2.3"
+  },
+  "configurationChanges": {
+    "threeEasTemplates": "expo-template-bare-minimum@57.0.36",
+    "iosSceneSupportEnabled": true,
+    "canonicalPackageManager": "npm",
+    "unusedYarnLockDeleted": true,
+    "yarnBaselineBackupPrivate": "/tmp/seconde-v1-sdk57-verification-20261126/yarn-lock-baseline-backup.txt",
+    "kotlinSdkBuildToolsPinsPreserved": true,
+    "googleUtilitiesAndRecaptchaModularPodsPreserved": true,
+    "stripeR8RulePreserved": true,
+    "devProdIdentifiersAndProviderConfigurationPreserved": true,
+    "productionFinanceAndQaFlagsPreservedClosed": true,
+    "reactCompilerPreserved": true,
+    "appServicesStoresHooksRoutesTestsUnchanged": true
+  },
+  "commands": {
+    "baselineNpmCiExitCode": 0,
+    "finalNpmCiExitCode": 0,
+    "finalExpoInstallFixNpmExitCode": 0,
+    "onlineExpoInstallCheckExitCode": 0,
+    "expoDoctorExitCode": 0,
+    "expoDoctorChecksPassed": 21,
+    "expoDoctorChecksTotal": 21,
+    "appTypecheckExitCode": 0,
+    "architectureBoundariesExitCode": 0,
+    "jestExitCode": 0,
+    "vitestExitCode": 0,
+    "productionPrebuildExitCode": 0
+  },
+  "automated": {
+    "jest": {
+      "numTotalTestSuites": 224,
+      "numPassedTestSuites": 224,
+      "numTotalTests": 2208,
+      "numPassedTests": 2208,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "openHandles": []
+    },
+    "jestForceExit": false,
+    "jestDetectOpenHandles": true,
+    "jestWatchman": false,
+    "vitest": {
+      "numTotalTests": 329,
+      "numPassedTests": 329,
+      "numFailedTests": 0,
+      "numPendingTests": 0
+    },
+    "vitestFiles": 31,
+    "newSkipsIntroduced": false,
+    "testFilesChanged": false
+  },
+  "productionExports": [
+    {
+      "platform": "ios",
+      "exitCode": 0,
+      "bundlePath": "/tmp/seconde-v1-sdk57-verification-20261126/export-ios/_expo/static/js/ios/index-4e95d8f8fbb1b63dd27cae605d5fdd10.hbc",
+      "bundleBytes": 17786346,
+      "bundleSha256": "da94933cf097229c9e3613faf76748766907c02ef3f83d000c5ac38cbdb05d17",
+      "hermesBytecodeVersion": 98,
+      "metadataSha256": "4fb06515ba06b145777d6b6020c46d4b384e76686a50499ec85e35ddb895a4e5",
+      "executed": false
+    },
+    {
+      "platform": "android",
+      "exitCode": 0,
+      "bundlePath": "/tmp/seconde-v1-sdk57-verification-20261126/export-android/_expo/static/js/android/index-7fde4654334323b4c24579fe8fd86042.hbc",
+      "bundleBytes": 18002703,
+      "bundleSha256": "a576f8df7d6126937d9de7027300aaa87ff19066e2a6f9ee6d109befb198f021",
+      "hermesBytecodeVersion": 98,
+      "metadataSha256": "be3774b39005fe20bb7541c164f92a268c338fd456096d59d98027b86e48918e",
+      "executed": false
+    }
+  ],
+  "nativeGeneration": {
+    "viaExpoPrebuildOnly": true,
+    "template": "expo-template-bare-minimum@57.0.36",
+    "sceneDelegateClass": "EXExpoAppSceneDelegate",
+    "sceneManifestGenerated": true,
+    "podInstallRun": false,
+    "nativeCompilationRun": false,
+    "baselineTrackedNativeFiles": 77,
+    "generatedTrackedNativeDiffCount": 12,
+    "generatedNativeChangesMustNotBeIntegrated": true,
+    "packageJsonPrebuildNoChanges": true
+  },
+  "proofs": {
+    "npm-ci-baseline.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/npm-ci-baseline.log",
+      "bytes": 3040,
+      "sha256": "8851d41a4393a728fa521ea626780b4b037eab06a837c19cb7c9eddf39cec497"
+    },
+    "npm-ci-sdk57.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/npm-ci-sdk57.log",
+      "bytes": 2823,
+      "sha256": "bfcd2cf517a9a3c6de7898c258a14d953dd904eeba2ed2de902938cddb943e8a"
+    },
+    "expo-install-check.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/expo-install-check.log",
+      "bytes": 257,
+      "sha256": "d26ce4cf91842e2b41228535a6ba7c30f5c01b554893debae0e50eb53738b636"
+    },
+    "expo-doctor-canonical-npm.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/expo-doctor-canonical-npm.log",
+      "bytes": 78,
+      "sha256": "b619666ca007a1704d14d6848f0d0ac005b94a30bb51c389a366599a24daac3c"
+    },
+    "expo-install-final-fix.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/expo-install-final-fix.log",
+      "bytes": 255,
+      "sha256": "c6efdd096a5287e199d0d1a68082673cb3ac3103a29caab411452b87c3dd8e3b"
+    },
+    "tsc-app.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/tsc-app.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "boundaries.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/boundaries.log",
+      "bytes": 278,
+      "sha256": "695508a90b5df29fabb719e1faa5757be253746c3ac71011dfc5c7edf7804105"
+    },
+    "jest.json": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/jest.json",
+      "bytes": 893133,
+      "sha256": "f6940143c81220cb5b25659acb23e160234eb8ade8a9875c95d7c92f6e070e7e"
+    },
+    "jest.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/jest.log",
+      "bytes": 467488,
+      "sha256": "f660937df28dde34d24cd37a54d51cfa0688613409795e8a220d8f8e7504426f"
+    },
+    "vitest.json": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/vitest.json",
+      "bytes": 112161,
+      "sha256": "0e3cabeede9be2ac1483f33f667edd49d88694ae7964a3bb01207a753f2ad2ab"
+    },
+    "vitest.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/vitest.log",
+      "bytes": 79,
+      "sha256": "27d487425818f80a26cb6f7447cf4de087f7c99972703a2070edf5a0f971816f"
+    },
+    "export-ios.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/export-ios.log",
+      "bytes": 3838,
+      "sha256": "f2d9efaf63ed4565bfb2de6770af8c0fce2bf3da8f4e1c32e725193133bc8454"
+    },
+    "export-android.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/export-android.log",
+      "bytes": 4061,
+      "sha256": "cebcb24f0cd991dd81692609603bca5c827669cf42179a466ff8d6f4c8750f62"
+    },
+    "prebuild-production.log": {
+      "path": "/tmp/seconde-v1-sdk57-verification-20261126/prebuild-production.log",
+      "bytes": 375,
+      "sha256": "b9e2e31a65e1249122b4b2a1606d056f0567fb760ba0df8fe2d1c13986760423"
+    }
+  },
+  "setupIncidentsRetained": [
+    "The SDK56 CLI recursive upgrade selected inherited Yarn despite the outer npm option; generated Yarn changes were privately saved and the unused lock was ultimately removed.",
+    "The initial mixed CLI tree reported autoAddConfigPlugins missing after dependency replacement; clean npmci and a fresh final expo install --fix --npm both completed0.",
+    "jest-expo57 required @react-native/jest-preset^0.86.3; this actual peer conflict was resolved by the matching preset, without --force or --legacy-peer-deps.",
+    "Doctor initially reported duplicate lockfiles only; canonical npm with Yarn removed passed21/21."
+  ],
+  "sourceReferences": [
+    "https://expo.dev/changelog/sdk-57",
+    "https://github.com/expo/expo/issues/46519"
+  ],
+  "limitations": [
+    "No native SDK57 binary compiled or installed; new Dev and Production native builds remain required.",
+    "No on-device UI or release memory measurement claimed.",
+    "New JS57 must not be loaded into the existing SDK56 development clients.",
+    "No backend tests rerun because backend code/SDK sources are unchanged; no global backend-green claim.",
+    "The inherited extended test-typecheck baseline was not rerun or declared green.",
+    "Production export and generated structure are local proofs, not actual cloud build artifacts."
+  ],
+  "noCloudDeployOrBuild": true,
+  "noManualGitCommitOrPush": true,
+  "noManualNativeEdits": true,
+  "sharedMetrosAndDevicesUntouched": true,
+  "noProductionSecretsOrDataCopiedToDev": true
+}

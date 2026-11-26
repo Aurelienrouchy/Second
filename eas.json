@@ -16,7 +16,7 @@
       },
       "environment": "development",
       "channel": "development",
-      "prebuildCommand": "prebuild --template expo-template-bare-minimum@56.0.38"
+      "prebuildCommand": "prebuild --template expo-template-bare-minimum@57.0.36"
     },
     "preview": {
       "distribution": "internal",
@@ -29,7 +29,7 @@
       },
       "environment": "development",
       "channel": "preview",
-      "prebuildCommand": "prebuild --template expo-template-bare-minimum@56.0.38"
+      "prebuildCommand": "prebuild --template expo-template-bare-minimum@57.0.36"
     },
     "testflight-dev": {
       "extends": "preview",
@@ -47,7 +47,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "prebuildCommand": "prebuild --template expo-template-bare-minimum@56.0.38",
+      "prebuildCommand": "prebuild --template expo-template-bare-minimum@57.0.36",
       "env": {
         "EXPO_PUBLIC_USE_RN_FETCH": "1",
         "EXPO_PUBLIC_APP_ENV": "production",
