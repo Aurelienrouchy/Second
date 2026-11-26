@@ -1,5 +1,10 @@
 import { establishIdentityFixture } from '@/tests/jest/helpers/identityFixture';
-beforeEach(() => establishIdentityFixture('u1'));
+import NativeStorage from '@react-native-async-storage/async-storage';
+import {createHash} from 'node:crypto';
+import {captureTradeSession, assertTradeSessionCurrent} from '@/services/tradeOperation';
+import {readWithdrawalAttempt} from '@/services/withdrawalIntentJournal';
+import type {WithdrawalAttempt, WithdrawalIntentResult} from '@/types/wallet';
+beforeEach(async () => {await NativeStorage.clear(); establishIdentityFixture('u1');});
 /**
  * WalletService — porte-monnaie virtuel (3 poches + retrait).
  *
@@ -72,6 +77,19 @@ const ACTIVE_WALLET: WalletInfo = {
   ],
 };
 
+function withdrawalAttempt(amountCents: number): WithdrawalAttempt {
+  return {version: 1, uid: 'u1', requestId: 'historical_withdrawal_request_0001', amountCents, bankAccountId: 'ba_synthetic'};
+}
+function withdrawalReceipt(attempt: WithdrawalAttempt): WithdrawalIntentResult {
+  const digest = createHash('sha256').update(JSON.stringify([attempt.uid, attempt.requestId])).digest('hex');
+  return {protocol: 'withdrawal_intent_v1', requestId: attempt.requestId, ownerId: attempt.uid, withdrawalRequestId: `wi_${digest}`,
+    amountCents: attempt.amountCents, currency: 'CAD', bankAccountId: attempt.bankAccountId, intentCommitted: true, debitCommitted: true,
+    replay: false, success: true, newBalance: 5000, balanceSource: 'withdrawal_debit_receipt', transferId: 'tr_synthetic', payoutId: 'po_synthetic',
+    status: 'processing', operationState: 'submitted', completedReceiptQualified: false, recoveryCommitted: false, recoveryLedgerId: null,
+    recoveredAt: null, transferState: 'created', payoutState: 'created', actionRequired: false, retryPermissionGranted: false,
+    action: 'refreshWithdrawals', ownerMessage: 'Demande enregistrée ; arrivée bancaire non confirmée.'};
+}
+
 describe('WalletService.getWalletInfo', () => {
   it('cible la callable getWalletInfo et renvoie les 3 poches + sellerDebt tels quels (cents)', async () => {
     const callable = stubCallable(ACTIVE_WALLET);
@@ -125,15 +143,22 @@ describe('WalletService.activateWallet', () => {
 
 describe('WalletService.withdrawFromWallet', () => {
   it('cible walletWithdraw avec le MONTANT EN CENTS (jamais en dollars) et renvoie newBalance', async () => {
-    const callable = stubCallable({ success: true, newBalance: 5000 });
+    const attempt = withdrawalAttempt(7000), native = withdrawalReceipt(attempt);
+    const session = captureTradeSession('u1'), assertCurrent = () => assertTradeSessionCurrent(session);
+    const callable = stubCallable(native);
+    callable.mockImplementation(async () => {
+      expect(await readWithdrawalAttempt('u1', assertCurrent)).toEqual(attempt);
+      return {data: native};
+    });
 
     // 70,00 $ = 7000 cents ; on retire ce montant d'un solde fictif.
-    const res = await WalletService.withdrawFromWallet(7000);
+    const res = await WalletService.withdrawFromWallet(attempt, {assertCurrent});
 
     expect(lastCallableName()).toBe('walletWithdraw');
     // Invariant central : le contrat envoie des cents bruts, pas de division.
-    expect(callable).toHaveBeenCalledWith({ amount: 7000 });
-    expect(res).toEqual({ success: true, newBalance: 5000 });
+    expect(callable).toHaveBeenCalledWith({requestId: attempt.requestId, mode: 'request', expectedUid: 'u1', amount: 7000, expectedBankAccountId: attempt.bankAccountId});
+    expect(res).toEqual(native); expect(res.newBalance).toBe(5000); expect(res.completedReceiptQualified).toBe(false);
+    expect(await readWithdrawalAttempt('u1', assertCurrent)).toEqual(attempt);
   });
 
   it('laisse remonter une erreur de garde serveur (litige / dette / solde) à l’appelant', async () => {
@@ -146,22 +171,49 @@ describe('WalletService.withdrawFromWallet', () => {
     const callable = jest.fn().mockRejectedValue(err);
     mockHttpsCallable.mockReturnValue(callable);
 
-    await expect(WalletService.withdrawFromWallet(2000)).rejects.toMatchObject({
+    const attempt = withdrawalAttempt(2000), session = captureTradeSession('u1'), assertCurrent = () => assertTradeSessionCurrent(session);
+    await expect(WalletService.withdrawFromWallet(attempt, {assertCurrent})).rejects.toMatchObject({
       code: 'functions/failed-precondition',
       message: 'Un litige est en cours.',
     });
+    expect(await readWithdrawalAttempt('u1', assertCurrent)).toEqual(attempt);
+    expect(callable).toHaveBeenCalledWith(expect.objectContaining({amount: 2000, mode: 'request', requestId: attempt.requestId}));
+  });
+
+  it('observes the same persisted intention on reentry instead of dispatching another withdrawal', async () => {
+    const attempt = withdrawalAttempt(7000), session = captureTradeSession('u1'), assertCurrent = () => assertTradeSessionCurrent(session);
+    const callable = stubCallable(withdrawalReceipt(attempt));
+    await WalletService.withdrawFromWallet(attempt, {assertCurrent}); await WalletService.withdrawFromWallet(attempt, {assertCurrent});
+    expect(callable.mock.calls.map(([input]) => input.mode)).toEqual(['request', 'observe']);
+    expect(callable.mock.calls.map(([input]) => input.requestId)).toEqual([attempt.requestId, attempt.requestId]);
+  });
+
+  it('refuses a small balance without its closure source before any RPC', async () => {
+    const attempt = withdrawalAttempt(500), session = captureTradeSession('u1');
+    await expect(WalletService.withdrawFromWallet(attempt, {assertCurrent: () => assertTradeSessionCurrent(session)})).rejects.toThrow('reste à vérifier');
+    expect(mockHttpsCallable).not.toHaveBeenCalled();
   });
 });
 
 describe('WalletService.payWithWallet', () => {
   it('cible payWithWallet avec le transactionId et renvoie le newBalance', async () => {
-    const callable = stubCallable({ success: true, newBalance: 8000 });
+    const native = {success: true, transactionId: 'tx_42', replay: false, paymentCommitted: true, paymentPermissionGranted: false,
+      currentStatus: 'paid', newBalance: 8000, balanceSource: 'wallet_debit_receipt'};
+    const callable = stubCallable(native);
 
     const res = await WalletService.payWithWallet('tx_42');
 
     expect(lastCallableName()).toBe('payWithWallet');
     expect(callable).toHaveBeenCalledWith({ transactionId: 'tx_42' });
-    expect(res).toEqual({ success: true, newBalance: 8000 });
+    expect(res).toEqual(native); expect(res.newBalance).toBe(8000); expect(res.paymentPermissionGranted).toBe(false);
+  });
+
+  it('does not adopt an abbreviated or foreign wallet payment receipt as a successful payment', async () => {
+    stubCallable({success: true, newBalance: 8000});
+    await expect(WalletService.payWithWallet('tx_42')).rejects.toThrow('reste à vérifier');
+    stubCallable({success: true, transactionId: 'other', replay: false, paymentCommitted: true, paymentPermissionGranted: false,
+      currentStatus: 'paid', newBalance: 8000, balanceSource: 'wallet_debit_receipt'});
+    await expect(WalletService.payWithWallet('tx_42')).rejects.toThrow('reste à vérifier');
   });
 
   it('laisse remonter une erreur (ex. solde insuffisant) à l’appelant', async () => {

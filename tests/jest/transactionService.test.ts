@@ -1,5 +1,13 @@
 import {auth} from '@/config/firebaseConfig';
-beforeEach(() => Object.defineProperty(auth, 'currentUser', {value: {uid: 'buyer'}, configurable: true, writable: true}));
+import NativeStorage from '@react-native-async-storage/async-storage';
+import {createHash} from 'node:crypto';
+import {establishIdentityFixture, clearIdentityFixture} from '@/tests/jest/helpers/identityFixture';
+import {captureTradeSession, assertTradeSessionCurrent} from '@/services/tradeOperation';
+import {historicalAdminPreview, historicalAdminAttempt, historicalAdminFinancialDecision} from '@/tests/jest/helpers/historicalServiceFinancialFixture';
+import {readAdminFinancialAttempts, type AdminFinancialAttempt} from '@/services/adminFinancialDecisionJournal';
+import {readDisputeResolutionAttempts, type DisputeResolutionAttempt} from '@/services/disputeResolutionJournal';
+beforeEach(async () => {await NativeStorage.clear(); establishIdentityFixture('buyer');});
+afterEach(clearIdentityFixture);
 /**
  * TransactionService — création / mise à jour de transactions d'achat.
  *
@@ -25,9 +33,6 @@ import { getDocs, limit, where, updateDoc } from 'firebase/firestore';
 
 import { TransactionService, mapTransaction, sortTransactions } from '@/services/transactionService';
 import type { MeetupSpot, ShippingAddress } from '@/types';
-jest.mock('@/store/authStore', () => ({getAuthSessionGeneration: () => 1,
-  useAuthStore: Object.assign((selector: (state: unknown) => unknown) => selector(require('@/store/authStore').useAuthStore.getState()), {getState: () => ({authenticatedUid: 'buyer', user: {id: 'buyer'}})}),
-}));
 
 // Les modules firebase sont déjà mockés globalement (jest.setup.js) ; on les
 // récupère en tant que mocks pour piloter les retours et inspecter les appels.
@@ -372,37 +377,95 @@ describe('TransactionService.sellerCancelTransaction (F74)', () => {
 });
 
 describe('TransactionService — résolution admin de litige (F27/F88)', () => {
-  it('adminRefundTransaction délègue avec transactionId + reason', async () => {
-    const callable = jest.fn().mockResolvedValue({ data: { success: true } });
+  beforeEach(() => {
+    establishIdentityFixture('admin');
+    Object.defineProperty(auth.currentUser, 'getIdTokenResult', {configurable: true, value: async () => ({claims: {
+      admin: true, auth_time: Math.floor(Date.now() / 1000), firebase: {sign_in_provider: 'password'},
+    }})});
+  });
+  const guard = () => {const session = captureTradeSession('admin'); return () => assertTradeSessionCurrent(session);};
+
+  it('adminRefundTransaction délègue la même intention native, le montant en cents et la note après preview, sans annoncer un remboursement pending comme terminé', async () => {
+    const assertCurrent = guard(), preview = historicalAdminPreview('admin');
+    let attempt!: AdminFinancialAttempt;
+    const callable = jest.fn(async (input: {mode: string}) => {
+      if (input.mode === 'preview') return {data: preview};
+      expect(await readAdminFinancialAttempts('admin', assertCurrent)).toEqual([attempt]);
+      return {data: historicalAdminFinancialDecision(attempt)};
+    });
     mockHttpsCallable.mockReturnValue(callable);
 
-    await TransactionService.adminRefundTransaction('tx_1', 'admin_dispute_refund');
+    const confirmedPreview = await TransactionService.previewAdminFinancialDecision('tx_1', 'dispute_1', 'admin', 'refund_without_return', assertCurrent);
+    attempt = historicalAdminAttempt(confirmedPreview, {note: 'admin_dispute_refund'});
+    const receipt = await TransactionService.adminRefundTransaction(attempt, assertCurrent, 'confirm');
 
     expect(mockHttpsCallable).toHaveBeenCalledWith(
       expect.anything(),
       'adminRefundTransaction',
     );
     expect(callable).toHaveBeenCalledWith({
-      transactionId: 'tx_1',
-      reason: 'admin_dispute_refund',
+      transactionId: 'tx_1', expectedDisputeId: 'dispute_1', expectedAdminUid: 'admin', requestId: attempt.requestId,
+      previewId: preview.previewId, expectedSourceHash: preview.sourceHash, expectedTotalCents: 5000, expectedCardCents: 4000,
+      expectedWalletCents: 1000, expectedSellerDebitCents: 5000, decisionType: 'refund_without_return', note: 'admin_dispute_refund', mode: 'confirm', accepted: true,
     });
+    expect(receipt).toMatchObject({outcome: 'reserved', disputesClosed: 0, financial: {success: false, status: 'pending', outstandingCardCents: 4000}});
+    expect(await readAdminFinancialAttempts('admin', assertCurrent)).toEqual([attempt]);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
   });
 
   it('resolveDispute (faveur vendeur) délègue et remonte la forme de retour', async () => {
-    const callable = jest.fn().mockResolvedValue({
-      data: { success: true, restored: 'delivered', releasedCents: 1200, disputesClosed: 1 },
+    const assertCurrent = guard(), preview = historicalAdminPreview('admin', 'dismissed');
+    let attempt!: DisputeResolutionAttempt;
+    const callable = jest.fn(async (input: {mode: string}) => {
+      if (input.mode === 'preview') return {data: preview};
+      expect(await readDisputeResolutionAttempts('admin', assertCurrent)).toEqual([attempt]);
+      return {data: resolutionReceipt(attempt)};
     });
     mockHttpsCallable.mockReturnValue(callable);
 
-    const result = await TransactionService.resolveDispute('tx_1');
+    const confirmedPreview = await TransactionService.previewAdminFinancialDecision('tx_1', 'dispute_1', 'admin', 'dismissed', assertCurrent);
+    attempt = {version: 1, adminUid: 'admin', transactionId: 'tx_1', disputeId: 'dispute_1', requestId: 'historical_dismiss_request_0001',
+      note: 'Classement documentaire synthétique en faveur du vendeur.', previewId: confirmedPreview.previewId,
+      expectedSourceHash: confirmedPreview.sourceHash, previewMonetaryContext: 'new_instruction', expectedSettledRefundIntentId: null};
+    const result = await TransactionService.resolveDispute(attempt, assertCurrent, 'confirm');
 
     expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'resolveDispute');
-    expect(callable).toHaveBeenCalledWith({ transactionId: 'tx_1' });
+    expect(callable).toHaveBeenCalledWith({transactionId: 'tx_1', requestId: attempt.requestId, expectedAdminUid: 'admin', expectedDisputeId: 'dispute_1',
+      note: attempt.note, mode: 'confirm', accepted: true, previewId: attempt.previewId, expectedSourceHash: attempt.expectedSourceHash});
+    expect(result.outcome).toBe('dismissed');
+    if (result.outcome !== 'dismissed') throw new Error('A qualified dismissal receipt was expected.');
     expect(result.restored).toBe('delivered');
     expect(result.releasedCents).toBe(1200);
     expect(result.disputesClosed).toBe(1);
+    expect(result.deviceDeliveryVerified).toBe(false); expect(result.readingVerified).toBe(false);
+    expect(await readDisputeResolutionAttempts('admin', assertCurrent)).toEqual([attempt]); expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  it('refuse une décision financière sans claim admin courant avant RPC et sans journaliser une permission', async () => {
+    Object.defineProperty(auth.currentUser, 'getIdTokenResult', {configurable: true, value: async () => ({claims: {}})});
+    const assertCurrent = guard(), attempt = historicalAdminAttempt(historicalAdminPreview('admin'));
+    await expect(TransactionService.adminRefundTransaction(attempt, assertCurrent, 'confirm')).rejects.toThrow('administrateur');
+    expect(mockHttpsCallable).not.toHaveBeenCalled(); expect(await readAdminFinancialAttempts('admin', assertCurrent)).toEqual([]);
+  });
+
+  it('conserve l’intention financière lorsque le reçu retour appartient à un autre opérateur', async () => {
+    const assertCurrent = guard(), attempt = historicalAdminAttempt(historicalAdminPreview('admin'));
+    mockHttpsCallable.mockReturnValue(jest.fn(async () => ({data: {...historicalAdminFinancialDecision(attempt), actorUid: 'foreign-admin'}})));
+    await expect(TransactionService.adminRefundTransaction(attempt, assertCurrent, 'confirm')).rejects.toThrow('doit être relue');
+    expect(await readAdminFinancialAttempts('admin', assertCurrent)).toEqual([attempt]); expect(mockUpdateDoc).not.toHaveBeenCalled();
   });
 });
+
+function resolutionReceipt(attempt: DisputeResolutionAttempt) {
+  const sha = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  return {protocol: 'commercial_dispute_resolution_v1', success: true, decisionCommitted: true, transactionId: attempt.transactionId,
+    expectedDisputeId: attempt.disputeId, requestId: attempt.requestId, decisionId: sha([attempt.transactionId, attempt.adminUid, attempt.requestId]),
+    actorUid: attempt.adminUid, outcome: 'dismissed', note: attempt.note, restored: 'delivered', currentOrderStatus: 'delivered', releasedCents: 1200,
+    disputesClosed: 1, disputeIds: [attempt.disputeId], orderResolutionCommitted: true, remainingOpenDisputeIds: [], remainingDisputesOpen: 0,
+    retainedObligations: [], resolvedAt: '2026-11-25T20:00:00.000Z', replay: false, notificationCommitted: true,
+    notificationDelivery: 'in_app_committed', deviceDeliveryVerified: false, readingVerified: false,
+    financialSettlementRetained: false, settledRefundIntentId: null};
+}
 
 describe('TransactionService — stubs serveur-only (sécurité)', () => {
   it('updatePaymentInfo refuse d\'écrire côté client', async () => {

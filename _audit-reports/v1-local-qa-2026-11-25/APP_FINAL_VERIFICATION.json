@@ -1,0 +1,25 @@
+{
+  "sourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55",
+  "rootReadbackAt": "2026-11-26T04:28:36.035069+00:00",
+  "jest": {
+    "success": true,
+    "numPassedTests": 2179,
+    "numFailedTests": 0,
+    "numPendingTests": 0,
+    "numPassedTestSuites": 222,
+    "numFailedTestSuites": 0
+  },
+  "openHandles": 0,
+  "jestInventorySha256": "5ee731e7a072ec967809ac0d1fd9405ec606fb9d61182f440e3c1c5129abd054",
+  "appTypecheckExit": 0,
+  "boundariesExit": 0,
+  "vitestPassedTests": 329,
+  "vitestFiles": 31,
+  "historicalRepairFocusedPassedTests": 139,
+  "historicalInvariantsPreserved": 47,
+  "testsExtendedInheritedDiagnostics": 104,
+  "limits": [
+    "The full backend historical suite is not certified green by this app-only report.",
+    "Real provider login, delivered email and store signatures require their actual external journeys."
+  ]
+}

@@ -4,7 +4,7 @@
   "recordedAt": "2026-11-26T03:18:48.000Z",
   "writerSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
   "readerSourceSha256": "75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d",
-  "readerPhysicalRetest": "not_executed_USB_connection_lost_before_restart",
+  "readerPhysicalRetest": "PASS_reconnected_current_reader75b4_native293_296_300",
   "observations": [
     {
       "case": "Installation V1 QA signée",
@@ -101,16 +101,19 @@
     },
     {
       "case": "Suppression physique et suivi persistant",
-      "outcome": "PASS demande et fermeture des accès ; retest final UI en attente USB",
+      "outcome": "PASS7/7 after two native restarts and signed-out profile",
       "proof": "276identitévérifiée→277SUPPRIMER→279demande0/7 ; restart280→282mêmeintention1/7 ; après admission autorisée2862/7 et accèsfermé",
       "commandId": "1252409b88593b3a83a6d4d3b5e8532cf3ed83df1795f5b9e132b44b0996e78c",
-      "limits": "Le dernier reçu physique est2/7. Le serveur confirme7/7 et Authabsent03:18:24–25 ; ce constat distant ne remplace pas un affichage final sur téléphone."
+      "limits": "No manual closed-account logout CTA was clicked because local session was already guest. Minimal private contract evidence retained as documented.",
+      "finalProof": "293/296/300 same completed receipt;295/299 guestprofile; IPHONE_FINAL_RETEST.json"
     },
     {
       "case": "Correction query observation et cache chat",
-      "outcome": "GREEN composé ; retest physique non exécuté",
+      "outcome": "PASS composed and physical reader retest",
       "proof": "Erreurs query réelles284/285 ; nouveau lecteur75b4 :20cas observation+6listener dans lot114/114 ; TSC/frontières0 ; commit66d90acb poussé",
-      "limits": "Liaison CoreDevice unavailable pendant restart de retest, iPhone paired seulement. Reconnexion/déverrouillage demandé au fondateur. Aucune erreur réelle du serveur masquée."
+      "limits": "Does not certify every possible network race.",
+      "finalProof": "Reader75b4 reloaded;0ERROR/QueryCache in22785→27241 bounded logs;24WARN retained. Subsequent Auth-only0454 patch verified separately."
     }
-  ]
+  ],
+  "currentRuntimeSourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55"
 }

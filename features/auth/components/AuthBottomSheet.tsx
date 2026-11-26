@@ -462,6 +462,7 @@ const AuthBottomSheet: React.FC = () => {
     }
     return (
       <SignInForm
+        key={`sign-in-${sheetVersion}`}
         email={email}
         password={password}
         isLoading={isLoading}

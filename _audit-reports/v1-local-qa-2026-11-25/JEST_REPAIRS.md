@@ -1,6 +1,6 @@
 # Recette Jest locale — V1 — 25 novembre 2026
 
-État : les lots cœur ci-dessous sont verts. La campagne globale reste rouge ; ce document ne certifie donc pas la validation intégrale de tous les parcours. Aucun test ignoré, aucune garde de production désactivée, aucun secret ni donnée de production utilisé.
+État final : **222/222 suites et2179/2179 tests Jest réussis,0 échec,0 ignoré**, sur le gel runtime0454. La campagne complète sort normalement avec recherche des handles, sans `--forceExit`. Les47 anciens échecs ont été réparés dans les tests en conservant leurs invariants ; le mapping est dans [HISTORICAL_47_TRIAGE.md](HISTORICAL_47_TRIAGE.md). Ce résultat automatisé ne certifie pas tous les gestes natifs ni les services externes. Aucune garde de production désactivée, aucun secret ni donnée de production utilisé.
 
 ## Mesures reproductibles
 
@@ -15,13 +15,18 @@
 | Inventaire `final6-all.json` | 209 | 2001 | 47 | 7 |
 | Inventaire `final7-all.json` | 213 | 2038 | 47 | 7 |
 | Inventaire transitoire `app-final-jest-inventory.json` | 219 | 2082 | 55 | 8 |
-| **Inventaire final `app-final2-jest-inventory.json`** | **219** | **2092** | **47** | **7** |
+| Inventaire0abd `app-final2-jest-inventory.json` | 219 | 2092 | 47 | 7 |
+| **Campagne finale0454 `phase1-final0454-jest.json`** | **222** | **2179** | **0** | **0** |
 
-La dernière campagne compte **2139 tests,0 ignoré**,212 suites vertes et7 rouges. Source runtime gelée : `0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d`,1062 fichiers, empreinte relevée par root. Comparaison des couples **fichier + nom complet du test** avec `final7-all.json` : aucun nouvel échec, aucun ancien échec retiré ; les47 sont exactement les mêmes. L’inventaire transitoire avait chargé la première version du nouveau test postal avant correction de son mock Expo et de sa fixture de génération ; ses8 échecs supplémentaires sont conservés dans le rapport, pas effacés. Les corrections ont été terminées et vérifiées avant la dernière globale ; aucun fichier de test modifié pendant celle-ci.
+La campagne finale compte **2179 tests,0 ignoré**,222 suites vertes. Source runtime gelée : `0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55`,1062 fichiers, empreinte relevée par root. Le delta runtime depuis le lecteur75b4 est la seule clé de remontage du formulaire de connexion ; les réparations des sept suites historiques ne modifient pas le runtime. Aucun fichier de test n’a été modifié pendant la globale finale.
+
+Historique conservé : l’inventaire0abd comptait2139 tests,2092 réussites et47 échecs. Leur comparaison par **multiensemble fichier + nom complet** avec `final7-all.json` ne trouvait ni nouvel échec ni ancien retiré. L’inventaire transitoire avait chargé la première version du nouveau test postal avant correction de son mock Expo et de sa fixture de génération ; ses8 échecs supplémentaires restent documentés.
 
 Baseline : `/tmp/seconde-v1-local-app-20261125/`. Autres JSON et journaux : `/tmp/seconde-v1-jest-repair/` (dossier privé).
 
-Commande d’inventaire : `npx jest --runInBand --watchman=false --forceExit --json --outputFile=<rapport>`. `--forceExit` sert uniquement à obtenir l’inventaire complet malgré les échecs/handles historiques ; il n’a été ajouté à aucune configuration. Une campagne globale verte et une sortie globale normale ne sont pas acquises.
+Commande finale : `npx jest --runInBand --watchman=false --detectOpenHandles --json --outputFile=/tmp/seconde-v1-jest-repair/phase1-final0454-jest.json` : **sortie normale0,78,319s**, sans `--forceExit`. Les inventaires historiques utilisaient `--forceExit`, jamais ajouté à la configuration ; ils ne prouvaient pas cette sortie normale, maintenant constatée sur0454.
+
+Contrôles finaux0454 : TypeScript app et frontières **sortie0** (`phase1-final0454-tsc.log`, `phase1-final0454-boundaries.log`) ; Vitest app **329/329 dans31 fichiers**, sortie0 (`phase1-final0454-vitest.json`). Le typecheck étendu des tests reste à **104 diagnostics hérités**, hors typecheck app standard (`historical-final2-tsc-tests.log`), aucun dans les sept fichiers historiques réparés ni leur helper partagé. Le lot d’intégration sept fichiers + Auth passe **139/139 dans9 suites**, en sortie normale (`historical-seven-final.json`).
 
 ## Lots cœur vérifiés avec sortie normale
 
@@ -51,16 +56,16 @@ Les commandes ciblées utilisent `--runInBand --watchman=false --detectOpenHandl
 
 Ces lots se recouvrent : leurs nombres ne doivent pas être additionnés pour annoncer un total distinct.
 
-## Dernier delta lecteur, après la globale0abd
+## Historique du delta lecteur, après la globale0abd
 
 Le lecteur final `75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d` (1062 fichiers, relevé root) diffère de l’écrivain0abd dans trois fichiers de lecture : routes publique/propriétaire d’effacement et listener de conversations. Les requêtes/destructions déjà qualifiées restent attribuées à0abd ; la globale2092/47 et Vitest329 ci-dessus ont été exécutés sur0abd, pas renommés sur75b4.
 
 - **Observation publique et propriétaire : RED distincts0/2** dans `round96-observation-red.json` : après perte de focus, les vraies routes/service/journal renvoyaient une erreur ordinaire. Les wrappers `readScopedQuery` sont ensuite corrigés par RN, avec le guard de signal transmis au service avant toute écriture de journal. Les20 cas actuels couvrent UID/génération/SDK/focus/AppState/démontage/abort, un retour foreground frais contre ancien reçu tardif99, la vraie403 actuelle et le succès observe qualifié. Aucune garde mockée ; seuls Fetch/SecureStore sont remplacés, l’UI de statut non concernée est substituée.
 - **Liste de conversations : RED1/5** dans `round99-chat-listener-red.json` : refus courant conservant les chats/unread, erreurs anciennes UID/génération/SDK polluant le nouveau contexte. Correction RN : abonnement génération, propriétaire courant vérifié avant callbacks, vidage sur seul refus de permission courant. Les6 cas finaux conservent le vrai log et l’erreur actuelle, ne déconnectent pas le membre, ne désabonnent pas synchroniquement sur erreur et n’élargissent aucune règle. Une autre panne réseau actuelle conserve son erreur et sa liste ; les anciens propriétaires n’écrivent rien dans la nouvelle session. Le service Firestore réel reçoit des DTO natifs via le seul mock `onSnapshot`.
 
-`round101-final-read-chat.json` : **8 suites,114/114**, sortie normale avec `--detectOpenHandles`, sans `--forceExit`. App TSC et frontières sortent0 (`reader-final-tsc.log`, `reader-final-boundaries.log`). Tests étendus117 diagnostics hérités, aucun dans les deux nouveaux fichiers (`reader-final2-tsc-tests.log`). Une première commande ciblée avait un chemin auth inexistant :107 assertions passées mais commande rouge, conservée dans `round100` ; le chemin corrigé donne le lot114 vert. Aucune nouvelle globale répétée après ce delta.
+`round101-final-read-chat.json` : **8 suites,114/114**, sortie normale avec `--detectOpenHandles`, sans `--forceExit`. App TSC et frontières sortent0 (`reader-final-tsc.log`, `reader-final-boundaries.log`). Tests étendus117 diagnostics à ce relevé, aucun dans les deux nouveaux fichiers (`reader-final2-tsc-tests.log`). Une première commande ciblée avait un chemin auth inexistant :107 assertions passées mais commande rouge, conservée dans `round100` ; le chemin corrigé donne le lot114 vert. Ces contrôles sont aussi inclus dans la globale finale0454.
 
-Le retest physique75b4 reste en attente de liaison USB rétablie ; les assertions composées ne le remplacent pas. Les constats P11 de fermeture/achèvement/retention appartiennent aux preuves natives et backend consolidées par root ; aucune fin n’est déduite de ces tests de lecteurs.
+Au premier relevé, le retest physique75b4 attendait la liaison USB. Root a ensuite confirmé P11physique7/7 après deux redémarrages, profil invité et aucune erreur query dans la fenêtre22785→27241. Les IDs et postconditions finales restent sous sa responsabilité dans les rapports natifs/backend ; aucune fin n’est déduite de ces tests de lecteurs.
 
 ## Régressions runtime effectivement révélées
 
@@ -104,33 +109,32 @@ Pour15 : le bloc `useQuery` antérieur exact a été communiqué par le proprié
 - Troc : paramètres de navigation limités aux identifiants, organisation explicite, lecture des conditions, case initialement décochée et envoi seulement après consentement. Une réponse inconnue n’autorise pas une seconde proposition.
 - Activité : reçu original et déclaration courante séparés ; une politique récente ne réécrit pas l’énoncé d’origine. Les signaux admin doivent être reconfirmés lorsque la sélection change.
 
-## Limites restant à lever
+## Réparation finale des sept suites historiques
 
-L’inventaire complet final `app-final2-jest-inventory.json` donne **2092 réussites,47 échecs,0 ignoré dans219 suites** ; les47 échecs restent exactement les mêmes7 familles historiques. Aucun n’est supprimé, ignoré ou transformé en réussite documentaire :
+L’inventaire0abd conservait47 échecs dans sept fichiers. Le triage initial séparait24 attentes d’ancien parcours/phase2 et23 contrôles indéterminés sur des surfaces historiques exposées ; il ne les déclarait pas collectivement hors V1. Après le GO tests du root, les services, journaux, providers et gardes réels sont exécutés avec les DTO contemporains ; seuls les transports et frontières natives sont substitués.
 
-| Suite | Échecs | Qualification / limite |
-| --- | ---: | --- |
-| `refundPaymentGuard` | 12 | Transactions d’achat postal, checkout et anciennes intentions : identité/contrats non migrés, aucun nouvel achat V1 ne crée ces états. |
-| `shippingPreparationNavigation` | 4 | Fixture rails phase2 ouverts, préparation de colis d’achat ; parcours postal manuel de troc distinct. |
-| `refundAdminFlows` | 5 | Ancienne capture/remboursement carte ; les8 contrôles ciblés claim/cash/versions/pagination passent, fichier entier9/14. |
-| `refundShipmentTracking` | 19 | Commandes d’achat postal et recours financiers historiques : provider/session/reçus non migrés. |
-| `boutiques-admin/shopService` | 2 | Anciens positifs d’achat de forfait payant ; public/admin17/17. |
-| `wallet/walletService` | 3 | Anciennes intentions de retrait/paiement ; lectures propriétaire7/7. |
-| `transactionService` | 2 | Anciennes réussites financières par chaînes simples ; annulation cash V2 passe avec zéro mutation client. |
+| Suite | Anciens échecs | Résultat actuel du fichier entier |
+| --- | ---: | ---: |
+| `refundPaymentGuard` | 12 | 14/14 |
+| `shippingPreparationNavigation` | 4 | 15/15 |
+| `refundAdminFlows` | 5 | 14/14 |
+| `refundShipmentTracking` | 19 | 19/19 |
+| `boutiques-admin/shopService` | 2 | 21/21 |
+| `wallet/walletService` | 3 | 13/13 |
+| `transactionService` | 2 | 37/37 |
+| **Total** | **47** | **133/133** |
 
-Ces suites ne sont **pas déclarées collectivement hors V1**. Les nouveaux paiements sont fermés dans les contrôles app/serveur ; certains parcours de consultation et de recours historiques restent accessibles. Leur fermeture n’est donc pas une preuve de validation des historiques. Les comptes synthétiques n’effacent pas ce besoin de qualification.
+Les122 contrôles précédents sont conservés ou migrés vers leur contrat réel, avec11 contrôles supplémentaires. Le [mapping détaillé](HISTORICAL_47_TRIAGE.md) conserve chaque famille d’invariants : consentement explicite, preuve native nécessaire, source actuelle, cents, absence d’adoption tardive, isolation A→B→A, ancien finally inopérant, journaux conservés et refus d’un nouvel acte lorsque les rails sont fermés. Aucun skip, assertion vide, mock global permissif ou filtre de logs. Aucun correctif runtime requis par ces47 anciens échecs.
 
-Contrôles : `npx tsc --noEmit` app **0 erreur**, `npm run lint:boundaries` réussi (`*-final3.log`), `git diff --check` sur le périmètre tests réussi. Le typecheck étendu `tsconfig.test.json` reste rouge (**118 diagnostics**, `tsc-tests-final3.log`, contre131 au premier relevé local) ; le typecheck app standard exclut ces tests. Aucun diagnostic dans les nouveaux helpers ni les tests ajoutés de génération/téléversement/image/favoris/route avis/brouillon à ce relevé. Les contrats des anciens positifs financiers figurent encore parmi les erreurs étendues ; ils n’ont pas été maquillés en succès.
+La restitution positive d’un petit solde de fermeture reste **non qualifiée** ; le négatif500cents sans source ne la prouve pas. Les tests des historiques financiers/admin sont verts à I/O simulées et ne valent pas recette native des historiques ni activation des rails en production. Les limites fournisseurs, appareils et stores sont détaillées dans [COVERAGE_AND_LIMITS.md](COVERAGE_AND_LIMITS.md).
 
-Recontrôle après D07 : app et frontières sortent0 (`d07-final-tsc-app.log`, `d07-final-boundaries.log`) ; typecheck étendu118 (`d07-final-tsc-tests.log`), sans nouveau diagnostic dans le lot D07. Les inventaires globaux précèdent les ajouts recherche/D07 : aucune nouvelle globale massive n’a été lancée pendant le gel du runtime. Le lot ciblé70 ne transforme pas les47 historiques en réussites.
-
-**Contrôles sur le gel final** : `app-final2-tsc.log` et `app-final2-boundaries.log` sortent0 ; `app-final2-vitest.json` contient **329/329 dans31 fichiers**, sortie0. Le typecheck étendu `app-final2-tsc-tests.log` reste à **117 diagnostics** après correction du typage des métadonnées Metro dans le test compilé d’effacement ; aucun diagnostic dans les nouveaux fichiers du lot final. La globale finale inclut désormais recherche/D07/accessibilité/queries/postal ; elle utilise `--forceExit` uniquement pour l’inventaire et ne prouve toujours pas une sortie globale normale. Le lot137 sort normalement sans handle signalé. `git diff --check` du périmètre tests/rapports est vérifié séparément avant remise au parent.
+TypeScript app/frontières0, Vitest329/329 et globale Jest2179/2179 sont acquis sur0454. Le typecheck étendu des tests conserve104 diagnostics hérités, aucun dans les sept fichiers réparés ni leur helper ; il reste distinct du typecheck app standard. Les relevés antérieurs118/117 restent dans les logs privés et ne sont pas renommés comme résultat final.
 
 Aucun commit, push, déploiement, changement de données cloud ou action store par cet agent. Le parent conserve la responsabilité de la validation finale et de Git.
 
-**Historique P11, preuve native distincte des tests** : sur0abd, mot de passe vérifié276, SUPPRIMER277, demande279(0/7), redémarrage et même intention282(1/7). Le premier refus automatique de publication a ensuite été suivi de l’accord explicite du fondateur, d’une admission limitée publiée et des fences réellement commises. La dernière contrelecture physique durable286 montre2/7 et accès fermé ; elle ne prouve pas une absence Auth ni une fin. Les nouveaux défauts284/285 ont leur delta lecteur75b4 ci-dessus ; son retest physique attend la liaison USB. Root poursuit et documente séparément les preuves serveur et la clôture P11 ; les lots137/114 ne la remplacent pas.
-
 ## Triage borné après inventaire4 : compte neuf V1 / historiques
+
+**Historique du diagnostic avant les dernières réparations.** Les mentions de cas encore rouges ci-dessous décrivent ces relevés antérieurs. Leur traitement final133/133 et le mapping des47 figurent dans les sections précédentes et dans HISTORICAL_47_TRIAGE ; ils ne sont plus des échecs actuels.
 
 Ensemble local exact **115** :36 `versionedFunctions`,51 `sharedDependenciesToVerify`,22 `compatibleBackgroundFunctionsToQualify`,2 `partitionedBackgroundFunctions`,4 `accountErasureWebFunctions` dans `functions/phase1-release.json`. Le routage production est celui de `config/catalogueCallableContracts.ts`. Les mentions « hors115 » ci-dessous qualifient le paquet local ; l’IAM des77 anciens services n’a pas été réinspecté par cet agent.
 

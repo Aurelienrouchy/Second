@@ -1,0 +1,57 @@
+{
+  "environment": "Seconde Dev",
+  "device": "physical iPhone 13 Pro Max / iOS27.0.1",
+  "verifiedAt": "2026-11-26T04:00:19.134637+00:00",
+  "runtimeSourceSha256": "75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d",
+  "nativeBundleId": "com.seconde.app.dev",
+  "metroPort": 8092,
+  "nativeProofs": [
+    {
+      "tree": "v86-288",
+      "observation": "Prior live process displays deletion completed7/7; not used as proof of fresh reader source."
+    },
+    {
+      "tree": "v86-289/290/292",
+      "observation": "Native restart, actual fresh bundle downloaded from Metro8092, home rendered; Metro lists com.seconde.app.dev(iPhone)."
+    },
+    {
+      "tree": "v86-293",
+      "observation": "Fresh reader shows same completed7/7 request and access closed."
+    },
+    {
+      "tree": "v86-293 after home and launch",
+      "observation": "Background/foreground and explicit status refresh preserve7/7."
+    },
+    {
+      "tree": "v86-295",
+      "observation": "Profile shows Pas encore connecté and public tracking button."
+    },
+    {
+      "tree": "v86-296",
+      "observation": "Public tracking reached from signed-out profile shows7/7."
+    },
+    {
+      "tree": "v86-297/298/299/300",
+      "observation": "Second native restart; signed-out profile and its tracking button recover7/7 again."
+    }
+  ],
+  "logWindow": {
+    "file": "/tmp/seconde-v1-local-app-20261125/metro-8092-iphone.log",
+    "startByte": 22785,
+    "endByte": 27241,
+    "queryCacheErrors": 0,
+    "errorLines": 0,
+    "warnLines": 24,
+    "warningKinds": [
+      "Sending `onAnimatedValueUpdate` with no listeners registered.",
+      "[Reanimated] Property \"transform\" of AnimatedComponent(Pressable) may be overwritten by a layout animation. Please wrap your component with an animated view and apply the layout animation on the wrapper."
+    ]
+  },
+  "noNewErasureRequest": true,
+  "explicitClosedAccountLogoutCTAExercised": false,
+  "logoutExplanation": "The local SDK/profile session was already signed out after Auth removal; guest state independently observed in Profile. No manual logout CTA success is claimed.",
+  "limits": [
+    "Native development client loads the current local JavaScript against remote Seconde Dev, not a store production binary.",
+    "Current bounded logs do not erase earlier errors or prove every possible network race."
+  ]
+}

@@ -1,204 +1,167 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpsCallable } from 'firebase/functions';
-import { TransactionService } from '@/services/transactionService';
-import type { Transaction } from '@/types/transaction';
-import type { StripePaymentResult } from '@/components/StripePayment';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react-native';
+import {Alert, AppState, Modal} from 'react-native';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {getDoc, getDocFromServer, doc} from 'firebase/firestore';
+import {httpsCallable} from 'firebase/functions';
+import {establishIdentityFixture, clearIdentityFixture} from '@/tests/jest/helpers/identityFixture';
+import {ManualPaymentService} from '@/services/manualPaymentService';
+import type {Transaction} from '@/types/transaction';
+import type {ManualCheckout} from '@/types/manualPayment';
 
-let mockUid = 'buyer';
-let mockId = 'sale';
-let mockOnResult: ((result: StripePaymentResult) => Promise<void>) | undefined;
+let mockId = 'sale', mockCommerceEnabled = true;
 const mockRouter = {push: jest.fn(), back: jest.fn(), replace: jest.fn()};
-jest.mock('@/hooks/useAuth', () => ({
-  useAuthenticatedUid: () => require('@/config/firebaseConfig').auth.currentUser?.uid ?? null,
-  useAuthenticatedIdentity: () => { const user = require('@/hooks/useAuth').useUser(); return user?.id === require('@/config/firebaseConfig').auth.currentUser?.uid ? user : null; },
-  useAuthenticatedSession: () => ({ uid: require('@/config/firebaseConfig').auth.currentUser?.uid ?? null, identity: require('@/hooks/useAuth').useAuthenticatedIdentity() }),
-  useAuthGuardSession: () => ({ normalUser: require('@/hooks/useAuth').useUser(), identity: require('@/hooks/useAuth').useAuthenticatedIdentity(), isAuthLoading: false }),
-useUser: () => ({id: mockUid})}));
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => true },
-  useNavigation: () => ({ isFocused: () => true, canGoBack: () => true }),
-  useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, [effect]),
-useLocalSearchParams: () => ({transactionId: mockId}), useRouter: () => mockRouter}));
-jest.mock('@/features/wallet/hooks/useWallet', () => ({useWallet: () => ({wallet: null})}));
-jest.mock('@/features/wallet/services/walletService', () => ({WalletService: {payWithWallet: jest.fn()}}));
-jest.mock('@/components/StripePayment', () => {
-  const React = require('react'); const {Text} = require('react-native');
-  return {StripePayment: ({clientSecret, onResult}: {clientSecret: string; onResult: (result: StripePaymentResult) => Promise<void>}) => {mockOnResult = onResult; return React.createElement(Text, {}, `SECRET:${clientSecret}`);}};
-});
-jest.mock('@/components/ui', () => ({
-  Button: jest.requireActual('@/components/ui/Button').Button,
-ScreenHeader: () => null}));
-jest.mock('@/components/ui/Skeleton', () => ({Skeleton: () => null}));
-jest.mock('react-native-safe-area-context', () => ({...jest.requireActual('react-native-safe-area-context'), useSafeAreaInsets: () => ({top: 0, bottom: 0, left: 0, right: 0})}));
-jest.mock('@/lib/analytics', () => ({track: jest.fn()}));
+jest.mock('expo-router', () => ({useRouter: () => mockRouter, useLocalSearchParams: () => ({transactionId: mockId}),
+  useNavigation: () => ({isFocused: () => true}), useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, [effect])}));
+jest.mock('@/config/featureFlags', () => ({get PAYMENTS_ENABLED() {return mockCommerceEnabled;}, get SHIPPING_ENABLED() {return mockCommerceEnabled;}, DEV_COMMERCE_TESTING_ENABLED: false}));
+jest.mock('react-native-safe-area-context', () => ({useSafeAreaInsets: () => ({top: 0, bottom: 0, left: 0, right: 0}), SafeAreaProvider: require('react-native').View}));
+jest.mock('@/features/orders', () => ({OrderArticleSummary: () => null}));
+jest.mock('@/lib/stripe', () => ({CardField: () => null, useStripe: () => ({createPaymentMethod: jest.fn(), handleNextAction: jest.fn()})}));
+// Native/transport leaves only. Identity, frame guards, payment service and
+// its durable journal remain real throughout these migrated legacy cases.
 import PaymentScreen from '@/app/payment/[transactionId]';
 
-let client: QueryClient;
-let current: Transaction;
-let onChange: (() => void) | undefined;
-const makeTx = (overrides: Partial<Transaction> = {}): Transaction => ({id: 'sale', articleId: 'article', chatId: 'chat', buyerId: 'buyer', sellerId: 'seller', amount: 50, shippingCost: 0, totalAmount: 50, deliveryType: 'shipping', status: 'pending_payment', createdAt: new Date(), ...overrides});
-const tree = () => <QueryClientProvider client={client}><PaymentScreen /></QueryClientProvider>;
-beforeEach(() => {
-  mockUid = 'buyer'; mockId = 'sale'; mockOnResult = undefined; current = makeTx();
-  client = new QueryClient({defaultOptions: {queries: {retry: false, gcTime: Infinity}}});
-  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  jest.spyOn(TransactionService, 'getTransaction').mockImplementation(async () => current);
-  jest.spyOn(TransactionService, 'subscribeToTransaction').mockImplementation((_id, change) => {onChange = change; return jest.fn();});
-  (httpsCallable as jest.Mock).mockReturnValue(jest.fn(async () => ({data: {success: true, clientSecret: 'synthetic'}})));
-});
-afterEach(() => {jest.restoreAllMocks(); client.clear(); jest.useRealTimers();});
-async function openSheet() {
-  const view = render(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  fireEvent.press(screen.getByText(/^PAYER/));
-  await waitFor(() => expect(screen.getByText('SECRET:synthetic')).toBeTruthy());
+let client: QueryClient, current: Transaction;
+const rpc = jest.fn();
+const makeTx = (overrides: Partial<Transaction> = {}): Transaction => ({id: mockId, articleId: 'article', chatId: 'chat', buyerId: 'buyer', sellerId: 'seller', amount: 50,
+  shippingCost: 0, totalAmount: 50, deliveryType: 'shipping', status: 'pending_payment', createdAt: new Date(), currency: 'CAD',
+  shippingQuoteId: 'quote', shipEngineRateId: 'rate', shippingAddress: {name: 'QA', street: 'Rue QA', city: 'Montréal', province: 'QC', postalCode: 'H2J2K1', country: 'CA'}, ...overrides});
+function checkout(id = mockId, overrides: Partial<ManualCheckout> = {}): ManualCheckout {
+  return {protocol: 'server_manual_v1', transactionId: id, intentVersion: 1, preparationState: 'prepared', providerStatus: 'requires_confirmation',
+    totalCents: 5000, walletCents: 0, cardCents: 5000, currency: 'CAD', paymentPermissionGranted: false, confirmationRequired: true,
+    settlementPending: false, action: 'confirmOnServer', ...overrides};
+}
+function settle() {current = {...current, status: 'paid', paidAt: new Date(), stripePaymentIntentId: 'pi_fixture', stripeCheckoutProtocol: 'server_manual_v1', stripeChargeId: 'ch_fixture', capturedCardCents: 5000, walletAmountUsed: 0};}
+const tree = () => <QueryClientProvider client={client}><PaymentScreen/></QueryClientProvider>;
+function calls(name: string) {return rpc.mock.calls.filter(([method]) => method === name);}
+function retainedPress(label: string, option = false) {
+  let node: ReturnType<typeof screen.getByText> | null = option ? within(screen.UNSAFE_getByType(Modal)).getByText(label) : screen.getByText(label);
+  while (node && typeof node.props.onPress !== 'function') node = node.parent;
+  expect(node).not.toBeNull(); return node!.props.onPress as () => void;
+}
+async function prepare() {
+  const view = render(tree()); fireEvent.press(await screen.findByText('Continuer par carte'));
+  await screen.findByText('Confirmer le paiement'); expect(calls('confirmStripeCheckout')).toHaveLength(0);
   return view;
 }
+async function confirm() {
+  fireEvent.press(screen.getByText(/Je confirme le paiement de ce total : 50,00\s\$\sCA par carte\./));
+  fireEvent.press(screen.getByText('Confirmer le paiement'));
+}
+async function options() {fireEvent.press(screen.getByLabelText('Options du paiement')); await within(screen.UNSAFE_getByType(Modal)).findByText('Actualiser le paiement');}
+async function refreshOrder() {await act(async () => {await client.invalidateQueries({predicate: query => query.queryKey.includes(mockId)});});}
+beforeEach(async () => {
+  await AsyncStorage.clear(); jest.clearAllMocks(); mockId = 'sale'; mockCommerceEnabled = true; establishIdentityFixture('buyer'); current = makeTx();
+  Object.defineProperty(AppState, 'currentState', {configurable: true, value: 'active'});
+  client = new QueryClient({defaultOptions: {queries: {retry: false, gcTime: Infinity}, mutations: {retry: false}}});
+  jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  jest.mocked(doc).mockImplementation(((_db: unknown, ...parts: string[]) => ({id: parts.at(-1), path: parts.join('/')})) as typeof doc);
+  const read = async () => ({id: current.id, exists: () => true, data: () => current});
+  jest.mocked(getDoc).mockImplementation(read as unknown as typeof getDoc); jest.mocked(getDocFromServer).mockImplementation(read as unknown as typeof getDocFromServer);
+  rpc.mockReset().mockImplementation(async (name: string, input: {transactionId?: string}) => {
+    if (name === 'getWalletInfo') return {data: {hasWallet: false, balance: 0}};
+    if (name === 'checkTrackingStatus') return {data: {protocol: 'purchase_preparation_policy_observation_v1', transactionId: input.transactionId, ownerId: current.buyerId,
+      qualification: 'unknown', policyVersion: null, policyHash: null, terms: null, pendingPayment: null, labelAbandonment: null,
+      automatedEffectAuthorized: false, providerObserved: false, financialResolutionVerified: false}};
+    if (name === 'createStripeCheckout') return {data: checkout(input.transactionId)};
+    if (name === 'confirmStripeCheckout') {settle(); return {data: checkout(input.transactionId, {providerStatus: 'succeeded', preparationState: 'succeeded', confirmationRequired: false, settlementPending: true, action: 'refreshCheckout'})};}
+    throw new Error(`Unexpected payment transport ${name}`);
+  });
+  jest.mocked(httpsCallable).mockImplementation(((_functions: unknown, name: string) => (input: unknown) => rpc(name, input)) as typeof httpsCallable);
+});
+afterEach(() => {cleanup(); client.clear(); jest.restoreAllMocks(); clearIdentityFixture(); jest.useRealTimers();});
 
 it.each([{refundBlocked: true}, {bankDispute: {id: 'dp', state: 'open' as const}}])('pending_payment with independent liability offers no new payment', async marker => {
-  current = makeTx(marker);
-  render(tree());
-  await waitFor(() => expect(screen.getByText('Voir le suivi de cette commande')).toBeTruthy());
-  expect(screen.queryByText(/^PAYER/)).toBeNull();
-  expect(httpsCallable).not.toHaveBeenCalled();
+  mockCommerceEnabled = false; current = makeTx(marker); render(tree());
+  await screen.findByText('Suivre ma commande'); expect(screen.queryByText('Continuer par carte')).toBeNull(); expect(calls('createStripeCheckout')).toHaveLength(0);
 });
 it('removes the payable surface when an external refund/bank update arrives without notification', async () => {
-  render(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  current = makeTx({refundBlocked: true, refund: {intentId: 'intent', state: 'unknown', outstandingCardCents: null}});
-  act(() => onChange?.());
-  await waitFor(() => expect(screen.getByText('Montant sur le moyen de paiement à vérifier.')).toBeTruthy());
-  expect(screen.queryByText(/^PAYER/)).toBeNull();
-  expect(httpsCallable).not.toHaveBeenCalled();
+  render(tree()); await screen.findByText('Continuer par carte'); current = makeTx({refundBlocked: true, refund: {intentId: 'intent', state: 'unknown', outstandingCardCents: null}});
+  await refreshOrder(); await screen.findByText('Montant sur le moyen de paiement à vérifier.');
+  expect(screen.queryByText('Continuer par carte')).toBeNull(); expect(calls('createStripeCheckout')).toHaveLength(0);
 });
-it('ignores a delayed checkout secret belonging to the previous account', async () => {
-  let resolve!: (value: unknown) => void;
-  (httpsCallable as jest.Mock).mockReturnValue(jest.fn(() => new Promise(res => {resolve = res;})));
-  const {rerender} = render(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  fireEvent.press(screen.getByText(/^PAYER/));
-  await waitFor(() => expect(httpsCallable).toHaveBeenCalled());
-  mockUid = 'another-buyer'; current = makeTx({buyerId: mockUid});
-  rerender(tree());
-  await waitFor(() => expect(TransactionService.getTransaction).toHaveBeenCalledTimes(2));
-  await act(async () => {resolve({data: {success: true, clientSecret: 'previous-account-secret'}});});
-  expect(screen.queryByText('SECRET:previous-account-secret')).toBeNull();
+it('ignores a delayed checkout observation belonging to the previous account', async () => {
+  let release!: (value: unknown) => void; const baseline = rpc.getMockImplementation()!;
+  rpc.mockImplementation((name: string, input: unknown) => name === 'createStripeCheckout' ? new Promise(resolve => {release = resolve;}) : baseline(name, input));
+  const view = render(tree()); fireEvent.press(await screen.findByText('Continuer par carte')); await waitFor(() => expect(calls('createStripeCheckout')).toHaveLength(1));
+  act(() => {establishIdentityFixture('another-buyer'); current = makeTx({buyerId: 'another-buyer'});}); view.rerender(tree());
+  await act(async () => {release({data: checkout('sale', {intentVersion: 99})});});
+  await screen.findByText('Continuer par carte'); expect(screen.queryByText('Confirmer le paiement')).toBeNull(); expect(calls('confirmStripeCheckout')).toHaveLength(0);
+  const own = await ManualPaymentService.readAttempt('another-buyer', 'sale', () => undefined); expect(own).toBeNull();
 });
-
 it('confirms nominal fresh paid proof without classifying paid as a new-payment refusal', async () => {
-  await openSheet();
-  current = makeTx({status: 'paid'});
-  await act(async () => {await mockOnResult!({success: true});});
-  const confirmation = (Alert.alert as jest.Mock).mock.calls.find(call => call[0] === 'Paiement confirmé !');
-  expect(confirmation?.[1]).toContain('Le paiement de cette commande est confirmé');
-  expect(confirmation?.[1]).not.toContain('générée automatiquement');
-  expect(mockRouter.back).not.toHaveBeenCalled();
-  act(() => confirmation![2][0].onPress());
-  expect(mockRouter.back).toHaveBeenCalledTimes(1);
+  await prepare(); await confirm(); await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith({pathname: '/orders/[id]', params: {id: 'sale'}}));
+  expect(calls('confirmStripeCheckout')).toHaveLength(1); expect((await ManualPaymentService.readAttempt('buyer', 'sale', () => undefined))?.phase).toBe('settled');
+  expect(screen.queryByText(/n’est pas encore confirmé/)).toBeNull();
 });
-
 it('times out without financial proof, then ignores its follow-up button after a scope change', async () => {
-  jest.useFakeTimers();
-  const view = await openSheet();
-  let work!: Promise<void>;
-  act(() => {work = mockOnResult!({success: true});});
-  await act(async () => {await jest.advanceTimersByTimeAsync(13_000); await work;});
-  const pending = (Alert.alert as jest.Mock).mock.calls.find(call => call[0] === 'Paiement en cours de confirmation');
-  expect(pending?.[1]).toContain('ne pouvons pas encore confirmer');
-  expect(pending?.[1]).not.toContain('a bien été pris en compte');
-  mockId = 'new-sale'; current = makeTx({id: mockId});
-  view.rerender(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  act(() => pending![2][0].onPress());
-  expect(mockRouter.replace).not.toHaveBeenCalled();
+  jest.useFakeTimers(); const baseline = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name: string, input: unknown) => name === 'confirmStripeCheckout' ? {data: checkout('sale', {providerStatus: 'processing', preparationState: 'processing', confirmationRequired: false, settlementPending: true, action: 'refreshCheckout'})} : baseline(name, input));
+  const view = await prepare(); await confirm(); await act(async () => {await jest.advanceTimersByTimeAsync(8500);});
+  await screen.findByText('Le paiement n’est pas encore confirmé dans la commande. Vérifiez son résultat ; ne renvoyez pas une nouvelle demande.'); expect(mockRouter.replace).not.toHaveBeenCalled();
+  await options(); const refresh = retainedPress('Actualiser le paiement', true); mockId = 'new-sale'; current = makeTx();
+  // A new route owns a new frame; a retained control cannot read or dispatch it.
+  view.rerender(tree()); await screen.findByText('Continuer par carte'); rpc.mockClear(); act(refresh); expect(rpc).not.toHaveBeenCalled();
 });
-
-it('uses a nominal paid document from the active listener during the polling sleep', async () => {
-  jest.useFakeTimers();
-  await openSheet();
-  let work!: Promise<void>;
-  act(() => {work = mockOnResult!({success: true});});
-  await act(async () => {await Promise.resolve();});
-  current = makeTx({status: 'paid'});
-  act(() => onChange?.());
-  await act(async () => {await jest.advanceTimersByTimeAsync(1500); await work;});
-  expect((Alert.alert as jest.Mock).mock.calls.some(call => call[0] === 'Paiement confirmé !')).toBe(true);
-  expect((Alert.alert as jest.Mock).mock.calls.some(call => call[0] === 'Paiement en cours de confirmation')).toBe(false);
+it('uses a nominal paid document from the current query during the polling sleep', async () => {
+  jest.useFakeTimers(); const baseline = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name: string, input: unknown) => name === 'confirmStripeCheckout' ? {data: checkout('sale', {providerStatus: 'processing', preparationState: 'processing', confirmationRequired: false, settlementPending: true, action: 'refreshCheckout'})} : baseline(name, input));
+  await prepare(); await confirm(); await waitFor(() => expect(calls('confirmStripeCheckout')).toHaveLength(1)); settle(); await refreshOrder();
+  await act(async () => {await jest.advanceTimersByTimeAsync(1500);});
+  await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith({pathname: '/orders/[id]', params: {id: 'sale'}}));
+  expect(screen.queryByText(/n’est pas encore confirmé/)).toBeNull();
 });
-
 it('keeps an active cancellation error visible and restores the button for that same scope', async () => {
-  (httpsCallable as jest.Mock).mockReturnValue(jest.fn().mockRejectedValue({code: 'functions/failed-precondition', message: 'Annulation refusée.'}));
-  render(tree());
-  await waitFor(() => expect(screen.getByText('Annuler la commande')).toBeTruthy());
-  fireEvent.press(screen.getByText('Annuler la commande'));
-  const confirm = (Alert.alert as jest.Mock).mock.calls[0][2][1];
-  await act(async () => {await confirm.onPress();});
-  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[0]).toBe('Action impossible');
-  expect(screen.getByText('Annuler la commande')).toBeTruthy();
-  expect(mockRouter.back).not.toHaveBeenCalled();
+  mockCommerceEnabled = false; const baseline = rpc.getMockImplementation()!;
+  rpc.mockImplementation((name: string, input: unknown) => name === 'cancelPendingTransaction' ? Promise.reject(Object.assign(new Error('Annulation refusée.'), {code: 'functions/failed-precondition'})) : baseline(name, input));
+  render(tree()); await screen.findByText('Le paiement est actuellement indisponible.'); await options(); fireEvent.press(screen.getByText('Annuler la commande'));
+  const confirmCancellation = jest.mocked(Alert.alert).mock.calls.at(-1)![2]![1]; await act(async () => {confirmCancellation.onPress!();});
+  await screen.findByText('Annulation refusée.'); await options(); expect(screen.getByText('Annuler la commande')).toBeOnTheScreen(); expect(mockRouter.back).not.toHaveBeenCalled();
 });
-
 it('a deferred retry reads current obligations before submitting another checkout', async () => {
-  await openSheet();
-  await act(async () => {await mockOnResult!({success: false, error: 'network_error'});});
-  const retry = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2]?.find((button: {text: string}) => button.text === 'Réessayer');
-  expect(retry).toBeTruthy();
-  current = makeTx({status: 'disputed', bankDispute: {id: 'bank', state: 'open'}});
-  act(() => onChange?.());
-  await waitFor(() => expect(screen.getByText('Voir le suivi de cette commande')).toBeTruthy());
-  (httpsCallable as jest.Mock).mockClear();
-  await act(async () => {await retry.onPress();});
-  expect(httpsCallable).not.toHaveBeenCalled();
+  const baseline = rpc.getMockImplementation()!; rpc.mockImplementation((name: string, input: unknown) => name === 'createStripeCheckout' ? Promise.reject(new Error('Réseau indisponible.')) : baseline(name, input));
+  render(tree()); fireEvent.press(await screen.findByText('Continuer par carte')); await screen.findByText('Réseau indisponible.');
+  await options(); const retry = retainedPress('Actualiser le paiement', true); current = makeTx({status: 'disputed', bankDispute: {id: 'bank', state: 'open'}});
+  rpc.mockClear(); act(retry); await screen.findByText('Cette commande a évolué. Consultez son suivi pour connaître la suite.'); expect(calls('createStripeCheckout')).toHaveLength(0);
 });
-
 it('an old retry stays inert through A to B to A, including old pay handlers', async () => {
-  const view = await openSheet();
-  let payNode: ReturnType<typeof screen.getByText> | null = screen.getByText(/^PAYER/);
-  while (payNode && typeof payNode.props.onPress !== 'function') payNode = payNode.parent;
-  expect(payNode).toBeTruthy();
-  const pay = payNode!.props.onPress as () => Promise<void>;
-  await act(async () => {await mockOnResult!({success: false, error: 'network_error'});});
-  const retry = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2]?.find((button: {text: string}) => button.text === 'Réessayer');
-  mockId = 'new-sale'; current = makeTx({id: mockId}); view.rerender(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  mockId = 'sale'; current = makeTx(); view.rerender(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  (httpsCallable as jest.Mock).mockClear();
-  await act(async () => {await retry.onPress(); await pay();});
-  expect(httpsCallable).not.toHaveBeenCalled();
+  const baseline = rpc.getMockImplementation()!; rpc.mockImplementation((name: string, input: unknown) => name === 'createStripeCheckout' ? Promise.reject(new Error('Réseau indisponible.')) : baseline(name, input));
+  const view = render(tree()); await screen.findByText('Continuer par carte'); const oldPay = retainedPress('Continuer par carte'); act(oldPay); await screen.findByText('Réseau indisponible.');
+  await options(); const retry = retainedPress('Actualiser le paiement', true);
+  act(() => establishIdentityFixture('another-buyer')); view.rerender(tree()); await act(async () => {});
+  act(() => establishIdentityFixture('buyer')); view.rerender(tree()); await screen.findAllByText('Actualiser le paiement'); rpc.mockClear();
+  act(() => {retry(); oldPay();}); expect(calls('createStripeCheckout')).toHaveLength(0); expect(calls('confirmStripeCheckout')).toHaveLength(0);
 });
-
 it('does not submit an old cancellation confirmation after a same-scope bank update', async () => {
-  render(tree());
-  await waitFor(() => expect(screen.getByText('Annuler la commande')).toBeTruthy());
-  fireEvent.press(screen.getByText('Annuler la commande'));
-  const confirm = (Alert.alert as jest.Mock).mock.calls[0][2][1];
-  current = makeTx({bankDispute: {id: 'bank', state: 'open'}});
-  act(() => onChange?.());
-  await waitFor(() => expect(screen.getByText('Voir le suivi de cette commande')).toBeTruthy());
-  await act(async () => {await confirm.onPress();});
-  expect(httpsCallable).not.toHaveBeenCalled();
+  mockCommerceEnabled = false; render(tree()); await screen.findByText('Le paiement est actuellement indisponible.'); await options(); fireEvent.press(screen.getByText('Annuler la commande'));
+  const confirmCancellation = jest.mocked(Alert.alert).mock.calls.at(-1)![2]![1]; current = makeTx({bankDispute: {id: 'bank', state: 'open'}}); await refreshOrder();
+  await act(async () => {confirmCancellation.onPress!();}); expect(calls('cancelPendingTransaction')).toHaveLength(0);
+});
+it('an old checkout rejection and finally cannot clear the new scope busy state', async () => {
+  let rejectOld!: (error: unknown) => void, resolveNew!: (value: unknown) => void; const baseline = rpc.getMockImplementation()!;
+  rpc.mockImplementation((name: string, input: unknown) => name !== 'createStripeCheckout' ? baseline(name, input) : calls(name).length === 1
+    ? new Promise((_resolve, reject) => {rejectOld = reject;}) : new Promise(resolve => {resolveNew = resolve;}));
+  const view = render(tree()); fireEvent.press(await screen.findByText('Continuer par carte')); await waitFor(() => expect(calls('createStripeCheckout')).toHaveLength(1));
+  mockId = 'new-sale'; current = makeTx(); view.rerender(tree()); fireEvent.press(await screen.findByText('Continuer par carte')); await waitFor(() => expect(calls('createStripeCheckout')).toHaveLength(2));
+  await act(async () => {rejectOld(new Error('Old request failed'));}); expect(screen.queryByText('Old request failed')).toBeNull();
+  expect(screen.getByRole('button', {name: 'Continuer par carte'}).props.accessibilityState).toMatchObject({busy: true});
+  await act(async () => {resolveNew({data: checkout('new-sale')});}); await screen.findByText('Confirmer le paiement');
 });
 
-it('an old checkout rejection and finally cannot clear the new scope busy state', async () => {
-  let rejectOld!: (error: unknown) => void;
-  let resolveNew!: (value: unknown) => void;
-  const callable = jest.fn().mockImplementationOnce(() => new Promise((_resolve, reject) => {rejectOld = reject;}))
-    .mockImplementationOnce(() => new Promise(resolve => {resolveNew = resolve;}));
-  (httpsCallable as jest.Mock).mockReturnValue(callable);
-  const view = render(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  fireEvent.press(screen.getByText(/^PAYER/));
-  mockId = 'new-sale'; current = makeTx({id: mockId}); view.rerender(tree());
-  await waitFor(() => expect(screen.getByText(/^PAYER/)).toBeTruthy());
-  fireEvent.press(screen.getByText(/^PAYER/));
-  await waitFor(() => expect(callable).toHaveBeenCalledTimes(2));
-  await act(async () => {rejectOld(new Error('Old request failed'));});
-  expect(Alert.alert).not.toHaveBeenCalled();
-  expect(screen.queryByText(/^PAYER/)).toBeNull();
-  await act(async () => {resolveNew({data: {success: true, clientSecret: 'new-secret'}});});
-  expect(screen.getByText('SECRET:new-secret')).toBeTruthy();
+it('keeps a clean new shipping payment closed by the V1 flags before any card command', async () => {
+  mockCommerceEnabled = false; render(tree()); await screen.findByText('Le paiement est actuellement indisponible.');
+  expect(screen.queryByText('Continuer par carte')).toBeNull(); expect(screen.queryByText('Confirmer le paiement')).toBeNull();
+  expect(calls('createStripeCheckout')).toHaveLength(0); expect(calls('confirmStripeCheckout')).toHaveLength(0);
+});
+
+it('does not accept a paid status or provider success without native settlement evidence in the current order', async () => {
+  const baseline = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name: string, input: unknown) => {
+    if (name !== 'confirmStripeCheckout') return baseline(name, input);
+    current = makeTx({status: 'paid'});
+    return {data: checkout('sale', {providerStatus: 'succeeded', preparationState: 'succeeded', confirmationRequired: false, settlementPending: true, action: 'refreshCheckout'})};
+  });
+  await prepare(); await confirm(); await screen.findByText('Cette commande a évolué. Consultez son suivi pour connaître la suite.');
+  expect(mockRouter.replace).not.toHaveBeenCalled(); expect((await ManualPaymentService.readAttempt('buyer', 'sale', () => undefined))?.phase).not.toBe('settled');
 });

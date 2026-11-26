@@ -1,5 +1,8 @@
 import { establishIdentityFixture } from '@/tests/jest/helpers/identityFixture';
-beforeEach(() => establishIdentityFixture('owner_1'));
+import NativeStorage from '@react-native-async-storage/async-storage';
+import {createHash} from 'node:crypto';
+import {captureTradeSession, assertTradeSessionCurrent} from '@/services/tradeOperation';
+beforeEach(async () => {await NativeStorage.clear(); establishIdentityFixture('owner_1');});
 /**
  * ShopService — domaine boutiques-admin (création + modération).
  *
@@ -40,18 +43,7 @@ const mockRejectFn = jest.fn((..._args: unknown[]) =>
 const mockSuspendFn = jest.fn((..._args: unknown[]) =>
   Promise.resolve({ data: { ok: true, shopId: 'shop_1', status: 'suspended' } }),
 );
-const mockPurchaseTierFn = jest.fn((..._args: unknown[]) =>
-  Promise.resolve({
-    data: {
-      success: true,
-      clientSecret: 'pi_secret_123',
-      paymentIntentId: 'pi_123',
-      tier: 'pro',
-      periodMonths: 3,
-      amountCents: 8997,
-    },
-  }),
-);
+const mockPurchaseTierFn = jest.fn();
 const mockProjection = jest.fn();
 const mockHttpsCallable = jest.fn((_fns: unknown, name: string) => {
   if (name === 'getMyEligibility') return jest.fn(async () => ({data: {version: 'a'.repeat(64), policyVersion: 'fixture-session-v1'}}));
@@ -75,7 +67,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import {auth} from '@/config/firebaseConfig';
-import { ShopService } from '@/services/shopService';
+import { ShopService, type ShopTierPurchaseCommand, type ShopTierPurchaseObservation } from '@/services/shopService';
 import type { Shop } from '@/types';
 
 const mockAddDoc = addDoc as jest.Mock;
@@ -113,7 +105,17 @@ function makeShopInput(): Omit<Shop, 'id' | 'createdAt' | 'updatedAt'> {
 beforeEach(() => {
   jest.clearAllMocks();
   mockServerTimestamp.mockReturnValue(TS_SENTINEL);
+  mockPurchaseTierFn.mockImplementation(async (input: TierInput) => ({data: nativeTierObservation(input)}));
 });
+
+interface TierInput {expectedUid: string; requestId: string; command: ShopTierPurchaseCommand}
+function nativeTierObservation(input: TierInput): ShopTierPurchaseObservation {
+  return {protocol: 'shop_tier_purchase_command_v1', actorId: input.expectedUid, requestId: input.requestId, command: input.command,
+    operationId: 'forfait_' + createHash('sha256').update(JSON.stringify(['shop_tier_purchase_v1', input.expectedUid, input.requestId])).digest('hex'),
+    requestRecorded: true, state: 'payable', amountCents: 8997, currency: 'CAD', paymentIntentId: 'pi_synthetic',
+    providerStatus: 'requires_payment_method', postAuthorized: true, clientSecret: 'pi_synthetic_secret_fixture', terminal: false,
+    receipt: null, reason: null, readAt: '2026-11-25T20:00:00.000Z'};
+}
 
 describe('ShopService.createShop', () => {
   it("force le status à 'pending' et écrase les compteurs même si le client envoie autre chose", async () => {
@@ -261,25 +263,45 @@ describe('ShopService.getPendingShops — current admin and native source', () =
  it('does not report an empty admin list when its current native read fails', async () => {mockGetDocs.mockRejectedValueOnce(new Error('index-missing')); await expect(ShopService.getPendingShops()).rejects.toThrow('index-missing');});
 });
 
-describe('ShopService.purchaseShopTier (F134)', () => {
-  it("appelle la callable 'purchaseShopTier' avec shopId + tier + periodMonths", async () => {
-    await ShopService.purchaseShopTier('shop_1', 'pro', 3);
+describe('ShopService — contrat journalé de forfait phase2 (F134)', () => {
+  it("appelle purchaseShopTier avec la commande shopId/tier/durée et la même intention déjà persistée", async () => {
+    const session = captureTradeSession('owner_1'), assertCurrent = () => assertTradeSessionCurrent(session);
+    const command = {shopId: 'shop_1', tier: 'pro' as const, periodMonths: 3};
+    mockPurchaseTierFn.mockImplementationOnce(async (input: TierInput) => {
+      expect(await ShopService.getShopTierPurchaseJournal('owner_1', 'shop_1', assertCurrent)).toMatchObject({
+        actorId: 'owner_1', requestId: input.requestId, command, native: {amountCents: null, paymentIntentId: null}});
+      return {data: nativeTierObservation(input)};
+    });
+    const observed = await ShopService.beginShopTierPurchase('owner_1', command, true, assertCurrent);
 
     expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'purchaseShopTier');
     expect(mockPurchaseTierFn).toHaveBeenCalledWith({
-      shopId: 'shop_1',
-      tier: 'pro',
-      periodMonths: 3,
+      capability: 'shop_tier_purchase_v1', mode: 'prepare', expectedUid: 'owner_1', requestId: observed.requestId, command,
     });
   });
 
   it('remonte clientSecret + amountCents (montant serveur-autoritaire) du backend', async () => {
-    const result = await ShopService.purchaseShopTier('shop_1', 'pro', 3);
+    const session = captureTradeSession('owner_1'), assertCurrent = () => assertTradeSessionCurrent(session);
+    const result = await ShopService.beginShopTierPurchase('owner_1', {shopId: 'shop_1', tier: 'pro', periodMonths: 3}, true, assertCurrent);
 
-    expect(result.success).toBe(true);
-    expect(result.clientSecret).toBe('pi_secret_123');
+    expect(result.state).toBe('payable'); expect(result.terminal).toBe(false); expect(result.receipt).toBeNull();
+    expect(result.clientSecret).toBe('pi_synthetic_secret_fixture');
     expect(result.amountCents).toBe(8997);
-    expect(result.tier).toBe('pro');
-    expect(result.periodMonths).toBe(3);
+    expect(result.command.tier).toBe('pro'); expect(result.command.periodMonths).toBe(3);
+    expect(await ShopService.getShopTierPurchaseJournal('owner_1', 'shop_1', assertCurrent)).toMatchObject({
+      requestId: result.requestId, native: {amountCents: 8997, paymentIntentId: result.paymentIntentId}, paymentAttempted: false});
+  });
+
+  it('refuse l’ancien appel sans journal avant tout RPC et sans créer une seconde référence', async () => {
+    await expect(ShopService.purchaseShopTier('shop_1', 'pro', 3)).rejects.toThrow('référence');
+    expect(mockPurchaseTierFn).not.toHaveBeenCalled();
+    expect(mockHttpsCallable).not.toHaveBeenCalledWith(expect.anything(), 'purchaseShopTier');
+  });
+
+  it('refuse le secret d’une autre intention sans l’adopter dans le journal courant', async () => {
+    const session = captureTradeSession('owner_1'), assertCurrent = () => assertTradeSessionCurrent(session);
+    mockPurchaseTierFn.mockImplementationOnce(async (input: TierInput) => ({data: {...nativeTierObservation(input), requestId: 'another_request_0000001'}}));
+    await expect(ShopService.beginShopTierPurchase('owner_1', {shopId: 'shop_1', tier: 'pro', periodMonths: 3}, true, assertCurrent)).rejects.toThrow('reste à vérifier');
+    expect(await ShopService.getShopTierPurchaseJournal('owner_1', 'shop_1', assertCurrent)).toMatchObject({native: {amountCents: null, paymentIntentId: null}});
   });
 });

@@ -14,14 +14,8 @@ import { AdminCaptureCard } from '@/features/admin/components/AdminCaptureCard';
 import { AdminRefundCard } from '@/features/admin/components/AdminRefundCard';
 import { AdminFinancialQueue } from '@/features/admin/components/AdminFinancialQueue';
 import type { Transaction } from '@/types/transaction';
+import {historicalAdminPreview, historicalAdminAttempt, historicalAdminFinancialDecision} from '@/tests/jest/helpers/historicalServiceFinancialFixture';
 
-const mockUser = {id: 'admin'};
-jest.mock('@/hooks/useAuth', () => ({
-  useAuthenticatedUid: () => require('@/config/firebaseConfig').auth.currentUser?.uid ?? null,
-  useAuthenticatedIdentity: () => { const user = require('@/hooks/useAuth').useUser(); return user?.id === require('@/config/firebaseConfig').auth.currentUser?.uid ? user : null; },
-  useAuthenticatedSession: () => ({ uid: require('@/config/firebaseConfig').auth.currentUser?.uid ?? null, identity: require('@/hooks/useAuth').useAuthenticatedIdentity() }),
-  useAuthGuardSession: () => ({ normalUser: require('@/hooks/useAuth').useUser(), identity: require('@/hooks/useAuth').useAuthenticatedIdentity(), isAuthLoading: false }),
-useUser: () => mockUser}));
 jest.mock('@/services/swapService', () => ({resolveSwapDispute: jest.fn()}));
 jest.mock('@/features/admin', () => ({
  ...Object.fromEntries(['AdminSectionNav','AdminFinancialQueue','AdminReturnToSenderFinancialEntry','AdminReturnToSenderFinancialReview','AdminExceptionalRestitutionHistory','AdminOrphanCaptureRefundHistory','AdminTransportFinancialEntry','AdminTransportFinancialReview','AdminTransportFinancialHistory','AdminParcelClaimHistoryPanel','AdminProductFinancialEntry','AdminProductFinancialHistory','AdminPurchaseRefundEntry','AdminPurchaseRefundHistory','AdminRefundRepairHistory','AdminBankDisputeCases','AdminSwapDisputeReview'].map(name => [name, () => null])),
@@ -34,7 +28,7 @@ jest.mock('@shopify/flash-list', () => {
 });
 import AdminDisputesScreen from '@/app/admin/disputes';
 const transaction = (overrides: Partial<Transaction> = {}): Transaction => ({id: 'sale', buyerId: 'buyer', sellerId: 'seller', articleId: 'article', amount: 50, totalAmount: 50, shippingCost: 0, deliveryType: 'shipping', status: 'refund_action_required', createdAt: new Date(), ...overrides});
-const capture: CaptureAnomaly = {id: 'capture_case', firstEvidence: {observedPaymentIntentId: 'pi_unassigned', originalPaymentIntentId: 'pi_original', candidateReference: 'candidate', collectedAmountCents: null, requestedAmountCents: 5000, currency: 'cad'}, lastEvidence: {collectedAmountCents: null}, currentProviderProof: null, providerLookupState: 'not_checked', status: 'pending', actionRequired: true};
+const capture: CaptureAnomaly = {type: 'payment_capture_reconciliation', id: `capture_${'a'.repeat(64)}`, sourceRevision: 'native-revision', firstEvidence: {observedPaymentIntentId: 'pi_unassigned', originalPaymentIntentId: 'pi_original', candidateReference: 'candidate', collectedAmountCents: null, requestedAmountCents: 5000, currency: 'cad'}, lastEvidence: {collectedAmountCents: null}, currentProviderProof: null, providerLookupState: 'not_checked', status: 'pending', actionRequired: true};
 let client: QueryClient;
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -64,19 +58,25 @@ it('discovers a refund without a disputes doc and retains pagination through a f
 it('maps current provider proof from payload, keeping unknown sums distinct from planned sums', async () => {
   (getDocs as jest.Mock).mockResolvedValue({docs: [{id: 'capture_case', data: () => ({type: 'payment_capture_reconciliation', status: 'pending', payload: {signedEvidence: capture.firstEvidence, lastSignedEvidence: capture.firstEvidence, providerLookupState: 'verified', currentProviderProof: {paymentIntentId: 'pi_unassigned', collectedAmountCents: 5000, currency: 'cad'}}})}]});
   const page = await getAdminCapturePage('admin');
-  expect(page.items[0].firstEvidence.collectedAmountCents).toBeNull();
-  expect(page.items[0].currentProviderProof?.collectedAmountCents).toBe(5000);
-  expect(page.items[0].providerLookupState).toBe('verified');
-  expect(where).toHaveBeenCalledWith('type', '==', 'payment_capture_reconciliation');
+  const first = page.items[0]; expect(first.type).toBe('payment_capture_reconciliation');
+  if (first.type !== 'payment_capture_reconciliation') throw new Error('Native capture anomaly expected.');
+  expect(first.firstEvidence.collectedAmountCents).toBeNull();
+  expect(first.currentProviderProof?.collectedAmountCents).toBe(5000);
+  expect(first.providerLookupState).toBe('verified');
+  expect(where).toHaveBeenCalledWith('type', 'in', ['payment_capture_reconciliation', 'payment_checkout_reconciliation']);
 });
 it.each(['verified', 'invalid', 'unavailable'] as const)('inspection %s always remains open and never enables a refund/close', async state => {
-  const callable = jest.fn().mockResolvedValue({data: {operationId: capture.id, status: 'pending', actionRequired: true, automaticRefundAllowed: false, providerLookupState: state}});
+  const callable = jest.fn().mockResolvedValue({data: {operationId: capture.id, status: 'pending', actionRequired: true,
+    automaticRefundAllowed: false, automaticCaptureAllowed: false, automaticCardRefundAllowed: false, paymentPermissionGranted: false,
+    signedEvidence: capture.firstEvidence, currentOrderProof: null, currentCheckoutProof: null, currentProviderProof: null,
+    resolution: null, paymentCommitted: false, qualified: false, reason: 'native_sources_require_review', message: 'Sources à examiner, aucun mouvement autorisé.', providerLookupState: state}});
   (httpsCallable as jest.Mock).mockReturnValue(callable);
   const refresh = jest.fn();
-  render(<AdminCaptureCard anomaly={capture} onRefresh={refresh} />);
+  render(<QueryClientProvider client={client}><AdminCaptureCard anomaly={capture} userId="admin" onRefresh={refresh} /></QueryClientProvider>);
   fireEvent.press(screen.getByText('Vérifier le paiement'));
-  await waitFor(() => expect(refresh).toHaveBeenCalled());
-  expect(callable).toHaveBeenCalledWith({operationId: capture.id});
+  await screen.findByText('Sources à examiner, aucun mouvement autorisé.');
+  expect(refresh).not.toHaveBeenCalled();
+  expect(callable).toHaveBeenCalledWith({operationId: capture.id, expectedAdminUid: 'admin'});
   expect(screen.getByText(/Dossier ouvert/)).toBeTruthy();
   expect(screen.queryByText('Clore')).toBeNull();
   expect(screen.queryByText('Rembourser')).toBeNull();
@@ -136,14 +136,29 @@ it.each([true, false])('shows both versions before deciding even when dispute li
 
 it('admin purchase refund pending does not announce dispute closure or financial success', async () => {
   (getDocs as jest.Mock).mockResolvedValue({docs: [{id: 'shipping-dispute', data: () => ({type: 'transaction_problem', transactionId: 'sale', status: 'open'})}]});
-  jest.spyOn(TransactionService, 'getTransaction').mockResolvedValue(transaction({status: 'delivery_failed'}));
-  jest.spyOn(TransactionService, 'adminRefundTransaction').mockResolvedValue({success: false, status: 'pending', intentId: 'i', refundId: 're', outstandingCardCents: 5000, actionRequired: false, localReconciliationRequired: false, bankWaiting: false, message: 'Confirmation attendue.'});
+  const order = transaction({status: 'delivery_failed'});
+  jest.mocked(Firestore.getDoc).mockResolvedValue({id: 'sale', exists: () => true, data: () => order} as Awaited<ReturnType<typeof Firestore.getDoc>>);
+  const preview = historicalAdminPreview('admin', 'refund_without_return', {transactionId: 'sale', expectedDisputeId: 'shipping-dispute', sourceStatus: 'delivery_failed'});
+  const originalIO = (httpsCallable as jest.Mock).getMockImplementation()!;
+  const financial = jest.fn(async (input: Record<string, unknown>) => {
+    if (input.mode === 'preview') return {data: preview};
+    const attempt = historicalAdminAttempt(preview, {requestId: String(input.requestId), note: String(input.note)});
+    return {data: await historicalAdminFinancialDecision(attempt)};
+  });
+  (httpsCallable as jest.Mock).mockImplementation((functions: unknown, name: string) => name === 'adminRefundTransaction' ? financial : originalIO(functions, name));
   render(<QueryClientProvider client={client}><AdminDisputesScreen /></QueryClientProvider>);
   await waitFor(() => expect(screen.getByText('Rembourser l’acheteur')).toBeTruthy());
-  await waitFor(() => expect(TransactionService.getTransaction).toHaveBeenCalled());
   fireEvent.press(screen.getByText('Rembourser l’acheteur'));
-  await act(async () => {await (Alert.alert as jest.Mock).mock.calls[0][2][1].onPress();});
-  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[0]).toBe('Remboursement en cours');
+  const submit = await screen.findByText('Enregistrer cette instruction'); expect(submit).toBeDisabled();
+  expect(financial).toHaveBeenCalledTimes(1);
+  fireEvent.changeText(screen.getByPlaceholderText('Motif opérateur obligatoire'), 'Examen QA des faits du dossier exact.');
+  expect(submit).toBeDisabled();
+  fireEvent.press(screen.getByText('Je confirme cette instruction sans retour pour ce dossier, ces destinataires, ces montants et cette note.'));
+  await waitFor(() => expect(submit).toBeEnabled()); fireEvent.press(submit);
+  await screen.findByText('Votre décision opérateur et sa réservation sont enregistrées. Le règlement financier reste à suivre avec son intention d’origine.');
+  expect(financial).toHaveBeenCalledTimes(2);
+  expect(financial.mock.calls[1][0]).toMatchObject({transactionId: 'sale', expectedDisputeId: 'shipping-dispute', expectedAdminUid: 'admin', mode: 'confirm', accepted: true, previewId: preview.previewId, expectedSourceHash: preview.sourceHash});
+  expect(screen.queryByText('Le remboursement de cette commande est confirmé.')).toBeNull();
   expect(screen.getByText('Ouvert')).toBeTruthy();
 });
 

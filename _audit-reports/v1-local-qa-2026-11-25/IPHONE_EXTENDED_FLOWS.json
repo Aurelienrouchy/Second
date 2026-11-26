@@ -1,0 +1,115 @@
+{
+  "environment": "Seconde Dev",
+  "runtimeSourceSha256": "75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d",
+  "device": "physical iPhone 13 Pro Max",
+  "startedAt": "2026-11-26T04:08:29.117768+00:00",
+  "observations": [
+    {
+      "case": "private_owner_link_guest",
+      "result": "PASS guarded",
+      "tree": "v86-301",
+      "proof": "Guest opening settings/erase-account returns signed-out profile; no erasure action."
+    },
+    {
+      "case": "email_password_invalid",
+      "result": "PASS denied",
+      "tree": "v86-307",
+      "atMs": 1795665875564,
+      "proof": "Incorrect password on synthetic accountA yields Email ou mot de passe incorrect; no session."
+    },
+    {
+      "case": "auth_reopen_validation",
+      "result": "PASS after minimal local-state fix",
+      "tree": "v86-310",
+      "proof": "After failed login and closing/reopening the sheet, blank fields show invalid-email and minimum-password messages before new input.",
+      "retestTrees": [
+        "v86-350",
+        "v86-353",
+        "v86-354",
+        "v86-355",
+        "v86-356"
+      ],
+      "fix": "SignInForm keyed by sheet opening version. Current invalid-input messages remain; closing then reopening resets blank untouched fields."
+    },
+    {
+      "case": "email_password_valid_existing_account",
+      "result": "PASS",
+      "tree": "v86-316",
+      "atMs": 1795666027855,
+      "proof": "Private placeholder credentials for existing synthetic accountA; profile CilleQ loaded."
+    },
+    {
+      "case": "erasure_observation_cross_account",
+      "result": "PASS isolated",
+      "tree": "v86-317",
+      "proof": "AccountA sees Aucun suivi eligible, not the erased accountC receipt."
+    },
+    {
+      "case": "profile_address_autocomplete_and_persistence",
+      "result": "PASS",
+      "trees": [
+        "v86-319",
+        "v86-321",
+        "v86-322",
+        "v86-324",
+        "v86-326"
+      ],
+      "atMs": 1795666354090,
+      "proof": "Live Canadian address suggestions, explicit public commercial sample selection, profile-only save confirmed, same address/QC/normalized postal code re-read after reopening. Synthetic accountA only; no shipment.",
+      "limits": "Native typing did not reproduce the intended full complement string exactly; the observed QA-marked value was saved and re-read, without claiming this as a proven application input defect."
+    },
+    {
+      "case": "preferences_persistence",
+      "result": "PASS",
+      "trees": [
+        "v86-328",
+        "v86-329",
+        "v86-331"
+      ],
+      "atMs": 1795666528108,
+      "proof": "Initial M EU visually observed; added L EU and shoe38, saved with success, reopened and visually confirmed M+L+38 selected.",
+      "limits": "Selection traits are not exposed in these chip AX rows; visual verification used actual screenshots, not guessed coordinates."
+    },
+    {
+      "case": "closed_wallet_and_empty_history",
+      "result": "PASS read-only closed state",
+      "trees": [
+        "v86-335",
+        "v86-336",
+        "v86-337"
+      ],
+      "proof": "No existing wallet and new activation/payments explicitly disabled; history movements and withdrawals empty; no new payment or withdrawal attempted."
+    },
+    {
+      "case": "privacy_usage_and_marketing_withdrawal",
+      "result": "PASS",
+      "trees": [
+        "v86-340",
+        "v86-341",
+        "v86-342",
+        "v86-343",
+        "v86-345"
+      ],
+      "proof": "Usage switch1→0; marketing explicitly allowed then withdrawn, current timestamp and withdrawn state re-read after reopening; usage remains0. Synthetic accountA only.",
+      "grantAtMs": 1795666824213,
+      "withdrawAtMs": 1795666839575,
+      "limits": "No delivered marketing email or analytics event collection is implied; QA collection remains globally disabled."
+    },
+    {
+      "case": "normal_logout",
+      "result": "PASS",
+      "trees": [
+        "v86-347",
+        "v86-348",
+        "v86-349"
+      ],
+      "atMs": 1795666934477,
+      "proof": "Explicit logout confirmed, then signed-out profile displayed. Synthetic accountA and its data preserved."
+    }
+  ],
+  "limits": [
+    "No real provider login or actual email delivery is implied by password sign-in.",
+    "No production account, content or secret was used."
+  ],
+  "currentRuntimeSourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55"
+}

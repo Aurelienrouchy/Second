@@ -85,3 +85,18 @@ Le lecteur final `75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad436085
 **Le retest physique final de ce lecteur n’a pas été exécuté.** Au redémarrage, CoreDevice ne joignait plus l’iPhone ; le contrôle de connexion confirme un appareil appairé avec tunnel indisponible. Le fondateur a été invité à le rebrancher et le déverrouiller. La dernière UI réellement relue demeure286,2/7 et accès fermé. Il reste à relire le résultat7/7 sur le téléphone, vérifier la déconnexion en conservant le suivi puis le cycle premier plan/redémarrage sans erreur `QueryCache`. Les assertions composées et la réussite serveur ne remplacent pas cette preuve native.
 
 La V1 installée et ces correctifs restent une recette **Seconde Dev**. Les anciens binaires stores ne contiennent pas ce dernier code.
+
+
+## Reconnexion : contrôle physique final réussi
+
+Après reconnexion USB, l’ancien processus affiche7/7 en288. Un vrai redémarrage puis téléchargement du bundle Metro8092 (289/290/292) charge le lecteur75b4 ; le suivi293 affiche **Suppression traitée,7/7, accès fermé**, pour la même intention. Retour au premier plan et vérification explicite conservent cet état. Le profil295 affiche **Pas encore connecté** ; son bouton retrouve le suivi296. Deuxième redémarrage297/298 puis profil299 et suivi300 : même résultat7/7. La session était déjà fermée après retrait Auth ; le bouton manuel de déconnexion du compte fermé n’a donc pas été exercé et n’est pas présenté comme tel.
+
+La fenêtre de logs post-rechargement22785→27241 contient **0ERROR et0erreurQueryCache** ;24WARN d’animation sont conservés. Le défaut query284/285 n’est pas reproduit pendant ce retest. Cela ne certifie pas toutes les courses réseau. Preuve : `IPHONE_FINAL_RETEST.json`, capture `screens/iphone-suppression-terminee.png`. Le blocage USB décrit plus haut est historique et résolu.
+
+### Compléments sur le compte synthétiqueA
+
+`IPHONE_EXTENDED_FLOWS.json` consigne les nouveaux gestes : mauvais mot de passe refusé307, connexion valide316, suiviC non accessible sous l’identitéA317 ; adresse réelle de test publique proposée par autocomplétion puis enregistrée/retrouvée319–326 ; tailles M+L EU et pointure38 sauvegardées/retrouvées visuellement328–331 ; porte-monnaie fermé et historique vide335–337 ; données d’usage désactivées et choix marketing accordé puis retiré/relu340–345 ; déconnexion explicite347–349. Aucun paiement, expédition réelle ni donnéeProd utilisé.
+
+Le défaut de validation après réouverture310 a été corrigé par une unique clé de montage sur SignInForm. Sur le nouveau gel0454, des erreurs courantes restent visibles353/354 ; fermeture355 puis réouverture356 donnent des champs vierges sans erreur prématurée. Les tests complets app du même gel passent2179/2179,222suites, sansforceExit ni tests ignorés. Les preuves du lecteur75b4 restent attribuées à leur source historique.
+
+Les connexions Apple/Google positives requièrent de vraies identités et une interaction du propriétaire ; elles ont été demandées au fondateur sur l’écran de connexion, sans saisie ni transmission d’identité personnelle par l’agent. Elles ne sont pas encore déclarées validées.
