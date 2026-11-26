@@ -1,0 +1,212 @@
+{
+  "project": "seconde-dev",
+  "scope": "two_reserved_synthetic_subjects_only",
+  "verifiedAt": "2026-11-26T03:16:53.632703+00:00",
+  "completionPublication": {
+    "project": "seconde-dev",
+    "operatorProject": "seconde-dev-control-20261125",
+    "sha256": "358a5d7650d90d5fddd56eeda6882f4db88b8638382a0accf30bbdc18180e70a",
+    "generation": "1795662800939167",
+    "temporaryHold": true,
+    "runtimeGrant": "exact_object_get_only",
+    "phase": "completion",
+    "createdAt": "2026-11-26T03:13:21.674348+00:00",
+    "serverSourceSha256": "dd32855661871f6d5f0c75c811a0cd4744c97518d6453f20c9b5d5d16fb2ac4f",
+    "financialAuthority": "not_asserted"
+  },
+  "pinReadback": {
+    "project": "seconde-dev",
+    "pinSha256": "358a5d7650d90d5fddd56eeda6882f4db88b8638382a0accf30bbdc18180e70a",
+    "pinGeneration": "1795662800939167",
+    "verifiedAt": "2026-11-26T03:16:07.222127+00:00",
+    "consumers": [
+      {
+        "function": "deleteUserAccountV2",
+        "sourceUnchanged": true,
+        "revision": "deleteuseraccountv2-00012-koy",
+        "updatedAt": "2026-11-26T03:14:22.323717593Z"
+      },
+      {
+        "function": "manageAccountErasure",
+        "sourceUnchanged": true,
+        "revision": "manageaccounterasure-00011-big",
+        "updatedAt": "2026-11-26T03:14:23.043425887Z"
+      },
+      {
+        "function": "continueAccountErasure",
+        "sourceUnchanged": true,
+        "revision": "continueaccounterasure-00011-xoq",
+        "updatedAt": "2026-11-26T03:15:11.446154662Z"
+      },
+      {
+        "function": "resumeAccountErasures",
+        "sourceUnchanged": true,
+        "revision": "resumeaccounterasures-00011-wec",
+        "updatedAt": "2026-11-26T03:15:15.568775904Z"
+      },
+      {
+        "function": "eraseLateAccountStorage",
+        "sourceUnchanged": true,
+        "revision": "eraselateaccountstorage-00011-muq",
+        "updatedAt": "2026-11-26T03:16:04.651234791Z"
+      }
+    ],
+    "allSourceRuntimeSecretsPreserved": true
+  },
+  "exactGrants": {
+    "project": "seconde-dev",
+    "controlProject": "seconde-dev-control-20261125",
+    "verifiedAt": "2026-11-26T03:14:08.148512+00:00",
+    "receiptCount": 2,
+    "rolePermissions": [
+      "storage.objects.get"
+    ],
+    "grants": [
+      {
+        "receiptSha256": "efa967bb82d498601964924b2a2e52d4fc02ddd556da2a051bc4af03f8c550e0",
+        "exactObjectOnly": true,
+        "getOnly": true,
+        "singleRuntimePrincipal": true
+      },
+      {
+        "receiptSha256": "358a5d7650d90d5fddd56eeda6882f4db88b8638382a0accf30bbdc18180e70a",
+        "exactObjectOnly": true,
+        "getOnly": true,
+        "singleRuntimePrincipal": true
+      }
+    ],
+    "noPermissionChangedByThisCheck": true
+  },
+  "engineTransportReadback": {
+    "project": "seconde-dev",
+    "verifiedAt": "2026-11-26T03:16:21.069Z",
+    "functions": [
+      {
+        "name": "deleteUserAccountV2",
+        "active": true,
+        "memoryMiB": 512,
+        "noSecrets": true,
+        "publicCallableTransport": true
+      },
+      {
+        "name": "manageAccountErasure",
+        "active": true,
+        "memoryMiB": 512,
+        "noSecrets": true,
+        "publicCallableTransport": true
+      },
+      {
+        "name": "continueAccountErasure",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": false
+      },
+      {
+        "name": "resumeAccountErasures",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": true
+      },
+      {
+        "name": "eraseLateAccountStorage",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": false
+      }
+    ]
+  },
+  "writerMatrixSha256": "7200e5dda88514c2bb0762feb7e72208e1c66738bf0a32e95443fcfac4392a4a",
+  "admittedWriterSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
+  "readOnlyObservationTransition": {
+    "protocol": "phase1_post_fence_readonly_observation_transition_v1",
+    "writerSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
+    "readerSourceSha256": "75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d",
+    "changedRuntimePaths": [
+      "app/account-deletion.tsx",
+      "app/settings/erase-account.tsx",
+      "features/chat/hooks/useChatListener.ts"
+    ],
+    "readOnlyOnly": true,
+    "bothNativeFencesCommittedBeforeEdit": true,
+    "fencesObservedAt": "2026-11-26T03:03:46.877Z",
+    "fenceAuthorityExtended": false,
+    "noNewRpcOrWriter": true,
+    "noNewAuthAuthority": true,
+    "rootCodeReview": "exact_1062_file_diff_vs_admitted_0abd_and_Git_9188; two_query_signal_guards_and_listener_cache_clear_only",
+    "newReaderDoesNotAdmitFutureWriters": true
+  },
+  "expiresAt": "2026-11-26T04:46:10.064Z",
+  "receiptObjectCount": 2,
+  "lateStorageProof": "BACKEND_ERASURE_LATE_STORAGE_DEV.json",
+  "nativeFinalCompletionObserved": true,
+  "nextNativeCronAt": "2026-11-26T03:18:01.406179Z",
+  "noNewRequestOrManualResume": true,
+  "productionMutation": false,
+  "nativeFinalProof": "BACKEND_ERASURE_NATIVE_POSTCONDITIONS.json",
+  "finalBoundedLogs": "BACKEND_ERASURE_FINAL_BOUNDED_LOGS.json",
+  "nativeCommandObservations": [
+    {
+      "project": "seconde-dev",
+      "runId": "b55493788e6e44758ca7d1e9f1795407",
+      "inspectedAt": "2026-11-26T03:18:24.652Z",
+      "commandId": "0d001ecd6e2a58d2bf1d03c738064e0898b73b219bd266174fe8faa73d36db11",
+      "state": "completed",
+      "version": 63,
+      "fenceCommitted": true,
+      "authAbsentVerified": true,
+      "reasons": [],
+      "progress": {
+        "completedSteps": 7,
+        "totalSteps": 7
+      },
+      "cursorPhase": 14,
+      "cursorKind": "erasure_cursor_v1",
+      "mediaPhase": 4,
+      "subjectHash": "536463a887032a762c27db124f0b3f8eec028930fdb7716c6c3fe2a348e18fe3",
+      "nativeBirthHash": "385ae9072d25d9c1a65f9ad23d9807ed4f8fa42de181b8ac655f71d208c4c223",
+      "control": {
+        "installationId": "phase1_dev_20261125",
+        "epoch": "initial_20261125_d07ff2c1d4cd2763",
+        "generation": "1795627289652833",
+        "sourceHash": "ebef727b60a2b8fa5b09aeeb369e45a20c16985648220b7ce23facc9dcec4fc1"
+      }
+    },
+    {
+      "project": "seconde-dev",
+      "kind": "physical_C",
+      "inspectedAt": "2026-11-26T03:18:25.912Z",
+      "commandId": "1252409b88593b3a83a6d4d3b5e8532cf3ed83df1795f5b9e132b44b0996e78c",
+      "state": "completed",
+      "fenceCommitted": true,
+      "version": 51,
+      "subjectHash": "d39970cc303db6a9131f9499ba338860508e5ba24c8d4dbe019d428b196eb135",
+      "nativeBirthHash": "28aa5011cd5c20a8e76500a1b28bcbb54f65585f77ce771a4695c2dc9c9826ab",
+      "authBornAfterInitialDrain": true,
+      "authAbsentVerified": true,
+      "reasons": [],
+      "progress": {
+        "totalSteps": 7,
+        "completedSteps": 7
+      },
+      "control": {
+        "epoch": "initial_20261125_d07ff2c1d4cd2763",
+        "sourceHash": "ebef727b60a2b8fa5b09aeeb369e45a20c16985648220b7ce23facc9dcec4fc1",
+        "installationId": "phase1_dev_20261125",
+        "generation": "1795627289652833"
+      }
+    }
+  ],
+  "physicalFinalScreenObservedByBackend": false
+}

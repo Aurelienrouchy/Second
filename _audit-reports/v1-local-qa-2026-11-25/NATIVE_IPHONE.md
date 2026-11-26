@@ -18,14 +18,14 @@ Le lancement Expo avait compilé correctement puis refusé le port 8081 occupé.
 | Caméra réelle | Une photo noire prise sur le téléphone, puis relue dans la grille | v86-166 à168 |
 | Saisie manuelle | Photo conservée localement, titre et description QA saisis | v86-169/170 |
 | Catégorie | Navigation Femmes → Vêtements → Robes → Mini | v86-174 à179 |
-| État de l’article | Choix visibles mais regroupés en un seul élément AX ; correction demandée, pas encore validée | v86-180 |
+| État et taille de l’article | Regroupement AX reproduit puis corrigé ; choix Très bon état et M EU réellement effectués | v86-180 à184 |
 
 Les identifiants du compte C restent dans un fichier temporaire privé. Son seul champ `emailVerified` a été validé administrativement après contrôle de l’UID et de la date de création : preuve SHA-256 `6807069975a8020a735a3aa1484ccf0d9105d8b8720803d15b4be7fd3f7a594f`. Aucune livraison de courriel `.test` n’est revendiquée.
 
 ## Logs et corrections
 
 - Erreur observée pendant l’inscription : query `account-erasure-device`, garde de session/page devenue périmée. Le hook utilise désormais l’annulation TanStack existante pour cette perte de portée ; les erreurs réelles du journal restent visibles. Après redémarrage physique et reprise du parcours, aucune nouvelle ligne ERROR/WARN dans la fenêtre relevée à 21 h 13. La transition exacte d’inscription reste à recetter après correction.
-- Historique de recherche : index `searchHistory/timestamp` de portée COLLECTION_DESC absent sur Dev. Correction backend/index en cours ; la recherche nominale de produits fonctionnait déjà, mais l’historique n’est pas encore qualifié.
+- Historique de recherche : index `searchHistory/timestamp` de portée COLLECTION_DESC absent sur Dev, corrigé et READY. Recherche puis réouverture de l’historique réellement contre-vérifiées220/222.
 - Clavier conservé à l’ouverture de Catégorie : reproduit physiquement. `Keyboard.dismiss()` ajouté par le développeur RN ; ouverture depuis un champ actif à retester.
 
 Le contrôle automatique a d’abord refusé le bouton de saisie manuelle en supposant un envoi vers l’IA. Le code a été vérifié : ce bouton annule l’analyse et sauvegarde seulement le brouillon local avant navigation. L’action locale a ensuite été autorisée et exécutée. Aucun appel d’analyse IA n’a été déclenché par ce bouton.
@@ -60,4 +60,28 @@ L’empreinte c291 a ensuite été invalidée par le correctif du sélecteur de 
 - Lecture serveur ciblée : commandId `1252409b88593b3a83a6d4d3b5e8532cf3ed83df1795f5b9e132b44b0996e78c`, requestId `8575dac6f8e7285389d8d1de02240ddf`, état `awaiting_review`, fence false.
 - Logs serveur bornés02:40→02:47:49UTC : aucune entréeERROR/HTTP>=400 sur les trois fonctions médias et les cinq moteurs filtrés par cette commande. Aucun payload privé lu. L’attente de qualification n’est pas présentée comme une panne serveur.
 
-**P11 reste partiel.** Le contrôle automatique a refusé la publication de l’attestation Dev limitée aux deux comptes synthétiques, faute d’accord utilisateur explicite pour cette opération précise. La tentative a été rejetée avant lancement : aucun reçu, rôle ou pin publié et aucun effacement activé. Le consentement ciblé reste nécessaire pour vérifier la fermeture d’accès, la fin du traitement et la conservation minimale des preuves.
+**P11 reste partiel.** Le contrôle automatique a refusé la publication de l’attestation Dev limitée aux deux comptes synthétiques, faute d’accord utilisateur explicite pour cette opération précise. La tentative a été rejetée avant lancement : aucun reçu, rôle ou pin publié et aucun effacement activé. Le fondateur a ensuite donné cet accord ciblé : « Oui, terminer ces tests d’effacement sur Dev ». La reprise est autorisée ; fermeture d’accès, fin du traitement et conservation minimale des preuves restent à constater.
+
+## Reprise autorisée et fermeture des accès
+
+L’attestation d’admission limitée aux deux comptes synthétiques a ensuite été publiée et les cinq moteurs Dev ont été reliés à cette génération précise. Leurs sources restent inchangées ; aucun accès à un autre objet ou compte n’est ajouté. Les deux fences ont été commises par la reprise native à 03:03:45–46 UTC.
+
+- **Contrelecture physique286**, action Vérifier l’avancement à1795662308804 : même intention, **2/7, « L’accès au compte est fermé »**, dernier état22:03:17. La fermeture Auth et la fin de l’effacement ne sont pas encore revendiquées.
+- **Nouvelle erreur de requête réellement reproduite** au retour au premier plan (284/285) : `account-erasure-observation` traite la perte de portée de page comme une erreur ordinaire. Le dernier reçu confirmé reste affiché. Un correctif d’annulation TanStack ciblé est en préparation ; aucun filtre global de logs et aucune garde d’identité supprimée.
+- Après la fence, le listener de conversation encore attaché à la session C reçoit un vrai refus Firestore de permissions. Ce refus est conservé dans les logs ; il ne doit pas conduire à élargir les permissions.
+
+Le client qui a émis les demandes et effectué les écritures qualifiées reste l’empreinte `0abd`. Un éventuel correctif du lecteur de suivi aura sa propre empreinte, sans être présenté comme l’écrivain historique. Le test complet P11 reste en cours jusqu’aux preuves finales du serveur et à leur relecture native.
+
+## Résultat serveur final et dernier contrôle physique restant
+
+Les deux requêtes sont arrivées **nativement à7/7** après le tick de03:18UTC. La contre-vérification indépendante de03:19:20UTC confirme Auth et profils absents, deux annonces neutralisées, huit générations de médias effectivement absentes, comptes des pairs préservés. Les deux accords terminaux et leurs témoins restent identiques hors anonymisation ; seules les preuves privées prévues pour ces accords sont conservées. La preuve postale du pair reste intacte. Aucun statut ni effacement n’a été forcé par l’opérateur. Voir `BACKEND_ERASURE_NATIVE_POSTCONDITIONS.json`.
+
+Le test de photo tardive a produit un **vrai événement Eventarc**, puis un reçu et l’absence de la génération exacte. Il est distinct de l’ancien upload SDK partiel : son harness interrompu n’a fourni ni reprise403 ni sortie0 et ces résultats ne sont pas inventés. Les accès du runtime sont limités aux deux objets d’attestation autorisés ; les cinq moteurs conservent leur source et leurs contrôles.
+
+Les logs serveur finaux sont bornés aux deux commandes et cinq moteurs,03:08→03:19:30UTC : **deux WARNING `native_scope_unqualified`, aucun ERROR** dans ce filtre. Les postconditions terminales ont été vérifiées après ces avertissements ; leur cause exacte n’est pas affirmée. Le fichier `BACKEND_ERASURE_FINAL_BOUNDED_LOGS.json` les conserve et ne constitue pas un scan global des données personnelles.
+
+Le lecteur final `75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d` corrige les deux requêtes d’observation et le cache des conversations : **114/114 tests ciblés**, appTypeScript/frontières0. Commit `66d90acb` poussé après `9188d295`. Les1062blobs runtime du commit correspondent exactement à cette empreinte.
+
+**Le retest physique final de ce lecteur n’a pas été exécuté.** Au redémarrage, CoreDevice ne joignait plus l’iPhone ; le contrôle de connexion confirme un appareil appairé avec tunnel indisponible. Le fondateur a été invité à le rebrancher et le déverrouiller. La dernière UI réellement relue demeure286,2/7 et accès fermé. Il reste à relire le résultat7/7 sur le téléphone, vérifier la déconnexion en conservant le suivi puis le cycle premier plan/redémarrage sans erreur `QueryCache`. Les assertions composées et la réussite serveur ne remplacent pas cette preuve native.
+
+La V1 installée et ces correctifs restent une recette **Seconde Dev**. Les anciens binaires stores ne contiennent pas ce dernier code.

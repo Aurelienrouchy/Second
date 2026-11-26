@@ -51,6 +51,17 @@ Les commandes ciblées utilisent `--runInBand --watchman=false --detectOpenHandl
 
 Ces lots se recouvrent : leurs nombres ne doivent pas être additionnés pour annoncer un total distinct.
 
+## Dernier delta lecteur, après la globale0abd
+
+Le lecteur final `75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d` (1062 fichiers, relevé root) diffère de l’écrivain0abd dans trois fichiers de lecture : routes publique/propriétaire d’effacement et listener de conversations. Les requêtes/destructions déjà qualifiées restent attribuées à0abd ; la globale2092/47 et Vitest329 ci-dessus ont été exécutés sur0abd, pas renommés sur75b4.
+
+- **Observation publique et propriétaire : RED distincts0/2** dans `round96-observation-red.json` : après perte de focus, les vraies routes/service/journal renvoyaient une erreur ordinaire. Les wrappers `readScopedQuery` sont ensuite corrigés par RN, avec le guard de signal transmis au service avant toute écriture de journal. Les20 cas actuels couvrent UID/génération/SDK/focus/AppState/démontage/abort, un retour foreground frais contre ancien reçu tardif99, la vraie403 actuelle et le succès observe qualifié. Aucune garde mockée ; seuls Fetch/SecureStore sont remplacés, l’UI de statut non concernée est substituée.
+- **Liste de conversations : RED1/5** dans `round99-chat-listener-red.json` : refus courant conservant les chats/unread, erreurs anciennes UID/génération/SDK polluant le nouveau contexte. Correction RN : abonnement génération, propriétaire courant vérifié avant callbacks, vidage sur seul refus de permission courant. Les6 cas finaux conservent le vrai log et l’erreur actuelle, ne déconnectent pas le membre, ne désabonnent pas synchroniquement sur erreur et n’élargissent aucune règle. Une autre panne réseau actuelle conserve son erreur et sa liste ; les anciens propriétaires n’écrivent rien dans la nouvelle session. Le service Firestore réel reçoit des DTO natifs via le seul mock `onSnapshot`.
+
+`round101-final-read-chat.json` : **8 suites,114/114**, sortie normale avec `--detectOpenHandles`, sans `--forceExit`. App TSC et frontières sortent0 (`reader-final-tsc.log`, `reader-final-boundaries.log`). Tests étendus117 diagnostics hérités, aucun dans les deux nouveaux fichiers (`reader-final2-tsc-tests.log`). Une première commande ciblée avait un chemin auth inexistant :107 assertions passées mais commande rouge, conservée dans `round100` ; le chemin corrigé donne le lot114 vert. Aucune nouvelle globale répétée après ce delta.
+
+Le retest physique75b4 reste en attente de liaison USB rétablie ; les assertions composées ne le remplacent pas. Les constats P11 de fermeture/achèvement/retention appartiennent aux preuves natives et backend consolidées par root ; aucune fin n’est déduite de ces tests de lecteurs.
+
 ## Régressions runtime effectivement révélées
 
 Les fichiers runtime ont été corrigés par le propriétaire RN, pas par l’agent Jest :
@@ -117,7 +128,7 @@ Recontrôle après D07 : app et frontières sortent0 (`d07-final-tsc-app.log`, `
 
 Aucun commit, push, déploiement, changement de données cloud ou action store par cet agent. Le parent conserve la responsabilité de la validation finale et de Git.
 
-**Dernière borne P11, preuve native distincte des tests** : NATIVE_IPHONE décrit la source stable0abd, mot de passe vérifié276, confirmation SUPPRIMER277, demande enregistrée279(0/7), puis redémarrage et même intention en examen282(1/7). Le serveur reste `awaiting_review`, fence false. Le contrôle automatique a refusé **avant lancement** la publication de l’attestation Dev limitée aux deux comptes synthétiques, faute d’accord utilisateur ciblé pour cette opération ; aucun reçu, rôle ou pin publié et aucun effacement activé. P11 est donc partiel/bloqué par cette autorisation, pas étiqueté comme bug app ; les137 contrôles composés ne remplacent ni cette qualification ni une fin effective.
+**Historique P11, preuve native distincte des tests** : sur0abd, mot de passe vérifié276, SUPPRIMER277, demande279(0/7), redémarrage et même intention282(1/7). Le premier refus automatique de publication a ensuite été suivi de l’accord explicite du fondateur, d’une admission limitée publiée et des fences réellement commises. La dernière contrelecture physique durable286 montre2/7 et accès fermé ; elle ne prouve pas une absence Auth ni une fin. Les nouveaux défauts284/285 ont leur delta lecteur75b4 ci-dessus ; son retest physique attend la liaison USB. Root poursuit et documente séparément les preuves serveur et la clôture P11 ; les lots137/114 ne la remplacent pas.
 
 ## Triage borné après inventaire4 : compte neuf V1 / historiques
 

@@ -1,7 +1,10 @@
 {
   "environment": "Seconde Dev",
   "device": "iPhone 13 Pro Max physique / iOS 27.0.1",
-  "recordedAt": "2026-11-26T02:39:20.730Z",
+  "recordedAt": "2026-11-26T03:18:48.000Z",
+  "writerSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
+  "readerSourceSha256": "75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d",
+  "readerPhysicalRetest": "not_executed_USB_connection_lost_before_restart",
   "observations": [
     {
       "case": "Installation V1 QA signée",
@@ -19,8 +22,8 @@
     },
     {
       "case": "Déconnexion puis protection Vendre invité",
-      "outcome": "PARTIAL",
-      "proof": "v86-137→138, un seul modal auth ; formulaire non exposé dans AXphysique signaléRN"
+      "outcome": "PASS après correctif",
+      "proof": "v86-137→138, un seul modal auth ; formulaire AX corrigé et réellement relu143/144"
     },
     {
       "case": "Auth accessibilité physique",
@@ -29,13 +32,14 @@
     },
     {
       "case": "Inscription native C / âge adulte / consentements",
-      "outcome": "En cours",
-      "proof": "v86-152→155, usernameunique, DOB01/01/1990, CGU/privacy/personnelcochés, marketingOFF",
+      "outcome": "PASS inscription native",
+      "proof": "v86-152→156, compteC créé, usernameunique, DOB01/01/1990, CGU/privacy/personnelcochés, marketingOFF",
       "logErrors": [
         "account-erasure-device stalelease au signup",
         "searchHistory/timestamp missing COLLECTION_DESC index"
       ],
-      "fixesRequested": true
+      "fixesRequested": true,
+      "fixes": "journal local annulé sur scope perdu ; index Dev COLLECTION_DESC READY et historique relu220/222 ; transition exacte signup non rejouée après correctif"
     },
     {
       "case": "Email guard et capture photo réelle",
@@ -47,7 +51,7 @@
       "case": "Capture physique et saisie manuelle",
       "outcome": "PASS partiel",
       "proof": "v86-166→167capture1/5→168photo noire→169détails→179catégorieMini",
-      "limits": "Publication pas encore exécutée ; boutonmanuel localAsyncStorage vérifié après refusauto sur suppositionuploadIA, nouvelleactionautoriséeaprèsvérificationcode."
+      "limits": "Boutonmanuel localAsyncStorage vérifié après refusauto sur suppositionuploadIA, nouvelleactionautoriséeaprèsvérificationcode. Publication manuelle ensuite réussie193/194 ; pas d’analyse IA réelle."
     },
     {
       "case": "Publication native physique",
@@ -64,7 +68,7 @@
       "case": "Proposition remise et chat physique",
       "outcome": "PASS envoi/réception",
       "proof": "200/20224CADnoteQA→203/204Àconvenir→207récap→208envoyer→209chat ; 211messageaccentuéenvoyé→212réponseAreçue",
-      "limits": "Acceptation/fin de remise pas encore observées"
+      "limits": "Acceptation et fin observées ensuite214/231, dans le cas dédié ; aucun message à un client réel."
     },
     {
       "case": "Historique recherche après indexDev",
@@ -91,9 +95,22 @@
     },
     {
       "case": "Dépôt/retrait Troc physique",
-      "outcome": "En cours",
-      "proof": "248entréeTroc→250Québecnoncoché→251confirmé→252C1sélectionné→253ajoutencours→2541article→255C1visible→256confirmerretrait→257en cours",
+      "outcome": "PASS dépôt et retrait",
+      "proof": "248entréeTroc→250Québecnoncoché→251confirmé→252C1sélectionné→253ajoutencours→2541article→255C1visible→256confirmerretrait→257retrait→258absence",
       "limits": "Pasd'accordTrocphysiqueengagé."
+    },
+    {
+      "case": "Suppression physique et suivi persistant",
+      "outcome": "PASS demande et fermeture des accès ; retest final UI en attente USB",
+      "proof": "276identitévérifiée→277SUPPRIMER→279demande0/7 ; restart280→282mêmeintention1/7 ; après admission autorisée2862/7 et accèsfermé",
+      "commandId": "1252409b88593b3a83a6d4d3b5e8532cf3ed83df1795f5b9e132b44b0996e78c",
+      "limits": "Le dernier reçu physique est2/7. Le serveur confirme7/7 et Authabsent03:18:24–25 ; ce constat distant ne remplace pas un affichage final sur téléphone."
+    },
+    {
+      "case": "Correction query observation et cache chat",
+      "outcome": "GREEN composé ; retest physique non exécuté",
+      "proof": "Erreurs query réelles284/285 ; nouveau lecteur75b4 :20cas observation+6listener dans lot114/114 ; TSC/frontières0 ; commit66d90acb poussé",
+      "limits": "Liaison CoreDevice unavailable pendant restart de retest, iPhone paired seulement. Reconnexion/déverrouillage demandé au fondateur. Aucune erreur réelle du serveur masquée."
     }
   ]
 }

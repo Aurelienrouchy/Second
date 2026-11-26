@@ -1,0 +1,86 @@
+{
+  "project": "seconde-dev",
+  "runId": "b55493788e6e44758ca7d1e9f1795407",
+  "verifiedAt": "2026-11-26T03:08:52.896Z",
+  "packetSha256": "4255d3cfa3f29cc2c9a5fad01677d9520b0bff95937641613e0b33373f5ef5d3",
+  "originalSdkResumableResult": "unobserved_after_harness_interruption",
+  "operatorObjectDistinct": true,
+  "realEventarcReceipt": {
+    "protocol": "account_erasure_late_storage_receipt_v1",
+    "eventIdHash": "54840c9d1893a82aa3dc7254a688d1f3ffd345156a32c486e19f4c8d3466058c",
+    "targetHash": "5433663c6b1b9115e5c77b03ed764ca987f5eb8f37335dece0c6367fa5e9f8f7",
+    "state": "generation_absence_verified",
+    "observedAt": "2026-11-26T03:08:43.156Z"
+  },
+  "exactStorageEffectAbsent": true,
+  "exactGcsIntentVerified": true,
+  "exactGenerationAbsent": true,
+  "directHandlerCalled": false,
+  "operatorCreation": {
+    "project": "seconde-dev",
+    "runId": "b55493788e6e44758ca7d1e9f1795407",
+    "createdAt": "2026-11-26T03:08:40.429Z",
+    "finalizedAt": "2026-11-26T03:08:40.419Z",
+    "generation": "1795662520414213",
+    "targetHash": "5433663c6b1b9115e5c77b03ed764ca987f5eb8f37335dece0c6367fa5e9f8f7",
+    "fixtureSha256": "177128ac63da5e2f210a6a29460781c435bfd0a9e2363a9956617547323c7875",
+    "ifGenerationMatch": 0,
+    "namespace": "reserved_postal_owner_orphan",
+    "downloadTokenPresent": false,
+    "originalSdkOutcome": "unobserved_after_harness_interruption",
+    "realEventarcReceiptObserved": false
+  },
+  "serverSourceSha256": "dd32855661871f6d5f0c75c811a0cd4744c97518d6453f20c9b5d5d16fb2ac4f",
+  "runtimeTransportProof": {
+    "project": "seconde-dev",
+    "verifiedAt": "2026-11-26T03:08:16.967Z",
+    "functions": [
+      {
+        "name": "deleteUserAccountV2",
+        "active": true,
+        "memoryMiB": 512,
+        "noSecrets": true,
+        "publicCallableTransport": true
+      },
+      {
+        "name": "manageAccountErasure",
+        "active": true,
+        "memoryMiB": 512,
+        "noSecrets": true,
+        "publicCallableTransport": true
+      },
+      {
+        "name": "continueAccountErasure",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": false
+      },
+      {
+        "name": "resumeAccountErasures",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": true
+      },
+      {
+        "name": "eraseLateAccountStorage",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": false
+      }
+    ]
+  },
+  "completionQualificationPublished": false,
+  "authDeletionClaimed": false
+}

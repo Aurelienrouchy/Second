@@ -1,0 +1,215 @@
+{
+  "project": "seconde-dev",
+  "verifiedAt": "2026-11-26T03:05:55.198819+00:00",
+  "scope": "two_reserved_synthetic_subjects_only",
+  "admission": {
+    "project": "seconde-dev",
+    "operatorProject": "seconde-dev-control-20261125",
+    "sha256": "efa967bb82d498601964924b2a2e52d4fc02ddd556da2a051bc4af03f8c550e0",
+    "generation": "1795661701907655",
+    "temporaryHold": true,
+    "runtimeGrant": "exact_object_get_only",
+    "phase": "admission",
+    "createdAt": "2026-11-26T02:55:02.561321+00:00",
+    "serverSourceSha256": "dd32855661871f6d5f0c75c811a0cd4744c97518d6453f20c9b5d5d16fb2ac4f",
+    "financialAuthority": "not_asserted"
+  },
+  "pinReadback": {
+    "project": "seconde-dev",
+    "pinSha256": "efa967bb82d498601964924b2a2e52d4fc02ddd556da2a051bc4af03f8c550e0",
+    "pinGeneration": "1795661701907655",
+    "verifiedAt": "2026-11-26T02:58:37.368973+00:00",
+    "consumers": [
+      {
+        "function": "deleteUserAccountV2",
+        "sourceUnchanged": true,
+        "revision": "deleteuseraccountv2-00011-zux",
+        "updatedAt": "2026-11-26T02:56:46.382771209Z"
+      },
+      {
+        "function": "manageAccountErasure",
+        "sourceUnchanged": true,
+        "revision": "manageaccounterasure-00010-rem",
+        "updatedAt": "2026-11-26T02:57:11.358565616Z"
+      },
+      {
+        "function": "continueAccountErasure",
+        "sourceUnchanged": true,
+        "revision": "continueaccounterasure-00010-rif",
+        "updatedAt": "2026-11-26T02:57:39.253512685Z"
+      },
+      {
+        "function": "resumeAccountErasures",
+        "sourceUnchanged": true,
+        "revision": "resumeaccounterasures-00010-feb",
+        "updatedAt": "2026-11-26T02:58:05.710520098Z"
+      },
+      {
+        "function": "eraseLateAccountStorage",
+        "sourceUnchanged": true,
+        "revision": "eraselateaccountstorage-00010-bag",
+        "updatedAt": "2026-11-26T02:58:36.095246550Z"
+      }
+    ],
+    "allSourceRuntimeSecretsPreserved": true
+  },
+  "matrixSha256": "1d2f86ae328288e6f6a8350de35c0e2dba4236ec2fd754771f4d403dfe294fe6",
+  "writerClientSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
+  "nativeCommandObservations": [
+    {
+      "project": "seconde-dev",
+      "runId": "b55493788e6e44758ca7d1e9f1795407",
+      "inspectedAt": "2026-11-26T03:08:24.799Z",
+      "commandId": "0d001ecd6e2a58d2bf1d03c738064e0898b73b219bd266174fe8faa73d36db11",
+      "state": "awaiting_review",
+      "version": 59,
+      "fenceCommitted": true,
+      "authAbsentVerified": false,
+      "reasons": [
+        "completion_writer_receipt_pending"
+      ],
+      "progress": {
+        "completedSteps": 5,
+        "totalSteps": 7
+      },
+      "cursorPhase": 14,
+      "cursorKind": "erasure_cursor_v1",
+      "mediaPhase": 4,
+      "subjectHash": "536463a887032a762c27db124f0b3f8eec028930fdb7716c6c3fe2a348e18fe3",
+      "nativeBirthHash": "385ae9072d25d9c1a65f9ad23d9807ed4f8fa42de181b8ac655f71d208c4c223",
+      "control": {
+        "installationId": "phase1_dev_20261125",
+        "epoch": "initial_20261125_d07ff2c1d4cd2763",
+        "generation": "1795627289652833",
+        "sourceHash": "ebef727b60a2b8fa5b09aeeb369e45a20c16985648220b7ce23facc9dcec4fc1"
+      }
+    },
+    {
+      "project": "seconde-dev",
+      "kind": "physical_C",
+      "inspectedAt": "2026-11-26T03:08:23.925Z",
+      "commandId": "1252409b88593b3a83a6d4d3b5e8532cf3ed83df1795f5b9e132b44b0996e78c",
+      "state": "awaiting_review",
+      "fenceCommitted": true,
+      "version": 47,
+      "subjectHash": "d39970cc303db6a9131f9499ba338860508e5ba24c8d4dbe019d428b196eb135",
+      "nativeBirthHash": "28aa5011cd5c20a8e76500a1b28bcbb54f65585f77ce771a4695c2dc9c9826ab",
+      "authBornAfterInitialDrain": true,
+      "authAbsentVerified": false,
+      "reasons": [
+        "completion_writer_receipt_pending"
+      ],
+      "progress": {
+        "totalSteps": 7,
+        "completedSteps": 5
+      },
+      "control": {
+        "installationId": "phase1_dev_20261125",
+        "sourceHash": "ebef727b60a2b8fa5b09aeeb369e45a20c16985648220b7ce23facc9dcec4fc1",
+        "generation": "1795627289652833",
+        "epoch": "initial_20261125_d07ff2c1d4cd2763"
+      }
+    }
+  ],
+  "completionQualificationPublished": false,
+  "authDeletionClaimed": false,
+  "noStatusOrDeletionFabricated": true,
+  "noProductionChange": true,
+  "nextStep": "native_retry_then_real_postal_orphan_Storage_finalization_and_exact_generation_absence_before_completion_receipt",
+  "initialExecutionDiagnostics": {
+    "windowStart": "2026-11-26T03:03:00Z",
+    "commandHashFilteredOnly": true,
+    "rows": [
+      {
+        "jsonPayload": {
+          "commandHash": "2ebb93c596651055bd9d468cb3db6e96fbfc2e0c30b627c6e1fb7689e5a5eef9",
+          "reasonCode": "native_scope_unqualified"
+        },
+        "resource": {
+          "labels": {
+            "service_name": "continueaccounterasure"
+          }
+        },
+        "timestamp": "2026-11-26T03:03:17.330963Z"
+      },
+      {
+        "jsonPayload": {
+          "commandHash": "2ebb93c596651055bd9d468cb3db6e96fbfc2e0c30b627c6e1fb7689e5a5eef9",
+          "reasonCode": "sdk_code_403"
+        },
+        "resource": {
+          "labels": {
+            "service_name": "continueaccounterasure"
+          }
+        },
+        "timestamp": "2026-11-26T03:03:16.962695Z"
+      },
+      {
+        "jsonPayload": {
+          "commandHash": "031425571cdee903e1d470de563bc853e9412b20e6062cbd7c1911c778771bb9",
+          "reasonCode": "native_source_unqualified"
+        },
+        "resource": {
+          "labels": {
+            "service_name": "continueaccounterasure"
+          }
+        },
+        "timestamp": "2026-11-26T03:03:16.411879Z"
+      }
+    ],
+    "resolvedByNativeRetry": true,
+    "resolvedObservedAt": "2026-11-26T03:08:24.799Z",
+    "currentReasonForBoth": "completion_writer_receipt_pending",
+    "noRuntimePatchApplied": true
+  },
+  "engineTransportReadback": {
+    "project": "seconde-dev",
+    "verifiedAt": "2026-11-26T03:08:16.967Z",
+    "functions": [
+      {
+        "name": "deleteUserAccountV2",
+        "active": true,
+        "memoryMiB": 512,
+        "noSecrets": true,
+        "publicCallableTransport": true
+      },
+      {
+        "name": "manageAccountErasure",
+        "active": true,
+        "memoryMiB": 512,
+        "noSecrets": true,
+        "publicCallableTransport": true
+      },
+      {
+        "name": "continueAccountErasure",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": false
+      },
+      {
+        "name": "resumeAccountErasures",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": true
+      },
+      {
+        "name": "eraseLateAccountStorage",
+        "active": true,
+        "memoryMiB": 512,
+        "sourceUnchanged": true,
+        "noSecrets": true,
+        "transportPrivate": true,
+        "exactInvokerPresent": true,
+        "cronEnabled": false
+      }
+    ]
+  }
+}

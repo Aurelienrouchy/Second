@@ -1,0 +1,182 @@
+{
+  "protocol": "phase1_erasure_reserved_writer_matrix_v1",
+  "project": "seconde-dev",
+  "runId": "b55493788e6e44758ca7d1e9f1795407",
+  "qualified": true,
+  "verifiedAt": "2026-11-26T03:12:09.496Z",
+  "serverSourceSha256": "dd32855661871f6d5f0c75c811a0cd4744c97518d6453f20c9b5d5d16fb2ac4f",
+  "inventoryHash": "48d6f6313c9d5e77cca62191ee7e4ef86f15e0e9e3a2d1727d97fc5380fbe617",
+  "registeredFunctionCount": 115,
+  "sourceCohorts": {
+    "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 3,
+    "6b16e9a8f80fddb8031d9b132817b8fa4750ec2e09b0540fbdd3f6dc97bb85a0": 89,
+    "dd32855661871f6d5f0c75c811a0cd4744c97518d6453f20c9b5d5d16fb2ac4f": 23
+  },
+  "privateEventActorCount": 19,
+  "privateCronCount": 5,
+  "actorSourceProof": "BACKEND_V1_FINAL24_DEV_DEPLOYMENT.json + BACKEND_PRIVATE_IMAGES_DEV_DEPLOYMENT.json",
+  "rulesCloudProof": "BACKEND_ERASURE_PRECONDITIONS.json",
+  "clientQaProofVerified": true,
+  "clientSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
+  "clientProofSha256": "736614bdea346e5b7aad2e78088e52ff70dd290c2f1ed18ff5f23abd19b905e6",
+  "fixtureDriverSourceSha256": "6ff4e7752c3b2034bea5b763dabe1d828304c72c8fec92a9e6135c5a2bd82759",
+  "fixtureHelperSourceSha256": "adb6625945c380dba747ab8e7f47e2b406935d16898101648cd9858c63cfe66c",
+  "nativeClientCollection": "closed_in_local_QA_profile; no_store_binary_claim",
+  "serverAnalyticsDisabledFunctionCount": 115,
+  "posthogErasureDisabledFunctionCount": 115,
+  "drainNotBefore": "2026-11-26T01:38:15.299474+00:00",
+  "drainObserved": true,
+  "reservedSubjectsBornAfterFinal24Drain": true,
+  "subjectHashes": [
+    "536463a887032a762c27db124f0b3f8eec028930fdb7716c6c3fe2a348e18fe3",
+    "d39970cc303db6a9131f9499ba338860508e5ba24c8d4dbe019d428b196eb135"
+  ],
+  "nativeBirthHashes": [
+    "385ae9072d25d9c1a65f9ad23d9807ed4f8fa42de181b8ac655f71d208c4c223",
+    "28aa5011cd5c20a8e76500a1b28bcbb54f65585f77ce771a4695c2dc9c9826ab"
+  ],
+  "reservedFinancialContractCounts": [
+    {
+      "collection": "transactions",
+      "field": "buyerId",
+      "count": 0
+    },
+    {
+      "collection": "transactions",
+      "field": "sellerId",
+      "count": 0
+    },
+    {
+      "collection": "swaps",
+      "field": "initiatorId",
+      "count": 1
+    },
+    {
+      "collection": "swaps",
+      "field": "receiverId",
+      "count": 0
+    },
+    {
+      "collection": "withdrawal_requests",
+      "field": "userId",
+      "count": 0
+    },
+    {
+      "collection": "disputes",
+      "field": "buyerId",
+      "count": 0
+    },
+    {
+      "collection": "disputes",
+      "field": "sellerId",
+      "count": 0
+    }
+  ],
+  "physicalFinancialContractCounts": [
+    {
+      "collection": "transactions",
+      "field": "buyerId",
+      "count": 1
+    },
+    {
+      "collection": "transactions",
+      "field": "sellerId",
+      "count": 0
+    },
+    {
+      "collection": "swaps",
+      "field": "initiatorId",
+      "count": 0
+    },
+    {
+      "collection": "swaps",
+      "field": "receiverId",
+      "count": 0
+    },
+    {
+      "collection": "withdrawal_requests",
+      "field": "userId",
+      "count": 0
+    },
+    {
+      "collection": "disputes",
+      "field": "buyerId",
+      "count": 0
+    },
+    {
+      "collection": "disputes",
+      "field": "sellerId",
+      "count": 0
+    }
+  ],
+  "reservedWalletsAbsent": true,
+  "terminalPhysicalCashContract": {
+    "sourceHash": "aa4270bd8be1a2d3ba694f1e5f8b8faa93adddbdce058c2e7c77b950e23b5a1e",
+    "witnessHash": "34388793cdba62fc21e32e4e2a0cf820f113d0f0f50355d885851d396b294018",
+    "status": "meetup_completed",
+    "platformPaymentVerified": false
+  },
+  "latestMicroDrainNotBefore": "2026-11-26T02:20:33.224042+00:00",
+  "latestMicroDrained": true,
+  "terminalPostalContract": {
+    "sourceHash": "de8af56ee8089a45ab2a113eeb75d362202e66d5bec6d02bd90d55d1edfcd70f",
+    "witnessHash": "3a7534043c77428bdb6f5c84aa4a2d200c09154c4b5d65295cfccda40e99ff37",
+    "status": "completed",
+    "ownerProofs": 1,
+    "peerProofs": 1,
+    "physicalShipmentVerified": false,
+    "platformPaymentVerified": false
+  },
+  "newPostalInventoryQualified": true,
+  "targetedServerTests": {
+    "tests": 449,
+    "passed": true
+  },
+  "nativeSdkCoreTests": {
+    "tests": 32,
+    "passed": true,
+    "logSha256": "6d3caff00e1d847ace3228ee86e4577b954ee2aee69d430c192c8c65ac0bef0b"
+  },
+  "securityTests": {
+    "tests": 401,
+    "passed": true,
+    "logSha256": "67e9960d50c5ab22c3dd0279309211c61776f6fd485dc506c48cbacff4a1058b"
+  },
+  "ordinaryDevTestEndpoints": "not_used_for_reserved_subject",
+  "legacyWriters": "existing_partition_fences_and_native_private_session_guards; terminal_source_only_for_reserved_UID",
+  "storageAdmissionState": "SDK_partial_admitted_before_fence; harness_interrupted; no_resume_denial_or_success_claim",
+  "harnessInterrupted": true,
+  "originalSdkLateOutcome": "unobserved",
+  "lateStorageFinalizerCompletionQualified": true,
+  "financialAuthority": "not_asserted",
+  "observationReaderTransition": {
+    "protocol": "phase1_post_fence_readonly_observation_transition_v1",
+    "writerSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
+    "readerSourceSha256": "75b4c575a44c4880b5bef35a22420fceea279a200e2740bc4e5f1dad4360850d",
+    "changedRuntimePaths": [
+      "app/account-deletion.tsx",
+      "app/settings/erase-account.tsx",
+      "features/chat/hooks/useChatListener.ts"
+    ],
+    "readOnlyOnly": true,
+    "bothNativeFencesCommittedBeforeEdit": true,
+    "fencesObservedAt": "2026-11-26T03:03:46.877Z",
+    "fenceAuthorityExtended": false,
+    "noNewRpcOrWriter": true,
+    "noNewAuthAuthority": true,
+    "rootCodeReview": "exact_1062_file_diff_vs_admitted_0abd_and_Git_9188; two_query_signal_guards_and_listener_cache_clear_only",
+    "newReaderDoesNotAdmitFutureWriters": true
+  },
+  "admittedWriterClientSourceSha256": "0abd90e7b5245690f9509e161ebc4276711d8a9eb59b76e1fb90227d9cdc816d",
+  "admissionReceiptSha256": "efa967bb82d498601964924b2a2e52d4fc02ddd556da2a051bc4af03f8c550e0",
+  "lateStorageCompositePacketSha256": "4255d3cfa3f29cc2c9a5fad01677d9520b0bff95937641613e0b33373f5ef5d3",
+  "lateStorageEventReceipt": {
+    "protocol": "account_erasure_late_storage_receipt_v1",
+    "eventIdHash": "54840c9d1893a82aa3dc7254a688d1f3ffd345156a32c486e19f4c8d3466058c",
+    "targetHash": "5433663c6b1b9115e5c77b03ed764ca987f5eb8f37335dece0c6367fa5e9f8f7",
+    "state": "generation_absence_verified",
+    "observedAt": "2026-11-26T03:08:43.156Z"
+  },
+  "sdkLateUploadResult": "unobserved_after_harness_interruption; distinct_operator_event_qualified",
+  "operatorObjectDistinct": true
+}

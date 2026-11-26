@@ -1,0 +1,52 @@
+{
+  "project": "seconde-dev",
+  "scope": "two_exact_command_hashes_and_five_registered_erasure_engines",
+  "window": {
+    "start": "2026-11-26T03:08:00Z",
+    "end": "2026-11-26T03:19:30Z"
+  },
+  "filteredFields": [
+    "timestamp",
+    "service_name",
+    "severity",
+    "reasonCode",
+    "commandHash"
+  ],
+  "diagnosticRows": [
+    {
+      "jsonPayload": {
+        "commandHash": "2ebb93c596651055bd9d468cb3db6e96fbfc2e0c30b627c6e1fb7689e5a5eef9",
+        "reasonCode": "native_scope_unqualified"
+      },
+      "resource": {
+        "labels": {
+          "service_name": "resumeaccounterasures"
+        }
+      },
+      "severity": "WARNING",
+      "timestamp": "2026-11-26T03:18:09.860724Z"
+    },
+    {
+      "jsonPayload": {
+        "commandHash": "031425571cdee903e1d470de563bc853e9412b20e6062cbd7c1911c778771bb9",
+        "reasonCode": "native_scope_unqualified"
+      },
+      "resource": {
+        "labels": {
+          "service_name": "continueaccounterasure"
+        }
+      },
+      "severity": "WARNING",
+      "timestamp": "2026-11-26T03:18:07.749357Z"
+    }
+  ],
+  "diagnosticCount": 2,
+  "notAGlobalPersonalLogScan": true,
+  "initialThreeCodesResolvedByNativeRetry": "BACKEND_ERASURE_ADMISSION_DEV.json",
+  "severityCounts": {
+    "WARNING": 2,
+    "ERROR_OR_HIGHER": 0
+  },
+  "nativeTerminalPostconditionsAfterTheseWarnings": "BACKEND_ERASURE_NATIVE_POSTCONDITIONS.json",
+  "rootCauseOfFinalWarningsAsserted": false
+}

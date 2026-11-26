@@ -1,0 +1,72 @@
+{
+  "project": "seconde-dev",
+  "verifiedAt": "2026-11-26T03:19:20.265Z",
+  "readOnly": true,
+  "directStatusesOrDeletionsWritten": false,
+  "sdkHarnessExitZero": false,
+  "results": [
+    {
+      "kind": "postal",
+      "commandId": "0d001ecd6e2a58d2bf1d03c738064e0898b73b219bd266174fe8faa73d36db11",
+      "subjectHash": "536463a887032a762c27db124f0b3f8eec028930fdb7716c6c3fe2a348e18fe3",
+      "nativeCompleted": true,
+      "allRequiredEffectsVerified": true,
+      "authAbsent": true,
+      "userAbsent": true,
+      "peerAuthAndProfilePreserved": true,
+      "terminalContractSourceUnchangedExceptPrivacyOverlay": true,
+      "terminalWitnessUnchanged": true,
+      "privateRetentionPurpose": "private_local_agreement_and_outcome_recours",
+      "reviewAt": "2029-11-26T01:44:35.000Z",
+      "retainedOwnPostalProofs": 1,
+      "peerPostalProofsPreserved": 1,
+      "neutralPublicArticles": 1,
+      "disposedPrivateArticleEvidence": 0,
+      "exactGenerationAbsences": 5,
+      "storageCategories": {
+        "chat_images": 2,
+        "drafts": 1,
+        "swaps": 1,
+        "articles": 1
+      },
+      "physicalShipmentAsserted": false,
+      "platformMoneyAsserted": false
+    },
+    {
+      "kind": "cash",
+      "commandId": "1252409b88593b3a83a6d4d3b5e8532cf3ed83df1795f5b9e132b44b0996e78c",
+      "subjectHash": "d39970cc303db6a9131f9499ba338860508e5ba24c8d4dbe019d428b196eb135",
+      "nativeCompleted": true,
+      "allRequiredEffectsVerified": true,
+      "authAbsent": true,
+      "userAbsent": true,
+      "peerAuthAndProfilePreserved": true,
+      "terminalContractSourceUnchangedExceptPrivacyOverlay": true,
+      "terminalWitnessUnchanged": true,
+      "privateRetentionPurpose": "private_local_agreement_and_outcome_recours",
+      "reviewAt": "2029-11-26T02:26:09.999Z",
+      "retainedOwnPostalProofs": 0,
+      "peerPostalProofsPreserved": 0,
+      "neutralPublicArticles": 1,
+      "disposedPrivateArticleEvidence": 1,
+      "exactGenerationAbsences": 3,
+      "storageCategories": {
+        "articles": 1,
+        "article_privacy": 1,
+        "drafts": 1
+      },
+      "physicalShipmentAsserted": false,
+      "platformMoneyAsserted": false
+    }
+  ],
+  "limits": {
+    "sdkOriginalHarnessInterrupted": true,
+    "sdkHarnessExitZeroClaimed": false,
+    "originalResumableTaskResult": "unobserved",
+    "lateStorageProof": "real_distinct_postal_orphan_Eventarc_and_generation_absence",
+    "postErasurePeerSdkMediaRpcInvoked": false,
+    "postErasureRetainedMediaVerification": "native_GCS_exact_generation_metadata_CRC_size_private_headers_no_tokens; immutable_proofs_preserved",
+    "appleProviderRevocationExercisedInTheseTwoCases": false,
+    "physicalFinalScreenOwnedByRoot": true
+  }
+}
